@@ -80,7 +80,7 @@ const ago = (iso: string) => {
  *  Each line has a "…" (a sheet at 390, PL1): Move to scene N−1 / N+1 (across its edge only), Start a new scene here, ★. The card's
  *  own "…" has Join with next, and Edit opens the place, time and actions to type. */
 /** Change this scene…: a note rewrites that scene's actions, one small paid call (#928). */
-type SceneRewrite = { credits: number; stop: string | null; busy: boolean; run: (sceneId: string, note: string) => void };
+type SceneRewrite = { credits: number; stop: string | null; busy: boolean; run: (sceneId: string, note: string, done: () => void) => void };
 
 function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene: Scene; si: number; count: number; cast: Plan["cast"]; advice: Plan["advice"]; change?: (fn: (s: Scene[]) => Scene[], said: string, done?: () => void) => void; rewrite?: SceneRewrite }) {
   const [asked, setAsked] = useState<string | null>(null); // Change this scene…'s note, while its box is open
@@ -167,7 +167,7 @@ function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene:
           <TextArea label={`What should change in scene ${n}?`} rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={asked} onChange={(e) => setAsked(e.target.value)} />
           <p className="text-sm text-muted">Its lines stay; only what we see changes. This plan is kept under Earlier plans.</p>
           <div className="flex flex-wrap gap-2">
-            <Button price={rewrite.credits} disabled={!asked.trim() || !!rewrite.stop} reason={!asked.trim() ? "Say what to change in this scene" : rewrite.stop} busy={rewrite.busy} onClick={() => { rewrite.run(scene.id, asked.trim()); setAsked(null); }}>Change this scene</Button>
+            <Button price={rewrite.credits} disabled={!asked.trim() || !!rewrite.stop} reason={!asked.trim() ? "Say what to change in this scene" : rewrite.stop} busy={rewrite.busy} onClick={() => rewrite.run(scene.id, asked.trim(), () => setAsked(null))}>Change this scene</Button>
             <Button variant="ghost" onClick={() => setAsked(null)}>Cancel</Button>
           </div>
         </div>
@@ -313,10 +313,10 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
     done?.();
   };
   const earlier = p.earlier ?? [];
-  // A paid rewrite of an approved plan asks first, as an edit does.
+  // A paid rewrite of an approved plan asks first, as an edit does. The scene's note stays through Not yet or a refusal.
   const askFirst = (run: () => void) => (approved ? setAsking({ run }) : run());
   const canRewrite = p.change_scene_credits !== undefined;
-  const rewrite: SceneRewrite | undefined = canRewrite ? { credits: p.change_scene_credits!, stop: stop ?? null, busy: changeScene.isPending, run: (id, note) => askFirst(() => changeScene.mutate({ id, note })) } : undefined;
+  const rewrite: SceneRewrite | undefined = canRewrite ? { credits: p.change_scene_credits!, stop: stop ?? null, busy: changeScene.isPending, run: (id, note, done) => askFirst(() => changeScene.mutate({ id, note }, { onSuccess: done })) } : undefined;
   // What a change to an approved plan puts out of date (#893's `after`; null before there are shots): "3 shots and 2 clips".
   const outOfDate = [[p.after?.shots ?? 0, "shot"], [p.after?.clips ?? 0, "clip"]].filter(([k]) => (k as number) > 0).map(([k, w]) => `${k} ${w}${k === 1 ? "" : "s"}`).join(" and ");
   return (
