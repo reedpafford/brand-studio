@@ -49,8 +49,8 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
   await page.getByRole("button", { name: /Write clip prompts/ }).click();
   await expect(page.getByRole("listitem", { name: "Clip c1" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: /^Make clip/ }).first().click();
-  await expect(page.getByRole("button", { name: "✓ Looks good" }).first()).toBeVisible({ timeout: 90_000 });
-  await page.getByRole("button", { name: "✓ Looks good" }).first().click();
+  await expect(page.getByRole("button", { name: "Approve take" }).first()).toBeVisible({ timeout: 90_000 });
+  await page.getByRole("button", { name: "Approve take" }).first().click();
   await expect(page.getByRole("button", { name: "Undo approval" }).first()).toBeVisible();
   await page.getByRole("button", { name: /Next: Final video/ }).click();
   await page.getByRole("button", { name: "Make the video", exact: true }).click();
