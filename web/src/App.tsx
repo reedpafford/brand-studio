@@ -10,6 +10,7 @@ import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { ScriptsRoute } from "./videos/ScriptsRoute";
 import { VideosPage } from "./videos/VideosPage";
+import { MediaPage } from "./media/MediaPage";
 import { ClipPage } from "./clip/ClipPage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
@@ -50,6 +51,7 @@ export function App() {
           <Route path="b/:brandId/library/:kindSlug" element={<LibraryPage />} />
           <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />
           <Route path="b/:brandId/clip" element={<ClipPage />} />
+          <Route path="b/:brandId/media" element={<MediaPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="looks" element={<LooksPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
