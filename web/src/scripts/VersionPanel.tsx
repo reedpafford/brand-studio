@@ -15,7 +15,7 @@ import { useAllowanceStop, useScript, useWeek } from "./useScript";
 const LETTER = ["A", "B", "C"];
 const SHOWN = 8;
 
-/** A ready version before it is made: its words, cast and plan. "Make this version" reserves it and opens the video at its Plan. */
+/** A ready version before it is made: its words, cast and plan. "Make this version" reserves it and opens the video at Breakdown. */
 export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: number; slot: number; brandId: number; onClose: () => void }) {
   const script = useScript(scriptId);
   const cast = useCast(scriptId);
@@ -36,11 +36,11 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
     onSuccess: async (made) => {
       await queryClient.invalidateQueries({ queryKey: ["scripts"] });
       await queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] });
-      toast(`Version ${letter} is yours. ${made.plan_job_id ? "Next: check its plan." : "Next: the shots."}`);
+      toast(`Version ${letter} is yours. Next: the breakdown.`);
       navigate(`/b/${brandId}/projects/${made.project_id}?step=plan`);
     },
   });
-  // With no saved breakdown, starting makes the video's plan (a paid call, item 1b); with one saved, making the version is free.
+  // With no saved breakdown, starting one is a paid call; with one saved, making the version is free.
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
   const stop = useAllowanceStop(s, cost);
   const week = useWeek(s); // an editor making their own script sees how much of the week is used
@@ -90,7 +90,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           {readyToMake && v.estimate_credits > 0 && (
             <p className="text-sm text-muted">
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the plan) · the whole video about ${wholeCredits(v.estimate_credits)} credits` : `Starting is free · the whole video about ${wholeCredits(v.estimate_credits)} credits`}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(v.estimate_credits)} credits` : `Starting is free · the whole video about ${wholeCredits(v.estimate_credits)} credits`}
               {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
