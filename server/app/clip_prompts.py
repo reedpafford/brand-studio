@@ -403,8 +403,9 @@ def _unquoted(text: str, fn) -> str:
 
 def reword(prompt: str) -> tuple[str, list[str]]:
     """The prompt with its wording flags fixed, free: aspect and resolution words removed
-    (they're settings) and, in a shot nobody speaks in, an action that reads like a line
-    ("he says no") said as what the body does. The spoken lines are never touched. Returns
+    (they're settings), asks for words drawn on screen taken out (check.text_on_screen) and,
+    in a shot nobody speaks in, an action that reads like a line ("he says no") said as what
+    the body does. The spoken lines are never touched. Returns
     the prompt and what was fixed, in plain words ([] when nothing was)."""
     fixed: list[str] = []
 
@@ -429,7 +430,9 @@ def reword(prompt: str) -> tuple[str, list[str]]:
         if line.startswith("Shot ") and not check.QUOTED.search(line):
             line = check.SAYS.sub(body, line)
         lines.append(line)
-    return "\n".join(lines), list(dict.fromkeys(fixed))
+    words, shown = check.text_on_screen("\n".join(lines))  # the Director's list (#869)
+    fixed.extend(f'removed "{w}"' for w in shown)
+    return words, list(dict.fromkeys(fixed))
 
 
 def undone_flags(row: ProjectClip, problems: list[str]) -> list[str]:

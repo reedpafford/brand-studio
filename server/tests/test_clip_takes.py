@@ -450,3 +450,14 @@ def test_an_edit_while_a_retry_waits_cancels_it_uncharged(app, db, editor, setup
     (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
     assert shown["takes"] == [] and shown["retrying"] is None
     assert credits_used(db, project) == before
+
+
+def test_reword_takes_out_words_drawn_on_screen_but_never_the_spoken_ones():
+    from app.clip_prompts import reword
+
+    prompt = ('Shot 1 | 0-2 s. Mom holds the bag up, big text "SALE" pops, captions below. '
+              'No one speaks.\nShot 2 | 2-4 s. Mom says "Add captions, darling."')  # fmt: skip
+    fixed, said = reword(prompt)
+    assert "captions below" not in fixed and 'Mom says "Add captions, darling."' in fixed
+    assert 'removed "captions"' in said
+    assert reword(fixed) == (fixed, [])  # fixed once: nothing more to do
