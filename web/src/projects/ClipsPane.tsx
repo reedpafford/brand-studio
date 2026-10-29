@@ -206,7 +206,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   // On the video page the step's one amber sits in the cost bar (audit M1): write the prompts, rewrite the ones made for an
   // older breakdown, or make the takes. Approve all and each card's presses stay here.
   const bar = !!props.review && !loading && !clips.isError && !writingNow;
-  const rewrite = { price: writeCost, reason: stopFor(writeCost), busy: write.isPending, onPress: () => write.mutate(undefined) };
+  const rewrite = { price: writeCost ?? null, reason: stopFor(writeCost), busy: write.isPending, onPress: () => write.mutate(undefined) };
   useCostBarAction(
     !bar ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : null,
   );
