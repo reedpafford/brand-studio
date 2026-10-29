@@ -48,6 +48,7 @@ class ScriptDraft(Entity, Base):
     # ([{title, concept, lyrics, style_line, visual_concept, recommended, unchecked_claims}])
     style_line: Mapped[str] = mapped_column(Text, default="")
     song_directions: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    song_study: Mapped[dict | None] = mapped_column(JSON)  # flows S3a, app/song_study.py
     singer: Mapped[str] = mapped_column(String(120), default="")  # a cast role; "": nobody seen
     # Rule 18: an end line spoken over the song's last seconds (music lowered), at the stitch
     spoken_end_line: Mapped[str] = mapped_column(Text, default="")

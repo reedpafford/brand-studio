@@ -38,6 +38,7 @@ from app.routes import (
     script_write,
     scripts,
     sheets,
+    song_study,
     songs,
     storyboard,
     team,
@@ -115,6 +116,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         improve,
         clips,
         songs,
+        song_study,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)
