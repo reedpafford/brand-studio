@@ -60,7 +60,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | Migration order (#873) | n04 → n06 → n05 on #858 at 7fa31331; #873 n07 must follow n05 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Real-song budget (#864) | A stopped real song stops counting, so the budget can be passed; "used up" note not shown on Song step | Count cancelled jobs marked discard; show songs_note above Make 2 takes | #864 at bef43a05 |
 | Narration text (#858) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
 | Storyboard cost bar (#881) | Out of date + missing: "Make N stills" hidden while Redraw is in the bar | Show it when outOfDate.length > 0 (secondary) | #881 at adb76baa |
 
@@ -200,3 +199,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #882 at ca27118b (both fixes) | finalsong + videosong (13) | PASS |
 | 2026-10-29 | #881 at adb76baa (cost bar: Storyboard) | Playwright 1440 + 390: empty, Approve all, Redraw in bar; vitest projects (317) | FAIL: while Redraw is in the bar, bulk "Make N stills" is hidden (over-budget redraw leaves only per-card presses) |
 | 2026-10-29 | #885 at 3cef0f71 (S3a study link on the stand-ins) | test_song_study + test_reel_import (30); failure state on screen | PASS (walk on the test site once deployed) |
+| 2026-10-29 | #864 at 6e0a4074 (both fixes) | test_kie + 2 budget repros (13); songs + videosong web (33) | PASS |
