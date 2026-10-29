@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 
 from alembic import command
@@ -150,3 +151,13 @@ def test_n09_fills_in_what_stills_and_takes_were_made_with(tmp_path):
         {"model": "nano-banana-2.1", "aspect_ratio": "1:1", "products": {}},
         {},
     ]
+
+
+def test_a_migration_run_leaves_the_app_loggers_on(tmp_path):
+    """fileConfig in env.py must not switch off loggers made before it. It did by default, so
+    test_clip_prompts_finish's log check failed whenever it ran after this file."""
+    log = logging.getLogger("app.clip_prompts")  # made at import, before the migration runs
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", f"sqlite:///{tmp_path}/m.db")
+    command.upgrade(cfg, "head")
+    assert not log.disabled
