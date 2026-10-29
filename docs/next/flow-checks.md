@@ -59,7 +59,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Another editor's video (#964 + #977) | Video page fixed at 9cde7ea2; but the older-video page (/projects/:id, "Videos made before scripts") has no banner and live presses for a second editor, each a 403 | Same view-only on ProjectPage (banner, provider, Rename only for the maker or owner, brief editor buttons) |
 | Import from website: a paid read lost (#980) | Reload or leave while reading or reviewing: the 3-credit findings can't be reached again | Keep the read's id (localStorage per brand, or a server "latest read") and resume on return |
 | A video's "to finish" leaves out looks for uncast roles (VS1, seen on #986) | A new video with Nate (a speaker, no role yet): after Cast adds him, "to finish" is still one look (1.70) under the Make this version quote | `video_settings.to_finish` adds a look for each role with no look yet, as the quote does |
 
@@ -354,3 +353,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #977 (re-walk, with #964) | 9cde7ea2 | FAIL: VideoPage passes (Plan tabs and show-only presses live; 183/183; e2e 6/6); ProjectPage for older videos has no view-only |
 | 2026-10-29 | #980 Import from website screens (BR2) | 2e4ddf1f | FAIL: a paid read is lost on reload or leaving. Price first, fail/empty, review ticks, Save/Undo pass; 40/40, e2e 6/6 |
 | 2026-10-29 | #986 Make this version's quote by the video's rules | 5654894d (+ next) | PASS: quote = card; equals the video's cost incl. Nate's look (House and Disney Pixar, owner and editor); switching back free. Found: the video's to-finish misses uncast roles' looks |
+| 2026-10-29 | #977 (re-walk, with #964 and next) | 525a73b6 | PASS: the older-video page too: banner, no Rename, every changing press off, steps/Next/Show script/Versions/Open live; 184/184, e2e 6/6, #964 writes 2/2. Merge #964 and #977 together |
