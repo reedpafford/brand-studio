@@ -43,9 +43,37 @@ def _hash(text: str) -> str:
 
 
 def script(db: Session, project: Project) -> ScriptVersion | None:
+    """The words the plan is for: the video's newest script, or a script version's own words
+    for the owner's plan (S6, a stand-in project that is never saved)."""
     from app.routes.scripts import latest
 
+    if project.id is None and project.script_draft_id:
+        from app.models.script_library import ScriptDraft
+
+        draft = db.get(ScriptDraft, project.script_draft_id)
+        return ScriptVersion(text=draft.text, version=0)  # never added to the session
     return latest(db, project)
+
+
+def for_version(db: Session, script, draft) -> Project:
+    """The owner's plan on a script version (S6): the version's stand-in project, holding the
+    version's plan, so every plan function works on it. `keep_version` writes it back."""
+    from app.script_preview import stand_in_project
+
+    stand = stand_in_project(db, script, draft)
+    stand.plan, stand.plan_history = draft.plan, []
+    return stand
+
+
+def keep_version(draft, stand: Project) -> None:
+    draft.plan = stand.plan
+
+
+def copy_to_video(project: Project, draft) -> None:
+    """Make this version: the owner's approved plan is the video's start, approved ("From
+    Reed's plan"); each video's plan is its own from here."""
+    if draft.plan and draft.plan.get("approved_at"):
+        project.plan = {**draft.plan, "source": "owner", "version": 1}
 
 
 def _newest_breakdown(db: Session, project: Project) -> BreakdownVersion | None:
@@ -176,13 +204,29 @@ def _set(project: Project, plan: dict, source: str, job_id: int | None, text: st
     return project.plan
 
 
+def _holder(db: Session, job: Job) -> tuple[Project | None, object | None]:
+    """The video a plan job is for, or the script version's stand-in (S6) and its draft."""
+    if draft_id := job.input.get("script_draft_id"):
+        from app.models.script_library import Script, ScriptDraft
+
+        draft = db.get(ScriptDraft, draft_id)
+        script = db.get(Script, draft.script_id) if draft else None
+        if not draft or script.published:  # final once published (rule 31)
+            return None, None
+        return for_version(db, script, draft), draft
+    project = db.get(Project, job.input["project_id"])
+    return (None, None) if project is None or project.archived_at is not None else (project, None)
+
+
 def save(db: Session, job: Job) -> None:
     """A made plan lands, ready to check; the one before goes to Earlier plans."""
-    project = db.get(Project, job.input["project_id"])
-    if project is None or project.archived_at is not None:
+    project, draft = _holder(db, job)
+    if project is None:
         return
     _set(project, ScenePlan.model_validate(job.output).model_dump(), "made", job.id,
          job.input["script"])  # fmt: skip
+    if draft is not None:
+        keep_version(draft, project)
 
 
 def by_hand(db: Session, project: Project, version: ScriptVersion) -> dict:
@@ -246,6 +290,12 @@ def advice(job_input: dict, plan: dict) -> list[str]:
 
 
 def latest_job(db: Session, project: Project) -> Job | None:
+    if project.id is None:  # a script version's plan (S6): its own jobs
+        jobs = db.scalars(select(Job).where(Job.project_id.is_(None), Job.kind == KIND)
+                          .order_by(Job.id.desc()))  # fmt: skip
+        mine = project.script_draft_id
+        return next((j for j in jobs if j.input.get("step") == STEP
+                     and j.input.get("script_draft_id") == mine), None)  # fmt: skip
     jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.kind == KIND)
                       .order_by(Job.id.desc()))  # fmt: skip
     return next((j for j in jobs if j.input.get("step") == STEP), None)

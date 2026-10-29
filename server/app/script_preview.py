@@ -64,6 +64,12 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
     system, context = project_context(db, project, "breakdown")
     context = with_slots(db, script.id, context, project)
     parts = [context, f"<places>\n{escape(breakdown._places(db, project))}\n</places>"]
+    from app import plans
+
+    project.plan = draft.plan  # S6: the preview films the owner's approved plan
+    planned = plans.block(db, project, plans.script(db, project))
+    if planned:
+        parts.append(planned[0])
     parts.append(breakdown.video_model_block(breakdown.video_model()))
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
@@ -74,6 +80,14 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
         "script_id": script.id,  # Publish and Write wait for it, as for other script steps
         "script_draft_id": draft.id,
         "script_text": draft.text,
+        **(
+            {
+                "plan_version": planned[1],
+                "plan": {k: draft.plan[k] for k in ("structure", "cast", "scenes")},
+            }
+            if planned
+            else {}
+        ),
         "system": system,
         "prompt": "\n".join(parts),
         "max_tokens": 32000,
