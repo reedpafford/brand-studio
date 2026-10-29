@@ -62,6 +62,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
 | Storyboard cost bar (#881) | Out of date + missing: "Make N stills" hidden while Redraw is in the bar | Show it when outOfDate.length > 0 (secondary) | #881 at adb76baa |
+| Old Videos links (#888) | /scripts?view=videos stays on Scripts | Copy params before deleting view | #888 at b8050325 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -202,3 +203,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #864 at 6e0a4074 (both fixes) | test_kie + 2 budget repros (13); songs + videosong web (33) | PASS |
 | 2026-10-29 | #887 at 350deb53 (narration_text: prose with a direction or "Name:" line) | 9 scripts; test_narrated (8) | PASS (edge for the Director: SCENE headings + one "Iron Paws:" line still drops prose) |
 | 2026-10-29 | #886 at 80f9ec50 (P3: on-screen text out of clip prompts) | reword on 6 prompts; 18 tests | PASS (Director: quoted drawn text "big text \"SALE\"" is kept) |
+| 2026-10-29 | #863 at 30eab39e (Undo fix, newest-take line) | autofixes + clips (34) | PASS (nit: "(busy)" raw code) |
+| 2026-10-29 | #888 at b8050325 (Videos in the menu, homes) | Playwright 390 + 1440: homes, tab, back link, old link; shell + phone e2e (11) | FAIL: old ?view=videos link stays on Scripts (params mutated in render; StrictMode) |
