@@ -8,6 +8,7 @@ from pydantic import BaseModel, model_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, object_session
 
+from app import folders
 from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
@@ -38,6 +39,7 @@ class JobOut(BaseModel):
     id: int
     kind: str
     project_id: int | None
+    folder_id: int | None = None  # a quick clip's project (OR1); null: No project
     credits: float
     status: JobStatus
     output: dict | None
@@ -89,6 +91,7 @@ class JobOut(BaseModel):
             for f in ("provider", "provider_ref", "error_detail", "approved_by_id")
             if hasattr(job, f)
         }
+        data["folder_id"] = job.live_folder_id  # a deleted project reads as none
         db = object_session(job)
         given = job.input.get("input") or {}
         prompt = _prompt(job)
@@ -206,6 +209,7 @@ def list_jobs(
     status: JobStatus | None = None,
     q: str = "",  # in what was asked (the prompt)
     removed: bool = False,  # true: the Quick clips taken off the history, to bring back
+    folder: str | None = None,  # OR1: a project's id, or "none" for No project
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -213,6 +217,8 @@ def list_jobs(
     query = select(Job).where(Job.workspace_id == user.workspace_id, gone if removed else ~gone)
     if status:
         query = query.where(Job.status == status)
+    if (filed := folders.where(Job.folder_id, folder)) is not None:
+        query = query.where(filed)
     if not q.strip():
         return db.scalars(query.order_by(Job.id.desc()).limit(200)).all()
     words = q.strip().lower()
