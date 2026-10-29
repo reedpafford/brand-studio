@@ -39,6 +39,10 @@ a semi-realistic 3D video-game-cutscene look with realistic proportions and glos
 - This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
 
 ## banned
+in the style of Zack D. Films →
+in the style of Zack D →
+Zack D. Films →
+Zack D →
 Pixar-style → semi-realistic 3D
 in the style of Pixar →
 cartoonish → semi-realistic

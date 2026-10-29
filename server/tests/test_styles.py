@@ -94,6 +94,11 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
         assert prompts.look_banned(look), look
         assert set(prompts.look_fixes(look)) == {"refused", "face", "outfit", "product"}, look
     assert ("Pixar-style", "semi-realistic 3D") in prompts.look_banned("zack-d")
+    # the look's own name never goes to a model (Next-Lead on #1009)
+    from app.prompts import check
+
+    said = check.look_words("A kitchen in the style of Zack D. Films, a Zack D close-up.", "zack-d")
+    assert said[0] == "A kitchen, a close-up.", said[0]
     assert prompts.look_banned("claymation") == [] and prompts.look_fixes("claymation") == {}
     for step in prompts.SCHEMAS:  # data, never sent to a model
         assert "## banned" not in prompts.system(step, "zack-d"), step
