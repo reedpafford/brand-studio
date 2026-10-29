@@ -124,7 +124,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Next: Storyboard" }).click();
 
     // One press writes the frames and draws every still.
-    await page.getByRole("button", { name: /Make storyboard/ }).click();
+    await page.getByRole("button", { name: /Make the storyboard/ }).click();
     const approve = page.getByRole("button", { name: "Approve", exact: true });
     await expect(approve.first()).toBeVisible({ timeout: 90_000 });
     while (await approve.count()) {

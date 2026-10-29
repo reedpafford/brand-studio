@@ -95,7 +95,9 @@ export function VideoPage() {
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used };
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
-  const meta = step === "assets" ? (assetsLoading ? "Loading assets…" : `${all.assets.total} asset${all.assets.total === 1 ? "" : "s"} · ${all.assets.ready} approved`) : null;
+  const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
+  const meta =
+    step === "assets" ? (assetsLoading ? "Loading assets…" : count(all.assets.total, "asset", all.assets.ready)) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : null;
 
   return (
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
