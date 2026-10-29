@@ -215,3 +215,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #890 at 6820b8f3 (no shot emptied; capital after a cut) | text_on_screen + advice on 5 prompts; test_item_check (2) | PASS (#886 must wire text_on_screen_advice on the fixed prompt) |
 | 2026-10-29 | #896 at 18afb0e (Videos: Needs you, waiting_on) | code walk; test_needs_you (2) | FAIL: unnamed steps read "A step didn't finish"; a failed advisory check (with #891) would flag the video |
 | 2026-10-29 | #888 at e2d2d666 (old-link fix) | Playwright 390 + 1440 | PASS |
+| 2026-10-29 | #897 at 0a8380e5 (S3a: study used as a guide for directions) | guide on/off/removed; copied line → one re-ask → fail; 26 tests | FAIL: copied-line failure shows the general message; say why and "Try again, or turn off Use as a guide" |
