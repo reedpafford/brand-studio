@@ -163,7 +163,7 @@ export function VideoPage() {
           project={p as typeof p & { plan_status?: "none" | "ready" | "approved" | null }}
           shots={
             <div className="space-y-4">
-              <ShapeRow shape={!settings.data?.fields.some((f) => f.key === "shape")} projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
+              <ShapeRow shape={!settings.data} projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
               {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
               <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
             </div>
