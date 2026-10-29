@@ -192,7 +192,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   const toast = useToast();
   const [note, setNote] = useState("");
   // An approved plan asks "Change the plan?" first, for an edit or an earlier plan alike.
-  const [noProduct, setNoProduct] = useState(false);
+  const [noProduct, setNoProduct] = useState<string | null>(null); // a ★ the brand has nothing to show for
   const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | null>(null);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["plan", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
   const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); return refresh(); } });
@@ -211,7 +211,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   // With no plan yet, the video carries the plan's price (#893); else it's one Claude call, priced from the rates.
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const latest = [make, stopMaking, byHand, useEarlier, save, approve].reduce((a, m) => (m.submittedAt > a.submittedAt ? m : a));
-  const refused = latest.isError ? latest.error.message : null;
+  const refused = latest.isError && !(latest === save && noProduct) ? latest.error.message : null;
 
   if (plan.isPending)
     return (
@@ -275,11 +275,13 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
     const starred = (scenes: Scene[]) => new Set(scenes.flatMap((sc) => sc.lines.filter((l) => l.star).map((l) => l.n)));
     // Undo puts the scenes back, not an approval: the plan waits for Approve again, and the toast says so.
     save.mutate(next, {
+      // #893 refuses a ★ with nothing to show (409): its sentence shows with the way to add a product, and nothing is said saved.
+      onError: (e) => { if ((e as Error & { status?: number }).status === 409) setNoProduct(e.message); },
       onSuccess: (saved) => {
         // A ★ is kept only when the brand has a product to show (QA-2): only what was saved is said.
         const kept = starred(saved?.scenes ?? next);
-        if ([...starred(next)].some((n) => !kept.has(n))) return setNoProduct(true);
-        setNoProduct(false);
+        if ([...starred(next)].some((n) => !kept.has(n))) return setNoProduct("The ★ wasn't kept: the brand has no product to show yet.");
+        setNoProduct(null);
         toast(approved ? `${said} It waits for your approval again.` : said, () => save.mutate(before));
       },
     });
@@ -326,7 +328,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
       {noProduct && (
         <p role="alert" className="text-sm text-warning">
-          The ★ wasn't kept: the brand has no product to show yet.{" "}
+          {noProduct}{" "}
           {brandId && <Link className="underline" to={`/b/${brandId}/brand?tab=products`}>Add a product to the brand</Link>}
         </p>
       )}

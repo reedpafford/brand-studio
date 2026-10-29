@@ -214,6 +214,18 @@ test("a ★ the server couldn't keep (the brand has no product) says so, with a 
   expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
 });
 
+test("a ★ refused for want of a product (409) shows the server's sentence with Add a product, and no success toast", async () => {
+  setViewport(1440);
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [409, { detail: "This brand has no product or screen to show yet. Add one to the brand first." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
+  expect(await screen.findByText(/This brand has no product or screen to show yet\. Add one to the brand first\./)).toBeInTheDocument();
+  expect(screen.getAllByText(/This brand has no product or screen/)).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toBeInTheDocument();
+  expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
+});
+
 test("a refused edit says why in the server's words", async () => {
   setViewport(1440);
   fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [422, { detail: "Line 2 is missing from the plan." }] });
