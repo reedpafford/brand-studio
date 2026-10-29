@@ -247,3 +247,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | 11:09 check-in: merged #863 #891 #892 #896 #901 #902 #905 #906 #907 #908 #910 | — | — |
 | 2026-10-29 | #913 at 2226ccb9 (Looks fine Undo, paused, truer estimate) | item_checks (4) | PASS |
 | 2026-10-29 | #898 at 0756510f (Not yet keeps the editor; confirm names what goes out of date) | plan + planEdits (19) | PASS |
+| 2026-10-29 | #893 at dd2fbb2d (merge; "Check the scene plan" in Needs you) | plan_route + plan + needs_you + migrations (15) | PASS |
