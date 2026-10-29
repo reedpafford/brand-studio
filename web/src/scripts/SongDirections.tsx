@@ -11,7 +11,7 @@ import { useAllowanceStop, type Script } from "./useScript";
 
 /** One song direction Claude wrote (flows S3): a suggestion only; nothing reaches the lyrics without Use this one (rule 19). */
 export type Direction = { id: number; title: string; concept: string; lyrics: string; style_line: string; visual_concept: string; recommended: boolean; left_out: string[]; unchecked_claims: string[]; length_note?: string; style_names?: string[]; made_at?: string };
-type Job = { id: number; status: "queued" | "running" | "failed" | "refused"; reason: string | null; started_at: string };
+type Job = { id: number; status: "queued" | "running" | "failed"; reason: string | null; started_at: string };
 /** The S3 fields on a song script's version (Next-Server's directions route). */
 export type DirectionsDraft = { song_directions: Direction[]; directions_job: Job | null; directions_estimate_credits: number; directions_stop: string | null; claims_to_check: string[] };
 
@@ -129,12 +129,12 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
           </div>
         ) : (
           <>
-            {job?.status === "failed" && <p role="alert" className={errorClass}>The directions didn't finish. Nothing was charged.</p>}
-            {job?.status === "refused" && <p role="alert" className={errorClass}>Claude won't write this: {job.reason ?? "it didn't say why"}. Change the boxes above and try again, or write your own lyrics.</p>}
+            {/* A refusal comes as failed with Claude's plain reason; the server's words already say nothing was charged. */}
+            {job?.status === "failed" && <p role="alert" className={errorClass}>{job.reason ?? "The directions didn't finish. Nothing was charged."} You can also write your own lyrics.</p>}
             {latest.isError && <p role="alert" className={errorClass}>{latest.error.message}</p>}
             <div className="flex flex-wrap items-center gap-3">
               <Button variant="secondary" icon={Sparkles} price={d.directions_estimate_credits} disabled={stop !== null} reason={stop} busy={write.isPending} onClick={() => write.mutate()}>
-                {job?.status === "failed" || job?.status === "refused" ? "Try again" : any ? "Write 2 more" : "Write 2 song directions for me"}
+                {job?.status === "failed" ? "Try again" : any ? "Write 2 more" : "Write 2 song directions for me"}
               </Button>
               {d.directions_stop && stop === d.directions_stop && <Link to={`/b/${brandId}/brand`} className="text-sm underline">Open the brand page</Link>}
             </div>

@@ -86,7 +86,7 @@ test("Use this one over words already there asks to replace them first", async (
 
 test("failed and refused say so, nothing charged, with Try again; nothing to go on names the reason and a way to the brand page", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_job: { id: 90, status: "refused", reason: "it won't promise a health result", started_at: "2026-10-29T03:00:00Z" } })] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_job: { id: 90, status: "failed", reason: "Claude won't write this: it won't promise a health result. Nothing was charged; try again.", started_at: "2026-10-29T03:00:00Z" } })] });
   open();
   expect(await screen.findByText(/Claude won't write this: it won't promise a health result/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Try again · 3 credits/ })).toBeEnabled();
@@ -145,4 +145,12 @@ test("Use this one when takes exist says the takes go out of date, as Edit lyric
   await new Promise((r) => setTimeout(r, 0)); // the takes are read
   await userEvent.click(screen.getByRole("button", { name: "Use this one" }));
   expect(screen.getByRole("alertdialog")).toHaveTextContent("Your 2 takes will be out of date. They're kept, and you can make new ones.");
+});
+
+test("a failure with no reason from the server still says nothing was charged, with Try again", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_job: { id: 90, status: "failed", reason: null, started_at: "2026-10-29T03:00:00Z" } })] });
+  open();
+  expect(await screen.findByText(/The directions didn't finish\. Nothing was charged\./)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Try again · 3 credits/ })).toBeEnabled();
 });
