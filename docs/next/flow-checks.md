@@ -60,6 +60,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Owner's plan vs an older preview (#934) | Fixed at 90b344d5 (the old preview isn't landed; the shots film the plan), but the version still says has_breakdown, so Make this version reads "Starting is free" and charges ~3 credits | has_breakdown only when the preview follows the approved plan |
+| Make this version's words (#941) | The press now makes the plan, but the panel says "Starting costs N (the breakdown)" and "Next: the breakdown." | "(the plan)" and "Next: check its plan." |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -297,3 +298,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #934 at 90b344d5 | The older preview no longer lands; the breakdown films the owner's plan. FAIL: its price goes unsaid ("Starting is free") (open above) |
 | 2026-10-29 | #938 at 2d2f6b69; #939 at b9f5f06f | #938 PASS (test only, 3 runs green). #939 PASS: a refused Update everything after this says why and stays pressable for a retry after a fix elsewhere; note: clear the old reason when the price changes |
 | 2026-10-29 | 15:40 check-in | Every open head already walked. Merged since 14:21: #923 #925 #926 #928 #932 #933 #937 #938. Open into next: #930 + #936 (PASS, merge together), #935 PASS, #939 PASS (cast-line follow-up coming), #934 held ("Starting is free" while charged). None into main. #854 green |
+| 2026-10-29 | #941 at 2dd9a08b (Make this version makes the plan first) | PASS: plan first at the quoted price, declined call undoes the project, failed plan's way on, song.e2e live. FAIL (words): "(the breakdown)" on the panel (open above) |
