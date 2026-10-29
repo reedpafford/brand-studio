@@ -335,16 +335,32 @@ def sheet_prompt(
     return " ".join(out)
 
 
+SUNG_RATE = (2.0, 2.4)  # words a second Suno sang Reed's Iron Paws songs (365 words, 2:38–2:59)
+
+
 def song_directions_input(
-    brief: str, cast: list[str], music_style: str = "", seconds: int | None = None, note: str = ""
+    brief: str,
+    cast: list[str],
+    music_style: str = "",
+    seconds: int | None = None,
+    note: str = "",
+    source: str = "",
+    sounds_like: str = "",
 ) -> str:
     """The user message for the song_directions step (with brand_block in the system prompt).
-    `music_style` is the brand's genre line; `seconds` only when the editor asked for a length."""
+    `music_style` is the brand's genre line; `seconds` only when the editor asked for a length;
+    `source` a script or voice-over to adapt into lyrics; `sounds_like` a song or artist the
+    editor wants it to feel like (the style line describes it, never names it)."""
     parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
     if music_style:
         parts.append(f"<music_style>{music_style}</music_style>")
+    if sounds_like:
+        parts.append(f"<sounds_like>{sounds_like}</sounds_like>")
+    if source.strip():
+        parts.append(f"<source>\n{number_lines(source.strip())}\n</source>")
     if seconds:
-        parts.append(f"<length>{seconds} s (about {round(seconds * 2.5)} sung words)</length>")
+        words = round(seconds * sum(SUNG_RATE) / 2)
+        parts.append(f"<length>{seconds} s (about {words} sung words)</length>")
     if note:
         parts.append(f"<note>{note}</note>")
     return "\n".join(parts)

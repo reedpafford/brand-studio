@@ -250,6 +250,11 @@ class SongDirection(BaseModel):
         description="2–3 sentences: what's on screen at the key lyric moments, as animated "
         "B-roll in the video's style."
     )
+    left_out: list[str] = Field(
+        description="Adapting a <source> script: each beat, claim or line of it this direction "
+        "leaves out, in a few words ('the vet quote'); empty when nothing is left out or the "
+        "song is new."
+    )
     unchecked_claims: list[str] = Field(
         description="Every claim the lyrics make about the product that the brand block doesn't "
         "state (a benefit, a number, an ingredient), word for word, for the editor to check; "
