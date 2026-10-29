@@ -18,7 +18,7 @@ A state passes only if the person sees what's happening and has one press that m
 | S5 | Cast: who sings | ✅ (Nobody only on the stand-in) | ✅ | #775 at f424baa8 (Singer role from the cast read, pre-pick and out-of-date preview still to walk) |
 | S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
 | S7 | Publish | ✅ card: song, style, singer | ✅ | #775 at f424baa8 (UI); #750 (API guard) |
-| V2a | The video's own song (editor: Change song, Make 2 more; rule 31) | ❌ delete own take | ❌ delete own take | #781 at bcc1c1e7 (UI); #750 at df64b78 (API) |
+| V2a | The video's own song (editor: Change song, Make 2 more; rule 31) | ✅ | ✅ | #781 at 2a3751ca (UI; Delete hidden on the video's auto-Preferred own take until #783 merges); #783 at 9bf8afb (API) |
 | V1 | Make this version | ⬜ | ⬜ | — |
 | V2 | Breakdown on the song (Sung / B-roll, split, join) | ⬜ | ⬜ | — |
 | V3–V4 | Assets, Storyboard (Sung stills as reference) | ⬜ | ⬜ | — |
@@ -56,7 +56,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
-| V2a | (Server fixed at #750 fd599553: a video's own takes are never Preferred; delete guards IN_USE only.) Screen: #781 should offer Delete on any own take that isn't the video's song | Re-walk #781 | #781 |
+| V2a | Once #783 merges, #781 should show Delete on both of a video's own takes (today one is hidden as an interim) | Re-check after #783 | #781 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
@@ -119,3 +119,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | Next-Layout heads #766 5f5cb3bb, #771 e2a1defd, #773 4a6152a9, #777 98752ad8, #778 3b783a65, #779 9755e861 | node_modules symlink and .gitignore | PASS: no symlink on any; .gitignore fixed (5 of 6, #766 never had the link) |
 | 2026-10-29 | #783 at 9bf8afbc (carries the V2a delete fix after #750 merged) | V2a, cap, un-trim API cases | PASS (14) |
 | 2026-10-29 | #783 at 9bf8afbc | Try again prices: one-song quoted 0, charged 0; whole request quoted 1, charged 1 | PASS |
+| 2026-10-29 | #759 at 16b9f166, #775 at bd184249, #781 at 2a3751ca | Full browser suite each (54/54/55 passed) + song walk 18/18 + V2a at 1440 and 390 | PASS |
