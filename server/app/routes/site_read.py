@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app import filetypes, site_fetch
 from app import site_read as sr
-from app.advice import SaidText
+from app.advice import Said, SaidText
 from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
@@ -66,7 +66,7 @@ class SaveOut(BaseModel):
     logo: bool
     products_made: int
     products_filled: int  # an existing product's empty description, filled
-    problems: list[SaidText]  # e.g. "Couldn't get the logo from the site."
+    problems: Said  # e.g. "Couldn't get the logo from the site."
 
 
 def _read(db: Session, brand: Brand, job_id: int) -> Job:
