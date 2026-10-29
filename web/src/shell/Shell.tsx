@@ -67,9 +67,24 @@ function Frame() {
   const wide = useMedia("(min-width: 1280px)");
   const online = useOnline();
   const held = useHeld();
-  const { count, setNode } = useActionBarSlot();
+  const { count, node, setNode } = useActionBarSlot();
+  // The phone's action bar is as tall as what's in it (the cost bar is taller than one button): the page's bottom
+  // padding and the toasts sit above its real height, so neither the work nor a toast hides behind or over it.
+  useEffect(() => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement.style;
+    const fit = () => (node.offsetHeight ? root.setProperty("--actionbar-h", `${node.offsetHeight}px`) : root.removeProperty("--actionbar-h"));
+    const watch = new ResizeObserver(fit);
+    watch.observe(node);
+    return () => {
+      watch.disconnect();
+      root.removeProperty("--actionbar-h");
+    };
+  }, [node]);
   // Inside one video on a phone, the video's own header line replaces the brand bar.
-  const video = useMatch("/b/:brandId/projects/:projectId");
+  const oldVideo = useMatch("/b/:brandId/projects/:projectId");
+  const newVideo = useMatch("/b/:brandId/videos/:projectId");
+  const video = newVideo ?? oldVideo;
   const inVideo = !rail && video !== null && /^\d+$/.test(video.params.projectId ?? "");
 
   useEffect(() => {

@@ -36,7 +36,7 @@ export const STATUS: Record<string, { label: string; tone: Tone; icon?: typeof C
   approved: { label: "Ready to make", tone: "accent" },
   in_production: { label: "In production", tone: "warning", icon: Clock },
   clips_ready: { label: "In production", tone: "warning", icon: Clock },
-  done: { label: "Video done", tone: "success", icon: Check },
+  done: { label: "Finished", tone: "success", icon: Check },
   failed: { label: "Didn't finish", tone: "danger", icon: CircleAlert },
 };
 
@@ -45,7 +45,7 @@ const STATUS_FILTER = [
   ["draft", "Writing"],
   ["published", "Ready to make"],
   ["in_production", "In production"],
-  ["done", "Video done"],
+  ["done", "Finished"],
 ] as const;
 const LENGTH_FILTER = [
   ["", "Any"],

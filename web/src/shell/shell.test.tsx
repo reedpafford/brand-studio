@@ -51,9 +51,9 @@ test("the first brand opens on its Scripts, and the switcher menu changes brand 
   expect(screen.getByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
   // Cast & places in one brand becomes Cast & places in the other.
   await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Cast & places" }));
-  await screen.findByRole("heading", { name: "Library" });
+  await screen.findByRole("heading", { name: "Cast & places" });
   await pickBrand("fomo");
-  expect(await screen.findByRole("heading", { name: "Library" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Cast & places" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Cast & places" })).toHaveAttribute("href", "/b/1/library");
 });
 

@@ -460,3 +460,16 @@ class ScenePlan(BaseModel):
     structure: Structure
     cast: list[str] = Field(description="Cast ids from <cast>: the same in every scene.")
     scenes: list[PlanScene]
+
+
+class NarrationMusic(BaseModel):
+    """The instrumental bed under a narrated video (flows N1)."""
+
+    prompt: str = Field(
+        description="30 to 60 words for the music model: genre and mood, three to five "
+        "instruments, the tempo, the turn by thirds, and 'Steady and low under the narration'. "
+        "No artist, song or composer names; no vocals."
+    )
+    arc: str = Field(
+        description="The mood in a few plain words: 'tense, then hopeful in the last third'."
+    )

@@ -32,6 +32,7 @@ SCHEMAS = {
     "narrated_clip_prompts": schemas.ClipPrompts,
     "plan": schemas.ScenePlan,  # flows P1: the scene plan, before the breakdown
     "plan_scene": schemas.PlanScene,  # P1's "Change this scene…"
+    "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -41,7 +42,7 @@ EXTENDS = {
     "narrated_clip_prompts": "clip_prompts",
     "plan_scene": "plan",
 }
-NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
+NO_RULES = {"look_fit", "narration_music"}  # not a script writer: the rules would only add tokens
 
 
 # A style's extra guidance, by the steps it's added to (styles/*.md); its look sections fill
@@ -520,6 +521,21 @@ def plan_from_breakdown(bd: schemas.Breakdown) -> schemas.ScenePlan:
                                         lines=sorted(lines, key=lambda x: x.line)))  # fmt: skip
     shape = schemas.Structure(name="From the breakdown", parts=[], based_on="pattern")
     return schemas.ScenePlan(structure=shape, cast=cast, scenes=scenes)
+
+
+def narration_music_input(script: str, seconds: float, note: str = "") -> str:
+    """The user message for the narration_music step."""
+    out = f"<script>\n{script.strip()}\n</script>\n<seconds>{round(seconds)}</seconds>"
+    return out + (f"\n<note>{note.strip()}</note>" if note.strip() else "")
+
+
+def music_prompt(result: schemas.NarrationMusic) -> str:
+    """What the music model is sent: the Director's prompt, said to be an instrumental with no
+    voice in it (flows N1). The length goes as the model's own duration setting."""
+    return (
+        result.prompt.strip().rstrip(".")
+        + ". Instrumental only: no vocals, no choir, no spoken word."
+    )
 
 
 def spoken_words(script: str) -> int:

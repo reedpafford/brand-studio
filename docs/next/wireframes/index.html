@@ -211,7 +211,9 @@ const more = (what) => `<button class="more" aria-label="More for ${esc(what)}" 
 const media = (label, r = "r916") => `<div class="media ${r}">${label}</div>`;
 
 /* ---------- the screens ---------- */
-const VIDEO_STEPS = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-storyboard", "Storyboard"], ["v-clips", "Clips"], ["v-final", "Final cut"]];
+const VIDEO_STEPS_NO = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-storyboard", "Storyboard"], ["v-clips", "Clips"], ["v-final", "Final cut"]];
+const VIDEO_STEPS_YES = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-make", "Make"], ["v-final", "Final cut"]];
+const vsteps = () => (S.p51 === "yes" ? VIDEO_STEPS_YES : VIDEO_STEPS_NO);
 const STORY_STEPS = [["write", "Write"], ["plan", "Plan"], ["cast", "Cast"], ["publish", "Publish"]];
 const SONG_STEPS = [["song", "Song"], ["songtakes", "Takes"], ["plan", "Plan"], ["cast", "Cast"], ["publish", "Publish"]];
 
@@ -245,7 +247,7 @@ function videoHead(cur, extra) {
     ${S.view === "phone" ? "" : crumbs(`fomo › November launch › From: <a href="#" data-go="${song ? "song" : "write"}">${song ? "Pitbull song" : "The altar reel"}</a> · version ${song ? "A" : "B"}`, ["videos", "Videos"])}
     ${S.view === "phone" ? "" : `<div class="hrow"><h1>${title}</h1>${badge(song ? "Song" : "Dialogue")}${more(title)}<span class="spacer"></span>${settingsRow(song)}</div>`}
     ${S.view === "phone" ? settingsRow(song) : ""}
-    ${stepper(VIDEO_STEPS, cur, extra)}
+    ${stepper(vsteps(), S.p51 === "yes" && ["v-storyboard", "v-clips", "v-start"].includes(cur) ? "v-make" : cur, extra)}
   </div>`;
 }
 
@@ -282,7 +284,7 @@ def("videos", "Videos (editor home)", () => {
       <div class="hrow"><h1>Videos</h1><span class="spacer"></span><button class="btn dense" data-toast="Filters: status, project, mine/anyone, quick clips.">Filters</button></div>
       <section class="stack"><p class="eyebrow">Needs you</p><div class="list">
         ${row("The altar reel · B", badge("Clips · 2 to check", "check"), "62% of budget · Kel", "v-clips", "story")}
-        ${row("Pitbull 1 · A", badge("Assets · 1 look to approve", "check"), "18% of budget · Kel", "v-assets", "story")}
+        ${row("Pitbull 1 · A", badge("Cast · 1 look to approve", "check"), "18% of budget · Kel", "v-assets", "story")}
       </div></section>
       <section class="stack"><p class="eyebrow">Making</p><div class="list">
         ${row("Pitbull song · A", badge("Storyboard · Making… 1:10"), "30% of budget", "v-clips", "song")}
@@ -362,7 +364,7 @@ def("production", "In production (owner)", () => {
   const row = (t, step, k, meta) => `<div class="card vrow">${media("")}<div class="stack" style="margin:0;flex:1;min-width:0"><h3>${t}</h3><div class="hrow">${badge(step, k)}</div><p class="meta">${meta}</p></div></div>`;
   return {
     main: `<div class="stack-lg"><div class="hrow"><h1>In production</h1><span class="spacer"></span><button class="btn dense" data-toast="Filters: brand, editor, needs attention.">Filters</button></div><p class="meta">Every brand · 3 videos being made</p>
-      <div class="list">${row("The altar reel · B", "Clips · 2 to check", "check", "fomo · Kel · 4 min ago · 412 credits ($42.35) of a 660-credit budget")}${row("Itchy paws at night · A", "Assets · 1 look to approve", "check", "Iron Paws · Maya · 1 h ago · 5 credits ($0.51) of a 56-credit budget")}${row("Gym bro · B", "Finished · changes waiting", "warn", "fomo · Sam · 2 days ago · nothing for 2 days")}</div></div>`,
+      <div class="list">${row("The altar reel · B", "Clips · 2 to check", "check", "fomo · Kel · 4 min ago · 412 credits ($42.35) of a 660-credit budget")}${row("Itchy paws at night · A", "Cast · 1 look to approve", "check", "Iron Paws · Maya · 1 h ago · 5 credits ($0.51) of a 56-credit budget")}${row("Gym bro · B", "Finished · changes waiting", "warn", "fomo · Sam · 2 days ago · nothing for 2 days")}</div></div>`,
     bar: costbar({ finish: "", amber: "" }),
   };
 });
@@ -495,7 +497,7 @@ def("publish", "Publish", () => ({
 /* Video: Plan */
 def("v-plan", "Video · Plan", () => ({
   main: `<div class="stack-lg">${videoHead("v-plan", {})}${planView(false)}</div>`,
-  bar: costbar({ used: 3, budget: 172, finish: "about 86", amber: "Next: Looks", go: "v-assets" }),
+  bar: costbar({ used: 3, budget: 172, finish: "about 86", amber: "Next: Cast", go: "v-assets" }),
 }));
 
 /* Video: Breakdown */
@@ -512,11 +514,11 @@ def("v-breakdown", "Video · Plan › Shots", () => {
       ${song ? `<div class="card stack"><div class="wave"></div><div class="segs"><span class="sung">1 · Sung</span><span>2</span><span>3</span><span>4</span><span>5</span><span class="sung">6 · Sung</span></div></div>` : ""}
       <div class="banner bad"><span class="t"><b>2 problems</b> to fix before the storyboard · "Shot 4.2 shows Kimchi, but the line is Lexi's."</span>${btn("Fix 2 problems", { dense: true, price: "free", toast: "Fixed 2 problems. Undo." })}${btn("Keep anyway", { dense: true, ghost: true })}</div>
       <p class="eyebrow">Scene 1 · The altar</p>${shot("1.1", "3 s · close", 'NATE: "Will you marry me?"', ["Nate", "Altar"])}${shot("1.2", "2 s · wide", 'LEXI: "Hell no."', ["Lexi", "Nate"])}`}</div>`,
-    bar: costbar({ finish: "about 140", amber: S.st === "stale" ? "Make the shots again · 3 credits" : "Next: Looks", go: S.st === "stale" ? "" : "v-assets", disabled: false, why: "", toast: S.st === "stale" ? "Making the breakdown again…" : "" }),
+    bar: costbar({ finish: "about 140", amber: S.st === "stale" ? "Make the shots again · 3 credits" : "Next: Cast", go: S.st === "stale" ? "" : "v-assets", disabled: false, why: "", toast: S.st === "stale" ? "Making the breakdown again…" : "" }),
   };
 });
 
-/* Video: Assets */
+/* Video: Cast (was Assets) */
 def("v-assets", "Video · Cast", () => {
   const cs = cardState("look", "up to 2 credits");
   const look = (n, sub, st, check) => {
@@ -566,19 +568,21 @@ function workView(kind) {
       ${c ? "" : `<div class="box">Change this…</div>`}</div>`;
   };
   const progress = S.st === "wait" ? (kind === "still" ? "Drawing stills: 6 of 9 · You can leave this page." : "Making takes: 6 of 9 made · 3 making · You can leave this page.") : kind === "still" ? (yes ? "9 stills · 8 approved on their own · 1 waits for you" : "9 stills · 1 approved") : yes ? "9 takes · 8 approved on their own · 1 waits for you" : "9 takes · 1 approved";
-  const head = videoHead(kind === "still" ? "v-storyboard" : "v-clips", { [kind === "still" ? "v-storyboard" : "v-clips"]: "1 with notes" });
+  const head = videoHead(kind === "still" ? "v-storyboard" : "v-clips", { [yes ? "v-make" : kind === "still" ? "v-storyboard" : "v-clips"]: "1 with notes" })
+    + (yes ? `<div class="tabsx" role="tablist" aria-label="Make"><button class="tabx" role="tab" aria-selected="${kind === "still"}" data-go="v-storyboard">Stills · 9</button><button class="tabx" role="tab" aria-selected="${kind === "clip"}" data-go="v-clips">Clips · 9</button></div>` : "");
   return {
     main: `<div class="stack-lg">${head}
       <div class="hrow"><span class="meta">${progress}</span><span class="spacer"></span><button class="badge" style="border:0;cursor:pointer" data-review>3 items with Advice ▸</button></div>
       ${reviewPanel()}
       <div class="grid">${[0, 1, 2].map(card).join("")}</div></div>`,
     bar: costbar({ used: kind === "still" ? 21 : 80, budget: 172, finish: S.st === "wait" ? "about 40" : kind === "still" ? "about 59" : "", press: S.st === "wait" ? "running · no press needed" : "",
-      amber: S.st === "wait" ? "" : yes ? (kind === "still" ? "Next: Clips" : "Next: Final cut") : (kind === "still" ? "Approve all frames (2)" : "Approve all takes (2)"),
-      go: S.st === "wait" ? "" : yes ? (kind === "still" ? "v-clips" : "v-final") : "", toast: yes ? "" : "Approved 2 (1 with Advice). Undo." }),
+      amber: S.st === "wait" ? "" : yes ? "Next: Final cut" : (kind === "still" ? "Approve all frames (2)" : "Approve all takes (2)"),
+      go: S.st === "wait" ? "" : yes ? "v-final" : "", toast: yes ? "" : "Approved 2 (1 with Advice). Undo." }),
   };
 }
-def("v-storyboard", "Video · Storyboard", () => workView("still"));
-def("v-clips", "Video · Clips", () => workView("clip"));
+def("v-make", "Video · Make (P5.1 yes: Stills and Clips tabs)", () => workView("clip"));
+def("v-storyboard", "Video · Storyboard (or Make › Stills)", () => workView("still"));
+def("v-clips", "Video · Clips (or Make › Clips)", () => workView("clip"));
 
 /* Video: Final cut */
 def("v-final", "Video · Final cut", () => {

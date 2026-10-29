@@ -75,7 +75,7 @@ def test_girl_and_brad_only_the_shots_show_are_flagged_and_never_block(owner, ed
     assert [r["role"] for r in rows if not r["ready"]] == ["Omar"]
     assert editor.get(f"/projects/{pid}/assets/missing-looks").json()["roles"] == ["Omar"]
     refused = editor.post(f"/projects/{pid}/storyboard", json={}).json()["detail"]
-    assert refused == "Omar has no approved look yet. Approve one in Assets."  # not Girl, Brad
+    assert refused == "Omar has no approved look yet. Approve one in Cast."  # not Girl, Brad
     # A look picked for Brad himself doesn't hide the flag: the editor still decides.
     brad = {"library_item_id": _look(owner, db, "Brad look")}
     assert editor.put(f"/projects/{pid}/assets/slots/{cast['Brad']}", json=brad).status_code == 200

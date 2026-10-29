@@ -9,6 +9,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import type { Script } from "./useScript";
 import { ClaimsNote, SongDirections, directionsOf } from "./SongDirections";
+import { SongStudy } from "./SongStudy";
 import { clock } from "./TakePlayer";
 import { useSongs } from "./useSongs";
 
@@ -183,19 +184,22 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
   };
 
   const directions = (hasWords: boolean) => (
-    <SongDirections
-      script={s}
-      brandId={brandId}
-      saved={saved}
-      hasWords={hasWords}
-      typing={dirty}
-      takes={takes}
-      onUsed={() => {
-        const typed = dirty ? draft : null;
-        setDraft(null);
-        return typed ? () => setDraft(typed) : undefined;
-      }}
-    />
+    <>
+      <SongStudy script={s} />
+      <SongDirections
+        script={s}
+        brandId={brandId}
+        saved={saved}
+        hasWords={hasWords}
+        typing={dirty}
+        takes={takes}
+        onUsed={() => {
+          const typed = dirty ? draft : null;
+          setDraft(null);
+          return typed ? () => setDraft(typed) : undefined;
+        }}
+      />
+    </>
   );
 
   if (draft === null) {
