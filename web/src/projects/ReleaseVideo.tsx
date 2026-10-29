@@ -18,7 +18,7 @@ export function useMayManageVideo() {
 const STOPS = "Anything still being made stops and isn't brought back.";
 
 /** Release a started version (back to Ready to make) or archive a video, each after a confirm and with Undo. Render `dialog` on the page. */
-export function useVideoActions(onGone?: () => void) {
+export function useVideoActions(onGone?: (kind: "release" | "archive") => void) {
   const [ask, setAsk] = useState<{ kind: "release" | "archive"; target: VideoTarget } | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export function useVideoActions(onGone?: () => void) {
     close();
     await refresh();
     toast(kind === "release" ? `${t.letter ? `Version ${t.letter}` : "The version"} is ready to make again.` : `Archived "${t.name}".`, undo(t));
-    onGone?.();
+    onGone?.(kind);
   };
   const restore = async (t: VideoTarget) => {
     const { error, response } = await api.POST("/projects/{project_id}/restore", { params: { path: { project_id: t.id } } });
