@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Info, Lock } from "lucide-react";
+import { Check, Copy, Info, Lock, Undo2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -22,8 +22,9 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
   const slots = cast.data ?? [];
   // Every version is approved before it is published, here as on Variations: one press on its card (#749 LW7).
   const approve = useMutation({
-    mutationFn: async (slot: number) => {
-      const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/approve", { params: { path: { script_id: s.id, slot } } });
+    mutationFn: async ({ slot, yes }: { slot: number; yes: boolean }) => {
+      const args = { params: { path: { script_id: s.id, slot } } };
+      const { data, error } = yes ? await api.POST("/scripts/{script_id}/drafts/{slot}/approve", args) : await api.DELETE("/scripts/{script_id}/drafts/{slot}/approve", args);
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -85,11 +86,16 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
                   <dd className="flex flex-wrap items-center gap-2">
                     {v.status !== "draft" && <Check size={16} strokeWidth={1.75} aria-hidden className="text-success" />}
                     {v.status === "draft" ? "Not approved yet" : "Approved"}
-                    {v.status === "draft" && !s.published && (
-                      <Button variant="secondary" dense icon={Check} busy={approve.isPending && approve.variables === v.slot} aria-label={`Approve version ${LETTER[v.slot]}`} onClick={() => approve.mutate(v.slot)}>
-                        Approve
-                      </Button>
-                    )}
+                    {!s.published &&
+                      (v.status === "draft" ? (
+                        <Button variant="secondary" dense icon={Check} busy={approve.isPending && approve.variables?.slot === v.slot} aria-label={`Approve version ${LETTER[v.slot]}`} onClick={() => approve.mutate({ slot: v.slot, yes: true })}>
+                          Approve
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" dense icon={Undo2} busy={approve.isPending && approve.variables?.slot === v.slot} aria-label={`Undo approval of version ${LETTER[v.slot]}`} onClick={() => approve.mutate({ slot: v.slot, yes: false })}>
+                          Undo approval
+                        </Button>
+                      ))}
                   </dd>
                 </div>
                 <div>

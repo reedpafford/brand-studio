@@ -338,6 +338,26 @@ test("Publish waits for every version to be approved, as Variations says; its ca
   expect(await screen.findByText("Published. 1 version is ready to make.")).toBeInTheDocument();
 });
 
+test("an approval on a Publish card can be undone before publishing (#764 QA-2)", async () => {
+  setViewport(390);
+  const approved = withWords({ versions: [{ ...withWords().versions[0], status: "approved" }] });
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts/7": [200, approved],
+    "GET /scripts/7/cast": [200, []],
+    "GET /scripts": [200, []],
+    "DELETE /scripts/7/drafts/0/approve": [200, withWords()],
+  });
+  open("/b/1/scripts/7?step=publish");
+  const card = await screen.findByLabelText("Version A");
+  expect(screen.getByRole("button", { name: "Publish 1 version" })).toBeEnabled();
+  await userEvent.click(within(card).getByRole("button", { name: "Undo approval of version A" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/approve")).toBe(true));
+  expect(await within(card).findByText("Not approved yet")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Approve version A" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Publish 1 version" })).toHaveAccessibleDescription("Approve every version first (1 left)");
+});
+
 test("a published script's Publish page is read-only, with Duplicate script", async () => {
   setViewport(1440);
   const calls = fakeServer({
