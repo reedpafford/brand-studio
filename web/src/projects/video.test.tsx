@@ -410,7 +410,7 @@ test("what the note changed shows only the changed words, struck and bold, with 
 test("on the video page, Undo of a redone frame waits for the new still, then picks the earlier one back (#749 LW3, the server's order in #808)", async () => {
   setViewport(390);
   const at = (frame: object) => ({ ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown], "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }] as [number, unknown], "POST /projects/9/storyboard/frames/1/pick": [200, {}] as [number, unknown] });
-  const redo = { note: "Redo this frame", job_id: 51, before: "p", after: "p2" };
+  const redo = { note: "Redo this frame", job_id: 51, was_file_id: 40, before: "p", after: "p2" };
   // 1. The prompt is being written again.
   fakeServer(at(still({ stale: true, redo_credits: 4, change: { ...redo, status: "changing" } })));
   open("?step=storyboard");

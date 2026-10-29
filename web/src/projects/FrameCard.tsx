@@ -63,12 +63,13 @@ export function FrameCard(props: {
   const refused = f.problems.find((p) => /refused to draw/.test(p));
   const changing = (f.change as ChangeState)?.status === "changing";
   // Redo this frame is not a note: its states show on the card, not in Change this…. It is "changing" until its new still
-  // lands; then Undo stays on the card while that still is the one in use (the replaced one is the newest earlier still).
+  // lands; then Undo stays on the card while the still in use is not the one from before the redo.
   const change = f.change as ChangeState;
   const redone = change?.note === "Redo this frame";
   // A failed redo says why until something newer is made for this frame (Make still after "its still didn't finish").
   const redoFailed = redone && change?.status === "failed" && !props.newerJob;
-  const before = redone && change?.status === "done" && f.prompt === change.after ? f.earlier.at(-1) : undefined;
+  const was = (change as { was_file_id?: number | null } | null)?.was_file_id;
+  const before = redone && change?.status === "done" && was != null && f.file_id !== was && f.earlier.some((e) => (e as { file_id: number }).file_id === was) ? was : undefined;
   const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
   const price = props.cost !== undefined ? ` · ${creditsLabel(props.cost)}` : "";
   const redoForm = (
@@ -129,10 +130,10 @@ export function FrameCard(props: {
         </Button>
       )}
       {redoFailed && <p role="alert" className={errorClass}>{change?.error ?? "The redo didn't finish. Try again."}</p>}
-      {before && (
+      {before !== undefined && (
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted" role="status">
           Redone from the new breakdown. The earlier still is kept.
-          <Button variant="ghost" dense onClick={() => props.onPick((before as { file_id: number }).file_id)}>
+          <Button variant="ghost" dense onClick={() => props.onPick(before)}>
             Undo
           </Button>
         </p>
