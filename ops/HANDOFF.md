@@ -1,4 +1,4 @@
-as of 49097e3 · 2026-10-29 07:02 UTC
+as of 71784ae · 2026-10-29 08:05 UTC
 # Handoff (rewritten each refresh by the Scribe; under 60 lines)
 Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of ops/DECISIONS.md (#609: 31 numbered rules, newest wins; re-read before every task). Detail of what merged, when and why is in ops/LOG.md.
 
@@ -9,7 +9,7 @@ Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of o
 - Workflow v2: Script Library, owner/editor split, weekly allowances, reel import and Bulk create, In production view, Delete/Archive with Undo.
 - Live: https://srv2091584.hstgr.cloud, auto-deploys on every merge to main (needs the server secrets), generation on. Free stand-ins: `BS_FAKE_PROVIDERS`, `scripts/fake_run.py`.
 - Design: Screening room redesign docs in `docs/design/redesign/` (Reed picked direction B).
-- Latest merges (older ones are in LOG): #859 Downloads: an older look says so in the Out of date banner, not "Clips changed since"; #861 sessions table adds Builder-Server-7/8, Builder-Screens-4, Next-Layout, UX-Auditor, Song-Producer (the Producer's edit); #803 Storyboard: an out-of-date frame has its own Redo this frame; #841 Redo frame: no passing "failed"; #822 take from an older Cast & places look says Out of date; #843/#845 Reed's decisions on narrated ads, Format vs Look, KIE for Suno, and the creative plan, automatic fixes and advisory AI check.
+- Latest merges (older ones are in LOG): #868 Clips: an editor's words after the closing audio line are kept; #859 Downloads: an older look says so in the Out of date banner; #861 sessions table (the Producer's edit); #803 Storyboard: an out-of-date frame has its own Redo this frame; #841 Redo frame: no passing "failed"; #822 take from an older Cast & places look says Out of date; #843/#845 Reed's decisions on narrated ads, Format vs Look, KIE for Suno, and the creative plan, automatic fixes and advisory AI check.
 - Starpop study (Reed, DECISIONS 2026-10-28): Phase 1 findings (#731, #732) and the Phase 2 spec (#733) are in; Reed approved the spec with changes (#734): House style stays the default and Starpop's styles are added (Disney Pixar, Song, Zack D, Skeleton first); other models at their real Replicate cost (rule 2); music behind one provider interface (MiniMax first, Suno only with real access); song ads are B-roll timed to the real track; built as a separate test site, Brand Studio Next, on branch `next` (ops/NEXT.md). Rule 20 now also allows the studied Starpop style guidance.
 
 ## Where we are: stabilization pass (Reed, DECISIONS #602, rule 25)
@@ -17,23 +17,23 @@ No new features until, in order: 1 faces (sheet rules #603/#604, cast fix #614, 
 - Code stays lean (rule 26, changed by Reed 2026-10-27): about 36,000 lines of app code (server/app plus web/src, no tests or generated files) is a guide, not a hard cap; the app can grow when needed, but nothing redundant, and each change deletes what it replaces. The Steward reports the count on every PR.
 
 ## Open PRs into main (1, not counting the Scribe's own)
-- #868 Clips: an editor's words after the closing audio line are kept (branch `fix/repair-keeps-tail`, owner not clear from the name)
+- #878 Clips: a save puts words after the audio line where they will stay (branch `fix/save-moved-words`, the same kind of branch as #868, which was Builder-Server-6's; owner not confirmed)
 
 ## Brand Studio Next (branch `next`, ops/NEXT.md; the Producer merges and merges main into `next` regularly; nothing goes to main until Reed says so)
 - Test site is live at :8443. Order: 0 infra + flow map -> 1 song ads -> 2 styles -> 3 brand setup -> 4 video settings -> 5 organization -> 6 layout. Every flow is written before its screen is built, no dead ends.
 - Reed, 2026-10-29 (DECISIONS, ops/NEXT.md): Format (Dialogue, Song, Narrated) and Look (House default, Disney Pixar, Zack D, Skeleton) are separate settings, "Song" leaves the styles list. Narrated ads are a format (one narrator track, B-roll timed to sentences, take sound effects kept, ducked music, silence-only trims). Real Suno through KIE is on for the test site with a $5 test budget (MiniMax dropped).
 - Reed, 2026-10-29, for every video of every brand, built on Next first then brought to live: a creative-plan step before the breakdown (an approved scene plan; the script's words never change), refused or "service busy" takes retry once on their own (free) and clip-prompt wording flags fix themselves, and an advisory AI check on stills and takes (Advice with a ready "Change this..." note, never blocks). Rule 11 (no automatic face checks) changes only once that ships from Next; until then it holds on live.
-- Merged into `next` since the last refresh: song ads: the final cut with the song underneath #829, Write 2 song directions #818, Study a song ad (web) #857, shot times #826; Director narrated clips keep their own sound #853 and real names in style lines #831; the cost bar on the video page #865; data.md merge order and n07 (Format and Look) #870, #867.
-- Open PRs into `next` (9; owners read from branch names): the five video steps Plan, Cast, Storyboard, Clips, Final cut #871 (Next-Layout); the creative plan, "Change this scene" and proven patterns #866 and the advisory check on stills and takes #869 (Director); automatic fixes web #863 (Next-Screens) and refused or busy takes retry once #862 (Builder-Server-8); real Suno on the test site only #864 and narration step 1 #858 (Next-Server); song study #851 (Builder-Server-7); Flow-QA checklist #854.
+- Merged into `next` since the last refresh: the five video steps Plan, Cast, Storyboard, Clips, Final cut #871; the Plan web view with the Scenes | Shots switch #876; cost bar part 2 for Clips #877; refused or busy takes retry once on their own, wording flags fix themselves, with Undo #862; song study #851; NEXT.md on what must move to main together #874; data.md real migration order #880.
+- Open PRs into `next` (12; owners read from branch names): Next-Server: Format and Look step 1 #873, real Suno on the test site #864, narration step 1 #858; Builder-Server-7: study Stop and 10-minute limit #875; Builder-Server-8: P3 follow-up #883; Next-Screens: final cut names the song #882, song follow-ups #879, automatic fixes web #863; Next-Layout: cost bar part 2 for Storyboard #881; Director: scene plan #866 and advisory check on stills and takes #869 (#869 is the Director's per the Producer); Flow-QA checklist #854.
 - Team: Next-Lead, Next-Server, Next-Screens, Next-Layout, UX-Auditor, Flow-QA, Song-Producer, Builder-Server-7 (S3a song-ad reference study, migration n04; replaces Builder-Server-6 on this), Builder-Server-8 (migration n06, "1b", from a flow-map title); the Director on prompts and styles; QA and QA-2 review PRs into `next`. Money: no paid call without the Producer and Reed approving that exact test; free stand-ins first; log in ops/SPEND.md.
 
 ## Who is on what (main)
 - Builder-Screens-4: #859, #803, #822 and #804 are merged; nothing open that I can see.
-- Builder-Server-6: context was high; now only follows up its merged PRs (N6 #809, #808, LW2, LW3, LW9). The next server work goes to Builder-Server-7 and -8 on `next`.
+- Builder-Server-6: context was high; now only follows up its merged PRs (#868 was theirs, plus N6 #809, #808, LW2, LW3, LW9); #878 may be a follow-up. The next server work goes to Builder-Server-7 and -8 on `next`.
 - Director: #760 merged; song directions #755 and styles #753 are in `next`; rule 30 says brand names are fine, the copyright refusals were another cause.
 - Writer (Reed talks to it directly): turns Reed's ideas into ready-to-paste Script Library scripts, following rule 29; never touches the app, repo or live site; no paid calls.
 - Steward: line count on every PR (clip_prompts.py audit done, nothing safe to cut).
-- QA and QA-2: #868 on main, and PRs into `next`.
+- QA and QA-2: #878 on main, and PRs into `next`.
 - QA-Live 6: three-video run done ($22.08 of the $35 cap; videos 27-29; report "Run 3" on branch qa/kel-faces-2026-10-27; logged in ops/SPEND.md).
 - Reed: check-ins as the Next phases land; start an Iron Paws video (#670 is live); upload a fomo wordmark logo to the Brand kit (the current one is the icon alone); verdict on the altar reel-import video; makes video B (Iron Paws Pitbull 1) himself.
 
