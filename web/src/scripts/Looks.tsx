@@ -101,7 +101,3 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
     </>
   );
 }
-
-const FORMAT: Record<string, string> = { story: "Dialogue", song: "Song", narrated: "Narrated" };
-/** The format as a plain chip ("Dialogue", "Song", "Narrated", ST0); changing Dialogue ↔ Narrated comes with Next-Server's step 2. */
-export const FormatChip = ({ kind }: { kind: string }) => <Badge>{FORMAT[kind] ?? "Dialogue"}</Badge>;
