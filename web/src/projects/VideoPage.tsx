@@ -20,6 +20,7 @@ import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { StoryboardPane } from "./StoryboardPane";
+import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
@@ -145,6 +146,7 @@ export function VideoPage() {
       {step === "breakdown" && (
         <div className="space-y-4">
           <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
+          {p.song && <SongStrip project={p} hasShots={all.shots.made} />}
           <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
         </div>
       )}

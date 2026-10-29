@@ -7,7 +7,7 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 import re
 from itertools import zip_longest
 
-from app.prompts import spoken_words
+from app.prompts import SUNG_RATE, spoken_words
 from app.prompts.schemas import (
     Breakdown,
     CastSlots,
@@ -876,7 +876,24 @@ def reel_note(note: str, said: list[str]) -> str:
 
 SECTION = re.compile(r"^\s*(\[[^\]]+\]\s*)+$")  # "[Chorus]", "[Chorus] [Lip-sync]"
 LIP_SYNC = re.compile(r"\[lip[- ]?sync\]", re.I)
-SUNG_RATE = 2.5  # words a second the music model sings (Starpop's measure)
+
+
+def _clock(seconds: float) -> str:
+    return f"{int(seconds // 60)}:{round(seconds % 60):02d}"
+
+
+def sung_length(lyrics: str) -> tuple[int, float, float]:
+    """Sung words and the song's likely length in seconds (shortest, longest), at the pace
+    Suno sang Reed's pilot songs: shown before the lyrics are locked (the pilot's 365 words
+    surprised everyone at 2:38–2:59)."""
+    words = len(" ".join(sung_lines(lyrics)).split())
+    return words, words / SUNG_RATE[1], words / SUNG_RATE[0]
+
+
+def length_note(lyrics: str) -> str:
+    """'365 sung words: a song of about 2:32–3:03.'"""
+    words, short, long = sung_length(lyrics)
+    return f"{words} sung words: a song of about {_clock(short)}–{_clock(long)}."
 
 
 def sung_lines(lyrics: str) -> list[str]:
@@ -897,7 +914,15 @@ def lip_synced(lyrics: str) -> set[int]:
     return marked
 
 
-def song_directions(result: SongDirections, brand: str, seconds: int | None = None) -> list[str]:
+NAME = re.compile(r"\b[A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*)*")  # "Jack Johnson", "Better Together"
+
+
+def song_directions(
+    result: SongDirections, brand: str, seconds: int | None = None, sounds_like: str = ""
+) -> list[str]:
+    names = [
+        n for n in NAME.findall(sounds_like) if len(n) > 2 and n.lower() not in ("the", "like")
+    ]
     problems = []
     if len(result.directions) != 2:
         problems.append(f"{len(result.directions)} directions; write exactly 2")
@@ -910,11 +935,17 @@ def song_directions(result: SongDirections, brand: str, seconds: int | None = No
             problems.append(f"{ADVICE}direction {n}: the style line is over 25 words")
         if not says_brand(sung[-1], brand):
             problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
-        words = len(" ".join(sung).split())
-        if seconds and abs(words - seconds * SUNG_RATE) > seconds * SUNG_RATE * 0.25:
+        if named := [x for x in names if _words(x) in _words(d.style_line)]:
             problems.append(
-                f"{ADVICE}direction {n}: {words} sung words is about {words / SUNG_RATE:.0f} s, "
-                f"not the {seconds} s asked; aim for about {round(seconds * SUNG_RATE)}"
+                f"{ADVICE}direction {n}: the style line names “{named[0]}”; the music service "
+                "refuses artist and song names, so describe the sound instead"
+            )
+        words, short, long = sung_length(d.lyrics)
+        if seconds and not short * 0.8 <= seconds <= long * 1.2:
+            aim = round(seconds * sum(SUNG_RATE) / 2)
+            problems.append(
+                f"{ADVICE}direction {n}: {words} sung words is a song of about "
+                f"{_clock(short)}–{_clock(long)}, not the {seconds} s asked; aim for about {aim}"
             )
     return problems
 
@@ -948,6 +979,7 @@ def song_breakdown(
         problems.append(f"the shots end at {at:.2f} s, the song at {end:.2f} s")
     sections = song.get("sections") or []
     beats = (song.get("beats") or []) + [c for x in sections for c in x.get("cuts", [])]
+    problems += _line_clock(lyrics, shots, song.get("lines") or [])
     asked = lip_synced(lyrics)
     for shot in shots:
         edges = [shot.song_start, shot.song_end]
@@ -960,4 +992,28 @@ def song_breakdown(
                 f"{ADVICE}Shot {shot.id} is Sung, but nobody asked for lip-sync there. "
                 "Make it B-roll?"
             )
+    return problems
+
+
+def _line_clock(lyrics: str, shots: list, timed: list[dict]) -> list[str]:
+    """The measured line times are the clock (the pilot re-timed every shot by hand): a shot
+    holding a sung line plays while that line is sung, and no shot edge cuts a line (advice)."""
+    sung = [n for n, x in enumerate(lyrics.splitlines(), 1)
+            if not SECTION.match(x) and LIP_SYNC.sub("", x).strip()]  # fmt: skip
+    when = {n: (x["start"], x["end"]) for n, x in zip(sung, timed, strict=False)}
+    problems = []
+    for shot in shots:
+        for n in shot.script_lines:
+            if n not in when:
+                continue
+            a, b = when[n]
+            overlap = min(b, shot.song_end) - max(a, shot.song_start)
+            if overlap < min(0.5, (b - a) / 2):
+                problems.append(
+                    f"{ADVICE}shot {shot.id}: line {n} is sung at {a:.2f}–{b:.2f} s, but the "
+                    f"shot runs {shot.song_start:.2f}–{shot.song_end:.2f} s"
+                )
+        edges = [shot.song_end]
+        if any(a + 0.15 < e < b - 0.15 for e in edges for a, b in when.values()):
+            problems.append(f"{ADVICE}shot {shot.id}: ends in the middle of a sung line")
     return problems

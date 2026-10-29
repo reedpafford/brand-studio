@@ -38,3 +38,19 @@ test("the same song walk at 390: no sideways scroll, steps in one button", async
   await expect(page.getByRole("button", { name: /Step 3 of 5 · Cast/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+test("a published song script: Make this version opens a video whose Breakdown has the song strip and Change song", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await walk(page, "Song Shop Video");
+  await page.getByRole("button", { name: "Next: Plan" }).click();
+  await page.getByRole("button", { name: "Next: Publish" }).click();
+  await page.getByRole("button", { name: "Approve version A" }).click(); // every version is approved before publishing
+  await page.getByRole("button", { name: /Publish 1 version/ }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Publish" }).click();
+  await page.getByLabel(/Version A, ready to make/).click();
+  await page.getByRole("button", { name: /Make this version/ }).click();
+  await expect(page.getByRole("button", { name: "Change song" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Song: Take \d · \d:\d\d/)).toBeVisible();
+  await page.getByRole("button", { name: "Change song" }).click();
+  await expect(page.getByRole("dialog", { name: "Change song" }).getByText("In this video", { exact: true })).toBeVisible();
+});

@@ -92,7 +92,7 @@ def test_song_block_lists_sections_beats_and_timed_lines():
     assert "1| 0.10–1.90 Bowl stays full\n" in block
     assert "2| 2.10–3.80 Then the green goes on (times guessed)" in block
     assert "peaks" not in block and "0.40" not in block  # words and peaks stay out
-    assert "<length>30 s (about 75 sung words)</length>" in prompts.song_directions_input(
+    assert "<length>30 s (about 66 sung words)</length>" in prompts.song_directions_input(
         "Goal: x", ["char:1 Biscuit"], "folk", 30
     )
 
@@ -154,3 +154,49 @@ def test_directions_list_claims_the_brand_never_made():
     field = schemas.SongDirection.model_fields["unchecked_claims"]
     assert "word for word" in field.description
     assert "`unchecked_claims`" in prompts.system("song_directions")
+
+
+def test_a_script_is_adapted_line_by_line_and_the_cut_says_what_it_drops():
+    """Reed's pilot: he brought a voice-over script, not lyrics (song-pilot-notes.md)."""
+    sent = prompts.song_directions_input(
+        "Goal: x", ["char:1 Biscuit"], source="Biscuit won't eat.\nThen the green goes on."
+    )
+    assert "<source>\n1| Biscuit won't eat.\n2| Then the green goes on.\n</source>" in sent
+    text = prompts.system("song_directions")
+    assert "**Adapting a script.**" in text and "`left_out`" in text
+    assert "left_out" in schemas.SongDirection.model_fields
+
+
+def test_a_sounds_like_song_becomes_a_style_line_without_its_name():
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    like = "Better Together by Jack Johnson"
+    assert "<sounds_like>Better Together by Jack Johnson</sounds_like>" in (
+        prompts.song_directions_input("Goal: x", [], sounds_like=like)
+    )
+    assert check.song_directions(result, "Iron Paws", 30, sounds_like=like) == []
+    result.directions[0].style_line = "acoustic pop like Jack Johnson, 96 BPM"
+    problems = check.song_directions(result, "Iron Paws", 30, sounds_like=like)
+    assert any("names “Jack Johnson”" in p and p.startswith("Advice: ") for p in problems)
+    assert "describes that sound instead, never the name" in prompts.system("song_directions")
+
+
+def test_the_length_is_shown_before_the_lyrics_are_locked():
+    lyrics = "[Verse]\n" + "\n".join(["one two three four five"] * 73)  # the pilot's 365 words
+    words, short, long = check.sung_length(lyrics)
+    assert words == 365 and 150 <= short <= 160 and 180 <= long <= 185
+    assert check.length_note(lyrics) == "365 sung words: a song of about 2:32–3:02."
+
+
+def test_each_shot_plays_while_its_line_is_sung():
+    shots = [_shot("1.1", [2], 0.0, 1.0), _shot("1.2", [3], 1.0, 4.0),
+             _shot("1.3", [4, 5], 4.0, 6.0, sung=True, line="Get Iron Paws now")]  # fmt: skip
+    problems = _check(_breakdown(shots))
+    assert "Advice: shot 1.1: ends in the middle of a sung line" in problems  # line 1: 0.1–1.9
+    clock = [p for p in problems if "is sung at" in p]
+    assert clock == []  # each shot overlaps its line enough
+    late = [_shot("1.1", [2], 0.0, 0.5), _shot("1.2", [3], 0.5, 4.0),
+            _shot("1.3", [4, 5], 4.0, 6.0, sung=True, line="Get Iron Paws now")]  # fmt: skip
+    found = _check(_breakdown(late))
+    assert "Advice: shot 1.1: line 2 is sung at 0.10–1.90 s, but the shot runs 0.00–0.50 s" in found
+    assert "the measured line times in <song> are that clock" in prompts.system("song_breakdown")
