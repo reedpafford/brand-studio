@@ -199,8 +199,8 @@ def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
         setattr(project, field, value)
 
 
-def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[str, str]:
-    """Each chosen variant must be one of the brand's versions of that product."""
+def variants(db: Session, brand_id: int) -> dict[str, set[str]]:
+    """The brand's products with flavours: {product: its variants}."""
     screens = db.scalars(
         select(BrandScreen).where(
             BrandScreen.brand_id == brand_id, BrandScreen.deleted_at.is_(None)
@@ -210,6 +210,12 @@ def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[
     for s in screens:
         if s.product and s.variant:
             offered.setdefault(s.product, set()).add(s.variant)
+    return offered
+
+
+def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[str, str]:
+    """Each chosen variant must be one of the brand's versions of that product."""
+    offered = variants(db, brand_id)
     for product, variant in chosen.items():
         if variant not in offered.get(product, set()):
             options = ", ".join(sorted(offered.get(product, []))) or "none"
