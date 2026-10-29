@@ -90,13 +90,15 @@ export function ClipCard(props: {
   // marks the clip as failed. The change's job_id is its rewrite's, or for a fix in code the project's newest job then.
   const failedBefore = props.job?.status === "failed" && lastChange?.status === "done" && (lastChange.job_id ?? 0) >= props.job.id;
   const failed = props.job?.status === "failed" && !failedBefore;
-  const status = c.approved ? "Approved" : props.busy ? null : failed ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
+  // A failed newest take doesn't undo a take already picked: the clip stays Ready, with a quiet line (#749 G7).
+  const picked = c.takes.find((t) => t.id === c.picked_take_id);
+  const failedNow = failed && !picked;
+  const status = c.approved ? "Approved" : props.busy ? null : failedNow ? "Failed · credits returned" : c.stale ? "Made for an older breakdown" : c.file_id ? "Ready" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
   // Why it can't be pressed yet, in one plain line under it. A prompt only waiting for Looks good isn't a reason: the
   // press marks it Looks good and makes the take.
   const makeReason = props.busy ? "A take is on its way." : c.stale ? "Rewrite this clip's prompt first." : blocking(c.problems, c.kept).length > 0 ? "Fix the problems above first." : props.blockers.length > 0 ? "Approve the looks it needs first." : props.stopFor(props.cost);
   const price = props.cost === undefined ? "" : ` · ${Math.round(props.cost)} credits`;
-  const picked = c.takes.find((t) => t.id === c.picked_take_id);
   // "Change this…" on a clip with no take only rewrites the prompt (no surprise paid take): say what to press next.
   // A change always clears "Looks good" (the prompt must be read again), so the line only shows while it is waiting to be read.
   const updated = props.review && props.toRead && c.takes.length === 0 && lastChange?.status === "done" && lastChange.note !== FIX_NOTE;
@@ -104,7 +106,7 @@ export function ClipCard(props: {
     <li className={`space-y-2 rounded-md bg-surface p-3 text-sm ${c.approved ? "border-2 border-success" : "border border-border"}`} aria-label={`Clip ${c.clip_id}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{c.clip_id} · {c.seconds} s</span>
-        <span className={`ml-auto rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : failed ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
+        <span className={`ml-auto rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : failedNow ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
           {status ?? (
             <>
               {props.job?.status === "queued" ? "Queued " : "Rendering "}
@@ -114,8 +116,8 @@ export function ClipCard(props: {
         </span>
       </div>
       {failed && props.job?.error && (
-        <p role="status" className="text-sm text-danger">
-          {c.takes.length > 0 && "The newest take failed; your other takes are below. "}
+        <p role="status" className={`text-sm ${picked ? "text-muted" : "text-danger"}`}>
+          {picked ? `The newest take didn't work and its credits came back. Take ${picked.number} is still picked. ` : c.takes.length > 0 && "The newest take failed; your other takes are below. "}
           {props.job.error}
         </p>
       )}
