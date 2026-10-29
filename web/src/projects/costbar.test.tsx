@@ -71,3 +71,10 @@ test("one credit left to finish says credit", async () => {
   show(null);
   expect(await screen.findByText("To finish: up to 1 credit · 248 left")).toBeInTheDocument();
 });
+
+test("To finish reads whole credits, rounded up, as Make this version reads the same figure (Flow-QA on #1008)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /projects/9/estimate": [200, { remaining_credits: 28.06, stages: [] }] });
+  show({ label: "Make the takes", price: 54, onPress: vi.fn() });
+  expect(await within(screen.getByRole("region", { name: "Cost" })).findByText(/^To finish: up to 29 credits/)).toBeInTheDocument();
+});
