@@ -94,11 +94,15 @@ test("failed and refused say so, nothing charged, with Try again; nothing to go 
 
 test("nothing to go on: the press says why and links to the brand page", async () => {
   setViewport(390);
-  fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_stop: "Say what the brand sells on the brand page first" })] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_stop: "Add what the brand sells on the brand page, or paste a script to adapt.", directions_stop_kind: "no_facts" })] });
   open();
   expect(await screen.findByRole("button", { name: /Write 2 song directions for me/ })).toBeDisabled();
-  expect(screen.getByText("Say what the brand sells on the brand page first")).toBeInTheDocument();
+  expect(screen.getByText("Add what the brand sells on the brand page, or paste a script to adapt.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Open the brand page" })).toHaveAttribute("href", "/b/1/brand");
+  // A pasted script is something to go on: the press runs.
+  await userEvent.type(screen.getByLabelText("From a script (optional)"), "Bo hated his bowl.");
+  expect(screen.getByRole("button", { name: /Write 2 song directions for me/ })).toBeEnabled();
+  expect(screen.queryByRole("link", { name: "Open the brand page" })).toBeNull();
 });
 
 test("after a direction is used, its unchecked claims show under the lyrics until Keep it", async () => {
@@ -153,4 +157,20 @@ test("a failure with no reason from the server still says nothing was charged, w
   open();
   expect(await screen.findByText(/The directions didn't finish\. Nothing was charged\./)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Try again · 3 credits/ })).toBeEnabled();
+});
+
+test("any other stop (an approved version) holds whatever is typed, with no brand-page link", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ directions_stop: "This version is approved: its words are set.", directions_stop_kind: "other" })] });
+  open();
+  await userEvent.type(await screen.findByLabelText("From a script (optional)"), "Bo hated his bowl.");
+  expect(screen.getByRole("button", { name: /Write 2 song directions for me/ })).toBeDisabled();
+  expect(screen.queryByRole("link", { name: "Open the brand page" })).toBeNull();
+});
+
+test("a card shows the direction's own Advice lines", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ song_directions: [direction({ advice: ["The last line doesn't name Iron Paws."] })] })] });
+  open();
+  expect(await screen.findByText("The last line doesn't name Iron Paws.")).toBeInTheDocument();
 });

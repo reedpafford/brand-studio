@@ -45,6 +45,10 @@ class Project(Entity, Base):
     # Song ads: the take this video is timed to (starts as its version's Preferred, rule 31)
     song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id", use_alter=True))
     singer: Mapped[str | None] = mapped_column(String(120))  # null: the version's singer
+    # 1b (P1): the scene plan (docs/next/data.md: line numbers only, never the words) and
+    # earlier plans, newest first, at most 10. Null: read from the breakdown, or none yet.
+    plan: Mapped[dict | None] = mapped_column(JSON)
+    plan_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
     # Assets step: unlocked cast slot id (as text) -> the library character the editor gave it.
     slot_cast: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)

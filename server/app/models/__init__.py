@@ -4,6 +4,7 @@ from app.models import (  # noqa: F401
     accounts,
     brands,
     breakdowns,
+    checks,
     clips,
     credits,
     files,

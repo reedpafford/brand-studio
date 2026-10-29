@@ -2834,6 +2834,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/auto-fix/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Auto Fix
+         * @description Undo of a wording fix made for you (P3): the prompt's own words come back, free, and
+         *     the flags it fixed are Advice (never a block); it isn't fixed again until it changes.
+         */
+        post: operations["undo_auto_fix_projects__project_id__clips__clip_id__auto_fix_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips": {
         parameters: {
             query?: never;
@@ -3866,6 +3887,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/song-study/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Study
+         * @description Stop the study in hand, queued or running (free; a finished study stays).
+         */
+        post: operations["stop_study_scripts__script_id__drafts__slot__song_study_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -3970,6 +4011,13 @@ export interface components {
             text_fit?: components["schemas"]["TextFitOut"] | null;
             /** Text Check Credits */
             text_check_credits?: number | null;
+        };
+        /** AutoFixOut */
+        AutoFixOut: {
+            /** Fixed */
+            fixed: string[];
+            /** Undone */
+            undone: boolean;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -4973,6 +5021,13 @@ export interface components {
              * @default
              */
             waiting: string;
+            /** Retry Of Id */
+            retry_of_id?: number | null;
+            /**
+             * Auto
+             * @default false
+             */
+            auto: boolean;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -5050,6 +5105,13 @@ export interface components {
              * @default
              */
             waiting: string;
+            /** Retry Of Id */
+            retry_of_id?: number | null;
+            /**
+             * Auto
+             * @default false
+             */
+            auto: boolean;
         };
         /**
          * JobStatus
@@ -5540,6 +5602,9 @@ export interface components {
             free_fix_used: boolean;
             /** Take Warning */
             take_warning?: string | null;
+            /** Retrying */
+            retrying?: ("refused" | "busy") | null;
+            auto_fix?: components["schemas"]["AutoFixOut"] | null;
         };
         /** ProjectEstimateOut */
         ProjectEstimateOut: {
@@ -13131,6 +13196,38 @@ export interface operations {
             };
         };
     };
+    undo_auto_fix_projects__project_id__clips__clip_id__auto_fix_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_clips_projects__project_id__clips_get: {
         parameters: {
             query?: never;
@@ -15115,6 +15212,36 @@ export interface operations {
         };
     };
     restore_study_scripts__script_id__drafts__slot__song_study_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_study_scripts__script_id__drafts__slot__song_study_stop_post: {
         parameters: {
             query?: never;
             header?: never;
