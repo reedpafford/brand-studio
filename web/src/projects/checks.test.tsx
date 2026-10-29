@@ -65,15 +65,19 @@ afterEach(() => vi.unstubAllGlobals());
 
 test("a still with Advice shows a quiet notes chip; Change this… fills the change box with its note, Looks fine dismisses it", async () => {
   setViewport(1440);
-  const calls = fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, check: advice }]], "POST /projects/9/checks/7/findings/1/dismiss": [200, { ...advice, findings: [face] }] }));
+  const calls = fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, check: advice }]], "POST /projects/9/checks/7/findings/1/dismiss": [200, { ...advice, findings: [face] }], "POST /projects/9/checks/7/findings/1/restore": [200, advice] }));
   open("?step=storyboard");
   await userEvent.click(await screen.findByRole("button", { name: "2 notes on clip c1" }));
   const notes = screen.getByLabelText("Notes for clip c1");
   expect(within(notes).getByText("The outfit changed: the red bandana is missing")).toBeInTheDocument();
   await userEvent.click(within(notes).getAllByRole("button", { name: "Looks fine" })[1]);
   expect(calls.some((c) => c.key === "POST /projects/9/checks/7/findings/1/dismiss")).toBe(true);
+  expect(await screen.findByText("Marked as fine.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/checks/7/findings/1/restore")).toBe(true));
   await userEvent.click(within(notes).getAllByRole("button", { name: "Change this…" })[0]);
   expect(screen.getByLabelText("Change this… c1")).toHaveValue("Make Bo's face match his sheet");
+  await vi.waitFor(() => expect(screen.getByLabelText("Change this… c1")).toHaveFocus());
   expect(screen.queryByLabelText("Notes for clip c1")).toBeNull();
 });
 
@@ -112,14 +116,14 @@ test("the Clips header has the Review chip and the summary line; a row goes to i
   const list = screen.getByLabelText("Review");
   expect(within(list).getByText("Storyboard")).toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "Clip c2 · take 2 · 1 note" }));
-  expect(screen.getByLabelText("Clip c2")).toBeInTheDocument();
+  await vi.waitFor(() => expect(screen.getByLabelText("Clip c2")).toHaveFocus());
 });
 
 test("over budget the step says once that checks are paused", async () => {
   setViewport(390);
   fakeServer(routes({ "GET /projects/9/checks": [200, review({ items: [], paused: true })] }));
   open("?step=storyboard");
-  expect(await screen.findByText("Checks paused: the video is at its budget.")).toBeInTheDocument();
+  expect(await screen.findByText("Not checked: the video was at its budget.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /with Advice/ })).toBeNull();
 });
 
@@ -130,6 +134,16 @@ test("Final cut has the Review list open by default", async () => {
   open("?step=downloads");
   const list = await screen.findByLabelText("Review");
   expect(within(list).getByRole("button", { name: "Still 1.1 · 2 notes" })).toBeInTheDocument();
+});
+
+test("a Review row on Final cut opens Clips and puts focus on the card", async () => {
+  setViewport(390);
+  const c1 = clip({ approved: true, takes: [take(1, 1)], picked_take_id: 1 });
+  const c2 = clip({ id: 4, clip_id: "c2", approved: true, takes: [take(2, 2, { id: 9, status: "advice", findings: [face] })], picked_take_id: 2 });
+  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, [c1, c2]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [1, 2], out_of_date: false }], "GET /projects/9/checks": [200, review()] }));
+  open("?step=downloads");
+  await userEvent.click(within(await screen.findByLabelText("Review")).getByRole("button", { name: "Clip c2 · take 2 · 1 note" }));
+  await vi.waitFor(() => expect(screen.getByLabelText("Clip c2")).toHaveFocus(), { timeout: 4000 });
 });
 
 test("without checks on the server nothing shows", async () => {
