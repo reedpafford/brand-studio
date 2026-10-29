@@ -61,7 +61,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Migration order (#873) | n04 → n06 → n05 on #858 at 7fa31331; #873 n07 must follow n05 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
-| Storyboard cost bar (#881) | Out of date + missing: "Make N stills" hidden while Redraw is in the bar | Show it when outOfDate.length > 0 (secondary) | #881 at adb76baa |
 | Old Videos links (#888) | /scripts?view=videos stays on Scripts | Copy params before deleting view | #888 at b8050325 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -206,3 +205,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #863 at 30eab39e (Undo fix, newest-take line) | autofixes + clips (34) | PASS (nit: "(busy)" raw code) |
 | 2026-10-29 | #888 at b8050325 (Videos in the menu, homes) | Playwright 390 + 1440: homes, tab, back link, old link; shell + phone e2e (11) | FAIL: old ?view=videos link stays on Scripts (params mutated in render; StrictMode) |
 | 2026-10-29 | #889 at 9e8e7e1f (Final cut banner names the song; one full stop) | finalsong + songstudy + downloads (17) | PASS |
+| 2026-10-29 | #881 at 95e50919 (Make N stills kept grey; "The plan changed"; "1 credit") | vitest projects (321); step name check | PASS (old ProjectPage EstimateNote says "Breakdown", "1 credits": owner to delete or rename) |
