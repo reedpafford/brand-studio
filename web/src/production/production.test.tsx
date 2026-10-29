@@ -80,6 +80,13 @@ test("In production: on a phone the rows are cards and the filters are in a shee
   expect(within(sheet).getByRole("combobox", { name: "Sort" })).toBeInTheDocument();
 });
 
+test("In production counts finished videos with changes waiting, so nothing reads as all done (#749 LW2)", async () => {
+  setViewport(390);
+  fakeServer({ ...base([]), "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 2 }] });
+  open();
+  expect(await screen.findByText("0 videos being made · 2 finished videos have changes waiting")).toBeInTheDocument();
+});
+
 test("In production: each empty state says what is true", async () => {
   setViewport(1440);
   fakeServer(base([]));
