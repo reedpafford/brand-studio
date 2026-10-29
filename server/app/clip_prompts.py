@@ -368,6 +368,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
         elif known[ref.id][1] != ref.kind:
             kind = {"image": "a picture", "audio": "a sound"}.get(ref.kind, f"a {ref.kind}")
             problems.append(f"{clip.clip_id}: {ref.id} is attached as {kind} but isn't one")
+    problems += check.text_on_screen_advice(clip.prompt)  # a shot that's only drawn words (#890)
     return plain(problems, names(known))
 
 
