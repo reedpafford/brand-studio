@@ -402,8 +402,7 @@ def test_wording_flags_fix_themselves_with_undo(app, db, editor, setup, clip):  
     clips = f"/projects/{setup['project']}/clips"
     url = f"{clips}/{clip['id']}"
     flagged = clip["prompt"].replace("Summary: ", "Summary: Vertical 9:16, 480p. ")
-    editor.put(url, json={"prompt": flagged, "references": clip["references"]})
-    (shown,) = editor.get(clips).json()  # fixed in code when Clips opens, free
+    shown = editor.put(url, json={"prompt": flagged, "references": clip["references"]}).json()
     assert shown["prompt"] == clip["prompt"].replace("Summary: ", "Summary: Vertical. ")
     assert shown["auto_fix"] == {"fixed": ['removed "9:16"', 'removed "480p"'], "undone": False}
     assert shown["problems"] == []
@@ -413,6 +412,9 @@ def test_wording_flags_fix_themselves_with_undo(app, db, editor, setup, clip):  
     (shown,) = editor.get(clips).json()  # their words stay, as Advice: never a block
     assert shown["prompt"] == flagged and shown["problems"] == undone["problems"]
     assert editor.post(f"{url}/auto-fix/undo").status_code == 409
+    edited = clip["prompt"].replace("Close-up, push in.", "Close-up.")
+    shown = editor.put(url, json={"prompt": edited, "references": clip["references"]}).json()
+    assert shown["auto_fix"] is None  # new words: no stale Undo left to offer (Flow-QA)
     assert editor.post(f"{url}/generate").status_code == 201
 
 
@@ -425,3 +427,26 @@ def test_reword_never_touches_the_spoken_words():
     assert fixed == ('Shot 1 | 0-2 s. Mom gestures no and Dad waves it off. No one speaks.\n'
                      'Shot 2 | 2-4 s. Mom says "Say it in 9:16, I refuse."')  # fmt: skip
     assert said == ['changed "says" to "gestures"', 'changed "refuses" to "waves it off"']
+
+
+def test_an_edit_while_a_retry_waits_cancels_it_uncharged(app, db, editor, setup, clip):  # noqa: F811
+    from app.credits import credits_used
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    project = db.get(Project, setup["project"])
+    before = credits_used(db, project)
+    editor.post(f"{url}/generate")
+    _work(app, db, Busy([]))
+    retry = db.query(Job).filter(Job.auto.is_(True)).one()
+    edited = clip["prompt"].replace("Close-up, push in.", "Close-up.")  # Flow-QA's case
+    shown = editor.put(url, json={"prompt": edited, "references": clip["references"]}).json()
+    assert shown["retrying"] is None  # at once, before the worker cancels it
+    retry.input = {**retry.input, "wait_until": ""}
+    db.commit()
+    _work(app, db, FakeSeedance([_mp4("red")]))
+    db.refresh(retry)
+    assert retry.status == "cancelled" and retry.provider_ref is None  # never sent
+    (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
+    assert shown["takes"] == [] and shown["retrying"] is None
+    assert credits_used(db, project) == before

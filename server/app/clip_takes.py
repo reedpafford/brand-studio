@@ -232,11 +232,20 @@ def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
     db.flush()
 
 
+def still_wanted(db: Session, job: Job) -> bool:
+    """An automatic retry still fits its clip when it starts: the video isn't archived and the
+    prompt is the one it was made from (Flow-QA: an edit during a busy wait)."""
+    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+    project = db.get(Project, job.project_id) if job.project_id else None
+    return bool(row and project and project.archived_at is None
+                and row.prompt == job.input.get("clip_prompt"))  # fmt: skip
+
+
 def retrying(db: Session, row: ProjectClip) -> str | None:
     """Why this clip's take is being tried again on its own ("refused" or "busy"), while it is."""
     jobs = db.scalars(select(Job).where(Job.project_id == row.project_id, Job.status.in_(WAITING)))
     for j in jobs:
-        if j.auto and j.input.get("project_clip_id") == row.id:
+        if j.auto and j.input.get("project_clip_id") == row.id and still_wanted(db, j):
             return why_failed(db.get(Job, j.retry_of_id)) or None
         if j.input.get("then_take") and j.input.get("clip_ids") == [row.clip_id]:
             return "refused"

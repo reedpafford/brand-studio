@@ -306,6 +306,11 @@ def edit_clip(
     clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, **body.model_dump())
     clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
     refused = clip_prompts.refusal(row.problems, row.prompt, clip.prompt)
+    if clip.prompt != row.prompt:  # new words: fixed as written, with an Undo for these words
+        typed, (fixed, said) = clip.prompt, clip_prompts.reword(clip.prompt)
+        clip = clip.model_copy(update={"prompt": fixed})
+        row.auto_fix = {"before": typed, "after": fixed, "fixed": said,
+                        "undone": False} if said else None  # fmt: skip
     row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
     row.prompt_ok = True
     row.problems = clip_prompts.clip_problems(db, project, bd, clip) + refused

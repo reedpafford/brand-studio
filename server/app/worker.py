@@ -24,6 +24,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import music
+from app.clip_takes import still_wanted
 from app.credits import USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
@@ -329,6 +330,10 @@ def start_next(
                 if (j.input or {}).get("wait_until", "") <= now), None)  # fmt: skip
     if not job:
         return False
+    if job.auto and not still_wanted(db, job):  # its clip changed while it waited: uncharged
+        _move(db, job, JobStatus.queued, JobStatus.cancelled, finished_at=utcnow())
+        db.commit()
+        return True
     if not _move(
         db, job, JobStatus.queued, JobStatus.running, attempts=job.attempts + 1, started_at=utcnow()
     ):
