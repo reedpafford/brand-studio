@@ -5,8 +5,8 @@ or the style line (rule 19), and the directions never reuse its lines (check.cop
 
 The study lives on the version as ScriptDraft.song_study: {job_id, source, link, seconds,
 bpm, sections: [{name, start, end, lines, guessed}], lines: [{text, start, end}], words:
-[{word, start, end}], frames: [{file_id, t}], use_as_guide, problem, problem_code,
-removed_at}. While the job runs only job_id, source and link are set.
+[{word, start, end}], frames: [{file_id, t}], use_as_guide, removed_at, attempt,
+stale_frames} (see "On the version" below for `attempt` and `stale_frames`).
 
 A reference has no [Verse]/[Chorus] tags, so its sections are inferred: lines are grouped
 where the singing pauses for a bar or more, or where it moves in or out of lines that repeat;
@@ -176,7 +176,22 @@ class StudyJob(BaseModel):
     started_at: UtcTime | None
 
 
+class StudyAttempt(BaseModel):
+    """A newer study that hasn't replaced the one shown: still running, or failed."""
+
+    status: Literal["studying", "failed"]
+    job: StudyJob | None = None
+    source: Literal["link", "upload"]
+    link: str | None = None
+    problem: SaidText = ""  # failed: a short phrase, no full stop (PROBLEMS)
+    problem_code: str | None = None
+
+
 class SongStudyOut(BaseModel):
+    """The version's study. With no finished study, the status and its fields are the newest
+    attempt's; with one, it shows (done) and a newer attempt still running or failed is in
+    `attempt` (Flow-QA: a failed re-study never takes the good one away)."""
+
     status: Literal["studying", "done", "failed"]
     job: StudyJob | None = None  # while studying, or when the job itself failed
     source: Literal["link", "upload"]
@@ -190,101 +205,133 @@ class SongStudyOut(BaseModel):
     use_as_guide: bool = False
     problem: SaidText = ""  # failed: a short phrase, no full stop (PROBLEMS); "" otherwise
     problem_code: str | None = None  # blocked, gone, bad_file, too_long, no_words
+    attempt: StudyAttempt | None = None
 
 
 # --- On the version -------------------------------------------------------------------------
+# ScriptDraft.song_study holds the finished study (when there is one) and, under `attempt`,
+# the newest press while it runs or after it failed: {job_id, source, link, problem,
+# problem_code}. A study that saves replaces the finished one; its old frames wait in
+# `stale_frames` until the next press deletes them (only a route can delete stored bytes).
+
+
+def _attempt(draft: ScriptDraft) -> dict:
+    return (draft.song_study or {}).get("attempt") or {}
 
 
 def busy(db: Session, draft: ScriptDraft) -> bool:
-    job = db.get(Job, (draft.song_study or {}).get("job_id") or 0)
+    job = db.get(Job, _attempt(draft).get("job_id") or 0)
     return job is not None and job.status in WAITING
 
 
-def start(db: Session, user, draft: ScriptDraft, job_input: dict, source: str, link=None) -> Job:
-    """Queue the free study in place of the version's study (the caller drops its frames)."""
+def _finished(found: dict) -> bool:
+    return found.get("seconds") is not None and not found.get("removed_at")
+
+
+def start(
+    db: Session, user, draft: ScriptDraft, job_input: dict, source: str, link=None
+) -> tuple[Job, list[str]]:
+    """Queue the free study. The finished study stays until it saves (a removed one goes
+    now). Returns the job and the storage keys to delete once committed."""
     from app.routes.jobs import enqueue
 
     if busy(db, draft):
         raise HTTPException(409, BUSY)
+    found = draft.song_study or {}
+    gone = [*found.get("stale_frames", [])]
+    if not _finished(found):
+        gone += [f["file_id"] for f in found.get("frames", [])]
+        found = {}
+    old = db.get(Job, _attempt(draft).get("job_id") or 0)  # its upload, if it never saved
+    upload = db.get(StoredFile, (old.input.get("video_file_id") if old else None) or 0)
+    stored = [db.get(StoredFile, i) for i in gone]
+    if upload is not None and upload.key == old.input.get("video_key"):
+        stored.append(upload)
+    keys = []
+    for x in (x for x in stored if x is not None):
+        keys.append(x.key)
+        db.delete(x)
     job = enqueue(db, user, "song_study", {"step": STEP, "draft_id": draft.id, **job_input},
                   units=0, provider="local")  # fmt: skip
-    draft.song_study = {"job_id": job.id, "source": source, "link": link}
+    kept = {k: v for k, v in found.items() if k not in ("attempt", "stale_frames")}
+    draft.song_study = {**kept, "attempt": {"job_id": job.id, "source": source, "link": link}}
     db.commit()
-    return job
-
-
-def drop_files(db: Session, study: dict | None) -> list[str]:
-    """Delete an old study's frame rows, and its upload's row if its job never saved (it
-    failed); returns their storage keys (delete those after the commit)."""
-    found = [db.get(StoredFile, f["file_id"]) for f in (study or {}).get("frames", [])]
-    job = db.get(Job, (study or {}).get("job_id") or 0)
-    upload = db.get(StoredFile, (job.input.get("video_file_id") if job else None) or 0)
-    if upload is not None and upload.key == job.input.get("video_key"):
-        found.append(upload)
-    for stored in (x for x in found if x is not None):
-        db.delete(stored)
-    return [x.key for x in found if x is not None]
+    return job, keys
 
 
 def save(db: Session, job: Job) -> None:
-    """The worker's answer onto the version, unless a newer study replaced it."""
+    """The worker's answer onto the version, unless a newer press replaced it."""
     draft = db.get(ScriptDraft, job.input["draft_id"])
     if (upload := db.get(StoredFile, job.input.get("video_file_id") or 0)) is not None:
         db.delete(upload)  # the local provider already removed its bytes
-    if draft is None or (draft.song_study or {}).get("job_id") != job.id:
+    if draft is None or _attempt(draft).get("job_id") != job.id:
         return
-    output = job.output or {}
-    kept = {k: draft.song_study.get(k) for k in ("job_id", "source", "link")}
+    found, attempt, output = draft.song_study, _attempt(draft), job.output or {}
     if output.get("problem"):
         code = output.get("problem_code")
         problem = PROBLEMS.get(code, output["problem"])
-        draft.song_study = {**kept, "problem": problem, "problem_code": code}
+        draft.song_study = {**found, "attempt": {**attempt, "problem": problem,
+                                                 "problem_code": code}}  # fmt: skip
         return
     ids = output.get("file_ids", [])
     frames = [{"file_id": i, "t": t} for i, t in zip(ids, output["frame_times"], strict=False)]
-    found = {k: output[k] for k in ("seconds", "bpm", "sections", "lines", "words")}
-    draft.song_study = {**kept, **found, "frames": frames, "use_as_guide": True}
+    stale = [*found.get("stale_frames", []), *(f["file_id"] for f in found.get("frames", []))]
+    draft.song_study = {
+        **{k: attempt[k] for k in ("job_id", "source", "link")},
+        **{k: output[k] for k in ("seconds", "bpm", "sections", "lines", "words")},
+        "frames": frames, "use_as_guide": True, "stale_frames": stale,
+    }  # fmt: skip
+
+
+def _attempt_out(db: Session, attempt: dict) -> StudyAttempt | None:
+    """The attempt's state; None once cancelled (as if never pressed) or when there's none."""
+    if not attempt:
+        return None
+    fields = {k: attempt.get(k) for k in ("source", "link")}
+    if attempt.get("problem"):
+        return StudyAttempt(**fields, status="failed", problem=attempt["problem"],
+                            problem_code=attempt.get("problem_code"))  # fmt: skip
+    job = db.get(Job, attempt.get("job_id") or 0)
+    if job is None or job.status in WAITING:
+        state = job and StudyJob(id=job.id, status=str(job.status), started_at=job.started_at)
+        return StudyAttempt(**fields, status="studying", job=state)
+    if job.status == JobStatus.cancelled:
+        return None
+    gone = StudyJob(id=job.id, status="failed", started_at=job.started_at)
+    return StudyAttempt(**fields, status="failed", job=gone, problem=FAILED)  # or lost
 
 
 def shown(db: Session, draft: ScriptDraft) -> SongStudyOut | None:
-    """What the version's card shows; None when there's no study, or it was removed."""
-    found = draft.song_study
-    if not found or found.get("removed_at"):
+    """What the version's card shows; None when there's nothing (or only a cancelled try),
+    or the study was removed."""
+    found = draft.song_study or {}
+    attempt = _attempt_out(db, found.get("attempt") or {})
+    if _finished(found):
+        return SongStudyOut(**{**found, "attempt": attempt}, status="done")
+    if found.get("removed_at") or attempt is None:
         return None
-    if found.get("problem"):
-        return SongStudyOut(**found, status="failed")
-    if found.get("seconds") is not None:
-        return SongStudyOut(**found, status="done")
-    job = db.get(Job, found.get("job_id") or 0)
-    if job is None:
-        return SongStudyOut(**found, status="studying")
-    if job.status in WAITING:
-        state = StudyJob(id=job.id, status=str(job.status), started_at=job.started_at)
-        return SongStudyOut(**found, status="studying", job=state)
-    gone = StudyJob(id=job.id, status="failed", started_at=job.started_at)
-    return SongStudyOut(**found, status="failed", job=gone, problem=FAILED)  # or cancelled, lost
+    return SongStudyOut(**attempt.model_dump())
 
 
 def guide(draft: ScriptDraft) -> dict | None:
     """The study the song directions follow (flows S3a "Used as a guide"), or None."""
     found = draft.song_study or {}
-    usable = found.get("seconds") is not None and not found.get("removed_at")
-    return found if usable and found.get("use_as_guide") else None
+    return found if _finished(found) and found.get("use_as_guide") else None
 
 
 def set_guide(db: Session, draft: ScriptDraft, on: bool) -> None:
-    found = draft.song_study or {}
-    if found.get("seconds") is None or found.get("removed_at"):
+    if not _finished(draft.song_study or {}):
         raise HTTPException(409, "There's no finished study to use.")
     draft.song_study = {**draft.song_study, "use_as_guide": on}
     db.commit()
 
 
 def remove(db: Session, draft: ScriptDraft, back: bool = False) -> None:
-    """Remove (Undo: back=True). Its frames stay until a new study replaces it."""
-    if not draft.song_study:
+    """Remove the finished study (Undo: back=True). Its frames stay until the next press."""
+    found = draft.song_study or {}
+    if found.get("seconds") is None:
         raise HTTPException(404, "There's no song ad study here.")
     if not back and busy(db, draft):
-        raise HTTPException(409, "It's still being studied. Cancel it instead.")
-    draft.song_study = {**draft.song_study, "removed_at": None if back else utcnow().isoformat()}
+        raise HTTPException(409, "A newer study is still running. Cancel it first.")
+    draft.song_study = {**found, "removed_at": None if back else utcnow().isoformat()}
     db.commit()

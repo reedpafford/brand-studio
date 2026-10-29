@@ -97,7 +97,14 @@ def test_an_uploaded_song_ad_is_studied_for_free(app, db, owner, song, clip):
     version = owner.get(f"/scripts/{song}").json()["versions"][0]
     assert (version["text"], version["style_line"]) == (LYRICS.strip(), "pop")  # rule 19
 
-    old_frames = [f["file_id"] for f in study["frames"]]  # a new study replaces it
+    old_frames = [f["file_id"] for f in study["frames"]]  # a new study replaces it once saved
+    assert _upload(owner, song, clip).status_code == 201
+    assert _study(owner, song)["attempt"]["status"] == "studying"
+    _work(app, db)
+    db.expire_all()
+    newer = _study(owner, song)
+    assert newer["attempt"] is None and newer["frames"][0]["file_id"] not in old_frames
+    assert all(db.get(StoredFile, i) for i in old_frames)  # the next press deletes them
     assert _upload(owner, song, clip).status_code == 201
     db.expire_all()
     assert all(db.get(StoredFile, i) is None for i in old_frames)
@@ -219,3 +226,27 @@ def test_a_failed_studys_upload_is_tidied_when_replaced(app, db, owner, song, cl
     assert _upload(owner, song, clip).status_code == 201
     db.expire_all()
     assert db.get(StoredFile, upload_id) is None
+
+
+def test_a_failed_or_cancelled_restudy_keeps_the_good_study(app, db, owner, song, clip):
+    _upload(owner, song, clip)
+    _work(app, db)
+    good = _study(owner, song)
+    draft_id = db.query(ScriptDraft).filter_by(script_id=song, slot=0).one().id
+    url = f"/scripts/{song}/drafts/0/song-study"
+
+    owner.post(url, data={"url": "https://www.instagram.com/reel/DehudnaAmce/"})  # can't fetch
+    _work(app, db)
+    db.expire_all()
+    study = _study(owner, song)
+    assert study["status"] == "done" and study["frames"] == good["frames"]  # A still shows
+    assert study["attempt"]["status"] == "failed"
+    assert study["attempt"]["problem"] == song_study.PROBLEMS["blocked"]
+    assert song_study.guide(db.get(ScriptDraft, draft_id))["seconds"] == good["seconds"]
+    assert all(owner.get(f"/files/{f['file_id']}").status_code == 200 for f in good["frames"])
+
+    job = _upload(owner, song, clip).json()  # a cancelled try is as if never pressed
+    assert owner.post(f"/jobs/{job['id']}/cancel").status_code in (200, 204)
+    study = _study(owner, song)
+    assert study["status"] == "done" and study["attempt"] is None
+    assert owner.delete(url).status_code == 204  # nothing running now

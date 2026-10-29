@@ -3694,7 +3694,7 @@ export interface paths {
         /**
          * Study Song Ad
          * @description Study a song ad from a reel link or an uploaded video (free). It replaces the version's
-         *     study; 409 while one is being studied.
+         *     study once it saves (a failed one leaves it); 409 while one is being studied.
          */
         post: operations["study_song_ad_scripts__script_id__drafts__slot__song_study_post"];
         /**
@@ -6074,7 +6074,12 @@ export interface components {
              */
             guessed: boolean;
         };
-        /** SongStudyOut */
+        /**
+         * SongStudyOut
+         * @description The version's study. With no finished study, the status and its fields are the newest
+         *     attempt's; with one, it shows (done) and a newer attempt still running or failed is in
+         *     `attempt` (Flow-QA: a failed re-study never takes the good one away).
+         */
         SongStudyOut: {
             /**
              * Status
@@ -6125,6 +6130,7 @@ export interface components {
             problem: string;
             /** Problem Code */
             problem_code?: string | null;
+            attempt?: components["schemas"]["StudyAttempt"] | null;
         };
         /** SongTakeOut */
         SongTakeOut: {
@@ -6203,6 +6209,32 @@ export interface components {
              * @default false
              */
             per_shot: boolean;
+        };
+        /**
+         * StudyAttempt
+         * @description A newer study that hasn't replaced the one shown: still running, or failed.
+         */
+        StudyAttempt: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "studying" | "failed";
+            job?: components["schemas"]["StudyJob"] | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "link" | "upload";
+            /** Link */
+            link?: string | null;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Problem Code */
+            problem_code?: string | null;
         };
         /** StudyFrame */
         StudyFrame: {
