@@ -31,13 +31,13 @@ function renderAt(path: string) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("the list shows each video with its credits, says when it is nearly or over budget, and marks one held from before as Not started", async () => {
+test("the list shows each video with its credits, says when it is nearly or over budget, and marks one held from before as waiting for the owner", async () => {
   fakeServer({ ...base, "GET /projects": [200, [project, { ...project, id: 10, name: "Long one", status: "needs_owner_approval", budget_pct: 110 }]] });
   renderAt("/b/1/projects");
   expect(await screen.findByText("Mia buys the dip")).toBeInTheDocument();
   expect(screen.getByText("412 of 660 credits")).toBeInTheDocument();
   expect(screen.getByText(/Over budget/)).toBeInTheDocument();
-  expect(screen.getByText("Not started")).toBeInTheDocument();
+  expect(screen.getByText("Waiting for the owner's OK")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
