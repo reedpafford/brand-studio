@@ -13,7 +13,7 @@ import { useProduction, useProductionSummary, type Row, type Sort, type Step } f
 import { serverTime } from "../time";
 import { linkText } from "../ui";
 
-const STEPS: Record<Step, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
+const STEPS: Record<Step, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
 const SORTS: { id: Sort; label: string }[] = [
   { id: "attention", label: "Needs attention first" },
   { id: "activity", label: "Last activity" },

@@ -215,3 +215,17 @@ export function SongSetting({ project: p, hasShots = true, hasClips = true }: { 
     </>
   );
 }
+
+/** A song shot's place in the song, in the Breakdown row: "0:00–0:04", Sung or B-roll, and Timing guessed (flows V2).
+ * A shot the timing doesn't cover yet (just added or split) says "Needs timing" instead of a made-up time. */
+export function SongShotTime({ part, shotId }: { part: components["schemas"]["SongPart"]; shotId: string }) {
+  const t = part.shots[shotId];
+  if (!t) return <Badge tone="warning">Needs timing</Badge>;
+  return (
+    <>
+      <span className="tabular-nums">{clock(t.start)}–{clock(t.end)}</span>
+      <Badge tone={t.sung ? "accent" : undefined}>{t.sung ? "Sung" : "B-roll"}</Badge>
+      {t.guessed && <Badge tone="warning">Timing guessed</Badge>}
+    </>
+  );
+}

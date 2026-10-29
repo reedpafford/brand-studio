@@ -21,6 +21,21 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n04 | Song-ad study (S3a): `script_drafts.song_study` JSON, default null | Builder-Server-7 | — |
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
 | n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, new `item_checks`; existing videos planned from their breakdown | Builder-Server-8 | — |
+| n07 | Format and Look step 1: `scripts.look`, `projects.look` (text, default `house`), new `look_switches` {workspace_id, look_id, on, sample_still_id, sample_clip_id, switched_by_id, switched_at} | Next-Server | — |
+
+## Merge order (the chain on `next`)
+
+Numbers are names, not an order. Each migration's `down_revision` is the head on `next` when it merges, so the chain stays one line. When one merges, Next-Lead tells the next owner to set their `down_revision` to it.
+
+| Turn | Migration | PR | `down_revision` | State |
+|---|---|---|---|---|
+| — | n01 | #748 | 0053 | On `next` |
+| 1 | n02 | #829 | n01 | Open, merges first |
+| 2 | n04 | #851 | n02 (currently says n01: change it when #829 lands) | Open |
+| 3 | n05 | Next-Server, narrated PR 1 | the head then (n04 if #851 is in) | Not open |
+| 4 | n06 | Builder-Server-8, 1b PR 1 | the head then | Not open |
+| 5 | n07 | Next-Server, Format and Look PR 1 | the head then | Not open |
+| — | n03 | Next-Server, flavours | the head when it's built | Not started |
 
 ## 1. Song ads
 
@@ -56,4 +71,4 @@ Code notes for Next-Server (not tables):
 
 ## 2–6. Later items
 
-Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; a `looks/` folder, `look` text on `scripts` and `projects`, default `house`, and per-look sheets as library versions; Format is `scripts.kind`, above), brand setup (new brand columns, `never_say` moving into `dont_list`), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).
+Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; looks read from the existing `server/app/prompts/styles/` files (kind: look; the folder keeps its name, the screens say Look), `look` text on `scripts` and `projects`, default `house`, `look_switches` for On/Off (n07), and per-look sheets as library versions; Format is `scripts.kind`, above), brand setup (new brand columns, `never_say` moving into `dont_list`), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).

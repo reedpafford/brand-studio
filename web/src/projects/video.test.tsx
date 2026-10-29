@@ -52,7 +52,7 @@ test("the five steps, and Storyboard waits until every asset is approved", async
   fakeServer(base);
   open();
   const steps = await screen.findByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d/, ""))).toEqual(["Plan", "Cast", "Storyboard", "Clips", "Downloads"]);
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d/, ""))).toEqual(["Plan", "Cast", "Storyboard", "Clips", "Final cut"]);
   expect(within(steps).getByRole("button", { name: "Storyboard" })).toHaveAccessibleDescription(/Approve the cast first \(1 left\)/);
   expect(screen.getByRole("button", { name: /Next: Storyboard/ })).toBeDisabled();
 });
@@ -184,12 +184,15 @@ test("one-press Make storyboard is off for an editor when the writing plus the s
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });
 const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
 
-test("Downloads: the zip, the picked take and the older take each download", async () => {
+test("Final cut: Download MP4 is the one amber; the zip, the picked take and the older take each download", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
   const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
   expect(zip).toHaveAttribute("href", "/api/projects/9/clips.zip");
+  expect(zip.className).not.toContain("bg-accent ");
+  expect(screen.getByRole("link", { name: "Download MP4" }).className).toContain("bg-accent ");
+  expect(screen.getByText("Final cut ready")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Download clip 1 (bo-tries-salmon-b-clip-1.mp4)" })).toHaveAttribute("href", expect.stringContaining("/files/52"));
   expect(screen.getByText("Older takes (1)")).toBeInTheDocument();
   expect(screen.getByText(/Take 1 · made \d{1,2}:41/)).toBeInTheDocument();
@@ -226,7 +229,7 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
   expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
 });
 
-test("Downloads puts the clips together by itself the first time, for free", async () => {
+test("Final cut puts the clips together by itself the first time, for free", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
@@ -245,15 +248,16 @@ test("a video made from a library version opens on the new page", async () => {
     </QueryClientProvider>,
   );
   expect(await screen.findByRole("heading", { name: "Plan", level: 2 })).toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Downloads");
+  expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Final cut");
 });
 
-test("on a phone the zip button sits in the action bar", async () => {
+test("on a phone Download MP4 sits in the action bar", async () => {
   setViewport(390);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
-  const zip = await screen.findByRole("link", { name: "Download all clips (.zip)" });
-  expect(zip.closest(".border-t.text-center")).not.toBeNull();
+  const mp4 = await screen.findByRole("link", { name: "Download MP4" });
+  expect(mp4.closest(".border-t.text-center")).not.toBeNull();
+  expect(screen.getByRole("link", { name: "Download all clips (.zip)" }).closest(".border-t.text-center")).toBeNull();
   expect(screen.getByText("Made from: Clip 1 Take 2")).toBeInTheDocument();
 });
 
@@ -1352,6 +1356,14 @@ test("the credits meter follows the video's jobs: when one finishes, the project
   done = true; // the job finishes; the job list polls while it runs
   expect(await screen.findByText(/^13 \/ 24 credits/, {}, { timeout: 8000 })).toBeInTheDocument();
 }, 20000);
+
+test("the video's back link says where it goes: this brand's videos", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/scripts?view=videos");
+  expect(screen.queryByRole("button", { name: /^Brand: |Choose a brand/ })).toBeNull(); // no brand bar inside a video on a phone
+});
 
 test("Storyboard's counts are said once, in the step heading's line", async () => {
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, []] });

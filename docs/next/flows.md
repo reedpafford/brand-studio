@@ -435,7 +435,7 @@ For every format, look and brand (fomo included). Built and tested on Next first
   - Wherever this file says "the Breakdown step", read Plan → Shots; "Assets", read Cast.
   - **Old links:** `?step=breakdown` opens Plan on Shots, `?step=assets` opens Cast, and bookmarks, notifications and "Needs you" links follow. A link to Shots before the plan is approved opens Scenes, with "Approve the plan first".
   - **The step's ✓:** Plan is done when the plan is approved and its shots are made.
-- **Existing videos** (made before this ships, on Next and later on live): a video that already has a breakdown gets a plan read from that breakdown, in code and free (one scene per breakdown scene, its lines and its actions as written). The plan is marked "Approved · from the breakdown", and nothing goes out of date. Its Plan step shows ✓, so no existing video is blocked or charged. A video with no breakdown yet opens on Plan.
+- **Existing videos** (made before this ships, on Next and later on live): a video that already has a breakdown gets a plan read from that breakdown, in code and free (one scene per breakdown scene, its lines and its actions as written). The plan reads "Approved · made from this video's breakdown", with a muted line "This video started before plans existed" (UX-Auditor PL3). P1's Advice checks don't run on these plans, and nothing goes out of date. Its Plan step shows ✓, so no existing video is blocked or charged. A video with no breakdown yet opens on Plan.
 
 ## P1. The scene plan (Plan step)
 
@@ -453,7 +453,7 @@ For every format, look and brand (fomo included). Built and tested on Next first
 
 | State | What they see | The one press |
 |---|---|---|
-| E (no plan yet) | "Turn the script into scenes: where each line happens and what we see." The price. If the published version has the owner's approved plan, the video opens on Plan already **Approved**, labelled "From Reed's plan" (free); the editor re-approves only after changing it. | **Make the plan · N credits** (one Claude call; the price as every press, rule 22). |
+| E (no plan yet) | "Turn the script into scenes: where each line happens and what we see." The price. If the published version has the owner's approved plan, the video opens on Plan already **Approved**, labelled "From Reed's plan" (free), and the step picker shows "Plan ✓ · Reed's" (PL4); the editor re-approves only after changing it. | **Make the plan · N credits** (one Claude call; the price as every press, rule 22). |
 | Q/R | "Making the plan…" with a timer. "You can leave this page." | Cancel (before it starts). |
 | Ready to check | The structure line, the cast, then one card per scene (place, lines, actions, ★ marks, who's in it). A count: "9 scenes · every line used once · the product in 4". | **Approve the plan · makes the shots · N credits** (the step's one amber: it approves and makes the shots in one press, at the breakdown's price as today). Then Shots opens. |
 | Approved | ✓ on the step. "Approved by Ana · 2 min ago". Each card is still readable and editable (see Editing). | **Next: Breakdown**. |
@@ -465,7 +465,7 @@ For every format, look and brand (fomo included). Built and tested on Next first
 | X | "Claude won't plan this: [its reason, one line]." With its free repair when there is one (e.g. a claim to soften in the brand notes). Otherwise the editor writes the scenes by hand: **Write it myself** (an empty card per line group, free). | The repair, or **Write it myself**. |
 | B | Editor past the week, or the video past its budget: the paid presses say why and are disabled. Editing, approving, Write it myself and Earlier plans stay free. | — |
 | Owner vs editor | The editor plans their own video. The owner can plan any video, and plans the script in S6 (the start for every new video of that version). A published script's plan is read only on the script (rule 31); each video's plan is that video's own. | — |
-| P (phone) | One scene card per screen width, stacked. The Approve bar is fixed at the bottom. Edit opens full screen. Move and Split are in a "…" menu on the card. | — |
+| P (phone) | One scene card per screen width, stacked. The Approve bar is fixed at the bottom. Edit opens full screen. Tapping a line opens a sheet with **Move to scene N−1**, **Move to scene N+1**, **Start a new scene here** and **★ / un-★**: one press each, with Undo (PL1). **Join with next** is in the card's "…". | — |
 | Going back | Opening Plan from a later step is always allowed and read only until **Edit**. Editing an approved plan after the breakdown exists asks first, naming what goes out of date: "Change the plan? The breakdown goes out of date (3 shots, 2 clips after it). Your current final cut stays downloadable." Not yet / Change. | **Change**. |
 | Out of date | The script's words changed after the plan was made (owner, draft only): "Made for older words". The scenes are kept. | **Update the plan · N credits** (keeps the scenes whose lines didn't change), or **Make a new plan**. |
 
@@ -486,10 +486,10 @@ For every format, look and brand (fomo included). Built and tested on Next first
 
 | Case | What happens | What they see |
 |---|---|---|
-| A take refused by the video service | It's tried again once on its own, with the refusal's free repair applied (the same rewording the free fix offers today). Free: a refusal is never charged. | On the card: "Making… (tried again on its own: the first try was refused)". |
-| "Service busy" or the service didn't answer | It's tried again once on its own, after a short wait. Credits are held once, and returned if both tries fail. | "Making… (tried again on its own: the service was busy)". |
+| A take refused by the video service | It's tried again once on its own, with the refusal's free repair applied (the same rewording the free fix offers today). Free: a refusal is never charged. | On the card: "Making… (tried again on its own: the first try was refused)". After it finishes, a muted line stays: "Tried again once on its own (refused)" (PL9). |
+| "Service busy" or the service didn't answer | It's tried again once on its own, after a short wait. Credits are held once, and returned if both tries fail. | "Making… (tried again on its own: the service was busy)". After, the muted "Tried again once on its own (busy)" stays (PL9). |
 | Both tries fail | Nothing more runs on its own. | As today: "Didn't finish · credits returned" or "Refused", with the free fix and **Make another take**. |
-| A clip-prompt wording flag (a banned word in a picture description, a spoken-line mark, a text-on-screen line) | Fixed in code when the prompt is written. The spoken words are never touched (rule 19). | Under the prompt: "Fixed for you: removed 'logo text'." **Undo** (puts the original back, and the flag comes back as Advice). |
+| A clip-prompt wording flag (a banned word in a picture description, a spoken-line mark, a text-on-screen line) | Fixed in code when the prompt is written. The spoken words are never touched (rule 19). | On the card (not under the collapsed prompt): "Fixed for you: removed 'logo text'." **See the change** and **Undo** (puts the original back, and the flag comes back as Advice) (PL10). |
 | A fix that would change spoken words | Never made on its own. | Advice as today. |
 
 Never automatic: a second retry, a paid redo, a change to the words, a change to an approved item.
@@ -501,21 +501,21 @@ After each still and each take finishes, a check compares it with the cast's cha
 | State | What they see | The one press |
 |---|---|---|
 | Checking | A small "Checking…" under the item. It never blocks: Approve works while it runs. | — |
-| Nothing found | "Checked · matches the sheets" (muted). | — |
-| Advice | One line per finding, each naming what and who: "Mia's face may differ from her sheet", "The outfit changed: the red bandana is missing", "The bag's label isn't readable". Each has a ready-written note. | **Change this…** (opens today's change box with the note filled in, at its usual price), or **Looks fine** (dismisses it; kept in the item's history). |
+| Nothing found | No line: "✓ checked" sits inside the item's status chip (PL5). | — |
+| Advice | A quiet **"2 notes"** chip on the card, never a failure colour; it opens a panel (desktop) or a sheet (phone) (PL6). Inside, one line per finding, each naming what and who: "Mia's face may differ from her sheet", "The outfit changed: the red bandana is missing", "The bag's label isn't readable". Each has a ready-written note. | **Change this…** (opens today's change box with the note filled in, at its usual price), or **Looks fine** (dismisses it; kept in the item's history). |
 | Check failed | "Couldn't check this one." (muted). Nothing charged. | — |
-| Over budget | Checks are skipped: "Not checked: the video is at its budget." Nothing blocks. | — |
+| Over budget | Checks are skipped. "Not checked: the video is at its budget" shows once in the step's summary line, not on every card (PL7). Nothing blocks. | — |
 | Approve all | Approves everything, flagged or not. The summary says "2 approved with Advice", with links. | — |
 | Owner vs editor | The same for both. The owner sees flagged items in Review too (below). | — |
 | P | The Advice lines sit under the still or take, with the two presses side by side. | — |
 
 It never blocks, never redoes anything on its own, and never changes an approval. Rule 11 is replaced by this on live only once it ships from Next (ops/DECISIONS.md); until then live keeps rule 11.
 
-**Review.** The video's flagged items are listed in one place (on the Clips step's header, and on Final cut before **Make the video**): "3 items with Advice", each linking to its card. Watching the final video stays with people.
+**Review.** One list of the video's flagged items, opened from the same **"3 items with Advice ▸"** chip in the Storyboard, Clips and Final cut headers. Each item links to its card. On Final cut the list is open by default, above Download (PL8). The step summary line reads "AI check: 3 notes on 2 clips". Watching the final video stays with people.
 
 ## P5. Open for Reed
 
-1. **One-press approvals on Storyboard and Clips.** Reed's list of what stays with people names the plan, the looks and the final video. Should stills and takes then be approved automatically once checked, leaving Advice items for a person, or keep today's per-item approval with Approve all? This map keeps today's approvals until Reed says. **Needs Reed's OK.**
+1. **One-press approvals on Storyboard and Clips.** UX-Auditor recommends yes (docs/next/ux-audit.md §7.2): stills and takes that check clean approve on their own, items with Advice wait for a person, and Approve all stays. After Cast there's one priced **Make the video · N** in the cost bar. Rule 21 would become: prompts are shown and changeable before takes, with an optional "Check prompts before takes" setting (default off). Reed's list of what stays with people names the plan, the looks and the final video. Should stills and takes then be approved automatically once checked, leaving Advice items for a person, or keep today's per-item approval with Approve all? This map keeps today's approvals until Reed says. **Needs Reed's OK.**
 2. **Proven patterns.** The Director keeps a short list of structures per genre (pet supplement, app, food…). The plan names the one it used. Reed may want to see the list.
 
 ---
@@ -527,13 +527,13 @@ It never blocks, never redoes anything on its own, and never changes an approval
 - **Look** is how the pictures are drawn: **House** (the default, our current look), **Disney Pixar**, **Zack D** or **Skeleton**, then the rest in Reed's order.
 - Any format goes with any look. "Song" is no longer in the styles list, and no look is "narrated" any more: narration is the Narrated format.
 
-A look is a config file in a `looks/` folder, not code. A look is **On** (editors can pick it) only after Reed has approved a sample. Below, "style" in ST2 and ST3 means a look.
+A look is a config file (in `server/app/prompts/styles/`, kind: look), not code. A look is **On** (editors can pick it) only after Reed has approved a sample. Below, "style" in ST2 and ST3 means a look.
 
 ## ST0. Changing the format (before publishing)
 
 | State | What they see | The one press |
 |---|---|---|
-| E | The script header shows "Format: Dialogue · Look: House". | Tap Format → the three formats. |
+| E | On a draft the header reads **"Dialogue ▾ · House ▾"**. Format is a picker only for Dialogue ↔ Narrated; a song shows a plain **"Song"** chip. Both are plain text once published (PL11). | Tap the format → Dialogue or Narrated. |
 | Dialogue ↔ Narrated | Same words, different steps. Confirm: "Make this Narrated? One voice will read it; Cast keeps its roles but nobody speaks on camera." Undo. A narration already made is kept for when it comes back. | **Change**. |
 | To or from Song | Not offered: a song's words are lyrics (rules 19 and 31). "To try this as a song, start a song script." | **Start a song script** (opens S1 with Song picked). |
 | Published | Read only. | — |
@@ -556,7 +556,7 @@ Where: the script's header, next to the title ("Look: House ▾"), for every for
 | U | Undo in the toast after a change; changing back is free and the earlier looks come back (they're kept per look). | — |
 | Published | Read only on the script; the video's own look can still be set in Video settings (item 4, VS1). | — |
 
-Where the pickers show: the script header (Format and Look), New script (Format only), Video settings (Look only: a video can't change format), and the Styles page, renamed **Looks** (owner, ST3).
+Where the pickers show: the script header ("Dialogue ▾ · House ▾", ST0), New script (Format only), Video settings (Look only: a video can't change format), and the Styles page, renamed **Looks** (owner, ST3).
 
 ## ST2. What a look changes downstream
 

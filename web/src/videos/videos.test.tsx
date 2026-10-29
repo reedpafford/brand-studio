@@ -46,22 +46,23 @@ test("Scripts · Videos switch: Videos lists the brand's videos with their statu
   expect(within(old).getByText("Archived")).toBeInTheDocument();
   expect(screen.getByText(/On your week/)).toBeInTheDocument();
   expect(screen.getAllByText("In production").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("Video done").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("Finished").length).toBeGreaterThan(0);
   expect(screen.getByText("3 videos")).toBeInTheDocument();
   expect(screen.getByRole("navigation", { name: "View" })).toBeInTheDocument();
 });
 
-test("a finished video whose clips changed since says Finished · changes waiting, not Video done, and opens at Clips (#749 LW2)", async () => {
+test("a finished video whose clips changed since says Finished · changes waiting, not plain Finished, and opens at Clips (#749 LW2)", async () => {
   setViewport(390);
   fakeServer(base(editor, [video({ id: 10, name: "Bo tries tuna · A", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: true }), video({ id: 12, name: "Bo tries cod · C", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: false })]));
   open();
   const changed = await screen.findByRole("link", { name: /Bo tries tuna · A/ });
   expect(changed).toHaveAttribute("href", "/b/1/videos/10?step=clips");
   expect(within(changed).getByText("Finished · changes waiting")).toBeInTheDocument();
-  expect(within(changed).queryByText(/Video done/)).toBeNull();
+  expect(within(changed).queryByText("Finished")).toBeNull();
   const done = screen.getByRole("link", { name: /Bo tries cod · C/ });
   expect(done).toHaveAttribute("href", "/b/1/videos/12?step=downloads");
-  expect(within(done).getAllByText(/Video done/).length).toBe(2);
+  expect(within(done).getByText("Finished")).toBeInTheDocument(); // the badge
+  expect(within(done).getByText(/· Finished · /)).toBeInTheDocument(); // the meta line
 });
 
 test("a row shows its newest still as the poster and the step it is at, or when it was done", async () => {
@@ -71,7 +72,7 @@ test("a row shows its newest still as the poster and the step it is at, or when 
   const row = (await screen.findByRole("link", { name: /Bo tries salmon · B/ })) as HTMLElement;
   expect(within(row).getByText(/At Storyboard/)).toBeInTheDocument();
   expect(row.querySelector("img")?.getAttribute("src")).toContain("/files/77");
-  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Video done · /)).toBeInTheDocument();
+  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Finished · /)).toBeInTheDocument();
   const bare = screen.getByRole("link", { name: /No stills yet/ });
   expect(within(bare).getByText(/At Plan/)).toBeInTheDocument();
   expect(bare.querySelector("img")).toBeNull();

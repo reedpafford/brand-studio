@@ -5,7 +5,6 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-r
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Skeleton, StepPicker } from "../components";
-import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { useFreshProject } from "./useFreshProject";
 import { AssetsPane, useAssets } from "./AssetsPane";
@@ -16,7 +15,8 @@ import { useBriefChoices } from "./BriefPickers";
 import { ClipsPane } from "./ClipsPane";
 import { DownloadsPane } from "./DownloadsPane";
 
-import { Meter, WaitingBadge } from "./Meter";
+import { WaitingBadge } from "./Meter";
+import { CostBarProvider, type CostAction } from "./CostBar";
 import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
@@ -94,11 +94,8 @@ export function VideoPage() {
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
   const next = videoNext(step);
   const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
-  const nextButton = next && !(step === "plan" && dirty && !rail) && (
-    <Button disabled={reason !== null} reason={reason} onClick={() => pick(next.id)}>
-      Next: {next.label}
-    </Button>
-  );
+  // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
+  const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.label}`, reason, onPress: () => pick(next.id) } : null;
   // Release while it is being made; Archive once it is done. An archived video is read-only until it is restored.
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used };
@@ -110,26 +107,20 @@ export function VideoPage() {
     step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : null;
 
   return (
+    // One cost bar at the bottom: the budget (or the editor's week), what finishing costs, and the step's press (audit M1).
+    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} fallback={waiting ? null : nextAction}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
-        <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+        {/* The back link names where it goes: this brand's videos. */}
+        <Link to={`/b/${brandId}/scripts?view=videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
           <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-          Scripts
+          Videos
         </Link>
       </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="min-w-0 break-words type-page">{p.name}</h1>
           {menu}
-        </div>
-        <div className="w-full min-w-0 sm:w-72">
-          {week ? (
-            <p className="text-sm tabular-nums text-muted">
-              This week: {Math.round(week.used)} of {Math.round(week.allowed)} credits
-            </p>
-          ) : (
-            <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
-          )}
         </div>
       </div>
       {video.dialog}
@@ -152,9 +143,6 @@ export function VideoPage() {
           <h2 className="type-section">{label}</h2>
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
         </div>
-        {waiting ? (
-          rail ? <Skeleton className="h-control w-40" /> : <ActionBar phone><Skeleton className="h-control w-full" /></ActionBar>
-        ) : rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
       </div>
       {step === "plan" && (
         <PlanStep
@@ -189,5 +177,6 @@ export function VideoPage() {
         />
       )}
     </main>
+    </CostBarProvider>
   );
 }
