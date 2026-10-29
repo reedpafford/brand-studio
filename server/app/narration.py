@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 from app import song_timing
-from app.prompts.check import LIP_SYNC, SECTION
+from app.prompts import check
 
 KIND = "narration"
 TIMED = ("song", "narrated")  # script kinds whose videos are timed to a take
@@ -26,20 +26,6 @@ FAILED = "The narration didn't finish. Nothing was charged."
 KEPT_PAUSES = "Kept the pauses: trimming would have clipped a word."
 TIMING_FAILED = "We couldn't read this narration's timing. It's free to try again."
 TIMING_UNREADABLE = "This narration's file can't be read. Make the narration again."
-LABEL = re.compile(r"^[A-Z][A-Z .'()-]*:\s*")  # "MOM: " before a spoken line
-HEADING = re.compile(r"^(SCENE|INT\.|EXT\.)")
-
-
-def reads(script: str) -> str:
-    """What the narrator reads: every spoken line as written, without [tags], headings, a
-    speaker's label or the ★ brand mark (one voice reads it all)."""
-    out = []
-    for raw in script.splitlines():
-        line = LIP_SYNC.sub("", raw).strip()
-        if not line or SECTION.match(line) or HEADING.match(line):
-            continue
-        out.append(LABEL.sub("", line.lstrip("★ ").strip()))
-    return "\n".join(x for x in out if x)
 
 
 def sentences(text: str) -> list[str]:
@@ -48,7 +34,7 @@ def sentences(text: str) -> list[str]:
 
 
 def job(script: str, voice: str = VOICE) -> dict:
-    text = reads(script)
+    text = check.narration_text(script)  # the Director's: what the narrator reads
     if not text:
         raise ValueError(NO_WORDS)
     return {"model": MODEL, "input": {"prompt": text, "voice": voice}}

@@ -21,6 +21,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
+from app.prompts import check
 from app.prompts.check import sung_lines
 
 WAITING = (JobStatus.queued, JobStatus.running)
@@ -139,7 +140,7 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
 
     song = db.get(StoredFile, take.file_id)
     kind = "narration_timing" if take.kind == narration.KIND else "song_timing"
-    lyrics = narration.reads(take.lyrics) if take.kind == narration.KIND else take.lyrics
+    lyrics = check.narration_text(take.lyrics) if take.kind == narration.KIND else take.lyrics
     job = enqueue(db, user, kind,
                   {"song_key": song.key, "lyrics": lyrics, "step": "song_timing",
                    "spread": spread},

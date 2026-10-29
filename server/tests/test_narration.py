@@ -6,6 +6,7 @@ import pytest
 from app import narration
 from app.models.jobs import Job
 from app.models.projects import Project
+from app.prompts import check
 from tests.test_song_takes import _work
 
 WORDS = "Your dog's gut is a mess. Iron Paws fixes it.\nLink in my bio!"
@@ -26,9 +27,10 @@ def _words(client, url, text):
     assert client.put(url, json={"text": text}).status_code == 200
 
 
-def test_the_narrator_reads_the_spoken_words_only():
-    script = "[Hook]\nSCENE 1\nMOM: Your dog's gut is a mess.\n★ Iron Paws fixes it."
-    assert narration.reads(script) == "Your dog's gut is a mess.\nIron Paws fixes it."
+def test_the_narrator_reads_the_directors_narration_text():
+    script = "[Hook]\nSCENE 1\nMIA: Your dog's gut is a mess.\n★ Iron Paws\nCTA: Link in bio"
+    made = narration.job(script)
+    assert made["input"]["prompt"] == check.narration_text(script) == "Your dog's gut is a mess."
     assert narration.sentences(WORDS) == [
         "Your dog's gut is a mess.", "Iron Paws fixes it.", "Link in my bio!"
     ]  # fmt: skip
@@ -41,7 +43,7 @@ def test_a_narration_is_made_trimmed_timed_and_used(app, db, owner, narrated):
     assert made.status_code == 201, made.text
     assert [t["status"] for t in made.json()["takes"]] == ["making"]  # one voice call
     job = db.query(Job).filter(Job.kind == "speech").one()
-    assert job.input["input"] == {"prompt": narration.reads(WORDS), "voice": "Sarah"}
+    assert job.input["input"] == {"prompt": check.narration_text(WORDS), "voice": "Sarah"}
     _work(app, db)
     (take,) = owner.get(f"{narrated}/songs").json()["takes"]
     assert take["status"] == "ready" and take["preferred"] and take["kind"] == "narration"
