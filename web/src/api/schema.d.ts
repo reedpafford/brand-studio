@@ -872,7 +872,9 @@ export interface paths {
         put?: never;
         /**
          * Cancel Job
-         * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled.
+         * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
+         *     team may cancel any of them, except a video's: whoever made the video, whoever asked for
+         *     the job, or the owner (as every change to a video).
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
         delete?: never;
@@ -10932,6 +10934,7 @@ export interface operations {
             query?: {
                 brand_id?: number | null;
                 archived?: boolean;
+                item_id?: number | null;
             };
             header?: never;
             path: {
@@ -10963,7 +10966,9 @@ export interface operations {
     };
     create_item_library__kind__post: {
         parameters: {
-            query?: never;
+            query?: {
+                item_id?: number | null;
+            };
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
@@ -11002,7 +11007,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11034,7 +11039,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11064,7 +11069,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11100,7 +11105,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11132,7 +11137,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11162,7 +11167,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11194,7 +11199,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
                 version: number;
             };
             cookie?: never;
@@ -11227,7 +11232,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11265,7 +11270,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11299,7 +11304,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11331,7 +11336,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -11363,7 +11368,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };

@@ -126,6 +126,21 @@ def _mine(db: Session, user: User, project_id: int) -> Project:
     return project
 
 
+WRITES = ("POST", "PUT", "PATCH", "DELETE")
+
+
+def video_writer(
+    request: Request,
+    project_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Every change to a video is for whoever made it, or the owner (as Video settings); other
+    editors can still open and read it. Put on each router whose routes are one video's."""
+    if request.method in WRITES:
+        _mine(db, user, project_id)
+
+
 def get_project(db: Session, user: User, project_id: int) -> Project:
     project = db.get(Project, project_id)
     if not project or project.workspace_id != user.workspace_id:
@@ -378,7 +393,7 @@ def update_project(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    project = get_project(db, user, project_id)
+    project = _mine(db, user, project_id)
     if body.name is not None:
         project.name = body.name
     if body.look is not None:

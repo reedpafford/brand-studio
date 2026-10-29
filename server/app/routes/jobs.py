@@ -303,8 +303,13 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobOut)
 def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Only jobs that haven't started (queued or waiting for approval) can be cancelled."""
+    """Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
+    team may cancel any of them, except a video's: whoever made the video, whoever asked for
+    the job, or the owner (as every change to a video)."""
     job = _get_job(db, user, job_id)
+    project = db.get(Project, job.project_id) if job.project_id else None
+    if project and not (user.is_owner or user.id in (job.created_by_id, project.created_by_id)):
+        raise HTTPException(403, "Only whoever made this video, or the owner, can do that.")
     done = db.execute(  # conditional, so it can't race the worker picking the job up
         update(Job)
         .where(

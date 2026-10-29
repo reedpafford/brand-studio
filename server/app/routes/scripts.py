@@ -14,10 +14,12 @@ from app.docimport import DocumentError, kind_of, to_text
 from app.models.accounts import User
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 from app.schemas import UtcTime
 
-router = APIRouter(prefix="/projects/{project_id}/script", tags=["scripts"])
+router = APIRouter(
+    prefix="/projects/{project_id}/script", tags=["scripts"], dependencies=[Depends(video_writer)]
+)
 MAX_DOC_BYTES = 10 * 1024 * 1024
 MAX_SCRIPT_CHARS = 50_000
 ScriptText = Annotated[
