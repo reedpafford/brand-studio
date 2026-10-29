@@ -8,6 +8,10 @@ from sqlalchemy import select
 
 from app import clip_takes
 from app.models.clips import ProjectClip
+from app.models.projects import Project
+from app.models.script_library import ScriptDraft
+from app.models.songs import SongTake
+from app.routes.project_clips import SONG_CHANGED
 from tests.test_song_takes import _video, _work, song  # noqa: F401 - fixture
 
 
@@ -74,3 +78,22 @@ def test_a_song_video_is_cut_to_the_song(app, db, owner, editor, song, tmp_path)
     other = songs["takes"][1]["id"]
     editor.put(f"{video}/song", json={"take_id": other})  # a new song: make it again
     assert editor.get(f"{video}/video").json()["out_of_date"] is True
+
+
+def test_after_a_song_change_the_old_clips_are_never_cut_to_it(app, db, owner, editor, song):  # noqa: F811
+    video = _video(app, db, owner, editor, song)
+    _clips_made(app, db, editor, video)
+    project = db.get(Project, int(video.rsplit("/", 1)[1]))
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    draft.style_line = "pop fake:long=40"  # a longer take, standing in for another take
+    db.commit()
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    draft.style_line = "pop"
+    longer = db.query(SongTake).order_by(SongTake.id.desc()).first()
+    longer.style_line = "pop"
+    db.commit()
+    assert editor.put(f"{video}/song", json={"take_id": longer.id}).status_code == 200
+    made = editor.post(f"{video}/video")
+    count = len(editor.get(f"{video}/clips").json())
+    assert (made.status_code, made.json()["detail"]) == (409, SONG_CHANGED.format(count))

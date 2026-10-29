@@ -36,6 +36,10 @@ router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
 log = logging.getLogger(__name__)
 # Song videos (flows V6): the reason, nothing charged, and the press that helps
 SONG_CUT_FAILED = "The video couldn't be put together. Nothing was charged. Press Try again."
+SONG_CHANGED = (
+    "{} of the clips were made for the video's earlier song. Press Rewrite clip prompts on "
+    "Clips and remake them, then make the video."
+)
 NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
@@ -559,6 +563,9 @@ def make_video(
     song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
     if song and not all(c.song_slice for c in clips):
         raise HTTPException(409, NOT_TIMED)
+    newest = _newest_breakdown(db, project)
+    if song and (old := sum(_stale(db, c, newest) for c in clips)):  # made for the earlier song
+        raise HTTPException(409, SONG_CHANGED.format(old))
     try:
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
         if song:  # the song is the only sound (flows V6)
