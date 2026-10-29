@@ -58,7 +58,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| V6 song video (#829) | After a song switch, Make video uses clips made for the old take: a 24 s cut under a 40 s song, marked current | Refuse while a clip is out of date for the video's song | #829 at 81fcf9ec |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -155,4 +154,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #818 at 6252911a (wording; names and one rewrite in the job) | 19 checks: names out (3 inputs), fake:three (one rewrite, charged once), fake:three-always (failed, not charged), approved wording, earlier states | PASS; S3a's copy check waits for the study route |
 | 2026-10-29 | #842 at 6695ab56 (KIE adapter for Suno, off) | Off unless BS_KIE_SUNO and KIE_API_KEY; no key in code; mocked network; song tests + my song walks | PASS |
 | 2026-10-29 | #831 at d510f8e5 | 18 inputs (name after a genre word, "the", lowercase bands); test_song (20) | PASS |
+| 2026-10-29 | #829 at 88bbf0ad, #818 at 58d5c209 | Song switch to 40 s then Make video (409, way on), rewrite + remake (40.07 s, current); #818 next merged only | PASS both; note: "1 of the clips were" |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
