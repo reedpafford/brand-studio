@@ -107,11 +107,19 @@ def require_cast_sheets(db, breakdown_data: dict, shot_ids: list[str], known=Non
         require_looks([[i for i in ids if i]], known)
 
 
+NO_LOOK = "no look in this video's look yet"  # an asset line's end: see lookless
+
+
 def lookless(shots: list[list[str]], known: dict) -> list[str]:
     """The names of the roles in these shots (each a list of character ids) that have no
-    approved look yet, each once."""
+    approved look yet, each once. A cast character counts too when it has a House sheet but
+    none in the video's look (storyboard.assets marks it NO_LOOK: sheet_for found neither that
+    look's approved sheet nor the video's own copy), so it's never drawn without one (Flow-QA:
+    Mia, House only, on Pixar). One with no sheet at all is require_sheet's."""
     out = [r.partition(":")[2] for ids in shots for r in ids if r.startswith("unroled:")]
-    for ref in (r for ids in shots for r in ids if r.startswith("slot:")):
+    for ref in (r for ids in shots for r in ids if r.startswith(("slot:", "char:"))):
+        if ref.startswith("char:") and not known.get(ref, ("",))[0].endswith(NO_LOOK):
+            continue
         if ref in known and not known[ref][-1]:
             parts = known[ref][0].split(" | ")
             out.append(parts[2].split(",")[0].strip() if len(parts) > 2 else "A character")

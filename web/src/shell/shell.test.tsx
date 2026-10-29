@@ -192,13 +192,13 @@ test("an editor's account menu has no Team link", async () => {
   expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
 });
 
-test("on desktop the rail has the five brand sections, and Studio (Approvals with its count, In production, Team, Looks, Usage) for Reed only", async () => {
+test("on desktop the rail has the six brand sections, and Studio (Approvals with its count, In production, Team, Looks, Usage) for Reed only", async () => {
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Videos", "Scripts", "Quick clip", "Cast & places", "Brand", "Approvals", "In production", "Team", "Looks", "Usage"]);
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Videos", "Scripts", "Quick clip", "Media", "Cast & places", "Brand", "Approvals", "In production", "Team", "Looks", "Usage"]);
   expect(within(rail).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page");
   expect(await within(rail).findByRole("link", { name: /Approvals/ })).toHaveTextContent("1");
   expect(screen.getAllByRole("link", { name: /Approvals/ })).toHaveLength(2); // the rail item and the top-bar pill both go to /approvals
@@ -210,7 +210,7 @@ test("an editor's rail has no Studio group", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
-  expect(within(rail).getAllByRole("link")).toHaveLength(5);
+  expect(within(rail).getAllByRole("link")).toHaveLength(6);
   expect(within(rail).queryByRole("link", { name: /Approvals|Team/ })).not.toBeInTheDocument();
   expect(screen.queryByText("STUDIO")).not.toBeInTheDocument();
 });

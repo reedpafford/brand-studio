@@ -169,3 +169,13 @@ test("one credit to finish says credit", async () => {
   await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
   expect(await screen.findByText("To finish: about 1 credit (was 24).")).toBeInTheDocument();
 });
+
+test("a look switch names the roles that need a new look in it (ST1)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, roles_needing_look: ["Nate", "Mia"], sung_to_broll: 0 }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
+  await userEvent.click((await screen.findAllByRole("button", { name: "Use this look" }))[0]);
+  const ask = await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
+  expect(await within(ask).findByText("Nate and Mia need a new look, made in Cast.")).toBeInTheDocument();
+});

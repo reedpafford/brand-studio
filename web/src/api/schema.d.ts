@@ -723,6 +723,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/{kind}/{item_id}/sheet/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sheet Versions
+         * @description OR3: the approved sheets, newest first; `preferred` is the one in use for its look.
+         */
+        get: operations["sheet_versions_library__kind___item_id__sheet_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/{kind}/{item_id}/sheet/preferred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Sheet
+         * @description Use this sheet (OR3, the Preferred look): an earlier approved sheet is the one in use
+         *     again, for its look; nothing else of the item changes. Free, never refused over budget.
+         *     The stills and takes drawn from the other sheet read Out of date (N6, drawn_from_older)
+         *     and current again when it comes back. Undo is this press with `was_file_id`.
+         */
+        post: operations["use_sheet_library__kind___item_id__sheet_preferred_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -2703,6 +2746,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/breakdown/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Versions */
+        get: operations["versions_projects__project_id__breakdown_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/breakdown/versions/{version_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Version
+         * @description Go back to this (OR3): an earlier breakdown is the newest again, as a new row copied from
+         *     it (history only grows). Free: never refused over budget, and nothing is rewritten for it.
+         *     Frames and clips made for the one gone back to are current again (they move to the copy);
+         *     those made for the one it replaces read "made for an older breakdown", with their usual
+         *     redo. Undo is this press with `was_id`. Whoever made the video, or the owner.
+         */
+        post: operations["use_version_projects__project_id__breakdown_versions__version_id__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/breakdown/fix-cast": {
         parameters: {
             query?: never;
@@ -2762,6 +2846,48 @@ export interface paths {
          * @description Queue a storyboard call (a paid Claude call). New frames replace the old ones.
          */
         post: operations["make_projects__project_id__storyboard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versions
+         * @description The storyboard in hand first, then the earlier ones, newest first (at most 10).
+         */
+        get: operations["versions_projects__project_id__storyboard_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/storyboard/versions/{index}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Version
+         * @description Go back to this: free, never refused over budget; Undo is index 0 (the one it replaced).
+         *     Waits while a storyboard or a still is being made, so nothing lands on a frame that's gone.
+         *     Whoever made the video, or the owner.
+         */
+        post: operations["use_version_projects__project_id__storyboard_versions__index__use_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2885,8 +3011,10 @@ export interface paths {
         put?: never;
         /**
          * Pick Still
-         * @description Use an earlier still again, with the prompt it was made from (free; the Undo of a
-         *     change). The one it replaces becomes an earlier still.
+         * @description Use an earlier still again, with the prompt it was made from: OR3's Preferred still,
+         *     and the Undo of a change. Free, never refused over budget. The one it replaces becomes an
+         *     earlier still (`was_file_id`: pick it back to undo); a take made from the replaced still
+         *     reads Out of date (clip_prompts.older_still). Whoever made the video, or the owner.
          */
         post: operations["pick_still_projects__project_id__storyboard_frames__frame_id__pick_post"];
         delete?: never;
@@ -3099,6 +3227,29 @@ export interface paths {
          */
         put: operations["edit_clip_projects__project_id__clips__clip_id__put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}/versions/{index}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Version
+         * @description Go back to this (OR3): an earlier version of the prompt is the one in hand again. Free,
+         *     never refused over budget; Undo is index 1 (the one it replaced). Waits while a take or a
+         *     rewrite is being made for this clip, so nothing lands on the wrong version. Whoever made
+         *     the video, or the owner.
+         */
+        post: operations["use_version_projects__project_id__clips__clip_id__versions__index__use_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5039,6 +5190,8 @@ export interface components {
              * @default false
              */
             older_plan: boolean;
+            /** Was Id */
+            was_id?: number | null;
         };
         /** BreakdownReview */
         BreakdownReview: {
@@ -5060,6 +5213,26 @@ export interface components {
             montages: components["schemas"]["Montage"][];
             /** Video File Id */
             video_file_id: number | null;
+        };
+        /**
+         * BreakdownVersionOut
+         * @description OR3 Versions: each saved breakdown, newest first; `current` is the one in use.
+         */
+        BreakdownVersionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Made At
+             * Format: date-time
+             */
+            made_at: string;
+            made_by: components["schemas"]["Maker"] | null;
+            /** Source */
+            source: string;
+            /** Script Version */
+            script_version: number;
+            /** Current */
+            current: boolean;
         };
         /**
          * BulkIn
@@ -5592,6 +5765,8 @@ export interface components {
             /** Redo Blocked */
             redo_blocked?: string | null;
             check?: components["schemas"]["CheckOut"] | null;
+            /** Was File Id */
+            was_file_id?: number | null;
         };
         /** GuideIn */
         GuideIn: {
@@ -6717,6 +6892,95 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** PreferredIn */
+        PreferredIn: {
+            /** File Id */
+            file_id: number;
+            /**
+             * Look Id
+             * @default house
+             */
+            look_id: string;
+        };
+        /** PreferredOut */
+        PreferredOut: {
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Brand Ids
+             * @default []
+             */
+            brand_ids: number[];
+            /**
+             * Image File Ids
+             * @default []
+             */
+            image_file_ids: number[];
+            /**
+             * Outfits
+             * @default []
+             */
+            outfits: components["schemas"]["Outfit"][];
+            /** Voice File Id */
+            voice_file_id?: number | null;
+            /** Source Photo File Id */
+            source_photo_file_id?: number | null;
+            /** Short Description */
+            short_description?: string | null;
+            /** Main Claim */
+            main_claim?: string | null;
+            /** Id */
+            id: number;
+            kind: components["schemas"]["Kind"];
+            /** Version */
+            version: number;
+            /** Sheet File Id */
+            sheet_file_id: number | null;
+            /**
+             * Sheet Status
+             * @enum {string}
+             */
+            sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
+            /** Owner Project Id */
+            owner_project_id?: number | null;
+            /** Owner Script Id */
+            owner_script_id?: number | null;
+            look_fit?: components["schemas"]["LookFitOut"] | null;
+            /**
+             * Sheet Credits
+             * @default 0
+             */
+            sheet_credits: number;
+            /**
+             * Sheet Usual Credits
+             * @default 0
+             */
+            sheet_usual_credits: number;
+            /**
+             * Change Credits
+             * @default 0
+             */
+            change_credits: number;
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
+            /**
+             * Look Sheets
+             * @default {}
+             */
+            look_sheets: {
+                [key: string]: components["schemas"]["LookSheetOut"];
+            };
+            /** Was File Id */
+            was_file_id: number | null;
+        };
         /** PriceOut */
         PriceOut: {
             /** Credits */
@@ -6829,6 +7093,11 @@ export interface components {
             auto_fix?: components["schemas"]["AutoFixOut"] | null;
             /** Look Fix */
             look_fix?: string | null;
+            /**
+             * Versions
+             * @default []
+             */
+            versions: components["schemas"]["PromptVersionOut"][];
         };
         /** ProjectCost */
         ProjectCost: {
@@ -7044,6 +7313,16 @@ export interface components {
          * @enum {string}
          */
         ProjectStatus: "active" | "needs_owner_approval";
+        /** PromptVersionOut */
+        PromptVersionOut: {
+            /** Index */
+            index: number;
+            /** Made At */
+            made_at: string;
+            made_by: components["schemas"]["Maker"] | null;
+            /** Current */
+            current: boolean;
+        };
         /** RateIn */
         RateIn: {
             /** Unit */
@@ -7587,6 +7866,17 @@ export interface components {
             /** Look Id */
             look_id?: string | null;
         };
+        /** SheetVersionOut */
+        SheetVersionOut: {
+            /** File Id */
+            file_id: number;
+            /** Look Id */
+            look_id: string;
+            /** Made At */
+            made_at: string | null;
+            /** Preferred */
+            preferred: boolean;
+        };
         /** Shot */
         Shot: {
             /**
@@ -7998,6 +8288,24 @@ export interface components {
              * @default false
              */
             per_shot: boolean;
+        };
+        /**
+         * StoryboardVersionOut
+         * @description OR3 Versions: the storyboard in hand (`index` null) and the earlier ones (`index`: Go
+         *     back to this).
+         */
+        StoryboardVersionOut: {
+            /** Index */
+            index: number | null;
+            /** Made At */
+            made_at: string;
+            made_by: components["schemas"]["Maker"] | null;
+            /** Frames */
+            frames: number;
+            /** Still File Ids */
+            still_file_ids: number[];
+            /** Current */
+            current: boolean;
         };
         /**
          * StudyAttempt
@@ -10715,6 +11023,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sheet_versions_library__kind___item_id__sheet_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SheetVersionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_sheet_library__kind___item_id__sheet_preferred_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferredIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferredOut"];
                 };
             };
             /** @description Validation Error */
@@ -14606,6 +14982,69 @@ export interface operations {
             };
         };
     };
+    versions_projects__project_id__breakdown_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownVersionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_version_projects__project_id__breakdown_versions__version_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                version_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakdownOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     fix_cast_projects__project_id__breakdown_fix_cast_post: {
         parameters: {
             query?: never;
@@ -14725,6 +15164,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    versions_projects__project_id__storyboard_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryboardVersionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_version_projects__project_id__storyboard_versions__index__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"][];
                 };
             };
             /** @description Validation Error */
@@ -15356,6 +15858,39 @@ export interface operations {
                 "application/json": components["schemas"]["ProjectClipIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_version_projects__project_id__clips__clip_id__versions__index__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app import video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
-from app.clip_prompts import MODERATED, assets
+from app.clip_prompts import MODERATED, assets, prompt_version
 from app.credits import estimate, fits
 from app.db import utcnow
 from app.models.accounts import User
@@ -68,9 +68,12 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
         "model": model.id,
-        "made_with": video_settings.made_with(  # VS1: what the take is made with
-            db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
-        ),
+        "made_with": {  # VS1: what the take is made with; OR3: its prompt's version
+            **video_settings.made_with(
+                db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
+            ),
+            **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
+        },
         "brand_id": project.brand_id,
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "exact_file_ids": exact,
@@ -323,6 +326,9 @@ def pick(clip: ProjectClip, take: ClipTake) -> None:
     clip.picked_take_id, clip.file_id, clip.approved = take.id, take.file_id, False
     if take.prompt is not None:
         clip.prompt = take.prompt
+    v = (take.made_with or {}).get("prompt_version")  # OR3: its version is the one in hand
+    if back := [e for e in clip.prompt_history or [] if e["v"] == v]:
+        clip.prompt_history = [back[0], *(e for e in clip.prompt_history if e["v"] != v)]
 
 
 def stitch(videos: list[bytes], reencode: bool = False) -> bytes:
