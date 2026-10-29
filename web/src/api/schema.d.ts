@@ -6730,6 +6730,7 @@ export interface components {
              * @default []
              */
             scripts: components["schemas"]["MyScript"][];
+            week?: components["schemas"]["MyWeek"] | null;
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -6885,6 +6886,18 @@ export interface components {
              * Format: date-time
              */
             last_activity_at: string;
+        };
+        /**
+         * MyWeek
+         * @description Every charge that counts toward the caller's week, every brand: it adds up to used.
+         */
+        MyWeek: {
+            /** Used */
+            used: number;
+            /** Allowance */
+            allowance: number | null;
+            /** Lines */
+            lines: components["schemas"]["WeekLine"][];
         };
         /** Named */
         Named: {
@@ -9164,6 +9177,13 @@ export interface components {
             songs_note?: string | null;
             /** Song Take Id */
             song_take_id: number | null;
+        };
+        /** WeekLine */
+        WeekLine: {
+            /** Label */
+            label: string;
+            /** Credits */
+            credits: number;
         };
         /** Who */
         Who: {
