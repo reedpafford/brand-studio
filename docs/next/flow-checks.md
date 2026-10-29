@@ -63,6 +63,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S3 claims (#818) | Use, then Undo: "Not checked" stays for words no longer in the lyrics | Claims only while the text is that direction's lyrics | #818 at c3960556 |
 | S3 approved version (#818) | Write 2 song directions charges 3 credits; every Use is refused (approved) | `directions_stop` gives the reason | #818 at c3960556 |
 | S3 refusal text (#816) | A Claude refusal comes as failed + reason; the screen drops the reason | Show `job.reason` | #816 at c7a06758 |
+| S3 names and copies (#819 + #818) | `without_names` and the copy rewrite exist but no job calls them: a sounds-like name still reaches Suno | Wire into the directions job: names out, copy check, one rewrite, else failed and not charged | #819 at a6867f29 |
 | Length note (server, on next) | `check._clock` shows "0:60" and "1:60" (143, 119, 287 words) | Round the total seconds first | next at 66717fc0 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
@@ -143,4 +144,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | 03:50 check-in: #783 at dd8efec0 (next merged in), #777 at 87f75a6c (next merged in), #773 at 4a6152a9 | Song API walks (71 of 72; the one miss is my old S4 U setup), no node_modules link | PASS; #814 is a tool and docs, no app flow |
 | 2026-10-29 | #816 at c7a06758 (S2 length at the pilot's pace; S3 Write 2 song directions, hidden until the route) | Code and vitest (208), tsc, eslint | FAIL: Use this one drops unsaved typing though it says "kept in Undo"; Replace doesn't say takes go out of date |
 | 2026-10-29 | #818 at c3960556 (S3 server: write, use, keep, remove) | API walk on stand-ins: write, Remove/Undo, Write 2 more, empty About, editor over week, failed job, approved version, Undo of Use | FAIL: Undo of Use leaves the claims note; on an approved version the paid press works but Use is refused |
+| 2026-10-29 | #819 at a6867f29 (Director: names out of the style line; study copy check) | Code paths; name removal on 6 inputs; test_song (16) | FAIL: nothing calls the new checks (not #818 either); lowercase names kept; leftovers like "pop , upbeat" |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
