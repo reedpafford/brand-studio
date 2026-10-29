@@ -6,16 +6,13 @@ from pydantic import SecretStr
 
 from app import language_samples, languages
 from app.models.jobs import Job
+from tests.conftest import first_brand
 from tests.test_song_takes import _work
-
-
-def _brand(owner):
-    return owner.get("/brands").json()[0]["id"]
 
 
 def test_a_test_is_written_read_and_approved_then_editors_may_pick_it(app, db, owner, editor):
     app.state.settings.fake_providers = True
-    brand = _brand(owner)
+    brand = first_brand(owner)
     shown = owner.get("/languages/es/sample").json()
     assert shown["status"] == "none" and shown["credits"] > 0 and not shown["language"]["on"]
     assert editor.get("/languages/es/sample").status_code == 403  # the owner's page
@@ -45,7 +42,7 @@ def test_a_test_is_written_read_and_approved_then_editors_may_pick_it(app, db, o
 
 def test_a_rejected_sample_keeps_it_off_with_undo_and_test_again(app, db, owner):
     app.state.settings.fake_providers = True
-    brand = _brand(owner)
+    brand = first_brand(owner)
     early = owner.patch("/languages/fr/sample", json={"rejected": True})
     assert (early.status_code, early.json()["detail"]) == (409, language_samples.NO_SAMPLE)
     owner.post("/languages/fr/sample", json={"brand_id": brand})
@@ -80,7 +77,7 @@ def test_real_tests_on_the_test_site_go_real_until_the_budget(app, db, owner, mo
     settings = app.state.settings
     settings.fake_providers, settings.real_language_samples = True, True
     settings.language_samples_budget_usd = 0.5  # one test (about $0.31)
-    brand = _brand(owner)
+    brand = first_brand(owner)
     assert owner.get("/languages/de/sample").json()["test_site"] == language_samples.REAL_NOTE
     owner.post("/languages/de/sample", json={"brand_id": brand})
     assert db.query(Job).order_by(Job.id.desc()).first().provider == REAL_TESTS
@@ -100,7 +97,7 @@ def test_with_real_tests_on_only_the_test_goes_real_and_no_key_means_a_stand_in(
     settings.fake_providers, settings.real_language_samples = True, True
     settings.language_samples_budget_usd, settings.anthropic_key = 2, SecretStr("")  # no key
     assert isinstance(get_providers(settings)[REAL_TESTS], FakeWriter)
-    brand = _brand(owner)
+    brand = first_brand(owner)
     words = {"brand_id": brand, "title": "Paws", "text": "MAYA: Hi."}
     script = owner.post("/scripts", json=words).json()
     enhance = owner.post(f"/scripts/{script['id']}/drafts/0/enhance")

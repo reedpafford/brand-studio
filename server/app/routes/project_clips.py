@@ -35,7 +35,7 @@ from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.files import StoredFile
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
 from app.models.songs import SongTake
@@ -60,7 +60,6 @@ SONG_CHANGED = (
     "Clips and remake them, then make the video."
 )
 NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class ProjectClipIn(BaseModel):

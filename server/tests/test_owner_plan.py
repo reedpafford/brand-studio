@@ -1,13 +1,8 @@
 """The owner's scene plan on a script version (flows S6, 1b), on the free stand-in writer."""
 
 from app.models.jobs import Job
-from app.providers.fake_local import FakeWriter
-from app.worker import run_once
+from tests.conftest import run_writer
 from tests.test_script_library import SCRIPT, _make
-
-
-def _write(app, db):
-    run_once(db, {"claude": FakeWriter()}, app.state.storage, only={"claude"})
 
 
 def test_the_owners_plan_is_each_new_videos_start(app, owner, editor, db):
@@ -17,7 +12,7 @@ def test_the_owners_plan_is_each_new_videos_start(app, owner, editor, db):
     job = owner.post(url, json={}).json()
     assert db.get(Job, job["id"]).project_id is None  # the version's, from the author's week
     assert owner.get(url).json()["job"]["status"] == "queued"
-    _write(app, db)
+    run_writer(app, db)
     plan = owner.get(url).json()
     assert plan["status"] == "ready" and plan["scenes"] and plan["earlier"] == []
     assert owner.post(f"{url}/approve").json()["status"] == "approved"
@@ -54,7 +49,7 @@ def test_a_preview_made_before_the_plan_never_starts_the_video(app, owner, edito
     url = f"{base}/drafts/0/plan"
     owner.put(f"{base}/drafts/0/breakdown", json=BREAKDOWN)  # the preview, before any plan
     owner.post(url, json={})
-    _write(app, db)
+    run_writer(app, db)
     owner.post(f"{url}/approve")
     version = next(v for v in owner.get(base).json()["versions"] if v["slot"] == 0)
     assert version["preview_older_plan"] is True  # "Make the preview again"
@@ -68,7 +63,7 @@ def test_a_preview_made_before_the_plan_never_starts_the_video(app, owner, edito
     again = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
     plan = f"{again}/drafts/0/plan"
     owner.post(plan, json={})
-    _write(app, db)
+    run_writer(app, db)
     owner.post(f"{plan}/approve")
     owner.post(f"{again}/drafts/0/breakdown")  # the preview films the approved plan
     _run(app, db, FakeClaude(BREAKDOWN))
@@ -99,7 +94,7 @@ def test_a_versions_plan_reads_while_made_and_once_landed(app, owner, db, monkey
     real = plans.job_state
 
     def lands_now(db_, project):
-        _write(app, db)  # the worker, in its own session, mid-request
+        run_writer(app, db)  # the worker, in its own session, mid-request
         return real(db_, project)
 
     monkeypatch.setattr(plans, "job_state", lands_now)

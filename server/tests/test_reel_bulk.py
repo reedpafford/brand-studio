@@ -12,6 +12,7 @@ from app.providers.fake_local import transcript
 from app.providers.local import LocalProvider
 from app.reel import BLOCKED, Refused
 from app.worker import run_once
+from tests.conftest import bulk_scripts
 from tests.test_reel_import import _clip
 
 LINKS = [f"https://www.instagram.com/reel/Reel{n}abc/" for n in range(3)]
@@ -35,13 +36,8 @@ def _drain(app, db, clip: Path, refused: str = ""):
         run_once(db, providers, app.state.storage)
 
 
-def _bulk(client, rows: list[dict]):
-    brand = client.get("/brands").json()[0]["id"]
-    return client.post("/scripts/bulk", json={"scripts": [{"brand_id": brand, **r} for r in rows]})
-
-
 def test_each_link_becomes_a_draft_with_its_own_prep(owner, db):
-    made = _bulk(owner, [{"reel_url": u} for u in LINKS] + [{"title": "Plain"}])
+    made = bulk_scripts(owner, [{"reel_url": u} for u in LINKS] + [{"title": "Plain"}])
     assert made.status_code == 201, made.text
     titles = [s["title"] for s in made.json()]
     assert titles == ["Untitled reel"] * 3 + ["Plain"]
@@ -54,16 +50,16 @@ def test_each_link_becomes_a_draft_with_its_own_prep(owner, db):
 
 
 def test_a_bad_link_or_a_row_with_nothing_refuses_the_whole_request(owner, db):
-    bad = _bulk(owner, [{"reel_url": LINKS[0]}, {"reel_url": "https://x.com/r"}])
+    bad = bulk_scripts(owner, [{"reel_url": LINKS[0]}, {"reel_url": "https://x.com/r"}])
     assert bad.status_code == 422
     assert bad.json()["detail"] == "Row 2: That isn't an Instagram reel link."
-    empty = _bulk(owner, [{"description": "no title, no reel"}])
+    empty = bulk_scripts(owner, [{"description": "no title, no reel"}])
     assert empty.json()["detail"] == "Row 1: Give it a title."
     assert owner.get("/scripts").json() == [] and db.query(Job).count() == 0
 
 
 def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, clip):
-    ids = [s["id"] for s in _bulk(owner, [{"reel_url": LINKS[0]}, {"reel_url": LINKS[1]},
+    ids = [s["id"] for s in bulk_scripts(owner, [{"reel_url": LINKS[0]}, {"reel_url": LINKS[1]},
                                           {"title": "Plain"}]).json()]  # fmt: skip
     waiting = owner.post("/scripts/write", json={"script_ids": ids})
     assert waiting.status_code == 409
@@ -94,7 +90,9 @@ def test_write_all_is_all_or_none_over_reading_too(app, owner, editor, db, clip)
     owner.put(
         "/credits/limits", json={"weekly_quick_clip_credits": 12, "per_video_max_credits": 729}
     )
-    ids = [s["id"] for s in _bulk(editor, [{"reel_url": LINKS[0]}, {"title": "Plain"}]).json()]
+    ids = [
+        s["id"] for s in bulk_scripts(editor, [{"reel_url": LINKS[0]}, {"title": "Plain"}]).json()
+    ]
     _drain(app, db, clip)
     declined = editor.post("/scripts/write", json={"script_ids": ids})
     assert declined.status_code == 409 and "13 credits" in declined.json()["detail"]
@@ -107,8 +105,8 @@ def test_write_all_holds_every_reels_read(app, owner, editor, db, clip):
     owner.put(
         "/credits/limits", json={"weekly_quick_clip_credits": 14, "per_video_max_credits": 729}
     )
-    ids = [s["id"] for s in _bulk(editor, [{"reel_url": u} for u in LINKS[:2]]).json()]
-    plain = _bulk(editor, [{"title": "Plain"}]).json()[0]["id"]
+    ids = [s["id"] for s in bulk_scripts(editor, [{"reel_url": u} for u in LINKS[:2]]).json()]
+    plain = bulk_scripts(editor, [{"title": "Plain"}]).json()[0]["id"]
     _drain(app, db, clip)
     assert editor.post("/scripts/write", json={"script_ids": ids}).status_code == 201
     over = editor.post(f"/scripts/{plain}/write")  # 2 x 7 held, though only 2 watches queued
@@ -119,9 +117,9 @@ def test_write_all_holds_every_reels_read(app, owner, editor, db, clip):
 
 def test_one_bulk_batch_of_reels_at_a_time(app, owner, db, clip):
     """Producer: bulk skips one-prep-per-person, but a second batch waits for the first."""
-    assert _bulk(owner, [{"reel_url": u} for u in LINKS[:2]]).status_code == 201
-    again = _bulk(owner, [{"reel_url": LINKS[2]}])
+    assert bulk_scripts(owner, [{"reel_url": u} for u in LINKS[:2]]).status_code == 201
+    again = bulk_scripts(owner, [{"reel_url": LINKS[2]}])
     assert again.status_code == 409 and "still being prepared" in again.json()["detail"]
-    assert _bulk(owner, [{"title": "Plain"}]).status_code == 201  # no reels: not held up
+    assert bulk_scripts(owner, [{"title": "Plain"}]).status_code == 201  # no reels: not held up
     _drain(app, db, clip)
-    assert _bulk(owner, [{"reel_url": LINKS[2]}]).status_code == 201
+    assert bulk_scripts(owner, [{"reel_url": LINKS[2]}]).status_code == 201

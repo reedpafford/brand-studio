@@ -5,14 +5,9 @@ from datetime import timedelta
 from app.db import utcnow
 from app.models.jobs import Job
 from app.models.projects import Project
-from app.providers.fake_local import FakeWriter
-from app.worker import run_once
+from tests.conftest import run_writer
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
-
-
-def _write(app, db):
-    run_once(db, {"claude": FakeWriter()}, app.state.storage, only={"claude"})
 
 
 def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: F811
@@ -25,7 +20,7 @@ def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: 
     assert job["credits"] == price == 3  # the price shown is the price charged
     assert editor.get(url).json()["job"]["status"] == "queued"
     assert editor.post(url, json={}).status_code == 409  # one at a time
-    _write(app, db)
+    run_writer(app, db)
     plan = editor.get(url).json()
     assert plan["status"] == "ready" and plan["source"] == "claude" and plan["job"] is None
     listed = {v["id"]: v for v in editor.get("/projects").json()}
@@ -99,7 +94,7 @@ def test_write_it_myself_earlier_plans_stop_and_the_time_limit(app, db, editor, 
     assert editor.post(f"{url}/stop").status_code == 409
 
     job = editor.post(url, json={}).json()
-    _write(app, db)
+    run_writer(app, db)
     assert editor.get(url).json()["source"] == "claude"
     back = editor.post(f"{url}/earlier/0/use").json()  # Earlier plans: one press, free
     assert back["source"] == "hand" and back["earlier"][0]["source"] == "claude"
@@ -121,7 +116,7 @@ def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa:
     pid = setup["project"]
     url = f"/projects/{pid}/plan"
     editor.post(url, json={})
-    _write(app, db)
+    run_writer(app, db)
     plan = editor.get(url).json()
     assert editor.post(f"{url}/scenes/1/change", json={"note": " "}).status_code == 422
     assert editor.post(f"{url}/scenes/9/change", json={"note": "funnier"}).status_code == 404
@@ -130,7 +125,7 @@ def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa:
     assert "<note>funnier</note>" in db.get(Job, job["id"]).input["prompt"]
     busy = editor.put(url, json={"scenes": plan["scenes"]})  # Flow-QA: never lost to the job
     assert (busy.status_code, busy.json()["detail"]) == (409, "A plan is already being made.")
-    _write(app, db)
+    run_writer(app, db)
     changed = editor.get(url).json()
     assert {x["action"] for x in changed["scenes"][0]["lines"]} == {
         "Bigger: they react twice as hard."
@@ -146,7 +141,7 @@ def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa:
     assert editor.get(url).json()["out_of_date"] is True  # "Made for older words"
     job = editor.post(f"{url}/update").json()
     assert "The script's words changed" in db.get(Job, job["id"]).input["prompt"]
-    _write(app, db)
+    run_writer(app, db)
     after = editor.get(url).json()
     assert after["out_of_date"] is False and [
         x["n"] for s in after["scenes"] for x in s["lines"]
@@ -163,7 +158,7 @@ def test_a_plan_finished_mid_read_is_never_missed(app, db, editor, setup, monkey
     real = plans.job_state
 
     def finishes_now(db_, project):
-        _write(app, db)  # the worker, in its own session, mid-request
+        run_writer(app, db)  # the worker, in its own session, mid-request
         return real(db_, project)
 
     monkeypatch.setattr(plans, "job_state", finishes_now)

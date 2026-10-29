@@ -15,7 +15,7 @@ from app.credits import estimate, test_budget_fits
 from app.enhance import escape
 from app.models.accounts import User
 from app.models.brands import Brand
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.languages import LanguageSwitch
 from app.models.projects import Project
 from app.prompts.schemas import ScriptDrafts
@@ -24,7 +24,6 @@ from app.providers import REAL_TESTS
 log = logging.getLogger(__name__)
 
 STEP, KIND, SECONDS = "language_sample", "write-claude", 15
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 ENGLISH = "English is always on: it needs no test."
 ALREADY = "This language's test is already being written."
 NO_SAMPLE = "Test it first: a language is switched on only once its sample is read and approved."

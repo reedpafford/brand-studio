@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app.models.accounts import User
 from app.models.clips import ProjectClip
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft, ScriptDraftText
@@ -154,9 +154,6 @@ def script_status(script: Script, statuses: list[str]) -> str:
     if approved and all(s == "done" for s in approved):
         return "done"
     return "in_production" if made else "published"
-
-
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 def writing(db: Session, script_id: int, step: str | None = None) -> bool:

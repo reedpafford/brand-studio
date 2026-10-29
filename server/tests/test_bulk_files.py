@@ -13,6 +13,7 @@ from app.models.jobs import Job
 from app.models.script_library import Script
 from app.providers.fake_local import two_scenes
 from app.purge import purge_uploads
+from tests.conftest import bulk_scripts
 
 LINK = "https://www.instagram.com/reel/Bulk1abc/"
 
@@ -27,11 +28,6 @@ def _send(client, clip: Path, name="bo-tries-salmon.mp4"):
     with clip.open("rb") as f:
         files = {"file": (name, f, "video/mp4")}
         return client.post("/uploads/video", data={"brand_id": brand}, files=files)
-
-
-def _bulk(client, rows: list[dict]):
-    brand = client.get("/brands").json()[0]["id"]
-    return client.post("/scripts/bulk", json={"scripts": [{"brand_id": brand, **r} for r in rows]})
 
 
 def test_an_upload_is_checked_and_kept_for_free_and_remove_drops_it(owner, editor, db, clip):
@@ -62,7 +58,9 @@ def test_a_video_too_long_or_without_sound_is_refused_on_its_row(
 
 def test_links_and_videos_become_drafts_in_the_order_given(owner, db, clip):
     video = _send(owner, clip).json()
-    made = _bulk(owner, [{"reel_url": LINK}, {"upload_id": video["upload_id"]}, {"title": "Plain"}])
+    made = bulk_scripts(
+        owner, [{"reel_url": LINK}, {"upload_id": video["upload_id"]}, {"title": "Plain"}]
+    )
     assert made.status_code == 201, made.text
     reels = [s["reel"] for s in made.json()]
     assert [r and r["source"] for r in reels] == ["link", "file", None]
@@ -86,26 +84,32 @@ def test_links_and_videos_become_drafts_in_the_order_given(owner, db, clip):
 def test_a_used_or_removed_upload_refuses_the_whole_batch_naming_the_file(owner, db, clip):
     video = _send(owner, clip).json()
     owner.delete(f"/uploads/{video['upload_id']}")
-    bad = _bulk(owner, [{"title": "Fine"}, {"upload_id": video["upload_id"]}])
+    bad = bulk_scripts(owner, [{"title": "Fine"}, {"upload_id": video["upload_id"]}])
     assert bad.status_code == 404
     assert bad.json()["detail"] == "Row 2: That upload was removed. Add the file again."
-    both = _bulk(owner, [{"reel_url": LINK, "upload_id": _send(owner, clip).json()["upload_id"]}])
+    both = bulk_scripts(
+        owner, [{"reel_url": LINK, "upload_id": _send(owner, clip).json()["upload_id"]}]
+    )
     assert (
         both.json()["detail"]
         == "Row 1 (bo-tries-salmon.mp4): Give it a reel link or a video, not both."
     )
     twice = _send(owner, clip).json()["upload_id"]
-    again = _bulk(owner, [{"upload_id": twice}, {"upload_id": twice}])  # QA: one file, two drafts
+    again = bulk_scripts(
+        owner, [{"upload_id": twice}, {"upload_id": twice}]
+    )  # QA: one file, two drafts
     assert again.status_code == 422
     assert again.json()["detail"] == "Row 2 (bo-tries-salmon.mp4): That video is already in row 1."
     assert db.query(Script).count() == 0  # all or none
-    many = _bulk(owner, [{"reel_url": f"https://www.instagram.com/reel/R{n}x/"} for n in range(21)])
+    many = bulk_scripts(
+        owner, [{"reel_url": f"https://www.instagram.com/reel/R{n}x/"} for n in range(21)]
+    )
     assert (many.status_code, many.json()["detail"]) == (422, "Up to 20 reels at once.")
 
 
 def test_uploads_never_used_go_after_a_day(app, owner, db, clip):
     old, kept = (_send(owner, clip).json()["upload_id"] for _ in range(2))
-    _bulk(owner, [{"upload_id": kept}])
+    bulk_scripts(owner, [{"upload_id": kept}])
     for upload in db.query(VideoUpload).all():
         upload.created_at = utcnow() - timedelta(days=2)
     db.commit()
