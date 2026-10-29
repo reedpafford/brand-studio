@@ -16,8 +16,6 @@ from app.models.jobs import Job, Usage
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 
-PERIODS = ("week", "month", "all")
-
 
 @dataclass
 class Period:

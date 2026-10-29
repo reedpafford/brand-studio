@@ -21,7 +21,7 @@ from app.cast_roles import bare
 from app.enhance import escape, project_context
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import Job
+from app.models.jobs import WAITING, Job
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -835,9 +835,6 @@ def fix_job(db: Session, user, project: Project, row: ProjectClip, problems: lis
     db.add(job)
     db.flush()
     return job
-
-
-WAITING = ("queued", "running", "needs_owner_approval")
 
 
 def newest(db: Session, project: Project) -> BreakdownVersion | None:

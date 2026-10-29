@@ -2,15 +2,11 @@ from pathlib import Path
 
 from app.models.brands import Brand
 from app.seed import import_screens
-from tests.conftest import PASSWORD, PNG, SETUP_TOKEN, upload
-
-
-def _fomo(client) -> int:
-    return client.get("/brands").json()[0]["id"]
+from tests.conftest import PASSWORD, PNG, SETUP_TOKEN, first_brand, upload
 
 
 def test_add_filter_and_delete_screens(editor):
-    fomo = _fomo(editor)
+    fomo = first_brand(editor)
     base = f"/brands/{fomo}/screens"
     file_id = upload(editor)
     up = {"name": "Buy screen", "file_id": file_id, "tags": ["trading", "Mobile", "mobile"]}
@@ -27,7 +23,7 @@ def test_add_filter_and_delete_screens(editor):
 
 
 def test_duplicate_screen_name_rejected(owner):
-    base = f"/brands/{_fomo(owner)}/screens"
+    base = f"/brands/{first_brand(owner)}/screens"
     body = {"name": "A", "file_id": upload(owner)}
     owner.post(base, json=body)
     assert owner.post(base, json=body).status_code == 409
@@ -185,7 +181,7 @@ def test_a_deleted_screen_is_kept_out_of_use_and_can_be_restored(app, owner, db,
     """Gaps #12: delete with Undo. A deleted screen (or product) is never offered or used."""
     from app.enhance import screens_of
 
-    fomo = _fomo(owner)
+    fomo = first_brand(owner)
     base = f"/brands/{fomo}/screens"
     bag = owner.post(
         base, json={"name": "Bag", "file_id": upload(owner), "product": "bag", "variant": "Chicken"}

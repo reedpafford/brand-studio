@@ -16,13 +16,12 @@ from app.enhance import escape
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ChangedPrompt, ClipPrompt, Frame, Reference
 
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 Row = StoryboardFrame | ProjectClip
 
 

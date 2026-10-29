@@ -12,7 +12,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.enhance import escape_block, project_context
 from app.models.accounts import User
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
@@ -22,7 +22,6 @@ from app.routes.scripts import ScriptOut, _out, save_version
 router = APIRouter(
     prefix="/projects/{project_id}/script", tags=["scripts"], dependencies=[Depends(video_writer)]
 )
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class DraftOut(BaseModel):

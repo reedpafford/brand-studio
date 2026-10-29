@@ -5,11 +5,8 @@ from app.models.accounts import Role, User
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.routes.jobs import enqueue
+from tests.conftest import file_into
 from tests.test_usage import _charge, _setup
-
-
-def _file(client, kind, item_id, folder_id):
-    return client.post("/folders/file", json={"kind": kind, "id": item_id, "folder_id": folder_id})
 
 
 def _keys(value) -> set[str]:
@@ -25,15 +22,15 @@ def test_each_project_costs_its_videos_scripts_and_quick_clips_once(owner, edito
     fid = owner.post(f"/brands/{fomo}/folders", json={"name": "Launch"}).json()["id"]
     script = owner.post("/scripts", json={"brand_id": fomo, "title": "Gut"}).json()["id"]
     words = owner.post(f"/brands/{fomo}/folders", json={"name": "Words"}).json()["id"]
-    _file(owner, "script", script, words)  # in another project than its video
-    _file(owner, "video", video.id, fid)
+    file_into(owner, "script", script, words)  # in another project than its video
+    file_into(owner, "video", video.id, fid)
     # A video's job that names its script counts once, with the video, never with the script
     _charge(db, enqueue(db, me, "video-480p", {"script_id": script}, project=video), "2.00")
     writing = enqueue(db, me, "write-claude", {"script_id": script, "brand_id": fomo})
     _charge(db, writing, "0.30")  # the script's own writing
     quick = enqueue(db, me, "video-480p", {"brand_id": fomo})
     _charge(db, quick, "1.00")
-    _file(owner, "clip", quick.id, fid)
+    file_into(owner, "clip", quick.id, fid)
     _charge(db, enqueue(db, me, "video-480p", {"brand_id": fomo}), "0.50")  # not filed
     video.finished_at = video.created_at
     db.commit()

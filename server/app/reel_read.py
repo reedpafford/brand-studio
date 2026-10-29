@@ -18,7 +18,7 @@ from app import script_cast_read as cast_read
 from app.credits import estimate
 from app.enhance import escape
 from app.models.accounts import User
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.script_library import Script
 from app.prompts import check
 from app.prompts.schemas import ReelWatch
@@ -36,9 +36,6 @@ def latest(db: Session, job: Job) -> Script | None:
     """The job's script as the database has it now (sessions keep objects across commits,
     and the web side may have moved it on, e.g. a new press)."""
     return db.get(Script, job.input["script_id"], populate_existing=True)
-
-
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 def state(db: Session, script: Script) -> tuple[str, str | None]:

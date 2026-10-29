@@ -22,7 +22,7 @@ from app.db import utcnow
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.references import LONG_SIDE
@@ -166,7 +166,6 @@ def refused(db: Session, job: Job) -> None:
 
 BUSY_SAID = re.compile(r"service is (temporarily|currently) unavailable|^No answer within", re.I)
 RETRY_WAIT = timedelta(seconds=30)  # a busy service gets a moment before the one retry
-WAITING = ("queued", "running", "needs_owner_approval")
 
 
 def why_failed(job: Job) -> str:

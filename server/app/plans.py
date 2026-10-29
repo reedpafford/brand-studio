@@ -21,7 +21,7 @@ from app.credits import estimate
 from app.db import utcnow
 from app.enhance import escape, escape_block, project_context
 from app.models.breakdowns import BreakdownVersion
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
 from app.prompts import check
@@ -32,7 +32,6 @@ SCENE_STEP = "plan_scene"  # Change this scene… (the Director's plan_scene, on
 KIND = "write-claude"
 HISTORY = 10  # Earlier plans kept
 LIMIT = timedelta(minutes=10)  # a plan still not back after this is stopped, uncharged
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 SLOW = "The plan took too long and was stopped. Nothing was charged."
 FAILED = "The plan didn't finish. Nothing was charged."
 STILL = "The plan still left out or repeated script lines after one more try: "

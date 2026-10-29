@@ -20,7 +20,7 @@ from app.credits import estimate
 from app.credits import price as shown
 from app.enhance import project_context
 from app.models.accounts import User
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
 from app.prompts import check
@@ -39,7 +39,6 @@ OFF = "Music under a narration isn't switched on here."
 MAKING = "The music is still being made. Make the video when it's ready."
 NOT_FAILED = "The music isn't failed, so there's nothing to try again."
 STILL = "still needs fixing: "  # the raw reason when the one rewrite didn't fix it
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 def bed_job(prompt: str, seconds: float) -> dict:
