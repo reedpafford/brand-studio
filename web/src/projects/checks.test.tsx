@@ -180,9 +180,17 @@ test("the look's own fixes: Fixed for the look with Undo before the still is dra
   expect(within(screen.getByRole("dialog")).getByText("For this look: Make another first.")).toBeInTheDocument();
 });
 
+test("after Undo (the prompt is the one before) the note goes, though the server still sends look_fixed", async () => {
+  setViewport(1440);
+  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, file_id: null, prompt: "a", look_fixed: { fixed: ["stage → world"], before: "a", after: "b" } }]] }));
+  open("?step=storyboard");
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+  expect(screen.queryByRole("note", { name: "Fixed for the look" })).toBeNull();
+});
+
 test("once the still is drawn, Fixed for the look shows what changed without an Undo that would redraw", async () => {
   setViewport(1440);
-  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, look_fixed: { fixed: ["stage → world"], before: "a", after: "b" } }]] }));
+  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, prompt: "b", look_fixed: { fixed: ["stage → world"], before: "a", after: "b" } }]] }));
   open("?step=storyboard");
   const note = await screen.findByRole("note", { name: "Fixed for the look" });
   expect(within(note).queryByRole("button", { name: "Undo" })).toBeNull();

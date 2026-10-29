@@ -53,7 +53,9 @@ export function FrameCard(props: {
   const [redo, setRedo] = useState<string | null>(null);
   const [seed, setSeed] = useState<{ text: string; n: number }>();
   const check = (f as Frame & { check?: ItemCheck }).check;
-  const lookFixed = f.look_fixed as LookFixed | null | undefined; // the look's banned words repaired (ST2)
+  // The look's banned words repaired (ST2); shown only while the prompt is still the fixed one (after Undo it isn't).
+  const lookFixed = (f.look_fixed as LookFixed | null | undefined) ?? null;
+  const showLookFixed = lookFixed && f.prompt === lookFixed.after ? lookFixed : null;
   const phone = useMedia("(max-width: 639px)");
   const verb = f.file_id === null ? "Make still" : "Redo";
   // A word the image model may refuse: Soften it or Draw it as is, in place of Make still; a refusal said plainly (QA-2).
@@ -140,7 +142,7 @@ export function FrameCard(props: {
           ))}
         </ul>
       )}
-      {lookFixed && <LookFixedNote fix={lookFixed} busy={props.undoing} onUndo={f.file_id === null ? () => props.onUndoSoften(lookFixed.before) : undefined} />}
+      {showLookFixed && <LookFixedNote fix={showLookFixed} busy={props.undoing} onUndo={f.file_id === null ? () => props.onUndoSoften(showLookFixed.before) : undefined} />}
       <LookTip text={f.look_fix} />
       {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
       <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${f.clip_id}`} />
