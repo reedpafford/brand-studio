@@ -44,6 +44,7 @@ test("a published song script: Make this version opens a video whose Breakdown h
   await walk(page, "Song Shop Video");
   await page.getByRole("button", { name: "Next: Plan" }).click();
   await page.getByRole("button", { name: "Next: Publish" }).click();
+  await page.getByRole("button", { name: "Approve version A" }).click(); // every version is approved before publishing
   await page.getByRole("button", { name: /Publish 1 version/ }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish" }).click();
   await page.getByLabel(/Version A, ready to make/).click();
