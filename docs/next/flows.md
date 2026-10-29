@@ -110,7 +110,7 @@ Out for now: Bulk create and reel import make Story scripts only. A pasted reel 
 
 Two boxes and one button.
 
-- **Lyrics.** Paste or type. `[Verse]`, `[Chorus]`, `[Bridge]`, `[Outro]` tags are fine; they are not sung and don't count. Under the box, live: "About 30 s sung · 75 words" (2.5 words a second, Starpop's rule).
+- **Lyrics.** Paste or type. `[Verse]`, `[Chorus]`, `[Bridge]`, `[Outro]` tags are fine; they are not sung and don't count. Under the box, live, before anything is locked or made: "75 sung words: a song of about 0:31–0:38" (the pace Suno actually sang in Reed's pilot, 2.0–2.4 words a second; Director #794 `check.length_note`).
 - **Style.** One line: genre, voice, tempo, mood, sound. Pre-filled from the brand's music style (spec item 3). Until brand setup exists, it starts empty with an example placeholder: "pop, female lead, 120 BPM, upbeat, modern polished".
 - **"Write 2 song directions for me · about 3 credits"** (S3).
 
@@ -123,7 +123,7 @@ Two boxes and one button.
 | Nothing to go on | About is empty and the brand has no facts: the directions button is disabled with "Say what it's for in About first". | **Open About**. |
 | Style empty | Never a block. Next stays allowed and the takes use the brand's music style, else the default; Advice under the box: "No style yet: the song will be upbeat pop by default." | **Next: Takes**. |
 | Advice: long style | Over 25 words: "Suno follows short styles better. Keep it under 25 words." Advice only. | **Shorten it** (free, cuts in code to the first 25 words, Undo). |
-| Advice: long song | Over about 150 words: "About 70 s sung. That's a long ad: the video will be about that long too." Advice only. | — |
+| Advice: long song | Over about 150 words: "365 sung words: a song of about 2:32–3:02. That's a long ad: the video will be about that long too." Advice only. | — |
 | Advice: no end line (rule 18) | The lyrics don't name the brand or where to find it: "The song doesn't say fomo or where to find it." Advice only. Two ways to meet it, either one: | **Sing the end line** (free: adds the brand's end line as a last `[Outro]` line; the owner can edit it; Undo), or **Speak it over the end** (free: the brand's end line, editable, is spoken over the song's last seconds with the music lowered under it; see V6). |
 | Spoken end line set | Under the boxes: "Spoken at the end: 'Download fomo through the link in my bio.'" with **Edit** and **Remove** (Undo). | — |
 | B (too long for the cap) | The sung length would make a video over 729 credits: "A song this long would go over the video limit. Cut it to about N words." This blocks **Make the song** only. | The owner cuts words; the count updates live. |
@@ -135,12 +135,14 @@ Two boxes and one button.
 
 ## S3. Write 2 song directions (optional)
 
-Pressed on S2. Uses the brand, the product and anything already typed (as a brief, not as lyrics to keep).
+Pressed on S2. Uses the brand, the product and anything already typed (as a brief, not as lyrics to keep). Two optional boxes above the button (Director #794):
+- **From a script** (paste a script or voice-over): the directions adapt it into lyrics line by line, in order, keeping its beats, its claims and its key lines (hook, payoff, end line) as close to word for word as the rhyme allows, and adding no claims. The two directions become "the whole script as a song" and "cut to the planned length (or about 60 s)", and each card lists what it leaves out ("Leaves out: the vet quote"; nothing for a fresh song).
+- **Sounds like** (a song or artist): turned into a style line that describes the sound (genre, era, voice, tempo, instruments, mood) and never names it, because Suno refuses names. If a style line names it anyway: Advice "Suno won't take names: describe the sound instead", with **Use the described style** (free).
 
 | State | What they see | The one press |
 |---|---|---|
 | Q/R | "Writing 2 directions…" with a timer. "It shows here when it's ready. You can leave this page." | Cancel (before it starts). |
-| Done | Two cards side by side (stacked on a phone): title, concept, lyrics, style, visual concept. One is marked **Recommended**. | **Use this one** on a card. |
+| Done | Two cards side by side (stacked on a phone): title, concept, lyrics with their length ("about 2:32–3:02"), style, visual concept, and "Leaves out: …" when adapted from a script. One is marked **Recommended**. | **Use this one** on a card. |
 | Use this one, boxes empty | Its lyrics and style fill the boxes. Toast: "Option B's lyrics are in. They're yours now: the AI won't change them." Undo. | **Next**. |
 | Use this one, boxes have words | Confirm: "Replace your lyrics with option B's? Your words are kept in Undo." Not yet / Replace. | **Replace**. |
 | Claims not in the brand facts | A direction lists claims the brand block doesn't state (Director's `unchecked_claims`): on the card, "Not checked: 'vet-approved in 7 days'". After **Use this one**, the same line shows under the Lyrics box until the owner acts. Advice only, never a block. | **Keep it** (the owner vouches; the note goes), or **Edit lyrics** (the owner's own typing; rule 19). |
@@ -271,6 +273,7 @@ Desktop: the song's waveform across the top, the shots as blocks under it, a pla
 | U | Every flip, split and join has Undo. | — |
 | S | The video's take changed (V2a): times re-flow for free; nothing else goes out of date in Breakdown. The owner can't change a published script, so an editor's video is never pulled out of date from outside. | — |
 | Timing guessed | A line the take skipped or slurred has no measured time: its shot shows "Timing guessed" (Advice). | **Change song** to another take, or keep it. |
+| Advice: off the line | The breakdown follows the measured line times: a shot holding a sung line starts and ends with it (Director #794). A shot that isn't on screen while its line is sung, or ends mid-line: "Shot 2.3 ends in the middle of 'every single bowl'." Advice only. | **Snap to the line** (free: moves that shot's edges to its line's start and end, Undo). |
 
 Clips follow scenes, not shots (rule 29): consecutive shots in one place and one action become one clip, as today. The song is sliced to fit each clip, never the clip to the song. A clip that holds a Sung shot lip-syncs only that shot's stretch; its other shots in the same clip are picture.
 
