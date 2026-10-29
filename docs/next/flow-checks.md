@@ -63,6 +63,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Made work locked by a look sheet (#930 + videoSteps) | A non-House video with stills or clips: its Cast & places rows read not ready (look_needed), and videoLock's "Approve the cast first" locks Storyboard and Clips, redirecting to Cast | `if (left > 0 && !kept)` in videoLock, with a videoHold line; land with or before #930 |
 | The product's claim, no way there (#932) | BR1's line and claim now sit on the prop's Cast & places page; the Brand page's Products tab doesn't say so or link there | A line on ProductsTab linking to the props in Cast & places |
 | Change this scene's note lost (#933) | The note box clears on press: Not yet on an approved plan, or a refusal, loses the typed note | Clear the box only in changeScene's onSuccess |
+| Owner's plan vs an older preview (#934) | Preview made before the owner's plan, plan approved, published: Make this version lands the old shots with "From Reed's plan", approved; nothing says they don't follow it | produce lands the preview only when its plan_version is the approved plan's; else the breakdown from the plan |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -287,3 +288,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #928 at 750f4ecc | PASS: an edit while a scene change runs is refused with the reason; the paid scene lands, then the edit saves. Open row closed |
 | 2026-10-29 | #929 at 7ae54fdb | PASS: Fixed for the look shows only while the prompt is the fixed one, so it goes after Undo. Open row closed |
 | 2026-10-29 | #933 at 3cfb6d5c (P1 Change this scene, Update the plan screens) | Press, price, ask first, Update the plan: PASS. FAIL: the typed note is lost on Not yet or a refusal (open above) |
+| 2026-10-29 | #934 at 116f2fd2 (S6, the owner's plan on a version) | Make, by hand, edit, stop, approve, read only once published, preview after approval: PASS. FAIL: a preview older than the plan is carried into the video (open above) |
