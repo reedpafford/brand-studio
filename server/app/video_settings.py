@@ -306,7 +306,11 @@ def settings(db: Session, project: Project) -> dict:
     cap = get_limits(db, project.workspace_id).per_video_max_credits
 
     def price(kind: str, m) -> float:
-        job = {"model": m.id, "input": {"resolution": "480p" if kind == "video" else "1K"}}
+        if kind != "video":  # a still, priced as its job will be
+            from app.storyboard import still_credits
+
+            return float(still_credits(db, project.workspace_id, m))
+        job = {"model": m.id, "input": {"resolution": "480p"}}
         return float(estimate(db, project.workspace_id, kind, Decimal(1), job))
 
     def over(field: str, value) -> bool:

@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from app import advice, storyboard
 from app.credits import estimate, own_script
 from app.enhance import escape
-from app.images import image_job_input
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
@@ -41,10 +40,8 @@ def blocked(db: Session, frame: StoryboardFrame, newest: BreakdownVersion) -> st
 
 def price(db: Session, project: Project) -> Decimal:
     """Writing the one frame, plus its still."""
-    still = image_job_input(storyboard.image_model(project), "", project.aspect_ratio)
-    return estimate(db, project.workspace_id, "write-claude", Decimal(1)) + estimate(
-        db, project.workspace_id, "image", Decimal(1), still
-    )
+    still = storyboard.still_credits(db, project.workspace_id, storyboard.image_model(project))
+    return estimate(db, project.workspace_id, "write-claude", Decimal(1)) + still
 
 
 def start(
