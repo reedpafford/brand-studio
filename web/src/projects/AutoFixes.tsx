@@ -15,7 +15,7 @@ export function RetryLine({ clip }: { clip: object }) {
   const c = clip as Auto;
   if (c.retrying) return <p role="status" className="text-sm text-muted">Tried again on its own: {WHY[c.retrying]}.</p>;
   // `retried` is about the clip's newest take, which may not be the picked one (Builder-Server-8, #883).
-  if (c.retried) return <p className="text-sm text-muted">The newest take was tried again once on its own ({c.retried}).</p>;
+  if (c.retried) return <p className="text-sm text-muted">The newest take was tried again once on its own: {WHY[c.retried]}.</p>;
   return null;
 }
 
