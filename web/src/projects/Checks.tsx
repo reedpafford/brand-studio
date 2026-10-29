@@ -35,10 +35,16 @@ export function CheckNotes({ check, projectId, label, onChange }: { check: ItemC
   const phone = useMedia("(max-width: 639px)");
   const queryClient = useQueryClient();
   const toast = useToast();
+  const refresh = () => Promise.all(["storyboard", "project-clips", "checks"].map((k) => queryClient.invalidateQueries({ queryKey: [k, projectId] })));
   const fine = useMutation({
     mutationFn: (index: number) => call("POST", `/projects/${projectId}/checks/${check!.id}/findings/${index}/dismiss`),
+    // Looks fine has Undo (#913's restore): the note comes back on the card and in the Review list.
+    onSuccess: (_r, index) => {
+      const id = check!.id;
+      toast("Marked as fine.", () => void call("POST", `/projects/${projectId}/checks/${id}/findings/${index}/restore`).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
+    },
     onError: (e) => toast(e.message),
-    onSettled: () => Promise.all(["storyboard", "project-clips", "checks"].map((k) => queryClient.invalidateQueries({ queryKey: [k, projectId] }))),
+    onSettled: refresh,
   });
   // A check that just ended changes the Review list and the summary line.
   const status = check?.status;
@@ -85,18 +91,22 @@ export function CheckNotes({ check, projectId, label, onChange }: { check: ItemC
   );
 }
 
-/** The step summary line: "AI check: 3 notes on 2 clips", or once only "Checks paused: the video is at its budget." (PL7). */
+/** The step summary line: "AI check: 3 notes on 2 clips", and once only "Not checked: the video was at its budget." (PL7). */
 export function CheckSummary({ projectId }: { projectId: number }) {
   const review = useReview(projectId).data;
   if (!review?.on) return null;
-  if (review.paused) return <p className="text-sm text-muted">Checks paused: the video is at its budget.</p>;
   const notes = review.items.reduce((n, i) => n + i.findings, 0);
   const clips = new Set(review.items.map((i) => i.clip_id)).size;
-  if (notes === 0) return null;
+  if (notes === 0 && !review.paused) return null;
   return (
-    <p className="text-sm text-muted tabular-nums">
-      AI check: {notes} note{notes === 1 ? "" : "s"} on {clips} clip{clips === 1 ? "" : "s"}
-    </p>
+    <>
+      {notes > 0 && (
+        <p className="text-sm text-muted tabular-nums">
+          AI check: {notes} note{notes === 1 ? "" : "s"} on {clips} clip{clips === 1 ? "" : "s"}
+        </p>
+      )}
+      {review.paused && <p className="text-sm text-muted">Not checked: the video was at its budget.</p>}
+    </>
   );
 }
 
@@ -105,25 +115,29 @@ export function ReviewChip({ projectId, open: startOpen = false }: { projectId: 
   const review = useReview(projectId).data;
   const [open, setOpen] = useState(startOpen);
   const [params, setParams] = useSearchParams();
-  const [going, setGoing] = useState<string | null>(null);
-  // The card is on another step: once that step has drawn it, scroll to it.
+  // The card to go to rides in the address (`to`): a row on Final cut changes step, and this chip on the new step finds the
+  // card once it's drawn, scrolls to it and moves focus there (keyboard and screen readers follow), then drops `to`.
+  const going = params.get("to");
   useEffect(() => {
     if (!going) return;
     let tries = 0;
     const t = setInterval(() => {
-      if (document.querySelector(`[aria-label="${going}"]`) || ++tries > 20) {
+      const card = document.querySelector<HTMLElement>(`[aria-label="${going}"]`);
+      if (card || ++tries > 30) {
+        clearInterval(t);
         show(going);
-        setGoing(null);
+        card?.setAttribute("tabindex", "-1");
+        card?.focus({ preventScroll: true });
+        setParams((p) => { p.delete("to"); return p; }, { replace: true });
       }
     }, 100);
     return () => clearInterval(t);
-  }, [going, params]);
+  }, [going]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = review?.items ?? [];
   if (items.length === 0) return null;
   const go = (i: Flagged) => {
     const step = i.kind === "still" ? "storyboard" : "clips";
-    if (params.get("step") !== step) setParams({ step });
-    setGoing(i.kind === "still" ? `Frame ${i.clip_id}` : `Clip ${i.clip_id}`);
+    setParams((p) => { p.set("step", step); p.set("to", i.kind === "still" ? `Frame ${i.clip_id}` : `Clip ${i.clip_id}`); return p; }); // other params stay
   };
   const group = (kind: Flagged["kind"], title: string) => {
     const these = items.filter((i) => i.kind === kind);
