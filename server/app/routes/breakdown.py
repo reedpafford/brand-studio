@@ -27,6 +27,17 @@ shots = APIRouter(prefix="/projects/{project_id}/shots", tags=["breakdown"])
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
+class SongShotTime(BaseModel):
+    start: float
+    end: float
+    sung: bool
+
+
+class SongPart(BaseModel):
+    take_id: int  # the take the times are on (the video's song)
+    shots: dict[str, SongShotTime]  # by shot id
+
+
 class BreakdownOut(BaseModel):
     id: int
     script_version: int
@@ -40,6 +51,7 @@ class BreakdownOut(BaseModel):
     fixes: list[dict] = []  # [{problem, kind, label}]: a free one-click fix for that problem
     fixed: list[str] = []  # what a fix just did, in plain words (the toast); Undo is PUT
     unknown_names: dict[str, str] = {}  # a name a shot has that the video doesn't: {ref: name}
+    song: SongPart | None = None  # a song video's: each shot's time in the song, and Sung
 
 
 def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
@@ -54,6 +66,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         problems=row.problems,
         kept=row.kept or [],
         stale=row.script_version != working,
+        song=row.data.get("song"),
         fixes=breakdown_fix.fixes(row.problems or []),
     )
 
@@ -71,7 +84,7 @@ def make(project_id: int, user: User = Depends(current_user), db: Session = Depe
     """Queue a breakdown call (a paid Claude call, counted against the project budget)."""
     project, version = _working(db, user, project_id)
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
-    if any(j.input.get("step") == "breakdown" for j in pending):
+    if any(j.input.get("step") in ("breakdown", "song_breakdown") for j in pending):
         raise HTTPException(409, "A breakdown is already being made for this project.")
     return enqueue(
         db,
