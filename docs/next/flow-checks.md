@@ -62,6 +62,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
 | Old Videos links (#888) | /scripts?view=videos stays on Scripts | Copy params before deleting view | #888 at b8050325 |
+| Empty shot after text fix (#869 on next, #890, #886) | A shot that is only drawn text becomes "Shot 1 &#124; 0-3 s." and is sent so | If removal empties the shot, keep the line as Advice | #890 at 1914e0f0 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -206,3 +207,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #888 at b8050325 (Videos in the menu, homes) | Playwright 390 + 1440: homes, tab, back link, old link; shell + phone e2e (11) | FAIL: old ?view=videos link stays on Scripts (params mutated in render; StrictMode) |
 | 2026-10-29 | #889 at 9e8e7e1f (Final cut banner names the song; one full stop) | finalsong + songstudy + downloads (17) | PASS |
 | 2026-10-29 | #881 at 95e50919 (Make N stills kept grey; "The plan changed"; "1 credit") | vitest projects (321); step name check | PASS (old ProjectPage EstimateNote says "Breakdown", "1 credits": owner to delete or rename) |
+| 2026-10-29 | #890 at 1914e0f0 (drawn words in quotes) | text_on_screen on 9 prompts; test_item_check (2) | FAIL: a shot that is only drawn text is emptied ("Shot 1 | 0-3 s."); on next since #869 (missed in my #869 walk) |
