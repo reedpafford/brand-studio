@@ -192,6 +192,8 @@ def test_the_length_is_shown_before_the_lyrics_are_locked():
     words, short, long = check.sung_length(lyrics)
     assert words == 365 and 150 <= short <= 160 and 180 <= long <= 185
     assert check.length_note(lyrics) == "365 sung words: a song of about 2:32–3:02."
+    near = "\n".join(["one two three four five six seven eight nine ten eleven"] * 13)
+    assert check.length_note(near) == "143 sung words: a song of about 1:00–1:12."  # not 0:60
 
 
 def test_each_shot_plays_while_its_line_is_sung():
