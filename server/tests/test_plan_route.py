@@ -90,6 +90,8 @@ def test_write_it_myself_earlier_plans_stop_and_the_time_limit(app, db, editor, 
     assert editor.get(url).json()["source"] == "claude"
     back = editor.post(f"{url}/earlier/0/use").json()  # Earlier plans: one press, free
     assert back["source"] == "hand" and back["earlier"][0]["source"] == "claude"
+    versions = [back["version"], *(e["version"] for e in back["earlier"])]
+    assert back["version"] == max(versions) and len(set(versions)) == len(versions)  # Flow-QA
 
     slow = editor.post(url, json={}).json()
     row = db.get(Job, slow["id"])

@@ -51,6 +51,7 @@ class ClipTake(Entity, Base):
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     prompt: Mapped[str | None] = mapped_column(Text)  # what it was made from; picked back with it
+    look: Mapped[str] = mapped_column(String(40), default="house")  # the video's look then (VS1)
 
 
 class FinalVideo(Entity, Base):

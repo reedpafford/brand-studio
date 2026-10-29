@@ -87,7 +87,8 @@ class PlanOut(BaseModel):
     stop: str | None = None  # why the paid presses are off (the week, the budget)
     out_of_date: bool = False  # made for older words
     version: int = 0
-    earlier: list[EarlierOut] = []
+    earlier: list[EarlierOut] = []  # Earlier plans, newest first; `id` is the list position
+    after: dict | None = None  # {shots, clips} an edit would put out of date; None: no shots yet
 
 
 class NoteIn(BaseModel):
@@ -187,6 +188,7 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
         "advice": _advice(found),
         "out_of_date": plans.out_of_date(db, project, plan),
         "version": plan.get("version", 0),
+        "after": plans.after(db, project),
         "earlier": [EarlierOut(id=i, version=p.get("version", 0),
                                source=SOURCES.get(p.get("source"), "claude"),
                                made_at=p.get("made_at"))
@@ -285,7 +287,7 @@ def approve(project_id: int, user: User = Depends(current_user), db: Session = D
     from app import prompts
 
     if used != prompts.plan_lines(version.text):
-        raise HTTPException(409, "The script changed since this plan: Update the plan first.")
+        raise HTTPException(409, "The script changed since this plan: make the plan again.")
     if any(not x["action"].strip() for s in plan["scenes"] for x in s["lines"]):
         raise HTTPException(409, "Give every line an action first.")
     plans.approve(project, user.id)

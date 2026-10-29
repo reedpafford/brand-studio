@@ -160,9 +160,15 @@ def _keep(project: Project) -> None:
         project.plan_history = [project.plan, *(project.plan_history or [])][:HISTORY]
 
 
-def _set(project: Project, plan: dict, source: str, job_id: int | None, text: str) -> dict:
+def _next(project: Project) -> int:
+    """The next plan version, above the plan in hand and every Earlier plan, so shots made
+    from any other version read as older (Flow-QA)."""
     every = [project.plan or {}, *(project.plan_history or [])]
-    version = max(p.get("version", 0) for p in every) + 1
+    return max(p.get("version", 0) for p in every) + 1
+
+
+def _set(project: Project, plan: dict, source: str, job_id: int | None, text: str) -> dict:
+    version = _next(project)
     _keep(project)
     project.plan = {**plan, "version": version, "source": source, "approved_at": None,
                     "approved_by_id": None, "job_id": job_id,
@@ -211,7 +217,7 @@ def edit(project: Project, version: ScriptVersion, plan: ScenePlan) -> dict:
     keep = {k: v for k, v in (project.plan or {}).items() if k not in ScenePlan.model_fields}
     project.plan = {**keep, **plan.model_dump(), "approved_at": None, "approved_by_id": None,
                     "source": keep.get("source", "by_hand"),
-                    "version": keep.get("version", 0) + 1}  # older shots read older  # fmt: skip
+                    "version": _next(project)}  # shots made before read older  # fmt: skip
     return project.plan
 
 
@@ -226,8 +232,9 @@ def use_earlier(project: Project, index: int) -> dict:
     if not 0 <= index < len(history):
         raise HTTPException(404, "That earlier plan is no longer here.")
     chosen = history.pop(index)
+    version = _next(project)
     project.plan_history = ([project.plan] if project.plan else []) + history
-    project.plan = {**chosen, "approved_at": None, "approved_by_id": None}
+    project.plan = {**chosen, "approved_at": None, "approved_by_id": None, "version": version}
     return project.plan
 
 
@@ -300,3 +307,13 @@ def older(db: Session, project: Project, row: BreakdownVersion) -> bool:
     made = (row.data or {}).get("plan_version")
     plan = project.plan or {}
     return bool(made) and made < plan.get("version", 0)
+
+
+def after(db: Session, project: Project) -> dict | None:
+    """What an edit to an approved plan puts out of date: its shots and the clips after them
+    ("The breakdown goes out of date (3 shots, 2 clips after it)"); None without shots."""
+    row = _newest_breakdown(db, project)
+    if row is None:
+        return None
+    shots = sum(len(sc.get("shots", [])) for sc in row.data.get("scenes", []))
+    return {"shots": shots, "clips": len(row.data.get("clips", []))}
