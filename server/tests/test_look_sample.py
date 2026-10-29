@@ -95,3 +95,19 @@ def test_after_a_clip_that_didnt_finish_only_the_clip_is_made_again(app, db, own
     _work(app, db, ticks=3)
     ready = owner.get(url).json()
     assert ready["status"] == "ready" and ready["still_id"] == kept and ready["clip_id"]
+
+
+def test_a_still_with_no_picture_says_so_and_can_be_made_again(app, db, owner):
+    from app.steps import save_step_result
+
+    app.state.settings.fake_providers = True
+    brand = _brand(owner)
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    still = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
+    still.status, still.output = "succeeded", {"file_ids": []}  # finished with no picture
+    save_step_result(db, still)
+    db.commit()
+    shown = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()
+    assert (shown["status"], shown["reason"]) == ("failed", look_samples.NO_STILL)
+    assert owner.post("/looks/zack-d/sample", json={"brand_id": brand}).status_code == 201
+    assert db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).count() == 2

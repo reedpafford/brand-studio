@@ -30,6 +30,7 @@ STAND_IN = "A friendly adult in their thirties in one plain outfit in one clear 
 NOT_THEIRS = "That character isn't one of this brand's."
 ALREADY = "This look's sample is already being made."
 HOUSE = "House is the default look: it needs no sample."
+NO_STILL = "The sample's still didn't come back. Make a sample to try again."
 
 
 def characters(db: Session, brand: Brand) -> list[LibraryItem]:
@@ -102,6 +103,8 @@ def state(db: Session, ws: int, look_id: str) -> tuple[str, str | None]:
     row = looks.switch(db, ws, look_id)
     if job is None:
         return ("ready", None) if row and row.sample_clip_id else ("none", None)
+    if job.input.get("no_still"):  # finished with no picture: never "making" for ever
+        return "failed", NO_STILL
     if job.input.get("clip_refused"):
         return "failed", job.input["clip_refused"]
     if job.status in WAITING or (job.status == JobStatus.succeeded and job.input["step"] == STILL):
@@ -154,7 +157,8 @@ def save_still(db: Session, job: Job) -> None:
     from app.routes.jobs import enqueue
 
     file_ids = (job.output or {}).get("file_ids") or []
-    if not file_ids:
+    if not file_ids:  # a still with no picture: it says so, and Make a sample makes both
+        job.input = {**job.input, "no_still": True}
         return
     ws, look_id = job.workspace_id, job.input["look_id"]
     row = looks.switch(db, ws, look_id)
