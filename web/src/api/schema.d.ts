@@ -1679,6 +1679,26 @@ export interface paths {
         patch: operations["update_script_scripts__script_id__patch"];
         trace?: never;
     };
+    "/scripts/{script_id}/look-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Look Change
+         * @description What changing this script's look would take, before the PATCH (free, read only).
+         */
+        get: operations["look_change_scripts__script_id__look_change_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/restore": {
         parameters: {
             query?: never;
@@ -4275,6 +4295,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scripts/{script_id}/drafts/{slot}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read
+         * @description The version's plan, or 404 when it has none and none is being made.
+         */
+        get: operations["read_scripts__script_id__drafts__slot__plan_get"];
+        /** Edit */
+        put: operations["edit_scripts__script_id__drafts__slot__plan_put"];
+        /**
+         * Make
+         * @description Make the plan for this version: one paid call, from the author's own week.
+         */
+        post: operations["make_scripts__script_id__drafts__slot__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/plan/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop */
+        post: operations["stop_scripts__script_id__drafts__slot__plan_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/plan/by-hand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** By Hand */
+        post: operations["by_hand_scripts__script_id__drafts__slot__plan_by_hand_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/plan/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description The owner's plan approved: its breakdown preview follows from it, and each new video
+         *     of this version starts from it. Free (the preview is its own press).
+         */
+        post: operations["approve_scripts__script_id__drafts__slot__plan_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/settings": {
         parameters: {
             query?: never;
@@ -5922,6 +6022,23 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /**
+         * LookChangeOut
+         * @description ST1's confirm: "Change to Claymation? 3 roles need a new look. To finish: about N
+         *     credits (was M)." A script's look never moves a video's (VS1).
+         */
+        LookChangeOut: {
+            /** Roles */
+            roles: string[];
+            /** To Finish Credits */
+            to_finish_credits: number;
+            /** Was Credits */
+            was_credits: number;
+            /** Over Budget */
+            over_budget: boolean;
+            /** Reason */
+            reason: string;
         };
         /** LookFitOut */
         LookFitOut: {
@@ -8433,6 +8550,11 @@ export interface components {
             }[];
             /** Has Breakdown */
             has_breakdown: boolean;
+            /**
+             * Preview Older Plan
+             * @default false
+             */
+            preview_older_plan: boolean;
             /** Approved At */
             approved_at: string | null;
             /** Variation Of */
@@ -8608,6 +8730,11 @@ export interface components {
             stills_out_of_date: number;
             /** Clips Out Of Date */
             clips_out_of_date: number;
+            /**
+             * Roles Needing Look
+             * @default []
+             */
+            roles_needing_look: string[];
             /** Sung To Broll */
             sung_to_broll: number;
             /** Over Budget */
@@ -11977,6 +12104,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    look_change_scripts__script_id__look_change_get: {
+        parameters: {
+            query: {
+                look: string;
+            };
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookChangeOut"];
                 };
             };
             /** @description Validation Error */
@@ -17145,6 +17305,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_scripts__script_id__drafts__slot__plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_scripts__script_id__drafts__slot__plan_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_scripts__script_id__drafts__slot__plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_scripts__script_id__drafts__slot__plan_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    by_hand_scripts__script_id__drafts__slot__plan_by_hand_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_scripts__script_id__drafts__slot__plan_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
                 };
             };
             /** @description Validation Error */

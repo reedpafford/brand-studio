@@ -282,6 +282,12 @@ function AccountMenu() {
             </Link>
           )}
           {me?.role === "owner" && (
+            <Link to="/looks" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
+              <Palette size={20} strokeWidth={1.75} aria-hidden />
+              Looks
+            </Link>
+          )}
+          {me?.role === "owner" && (
             <Link to="/usage" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
               <ChartColumn size={20} strokeWidth={1.75} aria-hidden />
               Usage
@@ -360,6 +366,7 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
             {row("/approvals", "Approvals", Bell, <Badge n={waiting} />)}
             {row("/production", "In production", Clapperboard, <Badge n={attention} word="need attention" />)}
             {row("/team", "Team", UserPlus)}
+            {row("/looks", "Looks", Palette)}
             {row("/usage", "Usage", ChartColumn)}
           </div>
         </div>
