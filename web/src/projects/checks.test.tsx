@@ -133,6 +133,16 @@ test("Final cut has the Review list open by default", async () => {
   expect(within(list).getByRole("button", { name: "Still 1.1 · 2 notes" })).toBeInTheDocument();
 });
 
+test("a Review row on Final cut opens Clips and puts focus on the card", async () => {
+  setViewport(390);
+  const c1 = clip({ approved: true, takes: [take(1, 1)], picked_take_id: 1 });
+  const c2 = clip({ id: 4, clip_id: "c2", approved: true, takes: [take(2, 2, { id: 9, status: "advice", findings: [face] })], picked_take_id: 2 });
+  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, [c1, c2]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [1, 2], out_of_date: false }], "GET /projects/9/checks": [200, review()] }));
+  open("?step=downloads");
+  await userEvent.click(within(await screen.findByLabelText("Review")).getByRole("button", { name: "Clip c2 · take 2 · 1 note" }));
+  await vi.waitFor(() => expect(screen.getByLabelText("Clip c2")).toHaveFocus(), { timeout: 4000 });
+});
+
 test("without checks on the server nothing shows", async () => {
   setViewport(1440);
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, check: null }]] }));

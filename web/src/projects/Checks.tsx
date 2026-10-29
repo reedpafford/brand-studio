@@ -105,28 +105,29 @@ export function ReviewChip({ projectId, open: startOpen = false }: { projectId: 
   const review = useReview(projectId).data;
   const [open, setOpen] = useState(startOpen);
   const [params, setParams] = useSearchParams();
-  const [going, setGoing] = useState<string | null>(null);
-  // The card is on another step: once that step has drawn it, scroll to it and move focus there (keyboard and screen readers follow).
+  // The card to go to rides in the address (`to`): a row on Final cut changes step, and this chip on the new step finds the
+  // card once it's drawn, scrolls to it and moves focus there (keyboard and screen readers follow), then drops `to`.
+  const going = params.get("to");
   useEffect(() => {
     if (!going) return;
     let tries = 0;
     const t = setInterval(() => {
       const card = document.querySelector<HTMLElement>(`[aria-label="${going}"]`);
-      if (card || ++tries > 20) {
+      if (card || ++tries > 30) {
+        clearInterval(t);
         show(going);
         card?.setAttribute("tabindex", "-1");
         card?.focus({ preventScroll: true });
-        setGoing(null);
+        setParams((p) => { p.delete("to"); return p; }, { replace: true });
       }
     }, 100);
     return () => clearInterval(t);
-  }, [going, params]);
+  }, [going]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = review?.items ?? [];
   if (items.length === 0) return null;
   const go = (i: Flagged) => {
     const step = i.kind === "still" ? "storyboard" : "clips";
-    if (params.get("step") !== step) setParams((p) => { p.set("step", step); return p; }); // other params stay
-    setGoing(i.kind === "still" ? `Frame ${i.clip_id}` : `Clip ${i.clip_id}`);
+    setParams((p) => { p.set("step", step); p.set("to", i.kind === "still" ? `Frame ${i.clip_id}` : `Clip ${i.clip_id}`); return p; }); // other params stay
   };
   const group = (kind: Flagged["kind"], title: string) => {
     const these = items.filter((i) => i.kind === kind);
