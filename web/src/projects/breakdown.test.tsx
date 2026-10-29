@@ -62,6 +62,13 @@ test("with no breakdown it offers to make one and shows the cost", async () => {
   expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
 });
 
+test("a song video's shots being made (started by Approve the plan) show as running, not \"No breakdown yet\"", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "GET /jobs": [200, [{ id: 8, kind: "write-claude", step: "song_breakdown", status: "queued", credits: 6, project_id: 9, created_at: "2026-10-29T10:00:00Z" }]] });
+  open();
+  expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
+  expect(screen.queryByText("No breakdown yet")).not.toBeInTheDocument();
+});
+
 test("with no set length, the breakdown says its own length, not \"22 s of 22 s planned\" (#749 LW9)", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, planned_seconds: null, breakdown_seconds: 5 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();

@@ -15,7 +15,8 @@ import { useAllowanceStop, useScript, useWeek } from "./useScript";
 const LETTER = ["A", "B", "C"];
 const SHOWN = 8;
 
-/** A ready version before it is made: its words, cast and plan. "Make this version" reserves it and opens the video at Breakdown. */
+/** A ready version before it is made: its words, cast and plan. "Make this version" reserves it and opens the video at Plan,
+ *  with the plan being made (#941), or the shots when the owner's plan is approved. */
 export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: number; slot: number; brandId: number; onClose: () => void }) {
   const script = useScript(scriptId);
   const cast = useCast(scriptId);
@@ -36,11 +37,13 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
     onSuccess: async (made) => {
       await queryClient.invalidateQueries({ queryKey: ["scripts"] });
       await queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] });
-      toast(`Version ${letter} is yours. Next: the breakdown.`);
+      // #941: with no saved preview the plan is made first; with the owner's approved plan, the shots.
+      const shots = (made as { breakdown_job_id?: number | null }).breakdown_job_id != null;
+      toast(`Version ${letter} is yours. Next: ${shots ? "the shots" : "the plan"}.`);
       navigate(`/b/${brandId}/projects/${made.project_id}?step=plan`);
     },
   });
-  // With no saved breakdown, starting one is a paid call; with one saved, making the version is free.
+  // With no saved preview, starting makes the plan (one paid call, #941); with one saved, making the version is free.
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
   const stop = useAllowanceStop(s, cost);
   const week = useWeek(s); // an editor making their own script sees how much of the week is used
@@ -84,13 +87,13 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
             <p>
               {v.has_breakdown
                 ? [`Planned${v.planned_by ? ` by ${v.planned_by.name}` : ""}`, v.seconds ? `${Math.round(v.seconds)} s` : null, v.clips ? `${v.clips} clip${v.clips === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")
-                : "Planned automatically when you start"}
+                : "The plan is made when you start"}
             </p>
           </section>
           {readyToMake && v.estimate_credits > 0 && (
             <p className="text-sm text-muted">
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(v.estimate_credits)} credits` : `Starting is free · the whole video about ${wholeCredits(v.estimate_credits)} credits`}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the plan) · the whole video about ${wholeCredits(v.estimate_credits)} credits` : `Starting is free · the whole video about ${wholeCredits(v.estimate_credits)} credits`}
               {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
