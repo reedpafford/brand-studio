@@ -60,7 +60,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Redraw after a look switch (next a627db21; fixed by #962 screen + #967 server, both PASS; closes on merge) | House to Disney Pixar, then Storyboard's "Redraw 1 out-of-date still": no hold shows, and the paid redraw is drawn with no picture of the person | Server: count a locked character with no sheet in the video's look as having no look, so the redraw is refused. Screen: refresh the cast list after a switch, so the cast hold shows |
-| Make this version's price line (#965) | Picking Disney Pixar shows the same price as House although a cast character has no Disney Pixar look (11.33 vs VS1's 14.73) | Add a look's price for each role needing a new look in the picked look, as VS1's confirm does |
 | Another editor's video (#964) | The server now refuses every change by a second editor (403), but the screen still shows Approve, Approve all, Make… live on their video | Screens: when the viewer didn't make the video and isn't the owner, one banner says who can change it and the step presses are greyed; merge with #964 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -330,3 +329,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #957 Preferred and going back (OR3, server) | cfd1bc9d | PASS: Go back (breakdown) waits (409 with the reason) while a storyboard, still, clip prompts or update run is being made; role guards and Undo pass |
 | 2026-10-29 | #967 A cast character with no picture in the video's look holds the still (server) | 8aaa2b92 | PASS: redraw refused 422 before any charge; storyboard, update and redo too; 41/41. Note: a role's own House look still draws after a switch |
 | 2026-10-29 | #964 Owner-or-maker check on every video write (server) | 4eaf08ea | FAIL until the screens follow: maker flows pass (61/61); a second editor sees live presses that all get 403 |
+| 2026-10-29 | #965 Make this version's price line (VS1) | 4006096e | PASS: a Disney Pixar pick adds the look Mia needs (14.73, as VS1); {} equals the card |
+| 2026-10-29 | #967 (re-check) | eba5d522 | PASS: a test case only |
