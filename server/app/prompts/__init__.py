@@ -25,7 +25,12 @@ SCHEMAS = {
     "variations": schemas.Variations,
     "cast_slots": schemas.CastSlots,
     "look_fit": schemas.LookFit,
+    "song_directions": schemas.SongDirections,
+    "song_breakdown": schemas.SongBreakdown,
+    "song_clip_prompts": schemas.ClipPrompts,
 }
+# A song video's step is the story step plus its own part (story prompts stay as they were).
+EXTENDS = {"song_breakdown": "breakdown", "song_clip_prompts": "clip_prompts"}
 NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
@@ -33,8 +38,8 @@ NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only 
 # the {{tokens}} in the step files instead.
 GUIDES = {
     "still": ["storyboard"],
-    "clip": ["clip_prompts", "improve"],
-    "breakdown": ["breakdown"],
+    "clip": ["clip_prompts", "song_clip_prompts", "improve"],
+    "breakdown": ["breakdown", "song_breakdown"],
     "script": ["script_draft", "enhance", "variations"],
 }
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
@@ -43,8 +48,8 @@ TOKEN = re.compile(r"\{\{(\w+)\}\}")
 @cache
 def styles() -> list[dict]:
     """The style registry, in Reed's order: one styles/<id>.md each (Reed, 2026-10-28). Each is
-    {id, name, kind ("look" or "format"), order, on, image_model, blurb, sections}. `on` is
-    only the starting switch (House alone); the server keeps Reed's own."""
+    {id, name, kind ("look" or "format"), order, on, narrated, image_model, blurb, sections}.
+    `on` is only the starting switch (House alone); the server keeps Reed's own."""
     out = []
     for path in (HERE / "styles").glob("*.md"):
         head, *sections = path.read_text().split("\n## ")
@@ -55,6 +60,7 @@ def styles() -> list[dict]:
             "kind": meta["kind"],
             "order": int(meta["order"]),
             "on": meta["on"] == "yes",
+            "narrated": meta.get("narrated") == "yes",  # ST1: "Make the narrator a role"
             "image_model": meta["image_model"],
             "blurb": meta["blurb"],
             "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
@@ -77,7 +83,8 @@ def _styled(text: str, style_id: str) -> str:
 @cache
 def system(step: str, style_id: str = "house") -> str:
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
-    parts.append(_styled((HERE / f"{step}.md").read_text(), style_id))
+    for name in filter(None, [EXTENDS.get(step), step]):
+        parts.append(_styled((HERE / f"{name}.md").read_text(), style_id))
     example = HERE / "examples" / f"{step}.json"
     if example.exists():
         ex = json.loads(example.read_text())
@@ -326,6 +333,62 @@ def sheet_prompt(
     if change.strip():
         out.append(parts["redo"].format(change=change.strip()))
     return " ".join(out)
+
+
+def song_directions_input(
+    brief: str, cast: list[str], music_style: str = "", seconds: int | None = None, note: str = ""
+) -> str:
+    """The user message for the song_directions step (with brand_block in the system prompt).
+    `music_style` is the brand's genre line; `seconds` only when the editor asked for a length."""
+    parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
+    if music_style:
+        parts.append(f"<music_style>{music_style}</music_style>")
+    if seconds:
+        parts.append(f"<length>{seconds} s (about {round(seconds * 2.5)} sung words)</length>")
+    if note:
+        parts.append(f"<note>{note}</note>")
+    return "\n".join(parts)
+
+
+def song_block(song: dict) -> str:
+    """The preferred take, measured, for the song_breakdown step: Next-Server's song timing
+    {seconds, bpm, beats, sections [{name, start, end, cuts}], lines [{section, text, start,
+    end, heard}]} (words and peaks are for the screens, left out). Sections start on bar lines;
+    `cuts` are bar lines inside one that fall outside any sung word, the best shot edges. A
+    line heard 0 times has guessed times."""
+    lines = [f'<song seconds="{song["seconds"]:.2f}" bpm="{song.get("bpm") or "?"}">', "Sections:"]
+    for x in song.get("sections", []):
+        cuts = " ".join(f"{c:.2f}" for c in x.get("cuts", []))
+        lines.append(
+            f"- {x['start']:.2f}–{x['end']:.2f} {x['name']}" + (f" (cuts: {cuts})" * bool(cuts))
+        )
+    lines.append("Beats: " + " ".join(f"{b:.2f}" for b in song.get("beats", [])))
+    lines.append("Sung lines:")
+    for n, x in enumerate(song.get("lines", []), 1):
+        guessed = " (times guessed)" if x.get("heard", 1) == 0 else ""
+        lines.append(f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}{guessed}")
+    return "\n".join([*lines, "</song>"])
+
+
+SUNO_PACE = (
+    ", vocals start immediately, no instrumental intro, no instrumental breaks, continuous "
+    "singing, tight ending"
+)
+
+
+def song_request(lyrics: str, style_line: str) -> dict:
+    """What the music provider (Suno) is sent for a picked direction: the lyrics word for word
+    with our [Lip-sync] marks taken out (they're for the breakdown, never sung), opened and
+    closed so the vocals start at once and end tight; the style line plus the pacing, outside
+    its 25 words; and the styles to avoid (Starpop's measured Suno settings)."""
+    from app.prompts.check import LIP_SYNC
+
+    sung = "\n".join(LIP_SYNC.sub("", x).rstrip() for x in lyrics.strip().splitlines())
+    return {
+        "lyrics": f"[Intro: vocals start immediately]\n{sung}\n[End]",
+        "style": style_line.strip().rstrip(".") + SUNO_PACE,
+        "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word",
+    }
 
 
 def spoken_words(script: str) -> int:
