@@ -260,3 +260,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #919 at 6960953a (ST0 Dialogue↔Narrated with Undo; narrator check; sentence times) | code walk; vitest scripts (250) | PASS |
 | 2026-10-29 | #916 at e3af3c93 (editors keep tone notes, Don't/never say, End line) | vitest brand (29) | PASS |
 | 2026-10-29 | #920 at 7e33b1a4 (N1: nothing to read → songs_note, price 0) | narration (16) | PASS server (screen must show songs_note as the press reason, else "· 0 credits" then refused) |
+| 2026-10-29 | #898 at e5291fe2 (12:14 check-in) | PASS: a ★ with no brand product shows #893's 409 sentence once, with Add a product (Products tab, editors too); no toast, nothing saved; older-server fallback says the ★ wasn't kept. Follow-up: clear the ★ line on a non-409 error so a later refusal isn't hidden. #909, #912, #913, #915, #917 left the open list. #854 CI running |
