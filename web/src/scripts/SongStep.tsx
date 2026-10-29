@@ -16,6 +16,21 @@ const SUNG_PER_SECOND = 2.5; // about how fast a song is sung
 
 /** The sung words: section tags like [Verse] are not sung and don't count. */
 export const sungWords = (lyrics: string) => lyrics.replace(/\[[^\]]*\]/g, " ").split(/\s+/).filter(Boolean).length;
+/** A line is sung when, without our [Lip-sync] marks and section tags, words are left (the server's music.sung). */
+const isSung = (line: string) => line.replace(/\[[^\]]*\]/g, "").trim() !== "";
+
+/** The lyrics up to and including the nth sung line ("Keep the first N lines"), and the sung lines dropped. */
+export function keepFirst(lyrics: string, n: number): { kept: string; dropped: number } {
+  const lines = lyrics.split("\n");
+  let sung = 0;
+  let end = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (!isSung(lines[i])) continue;
+    sung++;
+    if (sung === n) end = i + 1;
+  }
+  return { kept: lines.slice(0, end).join("\n").trimEnd(), dropped: Math.max(0, sung - n) };
+}
 const words = (s: string) => s.split(/\s+/).filter(Boolean);
 const n = (x: number) => x.toLocaleString("en-GB");
 

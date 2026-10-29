@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { keepFirst } from "./SongStep";
 
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paws through the link in my bio." }];
@@ -16,7 +17,7 @@ const song = (o: object = {}, v: object = {}) => ({
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
 const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
-const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, ...o });
+const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes, ...o });
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
 function open(path: string) {
@@ -235,4 +236,31 @@ test("trimming a take when nothing else is Preferred makes it the Preferred one"
   expect(await screen.findByText("Take 1 now uses its first 0:55 and is Preferred. The whole take is kept.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /songs/1/trim")).toBe(true));
+});
+
+test("keepFirst counts sung lines as the server does: tags, [Lip-sync] marks and blank lines don't count", () => {
+  const lyrics = "[Verse]\nOne\n\n[Chorus] [Lip-sync]\nTwo [Lip-sync]\nThree\n[Outro]\nFour";
+  expect(keepFirst(lyrics, 2)).toEqual({ kept: "[Verse]\nOne\n\n[Chorus] [Lip-sync]\nTwo [Lip-sync]", dropped: 2 });
+});
+
+test("lyrics over the video limit: Make gives way to Keep the first N lines (free), which asks, saves and has Undo", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([], { video_estimate_credits: 812, keep_lines: 1 })], "PUT /scripts/7/drafts/0": [200, song()] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByText(/A song this long would go over the video limit \(about 812 credits to make\)/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make 2 takes/ })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Keep the first 1 line · free" }));
+  const ask = screen.getByRole("alertdialog", { name: "Keep the first 1 line?" });
+  expect(ask).toHaveTextContent("Bo would never touch his bowl");
+  expect(ask).toHaveTextContent("1 sung line is dropped.");
+  await userEvent.click(within(ask).getByRole("button", { name: "Keep them" }));
+  await vi.waitFor(() => expect((calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body as { text: string }).text).toBe("[Verse]\nBo would never touch his bowl"));
+  expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
+});
+
+test("when not even one line fits the video limit, the press is Shorten the lyrics", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([], { video_estimate_credits: 900, keep_lines: 0 })] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByRole("link", { name: "Shorten the lyrics" })).toBeInTheDocument();
 });

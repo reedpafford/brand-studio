@@ -211,3 +211,21 @@ def test_a_refusal_says_whether_to_change_the_words_or_the_style(
     owner.post(f"{song}/songs", json={})
     _work(app, db)
     assert owner.get(f"{song}/songs").json()["takes"][0]["refused_for"] == about
+
+
+def test_marking_a_section_for_lip_sync_doesnt_date_the_takes(app, db, owner, song):
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    marked = LYRICS.replace("[Chorus]", "[Chorus] [Lip-sync]")
+    owner.put(song, json={"text": marked, "style_line": "pop"})
+    assert not any(t["out_of_date"] for t in owner.get(f"{song}/songs").json()["takes"])
+
+
+def test_lyrics_too_long_for_the_cap_say_how_many_lines_to_keep(app, owner, song):
+    body = owner.get(f"{song}/songs").json()
+    assert body["keep_lines"] is None and 0 < body["video_estimate_credits"] < 729
+    long = "\n".join("la " * 10 for _ in range(160))  # about 800 s sung, under 5,000 chars
+    assert owner.put(song, json={"text": long, "style_line": "pop"}).status_code == 200
+    body = owner.get(f"{song}/songs").json()
+    assert body["video_estimate_credits"] > 729 and 0 < body["keep_lines"] < 160

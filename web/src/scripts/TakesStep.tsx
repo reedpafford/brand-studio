@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Ellipsis, Music, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Badge, Banner, Button, Card, EmptyState, Menu, MenuItem, Skeleton, buttonClass } from "../components";
+import { Badge, Banner, Button, Card, Dialog, EmptyState, Menu, MenuItem, Skeleton, buttonClass } from "../components";
 import { serverTime } from "../time";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
 import { useAllowanceStop, type Script } from "./useScript";
-import { useSaveSong, type Song } from "./SongStep";
+import { keepFirst, useSaveSong, type Song } from "./SongStep";
 import { useToast } from "../toast";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
@@ -173,6 +173,7 @@ export function TakesStep({ script: s }: { script: Script }) {
   const a = useSongActions(s.id);
   const data = songs.data;
   const stop = useAllowanceStop(s, data?.estimate_credits);
+  const [keeping, setKeeping] = useState(false);
   const put = useSaveSong(s.id);
   const toast = useToast();
   if (songs.isPending)
@@ -194,22 +195,54 @@ export function TakesStep({ script: s }: { script: Script }) {
   const latest = [a.make, a.tryAgain, a.spread, a.prefer, a.trim, a.remove, put].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
   const refused = latest !== a.make && latest.isError ? latest.error.message : null;
   const failed = a.make.isError && latest === a.make ? a.make.error.message : null;
-  const make = (label: string, primary: boolean) => (
+  // A refusal over the style (an artist's name, say): the style line is cleared, so the song is upbeat pop, with Undo. No brand music style exists yet (brand setup).
+  const v = s.versions.find((x) => x.slot === 0);
+  const now: Song = { text: v?.text ?? "", style_line: v?.style_line ?? "", spoken_end_line: v?.spoken_end_line ?? "" };
+  const defaultStyle = now.style_line ? () => put.mutate({ ...now, style_line: "" }, { onSuccess: () => toast("The style is cleared: the song will be upbeat pop. Make 2 takes again.", () => put.mutate(now)) }) : undefined;
+  const current = takes.filter((t) => !t.out_of_date);
+  // Over the cap before any take of these lyrics (flows S4 B): the price line says so and Make gives way to the free fix.
+  const cut = data.keep_lines !== null ? keepFirst(now.text, data.keep_lines) : null;
+  const make = (label: string, primary: boolean) =>
+    cut ? (
+      <div className="space-y-2">
+        <p className="text-sm text-warning">A song this long would go over the video limit (about {Math.ceil(data.video_estimate_credits)} credits to make).</p>
+        {data.keep_lines ? (
+          <Button variant={primary ? "primary" : "secondary"} onClick={() => setKeeping(true)}>
+            Keep the first {data.keep_lines} line{data.keep_lines === 1 ? "" : "s"} · free
+          </Button>
+        ) : (
+          <Link to="?edit=1" className={buttonClass(primary ? "primary" : "secondary")}>
+            <Pencil size={20} strokeWidth={1.75} aria-hidden />
+            Shorten the lyrics
+          </Link>
+        )}
+      </div>
+    ) : (
     <div className="space-y-1">
       <Button variant={primary ? "primary" : "secondary"} icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate()}>
         {label}
       </Button>
       {failed && <p role="alert" className={errorClass}>{failed}</p>}
+      <p className="text-sm text-muted">A video this long: about {Math.ceil(data.video_estimate_credits)} credits to make.</p>
     </div>
   );
-  const current = takes.filter((t) => !t.out_of_date);
-  // A refusal over the style (an artist's name, say): the style line is cleared, so the song is upbeat pop, with Undo. No brand music style exists yet (brand setup).
-  const v = s.versions.find((x) => x.slot === 0);
-  const now: Song = { text: v?.text ?? "", style_line: v?.style_line ?? "", spoken_end_line: v?.spoken_end_line ?? "" };
-  const defaultStyle = now.style_line ? () => put.mutate({ ...now, style_line: "" }, { onSuccess: () => toast("The style is cleared: the song will be upbeat pop. Make 2 takes again.", () => put.mutate(now)) }) : undefined;
   return (
     <div className="space-y-4">
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
+      {keeping && cut && data.keep_lines ? (
+        <Dialog
+          title={`Keep the first ${data.keep_lines} line${data.keep_lines === 1 ? "" : "s"}?`}
+          cancelLabel="Not yet"
+          actionLabel="Keep them"
+          busy={put.isPending}
+          onCancel={() => setKeeping(false)}
+          onConfirm={() => put.mutate({ ...now, text: cut.kept }, { onSuccess: () => { setKeeping(false); toast(`Kept the first ${data.keep_lines} line${data.keep_lines === 1 ? "" : "s"}.`, () => put.mutate(now)); } })}
+        >
+          <span className="block">The song then ends on:</span>
+          <span className="block type-script text-text">{cut.kept.split("\n").filter((l) => l.trim()).at(-1)}</span>
+          <span className="block">{cut.dropped} sung line{cut.dropped === 1 ? " is" : "s are"} dropped. Undo puts them back.</span>
+        </Dialog>
+      ) : null}
       {!data.songs_on && <Banner tone="info" title="Songs aren't switched on here.">The lyrics and style still save. Takes can be made where songs are on.</Banner>}
       {takes.length === 0 ? (
         readOnly ? (
