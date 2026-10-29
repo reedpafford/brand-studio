@@ -59,7 +59,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| One figure, two roundings (#1008) | "Up to" is now everywhere, but 28.06 reads 29 on Make this version and VS1's confirm (whole) and 28.1 on the cost bar and estimate note (one decimal) | Whole credits in CostBar and EstimateNote too |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -376,3 +375,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #1002 Restore has Undo | df16d884 (+ next) | PASS: release → restore → Undo releases again (version back to Ready to make); 18/18 |
 | 2026-10-29 | #1008 Prices as charged (web) | 6f9a015b (+ next) | FAIL: one figure rounds two ways (29 vs 28.1). "Up to" in the four places, Make the shots from /breakdown/price, stills totals rounded once; 674/674 |
 | 2026-10-29 | #1009 Look rewrite (prompt text, read only) | bbb4b1fb | Text passes (no names but Disney Pixar, no "exactly", Skeleton own sample, Zack D its own style); but sample_still_prompt/own_sample aren't wired: look_samples.py:72 still sends "exactly as in [Image1]" with the hero, Skeleton too |
+| 2026-10-29 | #1008 (re-walk) | 27f5226a (+ next) | PASS: "up to 29" in all four places for 28.06; 675/675 |
