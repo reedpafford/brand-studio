@@ -269,8 +269,25 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     for k, v in values.items():
         setattr(project, k, v)
     follow_lip_sync(db, project, could)
+    if "look" in values:
+        follow_own_looks(db, project)
     db.commit()
     return was
+
+
+def follow_own_looks(db: Session, project: Project) -> None:
+    """A look switch re-casts each role still on its own look to the one it already has in
+    the new look (n12), free, so switching back never makes it again. A role the editor gave
+    a Cast & places character keeps it."""
+    from app import cast_roles
+
+    cast, mine = dict(project.slot_cast or {}), dict(project.slot_looks or {})
+    for slot in cast_roles.video_slots(db, project):
+        key = str(slot.id)
+        there = cast_roles.own_look_in(db, project, slot, project.look or "house")
+        if there and mine.get(key) and cast.get(key) == mine[key]:
+            cast[key] = mine[key] = there
+    project.slot_cast, project.slot_looks = cast, mine
 
 
 def script_of(db: Session, project: Project):
