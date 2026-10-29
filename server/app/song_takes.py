@@ -44,7 +44,9 @@ def price(db: Session, ws: int, draft: ScriptDraft | None = None) -> Decimal:
             job = narration.job(draft.text)
         except ValueError:
             return Decimal(0)
-        return estimate(db, ws, "speech", _units(job), job)
+        from app import narration_music
+
+        return estimate(db, ws, "speech", _units(job), job) + narration_music.price(db, ws)
     return estimate(db, ws, "music", Decimal(1))
 
 
@@ -179,6 +181,10 @@ def save_timing(db: Session, job: Job) -> None:
     take.timing_guessed = bool(job.input.get("spread"))
     take.advice = [GUESSED] if take.timing_guessed else advice(timing)
     take.trimmed = bool(timing.get("trimmed"))
+    if take.kind == narration.KIND and not take.music_job_id:  # then its music bed (N1), once
+        from app import narration_music
+
+        narration_music.start(db, take, db.get(User, job.created_by_id))
     if timing.get("trimmed") is False:
         take.advice = [narration.KEPT_PAUSES, *take.advice]
     draft = db.get(ScriptDraft, take.draft_id)

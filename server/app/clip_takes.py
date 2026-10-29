@@ -343,35 +343,77 @@ def stitch(videos: list[bytes], reencode: bool = False) -> bytes:
 
 
 FADE = 1.5  # seconds: a song video's end fades out (flows V6)
+# A narrated video's mix (flows V6n): the takes' own sound under the narration, the music
+# lower still and ducked while the narrator speaks, the whole about -14 LUFS
+TAKES, MUSIC, LOUD = 0.75, 0.30, "loudnorm=I=-14:TP=-1.5:LRA=11"
+DUCK = "sidechaincompress=threshold=0.05:ratio=6:attack=20:release=400"  # under the voice
+SAME = "aformat=sample_rates=44100:channel_layouts=stereo"
 
 
-def song_cut(videos: list[bytes], lengths: list[float], song: bytes) -> bytes:
+def _probe(folder: Path, name: str, stream: str, entries: str) -> str:
+    probe = ["ffprobe", "-v", "error", "-select_streams", stream, "-show_entries",
+             f"stream={entries}", "-of", "csv=p=0:s=x", name]  # fmt: skip
+    return subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
+        probe, cwd=folder, capture_output=True, text=True, timeout=60,
+    ).stdout.strip()  # fmt: skip
+
+
+def _narrated_mix(folder: Path, lengths: list[float], music: bool, fade: str) -> list[str]:
+    """Each take's own sound (silence if it has none), the narration on top, the music under
+    it ducked by the voice, made loud enough and faded."""
+    n, total = len(lengths), sum(lengths)
+    takes = [f"[{i}:a]{SAME},atrim=duration={d},asetpts=PTS-STARTPTS,apad=whole_dur={d},"
+             f"volume={TAKES}[a{i}]" if _probe(folder, f"{i}.mp4", "a:0", "index")
+             else f"anullsrc=r=44100:cl=stereo,atrim=duration={d}[a{i}]"
+             for i, d in enumerate(lengths)]  # fmt: skip
+    joined = "".join(f"[a{i}]" for i in range(n))
+    voice = f"[{n}:a]{SAME},atrim=duration={total},apad=whole_dur={total}"
+    graph = [*takes, f"{joined}concat=n={n}:v=0:a=1[takes]"]
+    if music:
+        graph += [f"{voice},asplit=2[voice][key]",
+                  f"[{n + 1}:a]{SAME},atrim=duration={total},volume={MUSIC}[bed]",
+                  f"[bed][key]{DUCK}[under]"]  # fmt: skip
+    else:
+        graph.append(f"{voice}[voice]")
+    parts = "[takes][voice][under]" if music else "[takes][voice]"
+    graph.append(f"{parts}amix=inputs={3 if music else 2}:normalize=0:duration=first,{LOUD},"
+                 f"aresample=44100,afade=t=out:{fade}[a]")  # fmt: skip
+    return graph
+
+
+def song_cut(
+    videos: list[bytes], lengths: list[float], song: bytes,
+    narrated: bool = False, music: bytes | None = None,
+) -> bytes:  # fmt: skip
     """A song video (flows V6, free): each picked take cut to its piece of the song, counting
     from its start (a short one holds its last frame), joined in order with its own sound
-    dropped, the song laid under the whole picture, and the end faded."""
+    dropped, the song laid under the whole picture, and the end faded. A narrated video
+    (V6n) keeps each take's own sound under the narration, with its music bed if made."""
     total = sum(lengths)
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         for n, data in enumerate(videos):
             (folder / f"{n}.mp4").write_bytes(data)
         (folder / "song").write_bytes(song)
-        probe = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-                 "stream=width,height", "-of", "csv=p=0:s=x", "0.mp4"]  # fmt: skip
-        size = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
-            probe, cwd=folder, capture_output=True, text=True, timeout=60,
-        ).stdout.strip() or "720x1280"  # fmt: skip
+        size = _probe(folder, "0.mp4", "v:0", "width,height") or "720x1280"
         parts = [f"[{n}:v]trim=duration={d},setpts=PTS-STARTPTS,tpad=stop_mode=clone:"
                  f"stop_duration={d},trim=duration={d},scale={size.replace('x', ':')},setsar=1,"
                  f"fps=30,format=yuv420p[v{n}]" for n, d in enumerate(lengths)]  # fmt: skip
         joined = "".join(f"[v{n}]" for n in range(len(videos)))
         fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
-        graph = ";".join([
-            *parts, f"{joined}concat=n={len(videos)}:v=1:a=0,fade=t=out:{fade}[v]",
+        sound = (_narrated_mix(folder, lengths, music is not None, fade) if narrated else [
             f"[{len(videos)}:a]atrim=duration={total},asetpts=PTS-STARTPTS,"
-            f"apad=whole_dur={total},afade=t=out:{fade}[a]",
-        ])  # fmt: skip
+            f"apad=whole_dur={total},afade=t=out:{fade}[a]"])  # fmt: skip
+        graph = ";".join(
+            [*parts, f"{joined}concat=n={len(videos)}:v=1:a=0,fade=t=out:{fade}[v]", *sound]
+        )
         inputs = [arg for n in range(len(videos)) for arg in ("-i", f"{n}.mp4")]
-        command = ["ffmpeg", "-v", "error", "-y", *inputs, "-i", "song", "-filter_complex",
+        if narrated and music is not None:  # a bed shorter than the video loops
+            (folder / "music").write_bytes(music)
+            inputs += ["-i", "song", "-stream_loop", "-1", "-i", "music"]
+        else:
+            inputs += ["-i", "song"]
+        command = ["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex",
                    graph, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-c:a", "aac", "-t",
                    str(total), "-movflags", "+faststart", "out.mp4"]  # fmt: skip
         done = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours

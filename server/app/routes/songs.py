@@ -56,6 +56,12 @@ class SongTakeOut(BaseModel):
     trim_to: float | None  # in use: only the take's first this-many seconds
     kind: Literal["song", "narration"] = "song"  # a narration: one voice reads the words (N1)
     voice: str = ""  # a narration's voice ("Sarah")
+    # A narration's music bed (N1): none | making | ready | failed, its reason and file, and
+    # what Try the music again costs
+    music_status: Literal["none", "making", "ready", "failed"] = "none"
+    music_reason: str | None = None
+    music_file_id: int | None = None
+    music_credits: float = 0
     sentences: list[Sentence] = []  # a narration's sentences, each with its measured times
     untrimmed_seconds: float | None = None  # a narration whose pauses were trimmed: "2:26 → 2:19"
 
@@ -93,6 +99,22 @@ def _real(request: Request, db: Session, draft: ScriptDraft) -> float:
     return song_takes.real_songs(db, request.app.state.settings)
 
 
+def _music(db: Session, take: SongTake) -> dict:
+    from app import narration_music
+
+    if take.kind != narration.KIND:
+        return {}
+    status, reason = narration_music.state(db, take)
+    ws = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id).workspace_id
+    credits = float(narration_music.retry_price(db, take, ws)) if status == "failed" else 0
+    return {
+        "music_status": status,
+        "music_reason": reason,
+        "music_file_id": take.music_file_id,
+        "music_credits": credits,
+    }
+
+
 def _refused_for(reason: str | None) -> str | None:
     if reason and reason.startswith(music.COPYRIGHT.split("“")[0]):
         return "style"
@@ -125,6 +147,7 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         trim_to=take.trim_to,
         kind=take.kind,
         voice=take.voice,
+        **_music(db, take),
         sentences=[
             Sentence(text=x["text"], start=x["start"], end=x["end"])
             for x in (take.timing or {}).get("lines", [])
@@ -222,6 +245,24 @@ def try_again(
     paid = song_takes.state(db, take)[0] == "failed"  # a timing is read again free
     kie = paid and _real(request, db, draft)
     song_takes.try_again(db, user, take, kie=kie)
+    return _take_out(db, take, draft)
+
+
+@router.post("/songs/{take_id}/music-again", response_model=SongTakeOut)
+def music_again(
+    take_id: int,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """A narration's music failed: Try the music again (the prompt and the bed, at
+    music_credits); the narration is kept as it is."""
+    from app import narration_music
+
+    take, draft = _get_take(db, user, take_id)
+    if not songs_on(request, db, draft):
+        raise HTTPException(503, SONGS_OFF)
+    narration_music.try_again(db, take, user)
     return _take_out(db, take, draft)
 
 

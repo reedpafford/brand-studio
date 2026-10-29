@@ -93,6 +93,17 @@
    "default": true,
    "price": {"unit": "thousand_characters", "usd": {"any": 0.10}},
    "price_source": "Replicate model page 2026-10-29: $0.10 per thousand input characters"
+  },
+  {
+   "id": "stable-audio-2.5",
+   "name": "Stable Audio 2.5",
+   "kind": "music",
+   "provider_model": "stability-ai/stable-audio-2.5",
+   "provider_version": "a61ac8edbb27cd2eda1b2eff2bbc03dcff1131f5560836ff77a052df05b77491",
+   "default": true,
+   "duration": {"min": 1, "max": 190},
+   "price": {"unit": "call", "usd": {"any": 0.20}},
+   "price_source": "Replicate model page 2026-10-29: $0.20 per output audio file"
   }
  ]
 }

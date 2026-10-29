@@ -20,6 +20,7 @@ NAMES = {  # what a failed run was, as the editor knows it; a step not named her
     "clip_prompts": "The clip prompts", "clip_take": "A clip", "change": "A change",
     "song_take": "The song", "song_timing": "The song's timing",
 }  # fmt: skip
+KINDS = {"speech": "The narration", "narration_timing": "The narration's timing"}  # N1
 ADVISORY = "check-claude"  # a picture check that only advises: its failure never flags a video
 
 
@@ -60,7 +61,8 @@ def waiting_on(db: Session, projects: list[Project], old: set[int]) -> dict[int,
                 ready[pid][model] += 1
     out = {}
     for pid in ids:
-        if (job := failed.get(pid)) and (name := NAMES.get(job.input.get("step", ""))):
+        job = failed.get(pid)
+        if job and (name := KINDS.get(job.kind) or NAMES.get(job.input.get("step", ""))):
             out[pid] = f"{name} didn't finish"
         elif looks.get(pid):
             out[pid] = f"Approve {_count(looks[pid], 'look', 'looks')}"
