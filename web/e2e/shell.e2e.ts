@@ -57,6 +57,7 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
 test("an editor sees the team but not the owner's controls", async ({ page }) => {
   await signIn(page, "ed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Videos", exact: true })).toBeVisible(); // an editor's day starts from their videos (audit M6)
   // Team is Reed's: an editor has no link to it, but the page still opens and is read-only.
   await expect(page.getByRole("link", { name: "Team" })).toHaveCount(0);
   await page.goto("/team");

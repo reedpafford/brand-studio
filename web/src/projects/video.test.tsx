@@ -1363,7 +1363,7 @@ test("the video's back link says where it goes: this brand's videos", async () =
   setViewport(390);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
-  expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/scripts?view=videos");
+  expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
   expect(screen.queryByRole("button", { name: /^Brand: |Choose a brand/ })).toBeNull(); // no brand bar inside a video on a phone
 });
 
