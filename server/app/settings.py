@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # this price until KIE's real one is known (music.py A4).
     kie_budget_usd: float = 0.0
     kie_usd_per_request: float = 0.1028
+    # Real language tests on the test site (Reed, 2026-10-29): with the stand-ins on, a
+    # language's sample script alone is written by Claude, until the next one would take
+    # their spend past this budget; after that a test is a stand-in again.
+    real_language_samples: bool = False
+    language_samples_budget_usd: float = 0.0
     # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Paid generation (Replicate, Claude). Off by default: the owner turns it on at deploy.

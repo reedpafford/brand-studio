@@ -86,6 +86,13 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             "suno": _kie(settings, FakeSuno()) if kie_on(settings) else FakeSuno(),
             "claude": FakeWriter(),
             "local": local,
+            # Language tests, written for real once Reed switches them on (2026-10-29); on
+            # without the key (only the Claude worker holds it), a stand-in, never a failure
+            **(
+                {REAL_TESTS: _claude(settings) if tests_on(settings) else FakeWriter()}
+                if settings.real_language_samples
+                else {}
+            ),  # fmt: skip
         }
     from app.providers.replicate import ReplicateProvider
 
@@ -95,17 +102,30 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
         max_download_mb=settings.max_download_mb,
         token=settings.replicate_token.get_secret_value(),
     )
-    from app.providers.claude import ClaudeProvider
-
-    claude = ClaudeProvider(settings.anthropic_key.get_secret_value())
     from app import site_fetch
 
     local = LocalProvider(storage, read_site=site_fetch.read_site if settings.site_read_real
                           else site_fetch.switched_off)  # fmt: skip
-    providers = {"fake": FakeProvider(), "replicate": replicate, "claude": claude, "local": local}
+    providers = {"fake": FakeProvider(), "replicate": replicate, "claude": _claude(settings),
+                 "local": local}  # fmt: skip
     if kie_on(settings):  # Suno through KIE: only once Reed switches it on
         providers["suno"] = _kie(settings)
     return providers
+
+
+REAL_TESTS = "claude-samples"  # the test site's lane for real language tests
+
+
+def _claude(settings):
+    from app.providers.claude import ClaudeProvider
+
+    return ClaudeProvider(settings.anthropic_key.get_secret_value())
+
+
+def tests_on(settings) -> bool:
+    """Real language tests among the stand-ins: switched on, with a Claude key."""
+    return bool(settings.fake_providers and settings.real_language_samples
+                and settings.anthropic_key.get_secret_value())  # fmt: skip
 
 
 def _kie(settings, stand_in=None):
