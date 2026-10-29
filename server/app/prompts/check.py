@@ -1017,3 +1017,22 @@ def _line_clock(lyrics: str, shots: list, timed: list[dict]) -> list[str]:
         if any(a + 0.15 < e < b - 0.15 for e in edges for a, b in when.values()):
             problems.append(f"{ADVICE}shot {shot.id}: ends in the middle of a sung line")
     return problems
+
+
+# --- Narrated videos (flows N1, V6n): one narrator track under silent clips ---
+
+
+def narrator(script: str) -> str | None:
+    """The narrator's name when every spoken line of a Story script is their voiceover and
+    nobody speaks on camera (flows N1: "Narration" shows), else None. Every labelled line is
+    one speaker's V.O.; a script of plain prose, with no labels, is one narrator too."""
+    lines = [TAG.sub("", x).strip() for x in script.splitlines()]
+    heads = [x for x in lines if x.startswith(("SCENE", "INT.", "EXT."))]
+    said = [x for x in lines if x and x not in heads and not x.startswith(SCREEN_LINE)]
+    labels = [m for x in said if (m := re.match(r"^([A-Z][A-Z .'-]*?)\s*(\(([^)]*)\))?:\s", x))]
+    if not labels:  # plain prose is read by a narrator; a silent story with scenes is not
+        return "Narrator" if said and not heads else None
+    if any(not re.fullmatch(r"V\.?\s?O\.?", (m[3] or "").strip(), re.I) for m in labels):
+        return None
+    names = {m[1].strip() for m in labels}
+    return names.pop().title() if len(names) == 1 else None

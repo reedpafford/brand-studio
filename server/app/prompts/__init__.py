@@ -28,9 +28,16 @@ SCHEMAS = {
     "song_directions": schemas.SongDirections,
     "song_breakdown": schemas.SongBreakdown,
     "song_clip_prompts": schemas.ClipPrompts,
+    "narrated_breakdown": schemas.SongBreakdown,  # flows V6n: the narration is the clock
+    "narrated_clip_prompts": schemas.ClipPrompts,
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
-EXTENDS = {"song_breakdown": "breakdown", "song_clip_prompts": "clip_prompts"}
+EXTENDS = {
+    "song_breakdown": "breakdown",
+    "song_clip_prompts": "clip_prompts",
+    "narrated_breakdown": "breakdown",
+    "narrated_clip_prompts": "clip_prompts",
+}
 NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only add tokens
 
 
@@ -38,8 +45,8 @@ NO_RULES = {"look_fit"}  # a check, not a writer: the writer's rules would only 
 # the {{tokens}} in the step files instead.
 GUIDES = {
     "still": ["storyboard"],
-    "clip": ["clip_prompts", "song_clip_prompts", "improve"],
-    "breakdown": ["breakdown", "song_breakdown"],
+    "clip": ["clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"],
+    "breakdown": ["breakdown", "song_breakdown", "narrated_breakdown"],
     "script": ["script_draft", "enhance", "variations"],
 }
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
