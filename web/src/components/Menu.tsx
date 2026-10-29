@@ -35,7 +35,8 @@ export function Menu({ title, trigger, align = "left", children }: { title: stri
         </Sheet>
       )}
       {open && !phone && (
-        <div role="menu" aria-label={title} className={`absolute top-full z-30 mt-2 min-w-64 rounded-lg border border-border bg-surface-3 p-2 shadow-raised ${align === "right" ? "right-0" : "left-0"}`}>
+        // A long list (many brands) scrolls inside the menu, so its last item (New brand) is always reachable.
+        <div role="menu" aria-label={title} className={`absolute top-full z-30 mt-2 max-h-[min(70vh,36rem)] min-w-64 overflow-y-auto overscroll-contain rounded-lg border border-border bg-surface-3 p-2 shadow-raised ${align === "right" ? "right-0" : "left-0"}`}>
           {children(close)}
         </div>
       )}
