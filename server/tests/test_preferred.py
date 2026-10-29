@@ -96,3 +96,32 @@ def test_a_preferred_look_is_an_earlier_approved_sheet_with_undo(db, owner, edit
     assert back["sheet_status"] == "approved"
     undo = owner.post(f"{url}/preferred", json={"file_id": back["was_file_id"]}).json()
     assert undo["sheet_file_id"] == second  # Undo: one press, free
+
+
+def test_go_back_to_an_earlier_storyboard_with_undo(app, db, editor, setup):  # noqa: F811
+    from tests.test_enhance import FakeClaude, _run
+    from tests.test_storyboard import _frames
+
+    url, frame = _frame(app, db, editor, setup)
+    first_still, refs = frame.file_id, frame.reference_ids
+    row = _take_from(db, editor, frame)  # a take made from storyboard 1's still
+    assert editor.post(url, json={}).status_code == 201  # Make the storyboard again
+    _run(app, db, FakeClaude(_frames(*refs)))
+    db.expire_all()
+    new = db.get(StoryboardFrame, editor.get(url).json()[0]["id"])
+    second_still = upload(editor)
+    new.file_id = second_still  # storyboard 2's still
+    db.commit()
+    assert _older(db, row)  # its take shows storyboard 1's still
+
+    shown = editor.get(f"{url}/versions").json()
+    assert [v["index"] for v in shown] == [None, 0] and shown[0]["current"]
+    assert shown[1]["still_file_ids"] == [first_still] and shown[1]["made_at"]
+    assert editor.post(f"{url}/versions/5/use").status_code == 404
+
+    back = editor.post(f"{url}/versions/0/use").json()  # Go back to this: free
+    assert [(f["clip_id"], f["file_id"]) for f in back] == [(frame.clip_id, first_still)]
+    assert not _older(db, row)  # the take made from the restored frame is current again
+    assert [v["index"] for v in editor.get(f"{url}/versions").json()] == [None, 0]
+    undo = editor.post(f"{url}/versions/0/use").json()  # Undo: storyboard 2 again
+    assert undo[0]["file_id"] == second_still and _older(db, row)

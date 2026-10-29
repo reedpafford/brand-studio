@@ -231,6 +231,61 @@ def frames(project_id: int, user: User = Depends(current_user), db: Session = De
     return [_out(db, project, f, waiting) for f in rows]
 
 
+class Maker(BaseModel):
+    id: int
+    name: str
+
+
+class StoryboardVersionOut(BaseModel):
+    """OR3 Versions: the storyboard in hand (`index` null) and the earlier ones (`index`: Go
+    back to this)."""
+
+    index: int | None
+    made_at: str
+    made_by: Maker | None
+    frames: int
+    still_file_ids: list[int]  # each frame's still, for the thumbnails (none drawn: left out)
+    current: bool
+
+
+def _version(db: Session, entry: dict, index: int | None) -> StoryboardVersionOut:
+    from app.auth import user_name
+
+    by = entry.get("made_by_id")
+    return StoryboardVersionOut(
+        index=index, made_at=entry["made_at"], current=index is None,
+        made_by=Maker(id=by, name=user_name(db, by)) if by else None,
+        frames=len(entry["frames"]),
+        still_file_ids=[f["file_id"] for f in entry["frames"] if f.get("file_id")],
+    )  # fmt: skip
+
+
+@router.get("/versions", response_model=list[StoryboardVersionOut])
+def versions(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The storyboard in hand first, then the earlier ones, newest first (at most 10)."""
+    project = get_project(db, user, project_id)
+    rows = storyboard._rows(db, project)
+    now = [_version(db, storyboard.as_version(db, rows), None)] if rows else []
+    return now + [_version(db, e, i) for i, e in enumerate(project.storyboard_history or [])]
+
+
+@router.post("/versions/{index}/use", response_model=list[FrameOut])
+def use_version(
+    project_id: int, index: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Go back to this: free, never refused over budget; Undo is index 0 (the one it replaced).
+    Waits while a storyboard or a still is being made, so nothing lands on a frame that's gone."""
+    project = get_project(db, user, project_id)
+    if project.archived_at is not None:
+        raise HTTPException(409, "This video is archived. Restore it first.")
+    if any(j.input.get("step") in ("storyboard", "frame") or j.input.get("frame_id")
+           for j in _waiting(db, project)):  # fmt: skip
+        raise HTTPException(409, "Wait for the storyboard and stills being made.")
+    storyboard.use_storyboard(db, project, index)
+    db.commit()
+    return frames(project_id, user, db)
+
+
 @router.put("/frames/{frame_id}", response_model=FrameOut)
 def edit_frame(
     project_id: int,

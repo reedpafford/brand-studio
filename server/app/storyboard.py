@@ -594,6 +594,50 @@ def still_refused(db: Session, job: Job) -> None:
         frame.problems = [*(frame.problems or []), REFUSED]
 
 
+HISTORY = 10  # OR3: earlier storyboards kept (their stills' files are never deleted)
+KEPT = ("breakdown_id", "job_id", "clip_id", "shot_id", "prompt", "reference_ids", "problems",
+        "kept", "file_id", "approved", "still_stale", "look", "made_with", "redrawn", "earlier",
+        "change")  # fmt: skip
+
+
+def _rows(db: Session, project: Project) -> list[StoryboardFrame]:
+    return list(db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id)
+                           .order_by(StoryboardFrame.id)))  # fmt: skip
+
+
+def as_version(db: Session, frames: list[StoryboardFrame]) -> dict:
+    """A storyboard as Versions keeps it: when and who (its Claude call), and every frame."""
+    job = db.get(Job, frames[0].job_id) if frames[0].job_id else None
+    made = job.created_at if job else frames[0].created_at
+    return {"made_at": made.isoformat(), "made_by_id": job.created_by_id if job else None,
+            "frames": [{k: getattr(f, k) for k in KEPT} for f in frames]}  # fmt: skip
+
+
+def keep_storyboard(db: Session, project: Project) -> None:
+    """The storyboard in hand goes to Versions (newest first, at most HISTORY) before another
+    replaces it."""
+    if frames := _rows(db, project):
+        history = [as_version(db, frames), *(project.storyboard_history or [])]
+        project.storyboard_history = history[:HISTORY]
+
+
+def use_storyboard(db: Session, project: Project, index: int) -> None:
+    """Go back to this (OR3): an earlier storyboard's frames, stills and all, are the video's
+    again; the one in hand goes to the front of Versions, so Undo is index 0. Free. Each frame
+    keeps its clip id, so the clips' `frame:` pictures line up; frames for an older breakdown
+    read "made for an older breakdown", and takes from the replaced stills read Out of date."""
+    history = list(project.storyboard_history or [])
+    if not 0 <= index < len(history):
+        raise HTTPException(404, "There's no such earlier storyboard.")
+    back = history.pop(index)
+    if frames := _rows(db, project):
+        history.insert(0, as_version(db, frames))
+    db.execute(delete(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
+    for f in back["frames"]:
+        db.add(StoryboardFrame(project_id=project.id, **{k: f[k] for k in KEPT if k in f}))
+    project.storyboard_history = history[:HISTORY]
+
+
 def save_frames(db: Session, job: Job) -> None:
     """Replace the project's frames with Claude's new ones (a new storyboard was asked for), or
     the one frame Redo this frame wrote again."""
@@ -603,6 +647,7 @@ def save_frames(db: Session, job: Job) -> None:
         return redo_frame.save(db, job)
     project = db.get(Project, job.input["project_id"])
     result = StoryboardFrames.model_validate(job.output)
+    keep_storyboard(db, project)  # OR3: the one it replaces stays in Versions
     db.execute(delete(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
     bd = Breakdown.model_validate(db.get(BreakdownVersion, job.input["breakdown_id"]).data)
     known = assets(db, project)
