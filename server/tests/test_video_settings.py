@@ -325,7 +325,7 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
     import tests.test_script_produce as produce
     from app import breakdown, cast_roles
     from app.models.script_library import Script
-    from app.sheets import look_usual
+    from app.sheets import look_price
     from tests.test_script_library import SCRIPT, _make
 
     monkeypatch.setattr(produce, "_make", lambda c, **kw: _make(c, text=SCRIPT))
@@ -345,7 +345,7 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
         nate = next(s for s in cast_roles.video_slots(db, video) if s.role == "Nate")
         video.slot_looks = {**(video.slot_looks or {}), str(nate.id): None}  # "Not now"
         db.commit()
-        less = quote - float(look_usual(db, 1))
+        less = quote - float(look_price(db, 1))  # what Make a look holds
         assert float(vs.to_finish(db, video)) == pytest.approx(less, abs=0.001)
         # Flow-QA on #987: while the newest shots still have him, "Not now" can't drop his
         # look (Make the storyboard would refuse without it); once no shot has him, it does.

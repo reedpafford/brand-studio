@@ -88,7 +88,8 @@ def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
 
 
 def roles_without_a_look(db, owner, draft=None) -> list[str]:
-    """The roles that will need their first look, each priced at `look_usual`, by one rule
+    """The roles that will need their first look, each priced at `look_price` (what the look
+    press shows and holds, so never below its charge), by one rule
     for a version's quote (`estimate.version_cost`) and its video's to-finish (VS1), so the
     two never drift apart: each role not cast yet (on a video, not one whose own look is
     made, nor one the editor said "Not now" to once no shot of the newest breakdown has it:

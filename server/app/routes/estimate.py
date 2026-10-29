@@ -73,15 +73,15 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
     script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
-    looks = len(roles_needing_look(db, script, video.look if video else None))
-    looks_cost = looks * look_price(db, script.workspace_id)
-    if script.kind == "song" and (take := song_takes.preferred(db, draft)):
+    each = look_price(db, script.workspace_id)  # as the look press shows and holds
+    looks_cost = len(roles_needing_look(db, script, video.look if video else None)) * each
+    if script.kind == "song" and (take := song_takes.preferred(db, draft)):  # its take card's
         return song_takes.video_credits(db, take, video=video) + looks_cost
+    looks_cost += len(roles_without_a_look(db, script, draft)) * each  # their first look
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
     if not bd and not draft.target_seconds:
         seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
-    uncast = len(roles_without_a_look(db, script, draft))  # each at look_usual
-    return looks_cost + plan_cost(db, script.workspace_id, seconds, bd, uncast,
+    return looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
                                   breakdown=not bd, video=video)  # fmt: skip
 
 
