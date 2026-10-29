@@ -21,11 +21,11 @@ export function FixThisPrompt({ busy, onFix, moderated }: { busy: boolean; onFix
   );
 }
 
-/** What the fix changed, with Undo. Looks good was cleared, so the new prompt is read again. */
+/** What the fix changed, with Undo. Prompt OK was cleared, so the new prompt is read again. */
 export function FixedNote({ before, after, onUndo, busy }: { before: string; after: string; onUndo: () => void; busy: boolean }) {
   return (
     <div className="space-y-1 rounded-md bg-surface-2 p-2 text-sm" role="note" aria-label="Prompt fixed">
-      <p>Fixed. Read the new prompt, then mark it Looks good.</p>
+      <p>Fixed. Read the new prompt, then press Prompt OK.</p>
       <BeforeAfter before={before} after={after} label="What the fix changed" />
       <Button variant="ghost" dense icon={Undo2} busy={busy} onClick={onUndo}>
         Undo
