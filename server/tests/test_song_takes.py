@@ -208,8 +208,8 @@ def test_a_video_makes_its_own_takes_on_its_budget(app, db, owner, editor, song)
     assert made.status_code == 201, made.text
     _work(app, db)
     takes = editor.get(f"{video}/songs").json()["takes"]
-    own = takes[-1]  # the video's second take (the first is Preferred among its own)
-    assert own["in_video"]
+    own = takes[-1]
+    assert own["in_video"] and not any(t["preferred"] for t in takes[2:])  # videos use song
     assert len(takes) == 4 and own["status"] == "ready" and own["number"] == 2
     job = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
     assert job.project_id == int(video.rsplit("/", 1)[1])  # charged to the video
@@ -315,3 +315,13 @@ def test_lyrics_too_long_for_the_cap_say_how_many_lines_to_keep(app, owner, song
     assert owner.put(song, json={"text": long, "style_line": "pop"}).status_code == 200
     body = owner.get(f"{song}/songs").json()
     assert body["video_estimate_credits"] > 729 and 0 < body["keep_lines"] < 160
+
+
+def test_a_videos_own_take_can_be_removed_unless_its_the_song(app, db, owner, editor, song):
+    video = _video(app, db, owner, editor, song)
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    first_own = editor.get(f"{video}/songs").json()["takes"][2]
+    assert editor.delete(f"/songs/{first_own['id']}").status_code == 204  # no dead end
+    r = editor.post(f"/songs/{first_own['id']}/preferred")
+    assert r.status_code == 409 and "Use in this video" in r.json()["detail"]
