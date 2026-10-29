@@ -1207,12 +1207,12 @@ def text_on_screen(prompt: str) -> tuple[str, list[str]]:
         quotes = [q.group(0) for q in QUOTED.finditer(line)]
         line = QUOTED.sub("\0", line)  # a quote is one piece, never split
         head = m.group(0) if (m := SHOT_LINE.match(line)) else ""
-        kept, kept_quotes, cut, n = [], [], False, 0
+        kept, kept_quotes, cut, n, before = [], [], False, 0, len(removed)
         for clause in CLAUSE.findall(line[len(head) :]):
             mine, n = quotes[n : n + clause.count("\0")], n + clause.count("\0")
             asks = [m for m in TEXT_ON_SCREEN.finditer(clause) if not _negated(clause, m)]
             if (found := next(iter(asks), None)) and not SPOKEN.search(clause):
-                removed.append(found.group(0).replace("\0", "").replace("  ", " "))
+                removed.append(_phrase(found))
                 cut = True
                 continue
             # the clause before a cut ends its sentence: "bowl; No one" → "bowl. No one"
@@ -1222,9 +1222,37 @@ def text_on_screen(prompt: str) -> tuple[str, list[str]]:
             kept_quotes += mine
             cut = False
         text = re.sub(r"[,;]\s*$", ".", "".join(kept).strip()) if cut else "".join(kept).strip()
+        if head and not re.search(r"\w", text.replace("\0", "")):  # the shot was only drawn words
+            out.append(re.sub("\0", lambda _, q=iter(quotes): next(q), line))
+            removed = removed[:before]  # left as Advice (text_on_screen_advice), never emptied
+            continue
+        text = re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m[1] + m[2].upper(), text)  # "then she…"
         text = re.sub("\0", lambda _, q=iter(kept_quotes): next(q), text)
         out.append(f"{head} {text}".strip() if head else text)
     return "\n".join(out), removed
+
+
+def _phrase(m: re.Match) -> str:
+    """An ask as the card says it, without the quoted words held in its place."""
+    return " ".join(m.group(0).replace("\0", " ").split())
+
+
+def text_on_screen_advice(prompt: str) -> list[str]:
+    """Advice for asks for drawn words that text_on_screen left in place, because taking
+    them out would leave the shot empty (Flow-QA on #890)."""
+    out = []
+    for line in prompt.splitlines():
+        if not (m := SHOT_LINE.match(line)) or line.startswith("Audio:"):
+            continue
+        rest = QUOTED.sub("\0", line[m.end() :])
+        for clause in CLAUSE.findall(rest):
+            asks = [a for a in TEXT_ON_SCREEN.finditer(clause) if not _negated(clause, a)]
+            if asks and not SPOKEN.search(clause):
+                n = line.split(" |", 1)[0].removeprefix("Shot ")
+                out.append(f"{ADVICE}shot {n} is only words on screen (“{_phrase(asks[0])}”); "
+                           "show the moment instead, or the model draws the words")  # fmt: skip
+                break
+    return out
 
 
 def item_check(result: ItemCheck, ref_ids: list[str]) -> ItemCheck:
