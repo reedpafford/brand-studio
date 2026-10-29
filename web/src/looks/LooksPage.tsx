@@ -13,6 +13,7 @@ import { errorText as errorClass } from "../ui";
 export function LooksPage() {
   const owner = useMe().data?.role === "owner";
   const looks = useLooks();
+  // With no brand at all the shell shows "No brands yet" instead of this page, so there's always one to sample with.
   const brands = useBrands().data ?? [];
   const [picked, setPicked] = useState<number | null>(null);
   const brandId = picked ?? brands[0]?.id ?? null;
@@ -89,7 +90,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
         <p className="text-sm text-muted">The house look is always on.</p>
       ) : l.on ? (
         <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(false)}>Switch off</Button>
-      ) : !s ? (
+      ) : brandId === null ? null : !s ? (
         sample.isError ? <p className="text-sm text-muted">{sample.error.message}</p> : <Skeleton className="h-control w-48" />
       ) : s.status === "making" ? (
         <p role="status" className="text-sm text-muted">Making the sample: one still, then a 5 s clip…</p>
@@ -98,7 +99,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
           {s.clip_id && <video controls muted src={fileUrl(s.clip_id)} className="w-full rounded-md" aria-label={`${l.name} sample clip`} />}
           <div className="flex flex-wrap gap-2">
             <Button busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
-            <Button variant="ghost" busy={make.isPending} price={s.credits} onClick={() => make.mutate(s.hero?.id ?? null)}>Make another sample</Button>
+            <Button variant="ghost" busy={make.isPending} price={s.credits} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>Make another sample</Button>
           </div>
         </div>
       ) : (

@@ -85,3 +85,12 @@ test("editors don't get the Looks page", async () => {
   open();
   expect(await screen.findByText("Only the owner manages looks.")).toBeInTheDocument();
 });
+
+test("Make another sample keeps the character picked for it", async () => {
+  setViewport(1440);
+  const calls = fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ status: "ready", hero: null, characters: [{ id: 7, name: "Mia" }], still_id: 80, clip_id: 81 })], "POST /looks/pixar/sample": [201, sample({ status: "making" })] }));
+  open();
+  const card = await screen.findByLabelText("Disney Pixar");
+  await userEvent.click(await within(card).findByRole("button", { name: /Make another sample/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /looks/pixar/sample")?.body).toEqual({ brand_id: 1, character_id: null }));
+});
