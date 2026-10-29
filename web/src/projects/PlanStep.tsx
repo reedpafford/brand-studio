@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Check, Ellipsis, MapPin, Pencil, Star, User } from "lucide-react";
 import { api } from "../api/client";
 import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem, Skeleton, TextArea } from "../components";
@@ -187,10 +187,12 @@ function SceneCard({ scene, si, count, cast, advice, change }: { scene: Scene; s
 /** The Scenes view: every P1 state, editing with Undo, and the step's one amber, "Approve the plan · makes the shots". */
 function Scenes({ projectId, planCredits, onApproved }: { projectId: number; planCredits?: number | null; onApproved: () => void }) {
   const plan = usePlan(projectId, true);
+  const { brandId } = useParams();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [note, setNote] = useState("");
   // An approved plan asks "Change the plan?" first, for an edit or an earlier plan alike.
+  const [noProduct, setNoProduct] = useState(false);
   const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | null>(null);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["plan", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
   const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); return refresh(); } });
@@ -270,8 +272,17 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   // Every edit saves at once (free) with Undo; an approved plan asks first, since its shots follow it.
   const commit = (next: Scene[], said: string) => {
     const before = p.scenes;
+    const starred = (scenes: Scene[]) => new Set(scenes.flatMap((sc) => sc.lines.filter((l) => l.star).map((l) => l.n)));
     // Undo puts the scenes back, not an approval: the plan waits for Approve again, and the toast says so.
-    save.mutate(next, { onSuccess: () => toast(approved ? `${said} It waits for your approval again.` : said, () => save.mutate(before)) });
+    save.mutate(next, {
+      onSuccess: (saved) => {
+        // A ★ is kept only when the brand has a product to show (QA-2): only what was saved is said.
+        const kept = starred(saved?.scenes ?? next);
+        if ([...starred(next)].some((n) => !kept.has(n))) return setNoProduct(true);
+        setNoProduct(false);
+        toast(approved ? `${said} It waits for your approval again.` : said, () => save.mutate(before));
+      },
+    });
   };
   // `done` runs once the change goes ahead (an open editor closes then): Not yet keeps what was typed.
   const change = (fn: (s: Scene[]) => Scene[], said: string, done?: () => void) => {
@@ -313,6 +324,12 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
         <p className="text-sm text-muted">From the owner's plan</p>
       ) : null}
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
+      {noProduct && (
+        <p role="alert" className="text-sm text-warning">
+          The ★ wasn't kept: the brand has no product to show yet.{" "}
+          {brandId && <Link className="underline" to={`/b/${brandId}/brand?tab=products`}>Add a product to the brand</Link>}
+        </p>
+      )}
       <ul className="grid gap-3 [&>li]:min-w-0">
         {p.scenes.map((s, i) => (
           <li key={s.id} aria-label={`Scene ${i + 1}`}>

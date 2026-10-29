@@ -203,6 +203,17 @@ test("Use this one on an approved plan asks first, as an edit does", async () =>
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
 });
 
+test("a ★ the server couldn't keep (the brand has no product) says so, with a way to add one, and no success toast", async () => {
+  setViewport(390);
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [200, plan({ scenes: two })] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
+  expect(await screen.findByText(/The ★ wasn't kept: the brand has no product to show yet\./)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toHaveAttribute("href", "/b/1/brand?tab=products");
+  expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
+});
+
 test("a refused edit says why in the server's words", async () => {
   setViewport(1440);
   fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [422, { detail: "Line 2 is missing from the plan." }] });
