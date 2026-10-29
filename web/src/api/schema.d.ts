@@ -2769,6 +2769,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/breakdown/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Make Price
+         * @description What Make the shots charges (breakdown.make_price).
+         */
+        get: operations["make_price_projects__project_id__breakdown_price_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/breakdown/keep": {
         parameters: {
             query?: never;
@@ -5960,6 +5980,11 @@ export interface components {
              * @default 0
              */
             still_credits: number;
+            /**
+             * Still Exact Credits
+             * @default 0
+             */
+            still_exact_credits: number;
             /** Redo Credits */
             redo_credits?: number | null;
             /** Redo Blocked */
@@ -6697,6 +6722,11 @@ export interface components {
             credits_used: number;
             /** Drawing */
             drawing: boolean;
+        };
+        /** MakePriceOut */
+        MakePriceOut: {
+            /** Credits */
+            credits: number;
         };
         /** Maker */
         Maker: {
@@ -15354,6 +15384,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_price_projects__project_id__breakdown_price_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MakePriceOut"];
                 };
             };
             /** @description Validation Error */

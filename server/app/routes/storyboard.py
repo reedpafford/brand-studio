@@ -82,6 +82,8 @@ class FrameOut(BaseModel):
     look_fix: str | None = None
     drawing: bool = False  # a still for it is queued or being made (a Change it's included)
     still_credits: int = 0  # one still for it, rounded up (Make still, Redo, Save and redraw)
+    # The same, not rounded: a total of N stills is N × this, rounded up once (price sweep)
+    still_exact_credits: float = 0
     # Out of date because the breakdown changed: Redo this frame · N (written again, then
     # drawn), or why not ("This clip changed in the breakdown…": Redo storyboard).
     redo_credits: int | None = None
@@ -145,6 +147,7 @@ def _out(
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
+                "still_exact_credits",
                 "redo_credits", "redo_blocked", "still_stale", "check", "look_fixed",
                 "look_fix", "earlier", "was_file_id")  # fmt: skip
     other = looks.frame_other(project, frame) or video_settings.frame_stale(project, frame)  # VS1
@@ -167,6 +170,7 @@ def _out(
         change=asked or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
         still_credits=storyboard.still_price(db, project),
+        still_exact_credits=float(storyboard.still_exact(db, project)),
         redo_credits=credits.price(redo_frame.price(db, project)) if redo and not blocked else None,
         redo_blocked=blocked or None,
         check=item_checks.shown(db, item_checks.latest(db, "frame", [frame.id]).get(frame.id)),

@@ -683,10 +683,18 @@ def save_frames(db: Session, job: Job) -> None:
 def still_price(db: Session, project: Project) -> int:
     """What one still costs (Make still, Redo, Save and redraw), rounded up: the image model's
     price, the same for every frame of the video."""
-    from app.credits import estimate, price
+    from app.credits import price
+
+    return price(still_exact(db, project))
+
+
+def still_exact(db: Session, project: Project) -> Decimal:
+    """One still's price, not rounded: totals of several stills ("Make 9 stills") add these,
+    then round once, so they never show 9 for what charges 3 (the price sweep)."""
+    from app.credits import estimate
 
     job = image_job_input(image_model(project), "", project.aspect_ratio)
-    return price(estimate(db, project.workspace_id, "image", Decimal(1), job))
+    return estimate(db, project.workspace_id, "image", Decimal(1), job)
 
 
 def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "") -> dict:

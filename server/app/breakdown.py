@@ -2,6 +2,7 @@
 checked (`check.breakdown`) and saved with its problems so the editor sees what to fix."""
 
 import re
+from decimal import Decimal
 from inspect import signature
 
 from sqlalchemy import func, select
@@ -606,3 +607,16 @@ def save_breakdown(db: Session, job: Job) -> None:
     db.flush()  # stale clip prompts are rewritten, within budget (follow commits first)
     video_settings.follow_lip_sync(db, project, could=True)  # no lip-sync: Sung to B-roll (VS1)
     clip_prompts.follow(db, project, db.get(User, job.created_by_id))
+
+
+def make_price(db: Session, project: Project) -> Decimal:
+    """What Make the shots charges: the writing call and, once the video has clip prompts,
+    their rewrite, which follows by itself (clip_prompts.follow, within the budget). Approve
+    the plan makes the shots too, so it shows the same."""
+    from app import clip_prompts
+    from app.credits import estimate
+    from app.models.clips import ProjectClip
+
+    call = estimate(db, project.workspace_id, "write-claude", Decimal(1))
+    have = list(db.scalars(select(ProjectClip.clip_id).where(ProjectClip.project_id == project.id)))
+    return call + (clip_prompts.rewrite_price(db, project, have) if have else Decimal(0))
