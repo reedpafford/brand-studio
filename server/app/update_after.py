@@ -18,14 +18,13 @@ from sqlalchemy.orm import Session
 from app import clip_prompts, looks, storyboard
 from app.credits import estimate
 from app.models.accounts import User
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown
 
 RUN, THEN, STOP = "update_run", "update_then", "update_stopped"
 FROM = {"plan": 0, "storyboard": 0, "clips": 2}  # where each held step's press starts
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 NOTHING = "Nothing after this is out of date."
 STOPPED = "Fix {} on Storyboard and draw {}: the clip prompts wait for every still."
 

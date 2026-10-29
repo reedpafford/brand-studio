@@ -14,12 +14,11 @@ from app.credits import estimate, own_script
 from app.enhance import escape
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown, StoryboardFrames
 
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 CHANGED = "This clip changed in the breakdown, so its frames are planned again: Redo storyboard."
 NOTE = "Redo this frame"
 STILL_UNFINISHED = ("The frame was written again, but its still didn't finish, so the still "
