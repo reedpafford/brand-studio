@@ -18,7 +18,7 @@ A state passes only if the person sees what's happening and has one press that m
 | S5 | Cast: who sings | ✅ (Nobody only on the stand-in) | ✅ | #775 at f424baa8 (Singer role from the cast read, pre-pick and out-of-date preview still to walk) |
 | S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
 | S7 | Publish | ✅ card: song, style, singer | ✅ | #775 at f424baa8 (UI); #750 (API guard) |
-| V2a | The video's own song (editor: Change song, Make 2 more; rule 31) | ⬜ | API: ✅ 5 states, ❌ over-cap take | #750 at b4ef028e (API) |
+| V2a | The video's own song (editor: Change song, Make 2 more; rule 31) | ❌ delete own take | ❌ delete own take | #781 at bcc1c1e7 (UI); #750 at df64b78 (API) |
 | V1 | Make this version | ⬜ | ⬜ | — |
 | V2 | Breakdown on the song (Sung / B-roll, split, join) | ⬜ | ⬜ | — |
 | V3–V4 | Assets, Storyboard (Sung stills as reference) | ⬜ | ⬜ | — |
@@ -57,6 +57,8 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Next-Lead decides; then server or flows.md | #778 at ef73d126 |
+| V2a | Deleting a take the video made is refused with "This is the Preferred take. Make another take Preferred first…", a press a video doesn't have | Server: video takes guard on IN_USE only; screen: hide Delete on the video's song | #781 at bcc1c1e7 |
+| S2 | The person's style limit is now 893 (room for Suno's pacing words), but the screens still count to 1,000; 900 characters gives a raw 422 | Counter 893; a plain message | #783 at b06193d4 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -111,3 +113,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #755 at 691a5eb5 (re-pass for the Producer) | Flow checks + no screen promises the unwired song checks (searched next, #759, #775) | PASS |
 | 2026-10-29 | #748 at 6a97f0f, #750 at df64b78 | 15 API walk cases incl. trim → prefer → untrim → publish; full server suite | PASS (743 passed); cap bypass closed |
 | 2026-10-29 | #778 at ef73d126, #779 at f1e883ee (Next-Layout) | Full browser suite each; price-first slot; shape confirm; small words | Flow PASS (52 passed each); FAIL on the node_modules symlink; VS1 shape gap raised |
+| 2026-10-29 | #783 at b06193d4 (Suno input, one-song retry) | one-song, the 893 style limit, `[Lip-sync]` not sent, earlier API cases | PASS (notes: raw 422, plural wording) |
+| 2026-10-29 | #781 at bcc1c1e7 (V2a screens) | Playwright at 1440 and 390 + song.e2e | FAIL: delete own take refused with a press that doesn't exist; the rest pass |
