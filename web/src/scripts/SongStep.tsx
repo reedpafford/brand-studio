@@ -10,8 +10,8 @@ import { errorText as errorClass } from "../ui";
 import type { Script } from "./useScript";
 import { useSongs } from "./useSongs";
 
-export const MAX_LYRICS = 5000; // the music service's limits (app/music.py)
-const MAX_STYLE = 1000;
+export const MAX_LYRICS = 4960; // Suno's limits less the pacing words the server adds (app/music.py)
+const MAX_STYLE = 893;
 const SUNG_PER_SECOND = 2.5; // about how fast a song is sung
 
 /** The sung words: section tags like [Verse] are not sung and don't count. */
