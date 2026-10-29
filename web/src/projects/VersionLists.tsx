@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { api, must } from "../api/client";
 import { useMayManageVideo } from "./ReleaseVideo";
-import { orCall } from "./orCall";
 import { VersionList } from "./Versions";
 
 type Maker = { id: number; name: string } | null;
@@ -25,13 +24,13 @@ export function StoryboardVersions({ projectId, hold }: { projectId: number; hol
   const may = useMayChangeVideo(projectId);
   const refresh = useRefresh(projectId);
   const key = ["storyboard-versions", projectId];
-  type Row = { index: number | null; made_at: string | null; made_by: Maker; frames: number; current: boolean };
-  const rows = useQuery({ enabled: may, queryKey: key, queryFn: () => orCall<Row[]>("GET", `/projects/${projectId}/storyboard/versions`) }).data ?? [];
+  const rows = useQuery({ enabled: may, queryKey: key, queryFn: async () => (await must(api.GET("/projects/{project_id}/storyboard/versions", { params: { path: { project_id: projectId } } }))).data! }).data ?? [];
+  const go = (index: number) => must(api.POST("/projects/{project_id}/storyboard/versions/{index}/use", { params: { path: { project_id: projectId, index } } }));
   const use = async (index: string) => {
-    await orCall("POST", `/projects/${projectId}/storyboard/versions/${index}/use`);
+    await go(Number(index));
     await refresh(key);
     return async () => {
-      await orCall("POST", `/projects/${projectId}/storyboard/versions/0/use`);
+      await go(0);
       await refresh(key);
     };
   };
@@ -50,12 +49,12 @@ export function StoryboardVersions({ projectId, hold }: { projectId: number; hol
 export function ClipVersions({ projectId, clipRowId, label, versions, hold }: { projectId: number; clipRowId: number; label: string; hold?: string | null; versions: { index: number; made_at: string | null; made_by: Maker; current: boolean }[] }) {
   const may = useMayChangeVideo(projectId);
   const refresh = useRefresh(projectId);
-  const base = `/projects/${projectId}/clips/${clipRowId}/versions`;
+  const go = (index: number) => must(api.POST("/projects/{project_id}/clips/{clip_id}/versions/{index}/use", { params: { path: { project_id: projectId, clip_id: clipRowId, index } } }));
   const use = async (index: string) => {
-    await orCall("POST", `${base}/${index}/use`);
+    await go(Number(index));
     await refresh();
     return async () => {
-      await orCall("POST", `${base}/1/use`);
+      await go(1);
       await refresh();
     };
   };
@@ -78,11 +77,10 @@ export function BreakdownVersions({ projectId, hold }: { projectId: number; hold
   const may = useMayChangeVideo(projectId);
   const refresh = useRefresh(projectId);
   const key = ["breakdown-versions", projectId];
-  type Row = { id: number; made_at: string | null; made_by: Maker; source: string; current: boolean };
-  const rows = useQuery({ enabled: may, queryKey: key, queryFn: () => orCall<Row[]>("GET", `/projects/${projectId}/breakdown/versions`) }).data ?? [];
-  const go = (id: string | number) => orCall<{ was_id?: number | null }>("POST", `/projects/${projectId}/breakdown/versions/${id}/use`);
+  const rows = useQuery({ enabled: may, queryKey: key, queryFn: async () => (await must(api.GET("/projects/{project_id}/breakdown/versions", { params: { path: { project_id: projectId } } }))).data! }).data ?? [];
+  const go = async (id: number) => (await must(api.POST("/projects/{project_id}/breakdown/versions/{version_id}/use", { params: { path: { project_id: projectId, version_id: id } } }))).data;
   const use = async (id: string) => {
-    const was = (await go(id))?.was_id;
+    const was = (await go(Number(id)))?.was_id;
     await refresh(key);
     return was
       ? async () => {

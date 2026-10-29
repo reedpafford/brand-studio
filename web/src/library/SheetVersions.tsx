@@ -5,10 +5,7 @@ import { Badge, Button } from "../components";
 import { useLooks } from "../scripts/Looks";
 import { useToast } from "../toast";
 import { card, errorText as errorClass } from "../ui";
-import { orCall } from "../projects/orCall";
-
-/** One approved sheet of a character or place (OR3, Builder-Server-8's #957), newest first. */
-type SheetVersion = { file_id: number; look_id: string; made_at: string | null; preferred: boolean };
+import { api, must } from "../api/client";
 
 /** OR3 Preferred look: the approved sheets of a Cast & places item, each in its look, and which one videos use. The owner
  *  picks another (free, Undo); stills and takes made from the one before read Out of date with their usual redo (N6).
@@ -18,10 +15,10 @@ export function SheetVersions({ item, kind }: { item: { id: number; name: string
   const looks = useLooks().data ?? [];
   const queryClient = useQueryClient();
   const toast = useToast();
-  const base = `/library/${kind}/${item.id}/sheet`;
-  const versions = useQuery({ queryKey: ["sheet-versions", kind, item.id], queryFn: () => orCall<SheetVersion[]>("GET", `${base}/versions`) });
+  const path = { kind, item_id: item.id };
+  const versions = useQuery({ queryKey: ["sheet-versions", kind, item.id], queryFn: async () => (await must(api.GET("/library/{kind}/{item_id}/sheet/versions", { params: { path } }))).data!, retry: false });
   const refresh = () => Promise.all([["sheet-versions", kind, item.id], ["library", kind], ["assets"]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
-  const prefer = (v: { file_id: number; look_id: string }) => orCall<{ was_file_id: number | null }>("POST", `${base}/preferred`, v);
+  const prefer = async (v: { file_id: number; look_id: string }) => (await must(api.POST("/library/{kind}/{item_id}/sheet/preferred", { params: { path }, body: v }))).data;
   const pick = useMutation({
     mutationFn: prefer,
     onSuccess: async (r, v) => {
