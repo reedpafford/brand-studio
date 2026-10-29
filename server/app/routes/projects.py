@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import reference
+from app import narration, reference
 from app.auth import current_user, owner_only, user_name
 from app.credits import credits_used, get_limits, lock, over_cap, own_script
 from app.db import get_db, utcnow
@@ -125,7 +125,7 @@ def _is_song(db: Session, project: Project) -> bool:
     from app.models.script_library import Script, ScriptDraft
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    return bool(draft) and db.get(Script, draft.script_id).kind == "song"
+    return bool(draft) and db.get(Script, draft.script_id).kind in narration.TIMED
 
 
 def _out(db: Session, project: Project, user: User, old: set[int] | None = None) -> ProjectOut:

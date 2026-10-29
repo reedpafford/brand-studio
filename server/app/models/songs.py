@@ -3,7 +3,7 @@ then its free timing read; the Preferred take is the one the video is timed to."
 
 from datetime import datetime
 
-from sqlalchemy import JSON, ForeignKey, Text
+from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
@@ -17,6 +17,11 @@ class SongTake(Entity, Base):
     # A video's own take (rule 31: its script is final); null for the script's own.
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     number: Mapped[int]  # Take 1, 2, … within its version (or video)
+    kind: Mapped[str] = mapped_column(String(20), default="song")  # or "narration"
+    voice: Mapped[str] = mapped_column(String(60), default="")  # a narration's voice
+    trimmed: Mapped[bool] = mapped_column(default=False)  # its pauses trimmed (letters matched)
+    music_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # its music bed
+    music_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
     track: Mapped[int] = mapped_column(default=0)  # which of its request's 2 songs
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))  # the song (the latest try)
     # What it sings: only a take of the version's current words can be Preferred

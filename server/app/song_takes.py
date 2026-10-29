@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import music
+from app import music, narration
 from app.credits import estimate, get_limits, plan_cost
 from app.db import utcnow
 from app.models.accounts import User
@@ -34,9 +34,23 @@ UNTRIM_IN_USE = (
 OLDER_WORDS = "This take sings older words. Make 2 takes of the lyrics as they are now."
 
 
-def price(db: Session, user: User) -> Decimal:
-    """One request (2 takes)."""
-    return estimate(db, user.workspace_id, "music", Decimal(1))
+def price(db: Session, ws: int, draft: ScriptDraft | None = None) -> Decimal:
+    """One request (2 takes), or a narration of the version's words (by its characters)."""
+    if draft is not None and narrated(db, draft):
+        try:
+            job = narration.job(draft.text)
+        except ValueError:
+            return Decimal(0)
+        return estimate(db, ws, "speech", _units(job), job)
+    return estimate(db, ws, "music", Decimal(1))
+
+
+def narrated(db: Session, draft: ScriptDraft) -> bool:
+    return db.get(Script, draft.script_id).kind == "narrated"
+
+
+def _units(job: dict) -> Decimal:
+    return Decimal(narration.characters(job)) / 1000
 
 
 def takes(db: Session, draft: ScriptDraft, project: Project | None = None) -> list[SongTake]:
@@ -62,6 +76,13 @@ def _request(
     `free`: a request already paid for (it gave back fewer songs than asked)."""
     from app.routes.jobs import enqueue
 
+    if narrated(db, draft):  # one voice call (flows N1)
+        try:
+            job_input = narration.job(draft.text)
+        except ValueError as no:
+            raise HTTPException(422, str(no)) from None
+        return enqueue(db, user, "speech", {**job_input, "step": "song_take"}, project=project,
+                       provider="replicate", units=_units(job_input))  # fmt: skip
     try:
         job_input = music.job(draft.text, draft.style_line)
     except music.NotReady as no:
@@ -80,11 +101,12 @@ def make(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )
     number = db.scalar(numbered) or 0
+    voice = {"kind": narration.KIND, "voice": narration.VOICE} if narrated(db, draft) else {}
     made = [
         SongTake(draft_id=draft.id, project_id=project.id if project else None,
                  number=number + k + 1, track=k, job_id=job.id, created_by_id=user.id,
-                 **_sings(draft))
-        for k in range(music.TAKES)
+                 **_sings(draft), **voice)
+        for k in range(1 if voice else music.TAKES)
     ]  # fmt: skip
     db.add_all(made)
     db.commit()
@@ -116,8 +138,10 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
     from app.routes.jobs import enqueue
 
     song = db.get(StoredFile, take.file_id)
-    job = enqueue(db, user, "song_timing",
-                  {"song_key": song.key, "lyrics": take.lyrics, "step": "song_timing",
+    kind = "narration_timing" if take.kind == narration.KIND else "song_timing"
+    lyrics = narration.reads(take.lyrics) if take.kind == narration.KIND else take.lyrics
+    job = enqueue(db, user, kind,
+                  {"song_key": song.key, "lyrics": lyrics, "step": "song_timing",
                    "spread": spread},
                   units=0, provider="local", prepaid=True)  # fmt: skip
     take.timing_job_id = job.id
@@ -131,9 +155,14 @@ def save_timing(db: Session, job: Job) -> None:
         return
     take = found[0]
     timing = job.output["timing"]
+    if trimmed := job.output.get("file_ids"):  # a narration with its pauses trimmed
+        take.file_id = trimmed[0]
     take.timing, take.seconds = timing, timing["seconds"]
     take.timing_guessed = bool(job.input.get("spread"))
     take.advice = [GUESSED] if take.timing_guessed else advice(timing)
+    take.trimmed = bool(timing.get("trimmed"))
+    if timing.get("trimmed") is False:
+        take.advice = [narration.KEPT_PAUSES, *take.advice]
     draft = db.get(ScriptDraft, take.draft_id)
     project = db.get(Project, take.project_id) if take.project_id else None
     usable = not out_of_date(take, draft) and not over_cap(db, take)
@@ -164,6 +193,8 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
         return "making", None, False
     if song.status != JobStatus.succeeded or take.file_id is None:
         reason = music.MISSING if song.status == JobStatus.succeeded else song.error or music.FAILED
+        if take.kind == narration.KIND:
+            reason = narration.FAILED
         if take.project_id and reason == music.REFUSED:  # a video can't change the words
             reason = music.REFUSED_IN_VIDEO
         return "failed", reason, True
@@ -173,7 +204,11 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
     if timing is None or timing.status in WAITING:
         return "timing", None, False
     reason = timing.error or music.TIMING_FAILED
-    return "timing_failed", reason, reason != music.TIMING_UNREADABLE
+    return (
+        "timing_failed",
+        reason,
+        reason not in (music.TIMING_UNREADABLE, narration.TIMING_UNREADABLE),
+    )
 
 
 def out_of_date(take: SongTake, draft: ScriptDraft) -> bool:
@@ -283,8 +318,8 @@ def retry_credits(db: Session, take: SongTake) -> Decimal:
     back short (already paid), else a new request."""
     if state(db, take)[0] != "failed" or _free_retry(db.get(Job, take.job_id)):
         return Decimal(0)
-    script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
-    return estimate(db, script.workspace_id, "music", Decimal(1))
+    draft = db.get(ScriptDraft, take.draft_id)
+    return price(db, db.get(Script, draft.script_id).workspace_id, draft)
 
 
 def try_again(db: Session, user: User, take: SongTake) -> None:
