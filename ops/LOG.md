@@ -1,4 +1,7 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 08:05 · Into `next`: #871 the five video steps; #876 Plan (web) Scenes | Shots switch; #877 cost bar part 2 for Clips; #862 refused or busy takes retry once on their own, wording flags fix themselves, with Undo; #851 song study; #874 NEXT.md on what must move to main together; #880 data.md real migration order
+- 2026-10-29 07:27 · #868 Clips: an editor's words after the closing audio line are kept (Builder-Server-6) merged
+- 2026-10-29 06:57 · #872 ops: HANDOFF/LOG refresh as of 49097e3 merged (by the Producer)
 - 2026-10-29 07:02 · Into `next`: #829 song final cut; #818 Write 2 song directions; #857 Study a song ad (web); #826 shot times; #853 narrated clips keep their own sound; #831 real names in style lines; #865 cost bar on the video page; #870, #867 data.md merge order and n07 (Format and Look)
 - 2026-10-29 06:08 · #859 Downloads: an older look says so in the Out of date banner, not "Clips changed since" merged
 - 2026-10-29 05:56 · Agents (#861): the sessions table adds Builder-Server-7/8, Builder-Screens-4, Next-Layout, UX-Auditor and Song-Producer merged (by the Producer)
