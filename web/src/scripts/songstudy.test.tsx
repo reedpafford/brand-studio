@@ -83,7 +83,7 @@ test("failed: the reason in plain words, nothing charged, and Try another", asyn
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song({ song_study: done({ status: "failed", problem: "it's private or was removed", seconds: null, sections: [], lines: [], frames: [] }) })] });
   open();
-  expect(await screen.findByText("We couldn't open that reel: it's private or was removed. Nothing was charged.")).toBeInTheDocument();
+  expect(await screen.findByText("We couldn't study it: it's private or was removed. Nothing was charged.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Try another · free" })).toBeInTheDocument();
 });
 
@@ -112,4 +112,12 @@ test("Or upload the video sends the file instead of a link", async () => {
   open();
   await userEvent.upload(await screen.findByLabelText("Upload the video"), new File(["x"], "ad.mp4", { type: "video/mp4" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/song-study")).toBe(true));
+});
+
+test("a failed upload reads in the same words, not as a reel", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ song_study: done({ status: "failed", source: "upload", link: null, problem: "it's longer than 4 minutes", seconds: null, sections: [], lines: [], frames: [] }) })] });
+  open();
+  expect(await screen.findByText("We couldn't study it: it's longer than 4 minutes. Nothing was charged.")).toBeInTheDocument();
+  expect(screen.queryByText(/open that reel/)).toBeNull();
 });

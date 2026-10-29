@@ -127,7 +127,7 @@ export function SongStudy({ script: s }: { script: Script }) {
         )}
         {study?.status === "failed" && (
           <>
-            <p role="alert" className={errorClass}>We couldn't open that reel: {study.problem || "studying it didn't finish"}. Nothing was charged.</p>
+            <p role="alert" className={errorClass}>We couldn't study it: {study.problem || "studying it didn't finish"}. Nothing was charged.</p>
             {ask("Try another")}
           </>
         )}
