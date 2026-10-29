@@ -1029,10 +1029,26 @@ def narrator(script: str) -> str | None:
     lines = [TAG.sub("", x).strip() for x in script.splitlines()]
     heads = [x for x in lines if x.startswith(("SCENE", "INT.", "EXT."))]
     said = [x for x in lines if x and x not in heads and not x.startswith(SCREEN_LINE)]
-    labels = [m for x in said if (m := re.match(r"^([A-Z][A-Z .'-]*?)\s*(\(([^)]*)\))?:\s", x))]
+    labels = [m for x in said if (m := LABEL.match(x)) and m[1].upper() not in NOT_SPEAKERS]
     if not labels:  # plain prose is read by a narrator; a silent story with scenes is not
         return "Narrator" if said and not heads else None
     if any(not re.fullmatch(r"V\.?\s?O\.?", (m[3] or "").strip(), re.I) for m in labels):
         return None
-    names = {m[1].strip() for m in labels}
-    return names.pop().title() if len(names) == 1 else None
+    names = {m[1].strip().title() for m in labels}
+    return names.pop() if len(names) == 1 else None
+
+
+# A speaker's label in any case ("MIA:", "Mia:", "Old Biscuit (V.O.):"): one to three
+# capitalised words before the colon (Flow-QA on #828: title-case dialogue read as prose).
+LABEL = re.compile(r"^([A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,2})\s*(\(([^)]*)\))?:\s")
+NOT_SPEAKERS = {
+    "CTA",
+    "END LINE",
+    "END",
+    "SUPER",
+    "TEXT",
+    "TITLE",
+    "CAPTION",
+    "ON SCREEN",
+    "ON-SCREEN",
+}  # fmt: skip — directions, never a speaker (Flow-QA: "CTA:")

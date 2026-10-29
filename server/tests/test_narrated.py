@@ -13,6 +13,10 @@ def test_the_cast_read_signal_finds_a_script_that_is_all_one_narrator():
     assert check.narrator("SCENE 1\nA (V.O.): One.\nB (V.O.): Two.") is None  # two voices
     assert check.narrator("SCENE 1 — INT. KITCHEN\nHe sniffs the bowl.") is None  # silent story
     assert check.narrator("") is None
+    # Flow-QA on #828: labels in any case; directions like "CTA:" are never a speaker
+    assert check.narrator("Mia: Wait, it dipped?\nJoe: Buy it.") is None  # on camera
+    assert check.narrator("Biscuit (V.O.): Day one.\nBiscuit (V.O.): Nope.") == "Biscuit"
+    assert check.narrator("BISCUIT (V.O.): Day one.\nCTA: Get Iron Paws.") == "Biscuit"
 
 
 def test_narrated_steps_are_the_story_steps_plus_their_own_part():
