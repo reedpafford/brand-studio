@@ -146,6 +146,7 @@ export function VideoPage() {
       </div>
       {step === "plan" && (
         <PlanStep
+          project={p as typeof p & { plan_status?: "none" | "ready" | "approved" | null }}
           shots={
             <div className="space-y-4">
               <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
