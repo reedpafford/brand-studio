@@ -116,3 +116,12 @@ test("while one is made, the card says so in words", async () => {
   expect(await screen.findByText(/Making the narration…/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Make another/ })).toBeDisabled();
 });
+
+test("while the sentences are measured, Make another waits too, and Cast says to wait", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, narrated()], "GET /scripts/7/drafts/0/songs": [200, songs([narration({ status: "timing" })])] });
+  open("/b/1/scripts/7?step=narration");
+  expect(await screen.findByText(/Measuring the sentences…/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Make another/ })).toBeDisabled();
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Wait for the narration to finish");
+});

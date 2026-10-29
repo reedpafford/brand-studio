@@ -71,7 +71,7 @@ export function ScriptFlowPage() {
   // Only a Preferred take that sings the lyrics as they are now, and whose video fits the cap, counts: the screen holds the cap whatever the server says.
   const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
   const fit = takes.find((t) => t.preferred && !t.out_of_date);
-  const song = voiced ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date).length, older: takes.filter((t) => t.out_of_date).length } : undefined;
+  const song = voiced ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date && t.status === "ready").length, making: takes.some((t) => t.status === "making" || t.status === "timing"), older: takes.filter((t) => t.out_of_date).length } : undefined;
   const step = stepFromParam(s, params.get("step"));
   if (lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
   const first = stepsFor(s)[0].id;

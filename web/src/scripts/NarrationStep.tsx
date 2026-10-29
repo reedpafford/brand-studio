@@ -96,7 +96,7 @@ export function NarrationStep({ script: s }: { script: Script }) {
   const narrations = data.takes as Narration[];
   const latest = [a.make, a.tryAgain, a.prefer, a.remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
   const refused = latest.isError ? latest.error.message : null;
-  const making = narrations.some((t) => t.status === "making");
+  const making = narrations.some((t) => t.status === "making" || t.status === "timing"); // the server refuses a second one meanwhile
   const used = narrations.find((t) => t.preferred && !t.out_of_date);
   const older = narrations.length > 0 && narrations.every((t) => t.out_of_date);
   const make = (label: string, primary: boolean) => (
