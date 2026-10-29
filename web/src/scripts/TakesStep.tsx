@@ -6,6 +6,8 @@ import { serverTime } from "../time";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
 import { useAllowanceStop, type Script } from "./useScript";
+import { useSaveSong, type Song } from "./SongStep";
+import { useToast } from "../toast";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
 /** Seconds since this was first shown, for "Making the song… 12 s". */
@@ -30,10 +32,11 @@ function Making() {
 
 /** One take: its player, its state in words, and the press each state needs (flows S4). */
 /** A failed request is made again for both its takes, so Try again costs a whole request (`requestPrice`). */
-function TakeCard({ t, a, requestPrice, readOnly, others, makeMore }: { t: SongTake; a: ReturnType<typeof useSongActions>; requestPrice: number; readOnly: boolean; others: SongTake[]; makeMore: ReactNode }) {
+function TakeCard({ t, a, requestPrice, readOnly, others, makeMore, onDefaultStyle }: { t: SongTake; a: ReturnType<typeof useSongActions>; requestPrice: number; readOnly: boolean; others: SongTake[]; makeMore: ReactNode; onDefaultStyle?: () => void }) {
   const label = `Take ${t.number}`;
   const otherReady = others.find((o) => o.status === "ready" && !o.out_of_date && !o.preferred);
-  const preferBlock = t.status === "timing" ? "Reading the song's timing…" : t.out_of_date ? "This take sings older words." : null;
+  const tooLong = t.over_cap && t.trim_to == null;
+  const preferBlock = t.status === "timing" ? "Reading the song's timing…" : t.out_of_date ? "This take sings older words." : tooLong ? "A video of this take would go over the limit." : null;
   const deleteBlock = t.preferred ? "Make another take Preferred first." : null;
   return (
     <Card className="space-y-3">
@@ -44,6 +47,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, makeMore }: { t: SongT
         {t.preferred && <Badge tone="accent">Preferred</Badge>}
         {t.out_of_date && <Badge>Sings older words</Badge>}
         {t.timing_guessed && <Badge tone="warning">Timing guessed</Badge>}
+        {t.trim_to != null && <Badge>Uses the first {clock(t.trim_to)}</Badge>}
         {!readOnly && t.status !== "making" && (
           <div className="ml-auto">
             <Menu
@@ -84,11 +88,16 @@ function TakeCard({ t, a, requestPrice, readOnly, others, makeMore }: { t: SongT
       {t.status === "failed" && (
         <div className="space-y-2">
           <p role="alert" className={errorClass}>{t.failed_reason ?? "Didn't finish · nothing charged."}</p>
-          {/* A refusal comes back the same for the same words and style: the way out is changing them on the Song step. */}
+          {/* A refusal comes back the same for the same words and style: the way out is changing them (flows S4 X). */}
+          {!readOnly && t.refused_for === "style" && onDefaultStyle && (
+            <Button variant="secondary" onClick={onDefaultStyle}>
+              Use the default style instead · free
+            </Button>
+          )}
           {!readOnly && (
             <Link to="?edit=1" className={buttonClass("secondary")}>
               <Pencil size={20} strokeWidth={1.75} aria-hidden />
-              Edit lyrics or style
+              {t.refused_for === "words" ? "Edit lyrics" : t.refused_for === "style" ? "Edit style" : "Edit lyrics or style"}
             </Link>
           )}
           {!readOnly && t.retry_helps && (
@@ -124,6 +133,16 @@ function TakeCard({ t, a, requestPrice, readOnly, others, makeMore }: { t: SongT
           )}
         </div>
       )}
+      {tooLong && (
+        <div className="space-y-2">
+          <p className="text-sm text-warning">This take is {t.seconds !== null ? clock(t.seconds) : "long"}: a video of it would go over the limit.</p>
+          {!readOnly && t.fits_until != null && (
+            <Button variant="secondary" busy={a.trim.isPending && a.trim.variables?.id === t.id} onClick={() => a.trim.mutate(t)}>
+              Use the first {clock(t.fits_until)} · free
+            </Button>
+          )}
+        </div>
+      )}
       {t.advice.length > 0 && (
         <ul className="space-y-1 text-sm text-warning" aria-label={`Advice for ${label}`}>
           {t.advice.map((x) => (
@@ -146,6 +165,8 @@ export function TakesStep({ script: s }: { script: Script }) {
   const a = useSongActions(s.id);
   const data = songs.data;
   const stop = useAllowanceStop(s, data?.estimate_credits);
+  const put = useSaveSong(s.id);
+  const toast = useToast();
   if (songs.isPending)
     return (
       <div role="status" aria-label="Loading takes" className="grid gap-4 md:grid-cols-2">
@@ -162,7 +183,7 @@ export function TakesStep({ script: s }: { script: Script }) {
   const readOnly = s.published;
   const takes = data.takes;
   // A refused press on a take (Try again past the week, say) says why, until the next press: only the latest one counts.
-  const latest = [a.make, a.tryAgain, a.spread, a.prefer, a.remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
+  const latest = [a.make, a.tryAgain, a.spread, a.prefer, a.trim, a.remove, put].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
   const refused = latest !== a.make && latest.isError ? latest.error.message : null;
   const failed = a.make.isError && latest === a.make ? a.make.error.message : null;
   const make = (label: string, primary: boolean) => (
@@ -174,6 +195,10 @@ export function TakesStep({ script: s }: { script: Script }) {
     </div>
   );
   const current = takes.filter((t) => !t.out_of_date);
+  // A refusal over the style (an artist's name, say): the style line is cleared, so the song is upbeat pop, with Undo. No brand music style exists yet (brand setup).
+  const v = s.versions.find((x) => x.slot === 0);
+  const now: Song = { text: v?.text ?? "", style_line: v?.style_line ?? "", spoken_end_line: v?.spoken_end_line ?? "" };
+  const defaultStyle = now.style_line ? () => put.mutate({ ...now, style_line: "" }, { onSuccess: () => toast("The style is cleared: the song will be upbeat pop. Make 2 takes again.", () => put.mutate(now)) }) : undefined;
   return (
     <div className="space-y-4">
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
@@ -191,7 +216,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           {!readOnly && takes.length > 0 && current.length === 0 && <Banner tone="warning" title="These takes sing older words.">Make 2 takes of the lyrics as they are now. The old ones stay playable.</Banner>}
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
             {takes.map((t) => (
-              <TakeCard key={t.id} t={t} a={a} requestPrice={data.estimate_credits} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} makeMore={data.songs_on ? make("Make 2 more", false) : null} />
+              <TakeCard key={t.id} t={t} a={a} requestPrice={data.estimate_credits} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} makeMore={data.songs_on ? make("Make 2 more", false) : null} onDefaultStyle={defaultStyle} />
             ))}
           </div>
           {!readOnly && data.songs_on && make(current.length === 0 ? "Make 2 takes" : "Make 2 more", current.length === 0)}

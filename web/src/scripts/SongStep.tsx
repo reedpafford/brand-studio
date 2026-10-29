@@ -19,10 +19,10 @@ export const sungWords = (lyrics: string) => lyrics.replace(/\[[^\]]*\]/g, " ").
 const words = (s: string) => s.split(/\s+/).filter(Boolean);
 const n = (x: number) => x.toLocaleString("en-GB");
 
-type Song = { text: string; style_line: string; spoken_end_line: string };
+export type Song = { text: string; style_line: string; spoken_end_line: string };
 
 /** Save the lyrics, style line and spoken end line of a song script's version (slot 0). */
-function useSaveSong(id: number) {
+export function useSaveSong(id: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (body: Song) => {

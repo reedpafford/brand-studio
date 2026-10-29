@@ -15,7 +15,7 @@ const song = (o: object = {}, v: object = {}) => ({
   id: 7, brand_id: 1, kind: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
 const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, ...o });
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
@@ -192,4 +192,26 @@ test("a refused take offers Edit lyrics or style, which opens the Song step's bo
   await userEvent.click(await screen.findByRole("link", { name: "Edit lyrics or style" }));
   expect(await screen.findByLabelText("Lyrics")).toHaveValue(LYRICS); // the boxes open at once, no confirm
   expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+test("a take too long for the video limit can't be Preferred yet and offers Use the first 0:55, free, with Undo", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true }), take({ id: 2, number: 2, seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/2/trim": [200, take({ id: 2, number: 2, seconds: 72, over_cap: false, trim_to: 55 })], "DELETE /songs/2/trim": [200, take({ id: 2, number: 2, seconds: 72, over_cap: true, fits_until: 55 })] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByText("This take is 1:12: a video of it would go over the limit.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make this Preferred" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: /Use the first 0:55 · free/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/2/trim")).toBe(true));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /songs/2/trim")).toBe(true));
+});
+
+test("a refusal over the style offers Use the default style instead (clears the style line, Undo) and Edit style", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, refused_for: "style", failed_reason: "Suno won't use an artist's name. Describe the sound instead." })])], "PUT /scripts/7/drafts/0": [200, song({}, { style_line: "" })] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByRole("link", { name: "Edit style" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Use the default style instead/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toMatchObject({ text: LYRICS, style_line: "" }));
+  expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
 });

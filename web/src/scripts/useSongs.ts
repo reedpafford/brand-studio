@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useToast } from "../toast";
+import { clock } from "./TakePlayer";
 
 export type SongTake = components["schemas"]["SongTakeOut"];
 const BUSY: SongTake["status"][] = ["making", "timing"];
@@ -49,6 +50,13 @@ export function useSongActions(scriptId: number) {
       toast(`Take ${data?.take.number} is Preferred.`, was ? () => void ok(api.POST("/songs/{take_id}/preferred", take(was))).then(refresh) : undefined);
     },
   });
+  const trim = useMutation({
+    mutationFn: (t: SongTake) => ok(api.POST("/songs/{take_id}/trim", take(t.id))),
+    onSuccess: async (t) => {
+      await refresh();
+      toast(`Take ${t?.number} now uses its first ${t?.trim_to ? clock(t.trim_to) : "part"}. The whole take is kept.`, () => void ok(api.DELETE("/songs/{take_id}/trim", take(t!.id))).then(refresh));
+    },
+  });
   const remove = useMutation({
     mutationFn: async (t: SongTake) => {
       await ok(api.DELETE("/songs/{take_id}", take(t.id)));
@@ -59,5 +67,5 @@ export function useSongActions(scriptId: number) {
       toast(`Take ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", take(t.id))).then(refresh));
     },
   });
-  return { make, tryAgain, spread, prefer, remove };
+  return { make, tryAgain, spread, prefer, trim, remove };
 }
