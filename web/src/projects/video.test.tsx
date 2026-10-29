@@ -199,6 +199,36 @@ test("Final cut: Download MP4 is the one amber; the zip, the picked take and the
   expect(screen.getByRole("link", { name: /Download clip 1 take 1/ })).toBeInTheDocument();
 });
 
+test("after a breakdown edit, the finished video stays downloadable and Clips stays open, each saying out of date (#749 LW1)", async () => {
+  setViewport(390);
+  const edited = { ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] as [number, unknown] };
+  fakeServer(edited);
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+});
+
+test("the server's video still matches its takes, but a clip is unapproved: Downloads says Out of date and the real count (#761 QA-2)", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+  expect(screen.getByText("Out of date", { selector: "span" })).toBeInTheDocument();
+  expect(screen.queryByText("Ready")).not.toBeInTheDocument();
+  expect(screen.getByText(/0 of 1 clips approved/)).toBeInTheDocument();
+  expect(screen.queryByText(/every clip approved/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Approve every clip first (1 left)");
+});
+
+test("after a breakdown edit, Clips already made stays open (out of date), not sent back to Storyboard", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
+  open("?step=clips");
+  expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+});
+
 test("Final cut puts the clips together by itself the first time, for free", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
@@ -261,7 +291,7 @@ test("on an editor's own script past the weekly allowance the storyboard is decl
   open("?step=storyboard");
   const button = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
   expect(button).toBeDisabled();
-  expect(await screen.findByText(/more than this week's 145 free credits/)).toBeInTheDocument();
+  expect(await screen.findByText(/more than this week's 145 credits/)).toBeInTheDocument();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
 });
 
@@ -1300,4 +1330,18 @@ test("the video's back link says where it goes: this brand's videos", async () =
   open("?step=downloads");
   expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/scripts?view=videos");
   expect(screen.queryByRole("button", { name: /^Brand: |Choose a brand/ })).toBeNull(); // no brand bar inside a video on a phone
+});
+
+test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "PATCH /projects/9": [200, project] });
+  open("");
+  await userEvent.click(await screen.findByRole("button", { name: "1:1" }));
+  const ask = screen.getByRole("alertdialog", { name: "Change to 1:1?" });
+  expect(ask).toHaveTextContent("The 1 still was drawn for 9:16 and stays that way.");
+  await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
+  expect(calls.some((c) => c.key === "PATCH /projects/9")).toBe(false);
+  await userEvent.click(screen.getByRole("button", { name: "1:1" }));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Change the shape · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toEqual({ aspect_ratio: "1:1" }));
 });

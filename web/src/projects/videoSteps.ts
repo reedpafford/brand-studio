@@ -16,8 +16,15 @@ export const videoStepFromParams = (params: URLSearchParams): VideoStepId => VID
 export type VideoProgress = Progress & { assets: { total: number; ready: number } };
 
 /** Why a step can't be opened right now, or null when it can. Assets come before anything is drawn. */
-export function videoLock(step: VideoStepId, p: VideoProgress): string | null {
+export function videoLock(step: VideoStepId, now: VideoProgress): string | null {
   if (step === "breakdown") return null;
+  if (step === "downloads" && now.video.made) return null; // the finished video is always reachable (#749 LW1)
+  // Work already made stays open when an earlier step changes: it says "out of date" there. Problems and assets to
+  // approve still come first.
+  const kept = (step === "storyboard" && now.frames.total > 0) || (step === "clips" && now.clips.total > 0);
+  // (Out-of-date frames read as unapproved, so clips already made don't wait on them either.)
+  const frames = step === "clips" ? { ...now.frames, stale: false, approved: now.frames.total } : { ...now.frames, stale: false };
+  const p = kept ? { ...now, shots: { ...now.shots, stale: false }, frames } : now;
   // The shots are made, current and clear of problems. This page calls that step Breakdown.
   const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Breakdown first").replace("Make the shots first", "Make the breakdown first").replace("Make new shots first", "Make a new breakdown first") ?? null;
   if (shots || step === "assets") return shots;

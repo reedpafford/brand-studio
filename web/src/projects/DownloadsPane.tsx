@@ -67,6 +67,9 @@ export function DownloadsPane({
   const seconds = Math.round(list.reduce((n, c) => n + c.seconds, 0));
   const ratio = aspect.replace(":", " / ");
   const base = slug(projectName);
+  // The server only compares picked takes; an edit upstream unapproves or dates clips without changing them.
+  const left = list.filter((c) => !c.approved || c.stale).length;
+  const outOfDate = !!v && (v.out_of_date || left > 0);
   const madeFrom = list
     .map((c, i) => {
       const take = c.takes.find((t) => t.id === c.picked_take_id);
@@ -110,7 +113,8 @@ export function DownloadsPane({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted tabular-nums">
           {list.length} clip{list.length === 1 ? "" : "s"} · {seconds} s ·{" "}
-          {aspect} · every clip approved
+          {aspect} ·{" "}
+          {left === 0 ? "every clip approved" : `${list.length - left} of ${list.length} clips approved`}
         </p>
         <span className="flex flex-wrap gap-2">
           {zipLink}
@@ -131,17 +135,22 @@ export function DownloadsPane({
             Nothing was charged. {stitch.error.message}
           </Banner>
         )}
-        {v && v.out_of_date && (
+        {outOfDate && (
           <Banner
             tone="warning"
             title="Out of date."
             action={
-              <Button variant="secondary" onClick={() => stitch.mutate()}>
+              <Button
+                variant="secondary"
+                disabled={left > 0}
+                reason={left > 0 ? `Approve every clip first (${left} left)` : null}
+                onClick={() => stitch.mutate()}
+              >
                 Make it again
               </Button>
             }
           >
-            A clip changed since this video was made. It's free.
+            Clips changed since this video was made. This MP4 still downloads. Making it again is free.
           </Banner>
         )}
         {v ? (
@@ -154,8 +163,8 @@ export function DownloadsPane({
               aria-label="The finished video"
             />
             <div className="space-y-3">
-              <Badge tone={v.out_of_date ? "warning" : "success"}>
-                {v.out_of_date ? "Out of date" : "Final cut ready"}
+              <Badge tone={outOfDate ? "warning" : "success"}>
+                {outOfDate ? "Out of date" : "Final cut ready"}
               </Badge>
               <p className="text-sm text-muted tabular-nums">
                 {base}.mp4 · {seconds} s

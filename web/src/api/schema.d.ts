@@ -3617,6 +3617,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/songs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Video Songs
+         * @description The takes this video can use (its version's, then its own) and the one it uses.
+         */
+        get: operations["video_songs_projects__project_id__songs_get"];
+        put?: never;
+        /**
+         * Make Video Songs
+         * @description More takes for this video only, charged to its budget (or the editor's week).
+         */
+        post: operations["make_video_songs_projects__project_id__songs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/song": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Use Video Song
+         * @description Time this video to another take (Undo: put `was_song_take_id` back).
+         */
+        put: operations["use_video_song_projects__project_id__song_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -5264,6 +5308,13 @@ export interface components {
             brand_id: number;
             /** Name */
             name: string;
+            /**
+             * Song
+             * @default false
+             */
+            song: boolean;
+            /** Song Take Id */
+            song_take_id?: number | null;
             /** Planned Seconds */
             planned_seconds: number | null;
             /** Breakdown Seconds */
@@ -6390,6 +6441,33 @@ export interface components {
             take_ids: number[];
             /** Out Of Date */
             out_of_date: boolean;
+        };
+        /** VideoSongIn */
+        VideoSongIn: {
+            /** Take Id */
+            take_id: number;
+        };
+        /** VideoSongOut */
+        VideoSongOut: {
+            /** Song Take Id */
+            song_take_id: number;
+            /** Was Song Take Id */
+            was_song_take_id: number | null;
+        };
+        /** VideoSongsOut */
+        VideoSongsOut: {
+            /** Songs On */
+            songs_on: boolean;
+            /** Estimate Credits */
+            estimate_credits: number;
+            /** Video Estimate Credits */
+            video_estimate_credits: number;
+            /** Keep Lines */
+            keep_lines: number | null;
+            /** Takes */
+            takes: components["schemas"]["SongTakeOut"][];
+            /** Song Take Id */
+            song_take_id: number | null;
         };
         /** Who */
         Who: {
@@ -14020,6 +14098,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    video_songs_projects__project_id__songs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoSongsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_video_songs_projects__project_id__songs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoSongsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_video_song_projects__project_id__song_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VideoSongIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoSongOut"];
                 };
             };
             /** @description Validation Error */

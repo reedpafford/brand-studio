@@ -65,6 +65,8 @@ class ProjectOut(BaseModel):
     id: int
     brand_id: int
     name: str
+    song: bool = False  # made from a Song script: timed to its song (song_take_id)
+    song_take_id: int | None = None
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
     status: ProjectStatus
@@ -118,12 +120,21 @@ def get_project(db: Session, user: User, project_id: int) -> Project:
     return project
 
 
+def _is_song(db: Session, project: Project) -> bool:
+    from app.models.script_library import Script, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    return bool(draft) and db.get(Script, draft.script_id).kind == "song"
+
+
 def _out(db: Session, project: Project, user: User) -> ProjectOut:
     used = credits_used(db, project)
     return ProjectOut(
         id=project.id,
         brand_id=project.brand_id,
         name=project.name,
+        song=_is_song(db, project),
+        song_take_id=project.song_take_id,
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
         status=project.status,
