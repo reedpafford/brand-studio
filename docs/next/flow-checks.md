@@ -165,4 +165,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #862 at af72f9ce (P3 automatic fixes) | test_clip_takes (13); Make clip while retry waits; edit prompt while retry waits, then let it run | FAIL: the waiting retry runs the old prompt, charges 5, take shows current |
 | 2026-10-29 | #853 at 55c50456 | Music check on 11 phrasings; test_narrated (7) | PASS; notes: "no vocals but a choir sings" not flagged, "vocals-free" flagged |
 | 2026-10-29 | #863 at 7929c28c (P3 screen: retry line, Fixed for you + Undo) | Code and vitest (303), tsc; Undo after an edit | FAIL: auto_fix survives an edit (#862), Undo 409s and the card says "try again" forever |
+| 2026-10-29 | #858 at 237f6527 (N1 narration step 1) | test_narration (6), song regressions (73/74, my old setup), publish with old narration, editor over week, quote vs charge, double press | PASS; notes: double press makes two narrations; wording; ~0.06 shows "free" |
+| 2026-10-29 | #864 (real Suno on the test site) | Not walkable until Reed sets the key; no paid call from Flow-QA | — |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
