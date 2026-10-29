@@ -60,6 +60,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             hear_song,
             hear_study,
             refuse_link,
+            study_link,
             transcript,
         )
 
@@ -69,6 +70,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             fetch_link=refuse_link,
             hear_song=hear_song,
             hear_study=hear_study,
+            fetch_study=study_link,
         )
         return {
             "fake": FakeProvider(),
