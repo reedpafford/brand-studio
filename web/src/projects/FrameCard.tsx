@@ -60,8 +60,13 @@ export function FrameCard(props: {
   const refusable = f.file_id === null && f.problems.some((p) => /may refuse/.test(p));
   const refused = f.problems.find((p) => /refused to draw/.test(p));
   const changing = (f.change as ChangeState)?.status === "changing";
-  // A redo that didn't finish says so by its own button (still there to press again), not as a note in Change this….
-  const redoFailed = (f.change as ChangeState)?.note === "Redo this frame" && (f.change as ChangeState)?.status === "failed";
+  // Redo this frame is not a note: its states show on the card, not in Change this…. A failed one says so by its own
+  // button (still there to press again). The server marks it done once the prompt is rewritten, while the still is
+  // still drawing, so its Undo waits for the new still and stays while that still is the one in use.
+  const change = f.change as ChangeState;
+  const redone = change?.note === "Redo this frame";
+  const redoFailed = redone && change?.status === "failed";
+  const before = redone && change?.status === "done" && !props.busy && !f.drawing && f.prompt === change.after ? [...f.earlier].reverse().find((e) => (e as { prompt?: string }).prompt === change.before) ?? f.earlier.at(-1) : undefined;
   const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
   const price = props.cost !== undefined ? ` · ${creditsLabel(props.cost)}` : "";
   const redoForm = (
@@ -121,7 +126,15 @@ export function FrameCard(props: {
           Redo this frame
         </Button>
       )}
-      {f.stale && redoFailed && <p role="alert" className={errorClass}>{(f.change as ChangeState)?.error ?? "The redo didn't finish. Try again."}</p>}
+      {f.stale && redoFailed && <p role="alert" className={errorClass}>{change?.error ?? "The redo didn't finish. Try again."}</p>}
+      {before && (
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted" role="status">
+          Redone from the new breakdown. The earlier still is kept.
+          <Button variant="ghost" dense onClick={() => props.onPick((before as { file_id: number }).file_id)}>
+            Undo
+          </Button>
+        </p>
+      )}
       {f.stale && f.redo_credits == null && f.redo_blocked && (
         <div className="space-y-2">
           <p className="text-sm text-warning">{f.redo_blocked}</p>
@@ -209,8 +222,8 @@ export function FrameCard(props: {
               projectId={props.projectId}
               id={f.id}
               label={f.clip_id}
-              change={redoFailed ? null : (f.change as ChangeState)}
-              hold={props.busy ? "This one is still being made" : f.stale ? (f.redo_credits != null ? "Press Redo this frame first" : "Redo the storyboard first") : null}
+              change={redone ? null : change}
+              hold={props.busy || changing ? "This one is still being made" : f.stale ? (f.redo_credits != null ? "Press Redo this frame first" : "Redo the storyboard first") : null}
               stopFor={props.stopFor}
               onUndo={f.earlier.length ? () => props.onPick((f.earlier.at(-1) as { file_id: number }).file_id) : undefined}
             />

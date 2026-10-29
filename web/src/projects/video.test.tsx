@@ -407,28 +407,27 @@ test("what the note changed shows only the changed words, struck and bold, with 
   expect(within(changed).getByRole("button", { name: "Show the whole prompt" })).toBeInTheDocument();
 });
 
-test("on the video page, a redone frame says it changed, and Undo picks the earlier still back (#749 LW3)", async () => {
+test("on the video page, Undo of a redone frame waits for the new still, then picks the earlier one back (#749 LW3, the server's real order)", async () => {
   setViewport(390);
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, []],
-    "GET /projects/9/storyboard": [200, [still({ stale: true, redo_credits: 4, change: { note: "Redo this frame", job_id: 51, status: "changing" } })]],
-    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
-    "POST /projects/9/storyboard/frames/1/pick": [200, {}],
-  });
+  const at = (frame: object) => ({ ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown], "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }] as [number, unknown], "POST /projects/9/storyboard/frames/1/pick": [200, {}] as [number, unknown] });
+  const redo = { note: "Redo this frame", job_id: 51, before: "p", after: "p2" };
+  // 1. The prompt is being written again.
+  fakeServer(at(still({ stale: true, redo_credits: 4, change: { ...redo, status: "changing" } })));
   open("?step=storyboard");
   expect(await screen.findByText("Making the change…")).toBeInTheDocument();
-  // The redo lands: a new still, the earlier one kept.
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, []],
-    "GET /projects/9/storyboard": [200, [still({ file_id: 41, earlier: [{ file_id: 40 }], change: { note: "Redo this frame", job_id: 51, status: "done", before: "p", after: "p2" } })]],
-    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
-    "POST /projects/9/storyboard/frames/1/pick": [200, {}],
-  });
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }, { timeout: 9000 }));
+  // 2. The server says done as soon as the prompt is written; the still is still drawing: no Undo yet.
+  fakeServer(at(still({ prompt: "p2", drawing: true, change: { ...redo, status: "done" } })));
+  expect(await screen.findByText("Drawing…", {}, { timeout: 9000 })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  // 3. The new still lands, the earlier one kept: Undo stays on the card (not only a toast).
+  fakeServer(at(still({ prompt: "p2", file_id: 41, earlier: [{ file_id: 40, prompt: "p" }], change: { ...redo, status: "done" } })));
+  expect(await screen.findByText("Redone from the new breakdown. The earlier still is kept.", {}, { timeout: 9000 })).toBeInTheDocument();
+  // 4. Undo picks the earlier still; once it is back, there is nothing to undo.
+  const calls = fakeServer(at(still({ prompt: "p", file_id: 40, earlier: [{ file_id: 41, prompt: "p2" }], change: { ...redo, status: "done" } })));
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/pick")?.body).toMatchObject({ file_id: 40 }));
-}, 20000);
+  await vi.waitFor(() => expect(screen.queryByText(/Redone from the new breakdown/)).toBeNull());
+}, 30000);
 
 test("a note that left the prompt as it was says so, and nothing is made", async () => {
   setViewport(1440);
