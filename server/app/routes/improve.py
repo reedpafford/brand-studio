@@ -52,7 +52,7 @@ def job_input(db: Session, brand: Brand, body: ImproveIn, references: str) -> di
     brand_dict = {
         "name": brand.name,
         "tone_notes": brand.tone_notes,
-        "never_say": brand.never_say,
+        "never_say": brand.dont_list,
         "legal_line": brand.legal_line,
     }
     brief = f"direction: {body.direction}; shots: {body.shots}; seconds: {body.duration}"
