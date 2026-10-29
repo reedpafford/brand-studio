@@ -33,6 +33,13 @@ def test_on_screen_words_are_taken_out_but_never_a_spoken_line_or_the_brands_lab
         "Keep: No text on screen.",
     ):
         assert check.text_on_screen(safe) == (safe, []), safe
+    # Flow-QA on #886: quoted words to be drawn go; a quoted line that is spoken stays
+    drawn = check.text_on_screen('Shot 1 | 0-2 s. Close-up. Big text "SALE" pops, Mom grins.')
+    assert drawn == ("Shot 1 | 0-2 s. Close-up. Mom grins.", ["Big text"])
+    over = 'Shot 2 | 2-4 s. The words "IRON PAWS" appear on screen over the bowl. Mom: "Yes!"'
+    assert check.text_on_screen(over) == ('Shot 2 | 2-4 s. Mom: "Yes!"', ["words appear on screen"])
+    said = 'Shot 3 | 4-6 s. She says "no captions, ever", laughing.'
+    assert check.text_on_screen(said) == (said, [])
     curly = check.text_on_screen("Shot 1 | 0-2 s. A caption pops up, Mom: “Hi, you.” No one else.")
     assert curly == ("Shot 1 | 0-2 s. Mom: “Hi, you.” No one else.", ["caption"])
 

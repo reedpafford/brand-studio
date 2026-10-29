@@ -1180,41 +1180,49 @@ NOT_SPEAKERS = {
 # label or logo ("label to camera", "the fomo logo reads"): those must show.
 TEXT_ON_SCREEN = re.compile(
     r"\b(?:text overlays?|on-?screen text|text on screen|captions?|(?<!No )subtitles?|title cards?|"
-    r"lower thirds?|logo text|words? (?:appear|pop up|flash)(?:s|ing)?(?: on screen)?|"
+    r"lower thirds?|logo text|words?\s+(?:\0\s+)?(?:appear|pop up|flash)(?:s|ing)?(?: on screen)?|"
     r"(?:big|bold|animated) (?:text|letters|title))\b",
     re.I,
 )
 CLAUSE = re.compile(r"[^,.;!?]+[,.;!?]?\s*")
+# A quote that is spoken (after a speaker's label or a speech verb), never one to be drawn:
+# 'Mom: "Hi"' is a line; 'big text "SALE" pops' is a picture of words (Flow-QA on #886).
+SPOKEN = re.compile(
+    r"(?::|\b(?:says?|said|speaks?|sings?|shouts?|whispers?|asks?|yells?|repl(?:y|ies)|answers?|calls?))\s*\0",
+    re.I,
+)
 
 
 def text_on_screen(prompt: str) -> tuple[str, list[str]]:
     """A clip prompt with each ask for on-screen words taken out, and what was taken (P3:
-    "Fixed for you: removed 'logo text'"). Only the clause holding it goes; a spoken line in
-    quotes is never touched (rule 19), and neither are the audio lines or a safeguard ("No
-    captions", "without any on-screen text": Flow-QA on #869)."""
+    "Fixed for you: removed 'logo text'"). Only the clause holding it goes, with any words in
+    quotes it asks to draw; a spoken line in quotes is never touched (rule 19), and neither
+    are the audio lines or a safeguard ("No captions", "without any on-screen text": Flow-QA
+    on #869)."""
     out, removed = [], []
     for line in prompt.splitlines():
         if line.startswith("Audio:") or not TEXT_ON_SCREEN.search(QUOTED.sub("", line)):
             out.append(line)
             continue
-        quotes = iter([q.group(0) for q in QUOTED.finditer(line)])
-        line = QUOTED.sub("\0", line)  # a quoted line is one piece, never split or searched
+        quotes = [q.group(0) for q in QUOTED.finditer(line)]
+        line = QUOTED.sub("\0", line)  # a quote is one piece, never split
         head = m.group(0) if (m := SHOT_LINE.match(line)) else ""
-        kept, cut = [], False
+        kept, kept_quotes, cut, n = [], [], False, 0
         for clause in CLAUSE.findall(line[len(head) :]):
+            mine, n = quotes[n : n + clause.count("\0")], n + clause.count("\0")
             asks = [m for m in TEXT_ON_SCREEN.finditer(clause) if not _negated(clause, m)]
-            if (found := next(iter(asks), None)) and "\0" not in clause:
-                removed.append(found.group(0))
+            if (found := next(iter(asks), None)) and not SPOKEN.search(clause):
+                removed.append(found.group(0).replace("\0", "").replace("  ", " "))
                 cut = True
                 continue
-            if (
-                cut and kept
-            ):  # the clause before a cut ends its sentence: "bowl; No one" → "bowl. No one"
+            # the clause before a cut ends its sentence: "bowl; No one" → "bowl. No one"
+            if cut and kept:
                 kept[-1] = re.sub(r"[,;]\s*$", ". " if clause[:1].isupper() else ", ", kept[-1])
             kept.append(clause)
+            kept_quotes += mine
             cut = False
         text = re.sub(r"[,;]\s*$", ".", "".join(kept).strip()) if cut else "".join(kept).strip()
-        text = re.sub("\0", lambda _, q=quotes: next(q), text)
+        text = re.sub("\0", lambda _, q=iter(kept_quotes): next(q), text)
         out.append(f"{head} {text}".strip() if head else text)
     return "\n".join(out), removed
 
