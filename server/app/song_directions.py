@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import prompts
+from app import prompts, song_study
 from app.db import utcnow
 from app.enhance import escape, project_context
 from app.models.jobs import Job, JobStatus
@@ -28,6 +28,10 @@ NOTHING = "Add what the brand sells on the brand page, or paste a script to adap
 APPROVED = "These lyrics are approved. Press Undo approval on Publish to use a direction here."
 PUBLISHED = "This script is published, so its lyrics are final. Duplicate the script to try one."
 UNFINISHED = "The directions didn't finish. Nothing was charged."
+COPIED = (  # the rewrite still copied the studied song ad (flows S3a): why, and both ways out
+    "The directions kept copying a line from the song ad you studied. Nothing was charged. "
+    "Try again, or turn off Use as a guide."
+)
 STILL = "still needs fixing: "  # the raw reason (owner-only) when the one rewrite didn't fix it
 
 
@@ -66,22 +70,43 @@ def job_input(
                        .order_by(ScriptCastSlot.position))  # fmt: skip
     cast = [escape(f"{s.role}: {s.description}".strip(": ")) for s in slots]
     brief = escape(f"{script.title}\n{script.description}".strip())
+    study = _study(song_study.guide(draft))
     message = prompts.song_directions_input(
         brief, cast, seconds=draft.target_seconds, note=escape(note),
         source=escape(source), sounds_like=escape(sounds_like),
+        reference=escape(prompts.song_study_block(study)) if study else "",
     )  # fmt: skip
     return {"step": STEP, "script_id": script.id, "slot": draft.slot, "system": system,
             "prompt": message, "sounds_like": sounds_like, "brand": script_brand(db, script),
-            "seconds": draft.target_seconds}  # fmt: skip
+            "seconds": draft.target_seconds, "study": study}  # fmt: skip
+
+
+def _study(found: dict | None) -> dict | None:
+    """The song-ad study the directions follow (flows S3a "Used as a guide"), cut to what
+    the prompt and the copied-lines check read: its length, tempo and sections."""
+    if not found:
+        return None
+    return {"seconds": found["seconds"], "bpm": found.get("bpm"),
+            "sections": [{k: x[k] for k in ("name", "start", "end", "lines")}
+                         for x in found.get("sections", [])]}  # fmt: skip
+
+
+def failure(detail: str) -> str | None:
+    """What a failed directions job says (None: not one of ours)."""
+    if not detail.startswith(STILL):
+        return None
+    return COPIED if check.COPIED in detail else UNFINISHED
 
 
 def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
     """An answer after the Director's free repair (a "sounds like" name never reaches the
-    music service) and check: the answer to save, with its notes, and its fixes."""
+    music service) and check: the answer to save, with its notes, and its fixes. A line
+    copied from the song-ad study is a fix (flows S3a)."""
     result = SongDirections.model_validate(output)
     notes, fixes = check.finish_directions(
-        result, job_input["brand"], job_input.get("seconds"), job_input.get("sounds_like", "")
-    )
+        result, job_input["brand"], job_input.get("seconds"), job_input.get("sounds_like", ""),
+        study=job_input.get("study"),
+    )  # fmt: skip
     return {**result.model_dump(), "notes": notes}, fixes
 
 
