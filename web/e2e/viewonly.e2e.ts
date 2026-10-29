@@ -23,17 +23,15 @@ for (const width of [1440, 390]) {
 
     const eli = await join("Eli");
     await eli.goto(`/b/${brandId}/videos/${id}?step=plan`);
-    await expect(eli.getByText("Only Sam or the owner can change this video.").first()).toBeVisible();
-    await expect(eli.getByText("You can look.")).toBeVisible();
-    const live = await eli.evaluate(() => [...document.querySelectorAll("fieldset button")].filter((b) => !(b as HTMLButtonElement).disabled).map((b) => b.textContent));
+    await expect(eli.getByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toBeVisible();
+    const live = await eli.evaluate(() => [...document.querySelectorAll("fieldset button")].filter((b) => !b.matches(":disabled")).map((b) => b.textContent));
     expect(live).toEqual([]);
-    await eli.getByRole("list", { name: "Steps" }).getByRole("button", { name: /Cast/ }).click(); // moving between steps is looking
-    await expect(eli).toHaveURL(/step=cast/);
-    await expect(eli.getByText("You can look.")).toBeVisible();
+    await eli.getByRole("button", { name: "Show script" }).click(); // reading is looking
+    await expect(eli.getByRole("dialog")).toBeVisible();
 
     await sam.goto(`/b/${brandId}/videos/${id}?step=plan`); // its maker gets no banner
     await expect(sam.getByRole("heading", { name: `Sam's video ${run}` })).toBeVisible();
-    await expect(sam.getByText("You can look.")).toHaveCount(0);
+    await expect(sam.getByText(/You can look/)).toHaveCount(0);
     const sizes = await eli.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
   });

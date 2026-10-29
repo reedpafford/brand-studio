@@ -68,15 +68,17 @@ for (const [step, ready] of [
     fakeServer(base);
     open(step);
     await ready();
-    expect(screen.getAllByText("Only Sam or the owner can change this video.")[0]).toBeInTheDocument();
-    expect(screen.getByText("You can look.")).toBeInTheDocument();
-    for (const f of document.querySelectorAll("fieldset")) expect(f).not.toHaveTextContent("Only Sam"); // one banner, not one per card
+    expect(screen.getByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toBeInTheDocument();
+    for (const f of document.querySelectorAll("fieldset")) expect(f).not.toHaveTextContent("This is Sam"); // one banner, not one per card
     await vi.waitFor(() => expect(presses().length).toBeGreaterThan(0));
     for (const b of presses()) expect(b).toBeDisabled();
     for (const b of within(screen.getByRole("list", { name: "Steps" })).getAllByRole("button")) expect(b).not.toHaveAttribute("aria-disabled", "true"); // moving between steps is looking
     expect(screen.getByRole("button", { name: "Show script" })).toBeEnabled();
     const bar = screen.getByRole("region", { name: "Cost" });
-    for (const b of within(bar).queryAllByRole("button").filter((b) => !/^Next:/.test(b.textContent ?? ""))) expect(b).toBeDisabled();
+    for (const b of within(bar).queryAllByRole("button").filter((b) => !/^Next:/.test(b.textContent ?? ""))) {
+      expect(b).toBeDisabled();
+      expect(b).toHaveAccessibleDescription("Only Sam or the owner can change this video."); // the step's own press says why
+    }
     if (step === "downloads") expect(screen.getByRole("link", { name: /Download MP4/ })).toHaveAttribute("href", expect.stringContaining("/api/files/60"));
   });
 }
@@ -86,6 +88,6 @@ test("the owner and the video's maker get no banner and live presses", async () 
   fakeServer({ ...base, "GET /auth/me": [200, owner] });
   open("storyboard");
   await screen.findByLabelText("Frame c1");
-  expect(screen.queryByText("Only Sam or the owner can change this video.")).toBeNull();
-  expect(presses().some((b) => !(b as HTMLButtonElement).disabled)).toBe(true);
+  expect(screen.queryByText(/This is Sam's video/)).toBeNull();
+  expect(presses().some((b) => !b.matches(":disabled"))).toBe(true);
 });

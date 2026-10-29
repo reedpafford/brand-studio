@@ -118,7 +118,8 @@ export function VideoPage() {
   const target = { id, name: p.name, creditsUsed: p.credits_used };
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
   // Only its maker or the owner may change a video (the server refuses the rest): anyone else can look, with every press greyed out.
-  const lookOnly = !mayManage(p) && !p.archived_at ? `Only ${p.created_by_name || "whoever made it"} or the owner can change this video.` : null;
+  const maker = p.created_by_name || "someone else";
+  const lookOnly = !mayManage(p) && !p.archived_at ? `Only ${maker} or the owner can change this video.` : null;
   // Until Assets' own read lands, the step picker, the heading line and Next wait under one skeleton: no counts from an older read.
   const waiting = step === "cast" && assetsLoading;
   const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
@@ -146,9 +147,7 @@ export function VideoPage() {
       {video.dialog}
       {/* Every per-video choice in one row (flows VS1); an archived video is read only. Plan has its own song strip, with the player. */}
       {lookOnly && (
-        <Banner tone="info" title={lookOnly}>
-          You can look.
-        </Banner>
+        <Banner tone="info" title={`This is ${p.created_by_name ? `${maker}'s` : "someone else's"} video. You can look, but only ${maker} or the owner can change it.`} />
       )}
       {!p.archived_at && (
         <ViewOnly on={!!lookOnly}>
