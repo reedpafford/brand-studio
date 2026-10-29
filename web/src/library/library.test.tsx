@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -381,4 +381,70 @@ test("an editor sees a product's line and claim read only, and their save leaves
   expect(body).toMatchObject({ name: "Salmon bag XL" });
   expect(body).not.toHaveProperty("main_claim");
   expect(body).not.toHaveProperty("short_description");
+});
+
+const looksList = [{ id: "house", name: "House", blurb: "", on: true }, { id: "pixar", name: "Disney Pixar", blurb: "", on: true }];
+const charRoutes = (me: object, sheets: object) => ({
+  "GET /auth/me": [200, me] as [number, unknown],
+  "GET /brands": [200, brands] as [number, unknown],
+  "GET /team/members": [200, []] as [number, unknown],
+  "GET /looks": [200, looksList] as [number, unknown],
+  "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: true, credits_per_unit: { "2K": 1.5 } }]] as [number, unknown],
+  "GET /library/character/5": [200, { ...mia, look_sheets: sheets }] as [number, unknown],
+  "GET /library/character/5/versions": [200, []] as [number, unknown],
+});
+
+test("the owner makes a character's sheet in another look, then approves it with Undo (ST2)", async () => {
+  const calls = fakeServer({ ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90 }] });
+  renderAt("/b/1/library/characters/5");
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet · 2 credits/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ look_id: "pixar", change: "" }));
+  expect(screen.queryByLabelText("House sheet")).toBeNull();
+});
+
+test("a sheet waiting in a look: Approve, with Undo; editors see it without the presses", async () => {
+  const calls = fakeServer({ ...charRoutes(owner, { pixar: { file_id: 70, status: "needs_approval" } }), "POST /library/character/5/sheet/approve": [200, mia], "DELETE /library/character/5/sheet/approve": [200, mia] });
+  renderAt("/b/1/library/characters/5");
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  await userEvent.click(within(pixar).getByRole("button", { name: "Approve" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/sheet/approve")).toBe(true));
+});
+
+test("an editor sees the other looks' sheets but can't add one", async () => {
+  fakeServer(charRoutes(editor, {}));
+  renderAt("/b/1/library/characters/5");
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  expect(within(pixar).getByText("Only the owner adds a sheet in a look.")).toBeInTheDocument();
+  expect(within(pixar).queryByRole("button")).toBeNull();
+});
+
+test("a first sheet in a look says Drawing… with no second Make until it's in, then offers Approve (QA-3)", async () => {
+  const routes: Record<string, [number, unknown]> = { ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90, status: "queued" }], "GET /jobs/90": [200, { id: 90, status: "running" }] };
+  const calls = fakeServer(routes);
+  renderAt("/b/1/library/characters/5");
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet/ }));
+  expect(await within(pixar).findByText("Drawing…")).toBeInTheDocument();
+  expect(within(pixar).queryByRole("button", { name: /Make a Disney Pixar sheet/ })).toBeNull();
+  routes["GET /library/character/5"] = [200, { ...mia, look_sheets: { pixar: { file_id: 71, status: "needs_approval" } } }];
+  expect(await within(pixar).findByRole("button", { name: "Approve" }, { timeout: 5000 })).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /library/character/5/sheet")).toHaveLength(1);
+});
+
+test("a first sheet that didn't finish says so, and Try again is the press", async () => {
+  fakeServer({ ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90, status: "queued" }], "GET /jobs/90": [200, { id: 90, status: "failed" }] });
+  renderAt("/b/1/library/characters/5");
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet/ }));
+  expect(await within(pixar).findByText("The sheet didn't finish. Nothing was charged.")).toBeInTheDocument();
+  expect(within(pixar).getByRole("button", { name: /Try again/ })).toBeInTheDocument();
+});
+
+test("a look starting with a vowel reads Make an …", async () => {
+  fakeServer({ ...charRoutes(owner, {}), "GET /looks": [200, [...looksList, { id: "anime", name: "Anime comic", blurb: "", on: true }]] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByRole("button", { name: /Make an Anime comic sheet/ })).toBeInTheDocument();
 });
