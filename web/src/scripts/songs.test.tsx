@@ -272,3 +272,12 @@ test("a Preferred take too long for a video doesn't open Cast, whatever the serv
   expect(await screen.findByRole("button", { name: "Next: Cast" })).toBeDisabled();
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("The Preferred take is too long for a video. Use the first part of it first");
 });
+
+test("Keep the first N lines says so when the part dropped holds the brand's end line (Advice)", async () => {
+  setViewport(1440);
+  const withEnd = song({}, { text: `${LYRICS}\n[Outro]\nGet Iron Paws through the link in my bio.` });
+  fakeServer({ ...base, "GET /scripts/7": [200, withEnd], "GET /scripts/7/drafts/0/songs": [200, songs([], { video_estimate_credits: 812, keep_lines: 2 })] });
+  open("/b/1/scripts/7?step=takes");
+  await userEvent.click(await screen.findByRole("button", { name: "Keep the first 2 lines · free" }));
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("The brand's end line is in the part dropped.");
+});

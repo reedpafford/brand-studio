@@ -8,6 +8,7 @@ import { TakePlayer, clock } from "./TakePlayer";
 import { useAllowanceStop, type Script } from "./useScript";
 import { keepFirst, useSaveSong, type Song } from "./SongStep";
 import { useToast } from "../toast";
+import { useBrands } from "../shell/useBrands";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
 /** Seconds since this was first shown, for "Making the song… 12 s". */
@@ -176,6 +177,7 @@ export function TakesStep({ script: s }: { script: Script }) {
   const [keeping, setKeeping] = useState(false);
   const put = useSaveSong(s.id);
   const toast = useToast();
+  const brand = useBrands().data?.find((b) => b.id === s.brand_id);
   if (songs.isPending)
     return (
       <div role="status" aria-label="Loading takes" className="grid gap-4 md:grid-cols-2">
@@ -200,8 +202,12 @@ export function TakesStep({ script: s }: { script: Script }) {
   const now: Song = { text: v?.text ?? "", style_line: v?.style_line ?? "", spoken_end_line: v?.spoken_end_line ?? "" };
   const defaultStyle = now.style_line ? () => put.mutate({ ...now, style_line: "" }, { onSuccess: () => toast("The style is cleared: the song will be upbeat pop. Make 2 takes again.", () => put.mutate(now)) }) : undefined;
   const current = takes.filter((t) => !t.out_of_date);
+  // Rule 18 (Advice): does the part a cut drops hold the brand's end line?
+  const endLine = brand?.end_line.trim().toLowerCase();
+  const loseEnd = (dropped: string) => !!endLine && dropped.toLowerCase().includes(endLine);
   // Over the cap before any take of these lyrics (flows S4 B): the price line says so and Make gives way to the free fix.
   const cut = data.keep_lines !== null ? keepFirst(now.text, data.keep_lines) : null;
+  const dropsEnd = !!cut && loseEnd(now.text.slice(cut.kept.length));
   const make = (label: string, primary: boolean) =>
     cut ? (
       <div className="space-y-2">
@@ -241,6 +247,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           <span className="block">The song then ends on:</span>
           <span className="block type-script text-text">{cut.kept.split("\n").filter((l) => l.trim()).at(-1)}</span>
           <span className="block">{cut.dropped} sung line{cut.dropped === 1 ? " is" : "s are"} dropped. Undo puts them back.</span>
+          {dropsEnd && <span className="block text-warning">The brand's end line is in the part dropped. On the Song step you can sing it at the end again, or speak it over the end.</span>}
         </Dialog>
       ) : null}
       {!data.songs_on && <Banner tone="info" title="Songs aren't switched on here.">The lyrics and style still save. Takes can be made where songs are on.</Banner>}
