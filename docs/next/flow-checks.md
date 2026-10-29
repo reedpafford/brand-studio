@@ -59,6 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
+| Narration with no words (#920 + screen) | NarrationStep ignores songs_note: "Make the narration · 0 credits", then refused | Disable the press with songs_note as its reason | #920 at 7e33b1a4 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -258,3 +259,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #918 at 2e459e39 (ST2: look words fixed in clip prompts and stills, with Undo; look fixes offered) | look_words + clip_takes + item_checks + storyboard (30) | PASS |
 | 2026-10-29 | #919 at 6960953a (ST0 Dialogue↔Narrated with Undo; narrator check; sentence times) | code walk; vitest scripts (250) | PASS |
 | 2026-10-29 | #916 at e3af3c93 (editors keep tone notes, Don't/never say, End line) | vitest brand (29) | PASS |
+| 2026-10-29 | #920 at 7e33b1a4 (N1: nothing to read → songs_note, price 0) | narration (16) | PASS server (screen must show songs_note as the press reason, else "· 0 credits" then refused) |
