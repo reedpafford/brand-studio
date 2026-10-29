@@ -111,3 +111,81 @@ def test_a_still_with_no_picture_says_so_and_can_be_made_again(app, db, owner):
     assert (shown["status"], shown["reason"]) == ("failed", look_samples.NO_STILL)
     assert owner.post("/looks/zack-d/sample", json={"brand_id": brand}).status_code == 201
     assert db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).count() == 2
+
+
+def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, monkeypatch):
+    """Reed, 2026-10-29: with the stand-ins on, only a look's sample goes to real Replicate
+    (still, then its clip), and only while it fits the test budget; nothing is sent here."""
+    from app import providers as lanes
+    from app.providers import REAL_SAMPLES, get_providers, samples_on
+    from app.settings import Settings
+    from app.steps import save_step_result
+
+    real = object()  # a stub: a real provider is never built in tests (the proxy adds a key)
+    monkeypatch.setattr(lanes, "_replicate", lambda settings: real)
+    monkeypatch.setenv("REPLICATE_API_TOKEN", "test-token")
+    assert not samples_on(Settings(fake_providers=True))  # off until switched on
+    assert not samples_on(Settings(real_look_samples=True))  # live: everything is real anyway
+    providers = get_providers(Settings(fake_providers=True, real_look_samples=True))
+    assert providers[REAL_SAMPLES] is real and not providers["replicate"].paid  # rest: stand-ins
+
+    settings = app.state.settings
+    settings.fake_providers, settings.real_look_samples = True, True
+    settings.look_samples_budget_usd = 0.6  # one sample (a still and a 5 s clip, about $0.55)
+    brand = _brand(owner)
+    url = f"/looks/zack-d/sample?brand_id={brand}"
+    assert owner.get(url).json()["test_site"] == look_samples.REAL_NOTE  # said before the press
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    still = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
+    assert still.provider == REAL_SAMPLES
+    still.status, still.output = "succeeded", {"file_ids": [upload(owner)]}
+    save_step_result(db, still)
+    db.commit()
+    clip = db.query(Job).filter(Job.input["step"].as_string() == look_samples.CLIP).one()
+    assert clip.provider == REAL_SAMPLES  # the clip follows its still, already paid for
+    shown = owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()
+    assert shown["test_site"] == look_samples.USED_UP
+    owner.post("/looks/skeleton/sample", json={"brand_id": brand})  # past the budget
+    newest = db.query(Job).order_by(Job.id.desc()).first()
+    assert newest.input["look_id"] == "skeleton" and newest.provider == "replicate"  # stand-in
+
+
+def test_with_real_samples_on_only_a_sample_goes_real_and_no_key_means_a_stand_in(
+    app, db, owner, monkeypatch
+):
+    """QA-4 on #970: every other image or video job stays a stand-in while the switch is on;
+    switched on without the key, the sample's lane makes a stand-in, never a failed job."""
+    from app.providers import REAL_SAMPLES, get_providers
+    from app.providers.fake_local import FakeMedia
+    from tests.test_song_takes import _work
+
+    monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
+    settings = app.state.settings
+    settings.fake_providers, settings.real_look_samples = True, True
+    settings.look_samples_budget_usd = 6
+    assert isinstance(get_providers(settings)[REAL_SAMPLES], FakeMedia)
+    brand = _brand(owner)
+    clip = owner.post("/clips", json={"brand_id": brand, "prompt": "A dog runs on a beach"})
+    assert clip.status_code == 201, clip.text
+    assert db.get(Job, clip.json()["id"]).provider == "replicate"  # a Quick clip: stand-in
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    _work(app, db, ticks=4)
+    ready = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()
+    assert ready["status"] == "ready" and ready["clip_id"]  # made, as stand-ins
+
+
+def test_two_presses_before_the_first_still_is_back_never_pass_the_budget(app, db, owner):
+    """QA-3 on #970: a queued still counts with the clip it holds, so a second quick press
+    is a stand-in when both samples together would pass the budget."""
+    from app.providers import REAL_SAMPLES
+
+    settings = app.state.settings
+    settings.fake_providers, settings.real_look_samples = True, True
+    settings.look_samples_budget_usd = 1.0  # one sample is about $0.55
+    brand = _brand(owner)
+    owner.post("/looks/disney-pixar/sample", json={"brand_id": brand})
+    shown = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()
+    assert shown["test_site"] == look_samples.USED_UP  # said before the second press
+    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    lanes = {j.input["look_id"]: j.provider for j in db.query(Job).all()}
+    assert lanes == {"disney-pixar": REAL_SAMPLES, "zack-d": "replicate"}
