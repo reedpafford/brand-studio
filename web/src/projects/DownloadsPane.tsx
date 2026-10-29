@@ -151,7 +151,9 @@ export function DownloadsPane({
               </Button>
             }
           >
-            Clips changed since this video was made. This MP4 still downloads. Making it again is free.
+            {left === 0 && !v?.out_of_date && olderLook > 0
+              ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places. This MP4 still downloads. Making it again is free.`
+              : "Clips changed since this video was made. This MP4 still downloads. Making it again is free."}
           </Banner>
         )}
         {v ? (
