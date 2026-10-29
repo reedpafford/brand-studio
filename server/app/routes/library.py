@@ -12,7 +12,7 @@ from app.auth import current_user, owner_only
 from app.db import get_db
 from app.models.accounts import User
 from app.models.brands import Brand
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.library import Kind, LibraryItem, LibraryItemVersion
 from app.routes.brands import get_brand
 from app.routes.files import get_file
@@ -145,10 +145,9 @@ def _snapshot(item: LibraryItem) -> dict:
 def _waiting_sheets(item: LibraryItem) -> list[Job]:
     """This item's sheet jobs not finished yet (queued, running or held for the owner)."""
     db = object_session(item)
-    waiting = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
     jobs = (
         db.scalars(
-            select(Job).where(Job.workspace_id == item.workspace_id, Job.status.in_(waiting))
+            select(Job).where(Job.workspace_id == item.workspace_id, Job.status.in_(WAITING))
         )
         if db
         else []
