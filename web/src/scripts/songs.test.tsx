@@ -264,3 +264,11 @@ test("when not even one line fits the video limit, the press is Shorten the lyri
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByRole("link", { name: "Shorten the lyrics" })).toBeInTheDocument();
 });
+
+test("a Preferred take too long for a video doesn't open Cast, whatever the server says", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true, seconds: 800, over_cap: true, fits_until: 55 })])] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByRole("button", { name: "Next: Cast" })).toBeDisabled();
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("The Preferred take is too long for a video. Use the first part of it first");
+});
