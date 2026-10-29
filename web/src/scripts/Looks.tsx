@@ -64,16 +64,10 @@ export function LookPicker({ current, looks, onPick, busy, error, onClose }: { c
   );
 }
 
-/** What changing a script's look would take (Next-Server's #943), read before the change. Until the route is in the generated
- *  schema it is called with fetch; a server without it (404) changes the look with no confirm, as before. */
-type LookChange = { roles: string[]; to_finish_credits: number; was_credits: number; over_budget: boolean; reason: string };
-async function lookChange(scriptId: number, look: string): Promise<LookChange | null> {
-  const r = await fetch(`${location.origin}/api/scripts/${scriptId}/look-change?look=${encodeURIComponent(look)}`, { credentials: "include" });
-  if (r.status === 404) return null;
-  const body = await r.json().catch(() => null);
-  if (!r.ok) throw new Error(typeof body?.detail === "string" ? body.detail : "That didn't work. Try again.");
-  return body as LookChange;
-}
+/** What changing a script's look would take (Next-Server's #943), read before the change. */
+type LookChange = components["schemas"]["LookChangeOut"];
+const lookChange = async (scriptId: number, look: string): Promise<LookChange> =>
+  (await must(api.GET("/scripts/{script_id}/look-change", { params: { path: { script_id: scriptId }, query: { look } } }))).data!;
 
 /** "Look: House ▾" for a script or a video: opens the picker, saves at once (free) with Undo. Read only once published. Hidden until the server offers looks. */
 export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: string | null | undefined; scriptId: number; queryKey: unknown[]; readOnly?: boolean }) {
@@ -107,7 +101,7 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
     });
   };
   const pick = (l: Look) =>
-    check.mutate(l.id, { onSuccess: (c) => (c && c.roles.length > 0 ? setAsking({ look: l, change: c }) : change(l)) });
+    check.mutate(l.id, { onSuccess: (c) => (c.roles.length > 0 ? setAsking({ look: l, change: c }) : change(l)) });
   const refused = (save.error ?? check.error)?.message ?? null;
   const n = asking?.change.roles.length ?? 0;
   return (
@@ -119,7 +113,7 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
       {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} />}
       {asking && (
         <Dialog title={`Change to ${asking.look.name}?`} cancelLabel="Not yet" actionLabel="Change" busy={save.isPending} holdReason={asking.change.over_budget ? asking.change.reason || "That would go over this week's credits." : null} onCancel={() => setAsking(null)} onConfirm={() => change(asking.look)}>
-          {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: about {asking.change.to_finish_credits} credits (was {asking.change.was_credits}).
+          {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: up to {asking.change.to_finish_credits} credits (was {asking.change.was_credits}).
         </Dialog>
       )}
     </>

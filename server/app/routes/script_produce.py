@@ -71,8 +71,12 @@ def produce(
         reference_replace=script.reference_replace,
         script_draft_id=draft.id,
         look=script.look,  # the video's own from here on (VS1)
+        product_variants=lib.offered_flavours(db, script.brand_id, draft),  # n03: its defaults
     )
-    for field, value in (body.model_dump(exclude_none=True) if body else {}).items():
+    settings = body.model_dump(exclude_none=True) if body else {}
+    if "product_variants" in settings:  # the picks sent win, product by product (n03)
+        settings["product_variants"] = {**project.product_variants, **settings["product_variants"]}
+    for field, value in settings.items():
         setattr(project, *vs.check(db, user, project, {field: value}).popitem())
     if script.kind in narration.TIMED and (take := song_takes.preferred(db, draft)):
         project.song_take_id = take.id  # the video's own choice from here on (rule 31)

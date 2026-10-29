@@ -32,9 +32,12 @@ def sheet_for(db, project, item: LibraryItem) -> list[int]:
     """The picture a video uses for an item, in the video's look (flows ST2). House: the
     approved House sheet, as always. Another look: the owner's approved sheet in that look,
     else this video's own copy drawn in it (look_copies), else none, so the editor is offered
-    "Make a {look} look for this video". A video's own looks are drawn for it (sheet_look);
-    places and props keep their House pictures. ST1 counts the roles left with none."""
+    "Make a {look} look for this video". A video's own looks are drawn for it (sheet_look),
+    so one drawn in another look has none here; places and props keep their House pictures.
+    ST1 counts the roles left with none."""
     look = project.look or "house"
+    if item.kind == Kind.character and own(item) and (item.sheet_look or "house") != look:
+        return []  # a role's own look drawn in another look: none yet (Flow-QA on #967)
     if look == "house" or item.kind != Kind.character or own(item):
         return usable_files(item)
     sheet = (item.look_sheets or {}).get(look) or {}

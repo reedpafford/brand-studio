@@ -71,3 +71,19 @@ def test_an_editor_sees_their_own_videos_and_quick_clips_in_credits_only(owner, 
     assert out["projects"] == [{"folder_id": None, "name": "No project", "videos": 1,
                                 "credits": out["videos"][0]["credits"]}]  # fmt: skip
     assert editor.get("/usage/mine", params={"brand_id": fomo, "folder": "x"}).status_code == 422
+
+
+def test_an_editors_own_script_writing_shows_on_their_week_and_no_one_elses(owner, editor, db):
+    me, fomo, _ = _setup(owner, db)
+    them = db.query(User).filter_by(role=Role.editor).one()
+    script = editor.post("/scripts", json={"brand_id": fomo, "title": "Gut"}).json()["id"]
+    mine = enqueue(db, them, "write-claude", {"script_id": script, "step": "script_draft"})
+    enqueue(db, me, "write-claude", {"script_id": script, "step": "enhance"})  # the owner's
+
+    out = editor.get("/usage/mine", params={"brand_id": fomo}).json()
+    step = float(db.get(Job, mine.id).credits)
+    assert out["scripts"] == [{"script_id": script, "title": "Gut", "credits": step}]
+    assert out["script_credits"] == out["credits"] == step > 0
+    assert not any("usd" in k or "dollar" in k for k in _keys(out))
+    assert owner.get("/usage/mine", params={"brand_id": fomo}).json()["script_credits"] == float(
+        db.query(Job).filter(Job.created_by_id == me.id).one().credits)  # fmt: skip

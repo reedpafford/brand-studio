@@ -989,7 +989,8 @@ export interface paths {
         /**
          * Mine
          * @description OR4 for anyone: the caller's own videos in the brand, in credits only (never dollars,
-         *     never someone else's video), and their quick clips' credits in the period. Videos are
+         *     never someone else's video), and their quick clips' and script writing's credits in the
+         *     period (both come out of an editor's week). Videos are
          *     picked by the period as on the owner's list: done ones finished in it, others active.
          */
         get: operations["mine_usage_mine_get"];
@@ -2009,9 +2010,31 @@ export interface paths {
         /**
          * Publish
          * @description Put it in the team's library. Every version must be approved first; after this it's
-         *     final (duplicate it to change it).
+         *     final (duplicate it to change it). `flavours` saves each version's default flavours
+         *     first (n03); a product with one flavour is picked by itself, the rest stay Auto.
          */
         post: operations["publish_scripts__script_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/flavours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Flavours
+         * @description A version's default flavours, before or after Publish: a default, not words (rule 31
+         *     keeps the words). Only videos made from it later read them.
+         */
+        put: operations["set_flavours_scripts__script_id__drafts__slot__flavours_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4817,8 +4840,9 @@ export interface paths {
         put?: never;
         /**
          * Undo Save
-         * @description Undo Save: the brand's colours and logo as they were, the products it made removed and
-         *     the descriptions it filled cleared. The read can be saved again.
+         * @description Undo Save: the colours it added taken out and its logo replaced by the one before
+         *     (unless changed since), the products it made removed and the descriptions it filled
+         *     cleared (unless edited since). The read can be saved again.
          */
         post: operations["undo_save_brands__brand_id__site_read__job_id__undo_post"];
         delete?: never;
@@ -6673,10 +6697,17 @@ export interface components {
             credits: number;
             /** Quick Clip Credits */
             quick_clip_credits: number;
+            /** Script Credits */
+            script_credits: number;
             /** Videos */
             videos: components["schemas"]["MyVideo"][];
             /** Projects */
             projects: components["schemas"]["MyProject"][];
+            /**
+             * Scripts
+             * @default []
+             */
+            scripts: components["schemas"]["MyScript"][];
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -6791,6 +6822,15 @@ export interface components {
             name: string;
             /** Videos */
             videos: number;
+            /** Credits */
+            credits: number;
+        };
+        /** MyScript */
+        MyScript: {
+            /** Script Id */
+            script_id: number;
+            /** Title */
+            title: string;
             /** Credits */
             credits: number;
         };
@@ -7435,6 +7475,18 @@ export interface components {
             made_by: components["schemas"]["Maker"] | null;
             /** Current */
             current: boolean;
+        };
+        /** PublishIn */
+        PublishIn: {
+            /**
+             * Flavours
+             * @default {}
+             */
+            flavours: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
         };
         /** RateIn */
         RateIn: {
@@ -8981,6 +9033,13 @@ export interface components {
             /** Project Id */
             project_id: number | null;
             editor?: components["schemas"]["Person"] | null;
+            /**
+             * Flavours
+             * @default {}
+             */
+            flavours: {
+                [key: string]: string;
+            };
         };
         /** VideoMerged */
         VideoMerged: {
@@ -9337,6 +9396,13 @@ export interface components {
             /** Project Id */
             project_id: number | null;
             editor?: components["schemas"]["Person"] | null;
+            /**
+             * Flavours
+             * @default {}
+             */
+            flavours: {
+                [key: string]: string;
+            };
             /** Text */
             text: string;
             /** Words */
@@ -13579,7 +13645,49 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_flavours_scripts__script_id__drafts__slot__flavours_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
