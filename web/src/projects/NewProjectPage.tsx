@@ -58,8 +58,8 @@ export function NewProjectPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 sm:p-6">
-      <Link to={`/b/${brandId}/projects`} className={backLink}>
-        ← Projects
+      <Link to={`/b/${brandId}/scripts`} className={backLink}>
+        ← Scripts
       </Link>
       <h1 className={pageTitle}>New video</h1>
       <p className="text-muted">What's this video for? A few lines is enough. Claude turns it into a script.</p>
