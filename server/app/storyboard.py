@@ -438,9 +438,7 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
     if shot and (not m.max_character_images or len(people) < m.max_character_images):
         for c in shot.character_ids:
             if not any(_same(known, c, r) for r in people):
-                problems.append(
-                    f"{_name(known, c)} has no approved look yet. Approve one in Assets."
-                )
+                problems.append(f"{_name(known, c)} has no approved look yet. Approve one in Cast.")
     return plain(problems, names(known))
 
 
@@ -628,5 +626,6 @@ def save_still(db: Session, job: Job) -> None:
                 {"file_id": frame.file_id, "prompt": job.input.get("was_prompt", frame.prompt)},
             ]
         frame.file_id, frame.approved, frame.still_stale = file_ids[0], False, False
+        frame.look = db.get(Project, frame.project_id).look  # drawn in the video's look now
         if job.id and (frame.change or {}).get("made_job_id") == job.id:  # Redo: now it's done
             frame.change = {**frame.change, "status": "done"}

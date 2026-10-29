@@ -1,6 +1,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { StrictMode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
@@ -23,18 +24,20 @@ const base = (me: object, rows: object[], extra: Record<string, [number, unknown
   ...extra,
 });
 const urls = () => (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.map(([r]) => (typeof r === "string" ? r : r.url)).filter((u) => u.includes("/projects?"));
-function open(query = "?view=videos") {
+function open(at = "/b/1/videos") {
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/b/1/scripts${query}`]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+    <StrictMode>
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[at]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </StrictMode>,
+  ); // as in the app: StrictMode renders twice
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("Scripts · Videos switch: Videos lists the brand's videos with their status, who, and where each opens", async () => {
+test("Videos lists the brand's videos with their status, who, and where each opens", async () => {
   setViewport(1440);
   fakeServer(base(editor, [video({ own_script: true }), video({ id: 10, name: "Bo tries tuna · A", finished_at: "2026-10-24T10:00:00Z" }), video({ id: 11, name: "Old video", script_draft_id: null, archived_at: "2026-10-25T10:00:00Z" })]));
   open();
@@ -48,7 +51,8 @@ test("Scripts · Videos switch: Videos lists the brand's videos with their statu
   expect(screen.getAllByText("In production").length).toBeGreaterThan(0);
   expect(screen.getAllByText("Finished").length).toBeGreaterThan(0);
   expect(screen.getByText("3 videos")).toBeInTheDocument();
-  expect(screen.getByRole("navigation", { name: "View" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Videos" })).toBeInTheDocument();
+  expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page"); // its own section in the menu (audit M6)
 });
 
 test("a finished video whose clips changed since says Finished · changes waiting, not plain Finished, and opens at Clips (#749 LW2)", async () => {
@@ -74,10 +78,10 @@ test("a row shows its newest still as the poster and the step it is at, or when 
   expect(row.querySelector("img")?.getAttribute("src")).toContain("/files/77");
   expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Finished · /)).toBeInTheDocument();
   const bare = screen.getByRole("link", { name: /No stills yet/ });
-  expect(within(bare).getByText(/At Breakdown/)).toBeInTheDocument();
+  expect(within(bare).getByText(/At Plan/)).toBeInTheDocument();
   expect(bare.querySelector("img")).toBeNull();
-  // A video from before scripts has no such steps: it says credits, not "At Breakdown".
-  expect(within(screen.getByRole("link", { name: /Earlier way/ })).queryByText(/At Breakdown/)).toBeNull();
+  // A video from before scripts has no such steps: it says credits, not "At Plan".
+  expect(within(screen.getByRole("link", { name: /Earlier way/ })).queryByText(/At Plan/)).toBeNull();
 });
 
 test("an editor only ever asks for their own videos; Reed sees everyone's and can turn Mine on", async () => {
@@ -101,7 +105,7 @@ test("an editor only ever asks for their own videos; Reed sees everyone's and ca
 test("status, Archived and search are sent to the server; filtered shows 'x of y' and Clear filters", async () => {
   setViewport(1440);
   fakeServer(base(owner, [video({}), video({ id: 10 })]));
-  open("?view=videos&status=making&archived=1");
+  open("/b/1/scripts?view=videos&status=making&archived=1"); // an old link lands on Videos with its filters
   await screen.findAllByText(/of 2 videos|2 videos/);
   await vi.waitFor(() => expect(urls().some((u) => u.includes("status=making") && u.includes("archived=true"))).toBe(true));
   expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
@@ -119,14 +123,15 @@ test("an editor with no videos is pointed back to the scripts; filters with no m
   vi.unstubAllGlobals();
   setViewport(1440);
   fakeServer(base(editor, []));
-  open("?view=videos&status=done");
+  open("/b/1/videos?status=done");
   expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
 });
 
-test("the Scripts page still shows by default and has the switch", async () => {
+test("Scripts is scripts only: no Scripts · Videos switch, and Reed's brand opens on it", async () => {
   setViewport(1440);
   fakeServer(base(owner, []));
-  open("");
-  expect(await screen.findByRole("navigation", { name: "View" })).toBeInTheDocument();
+  open("/b/1");
+  expect(await screen.findByRole("heading", { name: "Scripts" })).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "View" })).toBeNull();
   expect(screen.queryByRole("searchbox", { name: "Search videos" })).toBeNull();
 });

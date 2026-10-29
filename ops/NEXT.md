@@ -29,3 +29,11 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 | Director | Prompt files: House style plus the style entries, song-ad breakdown and storyboard timing |
 | Flow-QA | Walks every flow in docs/next/flows.md on the test site and in tests; no dead ends; Advice vs block |
 | QA / QA-2 | Review PRs into `next` as they do for `main` |
+
+## Moving to main: changes that must travel together
+When Reed says to bring Next to live, these go to `main` in one move, never split (Next-Lead keeps this list):
+- **Five editor steps (#871).** The screens (Plan → Cast → Storyboard → Clips → Final cut, the redirects) and four server messages that now say "Approve one in Cast" instead of "in Assets" (server/app/sheets.py, storyboard.py, clip_prompts.py). Live's screens say Assets until then, so the messages must not go alone.
+- **Rule 11 → the advisory check (1b P4).** DECISIONS.md rule 11 changes on live only when the check itself ships.
+- **Brand setup (n08).** `brands.never_say` and `brands.end_line` stay on next, written through from `dont_list` and the default CTA line, because main still reads them. At the move, main's readers switch to the new fields and one migration drops the two columns.
+- **Migrations n01–n08.** They join main's 00xx chain with one merge migration at the move (data.md, "Migration rules").
+

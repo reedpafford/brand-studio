@@ -1,23 +1,29 @@
 import type { StepState } from "../components";
 import { isDone, isStale, lockReason, type Progress, type StepId } from "./steps";
 
-/** A video made from a library version has five steps. The old six-step page keeps `steps.ts`. */
+/** A video made from a library version has five steps (item 1b): Plan (Scenes | Shots, Shots being the breakdown),
+ *  Cast (the looks; the library stays "Cast & places"), Storyboard, Clips, Final cut. The old six-step page keeps `steps.ts`. */
 export const VIDEO_STEPS = [
-  { id: "breakdown", label: "Breakdown", old: "shots" },
-  { id: "assets", label: "Assets", old: "shots" },
+  { id: "plan", label: "Plan", old: "shots" },
+  { id: "cast", label: "Cast", old: "shots" },
   { id: "storyboard", label: "Storyboard", old: "storyboard" },
   { id: "clips", label: "Clips", old: "clips" },
   { id: "downloads", label: "Final cut", old: "final" }, // the address keeps "downloads", so old links still land here
 ] as const satisfies readonly { id: string; label: string; old: StepId }[];
 type VideoStepId = (typeof VIDEO_STEPS)[number]["id"];
 
-export const videoStepFromParams = (params: URLSearchParams): VideoStepId => VIDEO_STEPS.find((s) => s.id === params.get("step"))?.id ?? "breakdown";
+// Old addresses keep working: ?step=breakdown opens Plan (on Shots), ?step=assets opens Cast.
+const OLD: Record<string, VideoStepId> = { breakdown: "plan", assets: "cast" };
+export const videoStepFromParams = (params: URLSearchParams): VideoStepId => {
+  const asked = params.get("step") ?? "";
+  return OLD[asked] ?? VIDEO_STEPS.find((s) => s.id === asked)?.id ?? "plan";
+};
 
 export type VideoProgress = Progress & { assets: { total: number; ready: number; seen: boolean } };
 
-/** Why a step can't be opened right now, or null when it can. Assets come before anything is drawn. */
+/** Why a step can't be opened right now, or null when it can. The cast comes before anything is drawn. */
 export function videoLock(step: VideoStepId, now: VideoProgress): string | null {
-  if (step === "breakdown") return null;
+  if (step === "plan") return null;
   if (step === "downloads" && now.video.made) return null; // the finished video is always reachable (#749 LW1)
   // Work already made stays open when an earlier step changes: it says "out of date" there. Problems and assets to
   // approve still come first.
@@ -25,30 +31,32 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
   // (Out-of-date frames read as unapproved, so clips already made don't wait on them either.)
   const frames = step === "clips" ? { ...now.frames, stale: false, approved: now.frames.total } : { ...now.frames, stale: false };
   const p = kept ? { ...now, shots: { ...now.shots, stale: false }, frames } : now;
-  // The shots are made, current and clear of problems. This page calls that step Breakdown.
-  const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Breakdown first").replace("Make the shots first", "Make the breakdown first").replace("Make new shots first", "Make a new breakdown first") ?? null;
-  if (shots || step === "assets") return shots;
+  // The shots are made, current and clear of problems. They live in Plan, on its Shots view.
+  const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Plan first").replace("Make the shots first", "Make the shots in Plan first").replace("Make new shots first", "Make new shots in Plan first") ?? null;
+  if (shots || step === "cast") return shots;
   const left = p.assets.total - p.assets.ready;
-  if (left > 0) return `Approve every asset first (${left} left)`;
+  if (left > 0) return `Approve the cast first (${left} left)`;
   return lockReason(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
 }
 
 /** Where a link to a locked step should land: the first earlier step that isn't finished (or is out of date), since that is what blocks it. */
 export function videoBlocker(step: VideoStepId, p: VideoProgress): VideoStepId {
   const before = VIDEO_STEPS.slice(0, VIDEO_STEPS.findIndex((s) => s.id === step));
-  return before.find((s) => !done(s.id, p) || (s.id !== "assets" && isStale(s.id === "breakdown" ? "shots" : s.old, p)))?.id ?? "breakdown";
+  return before.find((s) => !done(s.id, p) || (s.id !== "cast" && isStale(s.old, p)))?.id ?? "plan";
 }
 
 function done(step: VideoStepId, p: VideoProgress): boolean {
-  if (step === "breakdown") return isDone("shots", p);
-  if (step === "assets") return p.assets.seen && p.assets.ready === p.assets.total; // no ✓ before it has been looked at (#749 LW9)
+  // Plan is done when the plan is approved and its shots are made. Until the plan has a status of its own
+  // (Builder-Server-8's plan_status), the made shots decide; existing videos read as approved from their breakdown.
+  if (step === "plan") return isDone("shots", p);
+  if (step === "cast") return p.assets.seen && p.assets.ready === p.assets.total; // no ✓ before it has been looked at (#749 LW9)
   return isDone(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
 }
 
 export function videoStepStates(current: VideoStepId, p: VideoProgress): { id: VideoStepId; label: string; state: StepState; reason?: string }[] {
   return VIDEO_STEPS.map((s) => {
     const reason = videoLock(s.id, p);
-    const stale = s.id !== "assets" && isStale(s.id === "breakdown" ? "shots" : s.old, p);
+    const stale = s.id !== "cast" && isStale(s.old, p);
     const state: StepState = s.id === current ? "current" : reason !== null ? "todo" : stale ? "stale" : done(s.id, p) ? "done" : "open";
     return { id: s.id, label: s.label, state, reason: reason ?? undefined };
   });

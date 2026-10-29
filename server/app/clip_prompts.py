@@ -354,7 +354,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
         if c in pics and pics[c][1]:
             continue
         if not any(_same(pics, c, r.id) for r in clip.references):
-            problems.append(f"{_name(pics, c)} has no approved look yet. Approve one in Assets.")
+            problems.append(f"{_name(pics, c)} has no approved look yet. Approve one in Cast.")
     frame = db.scalar(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id,
                       StoryboardFrame.clip_id == clip.clip_id, StoryboardFrame.file_id.is_not(None))
                       .order_by(StoryboardFrame.id))  # fmt: skip  # the one `assets` attaches
@@ -385,6 +385,62 @@ def _cap(clip: ClipPrompt, known: Assets) -> ClipPrompt:
     return clip.model_copy(update={"prompt": prompt, "references": keep})
 
 
+# P3: the wording flags fixed in code, outside the spoken lines (rule 19), with Undo
+SAID = {"say": "gesture", "says": "gestures", "tell": "signal to", "tells": "signals to",
+        "reply": "react", "replies": "reacts", "answer": "react", "answers": "reacts",
+        "shout": "gesture wildly", "shouts": "gestures wildly", "yell": "gesture wildly",
+        "yells": "gestures wildly", "whisper": "lean in close", "whispers": "leans in close",
+        "refuse": "wave it off", "refuses": "waves it off"}  # fmt: skip
+LIKE_A_LINE = "reads like a line; show what the body does"
+SETTINGS = "writes aspect or resolution (those are settings)"
+
+
+def _unquoted(text: str, fn) -> str:
+    """`fn` applied to everything but the quoted (spoken) parts."""
+    parts = re.split(r'(["“][^"”]*["”])', text)
+    return "".join(p if i % 2 else fn(p) for i, p in enumerate(parts))
+
+
+def reword(prompt: str) -> tuple[str, list[str]]:
+    """The prompt with its wording flags fixed, free: aspect and resolution words removed
+    (they're settings) and, in a shot nobody speaks in, an action that reads like a line
+    ("he says no") said as what the body does. The spoken lines are never touched. Returns
+    the prompt and what was fixed, in plain words ([] when nothing was)."""
+    fixed: list[str] = []
+
+    def settings(text: str) -> str:
+        found = [m[0] for m in check.SETTINGS_WORDS.finditer(text)]
+        if not found:
+            return text
+        fixed.extend(f'removed "{w}"' for w in found)
+        text = re.sub(r"\(\s*\)", "", check.SETTINGS_WORDS.sub("", text))
+        text = re.sub(r" (?=[.,;])", "", re.sub(r" {2,}", " ", text))
+        return re.sub(r"[,;]+(?=[.,;])", "", text)
+
+    def body(m: re.Match) -> str:
+        word = m[0].lower()
+        out = SAID.get(word, "holds firm")
+        fixed.append(f'changed "{m[0]}" to "{out}"')
+        return out[:1].upper() + out[1:] if m[0][:1].isupper() else out
+
+    lines = []
+    for line in prompt.split("\n"):
+        line = _unquoted(line, settings)
+        if line.startswith("Shot ") and not check.QUOTED.search(line):
+            line = check.SAYS.sub(body, line)
+        lines.append(line)
+    return "\n".join(lines), list(dict.fromkeys(fixed))
+
+
+def undone_flags(row: ProjectClip, problems: list[str]) -> list[str]:
+    """After Undo of a wording fix, its flags are Advice, never a block (flows.md P3)."""
+    fix = row.auto_fix or {}
+    if not (fix.get("undone") and row.prompt == fix.get("before")):
+        return problems
+    wording = (LIKE_A_LINE, SETTINGS)
+    return [f"{check.ADVICE}{p}" if p.lower().endswith(wording) else p for p in problems]
+
+
 def repair(db: Session, project: Project) -> int:
     """Give every clip of the video its characters' sheets (`with_cast`, nothing dropped),
     put its shape right (`repair_shape`: shot times, "No one speaks." and the rest) and check
@@ -407,6 +463,12 @@ def repair(db: Session, project: Project) -> int:
         newer = newer_sheets(db, known, images, row.job_id)  # a sheet changed since it was written
         for n, r in ((n, r) for n, r in enumerate(images, 1) if r in newer):
             now = now.model_copy(update={"prompt": _sheet_words(now.prompt, n, _name(known, r))})
+        fix = row.auto_fix or {}
+        kept_words = fix.get("undone") and row.prompt == fix.get("before")
+        if not kept_words and (words := reword(now.prompt))[1]:
+            row.auto_fix = {"before": was.prompt, "after": words[0], "fixed": words[1],
+                            "undone": False}  # fmt: skip
+            now = now.model_copy(update={"prompt": words[0]})
         cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}  # none on a logo-only screen
         if cleared := bool((row.real_images or {}).keys() - cuts):
             row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
@@ -415,6 +477,7 @@ def repair(db: Session, project: Project) -> int:
             + [p for p in row.problems or [] if p.startswith(LEFT_OUT)]
             + refusal(row.problems, was.prompt, now.prompt)
         )  # what a trim left out stays said
+        problems = undone_flags(row, problems)
         if older := older_take(db, known, row):  # said, never unapproved: a sheet edit
             problems.append(f"{OLDER_TAKE}{', '.join(older)}. Make another take to show it.")
         if any(p.lower().startswith("more references than") for p in problems):
@@ -464,6 +527,8 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             c = repair_shape(with_cast(db, project, c, bd, known), bd)  # free, at once
             if job.input.get("fix"):  # the free fix never drops who isn't lip-syncing (c4)
                 c = _kept_voiceover(c, job.input.get("before") or "")
+            written_as = c.prompt
+            c = c.model_copy(update={"prompt": (words := reword(c.prompt))[0]})
             problems = clip_problems(db, project, bd, c)
         except Exception:
             log.exception("job %s: saving clip %s's prompt failed", job.id, c.clip_id)
@@ -486,11 +551,17 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         row.prompt, row.references = c.prompt, [r.model_dump() for r in c.references]
         row.problems, row.kept = problems, []
         row.approved, row.prompt_ok, row.change = False, False, None
+        row.auto_fix = {"before": written_as, "after": c.prompt, "fixed": words[1],
+                        "undone": False} if words[1] else None  # fmt: skip
         if job.input.get("fix"):  # Fix this clip's prompt: its Before and After
             before = job.input.get("before") or ""
             row.change = {"note": "Fix this clip's prompt", "status": "done", "before": before,
                           "after": c.prompt, "unchanged": before == c.prompt,
                           "job_id": job.id}  # newer than a take that failed before it  # fmt: skip
+    if (failed := job.input.get("then_take")) and (row := rows.get(only[0])):  # P3: its retry
+        from app.clip_takes import after_fix
+
+        after_fix(db, row, failed)
     for clip in bd.clips:  # never a dead end: a clip left unwritten gets a free one-click fix
         if clip.id in written or (only is not None and clip.id not in only):
             continue
@@ -639,14 +710,22 @@ def fixing(db: Session, row: ProjectClip) -> Job | None:
 def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: list[str]) -> Job:
     """Fix this clip's prompt with Claude, free (charged to no budget or week; its dollars
     are in Usage): one clip, told which problems to clear, never its spoken lines."""
-    from app.job_brand import brand_for
-
-    bd = newest(db, project)
     waiting = _waiting(db, project)
     if "clip_take" in waiting:
         raise HTTPException(409, "Wait for the clips being made to finish first.")
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
+    job = fix_job(db, user, project, row, problems)
+    row.free_fix_used = True
+    db.commit()
+    return job
+
+
+def fix_job(db: Session, user, project: Project, row: ProjectClip, problems: list[str]) -> Job:
+    """The free fix's Claude job for one clip, added but not committed."""
+    from app.job_brand import brand_for
+
+    bd = newest(db, project)
     clip = row.clip_id
     data = job_input(db, project, bd, [clip])
     fix = ("Change only the lines of this clip's prompt that these problems name, and keep "
@@ -658,8 +737,7 @@ def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: l
               kind="write-claude", provider="claude", input=data, project_id=project.id,
               brand_id=brand_for(db, project, data), credits=0, status="queued")  # fmt: skip
     db.add(job)
-    row.free_fix_used = True
-    db.commit()
+    db.flush()
     return job
 
 

@@ -26,15 +26,44 @@ def explain(db: Session, job: Job) -> None:
 
 
 def step_failed(db: Session, job: Job) -> None:
-    """A step's job failed at the provider: the reel watch retries, then falls back."""
+    """A step's job failed at the provider: the reel watch retries, then falls back; a
+    refused or busy take is tried again once on its own (P3)."""
+    from app.clip_takes import retry
     from app.reel_read import watch_failed
 
     explain(db, job)
+    if job.input.get("step") == "clip_take":
+        try:
+            retry(db, job)
+        except Exception:  # never let a retry break the worker
+            log.exception("job %s: retrying the take failed", job.id)
     if job.input.get("step") == "reel_watch":
         try:
             watch_failed(db, job)
         except Exception:  # never let a retry break the worker
             log.exception("job %s: retrying the reel watch failed", job.id)
+
+
+def recheck(job_input: dict, result, ask):
+    """Song directions: the Director's check on the answer; with fixes, the one rewrite
+    inside the same job (`ask` runs it; charged once: credits never pass the shown price),
+    and if that still needs fixing the job fails, so nothing is shown or charged (rule 22)."""
+    from app import song_directions as sd
+    from app.providers import Result
+
+    if job_input.get("step") != sd.STEP or result.state != "succeeded":
+        return result
+    output, fixes = sd.checked(job_input, result.output)
+    if fixes:
+        second = ask(sd.again(job_input, fixes))
+        second.usage = [*result.usage, *second.usage]  # both calls' dollars are listed
+        if second.state != "succeeded":
+            return second
+        result, (output, fixes) = second, sd.checked(job_input, second.output)
+    if fixes:
+        return Result("failed", error=sd.STILL + "; ".join(fixes), usage=result.usage)
+    result.output = output
+    return result
 
 
 def save_step_result(db: Session, job: Job) -> None:
@@ -50,6 +79,8 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.script_cast_read import save_cast_slots
     from app.script_variations import save_variations
     from app.script_write import save_written
+    from app.song_directions import save as save_directions
+    from app.song_study import save as save_study
     from app.song_takes import save_take as save_song
     from app.song_takes import save_timing
     from app.storyboard import save_frames, save_still
@@ -58,6 +89,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "enhance": save_suggestions,
         "breakdown": save_breakdown,
         "song_breakdown": save_breakdown,
+        "narrated_breakdown": save_breakdown,
         "storyboard": save_frames,
         "improve": save_improved,
         "change": save_changed,
@@ -72,7 +104,9 @@ def save_step_result(db: Session, job: Job) -> None:
         "reel_prepare": save_prepared,
         "reel_watch": save_watch,
         "song_take": save_song,
+        "song_directions": save_directions,
         "song_timing": save_timing,
+        "song_study": save_study,
     }
     handler = handlers.get(job.input.get("step", ""))
     if handler is None:

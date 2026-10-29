@@ -1,9 +1,11 @@
 """Generating a project's clips (Seedance, one take per run) and stitching the picked takes
 into the finished video (ffmpeg, free)."""
 
+import logging
 import re
 import subprocess
 import tempfile
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -11,10 +13,12 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.advice import names
+from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets
-from app.credits import estimate
+from app.credits import estimate, fits
+from app.db import utcnow
+from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus
@@ -24,6 +28,7 @@ from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
 from app.storyboard import say_logo
 
+log = logging.getLogger(__name__)
 RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
 
@@ -152,6 +157,110 @@ def refused(db: Session, job: Job) -> None:
                  "shot. Nothing was charged.")  # fmt: skip
 
 
+BUSY_SAID = re.compile(r"service is (temporarily|currently) unavailable|^No answer within", re.I)
+RETRY_WAIT = timedelta(seconds=30)  # a busy service gets a moment before the one retry
+WAITING = ("queued", "running", "needs_owner_approval")
+
+
+def why_failed(job: Job) -> str:
+    """ "busy" (the service was busy or didn't answer), "refused" (its content check or
+    copyright refusal: never charged), or "" for anything else."""
+    detail = job.error_detail or ""
+    if BUSY_SAID.search(detail):
+        return "busy"
+    return "refused" if moderated(detail) or "copyright" in detail.lower() else ""
+
+
+def retry(db: Session, job: Job) -> None:
+    """P3 (flows.md 1b): a take refused or not finished because the service was busy is
+    tried again once on its own. A busy service gets a short wait; a refusal read as
+    something ("flagged for: sexual") is reworded first by the free fix, then retried
+    (`after_fix`). Never a second automatic retry, never on a video that's gone, and never
+    past the video's limit, budget or the editor's week. The failed take isn't counted, so
+    the credits are held once and come back if the retry fails too."""
+    from app.clip_prompts import fix_job, is_stale, newest
+
+    why = why_failed(job)
+    if job.auto or not why or job.input.get("discard") or not job.project_id:
+        return
+    if db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
+        return
+    project = db.get(Project, job.project_id)
+    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+    if not row or project.archived_at is not None or row.prompt != job.input.get("clip_prompt"):
+        return
+    term = moderated(job.error_detail or "")
+    if why == "refused" and term and term != "sensitive":
+        if row.free_fix_used or is_stale(db, row, newest(db, project)):
+            return
+        user = db.get(User, job.created_by_id)
+        fix = fix_job(db, user, project, row, stops(row))
+        fix.input = {**fix.input, "then_take": job.id}
+        row.free_fix_used = True
+        return
+    _again(db, job, job.input, wait=why == "busy")
+
+
+def after_fix(db: Session, row: ProjectClip, failed_id: int) -> None:
+    """The free rewording of a refused take landed: its one retry, from the new prompt, if
+    nothing else stops it."""
+    failed = db.get(Job, failed_id)
+    project = db.get(Project, row.project_id)
+    if not failed or stops(row) or project.archived_at is not None:
+        return
+    if db.scalar(select(Job.id).where(Job.retry_of_id == failed.id)):
+        return
+    try:
+        again = take_input(db, project, row)
+    except HTTPException as exc:  # e.g. a look unapproved since: the editor decides
+        log.info("clip %s: no automatic retry: %s", row.id, exc.detail)
+        return
+    _again(db, failed, again, wait=False)
+
+
+def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
+    project = db.get(Project, job.project_id)
+    user = db.get(User, job.created_by_id)
+    if not user or fits(db, project, user, job.credits):
+        return  # it would go over: nothing more runs on its own
+    if wait:
+        data = {**data, "wait_until": (utcnow() + RETRY_WAIT).isoformat()}
+    db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
+               provider=job.provider, input=data, project_id=job.project_id,
+               brand_id=job.brand_id, credits=job.credits, approved_by_id=job.approved_by_id,
+               status="queued", retry_of_id=job.id, auto=True))  # fmt: skip
+    db.flush()
+
+
+def retried(db: Session, row: ProjectClip) -> str | None:
+    """Why the clip's newest take came from an automatic retry ("refused" or "busy"); None
+    once a person has made a newer take."""
+    query = select(ClipTake).where(ClipTake.clip_id == row.id).order_by(ClipTake.number.desc())
+    take = db.scalar(query.limit(1))
+    job = db.get(Job, take.job_id) if take else None
+    return (why_failed(db.get(Job, job.retry_of_id)) or None) if job and job.auto else None
+
+
+def still_wanted(db: Session, job: Job) -> bool:
+    """An automatic retry still fits its clip when it starts: the video isn't archived and the
+    prompt is the one it was made from (Flow-QA: an edit during a busy wait)."""
+    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+    project = db.get(Project, job.project_id) if job.project_id else None
+    return bool(row and project and project.archived_at is None
+                and row.prompt == job.input.get("clip_prompt"))  # fmt: skip
+
+
+def retrying(db: Session, row: ProjectClip) -> str | None:
+    """Why this clip's take is being tried again on its own ("refused" or "busy"), while it is."""
+    jobs = db.scalars(select(Job).where(Job.project_id == row.project_id, Job.status.in_(WAITING)))
+    for j in jobs:
+        if j.auto and j.input.get("project_clip_id") == row.id and still_wanted(db, j):
+            return why_failed(db.get(Job, j.retry_of_id)) or None
+        if j.input.get("then_take") and j.input.get("clip_ids") == [row.clip_id]:
+            return "refused"
+    return None
+
+
 def take_warning(db: Session, row: ProjectClip) -> str | None:
     """Said before the next take is paid for, once its last two takes were both refused that
     way (Kel retried 7 times)."""
@@ -191,7 +300,8 @@ def save_take(db: Session, job: Job) -> None:
         return
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
     take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
-                    prompt=job.input.get("clip_prompt"))  # fmt: skip
+                    prompt=job.input.get("clip_prompt"),
+                    look=db.get(Project, clip.project_id).look)  # fmt: skip
     db.add(take)
     db.flush()
     pick(clip, take)
@@ -224,3 +334,43 @@ def stitch(videos: list[bytes], reencode: bool = False) -> bytes:
             if done.returncode == 0:
                 return (folder / "out.mp4").read_bytes()
         raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
+
+
+FADE = 1.5  # seconds: a song video's end fades out (flows V6)
+
+
+def song_cut(videos: list[bytes], lengths: list[float], song: bytes) -> bytes:
+    """A song video (flows V6, free): each picked take cut to its piece of the song, counting
+    from its start (a short one holds its last frame), joined in order with its own sound
+    dropped, the song laid under the whole picture, and the end faded."""
+    total = sum(lengths)
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        for n, data in enumerate(videos):
+            (folder / f"{n}.mp4").write_bytes(data)
+        (folder / "song").write_bytes(song)
+        probe = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                 "stream=width,height", "-of", "csv=p=0:s=x", "0.mp4"]  # fmt: skip
+        size = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
+            probe, cwd=folder, capture_output=True, text=True, timeout=60,
+        ).stdout.strip() or "720x1280"  # fmt: skip
+        parts = [f"[{n}:v]trim=duration={d},setpts=PTS-STARTPTS,tpad=stop_mode=clone:"
+                 f"stop_duration={d},trim=duration={d},scale={size.replace('x', ':')},setsar=1,"
+                 f"fps=30,format=yuv420p[v{n}]" for n, d in enumerate(lengths)]  # fmt: skip
+        joined = "".join(f"[v{n}]" for n in range(len(videos)))
+        fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
+        graph = ";".join([
+            *parts, f"{joined}concat=n={len(videos)}:v=1:a=0,fade=t=out:{fade}[v]",
+            f"[{len(videos)}:a]atrim=duration={total},asetpts=PTS-STARTPTS,"
+            f"apad=whole_dur={total},afade=t=out:{fade}[a]",
+        ])  # fmt: skip
+        inputs = [arg for n in range(len(videos)) for arg in ("-i", f"{n}.mp4")]
+        command = ["ffmpeg", "-v", "error", "-y", *inputs, "-i", "song", "-filter_complex",
+                   graph, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-c:a", "aac", "-t",
+                   str(total), "-movflags", "+faststart", "out.mp4"]  # fmt: skip
+        done = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
+            command, cwd=folder, capture_output=True, timeout=600,
+        )  # fmt: skip
+        if done.returncode:
+            raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
+        return (folder / "out.mp4").read_bytes()

@@ -6,6 +6,7 @@ x-next-env: &next-env
   BS_ENV: next  # production checks, but the free stand-ins are allowed
   BS_COOKIE_NAME: bs_next_session  # same address as live on another port; cookies ignore ports
   PUBLIC_ADDRESS: ${PUBLIC_ADDRESS:?set PUBLIC_ADDRESS in deploy/.env}
+  KIE_API_KEY: ""  # only the worker that sings real songs gets it (below)
 
 services:
   migrate:
@@ -16,7 +17,11 @@ services:
     environment: *next-env
   worker:
     image: brand-studio-next-server
-    environment: *next-env
+    environment:
+      <<: *next-env
+      # Songs too (Suno: the stand-in, or real through KIE when Reed switches it on)
+      BS_WORKER_PROVIDERS: '["fake", "replicate", "suno"]'
+      KIE_API_KEY: ${KIE_API_KEY:-}
   claude-worker:
     image: brand-studio-next-server
     environment: *next-env

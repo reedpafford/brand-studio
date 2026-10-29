@@ -1,6 +1,8 @@
 """Transcribe one video with faster-whisper small (int8, CPU), as JSON lines on stdout.
 Run by `app.reel.transcribe` in a subprocess: `python -m app.whisper <video>`, or for a song's
-words by `app.song_timing.words`: `python -m app.whisper <song> --words <lyrics>`. The model is
+words by `app.song_timing.words`: `python -m app.whisper <song> --words <lyrics>`, or for a
+song ad's lines with their words by `app.song_study.hear`: `python -m app.whisper <video>
+--study`. The model is
 downloaded once into HF_HOME (a volume on the server)."""
 
 import json
@@ -18,7 +20,14 @@ def heard(segment) -> bool:
     return bool(segment.text.strip()) and not made_up
 
 
-def main(path: str, words_prompt: str | None = None) -> None:
+def _words(segment) -> list[dict]:
+    return [
+        {"word": w.word.strip(), "start": round(w.start, 2), "end": round(w.end, 2)}
+        for w in segment.words or []
+    ]
+
+
+def main(path: str, words_prompt: str | None = None, study: bool = False) -> None:
     from faster_whisper import WhisperModel
 
     model = WhisperModel("small", device="cpu", compute_type="int8")
@@ -29,13 +38,7 @@ def main(path: str, words_prompt: str | None = None) -> None:
         path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt
     )
     if words_prompt is not None:  # a song: each sung word and when (app/song_timing.py)
-        sung = [
-            {"word": w.word.strip(), "start": round(w.start, 2), "end": round(w.end, 2)}
-            for s in segments
-            if heard(s)
-            for w in s.words or []
-        ]
-        json.dump(sung, sys.stdout)
+        json.dump([w for s in segments if heard(s) for w in _words(s)], sys.stdout)
         return
     lines = [
         {
@@ -43,6 +46,7 @@ def main(path: str, words_prompt: str | None = None) -> None:
             "end": round(s.end, 2),
             "text": s.text.strip(),
             "speaker": None,
+            **({"words": _words(s)} if study else {}),
         }
         for s in segments
         if heard(s)
@@ -51,4 +55,5 @@ def main(path: str, words_prompt: str | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[3] if sys.argv[2:3] == ["--words"] else None)
+    main(sys.argv[1], sys.argv[3] if sys.argv[2:3] == ["--words"] else None,
+         study=sys.argv[2:3] == ["--study"])  # fmt: skip

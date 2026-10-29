@@ -10,12 +10,11 @@ import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton } from
 import { useDebounced } from "../scripts/ScriptsPage";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
-import { ViewSwitch } from "./ViewSwitch";
 import { serverTime } from "../time";
 
 type Project = components["schemas"]["ProjectOut"];
 
-const STEP: Record<string, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
+const STEP: Record<string, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** Where a video opens: the new page for one made from a script version (Final cut when it is done), the earlier six-step page for the rest. */
@@ -106,7 +105,7 @@ export function VideosPage() {
   const filtered = !!(q || status || archived || (owner && mine));
   const clear = () => {
     setText("");
-    setParams({ view: "videos" }, { replace: true });
+    setParams({}, { replace: true });
   };
   const brand = brands?.find((b) => b.id === brandId);
   const rows = videos.data ?? [];
@@ -163,9 +162,8 @@ export function VideosPage() {
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
       <div>
         <p className="type-eyebrow text-muted">{brand?.name}</p>
-        <h1 className="type-page">Scripts</h1>
+        <h1 className="type-page">Videos</h1>
       </div>
-      <ViewSwitch />
       {filters}
       {videos.isError && (
         <Banner tone="danger" title="Couldn't load your videos. Check your connection." action={<Button variant="secondary" onClick={() => videos.refetch()}>Try again</Button>} />
@@ -186,7 +184,7 @@ export function VideosPage() {
             filtered ? (
               <EmptyState icon={Film} title="Nothing matches these filters." action={<Button variant="ghost" onClick={clear}>Clear filters</Button>} />
             ) : (
-              <EmptyState icon={Film} title={owner ? "No videos yet." : "You haven't started a video yet."} action={<Link to="?" className="inline-flex min-h-control items-center text-accent-text hover:underline">Show scripts</Link>}>
+              <EmptyState icon={Film} title={owner ? "No videos yet." : "You haven't started a video yet."} action={<Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center text-accent-text hover:underline">Show scripts</Link>}>
                 {owner ? "Videos made from your scripts show up here." : "Pick a version that's Ready to make."}
               </EmptyState>
             )

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, ChevronDown, Clapperboard, Plus, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
@@ -16,7 +16,8 @@ import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 type Brand = { id: number; name: string; colours?: string[] };
 
 const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon }[] = [
-  { to: "scripts", also: "projects", label: "Scripts", short: "Scripts", icon: FileText },
+  { to: "videos", also: "projects", label: "Videos", short: "Videos", icon: Film },
+  { to: "scripts", label: "Scripts", short: "Scripts", icon: FileText },
   { to: "clip", label: "Quick clip", short: "Quick clip", icon: Zap },
   { to: "library", label: "Cast & places", short: "Cast", icon: Users },
   { to: "brand", label: "Brand", short: "Brand", icon: Palette },
@@ -26,7 +27,7 @@ const SECTIONS: { to: string; also?: string; label: string; short: string; icon:
 function sectionOf(pathname: string) {
   const m = /^\/b\/\d+\/([^/]+)/.exec(pathname)?.[1];
   if (m === "kit" || m === "screens") return "brand";
-  if (m === "projects") return "scripts";
+  if (m === "projects") return "videos";
   return m && SECTIONS.some((s) => s.to === m) ? m : "";
 }
 
@@ -67,7 +68,20 @@ function Frame() {
   const wide = useMedia("(min-width: 1280px)");
   const online = useOnline();
   const held = useHeld();
-  const { count, setNode } = useActionBarSlot();
+  const { count, node, setNode } = useActionBarSlot();
+  // The phone's action bar is as tall as what's in it (the cost bar is taller than one button): the page's bottom
+  // padding and the toasts sit above its real height, so neither the work nor a toast hides behind or over it.
+  useEffect(() => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement.style;
+    const fit = () => (node.offsetHeight ? root.setProperty("--actionbar-h", `${node.offsetHeight}px`) : root.removeProperty("--actionbar-h"));
+    const watch = new ResizeObserver(fit);
+    watch.observe(node);
+    return () => {
+      watch.disconnect();
+      root.removeProperty("--actionbar-h");
+    };
+  }, [node]);
   // Inside one video on a phone, the video's own header line replaces the brand bar.
   const oldVideo = useMatch("/b/:brandId/projects/:projectId");
   const newVideo = useMatch("/b/:brandId/videos/:projectId");
@@ -378,11 +392,15 @@ export function GoToBrand() {
   return target ? <Navigate to={`/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
 }
 
-/** A brand's home is its Script library. */
+/** Where a brand opens: an editor's day starts from their videos; Reed's from the scripts (audit M6). */
+export const HOME: Record<string, string> = { editor: "videos", owner: "scripts" };
+
 export function BrandHome() {
   const { brandId } = useParams();
   const { data: brands } = useBrands();
+  const { data: me } = useMe();
   if (!brands?.some((b) => b.id === Number(brandId))) return <p className="p-6">That brand doesn't exist.</p>;
-  return <Navigate to={`/b/${brandId}/scripts`} replace />;
+  if (!me) return <p className="p-6 text-muted">Loading…</p>;
+  return <Navigate to={`/b/${brandId}/${HOME[me.role] ?? "scripts"}`} replace />;
 }
 

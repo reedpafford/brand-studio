@@ -24,6 +24,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import music
+from app.clip_takes import still_wanted
 from app.credits import USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
@@ -32,7 +33,7 @@ from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
 from app.purge import purge_deleted, purge_uploads
 from app.references import fit_image
-from app.steps import explain, save_step_result, step_failed
+from app.steps import explain, recheck, save_step_result, step_failed
 from app.storage import LocalStorage, Storage
 
 log = logging.getLogger("worker")
@@ -85,11 +86,19 @@ def _plain(job: Job, detail: str) -> str:
     """What everyone sees when a job fails; song steps say their own reason (rule 22)."""
     if job.kind == "music":
         return music.failure(detail, (job.input.get("input") or {}).get("style", ""))
+    if job.kind == "narration_timing":  # app/narration.py
+        from app import narration
+
+        if detail.startswith("ValueError"):
+            return narration.TIMING_UNREADABLE
+        return narration.TIMING_FAILED
     if job.kind == "song_timing":  # a ValueError: the file itself (app/song_timing.py)
         if detail.startswith("TooLong"):
             return music.TIMING_TOO_LONG
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
-    return FAILED
+    from app import song_directions
+
+    return song_directions.failure(detail) or FAILED
 
 
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
@@ -324,9 +333,15 @@ def start_next(
     if not allow_paid:
         paid = [name for name, p in providers.items() if p.paid]
         query = query.where(Job.provider.not_in(paid))
-    job = db.scalar(query.order_by(Job.id).limit(1))
+    now = utcnow().isoformat()  # an automatic retry after a busy service waits a moment (P3)
+    job = next((j for j in db.scalars(query.order_by(Job.id))
+                if (j.input or {}).get("wait_until", "") <= now), None)  # fmt: skip
     if not job:
         return False
+    if job.auto and not still_wanted(db, job):  # its clip changed while it waited: uncharged
+        _move(db, job, JobStatus.queued, JobStatus.cancelled, finished_at=utcnow())
+        db.commit()
+        return True
     if not _move(
         db, job, JobStatus.queued, JobStatus.running, attempts=job.attempts + 1, started_at=utcnow()
     ):
@@ -367,6 +382,7 @@ def start_next(
 def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
     try:  # a Claude check that looks at a picture gets it as data, like other providers
         result = provider.run(job.kind, _files_as_data(db, storage, job))
+        result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
     except NotStarted as exc:
         db.refresh(job)
         if job.attempts < MAX_SUBMIT_TRIES:

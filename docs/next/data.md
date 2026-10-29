@@ -20,19 +20,23 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n03 | Flavour from the script: `script_drafts.flavours` JSON `{product: variant}` (default `{}`), copied to the video at Make this version (the video's own pick stays where it is today) | Next-Server | — |
 | n04 | Song-ad study (S3a): `script_drafts.song_study` JSON, default null | Builder-Server-7 | — |
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
-| n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, new `item_checks`; existing videos planned from their breakdown | Builder-Server-8 | — |
+| n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, `project_clips.auto_fix`, new `item_checks`; existing videos are planned from their breakdown in code, when read | Builder-Server-8 | — |
+| n07 | Format and Look step 1: `scripts.look`, `projects.look` (text, default `house`), new `look_switches` {workspace_id, look_id, on, sample_still_id, sample_clip_id, switched_by_id, switched_at} | Next-Server | — |
+| n08 | Brand setup (BR1): new `brands` columns and product description/claim, below | Builder-Server-7 | — |
 
 ## Merge order (the chain on `next`)
 
-Numbers are names, not an order. Each migration's `down_revision` is the head on `next` when it merges, so the chain stays one line. When one merges, Next-Lead tells the next owner to set their `down_revision` to it.
+Numbers are names, not an order. A PR waiting its turn points its `down_revision` at next's current head so its CI runs (CI tests it merged with next), and moves to its real parent just before it merges; the Producer checks for one head before every merge. Each migration's `down_revision` is the head on `next` when it merges, so the chain stays one line. When one merges, Next-Lead tells the next owner to set their `down_revision` to it.
 
 | Turn | Migration | PR | `down_revision` | State |
 |---|---|---|---|---|
 | — | n01 | #748 | 0053 | On `next` |
-| 1 | n02 | #829 | n01 | Open, merges first |
-| 2 | n04 | #851 | n02 (currently says n01: change it when #829 lands) | Open |
-| 3 | n05 | Next-Server, narrated PR 1 | the head then (n04 if #851 is in) | Not open |
-| 4 | n06 | Builder-Server-8, 1b PR 1 | the head then | Not open |
+| 1 | n02 | #829 | n01 | On `next` |
+| 2 | n04 | #851 | n02 | On `next` |
+| 3 | n06 | #862 | n04 | On `next` |
+| 4 | n07 | #873 | n06 | On `next` (merged before n05) |
+| 5 | n05 | #858 | n07 | On `next` (ade1a9f1) |
+| 6 | n08 | Builder-Server-7, brand setup | n05 | Its turn now |
 | — | n03 | Next-Server, flavours | the head when it's built | Not started |
 
 ## 1. Song ads
@@ -46,7 +50,7 @@ Numbers are names, not an order. Each migration's `down_revision` is the head on
 | `project_clips` | `song_slice` JSON: `{start, end}` of the song this clip covers, and `sung_shots` | The slice is what a Sung clip lip-syncs. |
 | `final_videos` | `song_take_id` (nullable FK) | The song laid underneath; null for a story video. |
 | `song_takes` (narrated videos, N1, V6n) | `kind` text (`song` or `narration`, default `song`), `voice` text (default ""; "Sarah" for now), `music_file_id` and `music_job_id` (nullable: the narration's music bed and its own job, so a failed bed keeps the narration) and `trimmed` bool (the silence trim matched letter for letter and is used). A narration is a take with `lyrics` = the version's words, `style_line` = "", and timing with one line per sentence. The song sidecar `data["song"]` holds a narration's times the same way (every shot `sung: false`) | No new table: the take's lifecycle (measured, Use, out of date, Undo) is the same. n05. |
-| `script_drafts` (a version) | `song_study` JSON (default null): S3a's study and its job, `{job_id, source, link, seconds, bpm, sections: [{name, start, end, lines, guessed}], lines: [{text, start, end}], words: [{word, start, end}], frames: [{file_id, t}], use_as_guide, problem, problem_code, removed_at}` | n04. Never copied into `text` or `style_line`. Remove sets `removed_at` and keeps it on the server; Undo clears it (no study comes back from the client). A removed study is never passed to S3. |
+| `script_drafts` (a version) | `song_study` JSON (default null): S3a's study and its job, `{job_id, source, link, seconds, bpm, sections: [{name, start, end, lines, guessed}], lines: [{text, start, end}], words: [{word, start, end}], frames: [{file_id, t}], use_as_guide, problem, problem_code, removed_at, attempt, stale_frames}`. `attempt` `{job_id, source, link, problem, problem_code}` is the newest press, kept apart from the finished study while it runs or after it fails; `stale_frames` `[file ids]` are replaced frames, deleted at the next press | n04. Never copied into `text` or `style_line`. Remove sets `removed_at` and keeps it on the server; Undo clears it (no study comes back from the client). A removed study is never passed to S3. |
 | A video's look (V3a) | `copied_from_id` (nullable, the look in the other video it came from) | Same migration as V3a. The copy is a row of its own: changing either never changes the other. Never in Cast & places (rule 12). |
 | `projects` (a video) | `song_take_id` (nullable FK song_takes): the video's own song, starting as the version's preferred take (V2a); `singer` text (default: the version's; set by V2 "Who sings in this video?") | Changing it re-flows shot times for free and marks clips out of date. |
 
@@ -59,14 +63,25 @@ Code notes for Next-Server (not tables):
 
 | Where | Change | Notes |
 |---|---|---|
-| `projects` (a video) | `plan` JSON (default null): `{version, source: "made"/"owner"/"from_breakdown"/"by_hand", structure: {name, parts: [..], from: "reference"/"pattern", pattern}, cast: [role names], scenes: [{id, part, place, lines: [script line numbers], actions: {line: text}, product: {line: item id}, cast: [roles]}], approved_at, approved_by_id, job_id, made_for_text_hash}` | Every script line is in exactly one scene, in order (enforced in code and tested; rule 19: the words are never stored here, only line numbers). |
+| `projects` (a video) | `plan` JSON (default null): our fields `{version, source: "made"/"owner"/"from_breakdown"/"by_hand", approved_at, approved_by_id, job_id, made_for_text_hash}` next to the Director's `schemas.ScenePlan` (`plan.model_dump()`): `structure: {name, parts: [..], based_on: "reference"/"pattern"}` (`name` carries the pattern), `cast: [cast ids]`, `scenes: [{id, part, place, cast: [cast ids], lines: [{line, action, product: id or null}]}]` | Every script line (`prompts.plan_lines`) is in exactly one scene, in order (enforced in code and tested; rule 19: the words are never stored here, only line numbers). `based_on` and a list of lines, not dicts keyed by line: a model writes a list more reliably (Director, 2026-10-29). |
 | `projects` | `plan_history` JSON list (default []): earlier plans, newest first, for **Earlier plans** | Capped at 10. |
 | `script_drafts` (a version) | `plan` JSON, the same shape: the owner's plan, each new video's start (S6) | Read only once published (rule 31). |
 | Breakdown rows | `data["plan_version"]`: the plan version the breakdown was made from | No migration (inside the JSON). A smaller number than `projects.plan.version` means "Made for an older plan". |
 | `jobs` | `retry_of_id` (nullable FK jobs) and `auto` bool (default false): the one automatic retry (P3) | At most one auto retry per job, enforced in code and tested. |
+| `project_clips` | `auto_fix` JSON (default null): `{before, after, fixed: ["removed \"9:16\"", …], undone}`, the wording fixed for you (P3) | **Undo** puts `before` back and sets `undone`; while the prompt is still `before`, it isn't fixed again and its flags are Advice. Spoken (quoted) words are never changed. |
 | New: `item_checks` | `id`, `project_id`, `target` (`frame` or `take`), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind: face/outfit/product, role, text, change_note}]`, `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. |
-| Migration plan | Existing videos with a breakdown get `plan` from it in the same migration (in code, free, `source = "from_breakdown"`, approved), so no video is blocked. | n06, one number for all of 1b (Builder-Server-8). |
+| Migration plan | n06 adds the columns only. A video with a breakdown and no stored `plan` gets one read from its breakdown when it's first asked for (in code, free, `source = "from_breakdown"`, approved), so no video is blocked, made before or after. Every "is the plan approved?" (the Plan GET, the shots/breakdown guard, the step ✓ in ProjectOut, the lists and "Needs you") goes through that one function. | n06, one number for all of 1b (Builder-Server-8; Next-Lead agreed reading at read time, 2026-10-29). |
+
+## 3. Brand setup (BR1)
+
+| Where | Change | Notes |
+|---|---|---|
+| `brands` | `audience` text "", `do_list` JSON [], `dont_list` JSON [] (copied from `never_say`, deduped, order kept), `cta_lines` JSON `[{id, text, default, deleted_at}]` (seeded from `end_line`), `default_cast` JSON [] (library item ids), `music_style` text "", `default_language` String(10) "en", and later `default_look` String(40) "house" (after n07) | n08. Exactly one default among live CTA lines; deleting it promotes the next (Undo). A deleted or archived cast item reads `{id, deleted: true}`. `music_style` prefills new song versions only. |
+| `brands.tone_notes` | Unchanged column; shown as "How the brand talks" | No reader changes. |
+| `brands.never_say`, `brands.end_line` | **Kept on next** and written through: `never_say` = `dont_list`, `end_line` = the default CTA's text ("" if none) | Main still reads them, and main merges into next. They're dropped at the move to main (ops/NEXT.md). Next's readers use the new fields. |
+| `library_items` (products) | `short_description` text "", `main_claim` text "" | Empty claim: Advice "Scripts won't mention a claim for this product." |
+| BR1's S state | No brand write touches a script, version or video; later steps read the brand live | Tested: a published script and a made video are unchanged after brand edits. |
 
 ## 2–6. Later items
 
-Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; a `looks/` folder, `look` text on `scripts` and `projects`, default `house`, and per-look sheets as library versions; Format is `scripts.kind`, above), brand setup (new brand columns, `never_say` moving into `dont_list`), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).
+Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; looks read from the existing `server/app/prompts/styles/` files (kind: look; the folder keeps its name, the screens say Look), `look` text on `scripts` and `projects`, default `house`, `look_switches` for On/Off (n07), and per-look sheets as library versions; Format is `scripts.kind`, above), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).

@@ -97,6 +97,14 @@ test("Takes, empty: Make 2 takes shows its price and makes one request; Cast sta
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /scripts/7/drafts/0/songs")).toHaveLength(1));
 });
 
+test("Takes: past the real-song test budget, the step says new takes are stand-in songs", async () => {
+  setViewport(1440);
+  const note = "Real songs for this test are used up, so new takes are free stand-in songs.";
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([], { songs_note: note })] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByText(note)).toBeInTheDocument();
+});
+
 test("Takes: Preferred in words; one being made, one still being timed (can't be Preferred yet); a timing failure a retry won't fix offers the other take, not the even spread", async () => {
   setViewport(1440);
   const list = songs([take({ preferred: true }), take({ id: 2, number: 2, status: "timing" }), take({ id: 3, number: 3, status: "timing_failed", retry_helps: false, failed_reason: "This take's file can't be read, so its timing can't be measured." }), take({ id: 4, number: 4 }), take({ id: 5, number: 5, status: "making", file_id: null, seconds: null, made_at: null })]);

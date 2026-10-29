@@ -19,7 +19,6 @@ import { useRail } from "../useMedia";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { ReelChip } from "./ReelImport";
 import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
-import { ViewSwitch } from "../videos/ViewSwitch";
 import { serverTime } from "../time";
 
 type Row = components["schemas"]["ScriptRow"];
@@ -340,7 +339,6 @@ export function ScriptsPage() {
           {rail && newScript}
         </div>
       </div>
-      <ViewSwitch />
       {bulk && <BulkCreate brandId={brandId} onClose={() => setBulk(false)} />}
       {!rail && <ActionBar phone><div className="flex gap-2">{newScript}</div></ActionBar>}
       {filters}

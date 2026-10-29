@@ -86,3 +86,10 @@ test("a breakdown without a song keeps its seconds", async () => {
   expect(within(first).getByText("3 s")).toBeInTheDocument();
   expect(within(first).queryByText("B-roll")).toBeNull();
 });
+
+test("a shot under 2 s reads in tenths, so it never says 0:03–0:03", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ song: { take_id: 1, shots: { "1.1": { start: 3.2, end: 3.84, sung: false, guessed: false } } } })] });
+  open();
+  expect(within(await screen.findByLabelText("Shot 1.1")).getByText("0:03.2–0:03.8")).toBeInTheDocument();
+});

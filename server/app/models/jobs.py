@@ -41,6 +41,9 @@ class Job(Entity, Base):
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
     removed_at: Mapped[datetime | None]  # a Quick clip off the history (still counted)
+    # P3: the one automatic retry of a refused or busy take, and the job it retries
+    retry_of_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
+    auto: Mapped[bool] = mapped_column(default=False)
 
 
 class Usage(Entity, Base):

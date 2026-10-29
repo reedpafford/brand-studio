@@ -421,3 +421,76 @@ class ReelWatch(BaseModel):
     shots: list[WatchShot] = Field(description="Exactly one per entry in <cuts>, in order.")
     speakers: list[WatchSpeaker] = Field(description="Exactly one per <transcript> line.")
     why_it_works: list[str] = Field(description="3–6 short reasons it holds a viewer.")
+
+
+# --- The scene plan (flows 1b, P1): the script's words in scenes, before the breakdown ---
+
+
+class PlanLine(BaseModel):
+    line: int = Field(description="The script line's number, as in <script>.")
+    action: str = Field(
+        description="One vivid, exaggerated action we see while this line plays, in one "
+        "sentence: 'He shakes and a fur blizzard fills the room'."
+    )
+    product: str | None = Field(
+        description="★: the brand's product or screen id (product:N, screen:N) shown on this "
+        "line, label or logo to camera; null when it isn't a key product moment."
+    )
+
+
+class PlanScene(BaseModel):
+    id: int = Field(description="1, 2, 3, … in order.")
+    part: str = Field(description="Its part of the structure: 'Problem', 'Proof'.")
+    place: str = Field(description="One place and one time: 'INT. KITCHEN — NIGHT'.")
+    cast: list[str] = Field(description="Who is in it: cast ids from the plan's cast only.")
+    lines: list[PlanLine] = Field(description="Its script lines in order, one action each.")
+
+
+class Structure(BaseModel):
+    name: str = Field(description="The pattern's name ('Pet supplement'), or 'The reference reel'.")
+    parts: list[str] = Field(description="The parts in order: ['Problem', 'Why', 'Payoff'].")
+    based_on: Literal["reference", "pattern"] = Field(
+        description="'reference' when it follows the <reference> or <study>, else 'pattern'."
+    )
+
+
+class ScenePlan(BaseModel):
+    """The plan as projects.plan stores it (data.md 1b), less the server's own fields."""
+
+    structure: Structure
+    cast: list[str] = Field(description="Cast ids from <cast>: the same in every scene.")
+    scenes: list[PlanScene]
+
+
+# --- The advisory check (flows 1b, P4): a still or a take against its sheets and product ---
+
+
+class Finding(BaseModel):
+    kind: Literal["face", "outfit", "product"]
+    who: str = Field(description="The reference's id from <references>: char:N or product:N.")
+    says: str = Field(
+        description="One short line for the card: 'Mia's face may differ from her sheet'."
+    )
+    note: str = Field(
+        description="The change note, ready to send: one plain instruction naming the reference "
+        "and what it shows. Never a spoken line."
+    )
+
+
+class ItemCheck(BaseModel):
+    """Advice only, never a pass or a fail: no findings means it matches the references."""
+
+    findings: list[Finding] = Field(description="Only clear differences a viewer would notice.")
+
+
+class NarrationMusic(BaseModel):
+    """The instrumental bed under a narrated video (flows N1)."""
+
+    prompt: str = Field(
+        description="30 to 60 words for the music model: genre and mood, three to five "
+        "instruments, the tempo, the turn by thirds, and 'Steady and low under the narration'. "
+        "No artist, song or composer names; no vocals."
+    )
+    arc: str = Field(
+        description="The mood in a few plain words: 'tense, then hopeful in the last third'."
+    )

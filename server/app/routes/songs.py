@@ -1,13 +1,13 @@
 """Song takes for a song script's version (song ads, spec §1): list, make 2 (or 1), Try again,
 Preferred (with Undo), remove (with Undo). Rules: app/song_takes.py."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from sqlalchemy.orm import Session
 
-from app import music, song_takes
+from app import music, narration, song_directions, song_takes
 from app import script_library as lib
 from app.auth import current_user
 from app.db import get_db
@@ -15,9 +15,11 @@ from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
+from app.routes.clips import generation_on
+from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project
 from app.routes.script_library import Slot
-from app.schemas import UtcTime
+from app.schemas import LongText, UtcTime
 
 router = APIRouter(tags=["songs"])
 SONGS_OFF = "Songs aren't switched on here."
@@ -45,6 +47,9 @@ class SongTakeOut(BaseModel):
     over_cap: bool  # that video is over the per-video cap: offer Use the first …
     fits_until: float | None  # where "Use the first 0:55" would end it (a section end)
     trim_to: float | None  # in use: only the take's first this-many seconds
+    kind: Literal["song", "narration"] = "song"  # a narration: one voice reads the words (N1)
+    voice: str = ""  # a narration's voice ("Sarah")
+    untrimmed_seconds: float | None = None  # a narration whose pauses were trimmed: "2:26 → 2:19"
 
 
 class SongsOut(BaseModel):
@@ -53,6 +58,7 @@ class SongsOut(BaseModel):
     video_estimate_credits: float  # about what a video of these lyrics costs (a guess)
     keep_lines: int | None  # over the cap: keep the first this-many sung lines to fit
     takes: list[SongTakeOut]
+    songs_note: str | None = None  # e.g. real songs for this test are used up: stand-ins now
 
 
 class SongPreferredOut(BaseModel):
@@ -60,12 +66,20 @@ class SongPreferredOut(BaseModel):
     was_preferred_id: int | None  # Undo: make that one Preferred again
 
 
-def songs_on(request: Request) -> bool:
-    """The stand-ins, or Suno through KIE once Reed switches it on (app/providers/kie.py)."""
-    from app.providers import kie_on
-
+def songs_on(request: Request, db: Session | None = None, draft: ScriptDraft | None = None):
+    """The stand-ins, or Suno through KIE once Reed switches it on (app/providers/kie.py). A
+    narration's voice is on Replicate, so it's on wherever paid generation is."""
     settings = request.app.state.settings
-    return bool(settings.fake_providers or kie_on(settings))
+    if draft is not None and song_takes.narrated(db, draft):
+        return bool(settings.fake_providers or settings.generation_enabled)
+    return bool(settings.fake_providers or settings.kie_suno)
+
+
+def _real(request: Request, db: Session, draft: ScriptDraft) -> float:
+    """A real song through KIE's price (song_takes.real_songs); a narration is never one."""
+    if song_takes.narrated(db, draft):
+        return 0.0
+    return song_takes.real_songs(db, request.app.state.settings)
 
 
 def _refused_for(reason: str | None) -> str | None:
@@ -98,6 +112,9 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         over_cap=over,
         fits_until=song_takes.fits_until(db, take) if over else None,
         trim_to=take.trim_to,
+        kind=take.kind,
+        voice=take.voice,
+        untrimmed_seconds=(take.timing or {}).get("untrimmed_seconds") if take.trimmed else None,
     )
 
 
@@ -105,7 +122,7 @@ def _song(db: Session, user: User, script_id: int, slot: int, edit: bool) -> Scr
     script = lib.get_script(db, user, script_id)
     if edit:
         lib.editable(user, script)
-    if script.kind != "song":
+    if script.kind not in narration.TIMED:
         raise HTTPException(409, NOT_A_SONG)
     return lib.get_draft(db, script, slot)
 
@@ -113,11 +130,14 @@ def _song(db: Session, user: User, script_id: int, slot: int, edit: bool) -> Scr
 def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> SongsOut:
     video, keep = song_takes.lyrics_estimate(db, draft)
     return SongsOut(
-        songs_on=songs_on(request),
-        estimate_credits=float(song_takes.price(db, user)),
+        songs_on=songs_on(request, db, draft),
+        estimate_credits=float(song_takes.price(db, user.workspace_id, draft)),
         video_estimate_credits=float(video),
         keep_lines=keep,
         takes=[_take_out(db, t, draft) for t in song_takes.takes(db, draft)],
+        songs_note=song_takes.BUDGET_USED
+        if song_takes.budget_used(db, request.app.state.settings)
+        else None,
     )
 
 
@@ -140,11 +160,12 @@ def make_songs(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Make 2 takes (one request) of the version's lyrics in its style line."""
-    if not songs_on(request):
-        raise HTTPException(503, SONGS_OFF)
+    """Make 2 takes (one request) of the version's lyrics in its style line; on a Narrated
+    script, one narration of its words (flows N1)."""
     draft = _song(db, user, script_id, slot, edit=True)
-    song_takes.make(db, user, draft)
+    if not songs_on(request, db, draft):
+        raise HTTPException(503, SONGS_OFF)
+    song_takes.make(db, user, draft, kie=_real(request, db, draft))
     return _songs(request, db, user, draft)
 
 
@@ -170,10 +191,12 @@ def try_again(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    if not songs_on(request):
-        raise HTTPException(503, SONGS_OFF)
     take, draft = _get_take(db, user, take_id)
-    song_takes.try_again(db, user, take)
+    if not songs_on(request, db, draft):
+        raise HTTPException(503, SONGS_OFF)
+    paid = song_takes.state(db, take)[0] == "failed"  # a timing is read again free
+    kie = paid and _real(request, db, draft)
+    song_takes.try_again(db, user, take, kie=kie)
     return _take_out(db, take, draft)
 
 
@@ -239,7 +262,7 @@ class VideoSongOut(BaseModel):
 def _song_video(db: Session, user: User, project_id: int):
     project = get_project(db, user, project_id)
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    if not draft or db.get(Script, draft.script_id).kind != "song":
+    if not draft or db.get(Script, draft.script_id).kind not in narration.TIMED:
         raise HTTPException(409, NOT_A_SONG)
     return project, draft
 
@@ -272,10 +295,10 @@ def make_video_songs(
     db: Session = Depends(get_db),
 ):
     """More takes for this video only, charged to its budget (or the editor's week)."""
-    if not songs_on(request):
-        raise HTTPException(503, SONGS_OFF)
     project, draft = _song_video(db, user, project_id)
-    song_takes.make(db, user, draft, project)
+    if not songs_on(request, db, draft):
+        raise HTTPException(503, SONGS_OFF)
+    song_takes.make(db, user, draft, project, _real(request, db, draft))
     return _video_songs(request, db, user, project, draft)
 
 
@@ -297,3 +320,91 @@ def use_video_song(
     song_breakdown.follow_take(db, project, user.id)  # the shots move to the new take, free
     db.commit()
     return VideoSongOut(song_take_id=take.id, was_song_take_id=was)
+
+
+class DirectionsIn(BaseModel):
+    source: LongText = ""  # a script or voice-over to adapt into lyrics
+    sounds_like: Annotated[str, StringConstraints(max_length=300)] = ""
+    note: LongText = ""
+
+
+class DirectionUsed(BaseModel):
+    was_text: str  # Undo: PUT the version back with these
+    was_style_line: str
+
+
+def _song_version(db: Session, user: User, script_id: int, slot: int):
+    draft = _song(db, user, script_id, slot, edit=True)
+    return db.get(Script, draft.script_id), draft
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/directions", response_model=JobOut,
+             status_code=201, dependencies=[Depends(generation_on)])  # fmt: skip
+def write_directions(
+    script_id: int,
+    slot: Slot,
+    body: DirectionsIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Write 2 song directions (one paid Claude call); a press again writes 2 more."""
+    script, draft = _song_version(db, user, script_id, slot)
+    if reason := song_directions.stop(db, script, draft, body.source):
+        raise HTTPException(409, reason)
+    if lib.writing(db, script.id, song_directions.STEP):
+        raise HTTPException(409, "Song directions are already being written for this version.")
+    data = song_directions.job_input(db, script, draft, body.source, body.sounds_like, body.note)
+    return enqueue(db, user, "write-claude", data, provider="claude")
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/use",
+             response_model=DirectionUsed)  # fmt: skip
+def use_direction(
+    script_id: int,
+    slot: Slot,
+    direction_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Its lyrics and style line become the version's (Undo: PUT the was_ values back)."""
+    _, draft = _song_version(db, user, script_id, slot)
+    was_text, was_style = song_directions.use(db, draft, direction_id)
+    return DirectionUsed(was_text=was_text, was_style_line=was_style)
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/claims/keep", status_code=204)
+def keep_claims(
+    script_id: int, slot: Slot, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """The owner vouches for the used direction's claims ("Keep it")."""
+    _, draft = _song_version(db, user, script_id, slot)
+    song_directions.keep_claims(db, draft)
+    return Response(status_code=204)
+
+
+@router.delete("/scripts/{script_id}/drafts/{slot}/directions/{direction_id}", status_code=204)
+def remove_direction(
+    script_id: int,
+    slot: Slot,
+    direction_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    _, draft = _song_version(db, user, script_id, slot)
+    song_directions.remove(db, draft, direction_id)
+    return Response(status_code=204)
+
+
+@router.post("/scripts/{script_id}/drafts/{slot}/directions/{direction_id}/restore",
+             status_code=204)  # fmt: skip
+def restore_direction(
+    script_id: int,
+    slot: Slot,
+    direction_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo a remove."""
+    _, draft = _song_version(db, user, script_id, slot)
+    song_directions.remove(db, draft, direction_id, back=True)
+    return Response(status_code=204)
