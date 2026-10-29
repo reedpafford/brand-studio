@@ -244,3 +244,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #912 at 6ba27460 (narration music bed, narrated mix) | code walk; narration + needs_you (18) | FAIL: no off switch for real Stable Audio (only generation_enabled); "Nothing was charged" wrong when the prompt succeeded and the bed failed |
 | 2026-10-29 | #910 at 026f3b51 (merge of next) | brand_setup + brands + migrations (21) | PASS |
 | 2026-10-29 | #914 at 7b944b0a (retry line in words; focus after Review and Change this…; params kept) | vitest projects (341) | PASS |
+| 2026-10-29 | 11:09 check-in: merged #863 #891 #892 #896 #901 #902 #905 #906 #907 #908 #910 | — | — |
+| 2026-10-29 | #913 at 2226ccb9 (Looks fine Undo, paused, truer estimate) | item_checks (4) | PASS |
+| 2026-10-29 | #898 at 0756510f (Not yet keeps the editor; confirm names what goes out of date) | plan + planEdits (19) | PASS |
