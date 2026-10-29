@@ -59,7 +59,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| The earlier way's breakdown (#923) | New video (the earlier way) → ProjectPage has no Plan step; Make the breakdown · N credits is always refused "Approve the plan first." | Require the approved plan only when project.script_draft_id (or land the screen redirect first) |
 | VS1 Undo on screen (#926 + #925) | Shapes now match; Undo still sends plain `was`, which #925 refuses over the cap (409) | Send `{...was, undo: true}` |
 | A scene change lost to an edit (#928) | Change this scene · 3 credits, then Split here while it runs: the result is dropped, the job is charged as succeeded, nothing says so | PUT /plan refused while a plan or scene job runs (_one_at_a_time in edit) |
 | Look fix screens (#929) | "Fixed for the look" with Undo stays after Undo (the server keeps look_fixed) | Show the note only while the prompt is still its `after` |
@@ -282,3 +281,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #927 at 6733ab92 | PASS: after a failed clip, Make a sample makes only the clip from the kept still at the clip's price (5); ready, then Switch on works. Open row closed |
 | 2026-10-29 | #922 at 2b352389; #930 at 6e35749e | #922 PASS: a stop waits on each still it named. #930 server PASS (sheets per look, Make a {look} look priced); FAIL with the screens: made work locked out (open above) |
 | 2026-10-29 | #919 b798db49; #925 51f8258e; #926 91576f5a; #929 c825f460 | #919 PASS (paid retries wait past the week): row closed. #925 PASS (Undo never refused with undo:true): row closed. #926 shapes match #925; Undo flag still missing. #929 link dropped (fix 1 closed); fix 2 open |
+| 2026-10-29 | #923 at 91e56824 | PASS: only a video made from a script waits for its approved plan; the earlier way makes its breakdown as before. Open row closed |
