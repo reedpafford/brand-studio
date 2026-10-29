@@ -54,6 +54,7 @@ def test_flavours_change_after_publish_by_the_author_or_owner_only(db, owner, ed
     assert _flavours(owner.post(f"{url}/publish").json())[0] == {"soda": "Lime"}  # no body
     later = owner.put(f"{url}/drafts/0/flavours", json={"bag": "Peanut butter"})
     assert _flavours(later.json())[0] == {"soda": "Lime", "bag": "Peanut butter"}  # rule 31
+    assert later.json()["versions"][0]["flavours_gone"] == []
     assert later.json()["versions"][0]["text"] == SCRIPT  # the words never change
     assert editor.put(f"{url}/drafts/0/flavours", json={}).status_code == 403
 
@@ -70,6 +71,8 @@ def test_a_new_video_starts_from_its_versions_flavours_and_the_picks_sent_win(db
     dark = db.query(BrandScreen).filter_by(product="app", variant="Dark").one()
     dark.deleted_at = utcnow()  # deleted since: that product starts on Auto
     db.commit()
+    version = owner.get(first).json()["versions"][0]  # QA-3 on #968: the gone one is marked
+    assert (version["flavours"]["app"], version["flavours_gone"]) == ("Dark", ["app"])
     pid = editor.post(f"{first}/drafts/0/produce").json()["project_id"]
     assert db.get(Project, pid).product_variants == {"bag": "Chicken", "soda": "Lime"}
 
