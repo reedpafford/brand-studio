@@ -88,7 +88,7 @@ export function DraftsPanel({
             <div className="space-y-3">
               <p className="text-sm text-muted" role="status">
                 {latest.status === "needs_owner_approval" ? (
-                  <Badge>Not started</Badge>
+                  <Badge>Waiting for the owner's OK</Badge>
                 ) : (
                   <>
                     {latest.status === "queued"

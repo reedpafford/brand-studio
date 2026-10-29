@@ -1330,3 +1330,10 @@ def test_a_person_in_bed_and_a_bodily_sound_in_one_clip_is_advice():
         assert "pyjamas" in prompts.system(step), step
     assert "**Never reads as sexual.**" in prompts.system("clip_prompts")
     assert "a noise from the foot of the bed" in prompts.system("breakdown")
+
+
+def test_the_answer_as_a_thing_is_not_a_line():
+    """Reed's song pilot: "answer" read as a spoken line in an action."""
+    assert not check.SAYS.search("Tasha finds the answer on her phone.")
+    assert not check.SAYS.search("Her answer is a scoop of greens.")
+    assert check.SAYS.search("Tasha answers him with a shrug.")  # the verb still counts

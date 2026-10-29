@@ -21,6 +21,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
+from app.prompts.check import sung_lines
 
 WAITING = (JobStatus.queued, JobStatus.running)
 GUESSED = "Timing guessed: the lines are spread evenly over the song, so check the shot times."
@@ -53,17 +54,21 @@ def takes(db: Session, draft: ScriptDraft, project: Project | None = None) -> li
     )
 
 
-def _request(db: Session, user: User, draft: ScriptDraft, project: Project | None) -> Job:
+def _request(
+    db: Session, user: User, draft: ScriptDraft, project: Project | None, free: bool = False
+) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
-    made says why (422); past an allowance or budget, enqueue declines with the reason."""
+    made says why (422); past an allowance or budget, enqueue declines with the reason.
+    `free`: a request already paid for (it gave back fewer songs than asked)."""
     from app.routes.jobs import enqueue
 
     try:
         job_input = music.job(draft.text, draft.style_line)
     except music.NotReady as no:
         raise HTTPException(422, str(no)) from None
-    return enqueue(db, user, "music", {**job_input, "step": "song_take"}, project=project,
-                   provider=music.PROVIDER)  # fmt: skip
+    job_input = {**job_input, "step": "song_take", **({"free_retry": True} if free else {})}
+    return enqueue(db, user, "music", job_input, project=project,
+                   provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip
 
 
 def make(
@@ -78,7 +83,7 @@ def make(
     made = [
         SongTake(draft_id=draft.id, project_id=project.id if project else None,
                  number=number + k + 1, track=k, job_id=job.id, created_by_id=user.id,
-                 **_sings(job.input))
+                 **_sings(draft))
         for k in range(music.TAKES)
     ]  # fmt: skip
     db.add_all(made)
@@ -86,8 +91,9 @@ def make(
     return made
 
 
-def _sings(job_input: dict) -> dict:
-    return {"lyrics": job_input["input"]["lyrics"], "style_line": job_input["input"]["style"]}
+def _sings(draft: ScriptDraft) -> dict:
+    """What a take sings, as the person wrote it (Suno gets it with song_request's pacing)."""
+    return {"lyrics": draft.text.strip(), "style_line": draft.style_line.strip()}
 
 
 def _by_job(db: Session, column, job: Job) -> list[SongTake]:
@@ -157,7 +163,7 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
     if song.status in WAITING:
         return "making", None, False
     if song.status != JobStatus.succeeded or take.file_id is None:
-        reason = song.error or music.FAILED
+        reason = music.MISSING if song.status == JobStatus.succeeded else song.error or music.FAILED
         if take.project_id and reason == music.REFUSED:  # a video can't change the words
             reason = music.REFUSED_IN_VIDEO
         return "failed", reason, True
@@ -173,8 +179,8 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
 def out_of_date(take: SongTake, draft: ScriptDraft) -> bool:
     """Sings other words, or in another style line, than the version has now. Only the sung
     lines count: adding or removing a tag (e.g. [Lip-sync]) changes nothing that's sung."""
-    now = (music.sung(draft.text), draft.style_line.strip())
-    return (music.sung(take.lyrics), take.style_line) != now
+    now = (sung_lines(draft.text), draft.style_line.strip())
+    return (sung_lines(take.lyrics), take.style_line) != now
 
 
 def preferred(db: Session, draft: ScriptDraft, project: Project | None = None):
@@ -219,7 +225,7 @@ def lyrics_estimate(db: Session, draft: ScriptDraft) -> tuple[Decimal, int | Non
     the per-video cap, how many sung lines to keep so it fits ("Keep the first N lines"; 0
     when not even one does). None when it fits."""
     script = db.get(Script, draft.script_id)
-    ws, lines = script.workspace_id, music.sung(draft.text)
+    ws, lines = script.workspace_id, sung_lines(draft.text)
     limit = get_limits(db, ws).per_video_max_credits
 
     def cost(n: int) -> Decimal:
@@ -266,10 +272,26 @@ def trim(db: Session, take: SongTake, on: bool) -> None:
     db.commit()
 
 
+def _free_retry(old: Job) -> bool:
+    """A request that came back short is asked again free, once: a free request that comes
+    back short again is charged like any (QA: free spend outside credits stays capped)."""
+    return old.status == JobStatus.succeeded and not old.input.get("free_retry")
+
+
+def retry_credits(db: Session, take: SongTake) -> Decimal:
+    """What Try again on this take costs: nothing for a timing or for a request that came
+    back short (already paid), else a new request."""
+    if state(db, take)[0] != "failed" or _free_retry(db.get(Job, take.job_id)):
+        return Decimal(0)
+    script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
+    return estimate(db, script.workspace_id, "music", Decimal(1))
+
+
 def try_again(db: Session, user: User, take: SongTake) -> None:
-    """A failed request is made again for both its takes, with the version's lyrics and
-    style line as they are now (a refusal says to change them first); charged only if it's
-    made. A failed timing is read again (free)."""
+    """A failed request is made again for its takes, with the version's lyrics and style
+    line as they are now (a refusal says to change them first); charged only if it's made.
+    A request that came back with only one song keeps that one and asks again for the other,
+    free (it was paid for both). A failed timing is read again (free)."""
     status, _, helps = state(db, take)
     if status == "timing_failed" and helps:
         _time(db, take, user)
@@ -279,12 +301,13 @@ def try_again(db: Session, user: User, take: SongTake) -> None:
     draft = db.get(ScriptDraft, take.draft_id)
     project = db.get(Project, take.project_id) if take.project_id else None
     old = db.get(Job, take.job_id)
-    job = _request(db, user, draft, project)
-    for pair in _by_job(db, SongTake.job_id, old):  # a song that did arrive is kept as it is
-        if pair.file_id is not None and db.get(Job, old.id).status == JobStatus.succeeded:
+    short = old.status == JobStatus.succeeded  # it gave fewer songs than asked
+    job = _request(db, user, draft, project, free=_free_retry(old))
+    for pair in _by_job(db, SongTake.job_id, old):
+        if short and pair.file_id is not None:  # a song that did arrive is kept as it is
             continue
         pair.job_id, pair.file_id = job.id, None
-        pair.lyrics, pair.style_line = _sings(job.input).values()
+        pair.lyrics, pair.style_line = _sings(draft).values()
     db.commit()
 
 

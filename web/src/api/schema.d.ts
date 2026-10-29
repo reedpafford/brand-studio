@@ -2641,6 +2641,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/storyboard/frames/{frame_id}/redo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redo Frame
+         * @description Redo this frame (LW3): an out-of-date frame is written again from the new breakdown,
+         *     then drawn, at the price on its button. The earlier still stays: pick it back to undo.
+         */
+        post: operations["redo_frame__projects__project_id__storyboard_frames__frame_id__redo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/storyboard/frames/{frame_id}/pick": {
         parameters: {
             query?: never;
@@ -3986,6 +4007,7 @@ export interface components {
             unknown_names: {
                 [key: string]: string;
             };
+            song?: components["schemas"]["SongPart"] | null;
         };
         /** BreakdownReview */
         BreakdownReview: {
@@ -4341,6 +4363,10 @@ export interface components {
              * @default 0
              */
             still_credits: number;
+            /** Redo Credits */
+            redo_credits?: number | null;
+            /** Redo Blocked */
+            redo_blocked?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -5242,6 +5268,11 @@ export interface components {
             take_credits: number;
             /** Stale */
             stale: boolean;
+            /**
+             * Take Stale
+             * @default false
+             */
+            take_stale: boolean;
             /** Inserts */
             inserts: components["schemas"]["InsertOut"][];
             /** Change */
@@ -5373,6 +5404,11 @@ export interface components {
             poster_file_id?: number | null;
             /** Step */
             step?: ("breakdown" | "assets" | "storyboard" | "clips" | "downloads" | "done") | null;
+            /**
+             * Final Out Of Date
+             * @default false
+             */
+            final_out_of_date: boolean;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -5951,11 +5987,34 @@ export interface components {
             after: string;
             frame: components["schemas"]["FrameOut"];
         };
+        /** SongPart */
+        SongPart: {
+            /** Take Id */
+            take_id: number;
+            /** Shots */
+            shots: {
+                [key: string]: components["schemas"]["SongShotTime"];
+            };
+        };
         /** SongPreferredOut */
         SongPreferredOut: {
             take: components["schemas"]["SongTakeOut"];
             /** Was Preferred Id */
             was_preferred_id: number | null;
+        };
+        /** SongShotTime */
+        SongShotTime: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Sung */
+            sung: boolean;
+            /**
+             * Guessed
+             * @default false
+             */
+            guessed: boolean;
         };
         /** SongTakeOut */
         SongTakeOut: {
@@ -5972,6 +6031,8 @@ export interface components {
             failed_reason: string | null;
             /** Retry Helps */
             retry_helps: boolean;
+            /** Retry Credits */
+            retry_credits: number;
             /** File Id */
             file_id: number | null;
             /** Seconds */
@@ -6066,6 +6127,11 @@ export interface components {
             in_production: number;
             /** Needs Attention */
             needs_attention: number;
+            /**
+             * Changes Waiting
+             * @default 0
+             */
+            changes_waiting: number;
         };
         /** TakeIn */
         TakeIn: {
@@ -6369,6 +6435,11 @@ export interface components {
              * Format: date-time
              */
             last_activity_at: string;
+            /**
+             * Final Out Of Date
+             * @default false
+             */
+            final_out_of_date: boolean;
         };
         /** UsageVideosOut */
         UsageVideosOut: {
@@ -12184,6 +12255,38 @@ export interface operations {
                 "application/json": components["schemas"]["ChangeIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redo_frame__projects__project_id__storyboard_frames__frame_id__redo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                frame_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             201: {

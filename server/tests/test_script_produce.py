@@ -313,3 +313,14 @@ def test_editors_search_and_filter_their_videos(app, owner, editor, db):
     assert ids(status="done") == [mine]
     assert editor.get("/projects", params={"status": "done"}).json()[0]["finished_at"]
     assert ids(brand_id=fomo, mine=True, status="done", q="d") == [mine]
+
+
+def test_a_versions_length_is_its_videos_once_it_has_a_breakdown(owner, editor, db):
+    """LW9: the library said "about 40 s" (the owner's target) while the video's own breakdown,
+    made inside the video, said 22 s. Once the video has a breakdown, its length is the one."""
+    base, _ = _published(owner, db, target=40)
+    made = editor.post(f"{base}/drafts/0/produce").json()
+    assert owner.get(base).json()["versions"][0]["seconds"] == 40  # no breakdown yet: target
+    db.get(Project, made["project_id"]).breakdown_seconds = 22
+    db.commit()
+    assert owner.get(base).json()["versions"][0]["seconds"] == 22

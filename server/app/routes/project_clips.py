@@ -20,6 +20,7 @@ from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.models.scripts import ScriptVersion
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
@@ -83,6 +84,7 @@ class ProjectClipOut(BaseModel):
     prompt_ok: bool  # Looks good on the prompt; Make the takes waits for every clip's
     take_credits: float  # what one more take costs (shown on Make clip / Redo)
     stale: bool  # made from an older breakdown
+    take_stale: bool = False  # its picked take shows an older sheet (N6): "Out of date"
     inserts: list[InsertOut]
     change: dict | None  # the last Change it note, as on a frame (app/change.py)
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
@@ -99,7 +101,8 @@ _stale = clip_prompts.is_stale
 
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
-    computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change")
+    computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
+                "take_stale")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -116,6 +119,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
+        take_stale=clip_prompts.take_stale(row),
         take_warning=clip_takes.take_warning(db, row),
         change=asked or None,
     )
@@ -521,6 +525,43 @@ def unapprove(
     row.approved = False
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
+
+
+def out_of_date(db: Session, projects: list[Project]) -> set[int]:
+    """The finished videos whose clips changed since (LW2: lists said "Video done" while it
+    was out of date), read as Downloads reads it: a clip unapproved or made for an older
+    breakdown or script, or the final cut's picks or real images changed. Free, never
+    stored; one query per kind for the whole list, a video's cut-ins only read last."""
+    ids = [p.id for p in projects if p.finished_at]
+    if not ids:
+        return set()
+    clips: dict[int, list[ProjectClip]] = {}
+    for c in db.scalars(select(ProjectClip).where(ProjectClip.project_id.in_(ids))
+                        .order_by(ProjectClip.id)):  # fmt: skip
+        clips.setdefault(c.project_id, []).append(c)
+    top = select(func.max(BreakdownVersion.id)).where(BreakdownVersion.project_id.in_(ids))
+    bds = {b.project_id: b for b in db.scalars(select(BreakdownVersion).where(
+        BreakdownVersion.id.in_(top.group_by(BreakdownVersion.project_id))))}  # fmt: skip
+    script = dict(db.execute(select(ScriptVersion.project_id, func.max(ScriptVersion.version))
+                             .where(ScriptVersion.project_id.in_(ids))
+                             .group_by(ScriptVersion.project_id)).all())  # fmt: skip
+    videos: dict[int, FinalVideo] = {}
+    for v in db.scalars(select(FinalVideo).where(FinalVideo.project_id.in_(ids))
+                        .order_by(FinalVideo.id)):  # fmt: skip
+        videos[v.project_id] = v  # the newest wins
+    old = set()
+    for p in (p for p in projects if p.id in ids):
+        bd, rows = bds.get(p.id), clips.get(p.id, [])
+        moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
+        if any(not c.approved or moved or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
+               for c in rows):  # fmt: skip
+            old.add(p.id)
+        elif (video := videos.get(p.id)) and (
+            video.take_ids != [c.picked_take_id for c in rows]
+            or (video.cut_ins or []) != _cut_ins(db, p, rows)
+        ):
+            old.add(p.id)
+    return old
 
 
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:

@@ -178,6 +178,12 @@ def test_a_sounds_like_song_becomes_a_style_line_without_its_name():
     result.directions[0].style_line = "acoustic pop like Jack Johnson, 96 BPM"
     problems = check.song_directions(result, "Iron Paws", 30, sounds_like=like)
     assert any("names “Jack Johnson”" in p and p.startswith("Advice: ") for p in problems)
+    notes = check.without_names(result, like)  # the free repair, before anyone sees it
+    assert result.directions[0].style_line == "acoustic pop, 96 BPM"
+    assert notes == ["Advice: direction 1: took “Jack Johnson” out of the style line "
+                     "(the music service refuses names)"]  # fmt: skip
+    assert check.song_directions(result, "Iron Paws", 30, sounds_like=like) == []
+    assert check.without_names(result, like) == []  # again changes nothing
     assert "describes that sound instead, never the name" in prompts.system("song_directions")
 
 
@@ -186,6 +192,8 @@ def test_the_length_is_shown_before_the_lyrics_are_locked():
     words, short, long = check.sung_length(lyrics)
     assert words == 365 and 150 <= short <= 160 and 180 <= long <= 185
     assert check.length_note(lyrics) == "365 sung words: a song of about 2:32–3:02."
+    near = "\n".join(["one two three four five six seven eight nine ten eleven"] * 13)
+    assert check.length_note(near) == "143 sung words: a song of about 1:00–1:12."  # not 0:60
 
 
 def test_each_shot_plays_while_its_line_is_sung():
@@ -200,3 +208,88 @@ def test_each_shot_plays_while_its_line_is_sung():
     found = _check(_breakdown(late))
     assert "Advice: shot 1.1: line 2 is sung at 0.10–1.90 s, but the shot runs 0.00–0.50 s" in found
     assert "the measured line times in <song> are that clock" in prompts.system("song_breakdown")
+
+
+def test_the_prompts_carry_what_made_reeds_song_ads_good():
+    """docs/next/song-ad-workflow.md: the reference's shape, the chanted symptom hook, the
+    visual shape, cartoon exaggeration, the four product moments, and 16 s clips with people."""
+    sent = prompts.song_directions_input("Goal: x", [], reference="Transcript: ... 100 BPM")
+    assert "<reference>\nTranscript: ... 100 BPM\n</reference>" in sent
+    directions = prompts.system("song_directions")
+    assert "**Following a reference.**" in directions and "Never copy its lyrics" in directions
+    assert "the symptom list, chanted" in directions
+    breakdown = prompts.system("song_breakdown")
+    for part in ("**The shape that sells.**", "mid-air leap", "nudges the product to the lens",
+                 "never gross", "at four moments", "16 s at most"):  # fmt: skip
+        assert part in breakdown, part
+    assert "## Style:" not in prompts.system("breakdown")  # story breakdowns untouched
+
+
+STUDY = {
+    "seconds": 128.0,
+    "bpm": 97.6,
+    "sections": [
+        {
+            "name": "Hook",
+            "start": 0.0,
+            "end": 9.0,
+            "lines": [
+                "Scratching all night, that's my belly crying out",
+                "Licking my paws, that's my belly crying out",
+            ],
+        },
+        {"name": "Verse", "start": 9.0, "end": 30.0, "lines": ["You fed me chicken every day"]},
+    ],  # fmt: skip
+    "words": [{"word": "Scratching", "start": 0.1, "end": 0.6}],
+}
+
+
+def test_a_song_ad_study_guides_the_shape_and_its_lines_are_never_reused():
+    """flows S3a: the study gives the structure, section lengths, pace and tempo; its words
+    are someone else's song."""
+    block = prompts.song_study_block(STUDY)
+    assert block.startswith("A song ad that works: 2:08 long, about 98 BPM.")
+    assert "- 0–9 s Hook: 2 lines, 16 words" in block
+    assert "  | Scratching all night, that's my belly crying out" in block
+    assert "Scratching" in block and "0.6" not in block  # its words' times stay out
+    text = prompts.system("song_directions")
+    assert "no line of yours repeats one of its lines" in text and "about 98 BPM" in text
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    assert check.song_directions(result, "Iron Paws", 30, study=STUDY) == []
+    result.directions[1].lyrics += "\n[Bridge]\nScratching all night, that's my belly crying out"
+    problems = check.song_directions(result, "Iron Paws", 30, study=STUDY)
+    assert ("direction 2: “Scratching all night, that's my belly crying out” repeats a line of "
+            "the reference song") in problems  # fmt: skip
+    assert not problems[0].startswith("Advice: ")  # a fix: written again
+
+
+def test_names_go_in_any_case_and_leave_a_tidy_style_line():
+    """Flow-QA on #819: lowercase names stayed, and the leftovers read badly."""
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    cases = [
+        ("jack johnson", "laid-back pop like jack johnson, upbeat", "laid-back pop, upbeat"),
+        ("Fleetwood Mac", "pop , fleetwood mac , upbeat", "pop, upbeat"),
+        ("Coldplay", "Coldplay-style stadium rock, 120 BPM", "stadium rock, 120 BPM"),
+        ("Bon Iver", "indie folk, Bon Iver,  falsetto", "indie folk, falsetto"),
+    ]
+    for like, style, tidy in cases:
+        result.directions[0].style_line = style
+        notes = check.without_names(result, like)
+        assert result.directions[0].style_line == tidy, (like, result.directions[0].style_line)
+        assert len(notes) == 1 and check.without_names(result, like) == []
+    assert check._names("Better Together by Jack Johnson") == ["Better Together", "Jack Johnson"]
+
+
+def test_the_directions_job_has_one_call_that_repairs_then_checks():
+    """Flow-QA on #819: nothing called the repair or the copy check; one entry point does."""
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    result.directions[0].style_line = "breezy pop like Jack Johnson, 100 BPM"
+    notes, fixes = check.finish_directions(result, "Iron Paws", 30, "Jack Johnson", STUDY)
+    assert result.directions[0].style_line == "breezy pop, 100 BPM" and fixes == []
+    assert notes and notes[0].startswith("Advice: direction 1: took “Jack Johnson”")
+    result.directions[1].lyrics += "\n[Bridge]\nScratching all night, that's my belly crying out"
+    _, fixes = check.finish_directions(result, "Iron Paws", 30, "Jack Johnson", STUDY)
+    assert any("repeats a line of the reference song" in f for f in fixes)  # ask once more
