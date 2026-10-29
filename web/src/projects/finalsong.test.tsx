@@ -70,6 +70,7 @@ test("when the video now uses another take, the final cut says so: Make it again
   open("?step=downloads");
   expect(await screen.findByText("This video now uses take 3. Make it again to lay it under (free).")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
+  expect(screen.getByText(/The song changed since this video was made\./)).toBeInTheDocument();
 });
 
 test("a video without a song shows no song line and never asks for songs", async () => {

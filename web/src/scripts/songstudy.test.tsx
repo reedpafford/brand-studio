@@ -148,3 +148,11 @@ test("while a newer try runs over a kept study, it says so with Stop", async () 
   expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
   expect(screen.getByText("Song ad studied · 0:31 · 98 BPM")).toBeInTheDocument();
 });
+
+test("with no start time yet, the studying line has one full stop, not two", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song({ song_study: { ...done(), status: "studying", seconds: null, sections: [], lines: [], frames: [], job: { id: 5, status: "queued", started_at: null } } })] });
+  open();
+  const line = await screen.findByText(/Studying the song ad…/);
+  expect(line.textContent).toBe("Studying the song ad… You can leave this page.");
+});
