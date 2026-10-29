@@ -249,12 +249,13 @@ def _follow_lip_sync(db: Session, project: Project, could: bool) -> int:
     return 0
 
 
-def switch(db: Session, user: User, project: Project, values: dict) -> dict:
+def switch(db: Session, user: User, project: Project, values: dict, undo: bool = False) -> dict:
     """Switch one setting (refused over the budget or the cap, with the reason); returns the
-    settings it replaced, for Undo (the same call with them)."""
+    settings it replaced, for Undo (the same call with them). Undo puts back what the video
+    already had, so it's never refused: each paid press still checks when it spends."""
     values = _check(db, user, project, values)
     found = preview(db, user, project, values)
-    if found["reason"]:
+    if found["reason"] and not undo:
         raise HTTPException(409, found["reason"])
     was = {k: getattr(project, k) for k in values}
     could = lip_sync(project)

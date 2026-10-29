@@ -4200,7 +4200,8 @@ export interface paths {
         /**
          * Switch Setting
          * @description Switch one setting (409 with the reason over the budget or the cap). Undo: switch with
-         *     `was`; the stills and clips made before come back as current.
+         *     `was` and `undo: true`, never refused; the stills and clips made before come back as
+         *     current.
          */
         post: operations["switch_setting_projects__project_id__settings_post"];
         delete?: never;
@@ -6909,6 +6910,8 @@ export interface components {
             product_variants?: {
                 [key: string]: string;
             } | null;
+            /** Undo */
+            undo?: boolean | null;
         };
         /** SettingsOut */
         SettingsOut: {

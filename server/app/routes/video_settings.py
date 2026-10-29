@@ -57,6 +57,7 @@ class SettingIn(BaseModel):
     image_model: str | None = None
     aspect_ratio: Literal["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] | None = None
     product_variants: dict[str, str] | None = None
+    undo: bool | None = None  # true: Undo, putting back `was` (never refused)
 
 
 class PreviewOut(BaseModel):
@@ -83,7 +84,7 @@ def _video(db: Session, user: User, project_id: int, change: bool = False) -> Pr
 
 
 def _one(body: SettingIn) -> dict:
-    sent = body.model_dump(exclude_unset=True)
+    sent = body.model_dump(exclude_unset=True, exclude={"undo"})
     if len(sent) != 1:
         raise HTTPException(422, vs.ONE)
     return sent
@@ -114,7 +115,8 @@ def switch_setting(
     db: Session = Depends(get_db),
 ):
     """Switch one setting (409 with the reason over the budget or the cap). Undo: switch with
-    `was`; the stills and clips made before come back as current."""
+    `was` and `undo: true`, never refused; the stills and clips made before come back as
+    current."""
     project = _video(db, user, project_id, change=True)
-    was = vs.switch(db, user, project, _one(body))
+    was = vs.switch(db, user, project, _one(body), undo=bool(body.undo))
     return SwitchOut(settings=vs.settings(db, project), was=was)

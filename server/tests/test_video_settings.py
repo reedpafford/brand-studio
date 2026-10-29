@@ -111,6 +111,11 @@ def test_over_the_cap_is_refused_with_the_reason(owner, editor, db):
     assert seen["over_cap"] and seen["reason"] == vs.OVER_CAP.format(1)
     no = editor.post(f"{video}/settings", json={"aspect_ratio": "1:1"})
     assert (no.status_code, no.json()["detail"]) == (409, vs.OVER_CAP.format(1))
+    # Undo puts back what the video already had, even over the limit (Flow-QA's case)
+    was = editor.post(f"{video}/settings", json={"aspect_ratio": "1:1", "undo": True})
+    assert was.status_code == 200 and was.json()["was"] == {"aspect_ratio": "9:16"}
+    back = editor.post(f"{video}/settings", json={**was.json()["was"], "undo": True})
+    assert back.json()["settings"]["aspect_ratio"] == "9:16"
 
 
 def test_who_may_switch_and_what_may_be_sent(app, owner, editor, db):
