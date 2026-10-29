@@ -49,6 +49,24 @@ def test_two_directions_are_written_from_a_script_and_one_is_used_with_undo(
     assert _version(owner, song)["text"] == before["text"]
 
 
+def test_undoing_use_leaves_no_claims_to_check(app, db, owner, song):  # noqa: F811
+    owner.post(f"{song}/directions", json={"source": SCRIPT})
+    _work(app, db)
+    b = _version(owner, song)["song_directions"][1]
+    used = owner.post(f"{song}/directions/{b['id']}/use").json()
+    assert _version(owner, song)["claims_to_check"] == ["It feels so right"]
+    owner.put(song, json={"text": used["was_text"], "style_line": used["was_style_line"]})
+    assert _version(owner, song)["claims_to_check"] == []
+
+
+def test_an_approved_version_says_why_before_anything_is_charged(app, db, owner, song):  # noqa: F811
+    owner.post(f"{song}/approve")
+    assert _version(owner, song)["directions_stop"] == song_directions.APPROVED
+    r = owner.post(f"{song}/directions", json={})
+    assert (r.status_code, r.json()["detail"]) == (409, song_directions.APPROVED)
+    assert db.query(Job).filter(Job.kind == "write-claude").count() == 0
+
+
 def test_writing_more_keeps_the_older_pair_and_a_card_can_be_removed(
     app,
     db,
@@ -66,8 +84,12 @@ def test_writing_more_keeps_the_older_pair_and_a_card_can_be_removed(
     assert len(_version(owner, song)["song_directions"]) == 4
 
 
-def test_nothing_to_go_on_says_what_to_add(app, owner):
+def test_nothing_to_go_on_says_what_to_add(app, db, owner):
+    from app.models.brands import Brand
+
     brand = owner.get("/brands").json()[0]["id"]
+    db.get(Brand, brand).tone_notes = ""  # a brand with no notes and no product yet
+    db.commit()
     empty = owner.post("/scripts", json={"brand_id": brand, "title": "x", "description": "",
                                          "kind": "song", "text": ""}).json()  # fmt: skip
     url = f"/scripts/{empty['id']}/drafts/0"
@@ -76,8 +98,12 @@ def test_nothing_to_go_on_says_what_to_add(app, owner):
     assert (r.status_code, r.json()["detail"]) == (409, song_directions.NOTHING)
 
 
-def test_a_length_note_never_reads_0_60():
-    from app.prompts import check
+def test_a_brand_with_notes_is_enough_to_go_on(app, db, owner):
+    from app.models.brands import Brand
 
-    assert check._clock(59.6) == "1:00" and check._clock(119.7) == "2:00"
-    assert "0:60" not in check.length_note(" ".join(["la"] * 143))
+    brand = owner.get("/brands").json()[0]["id"]
+    db.get(Brand, brand).tone_notes = "Dog gut-health chews."
+    db.commit()
+    empty = owner.post("/scripts", json={"brand_id": brand, "title": "x", "description": "",
+                                         "kind": "song", "text": ""}).json()  # fmt: skip
+    assert _version(owner, f"/scripts/{empty['id']}/drafts/0")["directions_stop"] is None

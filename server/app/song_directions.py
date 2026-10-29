@@ -24,13 +24,32 @@ from app.prompts.schemas import SongDirections
 from app.script_preview import stand_in_project
 
 STEP = "song_directions"
-NOTHING = "Say what the song is for in About first, or paste a script to adapt."
+NOTHING = "Add what the brand sells on the brand page, or paste a script to adapt."
+APPROVED = "These lyrics are approved, so a direction can't be used here. Duplicate it to try one."
 
 
-def stop(script: Script, draft: ScriptDraft, source: str = "") -> str | None:
-    """Why a press can't run, in plain words (None: it can)."""
-    has = script.description.strip() or source.strip() or draft.text.strip()
+def stop(db: Session, script: Script, draft: ScriptDraft, source: str = "") -> str | None:
+    """Why a press can't run, in plain words (None: it can): an approved version can't take
+    a direction, and with nothing at all to go on (no About, script, lyrics, brand notes or
+    product) there's nothing to write from."""
+    from app.models.brands import Brand
+    from app.models.library import Kind
+
+    if draft.status == "approved":
+        return APPROVED
+    brand = db.get(Brand, script.brand_id)
+    products = [i for i in brand_items(db, brand) if i.kind == Kind.prop]
+    has = (script.description.strip() or source.strip() or draft.text.strip()
+           or brand.tone_notes.strip() or products)  # fmt: skip
     return None if has else NOTHING
+
+
+def brand_items(db: Session, brand) -> list:
+    from app.models.library import LibraryItem, item_brands
+
+    return list(db.scalars(select(LibraryItem).join(item_brands)
+                           .where(item_brands.c.brand_id == brand.id,
+                                  LibraryItem.archived.is_(False))))  # fmt: skip
 
 
 def job_input(
@@ -127,8 +146,12 @@ def use(db: Session, draft: ScriptDraft, direction_id: str) -> tuple[str, str]:
 
 
 def claims_to_check(draft: ScriptDraft) -> list[str]:
+    """The used direction's claims, while the version still sings its lyrics (an Undo, or
+    other words, leaves nothing to check) and until the owner keeps them."""
     used = next((d for d in draft.song_directions or [] if d.get("used")), None)
-    return [] if not used or used.get("claims_kept") else used.get("unchecked_claims", [])
+    if not used or used.get("claims_kept") or draft.text.strip() != used["lyrics"].strip():
+        return []
+    return used.get("unchecked_claims", [])
 
 
 def keep_claims(db: Session, draft: ScriptDraft) -> None:

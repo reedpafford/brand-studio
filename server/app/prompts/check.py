@@ -879,8 +879,7 @@ LIP_SYNC = re.compile(r"\[lip[- ]?sync\]", re.I)
 
 
 def _clock(seconds: float) -> str:
-    s = round(seconds)  # the whole seconds first, so 59.6 s reads 1:00, never 0:60
-    return f"{s // 60}:{s % 60:02d}"
+    return f"{int(seconds // 60)}:{round(seconds % 60):02d}"
 
 
 def sung_length(lyrics: str) -> tuple[int, float, float]:

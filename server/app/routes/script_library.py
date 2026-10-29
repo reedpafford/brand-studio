@@ -208,7 +208,7 @@ def _directions(db: Session, draft: ScriptDraft) -> dict:
         "directions_estimate_credits": float(
             estimate(db, script.workspace_id, "write-claude", Decimal(1))
         ),
-        "directions_stop": sd.stop(script, draft),
+        "directions_stop": sd.stop(db, script, draft),
         "directions_job": sd.job_state(db, script, draft),
         "claims_to_check": sd.claims_to_check(draft),
     }

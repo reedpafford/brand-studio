@@ -319,7 +319,7 @@ def write_directions(
 ):
     """Write 2 song directions (one paid Claude call); a press again writes 2 more."""
     script, draft = _song_version(db, user, script_id, slot)
-    if reason := song_directions.stop(script, draft, body.source):
+    if reason := song_directions.stop(db, script, draft, body.source):
         raise HTTPException(409, reason)
     if lib.writing(db, script.id, song_directions.STEP):
         raise HTTPException(409, "Song directions are already being written for this version.")
