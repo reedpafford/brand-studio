@@ -62,11 +62,12 @@ def _request(
     draft: ScriptDraft,
     project: Project | None,
     free: bool = False,
-    kie: bool = False,
+    kie: float = 0.0,
 ) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason.
-    `free`: a request already paid for (it gave back fewer songs than asked)."""
+    `free`: a request already paid for (it gave back fewer songs than asked). `kie`: the price
+    a real song through KIE counts at (0: not a real one)."""
     from app.routes.jobs import enqueue
 
     try:
@@ -75,12 +76,17 @@ def _request(
         raise HTTPException(422, str(no)) from None
     job_input = {**job_input, "step": "song_take", **({"free_retry": True} if free else {}),
                  **({"kie": True} if kie else {})}  # fmt: skip
-    return enqueue(db, user, "music", job_input, project=project,
-                   provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip
+    job = enqueue(db, user, "music", job_input, project=project,
+                  provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip
+    if kie:  # each real song, for ops/SPEND.md (CLAUDE.md: every paid call is logged)
+        made = sum(1 for j in _real_jobs(db))
+        log.warning("Real song request: job %s, about $%.2f, %s so far (about $%.2f)", job.id,
+                 kie, made, made * kie)  # fmt: skip
+    return job
 
 
 def make(
-    db: Session, user: User, draft: ScriptDraft, project: Project | None = None, kie=False
+    db: Session, user: User, draft: ScriptDraft, project: Project | None = None, kie=0.0
 ) -> list[SongTake]:
     """Make 2 takes (one request) of the version's lyrics and style line. `kie`: a real
     song through KIE (KieSuno sings only those, never a request queued before)."""
@@ -296,7 +302,7 @@ def retry_credits(db: Session, take: SongTake) -> Decimal:
     return estimate(db, script.workspace_id, "music", Decimal(1))
 
 
-def try_again(db: Session, user: User, take: SongTake, kie: bool = False) -> None:
+def try_again(db: Session, user: User, take: SongTake, kie: float = 0.0) -> None:
     """A failed request is made again for its takes, with the version's lyrics and style
     line as they are now (a refusal says to change them first); charged only if it's made.
     A request that came back with only one song keeps that one and asks again for the other,
@@ -324,17 +330,23 @@ BUDGET_USED = "Real songs on the test site have used their test budget. Ask the 
 
 
 def real_songs(db: Session, settings) -> bool:
-    """Whether a request is a real song through KIE; 409 once the next one would take the
-    test site's real-song spend past its budget (Reed's test budget)."""
+    """The price a request counts at if it's a real song through KIE (0: not real); 409 once
+    the next one would take the test site's real-song spend past its budget (Reed's test
+    budget). Two presses at the same moment can both pass and go one request over (about
+    $0.10): not worth a lock at a $5 budget."""
     if not settings.kie_suno:
-        return False
-    jobs = db.scalars(select(Job).where(Job.provider == music.PROVIDER, Job.kind == "music",
-                                        Job.status != JobStatus.cancelled))  # fmt: skip
-    made = sum(1 for j in jobs if j.input.get("kie"))
+        return 0.0
+    made = len(_real_jobs(db))
     if (made + 1) * settings.kie_usd_per_request > settings.kie_budget_usd:
         log.warning("Real songs stopped at the test budget after %s requests.", made)
         raise HTTPException(409, BUDGET_USED)
-    return True
+    return settings.kie_usd_per_request
+
+
+def _real_jobs(db: Session) -> list[Job]:
+    jobs = db.scalars(select(Job).where(Job.provider == music.PROVIDER, Job.kind == "music",
+                                        Job.status != JobStatus.cancelled))  # fmt: skip
+    return [j for j in jobs if j.input.get("kie")]
 
 
 def spread(db: Session, user: User, take: SongTake) -> None:
