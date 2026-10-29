@@ -103,6 +103,12 @@ def test_a_still_that_fails_stops_the_run_and_says_where(app, db, editor, setup)
     assert (shown["stopped_at"], shown["running"]) == ("stills", False)
     assert shown["reason"] == "The still didn't finish. Nothing was charged."
     assert shown["steps"]  # the press is there again, for what's left
+    frame = db.get(StoryboardFrame, still.input["frame_id"])  # its own press puts it right
+    assert editor.post(f"{url}/storyboard/frames/{frame.id}/render").status_code == 201
+    for _ in range(3):
+        run_once(db, providers, app.state.storage)
+    after = editor.get(f"{url}/update-after").json()
+    assert (after["stopped_at"], after["reason"]) == (None, None)  # nothing left at Storyboard
 
 
 def test_out_of_date_stills_alone_are_drawn_again(app, db, editor, setup):  # noqa: F811

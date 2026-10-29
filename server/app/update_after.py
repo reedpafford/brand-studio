@@ -166,14 +166,31 @@ NAMES = {"storyboard": "storyboard", "frame": "stills", "clip_prompts": "clip_pr
 
 
 def last_run(db: Session, project: Project) -> dict:
-    """The newest run's state, for the banner: running, or where it stopped and why."""
+    """The newest run's state, for the banner: running, or where it stopped and why. A stop
+    the editor has since put right with that step's own press (the same still, or the step
+    that didn't start, made since) is over: nothing is said."""
     rows = list(db.scalars(select(Job).where(Job.project_id == project.id)
                            .order_by(Job.id.desc()).limit(200)))  # fmt: skip
     run = next((j.input[RUN] for j in rows if j.input.get(RUN)), None)
     mine = [j for j in rows if run and j.input.get(RUN) == run]
     failed = next((j for j in mine if j.status == JobStatus.failed), None)
-    stop = next((j.input[STOP] for j in mine if j.input.get(STOP)), None)
+    stopped = next((j for j in mine if j.input.get(STOP)), None)
+    stop, at = (stopped.input[STOP], stopped) if stopped else (None, None)
     if failed:
-        stop = {"at": NAMES.get(failed.input.get("step", "")), "reason": failed.error}
+        stop, at = {"at": NAMES.get(failed.input.get("step", "")), "reason": failed.error}, failed
+    if stop and _put_right(rows, at, failed is not None, stop["at"]):
+        stop = None
     return {"running": any(j.status in WAITING for j in mine),
             "stopped_at": stop and stop["at"], "reason": stop and stop["reason"]}  # fmt: skip
+
+
+def _put_right(rows: list[Job], at: Job, failed: bool, step: str) -> bool:
+    """A job for the same work succeeded after the stop: the failed still's own frame, or
+    the failed or unstarted step."""
+    kind = {v: k for k, v in NAMES.items()}[step]
+    frame = at.input.get("frame_id") if failed and kind == "frame" else None
+
+    def same(j: Job) -> bool:
+        return j.input.get("step") == kind and (frame is None or j.input.get("frame_id") == frame)
+
+    return any(j.id > at.id and j.status == JobStatus.succeeded and same(j) for j in rows)
