@@ -1,13 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const brands = [{ id: 1, name: "fomo", colours: [] }, { id: 2, name: "Iron Paws", colours: [] }];
 const kit = { id: 1, name: "fomo", colours: [], fonts: [], tone_notes: "", never_say: [], legal_line: "", end_line: "" };
 const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
@@ -22,13 +20,7 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   ...o,
 });
 function open(path: string) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(path);
 }
 afterEach(() => vi.unstubAllGlobals());
 

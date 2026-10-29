@@ -5,6 +5,7 @@ import { fileUrl } from "../api/upload";
 import { Badge, Button, Card, Field } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { Stopwatch } from "../clip/History";
 import { clock } from "./TakePlayer";
 import type { Script } from "./useScript";
 
@@ -38,16 +39,6 @@ async function send(method: "POST" | "PATCH" | "DELETE", path: string, body?: Fo
   }
 }
 
-function Elapsed({ since }: { since: string | null | undefined }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!since) return null;
-  return <span className="tabular-nums"> {clock(Math.max(0, Math.round((now - Date.parse(since)) / 1000)))}</span>;
-}
-
 const bpmText = (bpm: number | null | undefined) => (bpm ? `${Math.round(bpm)} BPM` : "no steady beat");
 
 /** S3a: Study a song ad, a third box above Write 2 song directions. Free. Its words never reach the lyrics (rule 19). */
@@ -61,6 +52,7 @@ export function SongStudy({ script: s }: { script: Script }) {
   const base = `/scripts/${s.id}/drafts/0/song-study`;
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
   const studying = study?.status === "studying" || study?.attempt?.status === "studying";
+  const started = (study?.attempt?.job ?? study?.job)?.started_at;
   // While it's studied, the version is read again until the card is in.
   useEffect(() => {
     if (!studying) return;
@@ -125,8 +117,7 @@ export function SongStudy({ script: s }: { script: Script }) {
           <div role="status" className="flex flex-wrap items-center gap-3">
             <p className="min-w-0 flex-1 text-sm">
               {study.status === "done" ? "Studying a new song ad…" : "Studying the song ad…"}
-              <Elapsed since={(study.attempt?.job ?? study.job)?.started_at} />
-              {(study.attempt?.job ?? study.job)?.started_at ? "." : ""} You can leave this page.
+              {started && <> <Stopwatch since={started} />.</>} You can leave this page.
             </p>
             <Button variant="ghost" busy={stop.isPending} onClick={() => stop.mutate()}>Stop</Button>
           </div>

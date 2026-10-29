@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
-import { useJobs } from "../clip/History";
+import { GOING, useJobs } from "../clip/History";
 import { fileUrl } from "../api/upload";
 import { card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
@@ -23,7 +23,6 @@ import { FrameCard } from "./FrameCard";
 import { useCostBarAction } from "./CostBar";
 
 type Frame = components["schemas"]["FrameOut"];
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 /** One still per clip: Claude writes the frame prompts, then each still is drawn. */
 /** The project's storyboard frames (shared by the Storyboard and Clips steps). */

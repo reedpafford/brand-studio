@@ -6,6 +6,7 @@ import { api, errorText } from "../api/client";
 import { Badge, Button, Card, Dialog, Field, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { Stopwatch } from "../clip/History";
 import type { components } from "../api/schema";
 import { lengthNote, type Song } from "./SongStep";
 import { useAllowanceStop, type Script } from "./useScript";
@@ -27,16 +28,6 @@ const call = async (method: "POST" | "DELETE", path: string, body?: object) => {
   if (!response.ok) throw new Error(errorText(error));
   return data;
 };
-
-function Elapsed({ since }: { since: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const s = Math.max(0, Math.round((now - Date.parse(since)) / 1000));
-  return <span className="tabular-nums">{Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</span>;
-}
 
 /** "Not checked: '…'" under the lyrics after a direction is used: the owner vouches (Keep it) or edits (flows S3). Advice, never a block. */
 export function ClaimsNote({ script: s, claims, onEdit }: { script: Script; claims: string[]; onEdit: () => void }) {
@@ -124,7 +115,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
         {busy && job ? (
           <div role="status" className="flex flex-wrap items-center gap-3">
             <p className="min-w-0 flex-1 text-sm">
-              {job.status === "queued" ? "Waiting to start" : "Writing 2 directions…"} <Elapsed since={job.started_at} />. It shows here when it's ready. You can leave this page.
+              {job.status === "queued" ? "Waiting to start" : "Writing 2 directions…"} <Stopwatch since={job.started_at} />. It shows here when it's ready. You can leave this page.
             </p>
             {job.status === "queued" && (
               <Button variant="ghost" busy={cancel.isPending} onClick={() => cancel.mutate(job.id)}>Cancel</Button>

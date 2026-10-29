@@ -1,14 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { Elapsed } from "./History";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { editor } from "../test/people";
 
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const seedance = { id: "seedance-2.5", name: "Seedance 2.5", kind: "video", default: true, duration: { min: 4, max: 30 }, resolutions: ["480p"], aspect_ratios: ["9:16"], max_reference_images: 4, credits_per_unit: { "480p": 1 } };
 const job = (o: object = {}) => ({ id: 12, kind: "video", status: "succeeded", project_id: null, credits: 9, prompt_summary: "Bo noses the salmon", created_at: "2026-10-25T10:00:00Z", output: { file_ids: [5] }, duration: 8, aspect_ratio: "9:16", resolution: "480p", created_by_id: 2, created_by_name: "Eli", error: "", ...o });
 const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
@@ -25,13 +23,7 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   ...o,
 });
 function open(path = "/b/1/clip") {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(path);
 }
 afterEach(() => vi.unstubAllGlobals());
 

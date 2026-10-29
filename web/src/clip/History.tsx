@@ -24,15 +24,16 @@ const TONES: Record<keyof typeof WORDS, Tone> = { queued: "media", running: "med
 const FILTERS = { all: "All", ready: "Ready", making: "Making", failed: "Didn't finish", removed: "Removed" } as const;
 type Filter = keyof typeof FILTERS;
 const FINISHED = ["succeeded", "failed", "cancelled"];
-const inFilter = (status: string, f: Filter) => f === "all" || f === "removed" || (f === "ready" && status === "succeeded") || (f === "making" && ACTIVE.includes(status)) || (f === "failed" && status === "failed");
-const ACTIVE = ["queued", "running", "needs_owner_approval"];
+/** A job still going: waiting, running, or held for the owner's OK. */
+export const GOING = ["queued", "running", "needs_owner_approval"];
+const inFilter = (status: string, f: Filter) => f === "all" || f === "removed" || (f === "ready" && status === "succeeded") || (f === "making" && GOING.includes(status)) || (f === "failed" && status === "failed");
 
 /** The caller's jobs. Polls while anything is still going. */
 export function useJobs() {
   return useQuery({
     queryKey: ["jobs"],
     queryFn: async () => (await api.GET("/jobs")).data ?? [],
-    refetchInterval: (q) => (q.state.data?.some((j) => ACTIVE.includes(j.status)) ? 3000 : false),
+    refetchInterval: (q) => (q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }
 
@@ -45,14 +46,25 @@ export function elapsed(ms: number) {
   return total < 60 ? `${total}s` : `${Math.floor(total / 60)}m ${total % 60}s`;
 }
 
-/** How long a clip has been going. Ticks every second while it is on screen. */
-export function Elapsed({ since }: { since: string }) {
+/** The time now, ticking every second while it is on screen. */
+function useNow() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  return <span>{elapsed(now - serverTime(since).getTime())}</span>;
+  return now;
+}
+
+/** How long a clip has been going. */
+export function Elapsed({ since }: { since: string }) {
+  return <span>{elapsed(useNow() - serverTime(since).getTime())}</span>;
+}
+
+/** How long a job has been going, as "1:05". */
+export function Stopwatch({ since }: { since: string }) {
+  const s = Math.max(0, Math.round((useNow() - Date.parse(since)) / 1000));
+  return <span className="tabular-nums">{Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</span>;
 }
 
 /** The clips list, with what was typed in Search and, for Removed, the clips taken off the history. */
@@ -61,7 +73,7 @@ function useHistoryJobs(q: string, removed: boolean) {
   return useQuery({
     queryKey: ["jobs", "history", { q, removed, folder }],
     queryFn: async () => (await api.GET("/jobs", { params: { query: { ...folderQuery(folder), ...(q ? { q } : {}), ...(removed ? { removed: true } : {}) } } })).data ?? [],
-    refetchInterval: (query) => (query.state.data?.some((j) => ACTIVE.includes(j.status)) ? 3000 : false),
+    refetchInterval: (query) => (query.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }
 
@@ -192,7 +204,7 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
               Try again
             </Button>
           )}
-          {ACTIVE.includes(j.status) && (
+          {GOING.includes(j.status) && (
             <Button variant="ghost" dense aria-label={`Cancel clip ${j.id}`} onClick={() => cancel.mutate(j.id)}>
               Cancel
             </Button>

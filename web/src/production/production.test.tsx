@@ -6,8 +6,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const row = (o: object = {}) => ({
   project_id: 11, brand: { id: 1, name: "Iron Paws" }, script: { id: 5, title: "Bo tries salmon" }, letter: "B", editor: { id: 3, name: "Sam" }, step: "clips",

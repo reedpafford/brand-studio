@@ -1,13 +1,11 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
+import { owner } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { id: 2, email: "eli@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const brand = { id: 1, name: "fomo", slug: "fomo", colours: ["#112233"], fonts: ["Inter"], tone_notes: "Punchy", never_say: [], legal_line: "", logo_file_id: null };
 const found = {
@@ -34,13 +32,7 @@ const base = (me: object = owner, extra: Record<string, [number, unknown]> = {})
   ...extra,
 });
 function open() {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/brand"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp("/b/1/brand");
 }
 const section = () => screen.findByRole("heading", { name: "Import from website" }).then((h) => h.closest("div.rounded-lg") as HTMLElement);
 async function readSite(url = "https://fomo.app") {

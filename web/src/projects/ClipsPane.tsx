@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Banner, Button, useToast } from "../components";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
-import { useJobs } from "../clip/History";
+import { GOING, useJobs } from "../clip/History";
 import { card, errorText as errorClass } from "../ui";
 import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
@@ -19,7 +19,6 @@ import { ClipCard } from "./ClipCard";
 import { useCostBarAction } from "./CostBar";
 
 type Clip = components["schemas"]["ProjectClipOut"];
-const GOING = ["queued", "running", "needs_owner_approval"];
 
 export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
   const { projectId } = props;

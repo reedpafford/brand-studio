@@ -7,9 +7,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { owner, editor } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const video = (o: object) => ({
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null,
   estimate_credits: 30, budget_credits: 600, credits_used: 120, budget_pct: 20, created_by_id: 2, created_by_name: "Eli", script_draft_id: 4, own_script: false, archived_at: null, finished_at: null, product_variants: {}, ...o,

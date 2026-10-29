@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Check, Ellipsis, MapPin, Pencil, Star, User } from "lucide-react";
@@ -7,6 +7,7 @@ import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem,
 import { useToast } from "../toast";
 import { editScene, joinNext, moveLine, splitAt, toPut, toggleStar, type PlanLine, type PlanScene } from "./planEdits";
 import { serverTime } from "../time";
+import { Stopwatch } from "../clip/History";
 import { errorText as errorClass } from "../ui";
 
 /** The video's scene plan (flows P1; Builder-Server-8's #893, to #876's names): the script's words grouped into scenes. The words never change (rule 19). */
@@ -65,17 +66,6 @@ function usePlan(base: string, queryKey: unknown[], since: number | null = null)
       return waiting ? 2000 : false;
     },
   });
-}
-
-function Elapsed({ since }: { since: string | null | undefined }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!since) return null;
-  const s = Math.max(0, Math.round((now - Date.parse(since)) / 1000));
-  return <span className="tabular-nums"> {Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</span>;
 }
 
 const ago = (iso: string) => {
@@ -265,8 +255,7 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
       <div role="status" className="space-y-3">
         <p className="text-sm">
           {job.status === "queued" ? "Waiting to start" : "Making the plan…"}
-          <Elapsed since={job.started_at} />
-          {job.started_at ? "." : ""} You can leave this page.
+          {job.started_at && <> <Stopwatch since={job.started_at} />.</>} You can leave this page.
         </p>
         <Button variant="ghost" busy={stopMaking.isPending} onClick={() => stopMaking.mutate()}>Stop</Button>
         <Skeleton className="h-40" />

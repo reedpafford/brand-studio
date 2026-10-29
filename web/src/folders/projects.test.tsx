@@ -6,9 +6,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { owner, editor } from "../test/people";
 
-const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
-const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const november = { id: 4, brand_id: 1, name: "November launch", created_by_id: 1, items: { scripts: 2, videos: 3, clips: 1 }, can_manage: true };
 const theirs = { id: 5, brand_id: 1, name: "Spring", created_by_id: 1, items: { scripts: 0, videos: 1, clips: 0 }, can_manage: false };
 const video = {
