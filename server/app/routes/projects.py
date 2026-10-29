@@ -96,6 +96,7 @@ class ProjectOut(BaseModel):
     # names it, or "done" once finished.
     poster_file_id: int | None = None
     step: Literal["breakdown", "assets", "storyboard", "clips", "downloads", "done"] | None = None
+    final_out_of_date: bool = False  # finished, but its clips changed since: "changes waiting"
 
 
 def archive(db: Session, project: Project) -> None:
@@ -127,9 +128,13 @@ def _is_song(db: Session, project: Project) -> bool:
     return bool(draft) and db.get(Script, draft.script_id).kind == "song"
 
 
-def _out(db: Session, project: Project, user: User) -> ProjectOut:
+def _out(db: Session, project: Project, user: User, old: set[int] | None = None) -> ProjectOut:
+    """`old`: the finished videos out of date (`out_of_date`), read once for a whole list."""
+    from app.routes.project_clips import out_of_date
+
     used = credits_used(db, project)
     return ProjectOut(
+        final_out_of_date=project.id in (out_of_date(db, [project]) if old is None else old),
         id=project.id,
         brand_id=project.brand_id,
         name=project.name,
@@ -236,7 +241,10 @@ def list_projects(
         query = query.where(done if status == "done" else ~done)
     found = db.scalars(query.order_by(func.lower(Project.name))).all()
     frames, steps = progress(db, [p.id for p in found])
-    out = [_out(db, p, user) for p in found]
+    from app.routes.project_clips import out_of_date
+
+    old = out_of_date(db, list(found))
+    out = [_out(db, p, user, old) for p in found]
     for row, project in zip(out, found, strict=True):
         row.poster_file_id = (frames.get(project.id) or (None, None))[1]
         row.step = "done" if project.finished_at else steps[project.id]

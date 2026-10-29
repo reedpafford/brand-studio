@@ -125,8 +125,8 @@ export function ClipCard(props: {
         </span>
       </div>
       {failed && !props.busy && (
-        <p role="status" className="text-sm text-danger">
-          {c.takes.length > 0 && "The last try didn't finish; your other takes are below. "}
+        <p role="status" className={`text-sm ${picked ? "text-muted" : "text-danger"}`}>
+          {picked ? `The newest take didn't work; Take ${picked.number} is still picked. ` : c.takes.length > 0 && "The last try didn't finish; your other takes are below. "}
           <span>{failureLine(props.job?.error)}</span>
         </p>
       )}

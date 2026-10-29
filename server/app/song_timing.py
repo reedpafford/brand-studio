@@ -19,7 +19,7 @@ from array import array
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from app.music import TAG, TAGS_ONLY, for_suno
+from app.prompts.check import LIP_SYNC, SECTION
 
 RATE = 8000  # Hz: enough to hear where the beats land
 HOP = 0.01  # s per energy frame
@@ -134,11 +134,12 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) ->
     `times_sung` is 1 for a line sung as often as it's written (a chorus written twice and
     sung twice), 2 when the song sings it once more than written, and so on."""
     out, section = [], ""
-    for raw in for_suno(lyrics).splitlines():
-        if TAGS_ONLY.match(raw):
-            section = TAG.match(raw.split("]")[0] + "]").group(1)
-        elif raw.strip():
-            out.append({"section": section, "text": raw.strip(), "words": raw.split()})
+    for raw in lyrics.strip().splitlines():
+        text = LIP_SYNC.sub("", raw).strip()
+        if SECTION.match(raw):  # "[Chorus] [Lip-sync]" or "[Intro: …]": its first tag names it
+            section = raw.split("]")[0].strip(" [").split(":")[0].strip()
+        elif text:
+            out.append({"section": section, "text": text, "words": text.split()})
     ours = [(i, _norm(w)) for i, line in enumerate(out) for w in line["words"]]
     theirs = [_norm(h["word"]) for h in heard]
     times: dict[int, list[tuple[float, float]]] = {}

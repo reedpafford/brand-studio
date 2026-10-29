@@ -13,7 +13,7 @@ type VideoStepId = (typeof VIDEO_STEPS)[number]["id"];
 
 export const videoStepFromParams = (params: URLSearchParams): VideoStepId => VIDEO_STEPS.find((s) => s.id === params.get("step"))?.id ?? "breakdown";
 
-export type VideoProgress = Progress & { assets: { total: number; ready: number } };
+export type VideoProgress = Progress & { assets: { total: number; ready: number; seen: boolean } };
 
 /** Why a step can't be opened right now, or null when it can. Assets come before anything is drawn. */
 export function videoLock(step: VideoStepId, now: VideoProgress): string | null {
@@ -41,7 +41,7 @@ export function videoBlocker(step: VideoStepId, p: VideoProgress): VideoStepId {
 
 function done(step: VideoStepId, p: VideoProgress): boolean {
   if (step === "breakdown") return isDone("shots", p);
-  if (step === "assets") return p.assets.ready === p.assets.total;
+  if (step === "assets") return p.assets.seen && p.assets.ready === p.assets.total; // no ✓ before it has been looked at (#749 LW9)
   return isDone(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
 }
 

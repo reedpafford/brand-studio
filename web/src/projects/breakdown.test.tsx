@@ -56,10 +56,17 @@ afterEach(() => vi.unstubAllGlobals());
 test("with no breakdown it offers to make one and shows the cost", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
   open();
-  expect(await screen.findByText("No shots yet")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Make shots · 6 credits" }));
+  expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Make the breakdown · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
-  expect(await screen.findByText(/Planning shots…/)).toBeInTheDocument();
+  expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
+});
+
+test("with no set length, the breakdown says its own length, not \"22 s of 22 s planned\" (#749 LW9)", async () => {
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, planned_seconds: null, breakdown_seconds: 5 }], "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  expect(await screen.findByText(/1 scene · 2 shots · 1 clip · 5 s$/)).toBeInTheDocument();
+  expect(screen.queryByText(/s planned/)).toBeNull();
 });
 
 test("the breakdown shows scenes, clips and shots with names, the spoken line and the star screens", async () => {
@@ -137,8 +144,8 @@ test("a real problem stays a red row, apart from the advice", async () => {
 test("a breakdown made for an older script is flagged and offers a new one", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ script_version: 3, stale: true })] });
   open();
-  expect(await screen.findByText("These shots were made for an older script.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make new shots · 6 credits" })).toBeInTheDocument();
+  expect(await screen.findByText("This breakdown was made for older words.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make it again · 6 credits" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveAccessibleDescription("Make new shots first");
 });
 
@@ -349,12 +356,12 @@ test("a breakdown run is recognised by its step, even after a reload; an Enhance
   const running = (step: string) => [{ id: 3, kind: "write-claude", step, status: "running", credits: 6, project_id: 9, created_at: "2026-10-23T10:00:00Z" }];
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("breakdown")] });
   open();
-  expect(await screen.findByText(/Planning shots…/)).toBeInTheDocument();
+  expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("enhance")] });
   open();
-  expect(await screen.findByText("No shots yet")).toBeInTheDocument();
+  expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
 });
 
 test("every tap target on a shot is at least 44px tall below the sm width", async () => {

@@ -4,7 +4,8 @@ import { api, errorText } from "../api/client";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useJobs } from "../clip/History";
 import { Clapperboard, RotateCcw } from "lucide-react";
-import { Badge, Banner, Button, EmptyState, Skeleton } from "../components";
+import { Banner, Button, EmptyState, Skeleton } from "../components";
+import { WaitingBadge } from "./Meter";
 import { Elapsed } from "../clip/History";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { errorText as errorClass } from "../ui";
@@ -98,12 +99,12 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
 
   if (running)
     return (
-      <section className="space-y-3" aria-label="Shots">
+      <section className="space-y-3" aria-label="Breakdown">
         {mine?.status === "needs_owner_approval" ? (
-          <Badge>Not started</Badge>
+          <WaitingBadge />
         ) : (
           <p className="text-sm text-muted" role="status">
-            Planning shots…{" "}
+            Making the breakdown…{" "}
             {mine && <Elapsed since={mine.created_at} />}
           </p>
         )}
@@ -115,14 +116,14 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
 
   if (!row)
     return (
-      <section className="space-y-3" aria-label="Shots">
+      <section className="space-y-3" aria-label="Breakdown">
         {failed && (
-          <Banner title="The shots didn't finish." action={makeButton("Try again")}>
+          <Banner title="The breakdown didn't finish." action={makeButton("Try again")}>
             Nothing was charged.
           </Banner>
         )}
         {!failed && (
-          <EmptyState icon={Clapperboard} title="No shots yet" action={makeButton("Make shots", { primary: true })}>
+          <EmptyState icon={Clapperboard} title="No breakdown yet" action={makeButton("Make the breakdown", { primary: true })}>
             Claude splits your script into scenes, shots and clips. Nothing is filmed yet.
           </EmptyState>
         )}

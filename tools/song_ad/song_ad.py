@@ -60,20 +60,31 @@ def seconds(path):
 
 
 # --- 1. the reference ad ------------------------------------------------------------------
+FETCH_AD = """
+const { chromium } = require('playwright');
+(async () => {
+  const id = process.argv[process.argv.length - 1], b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1280, height: 1600 } });
+  await p.goto('https://www.facebook.com/ads/library/?id=' + id, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await p.waitForTimeout(9000);
+  const found = await p.evaluate(id => { for (const v of document.querySelectorAll('video')) {  // the ad's own card
+    let e = v; for (let i = 0; e && i < 25; i++, e = e.parentElement)
+      if ((e.innerText || '').includes('Library ID: ' + id)) return [v.src, e.innerText]; } }, id);
+  console.log(JSON.stringify(found || null)); await b.close();
+})();
+"""
+
+
 def ref(ad_id, out):
-    from playwright.sync_api import sync_playwright
     os.makedirs(out, exist_ok=True)
-    with sync_playwright() as p:
-        page = p.chromium.launch().new_page(viewport={"width": 1280, "height": 1600})
-        page.goto(f"https://www.facebook.com/ads/library/?id={ad_id}", wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(9000)
-        found = page.evaluate("""id => { for (const v of document.querySelectorAll('video')) {  // the ad's own card
-            let e = v; for (let i = 0; e && i < 25; i++, e = e.parentElement)
-              if ((e.innerText || '').includes('Library ID: ' + id)) return [v.src, e.innerText]; } }""", ad_id)
+    node_path = subprocess.run(["npm", "root", "-g"], capture_output=True, text=True).stdout.strip()
+    res = subprocess.run(["node", "-e", FETCH_AD, ad_id], capture_output=True, text=True,
+                         env={**os.environ, "NODE_PATH": node_path})
+    found = json.loads(res.stdout.strip().splitlines()[-1]) if res.stdout.strip() else None
     if not found:
-        sys.exit("No video found for that ad.")
+        sys.exit("No video found for that ad. " + res.stderr[-300:])
     open(f"{out}/ad.txt", "w").write(found[1])
-    open(f"{out}/ad.mp4", "wb").write(requests.get(found[0], timeout=120).content)
+    subprocess.run(["curl", "-sSL", "-o", f"{out}/ad.mp4", found[0]], check=True)  # the CDN wants a plain client
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f"{out}/ad.mp4", "-vf", "fps=1/3,scale=180:-1,tile=8x5",
                     f"{out}/frames_%d.jpg"], check=True)
     transcribe(f"{out}/ad.mp4", f"{out}/ad.lines.json")
@@ -93,9 +104,10 @@ def transcribe(path, out):
 
 
 def tempo(path):
-    import librosa
-    y, sr = librosa.load(path, sr=22050, mono=True)
-    return round(float(librosa.beat.beat_track(y=y, sr=sr)[0]), 1)
+    import librosa, numpy as np
+    pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-f", "f32le", "-ac", "1", "-ar", "22050", "-"],
+                         capture_output=True).stdout
+    return round(float(np.atleast_1d(librosa.beat.beat_track(y=np.frombuffer(pcm, np.float32), sr=22050)[0])[0]), 1)
 
 
 # --- 2. the song (Suno through KIE) --------------------------------------------------------

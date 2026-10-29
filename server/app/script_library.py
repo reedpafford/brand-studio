@@ -83,9 +83,15 @@ def spoken_seconds(text: str) -> int:
 
 
 def seconds(draft: ScriptDraft) -> int:
-    """The version's length: its breakdown's, else the owner's target, else the larger of the
-    spoken words and the reel it was made from (a montage-heavy reel says little: 62 s and 66
-    shots read as 32 s from its words alone)."""
+    """The version's length: its video's breakdown once it has one (LW9: the library said
+    "about 11 s" while Breakdown said 22 s), else its own breakdown's, else the owner's target,
+    else the larger of the spoken words and the reel it was made from (a montage-heavy reel
+    says little: 62 s and 66 shots read as 32 s from its words alone). With several videos
+    of the version, none of theirs: they may differ."""
+    videos = object_session(draft).scalars(select(Project.breakdown_seconds).where(
+        Project.script_draft_id == draft.id, Project.archived_at.is_(None))).all()  # fmt: skip
+    if len(videos) == 1 and videos[0]:
+        return videos[0]
     if draft.breakdown:
         return sum(c["seconds"] for c in draft.breakdown.get("clips", []))
     return draft.target_seconds or max(spoken_seconds(draft.text), reel_seconds(draft))
