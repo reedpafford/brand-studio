@@ -4,6 +4,9 @@ name: deploy-next
 # (VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_HOST_KEY). The test site runs on the free stand-ins:
 # only for a paid test Reed and the Producer approved, set repo variable NEXT_FAKE_PROVIDERS to
 # false (and NEXT_GENERATION_ENABLED to true), run this, and set it back afterwards.
+# Real Suno songs through KIE (Reed, 2026-10-29: test site only, with a test budget): set repo
+# variable NEXT_KIE_SUNO to true and NEXT_KIE_BUDGET_USD to the budget, with the KIE_API_KEY
+# secret. Everything else stays on the stand-ins.
 on:
   push:
     branches: [next]
@@ -69,9 +72,13 @@ jobs:
           # Keys travel only when the stand-ins are switched off for an approved paid test.
           REPLICATE: ${{ vars.NEXT_FAKE_PROVIDERS == 'false' && secrets.REPLICATE_API_TOKEN || '' }}
           ANTHROPIC: ${{ vars.NEXT_FAKE_PROVIDERS == 'false' && secrets.STUDIO_ANTHROPIC_KEY || '' }}
+          # Real songs: the key travels only while NEXT_KIE_SUNO is true.
+          KIE: ${{ vars.NEXT_KIE_SUNO == 'true' && secrets.KIE_API_KEY || '' }}
+          KIE_BUDGET: ${{ vars.NEXT_KIE_BUDGET_USD || '0' }}
+          KIE_HOSTS: ${{ vars.NEXT_KIE_DELIVERY_HOSTS || '' }}
         run: |
           {
-            for name in FAKE GENERATION REPLICATE ANTHROPIC; do
+            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat deploy/next/remote-deploy.sh

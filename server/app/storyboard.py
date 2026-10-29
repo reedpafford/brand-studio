@@ -626,5 +626,6 @@ def save_still(db: Session, job: Job) -> None:
                 {"file_id": frame.file_id, "prompt": job.input.get("was_prompt", frame.prompt)},
             ]
         frame.file_id, frame.approved, frame.still_stale = file_ids[0], False, False
+        frame.look = db.get(Project, frame.project_id).look  # drawn in the video's look now
         if job.id and (frame.change or {}).get("made_job_id") == job.id:  # Redo: now it's done
             frame.change = {**frame.change, "status": "done"}

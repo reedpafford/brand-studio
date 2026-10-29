@@ -16,6 +16,7 @@ class Script(Entity, Base):
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(String(20), default="story")  # story | song (song ads)
+    look: Mapped[str] = mapped_column(String(40), default="house")  # how pictures are drawn (ST1)
     description: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     reference_id: Mapped[str | None] = mapped_column(String(80))  # a GET /references reel

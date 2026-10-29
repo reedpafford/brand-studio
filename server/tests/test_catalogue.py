@@ -39,7 +39,10 @@ def test_limits_match_replicate_schema(model):
         assert model.duration.smart == (props["duration"]["minimum"] == -1)
     images = "reference_images" if "reference_images" in props else None
     images = images or ("image_input" if "image_input" in props else "images")
-    assert model.max_reference_images == _up_to(schema, images)
+    if images in props:
+        assert model.max_reference_images == _up_to(schema, images)
+    else:  # speech: no pictures
+        assert model.max_reference_images == 0
     for kind in ("videos", "audios"):
         field = f"reference_{kind}" if f"reference_{kind}" in props else kind
         if field in props:

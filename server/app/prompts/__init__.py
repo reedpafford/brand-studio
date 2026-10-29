@@ -30,6 +30,8 @@ SCHEMAS = {
     "song_clip_prompts": schemas.ClipPrompts,
     "narrated_breakdown": schemas.SongBreakdown,  # flows V6n: the narration is the clock
     "narrated_clip_prompts": schemas.ClipPrompts,
+    "plan": schemas.ScenePlan,  # flows P1: the scene plan, before the breakdown
+    "plan_scene": schemas.PlanScene,  # P1's "Change this scene…"
     "item_check": schemas.ItemCheck,  # flows P4: the advisory check on a still or a take
     "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
 }
@@ -39,6 +41,7 @@ EXTENDS = {
     "song_clip_prompts": "clip_prompts",
     "narrated_breakdown": "breakdown",
     "narrated_clip_prompts": "clip_prompts",
+    "plan_scene": "plan",
 }
 NO_RULES = {
     "look_fit",
@@ -52,7 +55,7 @@ NO_RULES = {
 GUIDES = {
     "still": ["storyboard"],
     "clip": ["clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"],
-    "breakdown": ["breakdown", "song_breakdown", "narrated_breakdown"],
+    "breakdown": ["breakdown", "song_breakdown", "narrated_breakdown", "plan", "plan_scene"],
     "script": ["script_draft", "enhance", "variations"],
 }
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
@@ -388,7 +391,9 @@ def song_study_block(study: dict) -> str:
     tempo and sections, each with its lines (someone else's song: a guide to the shape, never
     words to reuse; check.copied_lines holds that). `study` is {seconds, bpm, sections:
     [{name, start, end, lines}], words}; words are left out."""
-    head = f"A song ad that works: {study['seconds'] / 60:.0f}:{study['seconds'] % 60:02.0f} long"
+    from app.prompts.check import _clock  # check imports this module: import here
+
+    head = f"A song ad that works: {_clock(study['seconds'])} long"
     if study.get("bpm"):
         head += f", about {round(study['bpm'])} BPM"
     out = [head + ".", "Sections (follow their order, their lengths and their pace):"]
@@ -442,6 +447,100 @@ def song_request(lyrics: str, style_line: str) -> dict:
         "style": style_line.strip().rstrip(".") + SUNO_PACE,
         "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word",
     }
+
+
+HEADING = ("SCENE", "INT.", "EXT.")
+
+
+def plan_lines(script: str) -> list[int]:
+    """The script lines a scene plan covers, each once and in order (flows P1): every line
+    with words that isn't a scene heading."""
+    lines = enumerate(script.splitlines(), 1)
+    return [n for n, x in lines if x.strip() and not x.strip().startswith(HEADING)]
+
+
+def plan_input(
+    brief: str,
+    cast: list[str],
+    script: str,
+    fmt: str,
+    video_model: str,
+    places: list[str] = (),
+    reference: str = "",
+    study: dict | None = None,
+    note: str = "",
+) -> str:
+    """The user message for the plan step. `cast` and `places` are one 'id name: description'
+    line each; `video_model` names the model and its max seconds per clip."""
+    parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
+    if places:
+        parts.append("<places>\n" + "\n".join(places) + "\n</places>")
+    parts += [f"<video_model>{video_model}</video_model>", f"<format>{fmt}</format>"]
+    parts.append(f"<script>\n{number_lines(script)}\n</script>")
+    if reference.strip():
+        parts.append(f"<reference>\n{reference.strip()}\n</reference>")
+    if study:
+        parts.append(f"<study>\n{json.dumps(study, indent=1)}\n</study>")
+    if note.strip():
+        parts.append(f"<note>{note.strip()}</note>")
+    return "\n".join(parts)
+
+
+# In the breakdown's user message, never its system prompt: the breakdown prompts stay as they
+# were for a video without a plan, and their cache with them (QA on #892).
+PLAN_RULE = (
+    "**The plan.** The <plan> below is the editor's approved plan: it is the story, and the "
+    "breakdown films it. Make its scenes, in order: each breakdown scene is one plan scene, with "
+    "its place and time as the heading (split a long one into two at a natural turn, never join "
+    "two). Its shots stage the plan's actions for those lines, made vivid and exact, and keep its "
+    "cast: nobody added, nobody dropped. A ★ line's shot shows that product or screen (list it in "
+    "`screen_ids`), the label or logo to camera. Everything in the step's rules still applies to "
+    "how you shoot it."
+)
+
+
+def plan_block(plan: schemas.ScenePlan, script: str) -> str:
+    """A plan as later steps read it: the structure and cast, then each scene's place, who's
+    in it, and each line's words with its action and ★ (the plan_scene step, the breakdown)."""
+    words = dict(enumerate(script.splitlines(), 1))
+    shape = f"{' → '.join(plan.structure.parts)} ({plan.structure.name})"
+    out = [f"Structure: {shape}", f"Cast: {', '.join(plan.cast)}"]
+    for sc in plan.scenes:
+        out.append(f"\nScene {sc.id} ({sc.part}): {sc.place} · {', '.join(sc.cast)}")
+        for x in sc.lines:
+            star = f" ★ {x.product}" if x.product else ""
+            out.append(f"{x.line}| {words.get(x.line, '').strip()}\n   → {x.action}{star}")
+    return f"{PLAN_RULE}\n<plan>\n" + "\n".join(out) + "\n</plan>"
+
+
+def plan_scene_input(
+    plan_message: str, plan: schemas.ScenePlan, script: str, scene: int, note: str
+) -> str:
+    """The user message for "Change this scene…": the plan's own input, the plan, the scene
+    and the note."""
+    ask = f"<scene>{scene}</scene>\n<note>{note.strip()}</note>"
+    return f"{plan_message}\n{plan_block(plan, script)}\n{ask}"
+
+
+def plan_from_breakdown(bd: schemas.Breakdown) -> schemas.ScenePlan:
+    """The plan read from a breakdown made before plans existed (flows 1b), in code and free:
+    one scene per breakdown scene, its lines and actions as written."""
+    scenes, cast = [], []
+    for sc in bd.scenes:
+        lines, seen = [], set()
+        for shot in sc.shots:
+            ids = [x for x in shot.screen_ids if x.startswith(("product:", "screen:"))]
+            for n in shot.script_lines:
+                if n not in seen:
+                    seen.add(n)
+                    lines.append(schemas.PlanLine(line=n, action=shot.action,
+                                                  product=ids[0] if ids else None))  # fmt: skip
+        who = list(dict.fromkeys(c for shot in sc.shots for c in shot.character_ids))
+        cast += [c for c in who if c not in cast]
+        scenes.append(schemas.PlanScene(id=sc.id, part="", place=sc.heading, cast=who,
+                                        lines=sorted(lines, key=lambda x: x.line)))  # fmt: skip
+    shape = schemas.Structure(name="From the breakdown", parts=[], based_on="pattern")
+    return schemas.ScenePlan(structure=shape, cast=cast, scenes=scenes)
 
 
 def narration_music_input(script: str, seconds: float, note: str = "") -> str:

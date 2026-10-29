@@ -232,6 +232,15 @@ def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
     db.flush()
 
 
+def retried(db: Session, row: ProjectClip) -> str | None:
+    """Why the clip's newest take came from an automatic retry ("refused" or "busy"); None
+    once a person has made a newer take."""
+    query = select(ClipTake).where(ClipTake.clip_id == row.id).order_by(ClipTake.number.desc())
+    take = db.scalar(query.limit(1))
+    job = db.get(Job, take.job_id) if take else None
+    return (why_failed(db.get(Job, job.retry_of_id)) or None) if job and job.auto else None
+
+
 def still_wanted(db: Session, job: Job) -> bool:
     """An automatic retry still fits its clip when it starts: the video isn't archived and the
     prompt is the one it was made from (Flow-QA: an edit during a busy wait)."""
@@ -291,7 +300,8 @@ def save_take(db: Session, job: Job) -> None:
         return
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
     take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
-                    prompt=job.input.get("clip_prompt"))  # fmt: skip
+                    prompt=job.input.get("clip_prompt"),
+                    look=db.get(Project, clip.project_id).look)  # fmt: skip
     db.add(take)
     db.flush()
     pick(clip, take)

@@ -98,10 +98,14 @@ def payoffs_block(payoffs: list[tuple[str, list[str]]]) -> str:
     return f"<recent_payoffs>\n{escape(chr(10).join(lines))}\n</recent_payoffs>" if lines else ""
 
 
+TIMED_STEP = {"narration": "narrated"}  # a take's kind -> its breakdown step's prefix
+
+
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
-    """The breakdown call; a song video's is timed to its song (song_breakdown)."""
+    """The breakdown call; a song video's is timed to its song (song_breakdown), a narrated
+    one's to its narration's sentences (narrated_breakdown: every shot B-roll)."""
     take = song_breakdown.take_for(db, project)
-    step = "song_breakdown" if take else "breakdown"
+    step = "breakdown" if not take else f"{TIMED_STEP.get(take.kind, 'song')}_breakdown"
     system, context = project_context(db, project, step)
     if project.script_draft_id:  # from the library: its unlocked slots, cast at Assets
         from app import script_preview

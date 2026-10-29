@@ -143,3 +143,52 @@ def test_an_answer_still_to_fix_fails_and_nothing_is_shown_or_charged(app, db, o
     failed = version["directions_job"]
     assert failed["status"] == "failed" and failed["reason"] == song_directions.UNFINISHED
     assert db.get(Job, made["id"]).status == "failed"  # failed jobs are never counted
+
+
+def _studied(db, url, **extra):
+    """A finished song-ad study on the version (as app/song_study saves one)."""
+    from app.models.script_library import ScriptDraft
+
+    sid = int(url.split("/scripts/")[1].split("/")[0])
+    draft = db.query(ScriptDraft).filter_by(script_id=sid, slot=0).one()
+    lines = ["Wake up hungry, bowl is bright", "Every walk a little slower"]
+    draft.song_study = {"job_id": 1, "source": "upload", "link": None, "seconds": 31.0,
+                        "bpm": 98.0, "use_as_guide": True, "frames": [], "words": [],
+                        "lines": [], "sections": [{"name": "Verse", "start": 0.0, "end": 31.0,
+                                                   "lines": lines, "guessed": True}],
+                        **extra}  # fmt: skip
+    db.commit()
+
+
+def test_the_song_ad_study_guides_the_directions(app, db, owner, song):  # noqa: F811
+    _studied(db, song)
+    job = db.get(Job, owner.post(f"{song}/directions", json={}).json()["id"])
+    assert "A song ad that works: 0:31 long, about 98 BPM" in job.input["prompt"]
+    assert "| Every walk a little slower" in job.input["prompt"]
+    assert job.input["study"]["sections"][0]["lines"][1] == "Every walk a little slower"
+
+
+def test_a_removed_or_unused_study_is_not_a_guide(app, db, owner, song):  # noqa: F811
+    _studied(db, song, removed_at="2026-10-29T08:00:00")
+    job = db.get(Job, owner.post(f"{song}/directions", json={}).json()["id"])
+    assert "<reference>" not in job.input["prompt"] and job.input["study"] is None
+    _work(app, db)
+    _studied(db, song, use_as_guide=False)
+    job = db.get(Job, owner.post(f"{song}/directions", json={}).json()["id"])
+    assert "<reference>" not in job.input["prompt"] and job.input["study"] is None
+
+
+def test_a_line_copied_from_the_study_is_asked_again_then_fails_uncharged(
+    app,
+    db,
+    owner,
+    song,  # noqa: F811
+):
+    _studied(db, song)  # the stand-in writes "Wake up hungry, bowl is bright", both times
+    made = owner.post(f"{song}/directions", json={}).json()
+    _work(app, db)
+    job = db.get(Job, made["id"])
+    assert job.status == "failed" and "repeats a line of the reference song" in job.error_detail
+    version = _version(owner, song)
+    assert version["song_directions"] == []  # no copied line is ever shown
+    assert version["directions_job"]["reason"] == song_directions.COPIED  # why, and both ways out

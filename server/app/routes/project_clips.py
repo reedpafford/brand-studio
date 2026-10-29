@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, clip_prompts, clip_takes, credits, cut_in
+from app import advice, breakdown, change, clip_prompts, clip_takes, credits, cut_in, looks
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db, utcnow
@@ -84,6 +84,7 @@ class InsertIn(BaseModel):
 class AutoFixOut(BaseModel):
     fixed: list[str]  # 'removed "9:16"', 'changed "says" to "gestures"'
     undone: bool
+    before: str  # the prompt as written, for See the change (after is the clip's prompt)
 
 
 class ProjectClipOut(BaseModel):
@@ -107,6 +108,7 @@ class ProjectClipOut(BaseModel):
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
     take_warning: str | None = None  # said before the next take: its last two were refused
     retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
+    retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
     auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
 
 
@@ -121,7 +123,7 @@ _stale = clip_prompts.is_stale
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
-                "take_stale", "retrying", "auto_fix")  # fmt: skip
+                "take_stale", "approved", "retrying", "retried", "auto_fix")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -138,9 +140,11 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
-        take_stale=clip_prompts.take_stale(row),
+        take_stale=clip_prompts.take_stale(row) or looks.take_other(db, project, row),
+        approved=row.approved and not looks.take_other(db, project, row),
         take_warning=clip_takes.take_warning(db, row),
         retrying=clip_takes.retrying(db, row),
+        retried=clip_takes.retried(db, row),
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
     )
@@ -278,7 +282,9 @@ def undo_auto_fix(
     if not fix or fix.get("undone"):
         raise HTTPException(409, "There's nothing to undo on this clip.")
     if row.prompt != fix.get("after"):
-        raise HTTPException(409, "This prompt has changed since, so the fix can't be undone.")
+        raise HTTPException(
+            409, "The prompt has changed since the fix, so there's nothing to undo."
+        )
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     row.same_fix = True  # its own words back: a used free fix stays used
     row.prompt, row.auto_fix = fix["before"], {**fix, "undone": True}
@@ -603,7 +609,7 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
         bd, rows = bds.get(p.id), clips.get(p.id, [])
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
         if any(not c.approved or moved or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
-               for c in rows):  # fmt: skip
+               or looks.take_other(db, p, c) for c in rows):  # fmt: skip
             old.add(p.id)
         elif (video := videos.get(p.id)) and (
             video.take_ids != [c.picked_take_id for c in rows]
@@ -638,6 +644,9 @@ def make_video(
     left = sum(not c.approved for c in clips)
     if left:
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
+    if other := sum(looks.take_other(db, project, c) for c in clips):  # VS1: never mixed looks
+        raise HTTPException(409, looks.OTHER.format("1 clip was" if other == 1
+                                                    else f"{other} clips were"))  # fmt: skip
     storage = request.app.state.storage
     song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
     if song and not all(c.song_slice for c in clips):
