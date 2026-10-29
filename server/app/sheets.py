@@ -17,6 +17,33 @@ def usable_files(item: LibraryItem) -> list[int]:
     return list(item.image_file_ids)
 
 
+def own(item: LibraryItem) -> bool:
+    """Made for one video or script (never in Cast & places)."""
+    return bool(item.owner_project_id or item.owner_script_id)
+
+
+def look_copy(db, project, item: LibraryItem) -> LibraryItem | None:
+    """This video's own copy of a library character, made in some look (ST2)."""
+    copy = db.get(LibraryItem, (project.look_copies or {}).get(str(item.id)) or 0)
+    return copy if copy is not None and not copy.archived else None
+
+
+def sheet_for(db, project, item: LibraryItem) -> list[int]:
+    """The picture a video uses for an item, in the video's look (flows ST2). House: the
+    approved House sheet, as always. Another look: the owner's approved sheet in that look,
+    else this video's own copy drawn in it (look_copies), else none, so the editor is offered
+    "Make a {look} look for this video". A video's own looks are drawn for it (sheet_look);
+    places and props keep their House pictures. ST1 counts the roles left with none."""
+    look = project.look or "house"
+    if look == "house" or item.kind != Kind.character or own(item):
+        return usable_files(item)
+    sheet = (item.look_sheets or {}).get(look) or {}
+    if sheet.get("approved") and sheet.get("file_id"):
+        return [sheet["file_id"]]
+    copy = look_copy(db, project, item)
+    return usable_files(copy) if copy and copy.sheet_look == look else []
+
+
 def require_sheet(item: LibraryItem) -> None:
     """A plain 422 when a character or place has no approved sheet yet."""
     if item.kind in SHEET_KINDS and not usable_files(item):

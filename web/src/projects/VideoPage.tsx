@@ -102,8 +102,9 @@ export function VideoPage() {
   };
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
   // Made work whose earlier step changed stays viewable; its paid presses wait, and the banner says where to go (audit M14).
-  const hold = videoHold(step, all);
-  const fixAt = hold ? VIDEO_STEPS.find((s) => s.id === videoBlocker(step, all)) : undefined;
+  const held = videoHold(step, all);
+  const hold = held?.why ?? null;
+  const fixAt = held ? VIDEO_STEPS.find((s) => s.id === held.at) : undefined;
   const next = videoNext(step);
   const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
@@ -160,7 +161,7 @@ export function VideoPage() {
         </div>
       </div>
       {hold && !update.stopped && ( // a stopped update says where, with that step's own press
-        <Banner tone="warning" title="Out of date" action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
+        <Banner tone="warning" title={held?.at === "cast" ? "Waiting on the cast" : "Out of date"} action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
           {hold}
         </Banner>
       )}

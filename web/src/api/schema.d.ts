@@ -634,7 +634,7 @@ export interface paths {
         put?: never;
         /**
          * Approve
-         * @description ✓ Approve the sheet: from now on it is what storyboards and clips use.
+         * @description ✓ Approve the sheet: from now on it is what storyboards and clips use (in its look).
          */
         post: operations["approve_library__kind___item_id__sheet_approve_post"];
         /** Unapprove */
@@ -3304,6 +3304,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/assets/looks/{item_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Look Copy
+         * @description Make a {look} look for this video (flows ST2; paid from this video's budget): a Cast &
+         *     places character with no sheet in the video's look gets its own copy here, drawn in the
+         *     look from its photo or House sheet. Used in this video only, never saved to Cast & places
+         *     (rule 12); its library character and its locked roles stay as they are.
+         */
+        post: operations["make_look_copy_projects__project_id__assets_looks__item_id__copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/assets/missing-looks": {
         parameters: {
             query?: never;
@@ -4525,6 +4548,10 @@ export interface components {
             library_deleted: boolean;
             /** Look Credits */
             look_credits?: number | null;
+            /** Look Needed */
+            look_needed?: string | null;
+            /** Look Copy Id */
+            look_copy_id?: number | null;
             /** Look Usual Credits */
             look_usual_credits?: number | null;
             text_fit?: components["schemas"]["TextFitOut"] | null;
@@ -5676,6 +5703,13 @@ export interface components {
              * @default []
              */
             advice: string[];
+            /**
+             * Look Sheets
+             * @default {}
+             */
+            look_sheets: {
+                [key: string]: components["schemas"]["LookSheetOut"];
+            };
         };
         /**
          * ItemPatch
@@ -5995,6 +6029,16 @@ export interface components {
             sample_still_id?: number | null;
             /** Sample Clip Id */
             sample_clip_id?: number | null;
+        };
+        /** LookSheetOut */
+        LookSheetOut: {
+            /** File Id */
+            file_id: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
         };
         /** LookSwitchIn */
         LookSwitchIn: {
@@ -7175,6 +7219,8 @@ export interface components {
              * @default
              */
             change: string;
+            /** Look Id */
+            look_id?: string | null;
         };
         /** Shot */
         Shot: {
@@ -10026,7 +10072,9 @@ export interface operations {
     };
     approve_library__kind___item_id__sheet_approve_post: {
         parameters: {
-            query?: never;
+            query?: {
+                look_id?: string;
+            };
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
@@ -10058,7 +10106,9 @@ export interface operations {
     };
     unapprove_library__kind___item_id__sheet_approve_delete: {
         parameters: {
-            query?: never;
+            query?: {
+                look_id?: string;
+            };
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
@@ -15369,6 +15419,38 @@ export interface operations {
             path: {
                 project_id: number;
                 slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_look_copy_projects__project_id__assets_looks__item_id__copy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                item_id: number;
             };
             cookie?: never;
         };

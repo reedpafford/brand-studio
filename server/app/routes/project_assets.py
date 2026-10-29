@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, cast_roles, clip_prompts, merge_roles
+from app import advice, breakdown, cast_roles, clip_prompts, looks, merge_roles
 from app.auth import current_user
 from app.credits import COUNTED, fits, price
 from app.db import get_db
@@ -40,7 +40,7 @@ from app.routes.script_cast import (
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, check_fit, queue_sheet
 from app.schemas import LongText
-from app.sheets import check_price, is_checked, look_price, look_usual
+from app.sheets import check_price, is_checked, look_copy, look_price, look_usual, own, sheet_for
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
 
@@ -76,6 +76,10 @@ class AssetOut(BaseModel):
     declined: bool = False  # Not now on the missing-looks note: never made by itself again
     library_deleted: bool = False  # its Cast & places character was deleted: Make or Pick
     look_credits: int | None = None  # Make a look on a role: "up to" (held at the press)
+    # ST2: a Cast & places character with no sheet in the video's look: "Make a {look} look
+    # for this video · look_credits" (the look's name); then its copy's sheet is this row's
+    look_needed: str | None = None
+    look_copy_id: int | None = None
     look_usual_credits: int | None = None  # "Usually N": its sheet and check, no redo
     # The approved look contradicts the role's words (Biscuit: a French bulldog written as a
     # golden retriever): what it shows, and the role's name and description put right.
@@ -107,10 +111,21 @@ def _slots(db: Session, project: Project) -> list[ScriptCastSlot]:
 
 
 def _row(
-    kind: str, ref: str, role: str, item: LibraryItem | None, locked: bool, slot=None
-) -> AssetOut:
+    kind: str, ref: str, role: str, item: LibraryItem | None, locked: bool, slot=None,
+    project: Project | None = None,
+) -> AssetOut:  # fmt: skip
     status = "missing" if item is None else ("approved" if locked else sheet_status(item))
     sheet = None if item is None else slot.sheet_file_id if locked and slot else item.sheet_file_id
+    needed, copy = None, None
+    if item is not None and project is not None and _other_look(project, item):
+        db = object_session(item)
+        files, copy = sheet_for(db, project, item), look_copy(db, project, item)
+        if files:
+            status, sheet = "approved", files[0]
+        elif copy and copy.sheet_look == project.look:
+            status, sheet = sheet_status(copy), copy.sheet_file_id
+        else:  # its sheet is in another look: this video makes its own (ST2)
+            status, sheet, needed = "missing", None, looks.get(project.look)["name"]
     only = None
     if item is not None and item.owner_project_id:
         only = "video"
@@ -131,7 +146,14 @@ def _row(
         description=slot.description if slot else "",
         facts=role_facts(slot.description, slot.guessed or []) if slot else None,
         look_fit=item.look_fit if item else None,
+        look_needed=needed,
+        look_copy_id=copy.id if copy else None,
     )
+
+
+def _other_look(project: Project, item: LibraryItem) -> bool:
+    """A Cast & places character in a video in another look than House (ST2)."""
+    return (project.look or "house") != "house" and item.kind == Kind.character and not own(item)
 
 
 def _text(row: AssetOut, slot, item, project: Project, user: User) -> None:
@@ -198,7 +220,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         live = cast_roles.pick(db, project, slot)  # a deleted look: the role is uncast
         item = db.get(LibraryItem, live) if live else None
         out.append(_row("character", f"char:{live}" if live else f"slot:{slot.id}",
-                        slot.role, item, bool(live and slot.library_item_id), slot))  # fmt: skip
+                        slot.role, item, bool(live and slot.library_item_id), slot,
+                        project))  # fmt: skip
         own = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
         out[-1].own_look_id = own.id if own and not own.archived else None  # removed: gone
         out[-1].declined = project.slot_looks.get(str(slot.id), 0) is None
@@ -212,7 +235,9 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
             continue
-        out.append(_row("character", ref, "", db.get(LibraryItem, int(ref[5:])), False))
+        out.append(_row("character", ref, "", db.get(LibraryItem, int(ref[5:])), False,
+                        project=project))  # fmt: skip
+        out[-1].look_credits = out[-1].look_credits or (look if out[-1].look_needed else None)
     for ref in places:
         out.append(_row("place", ref, "", db.get(LibraryItem, int(ref.split(":")[1])), False))
     screens = {f"screen:{s.id}": s for s in project_screens(db, project)}
@@ -390,6 +415,7 @@ def _make_look(
         name=cast_roles.short(slot.role) or slot.role,
         notes=slot.description or slot.role,
         owner_project_id=project.id,
+        sheet_look=project.look or "house",  # drawn in the video's look (ST2)
     )
     db.add(look)
     db.flush()
@@ -397,6 +423,40 @@ def _make_look(
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+NOT_IN_LOOK = "This character isn't one that needs its own look in this video."
+HAS_LOOK = "{} already has a look in this video's look."
+
+
+@router.post(
+    "/looks/{item_id}/copy", response_model=list[AssetOut], dependencies=[Depends(generation_on)]
+)
+def make_look_copy(
+    project_id: int, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Make a {look} look for this video (flows ST2; paid from this video's budget): a Cast &
+    places character with no sheet in the video's look gets its own copy here, drawn in the
+    look from its photo or House sheet. Used in this video only, never saved to Cast & places
+    (rule 12); its library character and its locked roles stay as they are."""
+    project = get_project(db, user, project_id)
+    item = db.get(LibraryItem, item_id)
+    if item is None or item.workspace_id != project.workspace_id or item.archived:
+        raise HTTPException(404, "No such character.")
+    if not _other_look(project, item):
+        raise HTTPException(409, NOT_IN_LOOK)
+    copy = look_copy(db, project, item)
+    if sheet_for(db, project, item) or (copy and copy.sheet_look == project.look):
+        raise HTTPException(409, HAS_LOOK.format(item.name))
+    house = item.sheet_file_id if item.sheet_approved else None
+    new = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name=item.name,
+                      notes=item.notes, source_photo_file_id=item.source_photo_file_id or house,
+                      owner_project_id=project.id, sheet_look=project.look)  # fmt: skip
+    db.add(new)
+    db.flush()
+    project.look_copies = {**(project.look_copies or {}), str(item.id): new.id}
+    queue_sheet(db, user, new, SheetIn())  # commits; a refusal adds nothing
+    return list_assets(project_id, user, db)
 
 
 class MadeOut(BaseModel):
