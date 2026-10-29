@@ -43,13 +43,15 @@ export function CostBarProvider(props: {
   pct: number;
   /** An editor on their own script is billed to the week, not to a budget. */
   week: { used: number; allowed: number } | null;
+  /** Set where the viewer may only look: the step's own press shows greyed out with this reason. */
+  lookOnly?: string | null;
   /** The press when the step has none of its own (Next: …). */
   fallback: CostAction | null;
   children: ReactNode;
 }) {
   const [action, setAction] = useState<CostAction | null>(null);
   const rail = useRail();
-  const shown = action ?? props.fallback;
+  const shown = action && props.lookOnly ? { ...action, reason: props.lookOnly } : (action ?? props.fallback);
   const estimate = useQuery({
     queryKey: ["project-estimate", props.projectId, props.used],
     queryFn: async () => (await api.GET("/projects/{project_id}/estimate", { params: { path: { project_id: props.projectId } } })).data ?? null,

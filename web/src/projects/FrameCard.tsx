@@ -7,12 +7,13 @@ import { Sheet } from "./Sheet";
 import { blockerNames, SheetWarning, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
-import { Badge, Button, creditsLabel } from "../components";
+import { Badge, Button, creditsLabel, useViewOnly } from "../components";
 import { RotateCcw } from "lucide-react";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 import { LookFixedNote, LookTip, type LookFixed } from "./LookFix";
+import { EarlierStills } from "./Versions";
 
 type Frame = components["schemas"]["FrameOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -36,6 +37,8 @@ export function FrameCard(props: {
   stopFor: (cost: number | undefined) => string | null;
   oneStep: boolean;
   onPick: (file: number) => void;
+  /** OR3 Preferred still: use an earlier still again (free, Undo). */
+  onPrefer?: (file: number) => Promise<unknown>;
   onRender: (note?: string) => void;
   onApprove: (yes: boolean) => void;
   onSave: (prompt: string) => void;
@@ -47,6 +50,7 @@ export function FrameCard(props: {
   onUndoSoften: (before: string) => void;
   onOpen: () => void;
 }) {
+  const viewOnly = useViewOnly(); // a video only its maker or the owner may change
   const { frame: f } = props;
   const keep = useKeep(props.projectId, { of: "frame", id: f.id });
   const [editing, setEditing] = useState<string | null>(null);
@@ -144,6 +148,7 @@ export function FrameCard(props: {
       )}
       {showLookFixed && <LookFixedNote fix={showLookFixed} busy={props.undoing} onUndo={f.file_id === null ? () => props.onUndoSoften(showLookFixed.before) : undefined} />}
       <LookTip text={f.look_fix} />
+      {props.onPrefer && f.file_id !== null && !props.busy && <EarlierStills label={f.clip_id} current={f.file_id} earlier={(f.earlier ?? []) as { file_id: number; made_at?: string | null; made_by?: { id: number; name: string } | null }[]} onUse={props.onPrefer} />}
       {props.softened && <SoftenedNote note={props.softenedBySelf ? "We softened this frame so it can be drawn." : "Softened. Here is what changed."} was={props.softened} busy={props.undoing} onUndo={() => props.onUndoSoften(props.softened!.before)} />}
       <AdviceList label={props.words} problems={f.problems} kept={f.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${f.clip_id}`} />
       {/* A word the image model may refuse is advice: soften it, or draw it as is (Reed, 2026-10-28). */}
@@ -186,7 +191,7 @@ export function FrameCard(props: {
                 </Button>
               </>
             )}
-            <button className={`${linkText} min-h-11 sm:min-h-9`} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
+            <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} aria-label={`Edit the prompt for clip ${f.clip_id}`} onClick={() => setEditing(f.prompt)}>
               {props.oneStep ? "Advanced: edit the prompt" : "Edit prompt"}
             </button>
           </div>

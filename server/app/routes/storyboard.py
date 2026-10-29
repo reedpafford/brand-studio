@@ -30,12 +30,16 @@ from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown, Frame
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import _mine, get_project
+from app.routes.projects import _mine, get_project, video_writer
 from app.routes.scripts import latest
 from app.schemas import PromptText
 from app.sheets import require_looks
 
-router = APIRouter(prefix="/projects/{project_id}/storyboard", tags=["storyboard"])
+router = APIRouter(
+    prefix="/projects/{project_id}/storyboard",
+    tags=["storyboard"],
+    dependencies=[Depends(video_writer)],
+)
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 

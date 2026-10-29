@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
-import { Dialog, Select } from "../components";
+import { Dialog, Select, useViewOnly } from "../components";
 import { useFrames } from "./StoryboardPane";
 import { errorText as errorClass } from "../ui";
 
@@ -11,6 +11,7 @@ const PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts", "Other"];
 /** Shape and where it will be posted, above the shots (the shape moves to the Video settings row once the server offers it). Changing the shape after stills exist asks first: the stills keep their shape (nothing
  *  is redrawn or charged); what's made next uses the new one. */
 export function ShapeRow({ projectId, aspect, platform, shape: withShape = true }: { projectId: number; aspect: string; platform: string; shape?: boolean }) {
+  const viewOnly = useViewOnly(); // a video only its maker or the owner may change
   const queryClient = useQueryClient();
   const frames = useFrames(projectId);
   const stills = (frames.data ?? []).filter((f) => f.file_id !== null);
@@ -33,7 +34,7 @@ export function ShapeRow({ projectId, aspect, platform, shape: withShape = true 
         <legend className="font-medium">Shape</legend>
         <div className="flex flex-wrap gap-2">
           {SHAPES.map((a) => (
-            <button key={a} type="button" aria-pressed={a === aspect} onClick={() => shape(a)} className={`min-h-control rounded-md border px-3 sm:min-h-control-dense ${a === aspect ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong"}`}>
+            <button key={a} type="button" disabled={viewOnly} aria-pressed={a === aspect} onClick={() => shape(a)} className={`min-h-control rounded-md border px-3 sm:min-h-control-dense ${a === aspect ? "border-accent bg-accent-soft text-accent-text" : "border-border-strong"}`}>
               {a}
             </button>
           ))}

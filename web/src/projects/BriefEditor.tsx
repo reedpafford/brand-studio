@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
+import { useViewOnly } from "../components";
 import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
 import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useLongestSeconds, useReferences } from "./BriefPickers";
 
@@ -9,6 +10,7 @@ type Project = components["schemas"]["ProjectOut"];
 
 /** The brief as it stands, with Edit: cast, flavour, length and the words can change after the project is made. */
 export function BriefEditor({ project, hasScript, onEditing }: { project: Project; hasScript: boolean; onEditing?: (editing: boolean) => void }) {
+  const viewOnly = useViewOnly(); // an older video only its maker or the owner may change
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   // The frame hides its Next button while the form is open, so Save brief is the only amber button.
@@ -77,7 +79,7 @@ export function BriefEditor({ project, hasScript, onEditing }: { project: Projec
             {product.charAt(0).toUpperCase() + product.slice(1)}: {variant}
           </p>
         ))}
-        <button className={`${linkText} min-h-11 sm:min-h-0`} onClick={startEditing}>
+        <button className={`${linkText} min-h-11 sm:min-h-0`} disabled={viewOnly} onClick={startEditing}>
           Edit brief
         </button>
       </div>

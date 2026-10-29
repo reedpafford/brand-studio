@@ -72,8 +72,10 @@ def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
         item = db.get(LibraryItem, item_id or 0)
         if item is None or item.archived or item.kind != Kind.character:
             continue
-        if own(item):
-            missing = (item.sheet_look or "house") != look
+        if own(item):  # unless the role has its own look in that one already (n12)
+            missing = (item.sheet_look or "house") != look and not (
+                isinstance(owner, Project) and cast_roles.own_look_in(db, owner, slot, look)
+            )
         elif look == "house":
             missing = False
         else:

@@ -102,7 +102,8 @@ TEREDO = "2001:0:4136:e378:8000:63bf:f5ff:fffe"  # its client address is 10.0.0.
 
 
 @pytest.mark.parametrize("ip", ["64:ff9b::7f00:1", "64:ff9b::a00:1", "::ffff:10.0.0.1",
-                                "2002:7f00:1::", TEREDO])  # fmt: skip
+                                "2002:7f00:1::", TEREDO,
+                                "::127.0.0.1", "::10.0.0.1", "::93.184.216.34"])  # fmt: skip
 def test_a_private_ipv4_inside_an_ipv6_address_is_refused(ip):
     with pytest.raises(Refused, match="isn't a public website"):
         check_address("https://x.example/", _dns({"x.example": ip}))

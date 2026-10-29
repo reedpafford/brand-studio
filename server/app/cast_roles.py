@@ -29,6 +29,14 @@ def pick(db: Session, project: Project, slot: ScriptCastSlot) -> int | None:
     return item.id if live else None
 
 
+def own_look_in(db: Session, project: Project, slot: ScriptCastSlot, look: str) -> int | None:
+    """The role's own look already made here in `look` (n12), if it's still there."""
+    from app.models.library import LibraryItem
+
+    item = db.get(LibraryItem, ((project.own_looks or {}).get(str(slot.id)) or {}).get(look) or 0)
+    return item.id if item is not None and not item.archived else None
+
+
 def all_slots(db: Session, project: Project) -> list[ScriptCastSlot]:
     """Every role of the library script this video is made from, in order (none for older
     videos)."""

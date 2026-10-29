@@ -25,15 +25,15 @@ export function useVideoSettings(projectId: number) {
 }
 
 /** One choice in a picker, and the one setting it switches (a body with exactly that key; null is Auto). */
-type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; overCap?: boolean; off?: boolean; body: SettingIn };
-type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; choices: Choice[] };
+export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; overCap?: boolean; off?: boolean; body: SettingIn };
+export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; choices: Choice[] };
 
 const credits = (x: number) => `${Number(x.toFixed(2))} credit${x === 1 ? "" : "s"}`;
 const perSecond = (x: number) => `${credits(x)} a second`;
 const perStill = (x: number) => `${credits(x)} a still`;
 const n = (k: number, one: string) => `${k} ${one}${k === 1 ? "" : "s"}`;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-const languageName = (code: string) => {
+export const languageName = (code: string) => {
   try {
     return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
   } catch {
@@ -42,7 +42,7 @@ const languageName = (code: string) => {
 };
 
 /** The settings as the row shows them: one field per setting, each choice carrying the body that switches to it. */
-function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined): Field[] {
+export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined): Field[] {
   const auto = <M extends { name: string; default: boolean }>(ms: M[]) => ms.find((m) => m.default) ?? ms[0];
   const video = auto(s.video_models);
   const image = auto(s.image_models);
@@ -169,30 +169,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
         // The existing look picker, wrapped: off looks are greyed for editors there.
         <LookPicker current={picking.current} looks={looks.data!} busy={null} error={null} onPick={(l) => pick(picking, picking.choices.find((c) => c.id === l.id)!)} onClose={() => setPicking(null)} />
       )}
-      {picking && !lookOpen && (
-        <Panel title={picking.label} onClose={() => setPicking(null)}>
-          <ul className="space-y-2">
-            {picking.choices
-              .filter((c) => owner || !c.off)
-              .map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    disabled={!!c.overCap}
-                    aria-pressed={c.id === picking.current}
-                    onClick={() => pick(picking, c)}
-                    className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left disabled:opacity-60 ${c.id === picking.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
-                  >
-                    <span className="font-medium">{c.label}</span>
-                    {c.price && <span className="text-sm text-muted tabular-nums">· {c.price}</span>}
-                    {c.noLipSync && <Badge>No lip-sync</Badge>}
-                    {c.overCap && <span className="w-full text-sm text-muted">Over the video limit</span>}
-                  </button>
-                </li>
-              ))}
-          </ul>
-        </Panel>
-      )}
+      {picking && !lookOpen && <ChoicePanel field={picking} owner={owner} onPick={(c) => pick(picking, c)} onClose={() => setPicking(null)} />}
       {asking && (
         <Dialog
           title={asking.field.key === "aspect_ratio" ? `Change to ${asking.choice.label}?` : `Switch to ${asking.choice.label}?`}
@@ -211,5 +188,33 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
       )}
       {apply.isError && !asking && <p role="alert" className={errorClass}>{apply.error.message}</p>}
     </>
+  );
+}
+
+/** One setting's choices, each with its price and "No lip-sync"; the one in use is marked. Shared with Make this version's row. */
+export function ChoicePanel({ field, owner, onPick, onClose }: { field: Field; owner: boolean; onPick: (c: Choice) => void; onClose: () => void }) {
+  return (
+    <Panel title={field.label} onClose={onClose}>
+      <ul className="space-y-2">
+        {field.choices
+          .filter((c) => owner || !c.off)
+          .map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                disabled={!!c.overCap}
+                aria-pressed={c.id === field.current}
+                onClick={() => onPick(c)}
+                className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left disabled:opacity-60 ${c.id === field.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
+              >
+                <span className="font-medium">{c.label}</span>
+                {c.price && <span className="text-sm text-muted tabular-nums">· {c.price}</span>}
+                {c.noLipSync && <Badge>No lip-sync</Badge>}
+                {c.overCap && <span className="w-full text-sm text-muted">Over the video limit</span>}
+              </button>
+            </li>
+          ))}
+      </ul>
+    </Panel>
   );
 }

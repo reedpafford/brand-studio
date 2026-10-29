@@ -14,9 +14,11 @@ from app.models.accounts import User
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, ProjectClip
 from app.models.storyboards import StoryboardFrame
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 
-router = APIRouter(prefix="/projects/{project_id}/checks", tags=["checks"])
+router = APIRouter(
+    prefix="/projects/{project_id}/checks", tags=["checks"], dependencies=[Depends(video_writer)]
+)
 
 
 class FlaggedOut(BaseModel):

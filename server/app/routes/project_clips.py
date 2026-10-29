@@ -43,13 +43,15 @@ from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import _mine, get_project
+from app.routes.projects import _mine, get_project, video_writer
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
 from app.schemas import PromptText, UtcTime
 from app.sheets import require_looks
 from app.storyboard import assets as picture_assets
 
-router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
+router = APIRouter(
+    prefix="/projects/{project_id}", tags=["project clips"], dependencies=[Depends(video_writer)]
+)
 log = logging.getLogger(__name__)
 # Song videos (flows V6): the reason, nothing charged, and the press that helps
 SONG_CUT_FAILED = "The video couldn't be put together. Nothing was charged. Press Try again."
