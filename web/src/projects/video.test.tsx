@@ -176,7 +176,7 @@ test("one-press Make storyboard is off for an editor when the writing plus the s
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");
-  const make = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
+  const make = await screen.findByRole("button", { name: "Make the storyboard · 15 credits" });
   expect(make).toBeDisabled();
   expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
 });
@@ -289,7 +289,7 @@ test("on an editor's own script past the weekly allowance the storyboard is decl
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");
-  const button = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
+  const button = await screen.findByRole("button", { name: "Make the storyboard · 15 credits" });
   expect(button).toBeDisabled();
   expect(await screen.findByText(/more than this week's 145 credits/)).toBeInTheDocument();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
@@ -1330,6 +1330,13 @@ test("the video's back link says where it goes: this brand's videos", async () =
   open("?step=downloads");
   expect(await screen.findByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/scripts?view=videos");
   expect(screen.queryByRole("button", { name: /^Brand: |Choose a brand/ })).toBeNull(); // no brand bar inside a video on a phone
+});
+
+test("Storyboard's counts are said once, in the step heading's line", async () => {
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, []] });
+  open("?step=storyboard");
+  expect(await screen.findByText("1 frame · 1 approved")).toBeInTheDocument();
+  expect(screen.queryByText(/· 1 frame · 1 approved/)).toBeNull(); // no second heading in the work area
 });
 
 test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {
