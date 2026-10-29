@@ -62,7 +62,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Real-song budget (#864) | A stopped real song stops counting, so the budget can be passed; "used up" note not shown on Song step | Count cancelled jobs marked discard; show songs_note above Make 2 takes | #864 at bef43a05 |
 | Narration text (#858) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
-| Final cut song (#882) | Removing the final's take hides "now uses take N"; non-song videos fetch /songs | Show the line without t; enabled: madeWith != null | #882 at a904afb9 |
+| Storyboard cost bar (#881) | Out of date + missing: "Make N stills" hidden while Redraw is in the bar | Show it when outOfDate.length > 0 (secondary) | #881 at adb76baa |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -197,3 +197,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #858 at b068ef81 (narrator reads check.narration_text) | narration_text on 8 scripts; 153 narration/song/check tests with fix | FAIL: prose + "CTA:" line → nothing to read ("Write the words first"); one "Name:" prose line drops the rest; n05 still on n04 |
 | 2026-10-29 | #883 at c998d91f (P3 retried, auto_fix.before) | test_clip_takes (14); stored auto_fix rows all carry before | PASS (screen: put "Tried again once on its own" by the newest take) |
 | 2026-10-29 | #882 at a904afb9 (V6 song on Final cut) | code walk; take removal after a switch | FAIL: removing the final's take hides "now uses take N"; non-song videos fetch /songs (409 ×4) |
+| 2026-10-29 | #882 at ca27118b (both fixes) | finalsong + videosong (13) | PASS |
+| 2026-10-29 | #881 at adb76baa (cost bar: Storyboard) | Playwright 1440 + 390: empty, Approve all, Redraw in bar; vitest projects (317) | FAIL: while Redraw is in the bar, bulk "Make N stills" is hidden (over-budget redraw leaves only per-card presses) |
