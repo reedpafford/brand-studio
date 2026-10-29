@@ -59,6 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S3a study (#851) | Study A done; study B from a blocked link fails: A's frames and data are already gone, no Undo; the directions lose their guide | Keep A until B saves; show B's reason above A | #851 at 8fcccdbf |
+| Music bed check (#853) | "instrumental, no vocals" is flagged as asking for a voice | Skip voice words after no/without/non- | #853 at cccf5fcb |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -157,4 +158,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #831 at d510f8e5 | 18 inputs (name after a genre word, "the", lowercase bands); test_song (20) | PASS |
 | 2026-10-29 | #829 at 88bbf0ad, #818 at 58d5c209 | Song switch to 40 s then Make video (409, way on), rewrite + remake (40.07 s, current); #818 next merged only | PASS both; note: "1 of the clips were" |
 | 2026-10-29 | #851 at 8fcccdbf (S3a song-ad study, free) | Upload done; busy 409; cancel; blocked link; re-study after a done one; approved version; lyrics untouched | FAIL: a failed re-study deletes the finished study (frames dropped at start), no Undo |
+| 2026-10-29 | 05:44 check-in: #853 at cccf5fcb (narrated sound, music bed, narrator on the format); #777 at 10d7805f (next merged in) | 19 of 20 house prompts identical; narration_text, format_advice, music check; test_narrated (7) | #853 FAIL: "no vocals" / "without any singing" flagged as asking for a voice; #777 no change, no link |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
