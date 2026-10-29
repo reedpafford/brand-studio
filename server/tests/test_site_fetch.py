@@ -36,12 +36,17 @@ def test_private_loopback_and_link_local_addresses_are_refused(host):
         check_address(f"https://{host}.example/", PUBLIC)
     with pytest.raises(Refused, match="Couldn't find"):
         check_address("https://nowhere.example/", PUBLIC)
-    assert check_address("https://shop.example/a", PUBLIC) == "https://shop.example/a"
+    assert check_address("https://shop.example/a", PUBLIC) == "93.184.216.34"  # the one to use
 
 
-def _client(routes: dict[str, httpx.Response]) -> httpx.Client:
+def _client(routes: dict[str, httpx.Response], seen: list | None = None) -> httpx.Client:
+    """Answers by the name asked for (the Host header): the URL itself holds the address."""
+
     def handler(request: httpx.Request) -> httpx.Response:
-        return routes[str(request.url)]
+        if seen is not None:
+            seen.append(request)
+        asked = f"{request.url.scheme}://{request.headers['host']}{request.url.raw_path.decode()}"
+        return routes[asked]
 
     return httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False)
 
@@ -91,3 +96,36 @@ def test_a_page_gives_its_words_colours_and_logo():
     assert page["description"] == "Treats dogs love."
     assert page["colours"] == ["#e4572e", "#2299cc"]  # white dropped, script ignored
     assert page["logo_url"] == "https://shop.example/img/logo.png"
+
+
+TEREDO = "2001:0:4136:e378:8000:63bf:f5ff:fffe"  # its client address is 10.0.0.1
+
+
+@pytest.mark.parametrize("ip", ["64:ff9b::7f00:1", "64:ff9b::a00:1", "::ffff:10.0.0.1",
+                                "2002:7f00:1::", TEREDO])  # fmt: skip
+def test_a_private_ipv4_inside_an_ipv6_address_is_refused(ip):
+    with pytest.raises(Refused, match="isn't a public website"):
+        check_address("https://x.example/", _dns({"x.example": ip}))
+    assert check_address("https://x.example/", _dns({"x.example": "64:ff9b::5db8:d822"}))
+
+
+def test_the_connection_goes_to_the_address_that_was_checked():
+    seen = []
+    page = _client({"https://shop.example/a": httpx.Response(200, text="ok")}, seen)
+    fetch("https://shop.example/a", client=page, resolve=PUBLIC)
+    asked = seen[0]
+    assert asked.url.host == "93.184.216.34"  # not looked up again: DNS can't swap it
+    assert asked.headers["host"] == "shop.example"
+    assert asked.extensions["sni_hostname"] == "shop.example"  # TLS checks the real name
+
+
+def test_a_slow_trickle_is_cut_off_at_the_deadline(monkeypatch):
+    clock = iter(range(0, 100, 7))  # each read 7 s on: under 10 s each, past 20 s in all
+    monkeypatch.setattr(site_fetch.time, "monotonic", lambda: next(clock))
+    slow = _client({"https://shop.example/": httpx.Response(200, content=iter([b"a"] * 10))})
+    with pytest.raises(Refused, match="too long"):
+        fetch("https://shop.example/", client=slow, resolve=PUBLIC)
+
+
+def test_no_proxy_from_the_environment():
+    assert site_fetch.new_client().trust_env is False
