@@ -1612,3 +1612,12 @@ test("switching the look re-reads the cast, so a role with no sheet in the new l
   await userEvent.click(await within(ask).findByRole("button", { name: "Switch" }));
   expect(await screen.findByText("Waiting on the cast")).toBeInTheDocument();
 });
+
+test("a storyboard total is one still's exact price times the stills, rounded once: 9 at 0.33 read 3, as charged", async () => {
+  setViewport(1440);
+  const nine = Array.from({ length: 9 }, (_, i) => waiting(i + 1, { file_id: null, still_credits: 1, still_exact_credits: 0.33 }));
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, nine] });
+  open("?step=storyboard");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Make 9 stills · 3 credits" })).toBeInTheDocument();
+});

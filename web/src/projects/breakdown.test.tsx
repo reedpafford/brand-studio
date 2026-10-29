@@ -57,7 +57,7 @@ test("with no breakdown it offers to make one and shows the cost", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
   open();
   expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Make the breakdown · 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Make the breakdown · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
   expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
 });
@@ -555,4 +555,10 @@ test("removing a place or a screen the video doesn't have says how to use it aga
   await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
   await userEvent.click(await screen.findByRole("button", { name: "Remove Bin Lot from this shot" }));
   expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
+});
+
+test("Make the breakdown shows the server's price for it (the clip prompts' rewrite included), not the writing rate", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "GET /projects/9/breakdown/price": [200, { credits: 12 }] });
+  open();
+  expect(await screen.findByRole("button", { name: "Make the breakdown · 12 credits" })).toBeInTheDocument();
 });

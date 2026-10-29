@@ -41,7 +41,16 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
   const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
-  const cost = rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
+  // What Make the shots charges (Next-Server's price sweep): the writing call, plus the clip prompts' rewrite once the
+  // video has them. Read with fetch until it is in the generated schema; a server without it falls back to the rate.
+  const price = useQuery({
+    queryKey: ["breakdown-price", projectId],
+    queryFn: async () => {
+      const r = await fetch(`${location.origin}/api/projects/${projectId}/breakdown/price`, { credentials: "include" });
+      return r.ok ? ((await r.json()) as { credits: number }).credits : null;
+    },
+  });
+  const cost = price.isPending ? null : (price.data ?? rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit); // null: not known yet, the press waits
 
   // Our own run: the job we started, or any job the server says is a breakdown (a song or narrated
   // video's is song_breakdown / narrated_breakdown; Approve the plan starts it from another step).
@@ -79,7 +88,7 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
   const row = current.data;
 
   // Past a limit an editor's paid button is disabled with the reason; nobody is asked to approve.
-  const stop = stopFor(cost);
+  const stop = stopFor(cost ?? undefined);
   const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
     <Button
       variant={opts.primary ? "primary" : "secondary"}
