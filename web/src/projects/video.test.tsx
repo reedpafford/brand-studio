@@ -1289,3 +1289,17 @@ test("the credits meter follows the video's jobs: when one finishes, the project
   done = true; // the job finishes; the job list polls while it runs
   expect(await screen.findByText(/^13 \/ 24 credits/, {}, { timeout: 8000 })).toBeInTheDocument();
 }, 20000);
+
+test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "PATCH /projects/9": [200, project] });
+  open("");
+  await userEvent.click(await screen.findByRole("button", { name: "1:1" }));
+  const ask = screen.getByRole("alertdialog", { name: "Change to 1:1?" });
+  expect(ask).toHaveTextContent("The 1 still was drawn for 9:16 and stays that way.");
+  await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
+  expect(calls.some((c) => c.key === "PATCH /projects/9")).toBe(false);
+  await userEvent.click(screen.getByRole("button", { name: "1:1" }));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Change the shape · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toEqual({ aspect_ratio: "1:1" }));
+});
