@@ -3974,6 +3974,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Review
+         * @description The video's items with Advice, in one place (Clips' header and Final cut).
+         */
+        get: operations["review_projects__project_id__checks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/checks/{check_id}/findings/{index}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Looks Fine
+         * @description Looks fine: the finding goes from the card, kept in the item's history (who, when).
+         */
+        post: operations["looks_fine_projects__project_id__checks__check_id__findings__index__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -4011,6 +4051,23 @@ export interface components {
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
+        };
+        /**
+         * ApproveAllChecked
+         * @description Stills and takes: also how many of those approved carry the check's Advice (P4).
+         */
+        ApproveAllChecked: {
+            /** Approved */
+            approved: number[];
+            /** Skipped */
+            skipped: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Approved With Advice
+             * @default 0
+             */
+            approved_with_advice: number;
         };
         /** ApproveAllOut */
         ApproveAllOut: {
@@ -4482,6 +4539,15 @@ export interface components {
             /** Note */
             note: string;
         };
+        /** CheckOut */
+        CheckOut: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+        };
         /** Clip */
         Clip: {
             /**
@@ -4604,6 +4670,13 @@ export interface components {
             text?: string | null;
             /** Default */
             default?: boolean | null;
+        };
+        /** DialogueLine */
+        DialogueLine: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
         };
         /** DirectionUsed */
         DirectionUsed: {
@@ -4743,6 +4816,17 @@ export interface components {
              */
             created_at: string;
         };
+        /** FindingOut */
+        FindingOut: {
+            /** Index */
+            index: number;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /** Note */
+            note: string;
+        };
         /** FixIn */
         FixIn: {
             /**
@@ -4772,6 +4856,19 @@ export interface components {
             reason: string;
             job?: components["schemas"]["JobOut"] | null;
             clip: components["schemas"]["ProjectClipOut"];
+        };
+        /** FlaggedOut */
+        FlaggedOut: {
+            /** Kind */
+            kind: string;
+            /** Id */
+            id: number;
+            /** Clip Id */
+            clip_id: string;
+            /** Label */
+            label: string;
+            /** Findings */
+            findings: number;
         };
         /** FrameIn */
         FrameIn: {
@@ -4832,6 +4929,7 @@ export interface components {
             redo_credits?: number | null;
             /** Redo Blocked */
             redo_blocked?: string | null;
+            check?: components["schemas"]["CheckOut"] | null;
         };
         /** GuideIn */
         GuideIn: {
@@ -5949,6 +6047,13 @@ export interface components {
              * @default false
              */
             final_out_of_date: boolean;
+            /**
+             * Needs You
+             * @default false
+             */
+            needs_you: boolean;
+            /** Waiting On */
+            waiting_on?: string | null;
         };
         /** ProjectPatch */
         ProjectPatch: {
@@ -6126,6 +6231,17 @@ export interface components {
              */
             note: string;
         };
+        /** ReviewOut */
+        ReviewOut: {
+            /** On */
+            on: boolean;
+            /** Credits Per Check */
+            credits_per_check: number;
+            /** Check Credits Per Video */
+            check_credits_per_video: number;
+            /** Items */
+            items: components["schemas"]["FlaggedOut"][];
+        };
         /** RewriteIn */
         RewriteIn: {
             /** Clip Id */
@@ -6280,6 +6396,8 @@ export interface components {
             reference_replace?: string | null;
             /** New Lines */
             new_lines?: boolean | null;
+            /** Kind */
+            kind?: ("story" | "narrated") | null;
             /** Look */
             look?: string | null;
         };
@@ -6350,6 +6468,15 @@ export interface components {
              * @default false
              */
             running: boolean;
+        };
+        /** Sentence */
+        Sentence: {
+            /** Text */
+            text: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
         };
         /** SetupIn */
         SetupIn: {
@@ -6728,6 +6855,11 @@ export interface components {
              * @default
              */
             voice: string;
+            /**
+             * Sentences
+             * @default []
+             */
+            sentences: components["schemas"]["Sentence"][];
             /** Untrimmed Seconds */
             untrimmed_seconds?: number | null;
         };
@@ -6743,6 +6875,11 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
             /** Songs Note */
             songs_note?: string | null;
         };
@@ -6904,6 +7041,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            check?: components["schemas"]["CheckOut"] | null;
         };
         /** TextFitOut */
         TextFitOut: {
@@ -7294,6 +7432,11 @@ export interface components {
             keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
             /** Songs Note */
             songs_note?: string | null;
             /** Song Take Id */
@@ -7623,6 +7766,16 @@ export interface components {
              * @default []
              */
             claims_to_check: string[];
+            /**
+             * Reads Narrated
+             * @default false
+             */
+            reads_narrated: boolean;
+            /**
+             * Dialogue Lines
+             * @default []
+             */
+            dialogue_lines: components["schemas"]["DialogueLine"][];
             song_study?: components["schemas"]["SongStudyOut"] | null;
         };
         /** EstimateOut */
@@ -9642,7 +9795,7 @@ export interface operations {
                 archived?: boolean;
                 q?: string;
                 mine?: boolean;
-                status?: ("making" | "done") | null;
+                status?: ("making" | "done" | "needs_you") | null;
             };
             header?: never;
             path?: never;
@@ -13340,7 +13493,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApproveAllOut"];
+                    "application/json": components["schemas"]["ApproveAllChecked"];
                 };
             };
             /** @description Validation Error */
@@ -13876,7 +14029,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApproveAllOut"];
+                    "application/json": components["schemas"]["ApproveAllChecked"];
                 };
             };
             /** @description Validation Error */
@@ -15622,6 +15775,70 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_projects__project_id__checks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    looks_fine_projects__project_id__checks__check_id__findings__index__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                check_id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckOut"];
+                };
             };
             /** @description Validation Error */
             422: {

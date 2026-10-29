@@ -305,6 +305,12 @@ def save_take(db: Session, job: Job) -> None:
     db.add(take)
     db.flush()
     pick(clip, take)
+    from app.item_checks import queue_safely  # P4: Advice only, never a block
+
+    breakdown = db.get(BreakdownVersion, clip.breakdown_id).data
+    shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
+    refs = [r["id"] for r in clip.references or [] if r["kind"] == "image"]
+    queue_safely(db, job, "take", take.id, take.file_id, refs, clip.breakdown_id, shots)
 
 
 def pick(clip: ProjectClip, take: ClipTake) -> None:

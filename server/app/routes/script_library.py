@@ -40,6 +40,11 @@ Slot = Annotated[int, Field(ge=0, le=lib.MAX_SLOT)]
 StyleLine = Annotated[str, StringConstraints(strip_whitespace=True, max_length=20_000)]
 
 
+SONG_STAYS = (
+    "A song's words are lyrics, so it stays a song. To try this another way, start a new script."
+)
+
+
 class ScriptIn(BaseModel):
     brand_id: int
     title: Title
@@ -69,6 +74,11 @@ class BulkIn(BaseModel):
 MAX_REELS = 20  # links and uploaded videos together, per batch
 
 
+class DialogueLine(BaseModel):
+    line: int  # numbered as the script's lines are
+    text: str
+
+
 class ScriptPatch(BaseModel):
     title: Title | None = None
     description: LongText | None = None
@@ -76,6 +86,9 @@ class ScriptPatch(BaseModel):
     reference_id: str | None = None
     reference_replace: LongText | None = None
     new_lines: bool | None = None  # until version A is approved
+    kind: Literal["story", "narrated"] | None = (
+        None  # ST0: Dialogue <-> Narrated, before publishing
+    )
     look: str | None = None  # ST1: before publishing; Undo is a PATCH back (changing back is free)
 
 
@@ -152,6 +165,10 @@ class VersionOut(VersionSummary):
     )
     directions_job: DirectionsJob | None = None  # the press in hand (None: idle or done)
     claims_to_check: list[str] = []  # the used direction's claims, until the owner keeps them
+    # The narrator check (flows ST0, N1): a Dialogue version all one narrator could be
+    # Narrated; on a Narrated one, the lines spoken on camera the narrator will read
+    reads_narrated: bool = False
+    dialogue_lines: list[DialogueLine] = []
     song_study: SongStudyOut | None = None  # S3a (app/song_study.shown)
 
 
@@ -202,6 +219,21 @@ class ScriptOut(ScriptRow):
 def _person(db: Session, user_id: int | None) -> Person | None:
     user = db.get(User, user_id) if user_id else None
     return Person(id=user.id, name=user.name) if user else None
+
+
+def _narrator(db: Session, draft: ScriptDraft) -> dict:
+    """The Director's narrator check on the version's format (check.format_advice)."""
+    from app.prompts import check
+
+    kind = db.get(Script, draft.script_id).kind
+    if kind == "story":
+        return {"reads_narrated": bool(check.format_advice(draft.text, "dialogue"))}
+    if kind != "narrated":
+        return {}
+    lines = draft.text.splitlines()
+    numbers = [int(a.split("line ", 1)[1].split(":", 1)[0])
+               for a in check.format_advice(draft.text, "narrated")]  # fmt: skip
+    return {"dialogue_lines": [DialogueLine(line=n, text=lines[n - 1].strip()) for n in numbers]}
 
 
 def _directions(db: Session, draft: ScriptDraft) -> dict:
@@ -261,6 +293,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         singer=draft.singer,
         spoken_end_line=draft.spoken_end_line,
         **_directions(db, draft),
+        **_narrator(db, draft),
         song_study=song_study.shown(db, draft),
     )
 
@@ -525,6 +558,10 @@ def update_script(
         lib.editable(user, script)
     if "reference_id" in values:
         _check_reference(request, values["reference_id"])
+    if values.get("kind") is not None:  # ST0: same words, other steps; Undo is a PATCH back
+        lib.editable(user, script)
+        if script.kind == "song":
+            raise HTTPException(409, SONG_STAYS)
     if values.get("look") is not None:
         lib.editable(user, script)  # a published script's look is final (ST1)
         values["look"] = looks.pick(db, user, values["look"])
@@ -758,7 +795,7 @@ def publish(script_id: int, user: User = Depends(current_user), db: Session = De
         if songless := [d for d in versions if song_takes.preferred(db, d) is None]:
             name = "ABC"[songless[0].slot]
             if script.kind == "narrated":
-                said = f"Make the narration first: version {name} has none of its words in use."
+                said = f"Make the narration first: version {name} has no narration yet."
                 raise HTTPException(409, f"{said} Press Make the narration.")
             raise HTTPException(409, f"Make the song first: version {name} has no Preferred take "
                                      "of its lyrics. Press Make 2 takes.")  # fmt: skip

@@ -1,3 +1,4 @@
+import { AutoFixLine, RetryLine } from "./AutoFixes";
 import { useState, type ReactNode } from "react";
 import { Check, TriangleAlert } from "lucide-react";
 import { Badge, Button } from "../components";
@@ -10,6 +11,7 @@ import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
+import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -88,12 +90,14 @@ export function ClipCard(props: {
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [seed, setSeed] = useState<{ text: string; n: number }>();
   const lastChange = c.change as ChangeState;
   // A take that failed before the prompt was changed (Change it, or the free fix) is about the old prompt: it no longer
   // marks the clip as failed. The change's job_id is its rewrite's, or for a fix in code the project's newest job then.
   const failedBefore = props.job?.status === "failed" && lastChange?.status === "done" && (lastChange.job_id ?? 0) >= props.job.id;
   const failed = props.job?.status === "failed" && !failedBefore;
   const picked = c.takes.find((t) => t.id === c.picked_take_id);
+  const check = (picked as (typeof picked & { check?: ItemCheck }) | undefined)?.check; // the picked take's advisory check (P4)
   // The chip says what the card holds now; a failed newest take is a line under it (it never hides a good picked take).
   const status = c.approved ? "Approved" : props.busy ? null : c.stale ? "Out of date" : picked ? `Take ${picked.number} · ready to check` : failed ? "Didn't finish" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
@@ -116,7 +120,8 @@ export function ClipCard(props: {
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{c.clip_id} · {c.seconds} s</span>
         <span className={`ml-auto rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : status === "Didn't finish" ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
-          {status ?? (
+          {status && `${status}${checkedMark(check)}`}
+          {!status && (
             <>
               {props.job?.status === "queued" ? "Waiting " : "Making… "}
               {props.job && <Elapsed since={props.job.created_at} />}
@@ -130,8 +135,10 @@ export function ClipCard(props: {
           <span>{failureLine(props.job?.error)}</span>
         </p>
       )}
+      {picked && <CheckNotes check={check} projectId={props.projectId} label={`clip ${c.clip_id}`} onChange={(text) => (props.review && !c.stale ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setNote(text))} />}
       {failedBefore && <p role="status" className="text-sm text-muted">The last take, before your change, failed.</p>}
       {props.job?.waiting && <p role="status" className="text-sm text-muted">{props.job.waiting}</p>}
+      <RetryLine clip={c} />
       {c.take_warning && !props.busy && <p role="status" className="text-sm text-warning">{c.take_warning}</p>}
       <div className="grid place-items-center overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect), maxHeight: "24rem" }}>
         {c.file_id ? (
@@ -149,6 +156,7 @@ export function ClipCard(props: {
           <PromptText clip={c} />
         </div>
       )}
+      <AutoFixLine projectId={props.projectId} clip={c} />
       {blocking(c.problems, c.kept).length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
           {blocking(c.problems, c.kept).map((p) => (
@@ -229,6 +237,7 @@ export function ClipCard(props: {
           hold={props.busy ? "This one is still being made" : null}
           stopFor={props.stopFor}
           snapshot={c.picked_take_id}
+          seed={seed}
           onUndo={c.takes.length > 1 ? (was) => props.onPick(c.takes.some((t) => t.id === was) ? was! : c.takes[c.takes.length - 2].id) : undefined}
         />
       )}

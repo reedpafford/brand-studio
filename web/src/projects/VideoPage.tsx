@@ -11,6 +11,7 @@ import { AssetsPane, useAssets } from "./AssetsPane";
 import { notInShots } from "./AssetCard";
 import { BreakdownPane } from "./BreakdownPane";
 import { PlanStep } from "./PlanStep";
+import { CheckSummary } from "./Checks";
 import { useBriefChoices } from "./BriefPickers";
 import { ClipsPane } from "./ClipsPane";
 import { DownloadsPane } from "./DownloadsPane";
@@ -142,6 +143,7 @@ export function VideoPage() {
         <div>
           <h2 className="type-section">{label}</h2>
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
+          {(step === "storyboard" || step === "clips" || step === "downloads") && <CheckSummary projectId={id} />}
         </div>
       </div>
       {step === "plan" && (
@@ -156,7 +158,7 @@ export function VideoPage() {
           }
         />
       )}
-      {step === "cast" && <AssetsPane projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} ownScript={p.own_script} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "cast" && <AssetsPane bar projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} ownScript={p.own_script} used={p.credits_used} budget={p.budget_credits} />}
       {step === "storyboard" && <StoryboardPane castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
