@@ -84,6 +84,7 @@ class PlanOut(BaseModel):
     job: JobState | None = None
     estimate_credits: int  # Make the plan / Make a new plan
     approve_credits: int  # Approve the plan · makes the shots (the breakdown's price)
+    change_scene_credits: int = 0  # Change this scene… (one small call)
     stop: str | None = None  # why the paid presses are off (the week, the budget)
     out_of_date: bool = False  # made for older words
     version: int = 0
@@ -157,7 +158,7 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
     if stop:
         stop = f"Making the plan {stop}"
     base = PlanOut(status="ready", source="claude", job=job, estimate_credits=price,
-                   approve_credits=price, stop=stop)  # fmt: skip
+                   approve_credits=price, change_scene_credits=price, stop=stop)  # fmt: skip
     if plan is None:
         return base
     known = names(assets(db, project))
@@ -223,11 +224,51 @@ def make(
     """Make the plan, or Make a new plan (the one in hand goes to Earlier plans): one paid
     Claude call at the price shown."""
     project, version = _working(db, user, project_id)
+    _one_at_a_time(db, project)
+    data = plans.job_input(db, project, version, body.note if body else "")
+    return enqueue(db, user, plans.KIND, data, project=project, provider="claude")
+
+
+@router.post(
+    "/update", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)]
+)
+def update(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Update the plan (made for older words): a new plan that keeps the scenes whose lines
+    didn't change, at the plan's price; the one in hand goes to Earlier plans."""
+    project, version = _working(db, user, project_id)
+    plan = plans.current(db, project)
+    if plan is None or not plans.out_of_date(db, project, plan):
+        raise HTTPException(409, "The plan is up to date with the script.")
+    _one_at_a_time(db, project)
+    data = plans.job_input(db, project, version, plans.update_note(plan))
+    return enqueue(db, user, plans.KIND, data, project=project, provider="claude")
+
+
+@router.post("/scenes/{scene_id}/change", response_model=JobOut, status_code=201,
+             dependencies=[Depends(generation_on)])  # fmt: skip
+def change_scene(
+    project_id: int,
+    scene_id: int,
+    body: NoteIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Change this scene…: a note rewrites only that scene's actions (its lines stay), one
+    small paid call; the plan before goes to Earlier plans."""
+    project, version = _working(db, user, project_id)
+    if not body.note.strip():
+        raise HTTPException(422, "Say what to change in this scene.")
+    if plans.current(db, project) is None:
+        raise HTTPException(404, "This video has no plan yet.")
+    _one_at_a_time(db, project)
+    data = plans.scene_input(db, project, version, scene_id, body.note)
+    return enqueue(db, user, plans.KIND, data, project=project, provider="claude")
+
+
+def _one_at_a_time(db: Session, project) -> None:
     job = plans.latest_job(db, project)
     if job and job.status in plans.WAITING:
         raise HTTPException(409, "A plan is already being made.")
-    data = plans.job_input(db, project, version, body.note if body else "")
-    return enqueue(db, user, plans.KIND, data, project=project, provider="claude")
 
 
 @router.post("/stop", status_code=204)

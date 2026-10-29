@@ -562,6 +562,18 @@ class FakeWriter:
         assets = {line.split(" | ")[0] for line in _tag(prompt, "assets").splitlines()}
         return {"clips": [_clip(c, shots, f"frame:{c['id']}" in assets) for c in bd["clips"]]}
 
+    def _plan_scene(self, prompt):
+        """The asked scene, its lines as they are, each action made bigger."""
+        want = int(_tag(prompt, "scene"))
+        block = prompt[prompt.rfind("<plan>") :]
+        head = re.search(rf"^Scene {want} \((.*?)\): (.*?) · (.*)$", block, re.M)
+        rest = block[head.end() :]
+        rest = rest[: m.start()] if (m := re.search(r"^Scene \d+ ", rest, re.M)) else rest
+        lines = [{"line": int(n), "action": "Bigger: they react twice as hard.", "product": None}
+                 for n in re.findall(r"^(\d+)\|", rest, re.M)]  # fmt: skip
+        cast = [c.strip() for c in head[3].split(",") if c.strip()]
+        return {"id": want, "part": head[1], "place": head[2], "cast": cast, "lines": lines}
+
     def _plan(self, prompt):
         """Every script line once, in order: one scene per heading, the cast in each."""
         cast = re.findall(r"^((?:char|slot):\d+)", _tag(prompt, "cast"), re.M)
