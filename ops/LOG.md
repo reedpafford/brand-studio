@@ -1,4 +1,12 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-28 23:44 · Into `next`: #753 the rest of the styles and per-style sample tests; #749 UX audit; #756 deploy lock; #736 Flow-QA checklist; #740 flow map and data plan; #741 test site as its own Compose project; #745 style registry; #737 song-ad screen plan
+- 2026-10-28 23:42 · #754 Clips: Change it's price is read again when a take is made (rewrite + take) merged
+- 2026-10-28 23:33 · #751 Clips: Make clip says why it can't be pressed, and marks Looks good for you merged
+- 2026-10-28 23:32 · #752 Live deploy: the server lock waits at most 20 minutes, then stops with a plain error merged
+- 2026-10-28 23:19 · #744 LIVE CHANGE: live's Caddy also answers on port 8443 for the test site merged
+- 2026-10-28 22:58 · Decisions (#747): Next rulings: a script's language is chosen when it's written, "Make a copy in another language" makes a translated unpublished copy; a library character in another style gets a per-video look in that style (rule 12) merged
+- 2026-10-28 22:46 · Decision (#739): rule 31 says which song-ad choices are per video (lyrics are the script's lines; preferred take, Sung or B-roll, re-timing and new takes are each video's own) merged
+- 2026-10-28 22:46 · #738 ops: HANDOFF/LOG refresh as of a330c3f merged (by the Producer)
 - 2026-10-28 22:44 · #730 Clips: a failed take's line fits what happened since; Change it says what it does merged
 - 2026-10-28 22:40 · Agents (#735): the Brand Studio Next team added to ops/AGENTS.md merged (by the Producer)
 - 2026-10-28 22:38 · Decision (#734, Reed): the Phase 2 spec approved with changes: House style plus styles (Disney Pixar, Song, Zack D, Skeleton first), other models at real Replicate cost (rule 2), music behind one interface, song ads are B-roll timed to the track, built on branch `next` as a separate test site (rules 2 and 20; ops/NEXT.md) merged
