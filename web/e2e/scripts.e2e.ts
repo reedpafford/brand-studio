@@ -11,7 +11,7 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect(page.getByText("No scripts for Script Library Co yet.")).toBeVisible();
 
   await page.getByRole("button", { name: "New script" }).first().click();
-  await page.getByRole("menuitem", { name: /Story/ }).click();
+  await page.getByRole("menuitem", { name: /Dialogue/ }).click();
   await page.getByRole("button", { name: "Rename Untitled script" }).click();
   await page.getByRole("textbox", { name: "Title" }).fill("Bo tries salmon");
   await page.getByRole("button", { name: "Save", exact: true }).click();

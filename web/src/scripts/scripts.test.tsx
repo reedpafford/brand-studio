@@ -121,7 +121,7 @@ test("New script asks Story or Song; Story makes an untitled draft at once and o
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
-  await userEvent.dblClick(screen.getByRole("menuitem", { name: /Story/ })); // a fast double tap
+  await userEvent.dblClick(screen.getByRole("menuitem", { name: /Dialogue/ })); // a fast double tap
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
   expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
