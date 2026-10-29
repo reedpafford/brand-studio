@@ -1,4 +1,8 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 03:58 · Into `next`: #781 song and Change song on the Breakdown; #794 Director adapt a script, sounds-like, length; #802 a video's own takes are never Preferred; #800 song sidecar in data.md; #807, #811 Reed's song workflow recipe and flow map; #766, #771, #779 Next-Layout words for Clips, Storyboard and small words; #787 UX audit fold-in; #776, #806 Flow-QA checklists
+- 2026-10-29 03:42 · Process (#813): three push rules for agents: check the PR is still open before every push, branch every PR from its base (never from another open PR), don't push to a head after QA passes it unless the Producer asks merged
+- 2026-10-29 03:15 · #804 Usage says Finished · changes waiting too, and In production's count of them links to Usage merged
+- 2026-10-29 02:52 · #805 ops: HANDOFF/LOG refresh as of 12e92b4 merged (by the Producer)
 - 2026-10-29 02:58 · Into `next`: #759, #775, #783 song ads web; #755 Director song ads; #795, #796, #797 Iron Paws pilot notes and flows; #763 song pilot directions; #780 flow map LW3/M16; #778 prices hold their place; #772 UX audit part 6
 - 2026-10-29 02:37 · #801 Redo this frame names the way on when the script moved (QA) merged
 - 2026-10-29 02:36 · #798, #792 Usage's video rows say "changes waiting" too, read once per list (LW2); a version's length is its video's once the video has a breakdown (LW9) merged
