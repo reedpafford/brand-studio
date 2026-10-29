@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, merge_roles, music, narration, rewritten
+from app import advice, merge_roles, music, narration, rewritten, song_study
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -31,6 +31,7 @@ from app.routes.script_import import UNTITLED, one_at_a_time, prepare
 from app.routes.scripts import ScriptText
 from app.routes.uploads import get_upload
 from app.schemas import LongText, UtcTime
+from app.song_study import SongStudyOut
 
 router = APIRouter(prefix="/scripts", tags=["script library"])
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -149,6 +150,7 @@ class VersionOut(VersionSummary):
     )
     directions_job: DirectionsJob | None = None  # the press in hand (None: idle or done)
     claims_to_check: list[str] = []  # the used direction's claims, until the owner keeps them
+    song_study: SongStudyOut | None = None  # S3a (app/song_study.shown)
 
 
 class ReelRow(BaseModel):
@@ -256,6 +258,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         singer=draft.singer,
         spoken_end_line=draft.spoken_end_line,
         **_directions(db, draft),
+        song_study=song_study.shown(db, draft),
     )
 
 

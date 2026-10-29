@@ -1,13 +1,14 @@
 """Free work done on our own server (`paid = False`, so it runs even with generation off):
-`reel_prepare` (app/reel.py) and `song_timing` (app/song_timing.py). Files it makes are handed
-to the worker as `local://` paths, which `fetch` reads once and deletes."""
+`reel_prepare` (app/reel.py), `song_timing` (app/song_timing.py) and `song_study`
+(app/song_study.py). Files it makes are handed to the worker as `local://` paths, which
+`fetch` reads once and deletes."""
 
 import shutil
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from app import narration, reel, song_timing
+from app import narration, reel, song_study, song_timing
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg"}
@@ -25,9 +26,10 @@ class LocalProvider:
         fetch_link: Callable[[str, Path], Path] = reel.fetch,
         hear_song: Callable[[Path, str], list[dict]] = song_timing.words,
         hear_voice: Callable[[Path, str], list[dict]] = song_timing.words,
+        hear_study: Callable[[Path], list[dict]] = song_study.hear,
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
-        self.hear_song, self.hear_voice = hear_song, hear_voice
+        self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study
         self.root = Path(tempfile.mkdtemp(prefix="bs-local-"))
 
     def run(self, kind: str, input: dict) -> Result:
@@ -35,6 +37,8 @@ class LocalProvider:
             return self._time_song(input)
         if kind == "narration_timing":
             return self._time_narration(input)
+        if kind == "song_study":
+            return self._study(input)
         if kind != "reel_prepare":
             raise ValueError(f"Unknown local job {kind!r}.")
         folder = Path(tempfile.mkdtemp(dir=self.root))
@@ -77,6 +81,32 @@ class LocalProvider:
             shutil.rmtree(folder, ignore_errors=True)
             return Result("succeeded", output={"timing": timing})
         return Result("succeeded", output={"timing": timing}, files=[f"local://{trimmed}"])
+
+    def _study(self, input: dict) -> Result:
+        """A song ad's study and its frames; a plain reason when it can't be read. An
+        uploaded video is deleted either way: only the study and its frames are kept."""
+        folder = Path(tempfile.mkdtemp(dir=self.root))
+        try:
+            video = folder / "reel.mp4"
+            if input.get("url"):
+                video = self.fetch_link(input["url"], folder)
+            else:
+                video.write_bytes(self.storage.get(input["video_key"]))
+            found, frames = song_study.study(video, folder, hear=self.hear_study)
+        except reel.Refused as no:
+            shutil.rmtree(folder, ignore_errors=True)
+            return Result("succeeded", output={"problem": no.message, "problem_code": no.code})
+        except Exception:
+            shutil.rmtree(folder, ignore_errors=True)
+            raise
+        finally:
+            if input.get("video_key"):
+                self.storage.delete(input["video_key"])
+        for f in folder.iterdir():  # the video and anything else: only the frames stay
+            if f not in {p for p, _ in frames}:
+                f.unlink()
+        output = {**found, "frame_times": [t for _, t in frames]}
+        return Result("succeeded", output=output, files=[f"local://{p}" for p, _ in frames])
 
     def _prepare(self, input: dict, folder: Path) -> dict:
         if input.get("url"):

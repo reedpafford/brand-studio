@@ -151,6 +151,37 @@ def hear_voice(path: Path, text: str) -> list[dict]:
     return heard
 
 
+# The stand-in song ad's words (no model download): verse, chorus, verse, chorus, so every
+# section of a study shows. Its lines are spread over the video's first 90 %.
+STUDY = [
+    "Morning walk and he won't eat his bowl",
+    "Scratching at his ears from dawn to dark",
+    "That's my gut breaking down",
+    "That's my gut breaking down",
+    "Found a scoop that turned his whole day round",
+    "Now he's running every lap around the park",
+    "That's my gut breaking down",
+    "That's my gut breaking down",
+]
+
+
+def hear_study(path: Path) -> list[dict]:
+    """Stand-in Whisper for a song-ad study: STUDY's lines, a short pause after each pair."""
+    from app.song_timing import length
+
+    step = length(path) * 0.9 / (len(STUDY) + len(STUDY) // 2)
+    out, t = [], step / 2
+    for n, text in enumerate(STUDY):
+        words = text.split()
+        each = step * 0.8 / len(words)
+        out.append({"start": round(t, 2), "end": round(t + step * 0.8, 2), "text": text,
+                    "words": [{"word": w, "start": round(t + k * each, 2),
+                               "end": round(t + (k + 1) * each, 2)}
+                              for k, w in enumerate(words)]})  # fmt: skip
+        t += step * (2 if n % 2 else 1)
+    return out
+
+
 def refuse_link(url: str, folder: Path) -> Path:
     """Local runs never reach Instagram: a link always says to upload instead."""
     from app.reel import BLOCKED, Refused

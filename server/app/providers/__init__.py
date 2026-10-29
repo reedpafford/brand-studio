@@ -58,13 +58,15 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             FakeSuno,
             FakeWriter,
             hear_song,
+            hear_study,
             hear_voice,
             refuse_link,
             transcript,
         )
 
         local = LocalProvider(storage, transcribe=transcript, fetch_link=refuse_link,
-                              hear_song=hear_song, hear_voice=hear_voice)  # fmt: skip
+                              hear_song=hear_song, hear_voice=hear_voice,
+                              hear_study=hear_study)  # fmt: skip
         return {
             "fake": FakeProvider(),
             "replicate": FakeMedia(),

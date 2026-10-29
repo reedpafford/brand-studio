@@ -37,7 +37,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
       await queryClient.invalidateQueries({ queryKey: ["scripts"] });
       await queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] });
       toast(`Version ${letter} is yours. Next: the breakdown.`);
-      navigate(`/b/${brandId}/projects/${made.project_id}?step=breakdown`);
+      navigate(`/b/${brandId}/projects/${made.project_id}?step=plan`);
     },
   });
   // With no saved breakdown, starting one is a paid call; with one saved, making the version is free.
