@@ -63,6 +63,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Another editor's video (#964) | The server now refuses every change by a second editor (403), but the screen still shows Approve, Approve all, Make… live on their video | Screens: when the viewer didn't make the video and isn't the owner, one banner says who can change it and the step presses are greyed; merge with #964 |
 | Import from website: Undo (#971) | Undo after a later edit in the brand kit throws that edit away (a colour added after Save is gone; a later logo is replaced) | Undo removes only the colours Save added, and puts the logo back only if it's still the one Save stored |
 | Language test: Undo of Reject (#972) | Reject switches a language off; Undo clears the reject but leaves it off, though it was on | Remember whether it was on when rejected, and Undo puts that back |
+| Real look samples with no key (#970) | Switched on without a Replicate key: the page says "made for real", and every press fails in a lane with no provider | `lane()` and the note use `samples_on(settings)` (switch and key) |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -339,6 +340,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #963 Preferred and going back (web, OR3) | 51631ffd | PASS: breakdown and clip prompt Go back wait with the server's reason while later work is being made; 81/81. Merge after #957 |
 | 2026-10-29 | #969 Look change: the typed call | 0c22968e | PASS: "up to" wording, refusals show; scripts 262/262 |
 | 2026-10-29 | #968 Flavour from the script (n03) | 83c31b43 | PASS: defaults per version, a deleted flavour starts on Auto, Auto via Video settings; 34/34 |
-| 2026-10-29 | #970 Real look samples on the test site | b16138c0 | PASS: own switch and budget, said before the press, stuck lane jobs fail cleanly; 10/10 |
+| 2026-10-29 | #970 Real look samples on the test site | b16138c0 | FAIL (QA-4; my PASS corrected): switch on with no key says "real" and sends the job to a lane with no provider |
 | 2026-10-29 | #972 Language tests switch a language on (n14) | 2b25bb54 | FAIL: Undo of Reject leaves the language off. Price shown, owner only, editors limited to On languages; 6/6 |
 | 2026-10-29 | #974 A role's own look drawn in another look holds the still | 4bf38f35 | PASS: refused before any charge; Cast offers Make a look in the video's look; House again without a new look is usable; 33/33. Next: n12 (free switch back after a new look) |
