@@ -250,3 +250,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #893 at dd2fbb2d (merge; "Check the scene plan" in Needs you) | plan_route + plan + needs_you + migrations (15) | PASS |
 | 2026-10-29 | #916 at 89a77563 (BR1 screens: voice, CTA lines, defaults) | code walk; vitest brand (29) | Producer: not intended; Next-Screens to give editors tone notes, never say and end line back (re-walk) |
 | 2026-10-29 | #915 at 685c295f (Videos home groups; /projects → Videos) | Playwright 390 + 1440; vitest videos + projects (349) | PASS |
+| 2026-10-29 | #917 at f9f32934 (M14 part 2 server: Update everything after this) | code walk; update_after + storyboard (11) | PASS |
