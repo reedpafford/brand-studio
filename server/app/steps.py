@@ -45,23 +45,26 @@ def step_failed(db: Session, job: Job) -> None:
 
 
 def recheck(job_input: dict, result, ask):
-    """Song directions: the Director's check on the answer; with fixes, the one rewrite
-    inside the same job (`ask` runs it; charged once: credits never pass the shown price),
-    and if that still needs fixing the job fails, so nothing is shown or charged (rule 22)."""
+    """Song directions and the scene plan: the Director's check on the answer; with fixes,
+    the one rewrite inside the same job (`ask` runs it; charged once: credits never pass the
+    shown price), and if that still needs fixing the job fails, so nothing is shown or charged
+    (rule 22)."""
+    from app import plans
     from app import song_directions as sd
     from app.providers import Result
 
-    if job_input.get("step") != sd.STEP or result.state != "succeeded":
+    step = {sd.STEP: sd, plans.STEP: plans}.get(job_input.get("step"))
+    if step is None or result.state != "succeeded":
         return result
-    output, fixes = sd.checked(job_input, result.output)
+    output, fixes = step.checked(job_input, result.output)
     if fixes:
-        second = ask(sd.again(job_input, fixes))
+        second = ask(step.again(job_input, fixes))
         second.usage = [*result.usage, *second.usage]  # both calls' dollars are listed
         if second.state != "succeeded":
             return second
-        result, (output, fixes) = second, sd.checked(job_input, second.output)
+        result, (output, fixes) = second, step.checked(job_input, second.output)
     if fixes:
-        return Result("failed", error=sd.STILL + "; ".join(fixes), usage=result.usage)
+        return Result("failed", error=step.STILL + "; ".join(fixes), usage=result.usage)
     result.output = output
     return result
 
@@ -72,6 +75,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_prompts import save_clip_prompts
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
+    from app.plans import save as save_plan
     from app.reel_read import follow_on, save_watch
     from app.routes.improve import save_improved
     from app.routes.script_import import save_prepared
@@ -88,6 +92,7 @@ def save_step_result(db: Session, job: Job) -> None:
     handlers = {
         "enhance": save_suggestions,
         "breakdown": save_breakdown,
+        "plan": save_plan,
         "song_breakdown": save_breakdown,
         "storyboard": save_frames,
         "improve": save_improved,

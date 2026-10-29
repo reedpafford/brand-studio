@@ -3866,6 +3866,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read
+         * @description The plan, or 404 when there's none and none is being made (E).
+         */
+        get: operations["read_projects__project_id__plan_get"];
+        /**
+         * Edit
+         * @description Every edit (place, actions, ★, cast, a line moved, Split here, Join with next) sends
+         *     the whole scene list; free. Undo is the scenes from before, sent back.
+         */
+        put: operations["edit_projects__project_id__plan_put"];
+        /**
+         * Make
+         * @description Make the plan, or Make a new plan (the one in hand goes to Earlier plans): one paid
+         *     Claude call at the price shown.
+         */
+        post: operations["make_projects__project_id__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/plan/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop
+         * @description Stop the plan being made: nothing charged, the plan before stays.
+         */
+        post: operations["stop_projects__project_id__plan_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/plan/by-hand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * By Hand
+         * @description Write it myself: an empty card per scene of the script, free.
+         */
+        post: operations["by_hand_projects__project_id__plan_by_hand_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/plan/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description Approve the plan · makes the shots: the plan is approved and its breakdown is made
+         *     from it, at the breakdown's price. If the shots can't be paid for, nothing changes.
+         */
+        post: operations["approve_projects__project_id__plan_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/plan/earlier/{index}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Earlier
+         * @description Bring an earlier plan back (free); the plan in hand goes to Earlier plans.
+         */
+        post: operations["use_earlier_projects__project_id__plan_earlier__index__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -3900,6 +4011,15 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** AdviceOut */
+        AdviceOut: {
+            /** Scene Id */
+            scene_id: string | null;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+        };
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
@@ -3912,6 +4032,11 @@ export interface components {
             skipped: {
                 [key: string]: unknown;
             }[];
+        };
+        /** ApproveOut */
+        ApproveOut: {
+            plan: components["schemas"]["PlanOut"];
+            job: components["schemas"]["JobOut"] | null;
         };
         /** AssetOut */
         AssetOut: {
@@ -4206,6 +4331,11 @@ export interface components {
                 [key: string]: string;
             };
             song?: components["schemas"]["SongPart"] | null;
+            /**
+             * Older Plan
+             * @default false
+             */
+            older_plan: boolean;
         };
         /** BreakdownReview */
         BreakdownReview: {
@@ -4277,6 +4407,13 @@ export interface components {
             reel_url?: string | null;
             /** Upload Id */
             upload_id?: number | null;
+        };
+        /** Cast */
+        Cast: {
+            /** Ref Id */
+            ref_id: string;
+            /** Name */
+            name: string;
         };
         /** ChangeIn */
         ChangeIn: {
@@ -4445,6 +4582,17 @@ export interface components {
              * @default false
              */
             smart: boolean;
+        };
+        /** EarlierOut */
+        EarlierOut: {
+            /** Id */
+            id: number;
+            /** Version */
+            version: number;
+            /** Source */
+            source: string;
+            /** Made At */
+            made_at: string | null;
         };
         /** EarlierText */
         EarlierText: {
@@ -5070,6 +5218,17 @@ export interface components {
              */
             auto: boolean;
         };
+        /** JobState */
+        JobState: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string | null;
+            /** Started At */
+            started_at: string | null;
+        };
         /**
          * JobStatus
          * @enum {string}
@@ -5105,6 +5264,36 @@ export interface components {
             version: string;
             /** Line */
             line: number;
+        };
+        /** LineIn */
+        LineIn: {
+            /** N */
+            n: number;
+            /**
+             * Action
+             * @default
+             */
+            action: string;
+            /**
+             * Star
+             * @default false
+             */
+            star: boolean;
+            /** Product */
+            product?: string | null;
+        };
+        /** LineOut */
+        LineOut: {
+            /** N */
+            n: number;
+            /** Text */
+            text: string;
+            /** Action */
+            action: string;
+            /** Star */
+            star: boolean;
+            /** Product */
+            product?: string | null;
         };
         /** LinkIn */
         LinkIn: {
@@ -5354,6 +5543,14 @@ export interface components {
             /** Owner Script Id */
             owner_script_id?: number | null;
         };
+        /** NoteIn */
+        NoteIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** NoteOut */
         NoteOut: {
             /** Line */
@@ -5389,6 +5586,66 @@ export interface components {
         PickIn: {
             /** File Id */
             file_id: number;
+        };
+        /** PlanIn */
+        PlanIn: {
+            /** Scenes */
+            scenes: components["schemas"]["SceneIn"][];
+            /** Cast Ids */
+            cast_ids?: string[] | null;
+        };
+        /** PlanOut */
+        PlanOut: {
+            /** Status */
+            status: string;
+            approved_by?: components["schemas"]["Who"] | null;
+            /** Approved At */
+            approved_at?: string | null;
+            /** Source */
+            source: string;
+            /** Structure */
+            structure?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Cast
+             * @default []
+             */
+            cast: components["schemas"]["Cast"][];
+            /**
+             * Scenes
+             * @default []
+             */
+            scenes: components["schemas"]["SceneOut"][];
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Advice
+             * @default []
+             */
+            advice: components["schemas"]["AdviceOut"][];
+            job?: components["schemas"]["JobState"] | null;
+            /** Estimate Credits */
+            estimate_credits: number;
+            /** Approve Credits */
+            approve_credits: number;
+            /** Stop */
+            stop?: string | null;
+            /**
+             * Out Of Date
+             * @default false
+             */
+            out_of_date: boolean;
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
+            /**
+             * Earlier
+             * @default []
+             */
+            earlier: components["schemas"]["EarlierOut"][];
         };
         /** PreviewOut */
         PreviewOut: {
@@ -5591,6 +5848,16 @@ export interface components {
         ProjectOut: {
             /** Id */
             id: number;
+            /**
+             * Plan Status
+             * @default none
+             */
+            plan_status: string;
+            /**
+             * Plan Credits
+             * @default 0
+             */
+            plan_credits: number;
             /** Brand Id */
             brand_id: number;
             /** Name */
@@ -5902,6 +6169,46 @@ export interface components {
             look: string;
             /** Shots */
             shots: components["schemas"]["Shot"][];
+        };
+        /** SceneIn */
+        SceneIn: {
+            /**
+             * Part
+             * @default
+             */
+            part: string;
+            /**
+             * Place
+             * @default
+             */
+            place: string;
+            /**
+             * Time
+             * @default
+             */
+            time: string;
+            /**
+             * Cast Ids
+             * @default []
+             */
+            cast_ids: string[];
+            /** Lines */
+            lines: components["schemas"]["LineIn"][];
+        };
+        /** SceneOut */
+        SceneOut: {
+            /** Id */
+            id: string;
+            /** Part */
+            part: string;
+            /** Place */
+            place: string;
+            /** Time */
+            time: string;
+            /** Cast Ids */
+            cast_ids: string[];
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
         };
         /** ScreenIn */
         ScreenIn: {
@@ -15110,6 +15417,230 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_projects__project_id__plan_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_projects__project_id__plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_projects__project_id__plan_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    by_hand_projects__project_id__plan_by_hand_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_projects__project_id__plan_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_earlier_projects__project_id__plan_earlier__index__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
             };
             /** @description Validation Error */
             422: {

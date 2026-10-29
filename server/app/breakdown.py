@@ -110,6 +110,11 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         draft = db.get(ScriptDraft, project.script_draft_id)
         context = script_preview.with_slots(db, draft.script_id, context, project)
     parts = [context, f"<places>\n{escape(_places(db, project))}\n</places>"]
+    from app import plans
+
+    planned = plans.block(db, project, version)  # P2: the shots follow the approved plan
+    if planned:
+        parts.append(planned[0])
     viewer = project.created_by_id
     if block := payoffs_block(recent_payoffs(db, project.brand_id, project.id, viewer=viewer)):
         parts.append(block)
@@ -123,6 +128,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     return {
         "step": step,
         **({"song_take_id": take.id} if take else {}),
+        **({"plan_version": planned[1]} if planned else {}),
         "project_id": project.id,
         "script_version": version.version,
         "system": system,
@@ -568,7 +574,11 @@ def save_breakdown(db: Session, job: Job) -> None:
             script_version=version.version,
             source="claude",
             job_id=job.id,
-            data={**bd.model_dump(), **({"song": song} if song else {})},
+            data={
+                **bd.model_dump(),
+                **({"song": song} if song else {}),
+                **({"plan_version": v} if (v := job.input.get("plan_version")) else {}),
+            },
             problems=problems(db, project, version.text, bd, song, written=True) + removed,
             created_by_id=job.created_by_id,
         )

@@ -9,9 +9,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import reference
+from app import plans, reference
 from app.auth import current_user, owner_only, user_name
-from app.credits import credits_used, get_limits, lock, over_cap, own_script
+from app.credits import credits_used, get_limits, lock, over_cap, own_script, price
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
@@ -63,6 +63,10 @@ class ProjectPatch(BriefPatch):
 
 class ProjectOut(BaseModel):
     id: int
+    plan_status: str = (
+        "none"  # 1b: none, ready or approved (the Plan step, "Approve the plan first")
+    )
+    plan_credits: int = 0  # Make the plan's price, before there's a plan to carry it
     brand_id: int
     name: str
     song: bool = False  # made from a Song script: timed to its song (song_take_id)
@@ -155,6 +159,8 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         archived_at=project.archived_at,
         finished_at=project.finished_at,
         cast_redraw=project.cast_redraw,
+        plan_status=plans.status(db, project),
+        plan_credits=price(plans.price(db, project)),
     )
 
 

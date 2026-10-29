@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, breakdown_fix, clip_prompts, storyboard
+from app import advice, breakdown, breakdown_fix, clip_prompts, plans, storyboard
 from app.advice import Said, names
 from app.auth import current_user
 from app.db import get_db
@@ -53,6 +53,7 @@ class BreakdownOut(BaseModel):
     fixed: list[str] = []  # what a fix just did, in plain words (the toast); Undo is PUT
     unknown_names: dict[str, str] = {}  # a name a shot has that the video doesn't: {ref: name}
     song: SongPart | None = None  # a song video's: each shot's time in the song, and Sung
+    older_plan: bool = False  # P2: made from an earlier plan ("Made for an older plan")
 
 
 def _song(db: Session, row: BreakdownVersion) -> dict | None:
@@ -89,6 +90,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         stale=row.script_version != working,
         song=_song(db, row),
         fixes=breakdown_fix.fixes(row.problems or []),
+        older_plan=plans.older(db, project, row),
     )
 
 
@@ -104,6 +106,10 @@ def _working(db: Session, user: User, project_id: int):
 def make(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Queue a breakdown call (a paid Claude call, counted against the project budget)."""
     project, version = _working(db, user, project_id)
+    return queue(db, user, project, version)
+
+
+def queue(db: Session, user: User, project, version) -> Job:
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("step") in ("breakdown", "song_breakdown") for j in pending):
         raise HTTPException(409, "A breakdown is already being made for this project.")
@@ -236,7 +242,7 @@ def new_version(db: Session, user: User, project, row: BreakdownVersion, text: s
         project_id=project.id,
         script_version=row.script_version,
         source="edit",
-        data=bd.model_dump(),
+        data={**bd.model_dump(), **{k: row.data[k] for k in ("plan_version",) if k in row.data}},
         problems=breakdown.problems(db, project, text, bd) + landed,
         created_by_id=user.id,
     )

@@ -469,6 +469,27 @@ class FakeWriter:
         assets = {line.split(" | ")[0] for line in _tag(prompt, "assets").splitlines()}
         return {"clips": [_clip(c, shots, f"frame:{c['id']}" in assets) for c in bd["clips"]]}
 
+    def _plan(self, prompt):
+        """Every script line once, in order: one scene per heading, the cast in each."""
+        cast = re.findall(r"^((?:char|slot):\d+)", _tag(prompt, "cast"), re.M)
+        heading, scenes = ("SCENE", "INT.", "EXT."), []
+        for n, words in re.findall(r"^(\d+)\| ?(.*)$", _tag(prompt, "script"), re.M):
+            if not words.strip():
+                continue
+            head = words.strip().startswith(heading)
+            if head or not scenes:
+                place = words.strip() if head else "INT. HOME — DAY"
+                scenes.append({"id": len(scenes) + 1, "part": "Story", "place": place,
+                               "cast": cast, "lines": []})  # fmt: skip
+            if not head:
+                scenes[-1]["lines"].append({"line": int(n), "action": "They react, big.",
+                                            "product": None})  # fmt: skip
+        scenes = [s for s in scenes if s["lines"]]
+        for i, s in enumerate(scenes, 1):
+            s["id"] = i
+        shape = {"name": "Stand-in", "parts": ["Story"], "based_on": "pattern"}
+        return {"structure": shape, "cast": cast, "scenes": scenes}
+
     def _look_fit(self, prompt):  # every look fits
         return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}
 
