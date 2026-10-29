@@ -577,3 +577,10 @@ test("an out-of-date still's grey Approve says why, and the step's one amber is 
   const ambers = screen.getAllByRole("button").filter((b) => b.className.includes("bg-accent ") && !b.hasAttribute("disabled") && /credit/.test(b.textContent ?? ""));
   expect(ambers.map((b) => b.textContent)).toEqual(["Redraw 1 out-of-date still · 3 credits"]);
 });
+
+test("Make the storyboard again says one still is dropped, in the singular", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2" })]] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /^Make the storyboard again/ }));
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("the 1 still you've made is dropped");
+});

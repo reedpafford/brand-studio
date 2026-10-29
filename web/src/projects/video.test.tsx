@@ -299,6 +299,20 @@ test("on an editor's own script the header shows the week, not a budget", async 
   expect(screen.queryByText(/% ·|credits · \d+%/)).toBeNull();
 });
 
+test("Assets gets its tick only once it has been opened, not before (#749 LW9)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
+  open("?step=breakdown");
+  // The step picker waits under a skeleton while Assets loads (#773), so each look finds the list afresh.
+  const steps = () => screen.findByRole("list", { name: "Steps" });
+  const tick = async () => within(await steps()).getByRole("button", { name: "Assets" }).querySelector(".text-success");
+  await vi.waitFor(async () => expect(within(await steps()).getByRole("button", { name: "Assets" })).toBeEnabled());
+  expect(await tick()).toBeNull();
+  await userEvent.click(within(await steps()).getByRole("button", { name: "Assets" }));
+  await userEvent.click(await within(await steps()).findByRole("button", { name: "Breakdown" }));
+  await vi.waitFor(async () => expect(await tick()).not.toBeNull());
+});
+
 test("Assets shows where each one is used, the role's description, and the products and app screens the shots show", async () => {
   setViewport(1440);
   fakeServer({
@@ -489,8 +503,8 @@ test("after Reword it to pass (a free fix in code), the refused take reads as be
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
 });
 
-test("when the newest take failed but others are good, the line says the others are there", async () => {
-  setViewport(1440);
+test("when the newest take failed but an earlier take is picked, the clip stays Ready with a quiet line, not Failed (#749 G7)", async () => {
+  setViewport(390);
   fakeServer({
     ...toClips,
     "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]],
@@ -499,8 +513,25 @@ test("when the newest take failed but others are good, the line says the others 
   });
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
-  expect(await within(card).findByText(/The last try didn't finish; your other takes are below\./)).toBeInTheDocument();
+  const line = await within(card).findByText(/The newest take didn't work; Take 1 is still picked\./);
+  expect(line.closest("p")).toHaveClass("text-muted");
+  expect(within(card).queryByText("Didn't finish")).toBeNull();
   expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Make another take/ })).toBeEnabled(); // the failed one can be tried again: no dead end
+});
+
+test("when the newest take failed and no take is picked, the clip still reads Failed and points to the other takes", async () => {
+  setViewport(1440);
+  fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: null })]],
+    "GET /projects/9/clips/3/change": [200, { credits: 22 }],
+    "GET /jobs": [200, [{ id: 30, kind: "video", step: "clip_take", status: "failed", error: "The service couldn't finish this. Try again.", credits: 19, project_id: 9, project_clip_id: 3, created_at: "2026-10-28T10:00:00Z" }]],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect((await within(card).findByText(/The last try didn't finish; your other takes are below\./)).closest("p")).toHaveClass("text-danger");
+  expect(within(card).getByText("Didn't finish")).toBeInTheDocument();
 });
 
 test("once a clip has a take, Change it shows the full price (rewrite and take), not the rewrite-only price read before", async () => {
