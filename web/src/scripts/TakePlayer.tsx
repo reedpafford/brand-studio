@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { fileUrl } from "../api/upload";
+import { useViewOnly } from "../projects/ViewOnly";
 
 let playing: HTMLAudioElement | null = null; // one take plays at a time
 const BARS = 48; // few enough to fit a phone with room between them
@@ -25,6 +26,8 @@ export function TakePlayer({ fileId, seconds, peaks, label }: { fileId: number; 
     playing = a;
     void a.play()?.catch(() => setOn(false));
   };
+  const viewOnly = useViewOnly();
+  if (viewOnly) return <audio controls preload="none" src={fileUrl(fileId)} aria-label={`Play ${label}`} className="w-full" />; // the page's presses are greyed out; the browser's own player isn't
   const bars = squeeze(peaks.length > 0 ? peaks : Array.from({ length: BARS }, () => 0.15));
   const done = seconds > 0 ? at / seconds : 0;
   return (
