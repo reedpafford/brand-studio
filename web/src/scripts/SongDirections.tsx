@@ -155,7 +155,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
                   <p className="text-sm">{x.concept}</p>
                   <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-surface-2 p-3 type-script">{x.lyrics}</pre>
                   <p className="text-sm text-muted">{x.length_note ?? lengthNote(x.lyrics)}</p>
-                  <p className="text-sm">Style: {x.style_line}</p>
+                  <p className="text-sm">Music style: {x.style_line}</p>
                   {!!x.style_names?.length && <p className="text-sm text-warning">The style names "{x.style_names[0]}". Suno won't take names: after Use this one, describe the sound in the Style box instead.</p>}
                   <p className="text-sm text-muted">On screen: {x.visual_concept}</p>
                   {x.left_out.length > 0 && <p className="text-sm">Leaves out: {x.left_out.join(", ")}</p>}

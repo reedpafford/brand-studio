@@ -48,7 +48,7 @@ test("New script → Song makes a song draft that opens on its Song step: five s
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Song", "Takes", "Cast", "Plan", "Publish"]);
   expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write or pick the lyrics first");
   expect(screen.getByRole("button", { name: "Next: Takes" })).toBeDisabled();
-  expect(screen.getByLabelText("Style")).toHaveAttribute("placeholder", "pop, female lead, 120 BPM, upbeat, modern polished");
+  expect(screen.getByLabelText("Music style")).toHaveAttribute("placeholder", "pop, female lead, 120 BPM, upbeat, modern polished");
 });
 
 test("lyrics: the sung length counts words not tags; over 4,960 characters says how many to cut and keeps the words; Save sends lyrics and style", async () => {
@@ -66,7 +66,7 @@ test("lyrics: the sung length counts words not tags; over 4,960 characters says 
   expect((box as HTMLTextAreaElement).value.length).toBeGreaterThan(4960); // the words stay
   await userEvent.clear(box);
   await userEvent.paste(LYRICS);
-  await userEvent.type(screen.getByLabelText("Style"), "pop");
+  await userEvent.type(screen.getByLabelText("Music style"), "pop");
   await userEvent.click(screen.getByRole("button", { name: "Save lyrics" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toMatchObject({ text: LYRICS, style_line: "pop" }));
   expect(await screen.findByText("Sung word for word")).toBeInTheDocument();
@@ -191,7 +191,7 @@ test("a refused take offers Edit lyrics or style, which opens the Song step's bo
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "The music service won't sing this: an artist's name in the style. Describe the sound instead." })])] });
   open("/b/1/scripts/7?step=takes");
-  await userEvent.click(await screen.findByRole("link", { name: "Edit lyrics or style" }));
+  await userEvent.click(await screen.findByRole("link", { name: "Edit lyrics or music style" }));
   expect(await screen.findByLabelText("Lyrics")).toHaveValue(LYRICS); // the boxes open at once, no confirm
   expect(screen.queryByRole("alertdialog")).toBeNull();
 });
@@ -212,8 +212,8 @@ test("a refusal over the style offers Use the default style instead (clears the 
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, refused_for: "style", failed_reason: "Suno won't use an artist's name. Describe the sound instead." })])], "PUT /scripts/7/drafts/0": [200, song({}, { style_line: "" })] });
   open("/b/1/scripts/7?step=takes");
-  expect(await screen.findByRole("link", { name: "Edit style" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Use the default style instead/ }));
+  expect(await screen.findByRole("link", { name: "Edit music style" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Use the default music style instead/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toMatchObject({ text: LYRICS, style_line: "" }));
   expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
 });
@@ -223,7 +223,7 @@ test("a failed take that isn't a refusal leads with Try again; the Edit link com
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "Suno took too long. Nothing was charged." })])] });
   open("/b/1/scripts/7?step=takes");
   const retry = await screen.findByRole("button", { name: /Try again · 1 credit/ });
-  const editLink = screen.getByRole("link", { name: "Edit lyrics or style" });
+  const editLink = screen.getByRole("link", { name: "Edit lyrics or music style" });
   expect(retry.compareDocumentPosition(editLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 

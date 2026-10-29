@@ -102,7 +102,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
             <div className="flex flex-wrap gap-2">
               {t.refused_for === "style" && onDefaultStyle && (
                 <Button variant="secondary" onClick={onDefaultStyle}>
-                  Use the default style instead · free
+                  Use the default music style instead · free
                 </Button>
               )}
               {t.retry_helps && !t.refused_for && (
@@ -112,7 +112,7 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
               )}
               <Link to="?edit=1" className={buttonClass(t.refused_for ? "secondary" : "ghost")}>
                 <Pencil size={20} strokeWidth={1.75} aria-hidden />
-                {t.refused_for === "words" ? "Edit lyrics" : t.refused_for === "style" ? "Edit style" : "Edit lyrics or style"}
+                {t.refused_for === "words" ? "Edit lyrics" : t.refused_for === "style" ? "Edit music style" : "Edit lyrics or music style"}
               </Link>
               {t.retry_helps && t.refused_for && (
                 <Button variant="ghost" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
@@ -207,7 +207,7 @@ export function TakesStep({ script: s }: { script: Script }) {
   // A refusal over the style (an artist's name, say): the style line is cleared, so the song is upbeat pop, with Undo. No brand music style exists yet (brand setup).
   const v = s.versions.find((x) => x.slot === 0);
   const now: Song = { text: v?.text ?? "", style_line: v?.style_line ?? "", spoken_end_line: v?.spoken_end_line ?? "" };
-  const defaultStyle = now.style_line ? () => put.mutate({ ...now, style_line: "" }, { onSuccess: () => toast("The style is cleared: the song will be upbeat pop. Make 2 takes again.", () => put.mutate(now)) }) : undefined;
+  const defaultStyle = now.style_line ? () => put.mutate({ ...now, style_line: "" }, { onSuccess: () => toast("The music style is cleared: the song will be upbeat pop. Make 2 takes again.", () => put.mutate(now)) }) : undefined;
   const current = takes.filter((t) => !t.out_of_date);
   // Rule 18 (Advice): does the part a cut drops hold the brand's end line?
   const endLine = brand?.end_line.trim().toLowerCase();
@@ -257,7 +257,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           {dropsEnd && <span className="block text-warning">The brand's end line is in the part dropped. On the Song step you can sing it at the end again, or speak it over the end.</span>}
         </Dialog>
       ) : null}
-      {!data.songs_on && <Banner tone="info" title="Songs aren't switched on here.">The lyrics and style still save. Takes can be made where songs are on.</Banner>}
+      {!data.songs_on && <Banner tone="info" title="Songs aren't switched on here.">The lyrics and music style still save. Takes can be made where songs are on.</Banner>}
       {takes.length === 0 ? (
         readOnly ? (
           <EmptyState icon={Music} title="No takes">This script was published without a song.</EmptyState>
