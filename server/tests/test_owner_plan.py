@@ -58,6 +58,7 @@ def test_a_preview_made_before_the_plan_never_starts_the_video(app, owner, edito
     owner.post(f"{url}/approve")
     version = next(v for v in owner.get(base).json()["versions"] if v["slot"] == 0)
     assert version["preview_older_plan"] is True  # "Make the preview again"
+    assert version["has_breakdown"] is False  # so Make this version shows its price
     owner.post(f"{base}/drafts/0/approve")
     owner.post(f"{base}/publish")
     made = editor.post(f"{base}/drafts/0/produce").json()

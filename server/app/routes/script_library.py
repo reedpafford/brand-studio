@@ -287,7 +287,8 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
             for m in draft.rewritten or []
             if m["line_index"] < len(lines)
         ],
-        has_breakdown=draft.breakdown is not None,
+        # a preview made before the owner's plan isn't used, so starting is paid (Flow-QA)
+        has_breakdown=draft.breakdown is not None and plans.preview_follows(draft),
         preview_older_plan=draft.breakdown is not None and not plans.preview_follows(draft),
         approved_at=draft.approved_at,
         variation_of="A" if draft.slot else None,
