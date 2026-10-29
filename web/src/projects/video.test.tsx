@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
@@ -1374,11 +1374,26 @@ test("changing the shape after stills exist asks in the app, says the stills kee
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /projects/9")?.body).toEqual({ aspect_ratio: "1:1" }));
 });
 
-test("old addresses keep working: ?step=breakdown opens Plan and ?step=assets opens Cast", async () => {
+function Where() {
+  return <span data-testid="where">{useLocation().search}</span>;
+}
+
+test("old addresses keep working: ?step=breakdown opens Plan on its Shots view, ?step=assets opens Cast", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/assets": [200, []] });
-  open("?step=breakdown");
-  expect(await screen.findByRole("heading", { name: "Plan", level: 2 })).toBeInTheDocument();
+  for (const [from, to, heading] of [["?step=breakdown", "?step=plan&view=shots", "Plan"], ["?step=assets", "?step=cast", "Cast"]]) {
+    const { unmount } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[`/b/1/videos/9${from}`]}>
+          <App />
+          <Where />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole("heading", { name: heading, level: 2 })).toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent(to);
+    unmount();
+  }
 });
 
 test("a look from the library says it comes from Cast & places, so the Cast step and the library never read as one", async () => {

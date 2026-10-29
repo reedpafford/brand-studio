@@ -76,6 +76,10 @@ export function VideoPage() {
   const assetsLoading = (opened.at > 0 && assets.dataUpdatedAt <= opened.at && assets.errorUpdatedAt <= opened.at) || flavours.loading;
   const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length, seen: assetsSeen || progress.frames.total > 0 } };
   // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
+  // Old addresses move to their new place: Breakdown is Plan on its Shots view, Assets is Cast (flows 1b).
+  const asked = params.get("step");
+  if (asked === "breakdown") return <Navigate to="?step=plan&view=shots" replace />;
+  if (asked === "assets") return <Navigate to="?step=cast" replace />;
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
   const pick = (to: string) => {
