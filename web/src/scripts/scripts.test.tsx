@@ -53,10 +53,12 @@ test("a script is one row: its title, description, reference, length range and a
   expect(document.body.textContent).not.toMatch(/\bv\d\b|project/i);
 });
 
-test("an editor starts on Ready to make, and Reed on everything; the brand home is the library", async () => {
+test("an editor's brand opens on their videos; on Scripts they start on Ready to make", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []] });
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []], "GET /projects": [200, []] });
   open("/b/1");
+  expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
+  await userEvent.click(screen.getAllByRole("link", { name: "Scripts" })[0]);
   await screen.findByRole("heading", { name: "Scripts" });
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
   expect(screen.getByLabelText("Status")).toHaveValue("published");

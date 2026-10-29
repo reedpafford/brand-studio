@@ -116,7 +116,7 @@ export function FrameCard(props: {
         {!f.approved && <span className="font-normal text-muted">{checkedMark(check)}</span>}
       </div>
       <CheckNotes check={check} projectId={props.projectId} label={`clip ${f.clip_id}`} onChange={(text) => (props.oneStep ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setRedo(text))} />
-      {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">Breakdown changed: redo this frame</span>}
+      {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">The plan changed: redo this frame</span>}
       {props.error && <p role="alert" className={errorClass}>{props.error}</p>}
       {props.failed && <span className="inline-block rounded-sm bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Didn't finish · credits returned</span>}
       <p className="flex flex-wrap gap-1 text-xs">

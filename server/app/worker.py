@@ -92,9 +92,7 @@ def _plain(job: Job, detail: str) -> str:
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
     from app import song_directions
 
-    if detail.startswith(song_directions.STILL):
-        return song_directions.UNFINISHED
-    return FAILED
+    return song_directions.failure(detail) or FAILED
 
 
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:

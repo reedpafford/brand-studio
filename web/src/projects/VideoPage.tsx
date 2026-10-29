@@ -113,7 +113,7 @@ export function VideoPage() {
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
-        <Link to={`/b/${brandId}/scripts?view=videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
+        <Link to={`/b/${brandId}/videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
           <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
           Videos
         </Link>

@@ -4018,6 +4018,8 @@ export interface components {
             fixed: string[];
             /** Undone */
             undone: boolean;
+            /** Before */
+            before: string;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -5604,6 +5606,8 @@ export interface components {
             take_warning?: string | null;
             /** Retrying */
             retrying?: ("refused" | "busy") | null;
+            /** Retried */
+            retried?: ("refused" | "busy") | null;
             auto_fix?: components["schemas"]["AutoFixOut"] | null;
         };
         /** ProjectEstimateOut */

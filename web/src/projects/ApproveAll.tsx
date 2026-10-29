@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { Button, useToast } from "../components";
+import type { CostAction } from "./CostBar";
 
 type Skipped = { id: number | null; reason: string; label?: string };
 export type ApproveAllResult = { approved: number[]; skipped: Skipped[]; approved_with_advice?: number };
@@ -28,7 +29,7 @@ export function useApproveAllWith(opts: {
   waiting: number;
   /** Approve all is the step's one amber when nothing else is left to make. */
   primary?: boolean;
-}): { button: ReactNode; line: ReactNode } {
+}): { button: ReactNode; line: ReactNode; action: CostAction | null } {
   const { noun } = opts;
   const toast = useToast();
   const [result, setResult] = useState<ApproveAllResult | null>(null);
@@ -58,12 +59,15 @@ export function useApproveAllWith(opts: {
     return () => document.removeEventListener("click", away);
   }, [result]);
 
+  const label = opts.ready === opts.waiting ? "Approve all" : `Approve ${opts.ready}`;
   const button =
     opts.ready > 0 ? (
       <Button variant={opts.primary ? "primary" : "secondary"} icon={Check} busy={run.isPending} className="w-full sm:w-auto" onClick={() => run.mutate()}>
-        {opts.ready === opts.waiting ? "Approve all" : `Approve ${opts.ready}`}
+        {label}
       </Button>
     ) : null;
+  // For the cost bar: the same press, free.
+  const action = opts.ready > 0 ? { label, busy: run.isPending, onPress: () => run.mutate() } : null;
 
   const left = result?.skipped ?? [];
   const line = run.isError ? (
@@ -85,7 +89,7 @@ export function useApproveAllWith(opts: {
       ))}
     </p>
   ) : null;
-  return { button, line };
+  return { button, line, action };
 }
 
 type Row = { id: number; clip_id: string };

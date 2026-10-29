@@ -19,6 +19,7 @@ import { useApproveAll } from "./ApproveAll";
 import { ReviewChip } from "./Checks";
 import { type Softened } from "./Soften";
 import { FrameCard } from "./FrameCard";
+import { useCostBarAction } from "./CostBar";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -191,9 +192,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     // The step's one amber goes, in order, to: make the storyboard, redraw what's out of date, make the missing stills, approve all.
     primary: rows.length > 0 && !rows.some((f) => f.still_stale || (f.file_id === null && !blocking(f.problems).length && blocks.forShot(f.shot_id).length === 0)),
   });
-  if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
-  if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
-  const list = frames.data;
+  const list = rows;
   // After a cast change the stills that show the old cast are redrawn by themselves when the video can pay for it; otherwise they say "Out of date".
   const outOfDate = list.filter((f) => f.still_stale && !f.drawing && !drawingNow[f.id]); // ones already being redrawn (the server queues them after a cast change) are not asked for again
   const redrawn = list.filter((f) => f.redrawn && !f.approved);
@@ -219,6 +218,22 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || null;
   const approvedCount = list.filter((f) => f.approved).length;
 
+  // On the video page the step's one amber is in the cost bar, in the same order as above.
+  const bar = !!props.oneStep && !frames.isPending && frames.isFetchedAfterMount && !frames.isError && !writingNow && !stillOld;
+  const barApproves = bar && list.length > 0 && outOfDate.length === 0 && missing.length === 0;
+  useCostBarAction(
+    !bar
+      ? null
+      : list.length === 0
+        ? { label: makeLabel, price: makeTotal ?? null, reason: stopFor(makeTotal), busy: make.isPending, onPress: () => make.mutate() }
+        : outOfDate.length > 0
+          ? { label: `Redraw ${outOfDate.length} out-of-date still${outOfDate.length === 1 ? "" : "s"}`, price: redrawCost ?? null, reason: redrawBlocked, busy: render.isPending, onPress: () => void drawAll(outOfDate) }
+          : missing.length > 0
+            ? { label: `Make ${missing.length} still${missing.length === 1 ? "" : "s"}`, price: allCost ?? null, reason: stopFor(allCost), busy: render.isPending, onPress: () => void drawAll(missing) }
+            : approveAll.action,
+  );
+  if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
+  if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const made = list.filter((f) => f.file_id !== null).length;
   const makeButton = (
     <>
@@ -275,7 +290,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No frames yet.</p>
         <p className="text-muted">One still per clip, so you can check the look before making video.</p>
-        {makeButton}
+        {!bar && makeButton}
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
       </section>
     );
@@ -291,17 +306,18 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
           </h2>
         )}
         <span className="flex w-full flex-wrap items-start gap-2 sm:w-auto">
-          {outOfDate.length > 0 && (
+          {!bar && outOfDate.length > 0 && (
             <Button dense price={redrawCost} busy={render.isPending} disabled={redrawBlocked !== null} reason={redrawBlocked} onClick={() => void drawAll(outOfDate)}>
               Redraw {outOfDate.length} out-of-date still{outOfDate.length === 1 ? "" : "s"}
             </Button>
           )}
-          {missing.length > 0 && (
+          {/* With Redraw in the bar, the missing stills that fit can still be made in one press here (grey). */}
+          {(!bar || outOfDate.length > 0) && missing.length > 0 && (
             <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
               Make {missing.length} still{missing.length === 1 ? "" : "s"}
             </Button>
           )}
-          {approveAll.button}
+          {!barApproves && approveAll.button}
           {makeButton}
         </span>
       </div>
