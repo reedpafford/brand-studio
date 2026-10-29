@@ -538,6 +538,22 @@ def _line(lines: list[str], start: str) -> int:
     return next((i for i, x in enumerate(lines) if x.startswith(start)), -1)
 
 
+def words_kept(prompt: str) -> str:
+    """An editor's words after the closing audio line, moved above its Keep line: never
+    dropped, and saved where they'll be seen (Flow-QA)."""
+    from app.prompts.check import AUDIO_LINE
+
+    lines = prompt.strip().splitlines()
+    audio = lines[0] if lines and AUDIO_LINE.match(lines[0]) else ""
+    end = max((i for i, x in enumerate(lines) if i and audio and x.startswith(audio)), default=0)
+    tail = [t.strip() for t in [lines[end][len(audio) :], *lines[end + 1 :]] if t.strip()]
+    if not (end and tail):
+        return prompt
+    body = lines[:end]
+    keep = [body.pop()] if body[-1].startswith("Keep: ") else []
+    return "\n".join([*body, *tail, *keep, audio])
+
+
 def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     """The clip prompt's shape put right in code, free (spec one-click-fixes.md §5): the
     breakdown's seconds, [Image1] named the first frame, the same audio line first and last,
@@ -551,14 +567,7 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
     if len(lines) > 1 and not AUDIO_LINE.match(lines[0]) and AUDIO_LINE.match(lines[-1]):
         if lines[0].startswith("Audio: "):  # the opening line grew a phrase (Reed's pilot)
             lines[0] = lines[-1]
-    audio = lines[0] if AUDIO_LINE.match(lines[0]) else ""
-    end = max((i for i, x in enumerate(lines) if i and audio and x.startswith(audio)), default=0)
-    tail = [t.strip() for t in [lines[end][len(audio) :], *lines[end + 1 :]] if t.strip()]
-    if end and tail:
-        # an editor's words after the closing line move above its Keep line, never dropped
-        body = lines[:end]
-        keep = [body.pop()] if body[-1].startswith("Keep: ") else []
-        lines = [*body, *tail, *keep, audio]
+    lines = words_kept("\n".join(lines)).splitlines() or [""]
     if AUDIO_LINE.match(lines[0]) and (len(lines) < 2 or lines[-1] != lines[0]):
         if len(lines) > 1 and lines[-1].startswith("Audio: "):  # a different closing line
             lines[-1] = lines[0]  # (Reed's c4): the same as the opening one, never a second
