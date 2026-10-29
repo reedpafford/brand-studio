@@ -517,7 +517,7 @@ test("when the newest take failed but an earlier take is picked, the clip stays 
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
   expect(within(card).getByText("Ready")).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: /Make another take/ })).toBeEnabled(); // the failed one can be tried again: no dead end
+  expect(within(card).getByRole("button", { name: /^Make another take/ })).toBeEnabled(); // the failed one can be tried again: no dead end
 });
 
 test("when the newest take failed and no take is picked, the clip still reads Failed and points to the other takes", async () => {
@@ -832,6 +832,45 @@ test("a problem line never shows a raw id: the character's name stands in, the c
   const keepLabels = within(advice).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? "");
   expect(keepLabels.some((l) => l.startsWith("Keep anyway: "))).toBe(true);
   expect(keepLabels.join(" ")).not.toMatch(/char:|slot:/); // the screen reader hears names too
+});
+
+test("a take made from an older Cast & places look says Out of date, stays approved, and offers Make another take or Keep anyway (N6)", async () => {
+  setViewport(390);
+  const older = "Advice: Its take was made from an older look of Bo. Make another take to show it.";
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, approved: true, take_stale: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51, problems: [older] })]],
+    "POST /projects/9/clips/3/keep": [200, {}],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).getByText("Out of date")).toBeInTheDocument();
+  expect(within(card).getByText("Approved")).toBeInTheDocument(); // a sheet edit never unapproves
+  expect(within(card).getByRole("button", { name: /^Make another take/ })).toBeEnabled();
+  const advice = within(card).getByLabelText("Advice for c1");
+  await userEvent.click(within(advice).getByText(/Advice \(/));
+  expect(advice).toHaveTextContent("Its take was made from an older look of Bo");
+  await userEvent.click(within(advice).getAllByRole("button").find((b) => (b.getAttribute("aria-label") ?? "").startsWith("Keep anyway: "))!);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/keep")?.body).toMatchObject({ problem: older }));
+});
+
+test("Downloads agrees with the lists: a take from an older look marks the finished video Out of date, and Make it again waits for a new take or Keep anyway (N6)", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [{ ...done, take_stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+  expect(screen.queryByText("Ready")).toBeNull();
+  expect(screen.getByText(/every clip approved/)).toBeInTheDocument(); // still approved
+  expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Make another take on Clips, or keep the older look (1 left)");
+});
+
+test("a take from the current look shows no Out of date", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, approved: true, take_stale: false, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]] });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).queryByText("Out of date")).toBeNull();
 });
 
 test("a frame's problem reads as a name too", async () => {
