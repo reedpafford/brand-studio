@@ -23,6 +23,8 @@ from app.prompts.schemas import Breakdown, StoryboardFrames
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 CHANGED = "This clip changed in the breakdown, so its frames are planned again: Redo storyboard."
 NOTE = "Redo this frame"
+STILL_UNFINISHED = ("The frame was written again, but its still didn't finish, so the still "
+                    "wasn't charged. Press Make still to draw it.")  # fmt: skip
 
 
 def _shots(data: dict, clip_id: str) -> list[str] | None:
@@ -102,8 +104,9 @@ def save(db: Session, job: Job) -> None:
     frame.reference_ids = new.reference_ids
     frame.problems = storyboard.frame_problems(db, project, new, frame.breakdown_id)
     frame.approved = False
-    frame.change = {**(frame.change or {}), "status": "done", "before": before,
-                    "after": new.prompt, "unchanged": False}  # fmt: skip
+    # Still "changing" until its still is drawn (save_still says done; a failed still, failed).
+    frame.change = {**(frame.change or {}), "before": before, "after": new.prompt,
+                    "unchanged": False}  # fmt: skip
     if stops := advice.blocking(frame.problems):
         fix = stops[0].rstrip(".")
         said = (
@@ -114,7 +117,8 @@ def save(db: Session, job: Job) -> None:
     db.commit()  # the rewrite is a paid answer: a refused still (it rolls back) keeps it
     try:
         data = {**storyboard.render_input(db, project, frame), "was_prompt": before}
-        enqueue(db, db.get(User, job.created_by_id), "image", data, project=project,
-                provider="replicate", prepaid=True)  # fmt: skip
+        made = enqueue(db, db.get(User, job.created_by_id), "image", data, project=project,
+                       provider="replicate", prepaid=True)  # fmt: skip
+        frame.change = {**frame.change, "made_job_id": made.id}
     except HTTPException as e:
         frame.change = {**frame.change, "status": "failed", "error": e.detail}
