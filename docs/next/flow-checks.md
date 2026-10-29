@@ -305,3 +305,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #934 24101532; #941 3381e073 + #942; #944 7f8e8387 | #934 PASS (Make this version priced when the preview predates the plan; its row closed). #941+#942 PASS: song and narrated e2e live (9). #944 FAIL: a failed copy has no Try again (open above) |
 | 2026-10-29 | #946 at fa40fad6 (OR1 projects, server) | PASS: make (dup 409), file (editor own yes, others' 403, owner any, other brand 409), rename/delete rights, delete moves to No project, Undo restores |
 | 2026-10-29 | #947 at ce656821 | PASS: the cast-line hold on Update everything after this (same as walked at 60ac28b5; #939 merged without it) |
+| 2026-10-29 | #948 at 143d197d (ST1 look change confirm, web) | PASS with #943: roles and To finish (was), Change greyed over the week, Not yet keeps the picker for a cheaper look, Undo free; safe before #943 (404 → as before) |
