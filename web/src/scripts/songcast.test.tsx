@@ -60,5 +60,5 @@ test("at 390, Make this version on a song shows its song with a 44px play button
   const row = await screen.findByRole("region", { name: "Song" });
   expect(await within(row).findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: "Play Take 1" })).toBeInTheDocument();
-  expect(screen.getByText(/whole video (costs )?up to 40( credits)? · 0:31 song/)).toBeInTheDocument();
+  expect(screen.getByText(/whole video (costs )?about 40( credits)? · 0:31 song/)).toBeInTheDocument();
 });
