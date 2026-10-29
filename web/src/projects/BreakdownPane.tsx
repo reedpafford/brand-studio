@@ -42,8 +42,9 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const cost = rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
 
-  // Our own run: the job we started, or any job the server says is a breakdown.
-  const mine = jobs.data?.filter((j) => j.project_id === projectId && (j.id === startedJob || j.step === "breakdown")).sort((a, b) => b.id - a.id)[0];
+  // Our own run: the job we started, or any job the server says is a breakdown (a song or narrated
+  // video's is song_breakdown / narrated_breakdown; Approve the plan starts it from another step).
+  const mine = jobs.data?.filter((j) => j.project_id === projectId && (j.id === startedJob || !!j.step?.endsWith("breakdown"))).sort((a, b) => b.id - a.id)[0];
   // Between pressing the button and the job showing up in the list, it is already running.
   const running = (!!mine && GOING.includes(mine.status)) || (startedJob !== null && !mine);
   const failed = mine?.status === "failed";

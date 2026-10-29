@@ -7,7 +7,7 @@ from app import narration
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.prompts import check
-from tests.test_song_takes import _work
+from tests.test_song_takes import _approve_plan, _work
 
 WORDS = "Your dog's gut is a mess. Iron Paws fixes it.\nLink in my bio!"
 
@@ -99,7 +99,8 @@ def test_a_narrated_videos_plan_is_timed_to_its_sentences(app, db, owner, editor
     owner.post(f"{narrated}/approve")
     owner.post(f"{narrated.rsplit('/drafts', 1)[0]}/publish")
     video = f"/projects/{editor.post(f'{narrated}/produce').json()['project_id']}"
-    _work(app, db)
+    _work(app, db)  # its plan (flows 1b), then the shots from it
+    _approve_plan(app, db, editor, video)
     job = db.query(Job).filter(Job.input["step"].as_string() == "narrated_breakdown").one()
     assert "Iron Paws fixes it." in job.input["prompt"]  # the sentences are the clock
     plan = editor.get(f"{video}/breakdown").json()
@@ -211,7 +212,8 @@ def test_a_narrated_videos_clips_keep_their_own_sound(app, db, owner, editor, na
     owner.post(f"{narrated}/approve")
     owner.post(f"{narrated.rsplit('/drafts', 1)[0]}/publish")
     video = f"/projects/{editor.post(f'{narrated}/produce').json()['project_id']}"
-    _work(app, db)
+    _work(app, db)  # its plan (flows 1b), then the shots from it
+    _approve_plan(app, db, editor, video)
     editor.post(f"{video}/clips/prompts")
     job = db.query(Job).filter(Job.input["step"].as_string() == "clip_prompts").one()
     assert job.input["system"][0] == prompts.system("narrated_clip_prompts")
@@ -225,7 +227,8 @@ def test_a_narrated_video_is_cut_with_its_narration_and_music(app, db, owner, ed
     owner.post(f"{narrated}/approve")
     owner.post(f"{narrated.rsplit('/drafts', 1)[0]}/publish")
     video = f"/projects/{editor.post(f'{narrated}/produce').json()['project_id']}"
-    _work(app, db)
+    _work(app, db)  # its plan (flows 1b), then the shots from it
+    _approve_plan(app, db, editor, video)
     _clips_made(app, db, editor, video)
     made = editor.post(f"{video}/video")
     assert made.status_code == 201, made.text

@@ -6,7 +6,20 @@ export async function fill(page: Page, values: Record<string, string>) {
   for (const [label, value] of Object.entries(values)) await page.getByLabel(label).and(page.locator("input, textarea")).fill(value); // not the password eye, whose label also says password
 }
 
+/**
+ * The owner auth.e2e.ts creates in the UI (same studio, name and password), made through the
+ * API when a spec runs without it first. Once set up, the server answers 409 and nothing changes.
+ */
+async function ensureOwner(page: Page) {
+  const made = await page.request.post("/api/auth/setup", {
+    data: { setup_token: "e2e-setup-code", workspace_name: "Studio", email: "reed@example.com", name: "Reed", password: PASSWORD },
+  });
+  if (made.status() === 201) await page.request.post("/api/auth/logout"); // setup signs in; the test signs in itself
+  else if (made.status() !== 409) throw new Error(`Setup for the e2e owner failed: ${made.status()}`);
+}
+
 export async function signIn(page: Page, email: string, password = PASSWORD) {
+  await ensureOwner(page);
   await page.goto("/login");
   await fill(page, { Email: email, Password: password });
   await page.getByRole("button", { name: "Sign in" }).click();

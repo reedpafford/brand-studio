@@ -39,7 +39,8 @@ test("the same song walk at 390: no sideways scroll, steps in one button", async
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
-test("a published song script: Make this version opens a video whose Breakdown has the song strip and Change song", async ({ page }) => {
+test("a published song script: Make this version opens a video whose plan, once approved, makes shots with the song strip and Change song", async ({ page }) => {
+  test.setTimeout(150_000); // the plan, then the shots: two stand-in jobs, queued behind the suite's others
   await page.setViewportSize({ width: 1440, height: 900 });
   await walk(page, "Song Shop Video");
   await page.getByRole("button", { name: "Next: Plan" }).click();
@@ -49,10 +50,12 @@ test("a published song script: Make this version opens a video whose Breakdown h
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish" }).click();
   await page.getByLabel(/Version A, ready to make/).click();
   await page.getByRole("button", { name: /Make this version/ }).click();
+  // Its plan comes first (item 1b), made on the stand-in; Approve makes the shots.
+  await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 60_000 });
   await expect(page.getByRole("button", { name: "Change song" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Song: Take \d · \d:\d\d/)).toBeVisible();
   // Each shot shows its stretch of the song and Sung or B-roll (flows V2).
-  await expect(page.getByText(/^(Sung|B-roll|Needs timing)$/).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/^(Sung|B-roll|Needs timing)$/).first()).toBeVisible({ timeout: 60_000 });
   await page.getByRole("button", { name: "Change song" }).click();
   await expect(page.getByRole("dialog", { name: "Change song" }).getByText("In this video", { exact: true })).toBeVisible();
 });
