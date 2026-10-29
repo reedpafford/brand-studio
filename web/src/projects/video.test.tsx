@@ -196,6 +196,36 @@ test("Downloads: the zip, the picked take and the older take each download", asy
   expect(screen.getByRole("link", { name: /Download clip 1 take 1/ })).toBeInTheDocument();
 });
 
+test("after a breakdown edit, the finished video stays downloadable and Clips stays open, each saying out of date (#749 LW1)", async () => {
+  setViewport(390);
+  const edited = { ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] as [number, unknown] };
+  fakeServer(edited);
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+});
+
+test("the server's video still matches its takes, but a clip is unapproved: Downloads says Out of date and the real count (#761 QA-2)", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+  expect(screen.getByText("Out of date", { selector: "span" })).toBeInTheDocument();
+  expect(screen.queryByText("Ready")).not.toBeInTheDocument();
+  expect(screen.getByText(/0 of 1 clips approved/)).toBeInTheDocument();
+  expect(screen.queryByText(/every clip approved/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Approve every clip first (1 left)");
+});
+
+test("after a breakdown edit, Clips already made stays open (out of date), not sent back to Storyboard", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
+  open("?step=clips");
+  expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+});
+
 test("Downloads puts the clips together by itself the first time, for free", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
@@ -472,6 +502,28 @@ test("when the newest take failed but others are good, the line says the others 
   expect(await within(card).findByText(/The newest take failed; your other takes are below\./)).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
 });
+
+test("once a clip has a take, Change it shows the full price (rewrite and take), not the rewrite-only price read before", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 19, project_id: 9 }] });
+  const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation()!;
+  let made = false; // the clip's first take, once Make clip is pressed
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  vi.stubGlobal("fetch", vi.fn(async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    const path = new URL(req.url).pathname;
+    if (req.method === "GET" && path.endsWith("/projects/9/clips")) return json([made ? clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 }) : clip({ prompt_ok: true })]);
+    if (req.method === "GET" && path.endsWith("/clips/3/change")) return json({ credits: made ? 22 : 3 });
+    if (req.method === "GET" && path === "/api/jobs" && made) return json([{ id: 21, kind: "video", step: "clip_take", status: "running", credits: 19, project_id: 9, project_clip_id: 3, created_at: new Date().toISOString() }]); // keeps the clips polled
+    if (req.method === "POST" && path.endsWith("/clips/3/generate")) made = true;
+    return inner(req.clone(), init);
+  }));
+  open("?step=clips");
+  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
+  expect(await screen.findByRole("button", { name: "Change the prompt · 3 credits" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Make clip/ }));
+  expect(await screen.findByRole("button", { name: "Change it and make a new take · 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
+}, 15000);
 
 test("a clip change that didn't finish says the server's words, keeps the note in the box, and Try again sends it again", async () => {
   setViewport(390);

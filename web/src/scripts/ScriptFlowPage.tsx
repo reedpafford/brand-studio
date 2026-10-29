@@ -72,8 +72,10 @@ export function ScriptFlowPage() {
   const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : null;
   const label = WRITING_STEPS[at].label;
   const toPublish = s.versions.filter((v) => v.text.trim() !== "").length;
+  const toApprove = s.versions.filter((v) => v.text.trim() !== "" && v.status === "draft").length; // approved on its card first, as Variations says
+  const publishReason = toPublish === 0 ? "Write the script first" : toApprove > 0 ? `Approve every version first (${toApprove} left)` : null;
   const publishButton = step === "publish" && !s.published && (
-    <Button disabled={toPublish === 0} reason={toPublish === 0 ? "Write the script first" : undefined} onClick={() => setAsking(true)}>
+    <Button disabled={!!publishReason} reason={publishReason} onClick={() => setAsking(true)}>
       Publish {toPublish} version{toPublish === 1 ? "" : "s"}
     </Button>
   );

@@ -30,34 +30,6 @@ def test_the_words_of_a_shot_find_the_product_it_shows():
     assert check.product_shown("An Iron Paws bag.", "Iron Paws", []) is None  # no product
 
 
-def test_a_breakdown_shot_showing_the_bag_gets_the_real_one(app, db, editor, owner, setup):  # noqa: F811
-    files = [upload(owner), upload(owner)]  # before the session writes (one SQLite writer)
-    project = db.get(Project, setup["project"])
-    brand = db.get(Brand, project.brand_id)
-    brand.name = "Iron Paws"
-    ids = {}
-    pairs = (("Chicken bag", "Chicken"), ("Peanut butter bag", "Peanut butter"))
-    for (name, variant), file_id in zip(pairs, files, strict=True):
-        screen = BrandScreen(brand_id=brand.id, name=name, file_id=file_id,
-                             tags=["product"], product="bag", variant=variant)  # fmt: skip
-        db.add(screen)
-        db.flush()
-        ids[variant] = f"screen:{screen.id}"
-    project.product_variants = {"bag": "Peanut butter"}
-    db.commit()
-    data = copy.deepcopy(BREAKDOWN)
-    shots = data["scenes"][0]["shots"]
-    shots[0]["action"] = "Mom glares; an Iron Paws bag sits on the shelf behind her."
-    shots[1]["action"] = "Nate holds up the chicken bag."
-    editor.post(f"/projects/{project.id}/breakdown")
-    _run(app, db, FakeClaude(data))
-    got = editor.get(f"/projects/{project.id}/breakdown").json()
-    saved = got["breakdown"]["scenes"][0]["shots"]
-    assert ids["Peanut butter"] in saved[0]["screen_ids"]  # the video's flavour
-    assert ids["Chicken"] in saved[1]["screen_ids"]  # the one the shot names
-    assert "Advice: Shot 1.1 now shows the real Peanut butter bag." in got["problems"]
-
-
 def _bags(db, owner, setup):  # noqa: F811
     """Iron Paws with its two bags; the video's flavour is peanut butter."""
     files = [upload(owner), upload(owner)]
@@ -84,6 +56,41 @@ def _c9():
     data = copy.deepcopy(BREAKDOWN)
     data["scenes"][0]["shots"][0]["action"] = "Mom glares; an Iron Paws bag sits on the shelf."
     return Breakdown.model_validate(data)
+
+
+def test_a_breakdown_shot_showing_the_bag_gets_the_real_one(app, db, editor, owner, setup):  # noqa: F811
+    project, ids = _bags(db, owner, setup)
+    data = copy.deepcopy(BREAKDOWN)
+    shots = data["scenes"][0]["shots"]
+    shots[0]["action"] = "Mom glares; an Iron Paws bag sits on the shelf behind her."
+    shots[1]["action"] = "Nate holds up the chicken bag."
+    editor.post(f"/projects/{project.id}/breakdown")
+    _run(app, db, FakeClaude(data))
+    got = editor.get(f"/projects/{project.id}/breakdown").json()
+    saved = got["breakdown"]["scenes"][0]["shots"]
+    assert ids["Peanut butter"] in saved[0]["screen_ids"]  # the video's flavour
+    assert ids["Chicken"] in saved[1]["screen_ids"]  # the one the shot names
+    assert "Advice: Shot 1.1 now shows the real Peanut butter bag." in got["problems"]
+
+
+def test_the_bag_never_makes_a_fourth_screen_in_a_clip(app, db, editor, owner, setup):  # noqa: F811
+    """QA: "N screens; keep the 3" blocks with no one-click fix, so the repair stays out."""
+    from app.breakdown import product_shots
+    from app.prompts.schemas import Breakdown
+
+    files = [upload(owner)]
+    project = db.get(Project, setup["project"])
+    brand = db.get(Brand, project.brand_id)
+    brand.name = "Iron Paws"
+    db.add(BrandScreen(brand_id=brand.id, name="Peanut butter bag", file_id=files[0],
+                       tags=["product"], product="bag", variant="Peanut butter"))  # fmt: skip
+    db.commit()
+    data = copy.deepcopy(BREAKDOWN)
+    shots = data["scenes"][0]["shots"]
+    shots[0]["screen_ids"] = ["screen:901", "screen:902", "screen:903"]  # already 3
+    shots[1]["action"] = "An Iron Paws bag sits on the counter."
+    bd, notes = product_shots(db, project, Breakdown.model_validate(data))
+    assert bd.scenes[0].shots[1].screen_ids == [] and notes == []
 
 
 def test_an_old_shot_showing_the_bag_attaches_the_real_one(db, owner, setup):  # noqa: F811
@@ -143,26 +150,6 @@ def test_a_full_clip_makes_room_and_a_note_attaches_the_bag(db, owner, setup, mo
     bare = clip_prompts.with_cast(db, project, ClipPrompt(clip_id="c1", seconds=5, prompt=prompt,
                                                           references=refs), plain)  # fmt: skip
     assert [r.id for r in bare.references] == [f"place:{place.id}"]  # no bag in its words
-
-
-def test_the_bag_never_makes_a_fourth_screen_in_a_clip(app, db, editor, owner, setup):  # noqa: F811
-    """QA: "N screens; keep the 3" blocks with no one-click fix, so the repair stays out."""
-    from app.breakdown import product_shots
-    from app.prompts.schemas import Breakdown
-
-    files = [upload(owner)]
-    project = db.get(Project, setup["project"])
-    brand = db.get(Brand, project.brand_id)
-    brand.name = "Iron Paws"
-    db.add(BrandScreen(brand_id=brand.id, name="Peanut butter bag", file_id=files[0],
-                       tags=["product"], product="bag", variant="Peanut butter"))  # fmt: skip
-    db.commit()
-    data = copy.deepcopy(BREAKDOWN)
-    shots = data["scenes"][0]["shots"]
-    shots[0]["screen_ids"] = ["screen:901", "screen:902", "screen:903"]  # already 3
-    shots[1]["action"] = "An Iron Paws bag sits on the counter."
-    bd, notes = product_shots(db, project, Breakdown.model_validate(data))
-    assert bd.scenes[0].shots[1].screen_ids == [] and notes == []
 
 
 def test_an_old_clip_with_three_screens_gets_no_fourth(db, owner, setup):  # noqa: F811
