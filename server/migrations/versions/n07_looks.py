@@ -2,14 +2,14 @@
 still and clip take was made in, and the owner's switch for each look
 
 Revision ID: n07
-Revises: n01
+Revises: n04
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n07"
-down_revision = "n01"  # a placeholder: moved to the head on next at its turn (n02…n06 first)
+down_revision = "n04"  # the head on next now; moved up at its turn (n05, n06 first)
 branch_labels = None
 depends_on = None
 

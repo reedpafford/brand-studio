@@ -438,9 +438,7 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
     if shot and (not m.max_character_images or len(people) < m.max_character_images):
         for c in shot.character_ids:
             if not any(_same(known, c, r) for r in people):
-                problems.append(
-                    f"{_name(known, c)} has no approved look yet. Approve one in Assets."
-                )
+                problems.append(f"{_name(known, c)} has no approved look yet. Approve one in Cast.")
     return plain(problems, names(known))
 
 

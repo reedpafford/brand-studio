@@ -60,10 +60,10 @@ def require_looks(shots: list[list[str]], known: dict, status: int = 422) -> Non
     if names := lookless(shots, known):
         if len(names) == 1:
             raise HTTPException(
-                status, f"{names[0]} has no approved look yet. Approve one in Assets."
+                status, f"{names[0]} has no approved look yet. Approve one in Cast."
             )
         who = f"{', '.join(names[:-1])} and {names[-1]}"
-        raise HTTPException(status, f"{who} have no approved look yet. Approve them in Assets.")
+        raise HTTPException(status, f"{who} have no approved look yet. Approve them in Cast.")
 
 
 SHEET_MODEL, RESOLUTION = "nano-banana-pro", "2K"  # what Make a look and Make sheet draw with

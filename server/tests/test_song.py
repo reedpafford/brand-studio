@@ -293,3 +293,29 @@ def test_the_directions_job_has_one_call_that_repairs_then_checks():
     result.directions[1].lyrics += "\n[Bridge]\nScratching all night, that's my belly crying out"
     _, fixes = check.finish_directions(result, "Iron Paws", 30, "Jack Johnson", STUDY)
     assert any("repeats a line of the reference song" in f for f in fixes)  # ask once more
+
+
+def test_only_real_names_go_and_a_style_line_is_never_left_empty():
+    """QA and Flow-QA on #819: a genre typed as "sounds like" stripped the style line, and a
+    one-word title stripped a mood word. Only artist and song names go (the Producer)."""
+    assert check.strip_names("upbeat pop, female lead, 96 BPM", "upbeat pop") == (
+        "upbeat pop, female lead, 96 BPM", [])  # fmt: skip
+    assert check.strip_names("country and pop, warm vocal", "country and pop") == (
+        "country and pop, warm vocal", [])  # fmt: skip
+    assert check.strip_names("happy pop, 120 BPM", "Happy by Pharrell") == (
+        "happy pop, 120 BPM", [])  # fmt: skip
+    assert check.strip_names("pop like Pharrell, 120 BPM", "Happy by Pharrell") == (
+        "pop, 120 BPM", ["Pharrell"])  # fmt: skip
+    assert check.strip_names("laid-back like jack johnson", "jack johnson")[0] == "laid-back"
+    assert check.strip_names("Jack Johnson", "Jack Johnson") == ("pop", ["Jack Johnson"])
+    assert check.strip_names("Jack Johnson acoustic", "Jack Johnson")[0] == "acoustic"
+
+
+def test_a_name_after_a_genre_word_goes_and_leaves_no_like_the():
+    """Flow-QA on #831: "country Taylor Swift" kept the name, and "beatles" left "like the"."""
+    assert check.strip_names("country pop like Taylor Swift", "country Taylor Swift") == (
+        "country pop", ["Taylor Swift"])  # fmt: skip
+    assert check.strip_names("rock like the Beatles, 1965", "beatles") == (
+        "rock, 1965", ["beatles"])  # fmt: skip
+    assert check.strip_names("rock like the Beatles, 1965", "The Beatles")[0] == "rock, 1965"
+    assert check.strip_names("Beatles-style rock", "the beatles")[0] == "rock"

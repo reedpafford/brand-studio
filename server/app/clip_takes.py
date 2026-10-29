@@ -225,3 +225,43 @@ def stitch(videos: list[bytes], reencode: bool = False) -> bytes:
             if done.returncode == 0:
                 return (folder / "out.mp4").read_bytes()
         raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
+
+
+FADE = 1.5  # seconds: a song video's end fades out (flows V6)
+
+
+def song_cut(videos: list[bytes], lengths: list[float], song: bytes) -> bytes:
+    """A song video (flows V6, free): each picked take cut to its piece of the song, counting
+    from its start (a short one holds its last frame), joined in order with its own sound
+    dropped, the song laid under the whole picture, and the end faded."""
+    total = sum(lengths)
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        for n, data in enumerate(videos):
+            (folder / f"{n}.mp4").write_bytes(data)
+        (folder / "song").write_bytes(song)
+        probe = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                 "stream=width,height", "-of", "csv=p=0:s=x", "0.mp4"]  # fmt: skip
+        size = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
+            probe, cwd=folder, capture_output=True, text=True, timeout=60,
+        ).stdout.strip() or "720x1280"  # fmt: skip
+        parts = [f"[{n}:v]trim=duration={d},setpts=PTS-STARTPTS,tpad=stop_mode=clone:"
+                 f"stop_duration={d},trim=duration={d},scale={size.replace('x', ':')},setsar=1,"
+                 f"fps=30,format=yuv420p[v{n}]" for n, d in enumerate(lengths)]  # fmt: skip
+        joined = "".join(f"[v{n}]" for n in range(len(videos)))
+        fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
+        graph = ";".join([
+            *parts, f"{joined}concat=n={len(videos)}:v=1:a=0,fade=t=out:{fade}[v]",
+            f"[{len(videos)}:a]atrim=duration={total},asetpts=PTS-STARTPTS,"
+            f"apad=whole_dur={total},afade=t=out:{fade}[a]",
+        ])  # fmt: skip
+        inputs = [arg for n in range(len(videos)) for arg in ("-i", f"{n}.mp4")]
+        command = ["ffmpeg", "-v", "error", "-y", *inputs, "-i", "song", "-filter_complex",
+                   graph, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-c:a", "aac", "-t",
+                   str(total), "-movflags", "+faststart", "out.mp4"]  # fmt: skip
+        done = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
+            command, cwd=folder, capture_output=True, timeout=600,
+        )  # fmt: skip
+        if done.returncode:
+            raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
+        return (folder / "out.mp4").read_bytes()

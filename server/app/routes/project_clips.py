@@ -3,6 +3,7 @@ them, generate takes with the video model, pick and approve one per clip, and st
 picked takes into the finished video (free)."""
 
 import hashlib
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -21,6 +22,7 @@ from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
+from app.models.songs import SongTake
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
@@ -32,6 +34,14 @@ from app.sheets import require_looks
 from app.storyboard import assets as picture_assets
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["project clips"])
+log = logging.getLogger(__name__)
+# Song videos (flows V6): the reason, nothing charged, and the press that helps
+SONG_CUT_FAILED = "The video couldn't be put together. Nothing was charged. Press Try again."
+SONG_CHANGED = (
+    "{} of the clips were made for the video's earlier song. Press Rewrite clip prompts on "
+    "Clips and remake them, then make the video."
+)
+NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
@@ -50,7 +60,8 @@ class TakeOut(BaseModel):
 class VideoOut(BaseModel):
     file_id: int
     take_ids: list[int]  # the picked takes it was made from, in clip order
-    out_of_date: bool  # a pick or a "Use the real image" switch changed since
+    out_of_date: bool  # a pick, a "Use the real image" switch or the video's song changed since
+    song_take_id: int | None = None  # song ads: the take laid under the whole video (V6)
 
 
 class InsertOut(BaseModel):
@@ -570,7 +581,9 @@ def _video_out(db: Session, video: FinalVideo) -> VideoOut:
     current = [c.picked_take_id for c in clips]
     cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
     old = video.take_ids != current or (video.cut_ins or []) != cuts
-    return VideoOut(file_id=video.file_id, take_ids=video.take_ids, out_of_date=old)
+    old = old or video.song_take_id != db.get(Project, video.project_id).song_take_id
+    return VideoOut(file_id=video.file_id, take_ids=video.take_ids, out_of_date=old,
+                    song_take_id=video.song_take_id)  # fmt: skip
 
 
 @router.post("/video", response_model=VideoOut, status_code=201)
@@ -592,10 +605,24 @@ def make_video(
         raise HTTPException(409, looks.OTHER.format("1 clip was" if other == 1
                                                     else f"{other} clips were"))  # fmt: skip
     storage = request.app.state.storage
+    song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
+    if song and not all(c.song_slice for c in clips):
+        raise HTTPException(409, NOT_TIMED)
+    newest = _newest_breakdown(db, project)
+    if song and (old := sum(_stale(db, c, newest) for c in clips)):  # made for the earlier song
+        raise HTTPException(409, SONG_CHANGED.format(old))
     try:
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
-        data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
+        if song:  # the song is the only sound (flows V6)
+            lengths = [c.song_slice["end"] - c.song_slice["start"] for c in clips]
+            sound = storage.get(db.get(StoredFile, song.file_id).key)
+            data = clip_takes.song_cut(videos, lengths, sound)
+        else:
+            data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
     except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly
+        if song:
+            log.exception("project %s: the song video couldn't be cut", project.id)
+            raise HTTPException(422, SONG_CUT_FAILED) from exc
         raise HTTPException(
             422, "The clips couldn't be put together. Redo the odd one out."
         ) from exc
@@ -617,6 +644,7 @@ def make_video(
         file_id=stored.id,
         take_ids=[c.picked_take_id for c in clips],
         cut_ins=_cut_ins(db, project, clips),
+        song_take_id=song.id if song else None,
         created_by_id=user.id,
     )
     db.add(video)
