@@ -215,3 +215,23 @@ def test_only_the_maker_or_the_owner_goes_back(app, db, owner, editor, setup):  
     assert two.get(f"{url}/versions").status_code == 200  # reading stays open
     assert owner.post(presses[3][0]).status_code == 409  # the owner gets past it (in use)
     assert editor.post(presses[3][0]).status_code == 409  # and so does the maker
+
+
+def test_go_back_waits_for_the_later_steps_being_made(app, db, editor, setup):  # noqa: F811
+    """Flow-QA on #957: an Update everything after this run (or a new storyboard) still going
+    would land on the breakdown being replaced and read out of date at once, after paying."""
+    from app.models.breakdowns import BreakdownVersion
+    from tests.test_update_after import _drain, _made
+
+    url = f"/projects/{setup['project']}"
+    providers = _made(app, db, editor, url)
+    first = db.query(BreakdownVersion).order_by(BreakdownVersion.id).first().id
+    assert editor.post(f"{url}/update-after").status_code == 202  # the run is queued
+    busy = editor.post(f"{url}/breakdown/versions/{first}/use")
+    assert (
+        busy.status_code == 409 and "storyboard, stills and clip prompts" in busy.json()["detail"]
+    )
+    _drain(app, db, providers)
+    _drain(app, db, providers)
+    _drain(app, db, providers)
+    assert editor.post(f"{url}/breakdown/versions/{first}/use").status_code == 200  # then free

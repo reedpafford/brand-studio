@@ -230,9 +230,16 @@ def use_version(
     if old is None or old.project_id != project.id:
         raise HTTPException(404, "There's no such breakdown.")
     steps = ("breakdown", "song_breakdown", "narrated_breakdown")
-    waiting = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
+    waiting = list(db.scalars(select(Job).where(Job.project_id == project.id,
+                                                Job.status.in_(WAITING))))  # fmt: skip
     if any(j.input.get("step") in steps for j in waiting):
         raise HTTPException(409, "Wait for the breakdown being made.")
+    from app.update_after import RUN
+
+    later = ("storyboard", "frame", "clip_prompts", "change")  # made for the one in use now
+    if any(j.input.get("step") in later or j.input.get("frame_id") or j.input.get(RUN)
+           for j in waiting):  # fmt: skip
+        raise HTTPException(409, "Wait for the storyboard, stills and clip prompts being made.")
     was = _newest(db, project)
     if was.id == old.id:
         raise HTTPException(409, "This is the breakdown in use.")
