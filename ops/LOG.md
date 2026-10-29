@@ -1,4 +1,12 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 06:00 · Into `next`: #816 Write 2 song directions (web); #828 Director narrated videos; #834 narrated-ad sound mix; #825 Usage archived brands first; #842 Suno through KIE (written, switched off); #849 UX audit part 7; #844, #846, #848, #850, #855 flow map for narrated formats, Format and Look, the creative plan and the AI check; #852 migration merge order
+- 2026-10-29 05:50 · #803 Storyboard: an out-of-date frame has its own Redo this frame · N, or says why not with Redo storyboard merged
+- 2026-10-29 05:34 · #847 gitignore: match .venv and node_modules links too merged
+- 2026-10-29 05:31 · Decisions (#845, Reed, all videos and every brand, Next first then live): a creative-plan step before the breakdown; refused or "service busy" takes retry once on their own and clip-prompt wording flags fix themselves; an advisory AI check on stills and takes replaces rule 11 once shipped merged
+- 2026-10-29 05:22 · #841 Redo frame: no passing "failed" between the rewrite and its still merged
+- 2026-10-29 05:21 · Decisions (#843, Reed, Next): narrated ads are a format; Format (Dialogue, Song, Narrated) and Look are separate settings; real Suno through KIE on the test site with a $5 test budget, MiniMax dropped (supersedes the 2026-10-28 music line) merged
+- 2026-10-29 05:02 · #822 Clips and Downloads: a take made from an older Cast & places look says Out of date, still approved, with Make another take or Keep anyway merged
+- 2026-10-29 04:55 · #833 Spend: narrated ads v2 audio (~$1.30), the narrated pair about $33.92 of $40; #838 ops: HANDOFF/LOG refresh as of f2be1c8 merged (by the Producer)
 - 2026-10-29 05:00 · Into `next`: #799, #783 song breakdown and Suno's input; #814 narrated Iron Paws ads and song_ad fixes; #823 flow map for narrated videos; #819 Director follows the workflow behind Reed's song ads, plus the song-ad study; #773 layout words; #830 data.md notes; #836 S3a's study job goes to Builder-Server-7
 - 2026-10-29 04:50 · #827, #824 A copyright refusal says to make it again first (it costs nothing); an insert is a shot about a thing, never a person, merged
 - 2026-10-29 04:08 · #820 Spend: Iron Paws narrated ads ($32.62 of $40) merged
