@@ -254,3 +254,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #915 at 74550901 (Done label; earlier-way New video back link) | vitest videos + projects (349) | PASS (note: back says Scripts, pressed from Videos) |
 | 2026-10-29 | #912 at a43c4046 (music off by default with a budget; true charge message; bed-only retry) | narration + needs_you (19) | PASS |
 | 2026-10-29 | #893 at 9afd850a (★ with no product or screen: 409 with the way out) | plan_route + plan (9) | PASS |
+| 2026-10-29 | #916 at 4133068a (merge of next after #910) | KitPage editor body | FAIL: editors still lose tone notes, never say, end line (Producer asked to keep them) |
