@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, merge_roles, music, narration, rewritten, song_study
+from app import advice, looks, merge_roles, music, narration, rewritten, song_study
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -50,6 +50,7 @@ class ScriptIn(BaseModel):
     new_lines: bool | None = None  # write new lines in the reel's style, not its own
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
     kind: Literal["story", "song", "narrated"] = "story"  # song: lyrics; narrated: one voice
+    look: str | None = None  # how the pictures are drawn (ST1); None: House
 
 
 class BulkRow(ScriptIn):
@@ -75,6 +76,7 @@ class ScriptPatch(BaseModel):
     reference_id: str | None = None
     reference_replace: LongText | None = None
     new_lines: bool | None = None  # until version A is approved
+    look: str | None = None  # ST1: before publishing; Undo is a PATCH back (changing back is free)
 
 
 class DraftIn(BaseModel):
@@ -167,6 +169,7 @@ class ScriptRow(BaseModel):
     brand_id: int
     title: str
     kind: Literal["story", "song", "narrated"]
+    look: str = "house"
     description: str
     reference_id: str | None
     published: bool
@@ -288,6 +291,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         brand_id=script.brand_id,
         title=script.title,
         kind=script.kind,
+        look=script.look,
         description=script.description,
         reference_id=script.reference_id,
         reel_imported=script.reference_breakdown is not None,
@@ -412,6 +416,8 @@ def create_script(
 ):
     get_brand(db, user, body.brand_id)
     _check_reference(request, body.reference_id)
+    if body.look:
+        looks.pick(db, user, body.look)
     script = Script(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
@@ -467,6 +473,8 @@ def create_many(
         )
     made = []
     for item, url, upload in zip(body.scripts, links, uploads, strict=True):
+        if item.look:
+            looks.pick(db, user, item.look)
         script = Script(
             workspace_id=user.workspace_id,
             created_by_id=user.id,
@@ -513,6 +521,9 @@ def update_script(
         lib.editable(user, script)
     if "reference_id" in values:
         _check_reference(request, values["reference_id"])
+    if values.get("look") is not None:
+        lib.editable(user, script)  # a published script's look is final (ST1)
+        values["look"] = looks.pick(db, user, values["look"])
     if values.get("new_lines") is not None and any(
         d.slot == 0 and d.status == "approved" for d in lib.drafts(db, script)
     ):
@@ -761,6 +772,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
         brand_id=source.brand_id,
         title=f"{source.title} (copy)"[:200],
         kind=source.kind,
+        look=source.look,
         description=source.description,
         notes=source.notes,
         reference_id=source.reference_id,

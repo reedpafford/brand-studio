@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, credits, redo_frame, storyboard
+from app import advice, breakdown, change, credits, looks, redo_frame, storyboard
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
@@ -121,7 +121,8 @@ def _out(
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
-                "redo_credits", "redo_blocked")  # fmt: skip
+                "redo_credits", "redo_blocked", "still_stale")  # fmt: skip
+    other = looks.frame_other(project, frame)  # drawn in another look (VS1)
     newest = _newest_breakdown(db, project)
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
     blocked = redo_frame.blocked(db, frame, newest) if redo else ""
@@ -134,8 +135,9 @@ def _out(
         asked = {**asked, "status": "failed", "error": said}
     return FrameOut(
         **{f: getattr(frame, f) for f in FrameOut.model_fields if f not in computed},
-        approved=frame.approved and not stale,
+        approved=frame.approved and not stale and not other,
         stale=stale,
+        still_stale=frame.still_stale or other,
         change=asked or None,
         drawing=any(j.input.get("frame_id") == frame.id for j in waiting),
         still_credits=storyboard.still_price(db, project),
@@ -399,7 +401,8 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             continue
         why = (
             "no still yet" if not frame.file_id
-            else "still is out of date, Redo it first" if frame.still_stale
+            else "still is out of date, Redo it first"
+            if frame.still_stale or looks.frame_other(project, frame)
             else "made for an older breakdown" if _stale(db, project, frame)
             else "has a problem to fix" if advice.stops(frame)
             else ""

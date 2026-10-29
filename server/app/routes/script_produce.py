@@ -65,6 +65,7 @@ def produce(
         reference_breakdown=script_reference(request, script),
         reference_replace=script.reference_replace,
         script_draft_id=draft.id,
+        look=script.look,  # the video's own from here on (VS1)
     )
     if script.kind in narration.TIMED and (take := song_takes.preferred(db, draft)):
         project.song_take_id = take.id  # the video's own choice from here on (rule 31)

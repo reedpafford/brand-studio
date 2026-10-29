@@ -2,14 +2,14 @@
 with a music bed under it, and whether its pauses were trimmed
 
 Revision ID: n05
-Revises: n06
+Revises: n07
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n05"
-down_revision = "n06"
+down_revision = "n07"
 branch_labels = None
 depends_on = None
 
