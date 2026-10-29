@@ -73,10 +73,10 @@ test("a row shows its newest still as the poster and the step it is at, or when 
   expect(row.querySelector("img")?.getAttribute("src")).toContain("/files/77");
   expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Video done · /)).toBeInTheDocument();
   const bare = screen.getByRole("link", { name: /No stills yet/ });
-  expect(within(bare).getByText(/At Breakdown/)).toBeInTheDocument();
+  expect(within(bare).getByText(/At Plan/)).toBeInTheDocument();
   expect(bare.querySelector("img")).toBeNull();
-  // A video from before scripts has no such steps: it says credits, not "At Breakdown".
-  expect(within(screen.getByRole("link", { name: /Earlier way/ })).queryByText(/At Breakdown/)).toBeNull();
+  // A video from before scripts has no such steps: it says credits, not "At Plan".
+  expect(within(screen.getByRole("link", { name: /Earlier way/ })).queryByText(/At Plan/)).toBeNull();
 });
 
 test("an editor only ever asks for their own videos; Reed sees everyone's and can turn Mine on", async () => {

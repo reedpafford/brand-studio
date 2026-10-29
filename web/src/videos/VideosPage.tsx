@@ -15,7 +15,7 @@ import { serverTime } from "../time";
 
 type Project = components["schemas"]["ProjectOut"];
 
-const STEP: Record<string, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
+const STEP: Record<string, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** Where a video opens: the new page for one made from a script version (Downloads when it is done), the earlier six-step page for the rest. */

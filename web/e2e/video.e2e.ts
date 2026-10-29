@@ -34,7 +34,7 @@ for (const width of [1440, 390]) {
 
     await page.goto(`/b/${brandId}/videos/${id}`);
     await expect(
-      page.getByRole("heading", { name: "Breakdown", level: 2, exact: true }),
+      page.getByRole("heading", { name: "Plan", level: 2, exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: /Make the breakdown/ }).click();
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
@@ -47,9 +47,9 @@ for (const width of [1440, 390]) {
         await route.fallback();
       });
     }
-    await page.getByRole("button", { name: "Next: Assets" }).click();
+    await page.getByRole("button", { name: "Next: Cast" }).click();
     await expect(
-      page.getByRole("heading", { name: "Assets", level: 2 }),
+      page.getByRole("heading", { name: "Cast", level: 2 }),
     ).toBeVisible();
     if (width === 390) {
       await expect(page.getByText("Loading assets…")).toHaveCount(1); // said once
@@ -120,7 +120,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByRole("button", { name: "Next: Assets" }).click();
+    await page.getByRole("button", { name: "Next: Cast" }).click();
     await page.getByRole("button", { name: "Next: Storyboard" }).click();
 
     // One press writes the frames and draws every still.

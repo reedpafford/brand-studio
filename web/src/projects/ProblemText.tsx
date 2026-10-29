@@ -9,7 +9,7 @@ export function useProblemWords(projectId: number, brandId: number) {
   const words = (p: string) => plainWords(p, (id) => refName(id, pieces, roles));
   const fix = (p: string) =>
     aboutMissingLook(p) ? (
-      <Link to={`/b/${brandId}/videos/${projectId}?step=assets`} className="ml-2 whitespace-nowrap text-accent-text underline">
+      <Link to={`/b/${brandId}/videos/${projectId}?step=cast`} className="ml-2 whitespace-nowrap text-accent-text underline">
         Approve a look in Assets
       </Link>
     ) : null;

@@ -34,7 +34,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
 };
 
-function open(query = "?step=assets") {
+function open(query = "?step=cast") {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[`/b/1/videos/9${query}`]}>
@@ -65,7 +65,7 @@ test("it stays out of every count: the steps are not blocked and the header coun
   fakeServer({ ...base, "GET /projects/9/assets": [200, [bo, noah]], "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [] }] });
   open();
   await screen.findByLabelText("Noah");
-  expect(screen.getByText("1 asset · 1 approved")).toBeInTheDocument();
+  expect(screen.getByText("1 in the cast · 1 approved")).toBeInTheDocument();
   const steps = screen.getByRole("list", { name: "Steps" });
-  expect(within(steps).getByRole("button", { name: "Storyboard" })).not.toHaveAccessibleDescription(/Approve every asset first/);
+  expect(within(steps).getByRole("button", { name: "Storyboard" })).not.toHaveAccessibleDescription(/Approve the cast first/);
 });
