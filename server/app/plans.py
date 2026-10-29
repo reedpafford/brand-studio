@@ -70,6 +70,19 @@ def keep_version(draft, stand: Project) -> None:
     draft.plan = stand.plan
 
 
+def read_again(db: Session, project: Project) -> None:
+    """Read the plan again after reading its job, so a plan the job saved meanwhile is never
+    missed: a video's row, or a script version's (its stand-in has no row of its own)."""
+    if project.id is not None:
+        db.refresh(project)
+        return
+    from app.models.script_library import ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    db.refresh(draft)
+    project.plan = draft.plan
+
+
 def copy_to_video(project: Project, draft) -> None:
     """Make this version: the owner's approved plan is the video's start, approved ("From
     Reed's plan"); each video's plan is its own from here."""
