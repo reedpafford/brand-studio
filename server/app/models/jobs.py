@@ -8,6 +8,7 @@ from sqlalchemy import JSON, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
+from app.models.folders import Filed
 
 
 class JobStatus(StrEnum):
@@ -19,8 +20,9 @@ class JobStatus(StrEnum):
     needs_owner_approval = "needs_owner_approval"  # would go over the project budget
 
 
-class Job(Entity, Base):
+class Job(Filed, Entity, Base):
     __tablename__ = "jobs"
+    folder_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id"), index=True)  # OR1
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str] = mapped_column(String(40))  # e.g. video, image, watch, write

@@ -8,10 +8,12 @@ from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint, event, 
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
+from app.models.folders import Filed
 
 
-class Script(Entity, Base):
+class Script(Filed, Entity, Base):
     __tablename__ = "scripts"
+    folder_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id"), index=True)  # OR1
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))

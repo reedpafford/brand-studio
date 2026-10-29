@@ -9,7 +9,17 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, languages, looks, merge_roles, music, narration, rewritten, song_study
+from app import (
+    advice,
+    folders,
+    languages,
+    looks,
+    merge_roles,
+    music,
+    narration,
+    rewritten,
+    song_study,
+)
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -185,6 +195,7 @@ class ReelRow(BaseModel):
 
 class ScriptRow(BaseModel):
     id: int
+    folder_id: int | None = None  # its project (OR1); null: No project
     brand_id: int
     title: str
     kind: Literal["story", "song", "narrated"]
@@ -323,6 +334,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
     versions = [_version(db, d, full) for d in lib.drafts(db, script)]
     statuses = [v.status for v in versions]
     row = dict(
+        folder_id=script.live_folder_id,
         id=script.id,
         brand_id=script.brand_id,
         title=script.title,
@@ -383,6 +395,7 @@ def list_scripts(
     min_seconds: int | None = None,
     max_seconds: int | None = None,
     removed: bool = False,  # true: the deleted (archived) scripts instead, to restore
+    folder: str | None = None,  # OR1: a project's id, or "none" for No project
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -397,6 +410,8 @@ def list_scripts(
         query = query.where(or_(Script.published, Script.created_by_id == user.id))
     if brand_id is not None:
         query = query.where(Script.brand_id == brand_id)
+    if (filed := folders.where(Script.folder_id, folder)) is not None:
+        query = query.where(filed)
     if reference_id is not None:
         query = query.where(Script.reference_id == reference_id)
     if reference is not None:
