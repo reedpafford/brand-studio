@@ -116,3 +116,9 @@ def test_a_looks_banned_words_are_repaired_but_never_in_a_spoken_line():
     assert advice == ["Advice: “stage” is in a quoted line; the look avoids it"]
     assert check.look_words(fixed, "zack-d")[1] == []  # doing it again changes nothing
     assert check.look_words("A live-action kitchen.", "house")[0] == "A kitchen."
+    # Flow-QA on #908: a safeguard keeps its words
+    for safe, look in (("Bones and glow, no blood, no gore.", "skeleton"),
+                       ("The bowl is not floating.", "zack-d"),
+                       ("Not photorealistic: stylised.", "house"),
+                       ("Never on a stage.", "zack-d")):  # fmt: skip
+        assert check.look_words(safe, look)[:2] == (safe, []), safe

@@ -1377,7 +1377,7 @@ VOICED = re.compile(
     r"\b(?:vocals?|choir|singing|singer|sung|humm(?:ing|ed)|lyrics?|chant\w*)\b", re.I
 )
 
-NEGATED = re.compile(r"\b(?:no|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
+NEGATED = re.compile(r"\b(?:no|not|never|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
 
 
 def _negated(text: str, m: re.Match) -> bool:
@@ -1454,8 +1454,11 @@ def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
         for word, new in sorted(look_banned(look_id), key=lambda x: -len(x[0])):  # phrases first
             found = re.compile(rf"\b{re.escape(word)}\b\s?", re.I)
             for i in range(0, len(parts), 2):
-                if found.search(parts[i]):
-                    parts[i] = found.sub(lambda m, n=new: _same_case(m.group(0), n), parts[i])
+                hits = [m for m in found.finditer(parts[i]) if not _negated(parts[i], m)]
+                if hits:  # a safeguard ("no blood", "not floating") is never rewritten
+                    for m in reversed(hits):
+                        a, b = m.span()
+                        parts[i] = parts[i][:a] + _same_case(m.group(0), new) + parts[i][b:]
                     changed.append(f"{word} → {new}" if new else f"{word} → (taken out)")
             if any(found.search(q) for q in quotes):
                 advice.append(f"{ADVICE}“{word}” is in a quoted line; the look avoids it")
