@@ -1,4 +1,4 @@
-import { useRef, useState, type FocusEvent } from "react";
+import { useRef, type FocusEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, FileInput, FileText, Mic, Music, Plus } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -48,6 +48,10 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
   );
 }
 
+/** The first box of each format, the same here and on the step, so the swap between them can't be seen. */
+export const SCRIPT_BOX = { label: "Paste or write your script", rows: 14, maxLength: 50000, placeholder: "Paste or write the script here" };
+export const LYRICS_BOX = { label: "Lyrics", rows: 12, placeholder: "[Verse]\nPaste or write the lyrics here" };
+
 /** The words typed here go on as the step's unsaved draft (its tab memory), so its Save works as it always does. */
 const memory = (kind: Kind, id: number) => (kind === "song" ? `song-words-${id}` : `script-words-${id}`);
 const keeps = () => {
@@ -73,8 +77,8 @@ export function NewScriptPage() {
   const kind = useSearchParams()[0].get("kind") as Kind;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [words, setWords] = useState("");
-  const latest = useRef(""); // what's typed while the save is on its way goes along too
+  const latest = useRef(""); // the box keeps its own words; what's typed while the save is on its way goes along too
+  const started = useRef(false); // set at once, before a re-render, so a fast double tap or two quick letters make one script
   const make = useMutation({
     mutationFn: async (typed: string) => {
       const text = keeps() ? "" : typed;
@@ -82,6 +86,9 @@ export function NewScriptPage() {
       const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind: kind as "story" } });
       if (!data) throw new Error(errorText(error));
       return data;
+    },
+    onError: () => {
+      started.current = false;
     },
     onSuccess: async (made) => {
       const words = latest.current;
@@ -91,14 +98,18 @@ export function NewScriptPage() {
         /* a private window: saved with it */
       }
       await queryClient.invalidateQueries({ queryKey: ["scripts"] });
-      navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: { typing: !!words } });
+      navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : { about: true } });
     },
   });
   if (!(kind in KINDS)) return <Navigate to={`/b/${brandId}/scripts`} replace />;
+  const start = (text: string) => {
+    if (started.current) return;
+    started.current = true;
+    make.mutate(text);
+  };
   const type = (text: string) => {
-    setWords(text);
     latest.current = text;
-    if (text.trim() && !make.isPending && !make.isSuccess) make.mutate(text);
+    if (text.trim()) start(text);
   };
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
@@ -109,11 +120,11 @@ export function NewScriptPage() {
       <h1 className="type-page">{UNTITLED}</h1>
       <p className="text-sm text-muted">{KINDS[kind]} · saved when you type the first word.</p>
       <Card className="max-w-[680px] space-y-3">
-        <TextArea autoFocus label={kind === "song" ? "Lyrics" : "Paste or write your script"} rows={kind === "song" ? 12 : 14} placeholder={kind === "song" ? "[Verse]\nPaste or write the lyrics here" : "Paste or write the script here"} value={words} onChange={(e) => type(e.target.value)} />
+        <TextArea {...(kind === "song" ? LYRICS_BOX : SCRIPT_BOX)} autoFocus onChange={(e) => type(e.target.value)} />
         {make.isError && <p role="alert" className={errorClass}>{make.error.message} Type again to try again.</p>}
       </Card>
       <div className="space-y-1">
-        <Button variant="secondary" busy={make.isPending && !words} disabled={make.isPending} onClick={() => make.mutate("")}>
+        <Button variant="secondary" disabled={make.isPending} onClick={() => start("")}>
           Start from what it's for
         </Button>
         <p className="text-sm text-muted">{kind === "song" ? "Saves it and opens Song, where Claude can suggest directions." : "Saves it and opens About, where Claude can write it for you."}</p>

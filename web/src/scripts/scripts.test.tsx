@@ -143,6 +143,17 @@ test("New script: backing out before a word is typed leaves nothing behind (flow
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
 });
 
+test("New script: Start from what it's for saves one script, with its format, and opens About", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script", description: "" })], "GET /scripts/7": [200, full({ title: "Untitled script", description: "" })] });
+  open("/b/1/scripts/new?kind=story");
+  await userEvent.dblClick(await screen.findByRole("button", { name: "Start from what it's for" })); // a fast double tap
+  expect(await screen.findByText("About this script")).toBeInTheDocument();
+  expect(screen.getByText("About this script").closest("details")).toHaveAttribute("open");
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
+  expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", text: "" });
+});
+
 test("a draft script's page: title, a draft badge, six steps, and About this script closed but there to edit", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PATCH /scripts/7": [200, full({ title: "Bo tries tuna" })] });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight, Lock, Pencil, Sparkles, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
@@ -11,7 +12,7 @@ import { errorText as errorClass } from "../ui";
 import { DescriptionForm } from "./DescriptionForm";
 import { ReelBlock, useReelImport } from "./ReelImport";
 import { useAllowanceStop, usePatchScript, useWriteWords, type Script } from "./useScript";
-import { useTypingOn } from "./NewScriptButton";
+import { SCRIPT_BOX, useTypingOn } from "./NewScriptButton";
 
 const GOING = ["queued", "running"];
 
@@ -121,7 +122,7 @@ function About({ script: s }: { script: Script }) {
   const patch = usePatchScript(s.id);
   const toast = useToast();
   const { data: me } = useMe();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!(useLocation().state as { about?: boolean } | null)?.about); // "Start from what it's for" opens it
   const readOnly = s.published && me?.role !== "owner";
   return (
     <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group max-w-[680px] rounded-lg border border-border bg-surface px-4">
@@ -248,7 +249,7 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
         </div>
       ) : (
         <Card className="max-w-[680px] space-y-3">
-          <TextArea {...typingOn} label="Paste or write your script" rows={14} maxLength={50000} placeholder="Paste or write the script here" value={draft ?? text} onChange={(e) => setDraft(e.target.value)} />
+          <TextArea {...SCRIPT_BOX} {...typingOn} value={draft ?? text} onChange={(e) => setDraft(e.target.value)} />
           {write.isError && <p role="alert" className={errorClass}>{write.error.message}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <Button

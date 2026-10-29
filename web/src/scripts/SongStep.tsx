@@ -12,7 +12,7 @@ import { ClaimsNote, SongDirections, directionsOf } from "./SongDirections";
 import { SongStudy } from "./SongStudy";
 import { clock } from "./TakePlayer";
 import { useSongs } from "./useSongs";
-import { useTypingOn } from "./NewScriptButton";
+import { LYRICS_BOX, useTypingOn } from "./NewScriptButton";
 
 export const MAX_LYRICS = 4960; // Suno's limits less the pacing words the server adds (app/music.py)
 const MAX_STYLE = 893;
@@ -240,10 +240,8 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
     <div className="space-y-4">
       <Card className="max-w-[680px] space-y-3">
         <TextArea
+          {...LYRICS_BOX}
           {...typingOn}
-          label="Lyrics"
-          rows={12}
-          placeholder={"[Verse]\nPaste or write the lyrics here"}
           value={draft.text}
           onChange={(e) => setDraft({ ...draft, text: e.target.value })}
           counter={over > 0 ? `Cut ${n(over)} characters` : `${n(draft.text.length)} / ${n(MAX_LYRICS)}`}
