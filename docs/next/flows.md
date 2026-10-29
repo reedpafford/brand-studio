@@ -160,7 +160,7 @@ Rule 19 holds: directions are suggestions. Nothing the AI writes reaches the lyr
 | E | "Make 2 takes · N credits". Under it: "Each take is a full song. The song sets the video's length." | **Make 2 takes**. |
 | Q/R | Two player placeholders: "Making the song…" with a timer. | Cancel (before it starts). |
 | Reading timing | After a take arrives, free, on the local lane: "Reading the song's timing…" on that take. The player already plays. | — |
-| Done | Two players. Each shows its length ("0:31") and **Preferred** on one: the first take whose timing is read, until the owner picks. | **Next: Cast**, or **Make this Preferred**, or **Make 2 more · N credits**. |
+| Done | Two players. Each shows its length and **the video it implies**: "0:31 · a video of about 40 credits" (Reed's pilot: takes of the same words differ by up to 20 s, which is real money). **Preferred** is on one: the first take whose timing is read, until the owner picks. The same line shows on every take in Change song (V2a). | **Next: Cast**, or **Make this Preferred**, or **Make 2 more · N credits**. |
 | Timing still reading | That take's **Make this Preferred** is disabled with "Reading the song's timing…"; it turns on by itself when the timing is read. | — |
 | Timing failed (the words couldn't be read; the length is known) | "We couldn't read this song's timing. It's free to try again." | **Try again** (free; a slow read may pass next time), or **Use timing spread evenly** (free: the lines are spread over the take's length in order, each shot marked "Timing guessed"; the take can then be Preferred), or **Make this Preferred** on the other take. |
 | Timing failed (the file can't be read) | "This take's file can't be read, so its timing can't be measured." Trying again won't help, so it isn't offered. | **Make this Preferred** on the other take, or **Make 2 more · N credits**. The take can be deleted (Undo). |
@@ -306,7 +306,12 @@ As today, under the audit's names: the **Prompts** list (each checked with "Prom
 
 ## V6. Final cut: the song underneath
 
-The final video is stitched as today (free), and the preferred take's full song is laid underneath. The clips' own sound is dropped, so the song is the only sound: the lip-sync clips were made from the same song, so they match. The picture is trimmed to the song's length; if the picture is short, the last shot holds its final frame.
+The final video is made for free, with **the song as the only sound** (Reed's pilot, docs/next/song-pilot-notes.md):
+1. Each clip's picked take is trimmed to its own piece of the song (`song_slice`), counting from the take's start. Takes are made a little long, so nothing is slowed.
+2. The trimmed takes are joined in order.
+3. The takes' own sound is dropped, and the video's song (its take, trimmed if "Use the first…" was used) is laid under the whole picture.
+4. The end has a 1.5 s fade.
+The lip-sync clips were made from the same song, so they match. If the picture comes out short, the last shot holds its final frame. Today's "Make video" keeps the takes' sound, so for song videos this is new server work (Next-Server, after the song-timed breakdown).
 
 | State | What they see | The one press |
 |---|---|---|
