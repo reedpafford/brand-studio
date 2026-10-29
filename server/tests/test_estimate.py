@@ -18,7 +18,8 @@ def test_estimate_follows_the_project(app, db, owner, editor, outsider, setup): 
     assert stages["storyboard"] == (False, 3 + 4 * 0.33)  # 30 s / 8 s ≈ 4 clips, 4 stills
     assert stages["clips"] == (False, 30)  # 30 s at 480p, 1 credit a second
     assert stages["video"] == (False, 0)  # free
-    assert body["remaining_credits"] == round(3 + 3 + 1.32 + 3 + 30, 2)
+    assert stages["clip_prompts"] == (False, 2 * 3)  # 4 clips, a call per few (as the quote)
+    assert body["remaining_credits"] == round(3 + 3 + 1.32 + 2 * 3 + 30, 2)
     assert body["budget_credits"] >= 2 * body["remaining_credits"]  # rule 3: twice all of it
 
     editor.post(f"/projects/{project}/breakdown")

@@ -374,3 +374,26 @@ def test_take_cards_and_the_version_show_one_price(app, db, owner, song):
     version = owner.get(base).json()["versions"][0]
     assert take["video_credits"] > alone
     assert version["estimate_credits"] == pytest.approx(take["video_credits"])
+
+
+def test_a_song_videos_quote_card_and_bar_are_one_figure(app, db, owner, song):
+    """Rule 32 (up to a look per role that will need one) and the song's own length: Make
+    this version's quote, the take card and the made video's cost bar agree on a song video
+    with a role not cast yet."""
+    from app import video_settings as vs
+    from app.models.projects import Project
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    base = song.rsplit("/drafts", 1)[0]
+    owner.post(f"{base}/cast", json={"role": "Singer"})  # not cast yet: needs a look
+    owner.post(f"{song}/approve")
+    owner.post(f"{base}/publish")
+    quote = owner.post(f"{song}/estimate").json()["credits"]
+    card = owner.get(f"{song}/songs").json()["takes"][0]["video_credits"]
+    made = owner.post(f"{song}/produce").json()["project_id"]
+    bar = owner.get(f"/projects/{made}/estimate").json()["remaining_credits"]
+    to_finish = float(vs.to_finish(db, db.get(Project, made)))
+    assert quote == pytest.approx(card) == pytest.approx(bar, abs=0.01)
+    assert to_finish == pytest.approx(quote, abs=0.01)
