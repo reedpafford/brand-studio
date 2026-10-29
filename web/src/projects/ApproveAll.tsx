@@ -6,7 +6,7 @@ import { Button, useToast } from "../components";
 import type { CostAction } from "./CostBar";
 
 type Skipped = { id: number | null; reason: string; label?: string };
-export type ApproveAllResult = { approved: number[]; skipped: Skipped[] };
+export type ApproveAllResult = { approved: number[]; skipped: Skipped[]; approved_with_advice?: number };
 
 /** Scrolls to a card and outlines it for a moment. */
 function show(label: string) {

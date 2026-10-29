@@ -6,10 +6,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, credits, looks, redo_frame, storyboard
+from app import advice, breakdown, change, credits, item_checks, looks, redo_frame, storyboard
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
+from app.item_checks import CheckOut
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
@@ -64,6 +65,7 @@ class FrameOut(BaseModel):
     # drawn), or why not ("This clip changed in the breakdown…": Redo storyboard).
     redo_credits: int | None = None
     redo_blocked: str | None = None
+    check: CheckOut | None = None  # P4: the advisory check on its newest still (Advice only)
 
 
 class SoftenOut(BaseModel):
@@ -121,7 +123,7 @@ def _out(
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
-                "redo_credits", "redo_blocked", "still_stale")  # fmt: skip
+                "redo_credits", "redo_blocked", "still_stale", "check")  # fmt: skip
     other = looks.frame_other(project, frame)  # drawn in another look (VS1)
     newest = _newest_breakdown(db, project)
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
@@ -143,6 +145,7 @@ def _out(
         still_credits=storyboard.still_price(db, project),
         redo_credits=credits.price(redo_frame.price(db, project)) if redo and not blocked else None,
         redo_blocked=blocked or None,
+        check=item_checks.shown(db, item_checks.latest(db, "frame", [frame.id]).get(frame.id)),
         softened={"before": asked["before"], "after": asked["after"]}
         if asked.get("softened")
         else None,
@@ -389,7 +392,7 @@ def approve(
     return _out(db, project, frame)
 
 
-@router.post("/approve-all", response_model=advice.ApproveAllOut)
+@router.post("/approve-all", response_model=advice.ApproveAllChecked)
 def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Approve all (Reed, 2026-10-26): every frame with a still and nothing to fix; the
     others are listed with why. Undo takes back exactly these."""
@@ -412,8 +415,10 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             continue
         frame.approved, frame.redrawn, frame.change = True, False, None
         approved.append(frame.id)
+    flagged = item_checks.with_advice(db, "frame", approved)
     db.commit()
-    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+    return advice.ApproveAllChecked(approved=approved, skipped=skipped,
+                                    approved_with_advice=flagged)  # fmt: skip
 
 
 @router.post("/approve-all/undo", response_model=list[FrameOut])

@@ -8,6 +8,7 @@ Prints what came out; exits 1 if anything went wrong.
 """
 
 import json
+import os
 import secrets
 import subprocess
 import sys
@@ -23,7 +24,7 @@ from app.main import create_app
 from app.models.jobs import Job, JobStatus
 from app.providers import get_providers
 from app.providers.fake_local import two_scenes
-from app.settings import REPO_ROOT, Settings
+from app.settings import REPO_ROOT, Settings, get_settings
 from app.worker import run_once
 
 CASES = {
@@ -232,6 +233,8 @@ def altar_script() -> str:
 
 
 def main() -> int:
+    os.environ["BS_FAKE_PROVIDERS"] = "true"  # read where no app is at hand (the P4 checks)
+    get_settings.cache_clear()
     token = secrets.token_hex(16)  # first-owner setup for this throwaway database only
     with tempfile.TemporaryDirectory() as tmp:
         settings = Settings(

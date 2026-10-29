@@ -39,6 +39,7 @@ def test_approve_all_frames_and_undo(app, db, editor, setup):  # noqa: F811
         "skipped": [{"id": no_still, "reason": "no still yet"},
                     {"id": problem, "reason": "has a problem to fix"},
                     {"id": recast, "reason": "still is out of date, Redo it first"}],
+        "approved_with_advice": 0,  # none carries the check's Advice (P4)
     }  # fmt: skip
     shown = {f["id"]: f["approved"] for f in editor.get(url).json()}
     assert shown[ready] and shown[advised] and not shown[no_still] and shown[earlier]
@@ -72,7 +73,7 @@ def test_approve_all_clips_and_undo(app, db, editor, setup, clip):  # noqa: F811
     assert done == {"approved": [row.id], "skipped": [
         {"id": stale.id, "reason": "made for an older breakdown"},
         {"id": no_take.id, "reason": "no take picked yet"},
-    ]}  # fmt: skip
+    ], "approved_with_advice": 0}  # fmt: skip
     assert editor.get(url).json()[0]["approved"] is True
     undone = editor.post(f"{url}/approve-all/undo", json={"ids": done["approved"]}).json()
     assert not any(c["approved"] for c in undone)
