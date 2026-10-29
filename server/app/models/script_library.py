@@ -94,6 +94,9 @@ class ScriptDraft(Entity, Base):
     breakdown_text: Mapped[str | None] = mapped_column(Text)  # the words it was planned from
     breakdown_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # who planned it
     reserved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # producing it
+    # Flavour from the script (n03): each new video's default flavour, {product: variant}; a
+    # default, not words, so it can change after publishing (rule 31)
+    flavours: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class ScriptDraftText(Entity, Base):

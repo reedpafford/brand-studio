@@ -2009,9 +2009,31 @@ export interface paths {
         /**
          * Publish
          * @description Put it in the team's library. Every version must be approved first; after this it's
-         *     final (duplicate it to change it).
+         *     final (duplicate it to change it). `flavours` saves each version's default flavours
+         *     first (n03); a product with one flavour is picked by itself, the rest stay Auto.
          */
         post: operations["publish_scripts__script_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scripts/{script_id}/drafts/{slot}/flavours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Flavours
+         * @description A version's default flavours, before or after Publish: a default, not words (rule 31
+         *     keeps the words). Only videos made from it later read them.
+         */
+        put: operations["set_flavours_scripts__script_id__drafts__slot__flavours_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7404,6 +7426,18 @@ export interface components {
             /** Current */
             current: boolean;
         };
+        /** PublishIn */
+        PublishIn: {
+            /**
+             * Flavours
+             * @default {}
+             */
+            flavours: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+        };
         /** RateIn */
         RateIn: {
             /** Unit */
@@ -8917,6 +8951,13 @@ export interface components {
             /** Project Id */
             project_id: number | null;
             editor?: components["schemas"]["Person"] | null;
+            /**
+             * Flavours
+             * @default {}
+             */
+            flavours: {
+                [key: string]: string;
+            };
         };
         /** VideoMerged */
         VideoMerged: {
@@ -9266,6 +9307,13 @@ export interface components {
             /** Project Id */
             project_id: number | null;
             editor?: components["schemas"]["Person"] | null;
+            /**
+             * Flavours
+             * @default {}
+             */
+            flavours: {
+                [key: string]: string;
+            };
             /** Text */
             text: string;
             /** Words */
@@ -13493,7 +13541,49 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__script_library__ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_flavours_scripts__script_id__drafts__slot__flavours_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -105,6 +105,10 @@ class ScriptPatch(BaseModel):
     look: str | None = None  # ST1: before publishing; Undo is a PATCH back (changing back is free)
 
 
+class PublishIn(BaseModel):
+    flavours: dict[Slot, dict[str, str]] = {}  # per version: {product: variant} (n03)
+
+
 class DraftIn(BaseModel):
     text: ScriptText
     target_seconds: int | None = Field(None, gt=0, le=3600)  # null: the breakdown decides
@@ -149,6 +153,7 @@ class VersionSummary(BaseModel):
     seconds: int  # the saved breakdown's, else the target, else spoken words at 4.8 a second
     project_id: int | None  # the video made from it
     editor: Person | None = None  # who's making it (reserved it), once in production
+    flavours: dict[str, str] = {}  # each new video's default flavour; a product left out: Auto
 
 
 class VersionOut(VersionSummary):
@@ -281,6 +286,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         seconds=lib.seconds(draft),
         project_id=project_id,
         editor=_person(db, draft.reserved_by_id) if project_id else None,
+        flavours=draft.flavours or {},
     )
     if not full:
         return VersionSummary(**base)
@@ -839,11 +845,20 @@ def remove_draft(
 
 
 @router.post("/{script_id}/publish", response_model=ScriptOut)
-def publish(script_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def publish(
+    script_id: int,
+    body: PublishIn | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     """Put it in the team's library. Every version must be approved first; after this it's
-    final (duplicate it to change it)."""
+    final (duplicate it to change it). `flavours` saves each version's default flavours
+    first (n03); a product with one flavour is picked by itself, the rest stay Auto."""
     script = lib.editable(user, lib.get_script(db, user, script_id))
     versions = lib.drafts(db, script)
+    picks = body.flavours if body else {}
+    if unknown := set(picks) - {d.slot for d in versions}:
+        raise HTTPException(422, f"There's no version {'ABC'[min(unknown)]} to pick a flavour for.")
     if not versions or any(d.status != "approved" for d in versions):
         raise HTTPException(409, "Approve or remove every version first.")
     if lib.writing(db, script.id):
@@ -858,7 +873,28 @@ def publish(script_id: int, user: User = Depends(current_user), db: Session = De
                 raise HTTPException(409, f"{said} Press Make the narration.")
             raise HTTPException(409, f"Make the song first: version {name} has no Preferred take "
                                      "of its lyrics. Press Make 2 takes.")  # fmt: skip
+    for draft in versions:
+        picked = {**draft.flavours, **picks.get(draft.slot, {})}
+        draft.flavours = lib.flavours(db, script.brand_id, picked)
     script.published = True
+    db.commit()
+    return _out(db, script)
+
+
+@router.put("/{script_id}/drafts/{slot}/flavours", response_model=ScriptOut)
+def set_flavours(
+    script_id: int,
+    slot: Slot,
+    picks: dict[str, str],
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """A version's default flavours, before or after Publish: a default, not words (rule 31
+    keeps the words). Only videos made from it later read them."""
+    script = lib.get_script(db, user, script_id)
+    if not (user.is_owner or script.created_by_id == user.id):
+        raise HTTPException(403, "Only its author or the owner can change this script.")
+    lib.get_draft(db, script, slot).flavours = lib.flavours(db, script.brand_id, picks)
     db.commit()
     return _out(db, script)
 
