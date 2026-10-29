@@ -9,6 +9,7 @@ from app.models import (  # noqa: F401
     files,
     jobs,
     library,
+    looks,
     projects,
     script_library,
     scripts,
