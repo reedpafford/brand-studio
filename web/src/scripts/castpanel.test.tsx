@@ -48,12 +48,16 @@ test("an empty cast offers Find roles in the script at its price, and pressing i
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/cast/read")).toBe(true));
 });
 
-test("while roles are being found it says so, and with roles there is Find roles again, after a confirm", async () => {
+// One App per test: a second tree mounted beside the first kept polling and raced it (the flake on #926).
+test("while roles are being found it says so", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/cast/read": [200, { running: true, problems: [] }] }));
   open();
   expect(await screen.findByText("Finding the roles…")).toBeInTheDocument();
-  vi.unstubAllGlobals();
+});
+
+test("with roles there is Find roles again, after a confirm", async () => {
+  setViewport(1440);
   const calls = fakeServer(base({ "GET /scripts/7/cast": [200, [slot]], "POST /scripts/7/cast/read": [201, { id: 91, kind: "write-claude", status: "queued" }] }));
   open();
   await userEvent.click((await screen.findAllByRole("button", { name: "Find roles again · 4 credits" })).at(-1)!);

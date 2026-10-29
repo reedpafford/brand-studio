@@ -21,6 +21,7 @@ import { CostBarProvider, type CostAction } from "./CostBar";
 import { VideoMenu, useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
+import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
 import { useOwnScriptStop } from "./useOwnScriptStop";
 import { StoryboardPane } from "./StoryboardPane";
@@ -56,6 +57,7 @@ export function VideoPage() {
   // An editor on their own script is billed to the week, not to a budget.
   const week = p?.own_script && allowance.data ? { used: allowance.data.quick_clip_credits_used, allowed: allowance.data.quick_clip_credits_allowed } : null;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
+  const settings = useVideoSettings(id); // the row has Shape once the server offers settings
   // The storyboard is out of date and the shots are current: one press brings it and the clip prompts up to date (audit M14 part 2).
   const stopFor = useOwnScriptStop(p?.own_script, p ? { used: p.credits_used, budget: p.budget_credits } : undefined);
   const updating = (step === "storyboard" || step === "clips") && !progress.shots.stale && (progress.frames.stale || progress.clips.stale);
@@ -134,6 +136,8 @@ export function VideoPage() {
         </div>
       </div>
       {video.dialog}
+      {/* Every per-video choice in one row (flows VS1); an archived video is read only. Plan has its own song strip, with the player. */}
+      {!p.archived_at && <VideoSettings project={p} finished={finished} song={step !== "plan"} />}
       {p.archived_at && (
         <Banner tone="info" title="Archived" action={mayManage(p) ? <Button variant="secondary" onClick={() => void video.restore(target)}>Restore</Button> : undefined}>
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
@@ -166,7 +170,7 @@ export function VideoPage() {
           project={p as typeof p & { plan_status?: "none" | "ready" | "approved" | null }}
           shots={
             <div className="space-y-4">
-              <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
+              <ShapeRow shape={!settings.data} projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
               {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
               <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
             </div>

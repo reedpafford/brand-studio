@@ -20,6 +20,7 @@ from app.routes import (
     health,
     improve,
     jobs,
+    languages,
     library,
     looks,
     models,
@@ -129,6 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         checks,
         draft_plan,
         video_settings,
+        languages,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)
