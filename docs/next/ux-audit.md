@@ -26,7 +26,7 @@ So this is a **re-layout and re-wording**, not new logic. Every rule stays as it
    - Writing: six steps become four: **Write → Cast → Plan → Publish**. Directions and Variations move inside Write.
    - Video: the five steps stay, but Downloads is called **Final cut**, and Clips shows two clear phases (**Prompts**, then **Takes**).
    - Navigation: **Videos** gets its own place in the menu. Today an editor's videos hide behind a switch inside Scripts.
-6. **The video flow with the creative plan** (Part 7): five editor steps (Plan with its Shots view, Cast, Storyboard, Clips, Final cut) instead of eight. If Reed agrees (P5.1), three human presses (approve the plan, approve all looks, watch the final cut) and one priced Make the video. The AI check is a quiet "2 notes" chip with a ready Change this… note, and one Review list. Automatic fixes are said after the fact on the card.
+6. **The video flow with the creative plan** (Part 7): four or five editor steps instead of eight. With Reed's yes it's Plan, Cast, Make, Final cut; with his no it's Plan, Cast, Storyboard, Clips, Final cut. Breakdown folds into Plan either way. If Reed agrees (P5.1), three human presses (approve the plan, approve all looks, watch the final cut) and one priced Make the video. The AI check is a quiet "2 notes" chip with a ready Change this… note, and one Review list. Automatic fixes are said after the fact on the card.
 7. **Every screen and card** (Part 6): Quick clip History shows everyone's clips from every brand; a version chip on a script card names a person but not the step, and opens the wrong place; one video has three names; the Brand page has no setup checklist; money mixes credits and dollars with decimals; Approvals can't receive anything any more.
 8. **Reed's wider ask** (Part 5): the hierarchy, the script → editor handoff, saving, editing ease, and how much each step shows. The biggest gaps:
    - the script never says the flavour, so every editor is stopped to pick it again;
@@ -226,7 +226,7 @@ Confirmed by the walk: G1/V15 (`22-390-video-clips-before-looks-good`, `23a-390-
 
 ## 2.1 Step order
 
-> **Updated by Part 7** (agreed with the Producer): the video has five steps (Plan with its Shots view, Cast, Storyboard, Clips, Final cut), and writing is Write → Plan → Cast → Publish.
+> **Updated by Part 7:** the video has five steps (Plan with its Shots view, Cast, Storyboard, Clips, Final cut), or four (Plan, Cast, Make, Final cut) if Reed says yes to P5.1. Writing is Write → Plan → Cast → Publish.
 
 **Writing (owner, or an editor on their own script).** Six steps become four. Nothing is removed: Directions and Variations become panels inside Write.
 
@@ -1101,7 +1101,7 @@ If each new piece became its own step, the editor's video would have **eight**:
 
 Plan comes **before** Cast because the plan decides who's on screen (P7): a narrated ad's owner and dog aren't in the narration's words.
 
-**Making a video (editor): five steps.** The Producer agreed to fold Breakdown into Plan. The step formerly called Assets is called **Cast**, not "Looks", because Look is now the drawing style (House, Disney Pixar…). It stays distinct from the **Cast & places** library.
+**Making a video (editor): five steps, or four if Reed says yes to P5.1 (Q8, Q9).** The Producer agreed to fold Breakdown into Plan. The step formerly called Assets is called **Cast**, not "Looks", because Look is now the drawing style (House, Disney Pixar…). It stays distinct from the **Cast & places** library.
 
 | Step | What it holds | The step's one amber |
 |---|---|---|
@@ -1139,6 +1139,15 @@ Reed's list of what stays with people is: **approving the plan, approving the lo
 - The per-item rules (Approve all, Undo, Change this…) all stay available.
 
 **If no:** everything in this part still applies except the Make the video press and the automatic approvals. The AI check, automatic fixes, Plan, Cast and the Review list are the same.
+
+**The step count follows the answer (Q9):**
+
+| Reed's answer | Editor steps |
+|---|---|
+| **Yes** (people approve the plan, the looks and the final cut) | **Plan → Cast → Make → Final cut** (four). Storyboard and Clips become the **Stills** and **Clips** tabs of one **Make** step, which opens with **Make the video · N** and then runs on its own. Items with Advice wait there for a person. |
+| **No** (today's per-item approvals) | **Plan → Cast → Storyboard → Clips → Final cut** (five), each with its own approvals and Approve all. |
+
+The wireframes show both: the **P5.1 switch** at the top flips between them.
 
 ## 7.3 Findings on flows.md item 1b (#846)
 
@@ -1252,7 +1261,7 @@ The rules for these lines:
 |---|---|---|---|
 | **M25** | **Plan step** with its **Shots** view (today's Breakdown folded in): the scene table (desktop) and scene cards (390), the line sheet (PL1), Approve the plan, Change this scene…, Make a new plan, Earlier plans. | P1, P7, PL1 | L |
 | **M26** | **Writing order Write → Plan → Cast → Publish**; Cast reads the plan too. | P7 | M |
-| **M27** | *If Reed says yes to P5.1:* **Make the video · N** in the cost bar after Cast, automatic approval of items checked clean, and "Check prompts before takes" in Video settings. *If no:* nothing to build. | P2, P8 | M |
+| **M27** | *If Reed says yes to P5.1:* the **Make** step (Stills and Clips tabs, replacing the Storyboard and Clips steps), **Make the video · N** in the cost bar, automatic approval of items checked clean, and "Check prompts before takes" in Video settings. *If no:* nothing to build. | P2, P8 | M |
 | **M28** | **AI check display**: "✓ checked" in the chip, the "2 notes" chip and its panel or sheet, Change this… prefilled, Looks fine, and the one **Review** list from the step header (open on Final cut). | P4, PL5–PL8 | M |
 | **S39** | **Automatic-fix lines** (§7.8), kept after the take is done, with See the change and Undo for a wording fix. | P5, PL9, PL10 | S |
 | **S40** | **Format and Look shown everywhere** (header, cards, Video settings); "Style" renamed **Look** in every screen; the Assets step renamed **Cast**. | P6, PL11 | S |
@@ -1286,8 +1295,8 @@ Until then, §1.8 stands in: the same `next` code, run locally on the same stand
 5. **Reed:** can editors edit a brand's look, voice and end line? The server allows it, but the menu tells editors "Brands are set up by the owner." One of them should change.
 6. **Reed:** Approvals can't receive anything any more. Hide it while empty (proposed), or retire it?
 7. **Reed:** one weekly allowance for all editors (today), or one per editor?
-8. **Reed (Part 7):** rule 21 asks that clip prompts be reviewable before takes are paid for. With people only approving the plan, the looks and the final video, should takes start right after **Make the video**, with prompts still shown and changeable (proposed, plus an optional "Check prompts before takes" setting), or keep a per-prompt OK press?
-9. **Reed (Part 7):** the Producer agreed to fold Breakdown into Plan (five editor steps: Plan, Cast, Storyboard, Clips, Final cut). Reed can still overrule it.
+8. **Reed (Part 7, P5.1):** once the AI check exists, should stills and takes it finds clean be approved on their own, with takes starting right after **Make the video**? Prompts would still be shown and changeable, with an optional "Check prompts before takes" setting (rule 21 reworded). Or keep today's per-item approvals?
+9. **Reed (Part 7):** this follows Q8. If yes: four editor steps, **Plan → Cast → Make (Stills, Clips) → Final cut**. If no: five, **Plan → Cast → Storyboard → Clips → Final cut**. Breakdown folds into Plan either way (agreed with the Producer).
 
 **Agreed with Next-Lead (2026-10-28):** flows.md takes the renames and moves in one PR. V6 becomes Final cut; V5 gets Prompts then Takes (Approve all on both lists); owner S6 becomes Plan; story Write → Cast → Plan → Publish and song Song → Takes → Cast → Plan → Publish. flows.md stays the one place for every state and press; this audit gives the order, the look and the reasons.
 
