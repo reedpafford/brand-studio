@@ -1,12 +1,13 @@
 """Song ads' music: one interface, whichever service sings the song. Suno is the one we use
 (Reed, 2026-10-28: "the exact software we would use live").
 
-Suno has no public API of its own yet (a partner programme opened in July 2026), and no
-unofficial wrapper is used. Reed's workflow reaches Suno through KIE (kie.ai): that adapter
-(app/providers/kie.py) is written to KIE's docs but stays off until Reed switches it on
-(BS_KIE_SUNO and KIE_API_KEY); until then songs say "Songs aren't switched on here". The
-free stand-in (BS_FAKE_PROVIDERS) mirrors what Suno's app does. Assumptions, checked
-against KIE's docs where they say (A1-A3 hold there; A4 still open):
+Suno has no public API of its own yet (a partner programme opened in July 2026), so we
+reach it the way Reed's workflow does: through KIE (kie.ai; app/providers/kie.py, written to
+KIE's docs). Reed switched real songs on for the test site only, with a test budget
+(2026-10-29, ops/NEXT.md): BS_KIE_SUNO and KIE_API_KEY, stopped at BS_KIE_BUDGET_USD
+(song_takes.real_songs). Live has no songs. Elsewhere the free stand-in (BS_FAKE_PROVIDERS)
+mirrors what Suno's app does. Assumptions, checked against KIE's docs where they say (A1-A3
+hold there; A4 still open):
 - A1 "Custom" generation: our lyrics, sung exactly as written, plus a style line; never
   instrumental and never Suno's own words (rules 19 and 31).
 - A2 One request returns 2 songs (as in Suno's app), so "Make 2 takes" is one job.

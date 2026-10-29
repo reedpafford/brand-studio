@@ -73,7 +73,9 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
         return {
             "fake": FakeProvider(),
             "replicate": FakeMedia(),
-            "suno": FakeSuno(),
+            # The test site's one real service, once Reed switches it on (2026-10-29: real
+            # Suno through KIE, test site only, with a test budget); all else stays free.
+            "suno": _kie(settings, FakeSuno()) if kie_on(settings) else FakeSuno(),
             "claude": FakeWriter(),
             "local": local,
         }
@@ -91,13 +93,16 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
     local = LocalProvider(storage)
     providers = {"fake": FakeProvider(), "replicate": replicate, "claude": claude, "local": local}
     if kie_on(settings):  # Suno through KIE: only once Reed switches it on
-        from app.providers.kie import KieSuno
-
-        providers["suno"] = KieSuno(
-            settings.kie_base_url, settings.kie_api_key.get_secret_value(),
-            tuple(settings.kie_delivery_hosts), settings.max_download_mb,
-        )  # fmt: skip
+        providers["suno"] = _kie(settings)
     return providers
+
+
+def _kie(settings, stand_in=None):
+    from app.providers.kie import KieSuno
+
+    return KieSuno(settings.kie_base_url, settings.kie_api_key.get_secret_value(),
+                   tuple(settings.kie_delivery_hosts), settings.max_download_mb,
+                   stand_in=stand_in)  # fmt: skip
 
 
 def kie_on(settings) -> bool:
