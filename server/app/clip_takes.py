@@ -291,7 +291,8 @@ def save_take(db: Session, job: Job) -> None:
         return
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
     take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
-                    prompt=job.input.get("clip_prompt"))  # fmt: skip
+                    prompt=job.input.get("clip_prompt"),
+                    look=db.get(Project, clip.project_id).look)  # fmt: skip
     db.add(take)
     db.flush()
     pick(clip, take)
