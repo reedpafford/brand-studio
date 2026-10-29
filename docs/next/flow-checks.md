@@ -59,7 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Owner's plan vs an older preview (#934) | Fixed at 90b344d5 (the old preview isn't landed; the shots film the plan), but the version still says has_breakdown, so Make this version reads "Starting is free" and charges ~3 credits | has_breakdown only when the preview follows the approved plan |
+| A video's own look that didn't finish (#944) | The copy's draw fails: the Cast row has no press but Use a different character (Make 409s, Approve and the Cast & places link are hidden) | Try again on the copy (POST /library/character/{copy}/sheet, already allowed) with "didn't finish, nothing charged" |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -302,3 +302,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #941 at 6deca1bb + #942 0efd0f47 | PASS together: #941's own wording backed out, #942 carries it; they merge cleanly |
 | 2026-10-29 | #943 at 1e5df668 (ST1 look change confirm; VS1 counts the looks) | PASS: roles needing a look, to finish (was), an off look refused, the editor's week (probe), published refused, VS1 preview includes the looks. Note: the PATCH doesn't hold over the week (free); the screen must |
 | 2026-10-29 | #939 at 60ac28b5 | PASS: Update everything after this waits on the cast line with the same reason; #936 follow-up closed |
+| 2026-10-29 | #934 24101532; #941 3381e073 + #942; #944 7f8e8387 | #934 PASS (Make this version priced when the preview predates the plan; its row closed). #941+#942 PASS: song and narrated e2e live (9). #944 FAIL: a failed copy has no Try again (open above) |
