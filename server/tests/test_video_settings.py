@@ -318,6 +318,8 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
     plans for 15 s until its plan exists (28.06). Now the quote and the video's to-finish use
     one rule (sheets.roles_without_a_look): equal, Nate's first look in both, before and
     after making the video adds him as a role; "Not now" on his look takes it out."""
+    import copy
+
     import pytest
 
     import tests.test_script_produce as produce
@@ -345,3 +347,24 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
         db.commit()
         less = quote - float(look_usual(db, 1))
         assert float(vs.to_finish(db, video)) == pytest.approx(less, abs=0.001)
+        # Flow-QA on #987: while the newest shots still have him, "Not now" can't drop his
+        # look (Make the storyboard would refuse without it); once no shot has him, it does.
+        plan = copy.deepcopy(BREAKDOWN)
+        for sc in plan["scenes"]:
+            for sh in sc["shots"]:
+                sh["character_ids"] = [f"slot:{nate.id}"]
+        row = BreakdownVersion(project_id=made, script_version=1, source="claude", data=plan)
+        db.add(row)
+        db.commit()
+        declined = float(vs.to_finish(db, video))
+        video.slot_looks = {}  # not declined: the same, his look counted either way
+        db.commit()
+        assert float(vs.to_finish(db, video)) == pytest.approx(declined, abs=0.001)
+        video.slot_looks = {str(nate.id): None}
+        for sc in plan["scenes"]:
+            for sh in sc["shots"]:
+                sh["character_ids"] = []
+        row.data = copy.deepcopy(plan)
+        db.commit()
+        dropped = declined - float(look_usual(db, 1))
+        assert float(vs.to_finish(db, video)) == pytest.approx(dropped, abs=0.001)

@@ -91,9 +91,10 @@ def roles_without_a_look(db, owner, draft=None) -> list[str]:
     """The roles that will need their first look, each priced at `look_usual`, by one rule
     for a version's quote (`estimate.version_cost`) and its video's to-finish (VS1), so the
     two never drift apart: each role not cast yet (on a video, not one whose own look is
-    made, nor one the editor said "Not now" to), and each speaker in the version with no role
-    yet, whom making the video adds as a role (QA-3: Nate). `owner` is a video, or a script
-    with the version (`draft`) it would be made from."""
+    made, nor one the editor said "Not now" to once no shot of the newest breakdown has it:
+    while one does, Make the storyboard still needs its look, Flow-QA on #987), and each
+    speaker in the version with no role yet, whom making the video adds (QA-3: Nate).
+    `owner` is a video, or a script with the version (`draft`) it would be made from."""
     from sqlalchemy import select
 
     from app import cast_roles
@@ -103,9 +104,14 @@ def roles_without_a_look(db, owner, draft=None) -> list[str]:
 
     if isinstance(owner, Project):
         draft = db.get(ScriptDraft, owner.script_draft_id or owner.released_draft_id or 0)
-        own = owner.slot_looks or {}
+        from app.clip_prompts import newest
+
+        own, row = owner.slot_looks or {}, newest(db, owner)
+        shown = {r for sc in (row.data if row else {}).get("scenes", [])
+                 for sh in sc.get("shots", []) for r in sh.get("character_ids", [])}  # fmt: skip
         missing = [s.role for s in cast_roles.video_slots(db, owner)
-                   if not cast_roles.pick(db, owner, s) and str(s.id) not in own]  # fmt: skip
+                   if not cast_roles.pick(db, owner, s) and not own.get(str(s.id))
+                   and (str(s.id) not in own or f"slot:{s.id}" in shown)]  # fmt: skip
         script = db.get(Script, draft.script_id) if draft else None
     else:
         script = owner
