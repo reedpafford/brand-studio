@@ -223,3 +223,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #891 at 5092a41f (scope key_takes, check_credits_per_video, approved_with_advice) | item_checks + approve_all + migrations (8) | PASS (notes: estimate skips prop-only key clips; V.O. counts as speaking; approved_with_advice over all picked) |
 | 2026-10-29 | #902 at 78aaa19e (P4 screens: notes chip, Review, summary) | code walk; vitest projects (328) | PASS (gaps owned: paused line, "approved with Advice") |
 | 2026-10-29 | #896 at dda65d8a (advisory skipped, steps named) | test_needs_you (3) | PASS |
+| 2026-10-29 | #898 at e9500ec3 (Make a new plan label; confirm on Use this one; toast) | plan + planEdits (18) | PASS |
