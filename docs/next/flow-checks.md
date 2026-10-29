@@ -291,3 +291,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | 14:21 check-in; #925 51f8258e + #926 68522998 live | VS1 PASS at 1440 and 390: the row with prices, the confirm "To finish: about 22 credits (was 30)", Switch, Undo; over the cap 2.5 greyed, 2.0 fits, Undo back to Auto with no refusal; the phone sheet. Open row closed. Merged since 13:17: #916 #919 #920 #921 #922 #924 #927 #929. Holding #930, #933, #934 |
 | 2026-10-29 | #933 at 7bb57251 | PASS: the scene note stays through Not yet or a refusal; a scene job shows Making the plan… with Stop. Open row closed |
 | 2026-10-29 | #935 at c5de5658 (ST3 Looks page) | Owner only, House always on, make → making → ready → Switch on, failed → Try again, Switch off with Undo: PASS. FAIL: loading for ever with no brand (open above) |
+| 2026-10-29 | #926 at 783f3554 (next merged in) + #925 | VS1 live walk again at 1440 and 390: switch, Undo, over the cap, the phone sheet: PASS |
