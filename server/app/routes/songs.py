@@ -30,6 +30,7 @@ class SongTakeOut(BaseModel):
     status: Literal["making", "timing", "ready", "failed", "timing_failed"]
     failed_reason: str | None  # plain words: what happened and what to do
     retry_helps: bool  # Try again can work (else: use the other take or make more)
+    retry_credits: float  # what Try again costs (0: a timing, or a reply short of a song)
     file_id: int | None
     seconds: float | None
     made_at: UtcTime | None
@@ -79,6 +80,7 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         status=status,
         failed_reason=reason,
         retry_helps=helps,
+        retry_credits=float(song_takes.retry_credits(db, take)),
         file_id=take.file_id,
         seconds=take.seconds,
         made_at=db.get(Job, take.job_id).finished_at if take.file_id else None,

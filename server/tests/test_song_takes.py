@@ -83,6 +83,7 @@ def test_a_failed_take_says_why_and_try_again_makes_it(app, db, owner, song):
     assert [(t["status"], t["failed_reason"], t["retry_helps"]) for t in takes] == [
         ("failed", music.REFUSED, True)
     ] * 2  # fmt: skip
+    assert takes[0]["retry_credits"] == 1  # a new request
     take = takes[0]
     assert "E005" not in owner.get(f"{song}/songs").text  # the raw reason is owner-only
     _style(owner, song, "pop")  # the words are changed, as the reason says
@@ -328,6 +329,7 @@ def test_a_reply_with_one_song_keeps_it_and_asks_again_free(app, db, owner, song
     kept, missing = owner.get(f"{song}/songs").json()["takes"]
     assert (kept["status"], missing["status"]) == ("ready", "failed")
     assert missing["failed_reason"] == music.MISSING
+    assert missing["retry_credits"] == 0  # the request was paid for both songs
     assert owner.post(f"/songs/{missing['id']}/try-again").status_code == 200
     again = db.query(Job).filter(Job.kind == "music").order_by(Job.id.desc()).first()
     assert again.credits == 0  # the first request was charged for both songs

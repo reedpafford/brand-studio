@@ -142,8 +142,6 @@ def save_timing(db: Session, job: Job) -> None:
     elif usable and preferred(db, draft) is None:
         for t in takes(db, draft):  # an older take's mark goes: it sings old words
             t.preferred = t.id == take.id
-    if usable and project and project.song_take_id is None:  # a video's first song
-        project.song_take_id = take.id
 
 
 def advice(timing: dict) -> list[str]:
@@ -271,6 +269,16 @@ def trim(db: Session, take: SongTake, on: bool) -> None:
         if fitting:
             fitting[-1].preferred = True
     db.commit()
+
+
+def retry_credits(db: Session, take: SongTake) -> Decimal:
+    """What Try again on this take costs: nothing for a timing or for a request that came
+    back short (already paid), else a new request."""
+    status = state(db, take)[0]
+    if status != "failed" or db.get(Job, take.job_id).status == JobStatus.succeeded:
+        return Decimal(0)
+    script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
+    return estimate(db, script.workspace_id, "music", Decimal(1))
 
 
 def try_again(db: Session, user: User, take: SongTake) -> None:
