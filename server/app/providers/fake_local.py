@@ -47,6 +47,55 @@ def transcript(path: Path) -> list[dict]:
     ]
 
 
+# The stand-in song (Producer: a fixed track with known timings): a click on every beat at
+# 120 BPM from 0.25 s, 24 s long; its words are sung one a beat from the fifth beat on.
+# A marker in the style line picks another outcome, so every state can be walked (Flow-QA):
+# fake:fail, fake:refuse (unsafe words), fake:copyright (the style names an artist),
+# fake:drop-line (the last line isn't sung), fake:repeat-line (it's sung twice) or
+# fake:long (150 s; fake:long=800 for a song whose video goes over the cap).
+SONG = {"seconds": 24, "bpm": 120, "first_beat": 0.25, "first_word_beat": 4}
+OUTCOMES = {
+    "fake:fail": "Internal error while generating music",
+    "fake:refuse": "Input flagged as sensitive content (E005)",
+    "fake:copyright": "Prompt may reference copyrighted artist or song",
+}
+LINE_MARKERS = ("drop-line", "repeat-line")
+
+
+def song(style: str = "") -> bytes:
+    beat = 60 / SONG["bpm"]
+    long = re.search(r"fake:long(?:=(\d+))?", style)
+    seconds = int(long.group(1) or 150) if long else SONG["seconds"]
+    t0 = SONG["first_beat"]
+    click = f"sin(2*PI*880*t)*exp(-40*mod(t-{t0},{beat}))*gte(t,{t0})"
+    marker = next((m for m in LINE_MARKERS if f"fake:{m}" in style), "")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "song.mp3"
+        source = ["-f", "lavfi", "-i", f"aevalsrc='{click}':s=22050:d={seconds}"]
+        tag = ["-metadata", f"comment=fake:{marker}"]  # read back by hear_song
+        command = ["ffmpeg", "-v", "error", *source, *tag, "-c:a", "libmp3lame", "-b:a", "64k"]
+        subprocess.run([*command, str(path)], check=True, timeout=120)  # noqa: S603
+        return path.read_bytes()
+
+
+def hear_song(path: Path, lyrics: str) -> list[dict]:
+    """Stand-in Whisper for the stand-in song: every lyric word, one a beat, 0.3 s each (the
+    last line left out, or sung twice, for those markers)."""
+    beat = 60 / SONG["bpm"]
+    sung_lines = [line.split() for line in lyrics.splitlines() if not line.startswith("[")]
+    head = path.read_bytes()[:256]  # the ID3 tag song() wrote
+    if b"fake:drop-line" in head:
+        sung_lines = sung_lines[:-1]
+    elif b"fake:repeat-line" in head:
+        sung_lines = [*sung_lines, sung_lines[-1]]
+    sung = [w for line in sung_lines for w in line]
+    start = SONG["first_beat"] + SONG["first_word_beat"] * beat
+    times = (round(start + k * beat, 2) for k in range(len(sung)))
+    return [
+        {"word": w, "start": t, "end": round(t + 0.3, 2)} for w, t in zip(sung, times, strict=True)
+    ]
+
+
 def refuse_link(url: str, folder: Path) -> Path:
     """Local runs never reach Instagram: a link always says to upload instead."""
     from app.reel import BLOCKED, Refused
@@ -163,6 +212,31 @@ class FakeMedia:
         if job["kind"] == "video":
             return mp4(aspect, int(job.get("duration", 5))), "video/mp4"
         return png(aspect), "image/png"
+
+
+class FakeSuno:
+    """Suno's place (app/music.py): each request gives 2 songs on its first check, or the
+    outcome a style-line marker asks for."""
+
+    name, paid = "suno", False
+
+    def __init__(self):
+        self._styles: dict[str, str] = {}
+        self._ids = itertools.count(1)
+
+    def submit(self, kind: str, input: dict) -> str:
+        ref = f"suno-{next(self._ids)}"
+        self._styles[ref] = input["input"]["style"]
+        return ref
+
+    def poll(self, ref: str) -> Result:
+        style = self._styles[ref]
+        if failed := next((e for marker, e in OUTCOMES.items() if marker in style), None):
+            return Result("failed", error=failed)
+        return Result("succeeded", files=[f"fake://{ref}/{n}" for n in (1, 2)])
+
+    def fetch(self, url: str) -> tuple[bytes, str]:
+        return song(self._styles[url.removeprefix("fake://").split("/")[0]]), "audio/mpeg"
 
 
 class FakeWriter:

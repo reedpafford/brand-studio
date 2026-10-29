@@ -1,5 +1,6 @@
 """Transcribe one video with faster-whisper small (int8, CPU), as JSON lines on stdout.
-Run by `app.reel.transcribe` in a subprocess: `python -m app.whisper <video>`. The model is
+Run by `app.reel.transcribe` in a subprocess: `python -m app.whisper <video>`, or for a song's
+words by `app.song_timing.words`: `python -m app.whisper <song> --words <lyrics>`. The model is
 downloaded once into HF_HOME (a volume on the server)."""
 
 import json
@@ -17,14 +18,25 @@ def heard(segment) -> bool:
     return bool(segment.text.strip()) and not made_up
 
 
-def main(path: str) -> None:
+def main(path: str, words_prompt: str | None = None) -> None:
     from faster_whisper import WhisperModel
 
     model = WhisperModel("small", device="cpu", compute_type="int8")
     if path == "--warm":  # download and load it, nothing to transcribe
         return
     # No VAD: reels put music under every line, and VAD dropped 6 of the altar reel's 11 lines
-    segments, _ = model.transcribe(path, word_timestamps=True, vad_filter=False)
+    segments, _ = model.transcribe(
+        path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt
+    )
+    if words_prompt is not None:  # a song: each sung word and when (app/song_timing.py)
+        sung = [
+            {"word": w.word.strip(), "start": round(w.start, 2), "end": round(w.end, 2)}
+            for s in segments
+            if heard(s)
+            for w in s.words or []
+        ]
+        json.dump(sung, sys.stdout)
+        return
     lines = [
         {
             "start": round(s.start, 2),
@@ -39,4 +51,4 @@ def main(path: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[3] if sys.argv[2:3] == ["--words"] else None)

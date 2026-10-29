@@ -53,12 +53,22 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
     from app.providers.local import LocalProvider
 
     if settings.fake_providers:
-        from app.providers.fake_local import FakeMedia, FakeWriter, refuse_link, transcript
+        from app.providers.fake_local import (
+            FakeMedia,
+            FakeSuno,
+            FakeWriter,
+            hear_song,
+            refuse_link,
+            transcript,
+        )
 
-        local = LocalProvider(storage, transcribe=transcript, fetch_link=refuse_link)
+        local = LocalProvider(
+            storage, transcribe=transcript, fetch_link=refuse_link, hear_song=hear_song
+        )
         return {
             "fake": FakeProvider(),
             "replicate": FakeMedia(),
+            "suno": FakeSuno(),
             "claude": FakeWriter(),
             "local": local,
         }

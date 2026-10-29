@@ -23,6 +23,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app import music
 from app.credits import USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
@@ -42,13 +43,16 @@ UNSURE = "Lost contact while this was starting, so it was stopped. Nothing was c
 CHECK = "Lost contact while starting paid work: check the provider before retrying."  # owner
 RESTARTED = "The server restarted while this was being written. Nothing was charged; try again."
 FAILED = "The service couldn't finish this. Nothing was charged; try again."  # never counted
-EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
+EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
+              "audio/mpeg": ".mp3", "audio/wav": ".wav"}  # fmt: skip
 # Provider output links expire (Replicate: 1 hour); stop retrying downloads after that.
 DOWNLOAD_GIVE_UP = timedelta(hours=1)
 UNKNOWN = "This job names a service we don't have."
 # How long the provider may take once it has the work (Replicate: a still takes seconds to a
 # minute, a video take a few minutes); past it the job fails, uncharged, and is cancelled there.
-LIMITS = {"image": timedelta(minutes=15), "video": timedelta(minutes=45)}
+# A song takes a minute or two (Starpop's music stalled for good: never wait past this).
+LIMITS = {"image": timedelta(minutes=15), "video": timedelta(minutes=45),
+          "music": timedelta(minutes=15)}  # fmt: skip
 LIMIT = timedelta(hours=1)  # anything else, e.g. a reel's local prep
 SLOW = "{} didn't finish this in time. Nothing was charged; try again."
 DAY = 24 * 60 * 60
@@ -75,6 +79,17 @@ def _stop(db: Session, job: Job) -> bool:
         .values(status=JobStatus.cancelled, finished_at=utcnow())
     )
     return done.rowcount == 1
+
+
+def _plain(job: Job, detail: str) -> str:
+    """What everyone sees when a job fails; song steps say their own reason (rule 22)."""
+    if job.kind == "music":
+        return music.failure(detail, (job.input.get("input") or {}).get("style", ""))
+    if job.kind == "song_timing":  # a ValueError: the file itself (app/song_timing.py)
+        if detail.startswith("TooLong"):
+            return music.TIMING_TOO_LONG
+        return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
+    return FAILED
 
 
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
@@ -192,7 +207,7 @@ def _finish(
         new,
         credits=_actual_credits(job, result) if new == JobStatus.succeeded else job.credits,
         output=result.output,
-        error=FAILED if new == JobStatus.failed else "",
+        error=_plain(job, result.error) if new == JobStatus.failed else "",
         error_detail=result.error[:2000],
         finished_at=utcnow(),
     )
@@ -262,7 +277,8 @@ def _time_out(db: Session, job: Job, provider: Provider) -> None:
         log.warning("job %s: couldn't cancel it at the provider", job.id, exc_info=True)
     limit = LIMITS.get(job.kind, LIMIT)
     _finish(db, job, provider, Result("failed", error=f"No answer within {limit}."), None)
-    what = {"image": "The image service", "video": "The video service"}.get(job.kind)
+    what = {"image": "The image service", "video": "The video service",
+            "music": "The music service"}.get(job.kind)  # fmt: skip
     message = SLOW.format(what or "The service")
     db.execute(update(Job).where(Job.id == job.id, Job.status == JobStatus.failed)
                .values(error=message))  # fmt: skip
@@ -364,7 +380,7 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         db.commit()
         return True
     except Exception as exc:  # noqa: BLE001 - any other provider error fails the job
-        _fail(db, job, FAILED, repr(exc))
+        _fail(db, job, _plain(job, repr(exc)), repr(exc))
         db.commit()
         return True
     db.execute(update(Job).where(Job.id == job.id).values(provider_ref="sync"))
