@@ -26,7 +26,14 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
-from app.sheets import require_cast_sheets, require_looks, require_sheet, sheet_for
+from app.sheets import (
+    NO_LOOK,
+    require_cast_sheets,
+    require_looks,
+    require_sheet,
+    sheet_for,
+    usable_files,
+)
 
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
@@ -84,6 +91,8 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         if item.kind == Kind.character and files:  # rule 10: the sheet wins
             them = "; ".join(f"plays {short(s.role)}" for s in roles.get(item.id, []))
             parts = (key, item.kind, item.name, them, SHEET_SETS)
+        elif not files and usable_files(item):  # a House sheet, none in its look (Flow-QA)
+            parts = (*parts, NO_LOOK)
         out[key] = (" | ".join(x for x in parts if x), files)
     for slot in video_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
