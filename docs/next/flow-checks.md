@@ -58,7 +58,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| S3a study (#851) | Study A done; study B from a blocked link fails: A's frames and data are already gone, no Undo; the directions lose their guide | Keep A until B saves; show B's reason above A | #851 at 8fcccdbf |
 | Music bed check (#853) | "instrumental, no vocals" is flagged as asking for a voice | Skip voice words after no/without/non- | #853 at cccf5fcb |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
@@ -161,4 +160,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | 05:44 check-in: #853 at cccf5fcb (narrated sound, music bed, narrator on the format); #777 at 10d7805f (next merged in) | 19 of 20 house prompts identical; narration_text, format_advice, music check; test_narrated (7) | #853 FAIL: "no vocals" / "without any singing" flagged as asking for a voice; #777 no change, no link |
 | 2026-10-29 | #857 at c4819084 (S3a screen: Study a song ad) | Code and vitest (221), tsc, eslint | PASS; notes: "couldn't open that reel" for uploads too; no Stop while running; must show a failed reason above a kept study once #851 is fixed |
 | 2026-10-29 | #857 at 05291860 | Failed wording | PASS: "We couldn't study it: …" for links and uploads |
+| 2026-10-29 | #851 at c2f558c0 | Failed re-study over a done one; good re-study; cancel over done and first; Remove/Undo; tests (12) | PASS; #857 follow-up shows `attempt` above the kept study |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
