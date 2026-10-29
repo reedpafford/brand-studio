@@ -462,6 +462,27 @@ class ScenePlan(BaseModel):
     scenes: list[PlanScene]
 
 
+# --- The advisory check (flows 1b, P4): a still or a take against its sheets and product ---
+
+
+class Finding(BaseModel):
+    kind: Literal["face", "outfit", "product"]
+    who: str = Field(description="The reference's id from <references>: char:N or product:N.")
+    says: str = Field(
+        description="One short line for the card: 'Mia's face may differ from her sheet'."
+    )
+    note: str = Field(
+        description="The change note, ready to send: one plain instruction naming the reference "
+        "and what it shows. Never a spoken line."
+    )
+
+
+class ItemCheck(BaseModel):
+    """Advice only, never a pass or a fail: no findings means it matches the references."""
+
+    findings: list[Finding] = Field(description="Only clear differences a viewer would notice.")
+
+
 class NarrationMusic(BaseModel):
     """The instrumental bed under a narrated video (flows N1)."""
 

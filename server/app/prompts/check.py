@@ -14,6 +14,7 @@ from app.prompts.schemas import (
     ClipPrompts,
     EnhanceResult,
     ImprovedPrompt,
+    ItemCheck,
     NarrationMusic,
     PlanScene,
     ReelWatch,
@@ -1249,6 +1250,59 @@ def plan_scene(before: PlanScene, after: PlanScene) -> list[str]:
     if [x.line for x in after.lines] != [x.line for x in before.lines]:
         problems.append("the changed scene's lines differ: keep the same lines, in order")
     return problems
+
+
+# --- Automatic fixes and the advisory check (flows 1b, P3, P4) ---
+
+# Asks for words drawn on the picture: video models draw them, garbled. Never the brand's own
+# label or logo ("label to camera", "the fomo logo reads"): those must show.
+TEXT_ON_SCREEN = re.compile(
+    r"\b(?:text overlays?|on-?screen text|text on screen|captions?|(?<!No )subtitles?|title cards?|"
+    r"lower thirds?|logo text|words? (?:appear|pop up|flash)(?:s|ing)?(?: on screen)?|"
+    r"(?:big|bold|animated) (?:text|letters|title))\b",
+    re.I,
+)
+CLAUSE = re.compile(r"[^,.;!?]+[,.;!?]?\s*")
+
+
+def text_on_screen(prompt: str) -> tuple[str, list[str]]:
+    """A clip prompt with each ask for on-screen words taken out, and what was taken (P3:
+    "Fixed for you: removed 'logo text'"). Only the clause holding it goes; a spoken line in
+    quotes is never touched (rule 19), and neither are the audio lines or a safeguard ("No
+    captions", "without any on-screen text": Flow-QA on #869)."""
+    out, removed = [], []
+    for line in prompt.splitlines():
+        if line.startswith("Audio:") or not TEXT_ON_SCREEN.search(QUOTED.sub("", line)):
+            out.append(line)
+            continue
+        quotes = iter([q.group(0) for q in QUOTED.finditer(line)])
+        line = QUOTED.sub("\0", line)  # a quoted line is one piece, never split or searched
+        head = m.group(0) if (m := SHOT_LINE.match(line)) else ""
+        kept, cut = [], False
+        for clause in CLAUSE.findall(line[len(head) :]):
+            asks = [m for m in TEXT_ON_SCREEN.finditer(clause) if not _negated(clause, m)]
+            if (found := next(iter(asks), None)) and "\0" not in clause:
+                removed.append(found.group(0))
+                cut = True
+                continue
+            if (
+                cut and kept
+            ):  # the clause before a cut ends its sentence: "bowl; No one" → "bowl. No one"
+                kept[-1] = re.sub(r"[,;]\s*$", ". " if clause[:1].isupper() else ", ", kept[-1])
+            kept.append(clause)
+            cut = False
+        text = re.sub(r"[,;]\s*$", ".", "".join(kept).strip()) if cut else "".join(kept).strip()
+        text = re.sub("\0", lambda _, q=quotes: next(q), text)
+        out.append(f"{head} {text}".strip() if head else text)
+    return "\n".join(out), removed
+
+
+def item_check(result: ItemCheck, ref_ids: list[str]) -> ItemCheck:
+    """Only findings about a reference the check was given: a product finding needs the
+    product's image, and a face or outfit finding a sheet."""
+    keep = [f for f in result.findings if f.who in ref_ids
+            and (f.kind == "product") == f.who.startswith("product:")]  # fmt: skip
+    return ItemCheck(findings=keep)
 
 
 VO = re.compile(r"V\.?\s?O\.?", re.I)  # "(V.O.)", "(VO)"
