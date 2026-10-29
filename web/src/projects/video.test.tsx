@@ -499,7 +499,7 @@ test("when the newest take failed but an earlier take is picked, the clip stays 
   });
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
-  const line = await within(card).findByText(/The newest take didn't work and its credits came back\. Take 1 is still picked\./);
+  const line = await within(card).findByText(/The newest take didn't work; Take 1 is still picked\./);
   expect(line).toHaveClass("text-muted");
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
   expect(within(card).getByText("Ready")).toBeInTheDocument();

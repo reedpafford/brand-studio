@@ -117,7 +117,7 @@ export function ClipCard(props: {
       </div>
       {failed && props.job?.error && (
         <p role="status" className={`text-sm ${picked ? "text-muted" : "text-danger"}`}>
-          {picked ? `The newest take didn't work and its credits came back. Take ${picked.number} is still picked. ` : c.takes.length > 0 && "The newest take failed; your other takes are below. "}
+          {picked ? `The newest take didn't work; Take ${picked.number} is still picked. ` : c.takes.length > 0 && "The newest take failed; your other takes are below. "}
           {props.job.error}
         </p>
       )}
