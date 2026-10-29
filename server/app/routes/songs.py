@@ -103,7 +103,7 @@ def _music(db: Session, take: SongTake) -> dict:
         return {}
     status, reason = narration_music.state(db, take)
     ws = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id).workspace_id
-    credits = float(narration_music.price(db, ws)) if status == "failed" else 0
+    credits = float(narration_music.retry_price(db, take, ws)) if status == "failed" else 0
     return {
         "music_status": status,
         "music_reason": reason,

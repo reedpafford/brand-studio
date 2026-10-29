@@ -13,8 +13,9 @@ WORDS = "Your dog's gut is a mess. Iron Paws fixes it.\nLink in my bio!"
 
 
 @pytest.fixture
-def narrated(app, owner):
+def narrated(app, owner, monkeypatch):
     app.state.settings.fake_providers = True
+    monkeypatch.setattr("app.narration_music.on", lambda db: True)  # as on the stand-ins
     brand = owner.get("/brands").json()[0]["id"]
     script = owner.post(
         "/scripts", json={"brand_id": brand, "title": "Gut", "kind": "narrated", "text": WORDS}
@@ -126,11 +127,15 @@ def test_the_music_bed_follows_the_narration_and_a_failed_one_keeps_it(app, db, 
     db.commit()
     failed = owner.get(f"{narrated}/songs").json()["takes"][0]
     assert failed["status"] == "ready" and failed["music_status"] == "failed"  # narration kept
-    assert failed["music_reason"] == narration_music.FAILED and failed["music_credits"] > 0
+    # The prompt was written and charged (a Claude call); the music alone is made again
+    assert failed["music_reason"] == narration_music.BED_FAILED.format("3 credits")
+    assert failed["music_credits"] == float(narration_music._bed_price(db, 1))
+    prompts = db.query(Job).filter(Job.kind == "write-claude").count()
     assert owner.post(f"/songs/{take['id']}/music-again").json()["music_status"] == "making"
     db.expire_all()  # the route changed the take in its own session
     _work(app, db, ticks=8)
     assert owner.get(f"{narrated}/songs").json()["takes"][0]["music_status"] == "ready"
+    assert db.query(Job).filter(Job.kind == "write-claude").count() == prompts  # not again
 
 
 def test_a_music_prompt_asking_for_vocals_is_written_again_once(app, db, owner, narrated):
@@ -225,3 +230,24 @@ def test_a_narrated_video_is_cut_with_its_narration_and_music(app, db, owner, ed
     made = editor.post(f"{video}/video")
     assert made.status_code == 201, made.text
     assert made.json()["narration"] == {"voice": "Sarah", "music": True}
+
+
+def test_the_music_is_off_unless_switched_on_and_stops_at_its_budget(db, monkeypatch):
+    from app import narration_music
+    from app.models.jobs import Job
+    from app.settings import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "fake_providers", False)
+    assert not narration_music.on(db) and narration_music.price(db, 1) == 0  # off: no music
+    sent = db.query(Job).filter(Job.input["step"].as_string() == narration_music.BED).count()
+    monkeypatch.setattr(settings, "narration_music_paid", True)
+    monkeypatch.setattr(settings, "narration_music_budget_usd", (sent + 2) * 0.25)  # 2 runs left
+    assert narration_music.on(db)
+    for _ in range(2):
+        db.add(Job(workspace_id=1, kind="music_bed", provider="replicate", credits=1,
+                   input={"step": narration_music.BED}))  # fmt: skip
+    db.commit()
+    assert not narration_music.on(db)  # the next run would pass the budget
+    monkeypatch.setattr(settings, "fake_providers", True)
+    assert narration_music.on(db)  # the stand-ins are free
