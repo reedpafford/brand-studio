@@ -37,7 +37,7 @@ function opens(m: Item, brandId: number): { to: string; step: string } {
   return { to: video("downloads"), step: "Final cut" }; // a final video, or a video's song
 }
 
-function Tile({ m, brandId, owner }: { m: Item; brandId: number; owner: boolean }) {
+function Tile({ m, brandId, mayRestore }: { m: Item; brandId: number; mayRestore: boolean }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const restore = useMutation({
@@ -67,7 +67,7 @@ function Tile({ m, brandId, owner }: { m: Item; brandId: number; owner: boolean 
         {m.kind === "song" && <audio controls preload="none" src={fileUrl(m.file_id)} aria-label={`Play ${title}`} className="w-full" />}
         <div className="flex flex-wrap gap-2">
           {m.from_deleted_video ? (
-            owner && (
+            mayRestore && ( // the owner, or whoever made it (as the Archived list offers)
               <Button variant="secondary" dense busy={restore.isPending} onClick={() => restore.mutate()}>
                 Restore the video
               </Button>
@@ -198,7 +198,7 @@ export function MediaPage() {
           <>
             <ul aria-label="Media" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {items.map((m) => (
-                <Tile key={m.key} m={m} brandId={brandId} owner={owner} />
+                <Tile key={m.key} m={m} brandId={brandId} mayRestore={owner || (!!me && m.made_by?.id === me.id)} />
               ))}
             </ul>
             {media.hasNextPage && (

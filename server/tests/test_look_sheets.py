@@ -87,3 +87,16 @@ def test_a_cast_character_with_only_a_house_sheet_is_lookless_in_another_look():
              "char:6": ("char:6 | character | Bo", []),
              "char:7": ("char:7 | character | Ann", [9])}  # fmt: skip
     assert lookless([["char:5", "char:6"], ["char:7"], ["char:5"]], known) == ["Mia"]
+
+
+def test_a_looks_first_sheet_is_listed_as_drawing_until_it_is_back(app, db, owner, editor):
+    """Flow-QA on #944: after a reload, a look whose first sheet is still being drawn reads
+    drawing (not missing), so "Make a {look} sheet" isn't offered again."""
+    _, mia = _video(app, owner, editor, db)
+    assert owner.post(f"/library/character/{mia}/sheet", json={"look_id": LOOK}).status_code == 201
+    item = owner.get(f"/library/character/{mia}").json()
+    assert item["look_sheets"] == {LOOK: {"file_id": None, "status": "drawing"}}
+    assert item["sheet_status"] == "approved"  # House unchanged
+    _work(app, db)
+    assert owner.get(f"/library/character/{mia}").json()["look_sheets"][LOOK]["status"] == (
+        "needs_approval")  # fmt: skip

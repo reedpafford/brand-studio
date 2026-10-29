@@ -45,6 +45,7 @@ from app.routes import (
     script_write,
     scripts,
     sheets,
+    site_read,
     song_study,
     songs,
     storyboard,
@@ -135,6 +136,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         video_settings,
         languages,
         media,
+        site_read,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)

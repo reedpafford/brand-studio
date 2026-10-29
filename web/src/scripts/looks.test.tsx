@@ -15,7 +15,7 @@ const song = (o: object = {}, v: object = {}) => ({
   id: 7, brand_id: 1, kind: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
-const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
+const base: Record<string, [number, unknown]> = { "GET /scripts/7/look-change": [200, { roles: [], to_finish_credits: 0, was_credits: 0, over_budget: false, reason: "" }], "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
 function open(path: string) {
   render(
@@ -115,7 +115,7 @@ test("once roles would need a new look, the change asks first with what it takes
   const picker = await screen.findByRole("dialog", { name: "Look" });
   await userEvent.click(within(picker).getAllByRole("button", { name: "Use this look" })[0]);
   const ask = await screen.findByRole("alertdialog", { name: "Change to Disney Pixar?" });
-  expect(ask).toHaveTextContent("2 roles need a new look (Mom, Bo). To finish: about 12 credits (was 0).");
+  expect(ask).toHaveTextContent("2 roles need a new look (Mom, Bo). To finish: up to 12 credits (was 0).");
   expect(calls.some((c) => c.key === "PATCH /scripts/7")).toBe(false);
   await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ look: "pixar" }));

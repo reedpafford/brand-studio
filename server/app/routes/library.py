@@ -115,9 +115,8 @@ def _snapshot(item: LibraryItem) -> dict:
     }
 
 
-def sheet_status(item: LibraryItem, look: str | None = None) -> str:
-    """Worked out, not stored, so a failed sheet job never leaves it stuck at "drawing".
-    `look`: the owner's sheet in another look (ST2), else the House one."""
+def _waiting_sheets(item: LibraryItem) -> list[Job]:
+    """This item's sheet jobs not finished yet (queued, running or held for the owner)."""
     db = object_session(item)
     waiting = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
     jobs = (
@@ -127,8 +126,19 @@ def sheet_status(item: LibraryItem, look: str | None = None) -> str:
         if db
         else []
     )
-    mine = [j for j in jobs if j.input.get("library_item_id") == item.id
-            and j.input.get("sheet_look_id") == look]  # fmt: skip
+    return [j for j in jobs if j.input.get("library_item_id") == item.id]
+
+
+def _sheet_looks_drawing(item: LibraryItem) -> list[str]:
+    """The other looks (ST2) a sheet is being drawn in, so one whose first sheet isn't back
+    yet is listed as drawing (Flow-QA on #944: "Make a {look} sheet" would offer it again)."""
+    return [look for j in _waiting_sheets(item) if (look := j.input.get("sheet_look_id"))]
+
+
+def sheet_status(item: LibraryItem, look: str | None = None) -> str:
+    """Worked out, not stored, so a failed sheet job never leaves it stuck at "drawing".
+    `look`: the owner's sheet in another look (ST2), else the House one."""
+    mine = [j for j in _waiting_sheets(item) if j.input.get("sheet_look_id") == look]
     if any(j.status == JobStatus.needs_owner_approval for j in mine):
         return "waiting_for_owner"  # over the editor's allowance: held until the owner says yes
     if mine:
@@ -156,8 +166,10 @@ def _prices(item: LibraryItem) -> dict:
 
 def _out(item: LibraryItem) -> ItemOut:
     data = {k: v for k, v in _snapshot(item).items() if k not in ("sheet_approved", "look_sheets")}
-    looks = {k: LookSheetOut(file_id=v.get("file_id"), status=sheet_status(item, k))
-             for k, v in (item.look_sheets or {}).items()}  # fmt: skip
+    drawing = _sheet_looks_drawing(item)  # a look's first sheet: listed while it's drawn
+    looks = {k: LookSheetOut(file_id=(item.look_sheets or {}).get(k, {}).get("file_id"),
+                             status=sheet_status(item, k))
+             for k in dict.fromkeys([*(item.look_sheets or {}), *drawing])}  # fmt: skip
     return ItemOut(
         id=item.id,
         kind=item.kind,

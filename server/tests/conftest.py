@@ -1,4 +1,8 @@
 import io
+import ipaddress
+import os
+import socket
+from urllib.parse import urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +17,56 @@ from app.settings import Settings
 
 SETUP_TOKEN = "test-setup-token"
 PASSWORD = "correct horse battery"
+
+
+def pytest_configure(config):
+    """No test may reach a paid service: tester and CI machines can hold real keys, and the
+    test site has real lanes (Suno, look samples, the language test). With every key empty no
+    real provider can be called; empty keys beat a .env file (pydantic-settings reads
+    environment variables first). Settings are only read when a test makes them, so this runs
+    before any are. The stand-in switch is left to each test: some test the real paths' rules."""
+    for key in ("STUDIO_ANTHROPIC_KEY", "REPLICATE_API_TOKEN", "KIE_API_KEY"):
+        os.environ[key] = ""
+    # An empty key isn't enough on its own: with no token the Replicate provider sends its
+    # request bare, and a sandbox's network proxy adds real credentials. So no test may open
+    # a connection off this machine at all; tests talk to fakes or local servers only.
+    # The sandbox's proxy runs on this machine and signs what it forwards, so its address is
+    # refused too, and the proxy settings are cleared so nothing even tries it.
+    for name in (
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ):
+        proxy = urlsplit(os.environ.pop(name, "") or "")
+        if proxy.hostname and proxy.port:
+            _PROXIES.add((proxy.hostname, proxy.port))
+    socket.socket.connect = _local_only(socket.socket.connect)
+    socket.socket.connect_ex = _local_only(socket.socket.connect_ex)
+
+
+_PROXIES: set[tuple[str, int]] = set()
+
+
+class OffMachine(RuntimeError):
+    """A test tried to reach the network: it must use a fake or a mock transport instead."""
+
+
+def _local_only(connect):
+    def guarded(sock, address):
+        if sock.family in (socket.AF_INET, socket.AF_INET6):
+            host = address[0]
+            try:
+                local = host == "localhost" or ipaddress.ip_address(host).is_loopback
+            except ValueError:
+                local = False
+            if not local or (host, address[1]) in _PROXIES:
+                raise OffMachine(f"Tests never reach the network (tried {host}).")
+        return connect(sock, address)
+
+    return guarded
 
 
 @pytest.fixture

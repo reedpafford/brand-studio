@@ -95,11 +95,13 @@ def estimate(
 CLIP_SECONDS_GUESS = 8  # before a breakdown exists: about this many seconds per clip
 
 
-def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True) -> Decimal:
+def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True,
+              video=None) -> Decimal:  # fmt: skip
     """What making a video costs, every step, not just its seconds (QA-Live, video #17:
     "About 55" quoted, 99 charged): the breakdown (`breakdown`), the frame prompts, a still
     per clip, the clip prompts (a Claude call per few clips), a look per role (`roles`) and
-    its seconds of video. `bd` is its Breakdown, if it has one. Redos aren't counted."""
+    its seconds of video. `bd` is its Breakdown, if it has one; `video` its models (VS1),
+    else Auto. Redos aren't counted."""
     from app import clip_prompts
     from app.breakdown import video_model
     from app.sheets import look_usual
@@ -108,10 +110,10 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
     calls = len(clip_prompts.batches(bd)) if bd else math.ceil(clips / clip_prompts.BATCH_CLIPS)
     claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + calls)
-    still = {"model": image_model().id, "input": {"resolution": "1K"}}
-    video = {"model": video_model().id, "input": {"resolution": "480p"}}
+    still = {"model": image_model(video).id, "input": {"resolution": "1K"}}
+    clip = {"model": video_model(video).id, "input": {"resolution": "480p"}}
     return (claude + estimate(db, ws, "image", Decimal(clips), still) + look_usual(db, ws) * roles
-            + estimate(db, ws, "video", Decimal(seconds), video))  # fmt: skip
+            + estimate(db, ws, "video", Decimal(seconds), clip))  # fmt: skip
 
 
 def budget(db: Session, project: Project) -> Decimal:
