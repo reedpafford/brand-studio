@@ -124,6 +124,7 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
                     {(t.status === "failed" || t.status === "timing_failed") && (
                       <div className="space-y-2">
                         <p role="alert" className={errorClass}>{t.failed_reason ?? "Didn't finish · nothing charged."}</p>
+                        {t.refused_for && <p className="text-sm text-muted">The lyrics are final in a video: try again, or use another take.</p>}
                         {/* The lyrics are final in a video: the way on is another take, or this one again when a retry can help. */}
                         {t.retry_helps && (
                           <Button variant="ghost" icon={RotateCcw} price={t.status === "failed" ? data.estimate_credits : 0} busy={again.isPending && again.variables === t.id} onClick={() => again.mutate(t.id)}>

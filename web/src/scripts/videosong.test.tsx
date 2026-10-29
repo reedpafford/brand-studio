@@ -89,3 +89,13 @@ test("a take this video made says so and can be deleted with Undo; the one in us
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/3/restore")).toBe(true));
 });
+
+test("a refusal inside a video says the lyrics are final and the way on is another take or Try again", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: false, status: "failed", file_id: null, seconds: null, refused_for: "words", failed_reason: "Suno won't sing these words. Change those words, then press Try again." })])] });
+  show();
+  await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
+  const panel = await screen.findByRole("dialog", { name: "Change song" });
+  expect(within(panel).getByText("The lyrics are final in a video: try again, or use another take.")).toBeInTheDocument();
+  expect(within(panel).getByRole("button", { name: /Try again/ })).toBeInTheDocument();
+});
