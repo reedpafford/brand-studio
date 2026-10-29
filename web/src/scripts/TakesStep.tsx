@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Ellipsis, Music, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge, Banner, Button, Card, EmptyState, Menu, MenuItem, Skeleton, buttonClass } from "../components";
@@ -31,8 +31,8 @@ function Making() {
 }
 
 /** One take: its player, its state in words, and the press each state needs (flows S4). */
-/** A failed request is made again for both its takes, so Try again costs a whole request (`requestPrice`). */
-function TakeCard({ t, a, requestPrice, readOnly, others, makeMore, onDefaultStyle }: { t: SongTake; a: ReturnType<typeof useSongActions>; requestPrice: number; readOnly: boolean; others: SongTake[]; makeMore: ReactNode; onDefaultStyle?: () => void }) {
+/** A failed request is made again for both its takes, so Try again costs a whole request (`requestPrice`). A timing failure that a retry can't fix leads to the other take or to Make 2 more under the cards. */
+function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t: SongTake; a: ReturnType<typeof useSongActions>; requestPrice: number; readOnly: boolean; others: SongTake[]; onDefaultStyle?: () => void }) {
   const label = `Take ${t.number}`;
   const otherReady = others.find((o) => o.status === "ready" && !o.out_of_date && !o.preferred);
   const tooLong = t.over_cap && t.trim_to == null;
@@ -88,22 +88,30 @@ function TakeCard({ t, a, requestPrice, readOnly, others, makeMore, onDefaultSty
       {t.status === "failed" && (
         <div className="space-y-2">
           <p role="alert" className={errorClass}>{t.failed_reason ?? "Didn't finish · nothing charged."}</p>
-          {/* A refusal comes back the same for the same words and style: the way out is changing them (flows S4 X). */}
-          {!readOnly && t.refused_for === "style" && onDefaultStyle && (
-            <Button variant="secondary" onClick={onDefaultStyle}>
-              Use the default style instead · free
-            </Button>
-          )}
+          {/* A refusal comes back the same for the same words and style, so it leads with changing them (flows S4 X);
+              a timeout or a stall leads with Try again, with Edit after it. */}
           {!readOnly && (
-            <Link to="?edit=1" className={buttonClass("secondary")}>
-              <Pencil size={20} strokeWidth={1.75} aria-hidden />
-              {t.refused_for === "words" ? "Edit lyrics" : t.refused_for === "style" ? "Edit style" : "Edit lyrics or style"}
-            </Link>
-          )}
-          {!readOnly && t.retry_helps && (
-            <Button variant="ghost" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
-              Try again
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {t.refused_for === "style" && onDefaultStyle && (
+                <Button variant="secondary" onClick={onDefaultStyle}>
+                  Use the default style instead · free
+                </Button>
+              )}
+              {t.retry_helps && !t.refused_for && (
+                <Button variant="secondary" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+                  Try again
+                </Button>
+              )}
+              <Link to="?edit=1" className={buttonClass(t.refused_for ? "secondary" : "ghost")}>
+                <Pencil size={20} strokeWidth={1.75} aria-hidden />
+                {t.refused_for === "words" ? "Edit lyrics" : t.refused_for === "style" ? "Edit style" : "Edit lyrics or style"}
+              </Link>
+              {t.retry_helps && t.refused_for && (
+                <Button variant="ghost" icon={RotateCcw} price={requestPrice} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+                  Try again
+                </Button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -118,7 +126,6 @@ function TakeCard({ t, a, requestPrice, readOnly, others, makeMore, onDefaultSty
                   Use timing spread evenly · free
                 </Button>
               )}
-              {!t.retry_helps && !otherReady && makeMore}
               {otherReady && (
                 <Button variant="secondary" onClick={() => a.prefer.mutate(otherReady.id)}>
                   Make take {otherReady.number} Preferred
@@ -216,7 +223,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           {!readOnly && takes.length > 0 && current.length === 0 && <Banner tone="warning" title="These takes sing older words.">Make 2 takes of the lyrics as they are now. The old ones stay playable.</Banner>}
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
             {takes.map((t) => (
-              <TakeCard key={t.id} t={t} a={a} requestPrice={data.estimate_credits} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} makeMore={data.songs_on ? make("Make 2 more", false) : null} onDefaultStyle={defaultStyle} />
+              <TakeCard key={t.id} t={t} a={a} requestPrice={data.estimate_credits} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} onDefaultStyle={defaultStyle} />
             ))}
           </div>
           {!readOnly && data.songs_on && make(current.length === 0 ? "Make 2 takes" : "Make 2 more", current.length === 0)}

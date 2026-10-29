@@ -215,3 +215,12 @@ test("a refusal over the style offers Use the default style instead (clears the 
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toMatchObject({ text: LYRICS, style_line: "" }));
   expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
 });
+
+test("a failed take that isn't a refusal leads with Try again; the Edit link comes after it", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, failed_reason: "Suno took too long. Nothing was charged." })])] });
+  open("/b/1/scripts/7?step=takes");
+  const retry = await screen.findByRole("button", { name: /Try again · 1 credit/ });
+  const editLink = screen.getByRole("link", { name: "Edit lyrics or style" });
+  expect(retry.compareDocumentPosition(editLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
