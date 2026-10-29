@@ -151,6 +151,13 @@ def _row(
     )
 
 
+def _drawn_elsewhere(project: Project, item: LibraryItem) -> bool:
+    """A role's own look drawn in another look than the video's (Flow-QA on #967): no picture
+    here (sheet_for), so the role needs a look made in this one."""
+    return item.kind == Kind.character and own(item) and (
+        (item.sheet_look or "house") != (project.look or "house"))  # fmt: skip
+
+
 def _other_look(project: Project, item: LibraryItem) -> bool:
     """A Cast & places character in a video in another look than House (ST2)."""
     return (project.look or "house") != "house" and item.kind == Kind.character and not own(item)
@@ -219,6 +226,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         item_id = cast_roles.picked(project, slot)
         live = cast_roles.pick(db, project, slot)  # a deleted look: the role is uncast
         item = db.get(LibraryItem, live) if live else None
+        if item and _drawn_elsewhere(project, item):  # its own look is in another look:
+            item = live = None  # the role reads as having none here, offering Make a look
         out.append(_row("character", f"char:{live}" if live else f"slot:{slot.id}",
                         slot.role, item, bool(live and slot.library_item_id), slot,
                         project))  # fmt: skip
@@ -251,6 +260,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     version = db.get(ScriptDraft, project.script_draft_id).slot if project.script_draft_id else None
     for row in out:
         refs = {row.ref, f"slot:{row.slot_id}"}
+        if row.slot_id in roles:
+            refs.add(f"char:{cast_roles.picked(project, roles[row.slot_id])}")
         row.shots = sum(
             1
             for s in shots
@@ -400,7 +411,7 @@ def make_look(
     project = get_project(db, user, project_id)
     slot = _open_slot(db, project, slot_id)
     mine = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
-    if mine and not mine.archived:  # a removed one can be made again
+    if mine and not mine.archived and not _drawn_elsewhere(project, mine):  # removed: again
         raise HTTPException(409, f"{slot.role} already has a look for this video.")
     _make_look(db, user, project, slot)
     return list_assets(project_id, user, db)

@@ -200,6 +200,24 @@ def refuse_link(url: str, folder: Path) -> Path:
     raise Refused("blocked", BLOCKED)
 
 
+def read_site(url: str) -> dict:
+    """Import from website on the stand-ins: a practice page, never fetched. An address with
+    "fail" in it can't be read; one with "empty" has nothing useful on it."""
+    from app.site_fetch import Refused, read_page
+
+    if "fail" in url:
+        raise Refused("Couldn't reach that site.")
+    if "empty" in url:
+        return read_page("<html><body></body></html>", url)
+    return read_page(
+        '<html><head><meta name="theme-color" content="#e4572e"><meta property="og:image" '
+        'content="/logo.png"><style>.b{background:#2299cc}</style></head><body><h1>Iron Paws'
+        "</h1><p>Chicken bites: crunchy chicken treats for dogs.</p><p>Peanut butter chews: "
+        "soft chews with real peanut butter.</p></body></html>",
+        url,
+    )
+
+
 def study_link(url: str, folder: Path) -> Path:
     """A song-ad study's link on the stand-ins: the 6 s test clip, so a walk reaches the
     finished study; a reel id with "blocked" in it is refused, as Instagram would."""
@@ -604,6 +622,13 @@ class FakeWriter:
         return {"findings": [{"kind": "face", "who": who[0], "says": "Their face may differ "
                               "from their sheet", "note": "Keep their face exactly as on "
                               "their sheet."}]}  # fmt: skip
+
+    def _site_read(self, prompt):  # the practice page's two products and both its colours
+        return {"products": [
+            {"name": "Chicken bites", "short_description": "Crunchy chicken treats for dogs."},
+            {"name": "Peanut butter chews",
+             "short_description": "Soft chews with real peanut butter."}],
+            "colours": _tag(prompt, "colours").split(), "logo": True}  # fmt: skip
 
     def _look_fit(self, prompt):  # every look fits
         return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}
