@@ -5973,6 +5973,8 @@ export interface components {
             made_at: string | null;
             /** Preferred */
             preferred: boolean;
+            /** In Video */
+            in_video: boolean;
             /** Out Of Date */
             out_of_date: boolean;
             /** Peaks */

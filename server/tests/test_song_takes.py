@@ -241,7 +241,11 @@ def test_a_take_over_the_cap_offers_its_first_part_with_undo(app, db, owner, son
     assert (trimmed["trim_to"], trimmed["over_cap"]) == (14.25, False)
     assert owner.post(f"/songs/{take['id']}/preferred").status_code == 200
     whole = owner.delete(f"/songs/{take['id']}/trim").json()  # Undo
-    assert (whole["trim_to"], whole["over_cap"]) == (None, True)
+    assert (whole["trim_to"], whole["over_cap"], whole["preferred"]) == (None, True, False)
+    base = song.rsplit("/drafts", 1)[0]
+    owner.post(f"{song}/approve")
+    r = owner.post(f"{base}/publish")  # nothing under the cap is Preferred: no publish
+    assert r.status_code == 409 and r.json()["detail"].startswith("Make the song first")
 
 
 def test_a_tag_change_doesnt_date_the_takes(app, db, owner, song):

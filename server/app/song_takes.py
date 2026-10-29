@@ -26,6 +26,10 @@ WAITING = (JobStatus.queued, JobStatus.running)
 GUESSED = "Timing guessed: the lines are spread evenly over the song, so check the shot times."
 OVER_CAP = "A video of this whole take would go over the {}-credit cap. {}"
 SHORTEN = "Shorten the lyrics, then make 2 more."
+UNTRIM_IN_USE = (
+    "A video uses this trimmed take as its song, and the whole take is over the cap. Pick "
+    "another take for that video first."
+)
 OLDER_WORDS = "This take sings older words. Make 2 takes of the lyrics as they are now."
 
 
@@ -174,8 +178,13 @@ def out_of_date(take: SongTake, draft: ScriptDraft) -> bool:
 
 def preferred(db: Session, draft: ScriptDraft, project: Project | None = None):
     """The Preferred take of the current words (a new video starts on it), or None."""
-    found = [t for t in takes(db, draft, project) if t.preferred and not out_of_date(t, draft)]
+    found = [t for t in takes(db, draft, project) if t.preferred and _fits(db, t, draft)]
     return found[0] if found else None
+
+
+def _fits(db: Session, take: SongTake, draft: ScriptDraft) -> bool:
+    """Sings the current words, and its video is under the cap."""
+    return not out_of_date(take, draft) and not over_cap(db, take)
 
 
 def video_credits(db: Session, take: SongTake, seconds: float | None = None) -> Decimal:
@@ -239,7 +248,20 @@ def trim(db: Session, take: SongTake, on: bool) -> None:
     """Use only the start of the take that fits under the cap; `on=False` is its Undo."""
     if on and (not over_cap(db, take) or fits_until(db, take) is None):
         raise HTTPException(409, "This take doesn't need trimming, or no part of it fits.")
-    take.trim_to = fits_until(db, take) if on else None
+    if on:
+        take.trim_to = fits_until(db, take)
+        db.commit()
+        return
+    if db.scalar(select(Project.id).where(Project.song_take_id == take.id)):
+        raise HTTPException(409, UNTRIM_IN_USE)
+    take.trim_to = None
+    if take.preferred:  # the whole take is over the cap: the mark goes to the newest that fits
+        draft = db.get(ScriptDraft, take.draft_id)
+        project = db.get(Project, take.project_id) if take.project_id else None
+        take.preferred = False
+        fitting = [t for t in takes(db, draft, project) if t.timing and _fits(db, t, draft)]
+        if fitting:
+            fitting[-1].preferred = True
     db.commit()
 
 
@@ -257,7 +279,9 @@ def try_again(db: Session, user: User, take: SongTake) -> None:
     project = db.get(Project, take.project_id) if take.project_id else None
     old = db.get(Job, take.job_id)
     job = _request(db, user, draft, project)
-    for pair in _by_job(db, SongTake.job_id, old):
+    for pair in _by_job(db, SongTake.job_id, old):  # a song that did arrive is kept as it is
+        if pair.file_id is not None and db.get(Job, old.id).status == JobStatus.succeeded:
+            continue
         pair.job_id, pair.file_id = job.id, None
         pair.lyrics, pair.style_line = _sings(job.input).values()
     db.commit()
