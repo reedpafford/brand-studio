@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.db
+*.db-wal
+*.db-shm
 .env
 server/storage/
 deploy/backups/

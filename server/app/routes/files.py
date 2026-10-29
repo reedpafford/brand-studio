@@ -45,7 +45,7 @@ def get_file(
 
 
 @router.post("", response_model=FileOut, status_code=201)
-async def upload(
+def upload(
     upload: UploadFile,
     request: Request,
     user: User = Depends(current_user),
@@ -55,7 +55,7 @@ async def upload(
         raise HTTPException(415, "That file type isn't supported.")
     limit = request.app.state.settings.max_upload_mb * 1024 * 1024
     chunks, size = [], 0
-    while chunk := await upload.read(CHUNK):
+    while chunk := upload.file.read(CHUNK):
         size += len(chunk)
         if size > limit:
             raise HTTPException(413, "That file is too big.")
