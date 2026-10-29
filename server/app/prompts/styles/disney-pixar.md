@@ -30,3 +30,19 @@ a stylised Pixar-like 3D look with large glossy eyes and sculpted hair
 ## clip
 - After the Style line, the prompt carries the action, the lines and the camera; the first frame and the sheets carry the look. One motion action per shot: stacked actions drift.
 - Classic animated-feature moves suit the turns: push in from the scene to the product's label; a warm shimmer sweeps the frame and the grey scene turns golden (problem to fix); the light moves from grey morning to golden evening around the hero (time passing); a round shape becomes the next scene's round shape (a match cut). Name the one visible action that carries one shot into the next.
+
+## banned
+photorealistic → stylised
+photo-realistic → stylised
+live-action →
+in the style of Pixar →
+in the style of Disney →
+Pixar-style → animated-feature
+Disney-style → animated-feature
+anime → animated
+
+## fixes
+refused: Take out any studio or film name, Soften it, then Make another: a frame that reads as a copy of a studio's is refused.
+face: Make another first. If it drifts again, Change this… "big glossy eyes and sculpted hair exactly as the sheet, adult proportions".
+outfit: Change this… naming the sheet's key pieces in the shot.
+product: Change this… "the real product from its image, the label facing the camera and readable, under the scene's soft light".
