@@ -21,9 +21,13 @@ from app.prompts import check
 from app.prompts.schemas import Breakdown, SongBreakdown
 
 
-def video_model() -> CatalogueModel:
-    """The video model clips are planned for (one per project, FIT row 23: the default)."""
-    return next(m for m in catalogue().values() if m.kind == "video" and m.default)
+def video_model(project: Project | None = None) -> CatalogueModel:
+    """The video model a video's clips are made with: its own pick (VS1), else Auto, the
+    catalogue default (FIT row 23). No video yet (a script's preview): Auto."""
+    models = catalogue()
+    if project is not None and project.video_model in models:
+        return models[project.video_model]
+    return next(m for m in models.values() if m.kind == "video" and m.default)
 
 
 def video_model_block(m: CatalogueModel) -> str:
@@ -117,7 +121,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     viewer = project.created_by_id
     if block := payoffs_block(recent_payoffs(db, project.brand_id, project.id, viewer=viewer)):
         parts.append(block)
-    parts.append(video_model_block(video_model()))
+    parts.append(video_model_block(video_model(project)))
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
         parts.append(escape_block(ref))
@@ -147,7 +151,7 @@ def problems(
     newest row's) against its take; `written`: the AI wrote it (its Sung advice speaks)."""
     shown = project_screens(db, project)
     screens = {f"screen:{s.id}": s.default_for for s in shown}
-    m = video_model()
+    m = video_model(project)
     brand = db.get(Brand, project.brand_id)
     # The Director's check takes the brand's end line (#107); older checks don't yet.
     params = signature(check.breakdown).parameters

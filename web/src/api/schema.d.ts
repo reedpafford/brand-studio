@@ -4035,6 +4035,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Settings */
+        get: operations["read_settings_projects__project_id__settings_get"];
+        put?: never;
+        /**
+         * Switch Setting
+         * @description Switch one setting (409 with the reason over the budget or the cap). Undo: switch with
+         *     `was`; the stills and clips made before come back as current.
+         */
+        post: operations["switch_setting_projects__project_id__settings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/settings/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Setting
+         * @description The confirm for one switch: nothing changes.
+         */
+        post: operations["preview_setting_projects__project_id__settings_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -4541,6 +4583,8 @@ export interface components {
             kind: "story" | "song" | "narrated";
             /** Look */
             look?: string | null;
+            /** Language */
+            language?: string | null;
             /** Reel Url */
             reel_url?: string | null;
             /** Upload Id */
@@ -4961,6 +5005,19 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImageModelOut */
+        ImageModelOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Credits Per Still */
+            credits_per_still: number;
+            /** Default */
+            default: boolean;
+            /** Over Cap */
+            over_cap: boolean;
         };
         /** ImportOut */
         ImportOut: {
@@ -5788,52 +5845,6 @@ export interface components {
             /** File Id */
             file_id: number;
         };
-        /** PreviewOut */
-        PreviewOut: {
-            breakdown: components["schemas"]["Breakdown"] | null;
-            /** Problems */
-            problems: string[];
-            /** Seconds */
-            seconds: number;
-            /** Running */
-            running: boolean;
-            /**
-             * Kept
-             * @default []
-             */
-            kept: string[];
-            /**
-             * Stale
-             * @default false
-             */
-            stale: boolean;
-            /**
-             * Changed Shots
-             * @default []
-             */
-            changed_shots: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Fixes
-             * @default []
-             */
-            fixes: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Fixed
-             * @default []
-             */
-            fixed: string[];
-            /**
-             * Unknown Names
-             * @default {}
-             */
-            unknown_names: {
-                [key: string]: string;
-            };
-        };
         /** PriceOut */
         PriceOut: {
             /** Credits */
@@ -6454,6 +6465,11 @@ export interface components {
              * @default house
              */
             look: string;
+            /**
+             * Language
+             * @default en
+             */
+            language: string;
             /** Description */
             description: string;
             /** Reference Id */
@@ -6505,6 +6521,51 @@ export interface components {
             start: number;
             /** End */
             end: number;
+        };
+        /**
+         * SettingIn
+         * @description Exactly one setting. A model's null is Auto.
+         */
+        SettingIn: {
+            /** Look */
+            look?: string | null;
+            /** Video Model */
+            video_model?: string | null;
+            /** Image Model */
+            image_model?: string | null;
+            /** Aspect Ratio */
+            aspect_ratio?: ("9:16" | "1:1" | "16:9" | "4:3" | "3:4" | "21:9") | null;
+            /** Product Variants */
+            product_variants?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** SettingsOut */
+        SettingsOut: {
+            /** Look */
+            look: string;
+            /** Video Model */
+            video_model: string | null;
+            /** Image Model */
+            image_model: string | null;
+            /** Aspect Ratio */
+            aspect_ratio: string;
+            /** Product Variants */
+            product_variants: {
+                [key: string]: string;
+            };
+            /** Language */
+            language: string;
+            /** Video Models */
+            video_models: components["schemas"]["VideoModelOut"][];
+            /** Image Models */
+            image_models: components["schemas"]["ImageModelOut"][];
+            /** Shapes */
+            shapes: string[];
+            /** Flavours */
+            flavours: {
+                [key: string]: string[];
+            };
         };
         /** SetupIn */
         SetupIn: {
@@ -7063,6 +7124,14 @@ export interface components {
              */
             changes_waiting: number;
         };
+        /** SwitchOut */
+        SwitchOut: {
+            settings: components["schemas"]["SettingsOut"];
+            /** Was */
+            was: {
+                [key: string]: unknown;
+            };
+        };
         /** TakeIn */
         TakeIn: {
             /**
@@ -7254,6 +7323,11 @@ export interface components {
              * @default house
              */
             look: string;
+            /**
+             * Language
+             * @default en
+             */
+            language: string;
             /** Description */
             description: string;
             /** Reference Id */
@@ -7439,6 +7513,21 @@ export interface components {
             token: number;
             /** Assets */
             assets: components["schemas"]["AssetOut"][];
+        };
+        /** VideoModelOut */
+        VideoModelOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Credits Per Second */
+            credits_per_second: number;
+            /** Lip Sync */
+            lip_sync: boolean;
+            /** Default */
+            default: boolean;
+            /** Over Cap */
+            over_cap: boolean;
         };
         /** VideoOut */
         VideoOut: {
@@ -7649,6 +7738,8 @@ export interface components {
             kind: "story" | "song" | "narrated";
             /** Look */
             look?: string | null;
+            /** Language */
+            language?: string | null;
         };
         /** ScriptOut */
         app__routes__script_library__ScriptOut: {
@@ -7668,6 +7759,11 @@ export interface components {
              * @default house
              */
             look: string;
+            /**
+             * Language
+             * @default en
+             */
+            language: string;
             /** Description */
             description: string;
             /** Reference Id */
@@ -7827,6 +7923,52 @@ export interface components {
             /** Credits */
             credits: number;
         };
+        /** PreviewOut */
+        app__routes__script_preview__PreviewOut: {
+            breakdown: components["schemas"]["Breakdown"] | null;
+            /** Problems */
+            problems: string[];
+            /** Seconds */
+            seconds: number;
+            /** Running */
+            running: boolean;
+            /**
+             * Kept
+             * @default []
+             */
+            kept: string[];
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+            /**
+             * Changed Shots
+             * @default []
+             */
+            changed_shots: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Fixes
+             * @default []
+             */
+            fixes: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Fixed
+             * @default []
+             */
+            fixed: string[];
+            /**
+             * Unknown Names
+             * @default {}
+             */
+            unknown_names: {
+                [key: string]: string;
+            };
+        };
         /** ScriptIn */
         app__routes__scripts__ScriptIn: {
             /** Text */
@@ -7878,6 +8020,25 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** PreviewOut */
+        app__routes__video_settings__PreviewOut: {
+            /** To Finish Credits */
+            to_finish_credits: number;
+            /** Was Credits */
+            was_credits: number;
+            /** Stills Out Of Date */
+            stills_out_of_date: number;
+            /** Clips Out Of Date */
+            clips_out_of_date: number;
+            /** Sung To Broll */
+            sung_to_broll: number;
+            /** Over Budget */
+            over_budget: boolean;
+            /** Over Cap */
+            over_cap: boolean;
+            /** Reason */
+            reason: string;
         };
     };
     responses: never;
@@ -12028,7 +12189,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreviewOut"];
+                    "application/json": components["schemas"]["app__routes__script_preview__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -12064,7 +12225,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreviewOut"];
+                    "application/json": components["schemas"]["app__routes__script_preview__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -12128,7 +12289,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreviewOut"];
+                    "application/json": components["schemas"]["app__routes__script_preview__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -12196,7 +12357,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreviewOut"];
+                    "application/json": components["schemas"]["app__routes__script_preview__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -12230,7 +12391,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreviewOut"];
+                    "application/json": components["schemas"]["app__routes__script_preview__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -12262,7 +12423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreviewOut"];
+                    "application/json": components["schemas"]["app__routes__script_preview__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -12298,7 +12459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreviewOut"];
+                    "application/json": components["schemas"]["app__routes__script_preview__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -15913,6 +16074,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_settings_projects__project_id__settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    switch_setting_projects__project_id__settings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_setting_projects__project_id__settings_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__video_settings__PreviewOut"];
                 };
             };
             /** @description Validation Error */

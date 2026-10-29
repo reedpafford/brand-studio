@@ -105,7 +105,7 @@ def test_too_many_pictures_never_blocks_once_repaired(app, db, editor, setup, mo
     db.add(frame)
     db.commit()
     two = storyboard.image_model().model_copy(update={"max_reference_images": 2})
-    monkeypatch.setattr(storyboard, "image_model", lambda: two)
+    monkeypatch.setattr(storyboard, "image_model", lambda project=None: two)
     shown = editor.get(f"/projects/{setup['project']}/storyboard").json()[0]
     assert shown["reference_ids"] == [mom, screen]  # the nearest person, and the screen
     assert "Nate in Nate" in shown["prompt"] and "image 2." in shown["prompt"]

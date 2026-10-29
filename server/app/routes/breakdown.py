@@ -266,7 +266,7 @@ def fix(
     row = _newest(db, project)
     every = [f["problem"] for f in breakdown_fix.fixes(row.problems)]
     asked = (body.problems if body else []) or every
-    m = breakdown.video_model()
+    m = breakdown.video_model(project)
     from app.cast_roles import fix as cast
 
     fixed, done = breakdown_fix.repair(

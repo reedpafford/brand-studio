@@ -130,7 +130,7 @@ def test_a_full_clip_makes_room_and_a_note_attaches_the_bag(db, owner, setup, mo
     db.add(place)
     db.commit()
     full = clip_prompts.video_model().model_copy(update={"max_reference_images": 1})
-    monkeypatch.setattr(clip_prompts, "video_model", lambda: full)
+    monkeypatch.setattr(clip_prompts, "video_model", lambda project=None: full)
     prompt = (
         "Audio: x.\nReferences: [Image1] is the Kitchen.\nShot 1 | 0-5 s. Mom glares.\nAudio: x."
     )
@@ -141,7 +141,7 @@ def test_a_full_clip_makes_room_and_a_note_attaches_the_bag(db, owner, setup, mo
 
     plain = copy.deepcopy(_c9())
     plain.scenes[0].shots[0].action = "Mom glares."
-    monkeypatch.setattr(clip_prompts, "video_model", lambda: full.model_copy(
+    monkeypatch.setattr(clip_prompts, "video_model", lambda project=None: full.model_copy(
         update={"max_reference_images": 5}))  # fmt: skip
     noted = clip_prompts.with_cast(db, project, ClipPrompt(clip_id="c1", seconds=5, prompt=prompt,
                                                            references=refs), plain,

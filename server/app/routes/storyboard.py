@@ -6,7 +6,17 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, credits, item_checks, looks, redo_frame, storyboard
+from app import (
+    advice,
+    breakdown,
+    change,
+    credits,
+    item_checks,
+    looks,
+    redo_frame,
+    storyboard,
+    video_settings,
+)
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db
@@ -124,7 +134,7 @@ def _out(
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
                 "redo_credits", "redo_blocked", "still_stale", "check")  # fmt: skip
-    other = looks.frame_other(project, frame)  # drawn in another look (VS1)
+    other = looks.frame_other(project, frame) or video_settings.frame_stale(project, frame)  # VS1
     newest = _newest_breakdown(db, project)
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
     blocked = redo_frame.blocked(db, frame, newest) if redo else ""
@@ -366,8 +376,10 @@ def pick_still(
         raise HTTPException(404, "No such earlier still.")
     rest = [e for e in frame.earlier if e is not old]
     if frame.file_id:
-        rest.append({"file_id": frame.file_id, "prompt": frame.prompt})
+        rest.append({"file_id": frame.file_id, "prompt": frame.prompt,
+                     **({"made_with": frame.made_with} if frame.made_with else {})})  # fmt: skip
     frame.earlier, frame.file_id, frame.prompt = rest, old["file_id"], old["prompt"]
+    frame.made_with = old.get("made_with") or {}  # VS1: what that still was made with
     frame.approved = frame.still_stale = False
     db.commit()
     return _out(db, project, frame)
@@ -406,6 +418,7 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             "no still yet" if not frame.file_id
             else "still is out of date, Redo it first"
             if frame.still_stale or looks.frame_other(project, frame)
+            or video_settings.frame_stale(project, frame)
             else "made for an older breakdown" if _stale(db, project, frame)
             else "has a problem to fix" if advice.stops(frame)
             else ""

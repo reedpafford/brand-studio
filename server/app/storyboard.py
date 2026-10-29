@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app import video_settings
 from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
@@ -30,8 +31,12 @@ from app.sheets import require_cast_sheets, require_looks, require_sheet, usable
 PREFIX = {Kind.character: "char", Kind.place: "place", Kind.prop: "prop"}
 
 
-def image_model() -> CatalogueModel:
-    return next(m for m in catalogue().values() if m.kind == "image" and m.default)
+def image_model(project: Project | None = None) -> CatalogueModel:
+    """The picture model a video's stills are drawn with: its own pick (VS1), else Auto."""
+    models = catalogue()
+    if project is not None and project.image_model in models:
+        return models[project.image_model]
+    return next(m for m in models.values() if m.kind == "image" and m.default)
 
 
 def cast_looks(db: Session, project: Project) -> list[LibraryItem]:
@@ -115,7 +120,7 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: boo
     system, _ = project_context(db, project, "storyboard")
     lines = "\n".join(dict.fromkeys(line for line, _ in assets(db, project).values()))
     parts = [
-        image_model_block(image_model(), project.aspect_ratio),
+        image_model_block(image_model(project), project.aspect_ratio),
         f"<assets>\n{escape(lines)}\n</assets>",
         f"<breakdown>\n{escape(json.dumps(bd.data, ensure_ascii=False))}\n</breakdown>",
     ]
@@ -359,7 +364,7 @@ def with_cast(
     shot = _shot(bd, frame.shot_id)
     if shot is None:
         return frame
-    m = image_model()
+    m = image_model(project)
     refs = list(dict.fromkeys(one_logo(known, r) for r in frame.reference_ids))
     people = [r for r in refs if r.startswith(CHAR)]
     objects = [r for r in refs if not r.startswith(CHAR)]
@@ -423,7 +428,7 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
     """With the frame's breakdown, a character in the shot without an approved look is
     flagged too, by name, a role not cast yet included (Reed, 2026-10-27: nothing is drawn
     without a sheet for everyone in it); the problem links to Assets."""
-    m = image_model()
+    m = image_model(project)
     known = assets(db, project)
     bd = Breakdown.model_validate(db.get(BreakdownVersion, breakdown_id).data)
     found = check.storyboard(
@@ -456,10 +461,10 @@ def left_out(names: list[str], limit: int) -> list[str]:
             "pictures, nearest the camera first."]  # fmt: skip
 
 
-def _cap(frame: Frame, known: dict) -> Frame:
+def _cap(frame: Frame, known: dict, project: Project | None = None) -> Frame:
     """Over the image model's limit even with the nearest people only: the last pictures
     (props, then screens) go, and the prompt names them instead."""
-    limit = image_model().max_reference_images
+    limit = image_model(project).max_reference_images
     if not limit or len(frame.reference_ids) <= limit:
         return frame
     new = frame.reference_ids[:limit]
@@ -489,10 +494,11 @@ def repair(db: Session, project: Project) -> int:
             p for p in row.problems or [] if p.startswith(LEFT_OUT) or p == REFUSED
         ]  # what an earlier trim left out, or a refusal, stays said
         if any(p.lower().startswith(TOO_MANY) for p in problems):  # never a dead end
-            now = _cap(with_cast(db, project, was, breakdowns[row.breakdown_id], known), known)
+            cast = with_cast(db, project, was, breakdowns[row.breakdown_id], known)
+            now = _cap(cast, known, project)
             problems = frame_problems(db, project, now, row.breakdown_id) + left_out(
                 [_name(known, r) for r in was.reference_ids if r not in now.reference_ids],
-                image_model().max_reference_images,
+                image_model(project).max_reference_images,
             )
         if older := older_looks(db, known, row):  # flagged once: an approval after it stays
             problems.append(f"{OLDER}{', '.join(older)}. Redraw it to show the new look.")
@@ -584,7 +590,7 @@ def still_price(db: Session, project: Project) -> int:
     price, the same for every frame of the video."""
     from app.credits import estimate, price
 
-    job = image_job_input(image_model(), "", project.aspect_ratio)
+    job = image_job_input(image_model(project), "", project.aspect_ratio)
     return price(estimate(db, project.workspace_id, "image", Decimal(1), job))
 
 
@@ -610,9 +616,11 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     prompt = say_logo(known, frame.prompt, frame.reference_ids)  # never a logo called a chart
     prompt = f"{prompt}\nChange from the last still: {note}" if note else prompt
     job = image_job_input(
-        image_model(), prompt, project.aspect_ratio, characters=characters, objects=objects
+        image_model(project), prompt, project.aspect_ratio, characters=characters, objects=objects
     )
-    return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id}
+    made = video_settings.made_with(db, project, frame.reference_ids, job["model"])  # VS1
+    return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id,
+            "made_with": made}  # fmt: skip
 
 
 def save_still(db: Session, job: Job) -> None:
@@ -623,10 +631,15 @@ def save_still(db: Session, job: Job) -> None:
         if frame.file_id and frame.file_id != file_ids[0]:  # the old still stays, to pick back
             frame.earlier = [
                 *(frame.earlier or []),
-                {"file_id": frame.file_id, "prompt": job.input.get("was_prompt", frame.prompt)},
+                {
+                    "file_id": frame.file_id,
+                    "prompt": job.input.get("was_prompt", frame.prompt),
+                    **({"made_with": frame.made_with} if frame.made_with else {}),
+                },  # fmt: skip
             ]
         frame.file_id, frame.approved, frame.still_stale = file_ids[0], False, False
         frame.look = db.get(Project, frame.project_id).look  # drawn in the video's look now
+        frame.made_with = job.input.get("made_with") or {}  # VS1
         if job.id and (frame.change or {}).get("made_job_id") == job.id:  # Redo: now it's done
             frame.change = {**frame.change, "status": "done"}
         from app.item_checks import queue_safely  # P4: Advice only, never a block

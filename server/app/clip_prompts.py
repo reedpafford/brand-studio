@@ -149,7 +149,7 @@ def job_input(
     lines = "\n".join(dict.fromkeys(line for line, _, _ in assets(db, project).values()))
     prompt = "\n".join(
         [
-            video_model_block(video_model()),
+            video_model_block(video_model(project)),
             f"<assets>\n{escape(lines)}\n</assets>",
             f"<breakdown>\n{escape(json.dumps(bd.data, ensure_ascii=False))}\n</breakdown>",
         ]
@@ -297,7 +297,7 @@ def with_cast(
         return next((i for i, c in enumerate(cast) if _same(pics, r.id, c)), len(cast))
 
     room = len(people) + len(missing)
-    if limit := video_model().max_reference_images:
+    if limit := video_model(project).max_reference_images:
         room = min(room, max(limit - len(first) - len(objects), 0))
     added = [Reference(kind="image", id=c, role=f"{_name(pics, c)}'s look") for c in missing]
     if trim:  # stable: people not in the clip stay last
@@ -312,7 +312,7 @@ def with_cast(
     shown = {*want, *(r.id for r in new if r.id.startswith("screen:"))}  # the clip keeps to 3
     have = [*want, *(r.id for r in new)]
     product = shown_product(db, project, _words(bd, clip, note), known, have, shown)
-    limit = video_model().max_reference_images
+    limit = video_model(project).max_reference_images
     if product and limit and len(new) >= limit:
         drop = weakest([r.id for r in new], known)
         new = [r for r in new if r.id in drop]
@@ -351,7 +351,7 @@ def with_cast(
 def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt) -> list[str]:
     """A character in the clip without an approved look is flagged by name, a role not cast
     yet included (Reed, 2026-10-27); sheets are attached by `with_cast`."""
-    m, known = video_model(), assets(db, project)
+    m, known = video_model(project), assets(db, project)
     pics = _pictures(known)
     seen = bd.model_copy(deep=True)  # every logo-only screen is the one logo `with_cast` attached
     for shot in (s for scene in seen.scenes for s in scene.shots):
@@ -381,10 +381,10 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
     return plain(problems, names(known))
 
 
-def _cap(clip: ClipPrompt, known: Assets) -> ClipPrompt:
+def _cap(clip: ClipPrompt, known: Assets, project: Project | None = None) -> ClipPrompt:
     """Over the video model's limit even with the nearest people only: the last pictures go,
     and the prompt names them instead."""
-    limit = video_model().max_reference_images
+    limit = video_model(project).max_reference_images
     images = [r for r in clip.references if r.kind == "image"]
     if not limit or len(images) <= limit:
         return clip
@@ -494,10 +494,10 @@ def repair(db: Session, project: Project) -> int:
         if older := older_take(db, known, row):  # said, never unapproved: a sheet edit
             problems.append(f"{OLDER_TAKE}{', '.join(older)}. Make another take to show it.")
         if any(p.lower().startswith("more references than") for p in problems):
-            now = repair_shape(_cap(with_cast(db, project, was, bd, known), known), bd)
+            now = repair_shape(_cap(with_cast(db, project, was, bd, known), known, project), bd)
             kept = {r.id for r in now.references}
             gone = [_name(_pictures(known), r.id) for r in was.references if r.id not in kept]
-            limit = video_model().max_reference_images
+            limit = video_model(project).max_reference_images
             problems = clip_problems(db, project, bd, now) + left_out(gone, limit)
         if now == was and problems == (row.problems or []):
             changed += cleared

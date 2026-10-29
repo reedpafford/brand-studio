@@ -48,13 +48,13 @@ def _claude(db: Session, ws: int) -> Decimal:
     return estimate(db, ws, "write-claude", Decimal(1))
 
 
-def _still(db: Session, ws: int) -> Decimal:
-    job = {"model": image_model().id, "input": {"resolution": "1K"}}
+def _still(db: Session, ws: int, project: Project | None = None) -> Decimal:
+    job = {"model": image_model(project).id, "input": {"resolution": "1K"}}
     return estimate(db, ws, "image", Decimal(1), job)
 
 
-def _video(db: Session, ws: int, seconds: int) -> Decimal:
-    job = {"model": video_model().id, "input": {"resolution": "480p"}}
+def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -> Decimal:
+    job = {"model": video_model(project).id, "input": {"resolution": "480p"}}
     return estimate(db, ws, "video", Decimal(seconds), job)
 
 
@@ -90,7 +90,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     clips = [c for c in clips if bd and c.breakdown_id == bd.id]
     planned = bd.data["clips"] if bd_ok else []
     n_clips = len(planned) or math.ceil(project.estimate_credits / CLIP_SECONDS_GUESS)
-    claude, still = _claude(db, project.workspace_id), _still(db, project.workspace_id)
+    claude, still = _claude(db, project.workspace_id), _still(db, project.workspace_id, project)
 
     stills_left = (len([f for f in frames if not f.file_id]) if frames else n_clips) * still
     storyboard_done = bool(frames) and all(f.file_id for f in frames)
@@ -117,7 +117,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
         (
             "clips",
             clips_done,
-            _video(db, project.workspace_id, seconds_left),
+            _video(db, project.workspace_id, seconds_left, project),
             f"{seconds_left} s of video at 480p, one take each",
         ),
         ("video", False, Decimal(0), "putting the clips together is free"),

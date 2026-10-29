@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import looks, narration, needs_you, reference
+from app import brand_setup, looks, narration, needs_you, reference
 from app.auth import current_user, owner_only, user_name
 from app.credits import credits_used, get_limits, lock, over_cap, own_script
 from app.db import get_db, utcnow
@@ -279,6 +279,8 @@ def create_project(
     )
     _set_length(db, user, project, body.planned_seconds)
     _set_brief(db, user, project, body.model_dump())
+    if not project.cast_ids:  # BR1: the brand's default cast (its live characters)
+        project.cast_ids = brand_setup.live_cast(db, get_brand(db, user, body.brand_id))
     if body.reference_id:
         project.reference_breakdown = references.load(request, body.reference_id)
     db.add(project)

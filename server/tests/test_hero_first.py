@@ -39,7 +39,7 @@ def test_the_main_character_is_first_in_frames_and_kept_by_the_people_limit(
     assert done.reference_ids == [nate, mom]
     assert done.prompt.startswith("Mom in image 2.")  # each "image N" follows its picture
     one = storyboard.image_model().model_copy(update={"max_character_images": 1})
-    monkeypatch.setattr(storyboard, "image_model", lambda: one)
+    monkeypatch.setattr(storyboard, "image_model", lambda project=None: one)
     assert storyboard.with_cast(db, project, frame, bd).reference_ids == [nate]
 
 
