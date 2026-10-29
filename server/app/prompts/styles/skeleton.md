@@ -1,8 +1,9 @@
 # Skeleton
-<!-- From Starpop's skeleton-ads skill (docs/research/starpop-2026-10-28, rule 20). A format: "What happens if you ___?" told as an escalating ladder (Day 1, Day 30, Day 365) lived by one lovable cartoon skeleton, under one narrator. -->
-kind: format
+<!-- From Starpop's skeleton-ads skill (docs/research/starpop-2026-10-28, rule 20). A look usable on any story script (flows Q4): "What happens if you ___?" told as an escalating ladder (Day 1, Day 30, Day 365) lived by one lovable cartoon skeleton, under one narrator. -->
+kind: look
 order: 4
 on: no
+narrated: yes
 image_model: auto
 blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365 under a narrator.
 

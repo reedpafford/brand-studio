@@ -12,5 +12,6 @@ from app.models import (  # noqa: F401
     projects,
     script_library,
     scripts,
+    songs,
     storyboards,
 )
