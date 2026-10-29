@@ -121,6 +121,7 @@ def test_the_breakdown_keeps_the_plans_scenes_and_its_product_marks():
     bd.scenes[0].shots[1].screen_ids = ["product:1"]
     bd.scenes[0].shots[1].script_lines = [4]
     assert check.follows_plan(GOOD, bd) == []
-    text = prompts.system("breakdown")
-    assert "**The plan.**" in text and "<plan>" in text
-    assert "**The plan.**" in prompts.system("song_breakdown")  # the song and narrated steps too
+    # the rule rides in the message with the plan; the breakdown prompts stay as they were
+    for step in ("breakdown", "song_breakdown", "narrated_breakdown"):
+        assert "**The plan.**" not in prompts.system(step), step
+    assert prompts.plan_block(GOOD, SCRIPT).startswith(prompts.PLAN_RULE + "\n<plan>\n")
