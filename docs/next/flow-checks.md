@@ -295,3 +295,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #937 at d997cb0b (languages list, VS1/BR1) | PASS: English on, others off; an editor's off language refused with the way on, the owner's allowed; unknown 422; brand default off → an editor's script starts in English; the check only on create |
 | 2026-10-29 | #926 at 0cf5d8af (next with #925 merged in) | PASS: settings code unchanged; its videosettings.e2e 6 passed; over the cap, switch to fit and Undo back to Auto at 1440 and 390 |
 | 2026-10-29 | #934 at 90b344d5 | The older preview no longer lands; the breakdown films the owner's plan. FAIL: its price goes unsaid ("Starting is free") (open above) |
+| 2026-10-29 | #938 at 2d2f6b69; #939 at b9f5f06f | #938 PASS (test only, 3 runs green). #939 PASS: a refused Update everything after this says why and stays pressable for a retry after a fix elsewhere; note: clear the old reason when the price changes |
