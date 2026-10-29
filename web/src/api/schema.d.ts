@@ -6946,11 +6946,8 @@ export interface components {
              * @default
              */
             change: string;
-            /**
-             * Look Id
-             * @default house
-             */
-            look_id: string;
+            /** Look Id */
+            look_id?: string | null;
         };
         /** Shot */
         Shot: {

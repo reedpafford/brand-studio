@@ -36,16 +36,16 @@ ASPECT = {Kind.character: "9:16", Kind.place: "16:9"}  # a tall turnaround / a w
 class SheetIn(BaseModel):
     model_id: Literal["nano-banana-pro", "nano-banana-2.1"] = SHEET_MODEL
     change: str = Field("", max_length=500)  # Redo: "What should change?" (optional)
-    look_id: str = "house"  # ST2: the owner's "{look} sheet" on a Cast & places item
+    look_id: str | None = None  # ST2: the owner's "{look} sheet" on a Cast & places item
 
 
 OWNER_LOOKS = "Only the owner adds a sheet in another look to Cast & places."
 OWN_LOOK = "This look is this video's own: it's drawn in the video's look already."
 
 
-def _look(user: User, item: LibraryItem, look_id: str) -> str | None:
+def _look(user: User, item: LibraryItem, look_id: str | None) -> str | None:
     """None for House; else the look whose sheet this is (owner only, Cast & places only)."""
-    if look_id == looks.DEFAULT:
+    if look_id in (None, looks.DEFAULT):
         return None
     looks.get(look_id)
     if not user.is_owner:
@@ -107,7 +107,7 @@ def queue_sheet(
     is refused with the reason. The automatic redo spends from that hold (prepaid) and is
     checked but never redone again."""
     kind = item.kind
-    look = None if body.look_id == looks.DEFAULT else body.look_id  # the owner's look sheet
+    look = None if body.look_id in (None, looks.DEFAULT) else body.look_id  # the owner's
     # In another look, the approved House sheet is the person when there's no photo (ST2)
     house = item.sheet_file_id if look and item.sheet_approved else None
     photo = item.source_photo_file_id or house
