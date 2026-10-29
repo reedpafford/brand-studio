@@ -7,8 +7,10 @@ for (const width of [1440, 390]) {
     await signIn(page, "reed@example.com");
     await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
     const brandId = await emptyBrand(page, "Projects Co"); // one brand for both widths: the brand menu has no room to spare (see the menu height fix)
-    const id = (await (await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Filed video", planned_seconds: 20 } })).json()).id;
-    const name = `November launch ${width}`;
+    const run = `${width}${test.info().retry ? `-${test.info().retry}` : ""}`; // a CI retry shares the database: new names, so no "already exists"
+    const video = `Filed video ${run}`;
+    const id = (await (await page.request.post("/api/projects", { data: { brand_id: brandId, name: video, planned_seconds: 20 } })).json()).id;
+    const name = `November launch ${run}`;
 
     await page.goto(`/b/${brandId}/videos`);
     const list = width === 1440 ? page.getByRole("region", { name: "Projects" }) : page.getByRole("dialog", { name: "Projects" });
@@ -29,7 +31,7 @@ for (const width of [1440, 390]) {
     if (width === 390) await page.getByRole("button", { name: "Project: All" }).click();
     await list.getByRole("button", { name: `${name} · 1 item` }).click();
     await expect(page).toHaveURL(/folder=\d+/);
-    await expect(page.getByRole("link", { name: /Filed video/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: new RegExp(video) })).toBeVisible();
 
     if (width === 390) await page.getByRole("button", { name: `Project: ${name}` }).click();
     await list.getByRole("button", { name: `More for ${name}` }).click();

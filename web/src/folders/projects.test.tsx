@@ -143,3 +143,25 @@ test("Scripts and Quick clip ask the server for the picked project too", async (
   await screen.findByRole("heading", { name: "Scripts" });
   await vi.waitFor(() => expect(urls().some((u) => u.includes("/scripts?") && u.includes("folder=4"))).toBe(true));
 });
+
+const script = (o: object = {}) => ({
+  id: 7, brand_id: 1, kind: "story", title: "Bowl story", description: "", reference_id: null, published: true, status: "published", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
+  notes: "", reference_replace: "", cast: [], look: "house", folder_id: null, ...o,
+  versions: [{ slot: 0, status: "draft", title: "Bowl story", seconds: 0, project_id: null, text: "Bo eats.", words: 2, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, style_line: "", singer: "", spoken_end_line: "", song_directions: [] }],
+});
+
+test("an editor gets no project picker on a script someone else made (the server would refuse it)", async () => {
+  setViewport(1440);
+  fakeServer(base(editor, [november], { "GET /scripts/7": [200, script()] }));
+  open("/b/1/scripts/7");
+  await screen.findByRole("heading", { name: "Bowl story" });
+  await screen.findByRole("region", { name: "Projects" }); // the projects have loaded
+  expect(screen.queryByRole("button", { name: /^Project:/ })).toBeNull();
+});
+
+test("an editor gets the project picker on their own script", async () => {
+  setViewport(1440);
+  fakeServer(base(editor, [november], { "GET /scripts/7": [200, script({ created_by_id: 2, published: false, status: "draft" })] }));
+  open("/b/1/scripts/7");
+  expect(await screen.findByRole("button", { name: "Project: none" })).toBeInTheDocument();
+});
