@@ -149,8 +149,7 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
 
     version = plans.script(db, project)
     job = plans.job_state(db, project)
-    if project.id is not None:  # a script version's stand-in (S6) has no row to read again
-        db.refresh(project)  # read after the job: a plan saved with it is never missed
+    plans.read_again(db, project)  # after the job: a plan saved with it is never missed
     plan = plans.current(db, project)
     db.commit()  # a plan read from the breakdown, or a plan stopped for taking too long
     if plan is None and job is None:
