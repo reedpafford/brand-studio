@@ -57,18 +57,44 @@ test("with no hero, Who's in the sample? offers the brand's characters or the lo
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /looks/pixar/sample").at(-1)?.body).toEqual({ brand_id: 1, character_id: 7 }));
 });
 
-test("a ready sample shows its still and clip; Switch on for editors, with Undo", async () => {
+test("a ready sample shows the whole portrait still (never cropped); tapping it opens the full still and the clip, with Switch on there", async () => {
   setViewport(1440);
   const calls = fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ status: "ready", still_id: 80, clip_id: 81 })], "PATCH /looks/pixar": [200, { ...pixar, on: true }] }));
   open();
   const card = await screen.findByLabelText("Disney Pixar");
-  expect(await within(card).findByLabelText("Disney Pixar sample clip")).toHaveAttribute("src", "/api/files/81");
-  await userEvent.click(within(card).getByRole("button", { name: "Switch on for editors" }));
+  const thumb = await within(card).findByAltText("Disney Pixar sample");
+  expect(thumb).toHaveClass("object-contain");
+  expect(thumb).not.toHaveClass("object-cover");
+  expect(within(card).getByText("▶ 5 s clip")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Open the Disney Pixar sample" }));
+  const viewer = await screen.findByRole("dialog", { name: "Disney Pixar sample" });
+  expect(within(viewer).getByAltText("Disney Pixar sample, full size")).toHaveAttribute("src", "/api/files/80");
+  const clip = within(viewer).getByLabelText("Disney Pixar sample clip");
+  expect(clip).toHaveAttribute("src", "/api/files/81");
+  expect(clip).toHaveAttribute("controls");
+  expect(clip).toHaveAttribute("autoplay");
+  await userEvent.click(within(viewer).getByRole("button", { name: "Switch on for editors" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /looks/pixar")?.body).toEqual({ on: true }));
   expect(await screen.findByText("Disney Pixar is on for editors.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "PATCH /looks/pixar").at(-1)?.body).toEqual({ on: false }));
 });
+
+test("while the clip is being made the still shows with Clip coming…, on the card and in the viewer, and the clip appears when it lands", async () => {
+  setViewport(390);
+  const routesNow: Record<string, [number, unknown]> = routes({ "GET /looks/pixar/sample": [200, sample({ status: "making", still_id: 80 })] });
+  fakeServer(routesNow);
+  open();
+  const card = await screen.findByLabelText("Disney Pixar");
+  expect(await within(card).findByAltText("Disney Pixar sample")).toHaveAttribute("src", "/api/files/80");
+  expect(within(card).getByText("Clip coming…")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Open the Disney Pixar sample" }));
+  const viewer = await screen.findByRole("dialog", { name: "Disney Pixar sample" });
+  expect(within(viewer).getByText("Clip coming… It shows here when it's ready.")).toBeInTheDocument();
+  routesNow["GET /looks/pixar/sample"] = [200, sample({ status: "ready", still_id: 80, clip_id: 81 })]; // the clip lands
+  expect(await within(viewer).findByLabelText("Disney Pixar sample clip", undefined, { timeout: 6000 })).toHaveAttribute("src", "/api/files/81");
+  expect(within(viewer).getByRole("button", { name: "Switch on for editors" })).toBeInTheDocument();
+}, 15000);
 
 test("a failed sample says why with Try again; an On look offers Switch off", async () => {
   setViewport(1440);
