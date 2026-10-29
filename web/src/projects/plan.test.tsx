@@ -313,3 +313,15 @@ test("while a scene is being changed the plan shows Making the plan… with Stop
   expect(await screen.findByText(/Making the plan…/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
 });
+
+test("a plan whose job ended before it reads back (a 404 in between) still shows, the page keeps reading after the press", async () => {
+  setViewport(1440);
+  fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [404, { detail: "none" }], "POST /projects/9/plan": [201, { id: 30 }] });
+  open();
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: /Make the plan · 6 credits/ })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: /Make the plan · 6 credits/ }));
+  // The job has ended and the GET answered 404 once; then the plan is there.
+  vi.unstubAllGlobals();
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan()] });
+  expect(await screen.findByRole("button", { name: /Approve the plan · makes the shots/ }, { timeout: 4000 })).toBeInTheDocument();
+});
