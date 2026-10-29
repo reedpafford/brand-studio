@@ -920,12 +920,30 @@ def lip_synced(lyrics: str) -> set[int]:
 NAME = re.compile(r"\b[A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*)*")  # "Jack Johnson", "Better Together"
 
 
+# Words that describe a sound, never name one: a "sounds like" made only of these ("upbeat
+# pop", "country and pop", "Happy") is a genre, not a name, and stays (QA and Flow-QA on #819).
+SOUND = set(
+    """
+pop rock folk country indie acoustic upbeat laid-back laidback breezy chill mellow happy sad soft
+hard heavy light hip-hop hiphop rap trap r&b rnb soul neo-soul jazz jazzy blues edm electronic
+electro dance house techno synth synthwave lo-fi lofi reggaeton latin bachata punk metal emo
+gospel choir orchestral cinematic ambient funk funky disco retro vintage modern polished classic
+classical female male vocal vocals voice lead singer guitar guitars piano drums bass ukulele
+strings handclaps claps whistle song songs music tune style vibe vibes feel sound slow fast
+tempo mid-tempo uptempo energetic bright sunny warm dreamy dark moody sweet cheerful playful
+epic anthem anthemic ballad lullaby jingle 60s 70s 80s 90s 2000s 2010s old school new
+""".split()
+)
+
+
 def _names(sounds_like: str) -> list[str]:
-    """The names in a "sounds like" ("Better Together by Jack Johnson", "fleetwood mac"),
-    any case: each part between "by", "and", "&", commas, slashes and dashes."""
+    """The artist and song names in a "sounds like" ("Better Together by Jack Johnson",
+    "fleetwood mac"), any case: each part between "by", "and", "&", commas, slashes and
+    dashes that isn't only sound words ("upbeat pop" is a genre, never a name)."""
     text = re.sub(r"^\s*(?:sounds? like|like|the song)\s+", "", sounds_like.strip(), flags=re.I)
     parts = re.split(r"\s+(?:by|and|&|feat\.?|ft\.?)\s+|[,/;]|\s+[-–]\s+", text, flags=re.I)
-    return [x.strip(" \"'“”‘’") for x in parts if len(x.strip(" \"'“”‘’")) > 2]
+    names = [x.strip(" \"'“”‘’") for x in parts]
+    return [x for x in names if len(x) > 2 and not set(_words(x).split()) <= SOUND]
 
 
 AROUND = r"(?:\s*,?\s*\b(?:like|by|in the style of|à la|inspired by|reminiscent of)\s+)?"
@@ -939,21 +957,31 @@ def _tidy(style: str) -> str:
     return style.strip(" ,;-")
 
 
+def strip_names(style_line: str, sounds_like: str) -> tuple[str, list[str]]:
+    """The style line with the "sounds like" artist and song names taken out (the music
+    service refuses them), and the names taken. Only real names go: genre and mood words
+    stay. Never empty: a line that was only names falls back to its own sound words, else
+    to "pop" (the Producer, #819)."""
+    style, taken = style_line, []
+    for name in _names(sounds_like):
+        words = r"\s+".join(re.escape(w) for w in name.split())
+        found = re.compile(AROUND + rf"\b{words}\b(?:'s|-(?:style|esque|like|ish))?", re.I)
+        if found.search(style):
+            style, taken = _tidy(found.sub("", style)), [*taken, name]
+    if taken and not re.search(r"[a-z]", style, re.I):
+        kept = [w for w in re.findall(r"[\w&'-]+", style_line) if w.lower() in SOUND]
+        style = " ".join(kept) or "pop"
+    return style, taken
+
+
 def without_names(result: SongDirections, sounds_like: str) -> list[str]:
-    """The music service refuses artist and song names, so a style line that names the
-    "sounds like" one has the name taken out, free, before anyone sees it (Flow-QA on #794),
-    in any case and with what it leaves tidied: "acoustic pop like Jack Johnson, 96 BPM"
-    becomes "acoustic pop, 96 BPM"; "Coldplay-style stadium rock" becomes "stadium rock".
-    Said as advice. Doing it again changes nothing."""
+    """Each direction's style line through strip_names, free, before anyone sees it, said as
+    advice. Doing it again changes nothing."""
     notes = []
     for n, d in enumerate(result.directions, 1):
-        for name in _names(sounds_like):
-            words = r"\s+".join(re.escape(w) for w in name.split())
-            found = re.compile(AROUND + rf"\b{words}\b(?:'s|-(?:style|esque|like|ish))?", re.I)
-            if found.search(d.style_line):
-                d.style_line = _tidy(found.sub("", d.style_line))
-                notes.append(f"{ADVICE}direction {n}: took “{name}” out of the style line "
-                             "(the music service refuses names)")  # fmt: skip
+        d.style_line, taken = strip_names(d.style_line, sounds_like)
+        notes += [f"{ADVICE}direction {n}: took “{name}” out of the style line "
+                  "(the music service refuses names)" for name in taken]  # fmt: skip
     return notes
 
 
