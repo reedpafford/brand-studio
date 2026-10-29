@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { aboutMissingLook, plainWords, refName, useRoleNames } from "./names";
 
-/** Problem lines in words (no "char:3"), and the link to Assets for the ones about a look that isn't approved. */
+/** Problem lines in words (no "char:3"), and the link to Cast for the ones about a look that isn't approved. */
 export function useProblemWords(projectId: number, brandId: number) {
   const { pieces } = useBrandPieces(brandId);
   const roles = useRoleNames(projectId);
@@ -10,7 +10,7 @@ export function useProblemWords(projectId: number, brandId: number) {
   const fix = (p: string) =>
     aboutMissingLook(p) ? (
       <Link to={`/b/${brandId}/videos/${projectId}?step=cast`} className="ml-2 whitespace-nowrap text-accent-text underline">
-        Approve a look in Assets
+        Approve a look in Cast
       </Link>
     ) : null;
   return { words, fix };

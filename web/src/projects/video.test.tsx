@@ -831,7 +831,7 @@ test("a problem line never shows a raw id: the character's name stands in, the c
   const list = await screen.findByLabelText("Problems for c1");
   expect(list).toHaveTextContent("Clip c1: Bo is in the clip but its sheet isn't attached");
   expect(list).not.toHaveTextContent(/char:|slot:/);
-  expect(within(list).getByRole("link", { name: "Approve a look in Assets" })).toHaveAttribute("href", "/b/1/videos/9?step=cast");
+  expect(within(list).getByRole("link", { name: "Approve a look in Cast" })).toHaveAttribute("href", "/b/1/videos/9?step=cast");
   const advice = screen.getByLabelText("Advice for c1");
   expect(advice).not.toHaveTextContent(/char:/);
   await userEvent.click(within(advice).getByText(/Advice \(/)); // open it
