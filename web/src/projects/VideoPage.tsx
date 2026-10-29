@@ -130,8 +130,8 @@ export function VideoPage() {
         </div>
       </div>
       {video.dialog}
-      {/* Every per-video choice in one row (flows VS1); an archived video is read only. */}
-      {!p.archived_at && <VideoSettings project={p} finished={finished} />}
+      {/* Every per-video choice in one row (flows VS1); an archived video is read only. Plan has its own song strip, with the player. */}
+      {!p.archived_at && <VideoSettings project={p} finished={finished} song={step !== "plan"} />}
       {p.archived_at && (
         <Banner tone="info" title="Archived" action={mayManage(p) ? <Button variant="secondary" onClick={() => void video.restore(target)}>Restore</Button> : undefined}>
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.

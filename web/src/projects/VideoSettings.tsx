@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Settings2 } from "lucide-react";
-import { errorText } from "../api/client";
+import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Button, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
 import { useMe } from "../auth/useMe";
@@ -11,32 +11,17 @@ import { useRail } from "../useMedia";
 import { errorText as errorClass } from "../ui";
 
 type Project = components["schemas"]["ProjectOut"];
-// Builder-Server-7's n09 shapes (#925). Not in the generated schema yet: after `npm run api`, use components["schemas"][…] and api.GET/POST.
-type SettingsOut = {
-  look: string;
-  video_model: string | null;
-  image_model: string | null;
-  aspect_ratio: string;
-  product_variants: Record<string, string>;
-  language: string;
-  video_models: { id: string; name: string; credits_per_second: number; lip_sync: boolean; default: boolean; over_cap: boolean }[];
-  image_models: { id: string; name: string; credits_per_still: number; default: boolean; over_cap: boolean }[];
-  shapes: string[];
-  flavours: Record<string, string[]>;
-};
-type SettingIn = Partial<Pick<SettingsOut, "look" | "video_model" | "image_model" | "aspect_ratio" | "product_variants">>;
-type PreviewOut = { to_finish_credits: number; was_credits: number; stills_out_of_date: number; clips_out_of_date: number; sung_to_broll: number; over_budget: boolean; over_cap: boolean; reason: string | null };
-
-async function call<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
-  const res = await fetch(new Request(`${location.origin}/api${path}`, { method, credentials: "include", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined }));
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(errorText(data));
-  return data as T;
-}
+type SettingsOut = components["schemas"]["SettingsOut"];
+type SettingIn = components["schemas"]["SettingIn"];
+type PreviewOut = components["schemas"]["app__routes__video_settings__PreviewOut"];
 
 /** The video's settings, or an error where the server doesn't offer them yet (then the row stays hidden). */
 export function useVideoSettings(projectId: number) {
-  return useQuery({ queryKey: ["video-settings", projectId], queryFn: () => call<SettingsOut>("GET", `/projects/${projectId}/settings`), retry: false });
+  return useQuery({
+    queryKey: ["video-settings", projectId],
+    queryFn: () => must(api.GET("/projects/{project_id}/settings", { params: { path: { project_id: projectId } } })).then((r) => r.data!),
+    retry: false,
+  });
 }
 
 /** One choice in a picker, and the one setting it switches (a body with exactly that key; null is Auto). */
@@ -65,7 +50,7 @@ function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean
   const nowImage = s.image_model ? s.image_models.find((m) => m.id === s.image_model) : undefined;
   const look = looks?.find((l) => l.id === s.look);
   return [
-    { key: "aspect_ratio", label: "Shape", current: s.aspect_ratio, valueLabel: s.aspect_ratio, choices: s.shapes.map((x) => ({ id: x, label: x, body: { aspect_ratio: x } })) },
+    { key: "aspect_ratio", label: "Shape", current: s.aspect_ratio, valueLabel: s.aspect_ratio, choices: s.shapes.map((x) => ({ id: x, label: x, body: { aspect_ratio: x as SettingIn["aspect_ratio"] } })) },
     ...Object.entries(s.flavours).map(([product, options]) => {
       const now = s.product_variants[product] ?? options[0]; // a product missing from the picks is on its default
       return { key: `flavour:${product}`, label: Object.keys(s.flavours).length > 1 ? `Flavour (${product})` : "Flavour", current: now, valueLabel: now, choices: options.map((o) => ({ id: o, label: o, body: { product_variants: { [product]: o } } })) };
@@ -109,7 +94,7 @@ function confirmText(field: Field, choice: Choice, p: PreviewOut, finished: bool
 
 /** The Video settings row (flows VS1): Shape · Flavour · Look · Video model · Picture model · Language, and the Song on a song video.
  *  Each setting shows its choice and price; a pick is previewed, confirmed (Not yet / Switch), applied with Undo. On a phone it is one line that opens a sheet. */
-export function VideoSettings({ project: p, finished }: { project: Project; finished: boolean }) {
+export function VideoSettings({ project: p, finished, song = true }: { project: Project; finished: boolean; song?: boolean }) {
   const rail = useRail();
   const owner = useMe().data?.role === "owner";
   const queryClient = useQueryClient();
@@ -122,10 +107,10 @@ export function VideoSettings({ project: p, finished }: { project: Project; fini
   const preview = useQuery({
     enabled: !!asking,
     queryKey: ["video-settings-preview", p.id, asking?.choice.body],
-    queryFn: () => call<PreviewOut>("POST", `/projects/${p.id}/settings/preview`, asking!.choice.body),
+    queryFn: () => must(api.POST("/projects/{project_id}/settings/preview", { params: { path: { project_id: p.id } }, body: asking!.choice.body })).then((r) => r.data! as PreviewOut),
   });
   const refresh = () => Promise.all([["video-settings", p.id], ["project", p.id], ["project-estimate", p.id], ["storyboard", p.id], ["project-clips", p.id]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
-  const apply = useMutation({ mutationFn: (body: SettingIn) => call<{ was: SettingIn }>("POST", `/projects/${p.id}/settings`, body) });
+  const apply = useMutation({ mutationFn: (body: SettingIn) => must(api.POST("/projects/{project_id}/settings", { params: { path: { project_id: p.id } }, body })).then((r) => r.data!) });
   const switchTo = (field: Field, choice: Choice) =>
     apply.mutate(choice.body, {
       onSuccess: async ({ was }) => {
@@ -133,7 +118,7 @@ export function VideoSettings({ project: p, finished }: { project: Project; fini
         setPicking(null);
         await refresh();
         // Undo sends `was` back as it is; switching back makes the old stills and takes current again (the server kept them).
-        toast(`${field.label}: ${choice.label}.`, () => apply.mutate(was, { onSuccess: () => void refresh(), onError: (e) => toast(e.message, undefined, "error") }));
+        toast(`${field.label}: ${choice.label}.`, () => apply.mutate(was as SettingIn, { onSuccess: () => void refresh(), onError: (e) => toast(e.message, undefined, "error") }));
       },
     });
 
@@ -150,7 +135,7 @@ export function VideoSettings({ project: p, finished }: { project: Project; fini
   const items = (
     <>
       {fields.map(chip)}
-      {p.song && <SongSetting project={p} />}
+      {p.song && song && <SongSetting project={p} />}
       {language}
     </>
   );
@@ -160,8 +145,8 @@ export function VideoSettings({ project: p, finished }: { project: Project; fini
       {items}
     </section>
   ) : (
-    <Button variant="ghost" icon={Settings2} trailing={ChevronDown} className="w-full justify-start" aria-haspopup="dialog" onClick={() => setSheet(true)}>
-      <span className="min-w-0 truncate">Settings: {fields.map((f) => f.valueLabel).join(" · ")}</span>
+    <Button variant="ghost" spread icon={Settings2} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setSheet(true)}>
+      <span className="block truncate">Settings: {fields.map((f) => f.valueLabel).join(" · ")}</span>
     </Button>
   );
 
