@@ -25,8 +25,10 @@ jobs:
     uses: ./.github/workflows/web.yml
   e2e:
     uses: ./.github/workflows/e2e.yml
+  caddy:
+    uses: ./.github/workflows/caddy.yml
   live:
-    needs: [server, web, e2e]
+    needs: [server, web, e2e, caddy]
     runs-on: ubuntu-latest
     timeout-minutes: 40  # the first deploy builds everything (~15 min)
     environment: production

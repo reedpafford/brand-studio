@@ -96,8 +96,8 @@ REFUSED = "The video model thinks this clip looks too much like someone else's c
 
 
 SENSITIVE = ("The video model flagged this take as sensitive. Nothing was charged. Its check is "
-             "a little random, so making it again may pass; if it keeps failing, Reword it to "
-             "pass.")  # fmt: skip
+             "a little random, so making it again may pass; if it keeps failing, change the "
+             "wording.")  # fmt: skip
 
 
 def moderated(detail: str) -> str:
