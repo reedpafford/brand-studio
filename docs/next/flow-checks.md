@@ -60,7 +60,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | VS1 Undo on screen (#926 + #925) | Shapes now match; Undo still sends plain `was`, which #925 refuses over the cap (409) | Send `{...was, undo: true}` |
-| Look fix screens (#929) | "Fixed for the look" with Undo stays after Undo (the server keeps look_fixed) | Show the note only while the prompt is still its `after` |
 | Made work locked by a look sheet (#930 + videoSteps) | A non-House video with stills or clips: its Cast & places rows read not ready (look_needed), and videoLock's "Approve the cast first" locks Storyboard and Clips, redirecting to Cast | `if (left > 0 && !kept)` in videoLock, with a videoHold line; land with or before #930 |
 | The product's claim, no way there (#932) | BR1's line and claim now sit on the prop's Cast & places page; the Brand page's Products tab doesn't say so or link there | A line on ProductsTab linking to the props in Cast & places |
 
@@ -285,3 +284,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #932 at 7bc1f85a (BR1 product line and claim) | The prop page PASS (owner edits, editor read only with the reason, Advice). FAIL: no way there from the Brand page (open above) |
 | 2026-10-29 | #927 at 5ae09626 | PASS: a still with no picture reads failed with the way on, never "making" for ever. Note: that job stays succeeded, so it's charged; fail it uncharged if the worker allows |
 | 2026-10-29 | #928 at 750f4ecc | PASS: an edit while a scene change runs is refused with the reason; the paid scene lands, then the edit saves. Open row closed |
+| 2026-10-29 | #929 at 7ae54fdb | PASS: Fixed for the look shows only while the prompt is the fixed one, so it goes after Undo. Open row closed |
