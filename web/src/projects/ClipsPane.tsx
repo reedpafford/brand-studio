@@ -206,12 +206,13 @@ export function ClipsPane(props: { hold?: string | null; ownScript?: boolean; re
     for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
   };
   // On the video page the step's one amber sits in the cost bar (audit M1): write the prompts, rewrite the ones made for an
-  // older breakdown, or make the takes. Approve all and each card's presses stay here.
+  // older breakdown, make the takes, then Approve all. Each card's presses stay here.
   const bar = !!props.review && !loading && !clips.isError && !writingNow;
   const rewrite = { price: writeCost ?? null, reason: stopFor(writeCost), busy: write.isPending, onPress: () => write.mutate(undefined) };
   useCostBarAction(
-    !bar ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : null,
+    !bar ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : approveAll.action,
   );
+  const barApproves = bar && list.length > 0 && stale.length === 0 && missing.length === 0;
   if (loading) return <p role="status" className="text-muted">Loading…</p>;
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
 
@@ -257,7 +258,7 @@ export function ClipsPane(props: { hold?: string | null; ownScript?: boolean; re
           </h2>
         )}
         <span className="flex w-full flex-wrap gap-2 sm:w-auto">
-          {approveAll.button}
+          {!barApproves && approveAll.button}
         {missing.length > 0 && !bar && (
           <Button
             variant={stale.length > 0 ? "secondary" : "primary"} // the rewrite is the step's amber while any clip is stale
