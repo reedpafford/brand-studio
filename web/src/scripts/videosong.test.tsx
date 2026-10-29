@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { ToastProvider } from "../toast";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
-import { SongStrip } from "./VideoSong";
+import { SongSetting, SongStrip } from "./VideoSong";
 
 const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspace_id: 1 };
 const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.2, 0.8], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, in_video: false, ...o });
@@ -108,4 +108,20 @@ test("the video's own Preferred take offers no Delete (the server would refuse i
   const panel = await screen.findByRole("dialog", { name: "Change song" });
   expect(within(panel).getByText("Made in this video")).toBeInTheDocument();
   expect(within(panel).queryByRole("button", { name: "Delete take" })).toBeNull();
+});
+
+test("SongSetting, for the Video settings row, names the song and opens Change song", async () => {
+  setViewport(390);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take()])] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <ToastProvider>
+          <SongSetting project={project()} />
+        </ToastProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await userEvent.click(await screen.findByRole("button", { name: "Song: Take 1 · 0:31" }));
+  expect(await screen.findByRole("dialog", { name: "Change song" })).toBeInTheDocument();
 });

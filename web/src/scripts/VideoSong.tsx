@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Music, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronDown, Music, RotateCcw, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
@@ -195,5 +195,22 @@ export function SongStrip({ project: p, hasShots }: { project: Project; hasShots
       </Button>
       {open && <ChangeSong project={p} hasShots={hasShots} onClose={() => setOpen(false)} />}
     </Card>
+  );
+}
+
+/** The video's song as one inline control for the Video settings row: "Song: Take 2 · 0:31 ▾", opening Change song.
+ * No frame of its own; the row gives it. Without knowing whether shots exist, Use this take always asks first. */
+export function SongSetting({ project: p, hasShots = true }: { project: Project; hasShots?: boolean }) {
+  const songs = useVideoSongs(p.id);
+  const [open, setOpen] = useState(false);
+  const t = songs.data?.takes.find((x) => x.id === songs.data?.song_take_id);
+  const label = t ? `Song: Take ${t.number}${length(t) != null ? ` · ${clock(length(t)!)}` : ""}` : songs.isPending ? "Song…" : "Song: pick a take";
+  return (
+    <>
+      <Button variant="secondary" icon={Music} trailing={ChevronDown} onClick={() => setOpen(true)} aria-haspopup="dialog">
+        {label}
+      </Button>
+      {open && <ChangeSong project={p} hasShots={hasShots} onClose={() => setOpen(false)} />}
+    </>
   );
 }
