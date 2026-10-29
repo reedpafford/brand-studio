@@ -20,7 +20,11 @@ def _work(app, db, fake=None):
     fake = fake or FakeNanoBanana()
     client = httpx.Client(transport=httpx.MockTransport(fake))
     for _ in range(3):
-        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+        run_once(
+            db,
+            {"replicate": ReplicateProvider(BASE, client, token="test-token")},
+            app.state.storage,
+        )
     return [json.loads(q.content)["input"] for q in fake.requests if q.method == "POST"]
 
 

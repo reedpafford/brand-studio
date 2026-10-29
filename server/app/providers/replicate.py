@@ -1,7 +1,8 @@
 """Replicate: start predictions, check on them, download outputs, and work out real cost.
 
-Credentials: REPLICATE_API_TOKEN if set (deployed servers), otherwise the sandbox's network
-proxy adds them. The token goes only to the API, never to download hosts, and is never logged.
+Credentials: REPLICATE_API_TOKEN, required: with none, nothing is sent (NoKey), because a
+sandbox's network proxy would sign a bare request. The token goes only to the API, never to
+download hosts, and is never logged.
 Prices come from the catalogue; amounts used come from the prediction's metrics when
 Replicate reports them (otherwise from the request, marked as an estimate)."""
 
@@ -10,7 +11,7 @@ from decimal import Decimal
 import httpx2 as httpx
 
 from app.catalogue import CatalogueModel, get_model
-from app.providers import NetworkError, NotStarted, Result, UsageItem
+from app.providers import NetworkError, NoKey, NotStarted, Result, UsageItem
 
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 # Replicate metrics that report what was produced, by price unit.
@@ -33,10 +34,12 @@ class ReplicateProvider:
         self.client = client or httpx.Client(timeout=TIMEOUT)  # never follows redirects itself
         self.delivery_hosts = delivery_hosts
         self.max_download = max_download_mb * 1024 * 1024
-        # Only sent to the API (never to download hosts). Empty: the proxy adds credentials.
+        # Only sent to the API (never to download hosts). Empty: nothing is sent (NoKey).
         self._auth = {"Authorization": f"Bearer {token}"} if token else {}
 
     def _call(self, method: str, path: str, **kwargs) -> dict:
+        if not self._auth:
+            raise NoKey("Replicate")
         try:
             r = self.client.request(method, f"{self.base_url}{path}", headers=self._auth, **kwargs)
         except httpx.TransportError as exc:

@@ -10,7 +10,7 @@ import anthropic
 
 from app.claude import ClaudeError, ask, make_client
 from app.prompts import SCHEMAS
-from app.providers import NetworkError, NotStarted, Result, UsageItem
+from app.providers import NetworkError, NoKey, NotStarted, Result, UsageItem
 
 PARALLEL = 4  # parts asked at once (a clip prompt run's parts were asked one after another)
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")  # all but tab, newline, return
@@ -82,6 +82,8 @@ class ClaudeProvider:
         return Result("succeeded", output=output, usage=usage)
 
     def _ask(self, input: dict, prompt: str, shared: str = ""):
+        if not self._key:
+            raise NoKey("Claude")
         client = self._client or make_client(self._key)
         try:
             return ask(
