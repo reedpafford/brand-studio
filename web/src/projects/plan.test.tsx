@@ -176,6 +176,18 @@ test("editing an approved plan asks first, then saves; Edit types the place and 
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/plan")?.body).toMatchObject({ scenes: [{ place: "Kitchen" }, { place: "Office" }] }));
 });
 
+test("Use this one on an approved plan asks first, as an edit does", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()] });
+  open("?step=plan&view=scenes");
+  await userEvent.click(await screen.findByText("Earlier plans · 1"));
+  await userEvent.click(screen.getByRole("button", { name: "Use this one · free" }));
+  const ask = screen.getByRole("alertdialog", { name: "Change the plan?" });
+  expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
+});
+
 test("a refused edit says why in the server's words", async () => {
   setViewport(1440);
   fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [422, { detail: "Line 2 is missing from the plan." }] });
@@ -185,18 +197,19 @@ test("a refused edit says why in the server's words", async () => {
   expect(await screen.findByText("Line 2 is missing from the plan.")).toBeInTheDocument();
 });
 
-test("out of date: Made for older words with Update the plan; earlier plans come back free; a new plan takes a note", async () => {
+test("out of date: Made for older words with Make a new plan; earlier plans come back free; a new plan takes a note", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()], "POST /projects/9/plan": [201, { id: 40 }] });
   open();
   expect(await screen.findByText("Made for older words.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Update the plan · 6 credits/ })).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /Make a new plan · 6 credits/ })[0]).toBeInTheDocument();
+  expect(screen.getByText(/this one is kept under Earlier plans/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("Earlier plans · 1"));
   await userEvent.click(screen.getByRole("button", { name: "Use this one · free" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
   await userEvent.click(screen.getByText("Make a new plan", { selector: "summary" }));
   await userEvent.type(screen.getByLabelText("What to change (optional)"), "funnier");
-  await userEvent.click(screen.getAllByRole("button", { name: /Make a new plan · 6 credits/ })[0]);
+  await userEvent.click(screen.getAllByRole("button", { name: /Make a new plan · 6 credits/ }).at(-1)!);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/plan")?.body).toEqual({ note: "funnier" }));
 });
 

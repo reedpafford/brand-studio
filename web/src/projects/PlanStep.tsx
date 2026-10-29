@@ -189,7 +189,8 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   const queryClient = useQueryClient();
   const toast = useToast();
   const [note, setNote] = useState("");
-  const [asking, setAsking] = useState<{ next: Scene[]; said: string } | null>(null);
+  // An approved plan asks "Change the plan?" first, for an edit or an earlier plan alike.
+  const [asking, setAsking] = useState<{ next: Scene[]; said: string } | { earlier: number } | null>(null);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["plan", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
   const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); return refresh(); } });
   // Stop works queued or running and is never charged (#893).
@@ -268,7 +269,8 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   // Every edit saves at once (free) with Undo; an approved plan asks first, since its shots follow it.
   const commit = (next: Scene[], said: string) => {
     const before = p.scenes;
-    save.mutate(next, { onSuccess: () => toast(said, () => save.mutate(before)) });
+    // Undo puts the scenes back, not an approval: the plan waits for Approve again, and the toast says so.
+    save.mutate(next, { onSuccess: () => toast(approved ? `${said} It waits for your approval again.` : said, () => save.mutate(before)) });
   };
   const change = (fn: (s: Scene[]) => Scene[], said: string) => {
     const next = fn(p.scenes);
@@ -290,8 +292,8 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
       )}
       <p className="text-sm text-muted">{summary}</p>
       {p.out_of_date && (
-        <Banner tone="warning" title="Made for older words." action={makeButton("Update the plan", false)}>
-          The script's words changed since this plan was made. Updating keeps the scenes whose lines didn't change.
+        <Banner tone="warning" title="Made for older words." action={makeButton("Make a new plan", false)}>
+          The script's words changed since this plan was made. A new plan is made from the new words; this one is kept under Earlier plans.
         </Banner>
       )}
       {approved ? (
@@ -333,14 +335,14 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
             {earlier.map((e, i) => (
               <li key={e.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="min-w-0 flex-1">Plan {e.version}{e.made_at ? ` · ${ago(e.made_at)}` : ""}</span>
-                <Button variant="secondary" dense busy={useEarlier.isPending && useEarlier.variables === i} onClick={() => useEarlier.mutate(i)}>Use this one · free</Button>
+                <Button variant="secondary" dense busy={useEarlier.isPending && useEarlier.variables === i} onClick={() => (approved ? setAsking({ earlier: i }) : useEarlier.mutate(i))}>Use this one · free</Button>
               </li>
             ))}
           </ul>
         </details>
       )}
       {asking && (
-        <Dialog title="Change the plan?" cancelLabel="Not yet" actionLabel="Change" busy={save.isPending} onCancel={() => setAsking(null)} onConfirm={() => { const a = asking; setAsking(null); commit(a.next, a.said); }}>
+        <Dialog title="Change the plan?" cancelLabel="Not yet" actionLabel="Change" busy={save.isPending || useEarlier.isPending} onCancel={() => setAsking(null)} onConfirm={() => { const a = asking; setAsking(null); if ("earlier" in a) useEarlier.mutate(a.earlier); else commit(a.next, a.said); }}>
           It goes back to Ready to check, and its shots are made again from the new plan once you approve it. Your current final cut stays downloadable.
         </Dialog>
       )}
