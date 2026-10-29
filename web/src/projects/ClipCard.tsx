@@ -106,7 +106,13 @@ export function ClipCard(props: {
     <li className={`space-y-2 rounded-md bg-surface p-3 text-sm ${c.approved ? "border-2 border-success" : "border border-border"}`} aria-label={`Clip ${c.clip_id}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{c.clip_id} · {c.seconds} s</span>
-        <span className={`ml-auto rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : failedNow ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
+        {/* Its take shows an older Cast & places look (N6): still approved, and the Advice below says what to do. */}
+        {c.take_stale && !props.busy && (
+          <span className="ml-auto">
+            <Badge tone="warning">Out of date</Badge>
+          </span>
+        )}
+        <span className={`${c.take_stale && !props.busy ? "" : "ml-auto "}rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : failedNow ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
           {status ?? (
             <>
               {props.job?.status === "queued" ? "Queued " : "Rendering "}

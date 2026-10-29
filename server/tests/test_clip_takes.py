@@ -252,9 +252,11 @@ def test_a_copyright_refusal_says_what_to_do_and_warns_after_two(app, db, editor
     jobs = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
     assert jobs[0]["error"] == (
         "The video model thinks this clip looks too much like someone else's character or "
-        "video. Try another look for Mom, or use Change this… on the opening shot. "
-        "Nothing was charged."
+        "video. This check can be a little random, so try making it again first; a refused "
+        "take costs nothing. If it's refused again, try another look for Mom, or use Change "
+        "this… on the opening shot."
     )  # never "Ask the owner"
+    assert credits_used(db, db.get(Project, setup["project"])) == before  # it really is free
     shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
     assert shown["take_warning"] is None  # one refusal: no warning yet
     editor.post(f"{url}/generate")

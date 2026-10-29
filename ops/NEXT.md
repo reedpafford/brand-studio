@@ -4,8 +4,16 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 
 ## What Reed decided (2026-10-28)
 - **Styles.** Our current look stays as the **House style** (the default). Starpop's styles are added as registry entries. Their order: **Disney Pixar, Song, Zack D, Skeleton** first, then the rest. Style guidance may come from the providers' docs and the styles studied in docs/research/starpop-2026-10-28/ (rule 20).
+- **Format and Look are two settings (Reed, 2026-10-29).** Format is Dialogue, Song or Narrated. Look is House (default), Disney Pixar, Zack D or Skeleton. Any format goes with any look; "Song" moves out of the styles list into Format.
+- **Narrated ads are a format (Reed, 2026-10-29).** This is the recipe that made Reed's two narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads" and "v2: the sound"):
+  - one narrator track (ElevenLabs v3 via Replicate, voice "Sarah");
+  - B-roll timed to the measured sentences;
+  - each take's own sound effects kept;
+  - background music that ducks under the narrator (Stable Audio 2.5 via Replicate, or Suno instrumental);
+  - pauses trimmed only on real silence, checked so no word is clipped.
+  Changing the voice and the music is a nice-to-have for later.
 - **Models.** Other image/video models are allowed, each priced in credits at its real Replicate cost (rule 2). 480p Seedance stays the default.
-- **Music.** Reed asked about a Suno API key. Suno has no official public API (only unofficial wrappers), so the music step sits behind one provider interface. MiniMax Music on Replicate (exact lyrics) comes first, with a slot for Suno if Reed gets real access. Any key goes in the server's environment through the deploy secrets, never in chat or code.
+- **Music (updated 2026-10-29).** Suno through KIE (kie.ai, Suno V6, about $0.06 for 2 takes) is the song provider, and it's on for the test site with a $5 test budget (Reed, 2026-10-29). The key is `KIE_API_KEY` in the deploy secrets, never in code or chat. Every real song is logged in ops/SPEND.md. MiniMax is dropped (Reed: "use the exact softwares we would use live").
 - **Song ads are mostly B-roll with the song over it.** The song leads: the storyboard and the clips are timed to the real track (as Starpop does it). Lip-sync is a rare extra, not the core.
 - **A separate test site** on the same machine. The live site and its data are never touched.
 

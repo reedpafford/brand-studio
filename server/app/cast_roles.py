@@ -138,6 +138,15 @@ def role_refs(db: Session, project: Project) -> dict[str, list[ScriptCastSlot]]:
     return out
 
 
+# A shot about a person, not a thing (QA on #812: "Close on a frown" plays the vet).
+PERSON = re.compile(
+    r"\b(he|she|they|him|her|his|hers|them|their|face|faces|eyes?|hands?|fingers?|mouth|lips|"
+    r"brows?|frown\w*|smil\w*|grin\w*|tears?|cr(?:y|ies|ying)|laugh\w*|nods?|shrugs?|"
+    r"man|woman|boy|girl|kid|child|person|people)\b",
+    re.I,
+)
+
+
 def mismatches(db: Session, project: Project, script: str, bd) -> list[tuple]:
     """Shots whose script lines name a role but show someone else's character in its place:
     (shot, [missing (role, ref)], [wrong (role, ref)]). Only a clear swap counts (a named
@@ -158,8 +167,11 @@ def mismatches(db: Session, project: Project, script: str, bd) -> list[tuple]:
             missing = [(s.role, r) for r, s in wanted.items() if r not in here]
             wrong = [(roles[r][0].role, r) for r in here if r in roles and r not in wanted]
             seen = f"{shot.action} {shot.reaction or ''}"  # "Lexi takes the hit": her reaction
-            insert = not shot.speaker and not any(named(s.role, seen) for v in roles.values()
-                                                  for s in v)  # fmt: skip
+            insert = (
+                not shot.speaker
+                and not PERSON.search(seen)
+                and not any(named(s.role, seen) for v in roles.values() for s in v)
+            )
             if insert:  # a close-up of a thing (the vacuum's canister): nobody to swap
                 continue
             if missing and wrong and not any(named(role, seen) for role, _ in wrong):

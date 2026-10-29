@@ -71,7 +71,11 @@ export function DownloadsPane({
   const base = slug(projectName);
   // The server only compares picked takes; an edit upstream unapproves or dates clips without changing them.
   const left = list.filter((c) => !c.approved || c.stale).length;
-  const outOfDate = !!v && (v.out_of_date || left > 0);
+  // A take made from an older Cast & places look stays approved but is out of date too (N6), as the lists say.
+  const olderLook = list.filter((c) => c.take_stale).length;
+  const outOfDate = !!v && (v.out_of_date || left > 0 || olderLook > 0);
+  // Making it again only helps once each clip shows what it should: approved, and a take of the current look (or kept).
+  const remakeHeld = left > 0 ? `Approve every clip first (${left} left)` : olderLook > 0 ? `Make another take on Clips, or keep the older look (${olderLook} left)` : null;
   const madeFrom = list
     .map((c, i) => {
       const take = c.takes.find((t) => t.id === c.picked_take_id);
@@ -139,8 +143,8 @@ export function DownloadsPane({
             action={
               <Button
                 variant="secondary"
-                disabled={left > 0}
-                reason={left > 0 ? `Approve every clip first (${left} left)` : null}
+                disabled={!!remakeHeld}
+                reason={remakeHeld}
                 onClick={() => stitch.mutate()}
               >
                 Make it again

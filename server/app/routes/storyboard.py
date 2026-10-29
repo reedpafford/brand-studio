@@ -1,6 +1,8 @@
 """The project's storyboard: ask Claude for frame prompts from the newest breakdown, list the
 frames, or edit one. Rendering the stills is a separate step."""
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -9,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import advice, breakdown, change, credits, redo_frame, storyboard
 from app.advice import Said
 from app.auth import current_user
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job, JobStatus
@@ -115,6 +117,14 @@ def _waiting(db: Session, project: Project) -> list[Job]:
     )
 
 
+def _between(db: Session, asked: dict) -> bool:
+    """A redo's rewrite just saved and its still isn't queued yet (redo_frame.save commits
+    in between): still changing, not failed. A minute at most, so never "Changing…" for ever."""
+    wrote = None if asked.get("made_job_id") else db.get(Job, asked.get("job_id") or 0)
+    done = wrote and wrote.status == JobStatus.succeeded and wrote.finished_at
+    return bool(done and utcnow() - done < timedelta(minutes=1))
+
+
 def _out(
     db: Session, project: Project, frame: StoryboardFrame, waiting: list[Job] | None = None
 ) -> FrameOut:
@@ -127,7 +137,8 @@ def _out(
     blocked = redo_frame.blocked(db, frame, newest) if redo else ""
     asked = frame.change or {}
     on_way = {asked.get("job_id"), asked.get("made_job_id")}  # the rewrite, then its still
-    if asked.get("status") == "changing" and all(j.id not in on_way for j in waiting):
+    gone = asked.get("status") == "changing" and all(j.id not in on_way for j in waiting)
+    if gone and not _between(db, asked):
         # it ended without saving (failed, or stopped): never "Changing…" for ever
         drawn = asked.get("made_job_id")
         said = redo_frame.STILL_UNFINISHED if drawn else change.UNFINISHED
