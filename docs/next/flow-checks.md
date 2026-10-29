@@ -59,7 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| A video's "to finish" leaves out looks (VS1; #987) | Fixed for uncast roles and new speakers at cbddf5ab; but "Not now" on a role its shots still show takes its look off the bar (13.03 → 11.33) while the storyboard refuses until it has one | Count a declined role while the newest shots show it |
+| The cost bar leaves out first looks (VS1; #987) | to_finish fixed at 85d4aa10 (Not now included), but the cost bar and estimate note read /estimate remaining_credits (24.66) not to_finish (28.06): the bar people see still omits a role's first look | /estimate's remaining = to_finish (a looks stage); screens then say "up to" (rule 32) |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -362,3 +362,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #987 A video's to-finish counts first looks (VS1) | cbddf5ab (+ next) | FAIL: "Not now" drops a still-needed look from the bar. Quote = bar before and after Cast (26.36); Nate's look charged 1.70 = the bar's drop; look switch and back; 44/44 |
 | 2026-10-29 | #970 (re-walk) | ffdf755c (+ next) | PASS: a still counts with its held clip; on a $1 budget the 2nd and 3rd quick presses say stand-in before the press and go stand-in; 16/16 |
 | 2026-10-29 | #992 Languages page (owner, LG1) | ec4f03e3 (+ next) | PASS at 1440 and 390: Test · 3 credits (charge capped at it), making, the words, Reject + Undo, Switch on, Switch off + Undo, Try again, editors no page; 30/30. Note: say "up to" on Test (a Claude call can cost less) |
+| 2026-10-29 | #987 (re-walk) | 85d4aa10 (+ next) | FAIL: to_finish right (quote = card = to_finish 28.06; charge 1.70 ≤ 3.40; Not now kept); the visible cost bar (/estimate) still 24.66 |
