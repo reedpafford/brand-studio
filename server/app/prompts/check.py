@@ -1161,7 +1161,10 @@ def plan(
     """The plan's checks, free (flows P1). Fixes (the plan can't be used): a line missing,
     twice or out of order, a line that isn't the script's, a ★ that isn't the brand's. Advice
     (never a block, each with its press): two places in a scene, the product never shown,
-    someone not in the cast, a scene longer than one clip."""
+    someone not in the cast, a scene longer than one clip. With fixes, the plan job asks
+    once more, inside the same job and charged once; if the second answer still has fixes,
+    the job ends as failed ("The plan didn't finish. Nothing was charged.") and no plan with a
+    missing or reordered line is ever shown (Next-Lead on #866, as with song directions)."""
     problems, words = [], dict(enumerate(script.splitlines(), 1))
     used = [x.line for sc in result.scenes for x in sc.lines]
     want = plan_lines(script)
