@@ -122,3 +122,14 @@ def test_a_looks_banned_words_are_repaired_but_never_in_a_spoken_line():
                        ("Not photorealistic: stylised.", "house"),
                        ("Never on a stage.", "zack-d")):  # fmt: skip
         assert check.look_words(safe, look)[:2] == (safe, []), safe
+
+
+def test_every_look_has_a_sample_person_and_formats_have_none():
+    """flows ST3: a look's sample still shows `## sample` when the brand has no hero."""
+    for s in prompts.styles():
+        sample = prompts.look_sample(s["id"])
+        assert bool(sample) == (s["kind"] == "look"), s["id"]
+        assert "\n" not in sample and len(sample.split()) <= 30, s["id"]
+    assert "skeleton" in prompts.look_sample("skeleton")
+    for step in prompts.SCHEMAS:  # data, never step guidance
+        assert prompts.look_sample("zack-d") not in prompts.system(step, "zack-d"), step

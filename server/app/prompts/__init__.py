@@ -83,15 +83,21 @@ def styles() -> list[dict]:
     return sorted(out, key=lambda s: s["order"])
 
 
-# A look's data, never sent to a model (flows ST2): words repaired in its picture descriptions,
-# and the fix offered for each failure (Next-Server's ids and the advisory check's kinds).
-DATA = {"banned", "fixes"}
+# A look's data, never sent to a model as guidance (flows ST2, ST3): words repaired in its picture
+# descriptions, the fix offered for each failure, and the sample still's person.
+DATA = {"banned", "fixes", "sample"}
 
 
 def look_banned(look_id: str) -> list[tuple[str, str]]:
     """The look's banned words and their replacements ("" deletes): its `## banned` lines."""
     lines = style(look_id)["sections"].get("banned", "").splitlines()
     return [(a.strip(), b.strip()) for a, _, b in (x.partition("→") for x in lines if "→" in x)]
+
+
+def look_sample(look_id: str) -> str:
+    """The person in the look's sample still when the brand has no hero (flows ST3): its
+    `## sample` line, or "" when it has none (the server then uses its own default)."""
+    return style(look_id)["sections"].get("sample", "").strip()
 
 
 def look_fixes(look_id: str) -> dict[str, str]:

@@ -27,3 +27,6 @@ a knitted-yarn doll look with painted faces
 
 ## clip
 - One gesture and one camera move per shot. Repeat "knitted" in the action so the yarn survives the motion.
+
+## sample
+A knitted doll of a cheerful man in his thirties with yarn hair and painted eyes, in one plain red knitted jumper.
