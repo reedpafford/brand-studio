@@ -4517,6 +4517,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands/{brand_id}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Media */
+        get: operations["list_media_brands__brand_id__media_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -6226,6 +6243,13 @@ export interface components {
             /** Drawing */
             drawing: boolean;
         };
+        /** Maker */
+        Maker: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** Me */
         Me: {
             /** Id */
@@ -6237,6 +6261,53 @@ export interface components {
             role: components["schemas"]["Role"];
             /** Workspace Id */
             workspace_id: number;
+        };
+        /** MediaItem */
+        MediaItem: {
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "still" | "sheet" | "take" | "song" | "final";
+            /** File Id */
+            file_id: number;
+            /** Content Type */
+            content_type: string;
+            /** Poster File Id */
+            poster_file_id?: number | null;
+            /**
+             * Made At
+             * Format: date-time
+             */
+            made_at: string;
+            made_by: components["schemas"]["Maker"] | null;
+            /** Project Id */
+            project_id: number | null;
+            /** Folder Id */
+            folder_id: number | null;
+            /** Video Name */
+            video_name: string | null;
+            /** Script Id */
+            script_id?: number | null;
+            /**
+             * Open Step
+             * @enum {string}
+             */
+            open_step: "storyboard" | "cast" | "clips" | "song" | "final" | "quick";
+            /**
+             * From Deleted Video
+             * @default false
+             */
+            from_deleted_video: boolean;
+        };
+        /** MediaPage */
+        MediaPage: {
+            /** Items */
+            items: components["schemas"]["MediaItem"][];
+            /** Next */
+            next: string | null;
         };
         /** MemberOut */
         MemberOut: {
@@ -17973,6 +18044,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LanguageOut"][];
+                };
+            };
+        };
+    };
+    list_media_brands__brand_id__media_get: {
+        parameters: {
+            query?: {
+                kind?: ("still" | "sheet" | "take" | "song" | "final") | null;
+                folder?: string | null;
+                by?: number | null;
+                before?: string | null;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
