@@ -57,8 +57,8 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
-| V2a | Deleting a take the video made is refused with "This is the Preferred take. Make another take Preferred first…", a press a video doesn't have | Server: video takes guard on IN_USE only; screen: hide Delete on the video's song | #781 at bcc1c1e7 |
-| S2 | The person's style limit is now 893 (room for Suno's pacing words), but the screens still count to 1,000; 900 characters gives a raw 422 | Counter 893; a plain message | #783 at b06193d4 |
+| V2a | (Server fixed at #750 fd599553: a video's own takes are never Preferred; delete guards IN_USE only.) Screen: #781 should offer Delete on any own take that isn't the video's song | Re-walk #781 | #781 |
+| S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -116,3 +116,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #783 at b06193d4 (Suno input, one-song retry) | one-song, the 893 style limit, `[Lip-sync]` not sent, earlier API cases | PASS (notes: raw 422, plural wording) |
 | 2026-10-29 | #781 at bcc1c1e7 (V2a screens) | Playwright at 1440 and 390 + song.e2e | FAIL: delete own take refused with a press that doesn't exist; the rest pass |
 | 2026-10-29 | #750 at 837b659b | V2a API cases + delete a take the video made | Cap holds; FAIL: deleting a video's own non-song take gives 409 "Preferred" |
+| 2026-10-29 | #750 at fd599553, #783 at f8a3199a | Delete a video's own take; 893 style message; one-song wording | PASS |
