@@ -40,7 +40,10 @@ test("a script document can be uploaded", async ({ page }) => {
   const brandId = await emptyBrand(page, "Script Shop");
   const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Upload test", planned_seconds: 20 } });
   await page.goto(`/b/${brandId}/projects/${(await made.json()).id}?tab=script`);
+  // Wait for the upload's own answer, then for the script it saved: under load the upload alone can outlast a 5 s look.
+  const uploaded = page.waitForResponse((r) => r.url().endsWith("/script/upload") && r.request().method() === "POST");
   await page.getByLabel("Script file").setInputFiles({ name: "script.txt", mimeType: "text/plain", buffer: Buffer.from("MAX: From a file.") });
+  expect((await uploaded).ok()).toBeTruthy();
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("MAX: From a file.");
   await expect(page.getByText(/words · uploaded/)).toContainText("Saved");
 });
