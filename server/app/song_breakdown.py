@@ -90,27 +90,44 @@ def carried(db: Session, project_id: int, order: list[str]) -> dict | None:
 
 
 HISTORY = 50  # rows looked back through for a shot an Undo brings back
+MIN_SHOT = 0.5  # seconds: a shot an edit packs in never gets less
 
 
 def repack(order: list[str], timed: dict[str, dict], end: float) -> dict[str, dict]:
-    """The shots in `order`, back to back from 0 to `end`. A timed shot keeps where it ends
-    (its place in the song); a deleted shot's time goes to the shot after it; shots with no
-    time (added by an edit) share the stretch up to the next timed shot's end."""
+    """The shots in `order`, back to back from 0 to `end`. A timed shot keeps where its own
+    time ends (its place in the song; `own_end`, never a stretch it was given); a deleted
+    shot's time goes to the shot after it; shots with no time (added by an edit), or whose
+    own end is before an earlier shot's (moved by an edit), share the stretch up to the next
+    timed shot's end, so no shot is ever 0 s."""
+    own, last = {}, 0.0
+    for sid in order:  # in order, each own end after the one before
+        if sid in timed and (stop := timed[sid].get("own_end", timed[sid]["end"])) > last:
+            own[sid], last = stop, stop
     out, at, k = {}, 0.0, 0
     while k < len(order):
         sid = order[k]
-        if sid in timed:
-            stop = max(timed[sid]["end"] if k < len(order) - 1 else end, at)
-            out[sid] = {**timed[sid], "start": round(at, 2), "end": round(stop, 2)}
+        if sid in own:
+            stop = end if k == len(order) - 1 else own[sid]
+            shot = {**timed[sid], "start": round(at, 2), "end": round(stop, 2)}
+            shot.pop("own_end", None)
+            if round(stop, 2) != own[sid]:  # stretched: remember where its own time ends
+                shot["own_end"] = own[sid]
+            out[sid] = shot
             at, k = stop, k + 1
             continue
         run = k
-        while run < len(order) and order[run] not in timed:  # the untimed shots together
+        while run < len(order) and order[run] not in own:  # the untimed shots together
             run += 1
-        stop = end if run == len(order) else timed[order[run]]["end"]
-        share = max(stop - at, 0) / (run - k + (run < len(order)))
-        for sid in order[k:run]:
-            out[sid] = {"start": round(at, 2), "end": round(at + share, 2), "sung": False}
+        stop = end if run == len(order) else own[order[run]]
+        group = order[k:run]
+        if stop - at < MIN_SHOT * len(group) and k:  # no room: share the shot before's stretch
+            group, at = [order[k - 1], *group], out[order[k - 1]]["start"]
+        share = max(stop - at, 0) / (len(group) + (run < len(order)))
+        for sid in group:
+            sung = timed.get(sid, {}).get("sung", False)
+            out[sid] = {"start": round(at, 2), "end": round(at + share, 2), "sung": sung}
+            if sid in own:  # the shot before, now sharing: it keeps its own end for Undo
+                out[sid]["own_end"] = own[sid]
             at += share
         k = run
     return out

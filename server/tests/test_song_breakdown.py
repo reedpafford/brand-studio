@@ -212,3 +212,35 @@ def test_a_sung_clip_goes_out_of_date_on_any_take_change(app, db, owner, editor,
     editor.put(f"{video}/song", json={"take_id": first})  # Undo
     db.refresh(row)
     assert row.breakdown_id == _rows(db, video)[-1].id
+
+
+def test_deleting_the_last_shot_then_undo_gives_back_its_own_time(
+    app,
+    db,
+    owner,
+    editor,
+    song,  # noqa: F811
+):
+    video = _video(app, db, owner, editor, song)
+    original = editor.get(f"{video}/breakdown").json()
+    plan, times = original["breakdown"], original["song"]["shots"]
+    cut = copy.deepcopy(plan)
+    last = cut["scenes"][-1]["shots"].pop()["id"]
+    for clip in cut["clips"]:
+        clip["shot_ids"] = [s for s in clip["shot_ids"] if s != last]
+    cut["clips"] = [c for c in cut["clips"] if c["shot_ids"]]
+    editor.put(f"{video}/breakdown", json=cut)
+    back = editor.put(f"{video}/breakdown", json=plan).json()["song"]["shots"]  # Undo
+    assert {k: (v["start"], v["end"]) for k, v in back.items()} == {
+        k: (v["start"], v["end"]) for k, v in times.items()
+    }
+
+
+def test_a_shot_moved_out_of_order_is_never_0_seconds():
+    from app.song_breakdown import repack
+
+    timed = {"a": {"start": 0, "end": 5, "sung": False}, "b": {"start": 5, "end": 9,
+             "sung": False}, "c": {"start": 9, "end": 12, "sung": False}}  # fmt: skip
+    out = repack(["a", "c", "b"], timed, 12)  # c moved before b
+    assert all(v["end"] > v["start"] for v in out.values())
+    assert (out["a"]["start"], out["b"]["end"]) == (0, 12)
