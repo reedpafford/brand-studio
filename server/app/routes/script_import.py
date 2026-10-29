@@ -121,11 +121,11 @@ def _out(db: Session, script: Script, user: User) -> ImportOut:
     )
 
 
-async def _store_video(request: Request, user: User, db: Session, file: UploadFile) -> StoredFile:
+def _store_video(request: Request, user: User, db: Session, file: UploadFile) -> StoredFile:
     if file.content_type not in VIDEO_TYPES:
         raise HTTPException(415, "That file isn't a video we can read. Use an MP4 or MOV.")
     chunks, size = [], 0
-    while chunk := await file.read(CHUNK):
+    while chunk := file.file.read(CHUNK):
         size += len(chunk)
         if size > MAX_BYTES:
             raise HTTPException(
@@ -215,7 +215,7 @@ def prepare(db: Session, user: User, script: Script, reel: dict, job_input: dict
 
 
 @router.post("/import/upload", response_model=ImportOut, status_code=201)
-async def import_upload(
+def import_upload(
     request: Request,
     file: UploadFile,
     brand_id: int = Form(),
@@ -227,7 +227,7 @@ async def import_upload(
     """A new script from an uploaded reel (mp4 or mov, up to 100 MB and 90 seconds)."""
     one_at_a_time(db, user)
     script = _new_script(db, user, brand_id, (title or "").strip(), new_lines)
-    stored = await _store_video(request, user, db, file)
+    stored = _store_video(request, user, db, file)
     reel = {"source": "upload", "video_file_id": stored.id}
     prepare(db, user, script, reel, {"video_key": stored.key})
     return _out(db, script, user)
@@ -247,7 +247,7 @@ def import_link(body: LinkIn, user: User = Depends(current_user), db: Session = 
 
 
 @router.post("/{script_id}/import/upload", response_model=ImportOut)
-async def replace_with_upload(
+def replace_with_upload(
     script_id: int,
     request: Request,
     file: UploadFile,
@@ -263,7 +263,7 @@ async def replace_with_upload(
     if script.reference_breakdown:
         raise HTTPException(409, "This reel has been read already.")
     one_at_a_time(db, user)
-    stored = await _store_video(request, user, db, file)  # checked before anything goes
+    stored = _store_video(request, user, db, file)  # checked before anything goes
     old = drop_files(db, script.reel)  # the old video and sheet aren't needed any more
     reel = {"source": "upload", "url": script.reel.get("url"), "video_file_id": stored.id}
     prepare(db, user, script, reel, {"video_key": stored.key})  # commits

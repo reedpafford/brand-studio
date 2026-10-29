@@ -6,6 +6,10 @@ import { Button } from "./Button";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])';
 
+/** The overlays open now, the newest last: only the top one answers Escape and Tab, so a list opened over a panel
+ *  closes alone and the panel (and what was picked in it) stays (QA-3 on #985). */
+const open: object[] = [];
+
 /** Traps Tab inside the panel, closes on Escape, and returns focus to whatever opened it. */
 function useOverlay(onClose: () => void) {
   const panel = useRef<HTMLDivElement>(null);
@@ -16,8 +20,11 @@ function useOverlay(onClose: () => void) {
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     const el = panel.current;
+    const me = {};
+    open.push(me);
     (el?.querySelector<HTMLElement>(FOCUSABLE) ?? el)?.focus();
     const onKey = (e: KeyboardEvent) => {
+      if (open.at(-1) !== me) return;
       if (e.key === "Escape") return close.current();
       if (e.key !== "Tab" || !el) return;
       const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)];
@@ -35,6 +42,7 @@ function useOverlay(onClose: () => void) {
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
+      open.splice(open.indexOf(me), 1);
       opener?.focus?.();
     };
   }, []);

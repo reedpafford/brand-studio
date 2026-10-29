@@ -17,10 +17,12 @@ from app.prompts.schemas import PlanLine, PlanScene, ScenePlan, Structure
 from app.routes.breakdown import queue as queue_shots
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 from app.schemas import UtcTime
 
-router = APIRouter(prefix="/projects/{project_id}/plan", tags=["plan"])
+router = APIRouter(
+    prefix="/projects/{project_id}/plan", tags=["plan"], dependencies=[Depends(video_writer)]
+)
 SOURCES = {"made": "claude", "owner": "owner", "from_breakdown": "breakdown", "by_hand": "hand"}
 
 

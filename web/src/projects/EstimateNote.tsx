@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { roundUp } from "../components";
 
 const NAMES: Record<string, string> = {
   script: "Script",
@@ -10,7 +11,7 @@ const NAMES: Record<string, string> = {
   clips: "Clips",
   video: "Final video",
 };
-const credits = (n: number) => `${Math.round(n * 10) / 10} credits`;
+const credits = (n: number) => `${roundUp(n, 1)} credits`; // an "about", never below the charge
 
 /** Under the budget meter: what finishing this video still costs, stage by stage. Credits only, never dollars. */
 export function EstimateNote({

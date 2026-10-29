@@ -246,6 +246,15 @@ test("Improve prompt writes a prompt, Use this fills the box and Generate says i
   expect(prompt).toHaveValue("Mia buys bitcoin");
 });
 
+test("Improve's price is rounded up, never below the charge (an owner's rate of 2.4 reads 3 credits)", async () => {
+  fakeServer({ ...studio, "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 2.4 }]] });
+  open();
+  await userEvent.type(await screen.findByLabelText(/What happens/), "Mia buys bitcoin");
+  await userEvent.click(screen.getByRole("button", { name: "Improve prompt" }));
+  const dialog = await screen.findByRole("dialog", { name: "Improve prompt" });
+  expect(await within(dialog).findByRole("button", { name: "Improve · 3 credits" })).toBeInTheDocument();
+});
+
 test("typing your own prompt after Improve sends improved: false again", async () => {
   const calls = fakeServer({
     ...studio,

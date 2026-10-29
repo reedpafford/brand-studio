@@ -409,6 +409,19 @@ class MyScript(BaseModel):
     credits: float  # the caller's own calls writing it, in the period
 
 
+class WeekLine(BaseModel):
+    label: str  # "Videos", "Quick clips", "Scripts", "A look", "Checking a look", …
+    credits: float
+
+
+class MyWeek(BaseModel):
+    """Every charge that counts toward the caller's week, every brand: it adds up to used."""
+
+    used: float
+    allowance: float | None  # null for the owner (no weekly limit)
+    lines: list[WeekLine]
+
+
 class MineOut(BaseModel):
     credits: float  # the videos listed, plus quick clips and writing scripts
     quick_clip_credits: float  # in the period
@@ -416,6 +429,7 @@ class MineOut(BaseModel):
     videos: list[MyVideo]
     projects: list[MyProject]
     scripts: list[MyScript] = []
+    week: MyWeek | None = None  # this week, as the allowance counts it
 
 
 @router.get("/mine", response_model=MineOut)
@@ -461,10 +475,19 @@ def mine(
     return MineOut(
         credits=sum(v.credits for v in videos) + quick_credits + script_total,
         quick_clip_credits=quick_credits, script_credits=script_total,
-        scripts=sorted(scripts, key=lambda s: -s.credits),
+        scripts=sorted(scripts, key=lambda s: -s.credits), week=_week(db, user),
         videos=sorted(videos, key=lambda v: -v.last_activity_at.timestamp()),
         projects=[MyProject(folder_id=f, name=names.get(f, "No project"), videos=n, credits=c)
                   for f, (n, c) in sorted(groups.items(), key=lambda g: g[0] is None)])  # fmt: skip
+
+
+def _week(db: Session, user: User) -> MyWeek:
+    from app.credits import get_limits
+
+    used, lines = usage.week_lines(db, user)
+    allowance = None if user.is_owner else get_limits(db, user.workspace_id)
+    return MyWeek(used=float(used), lines=[WeekLine(label=k, credits=float(v)) for k, v in lines],
+                  allowance=allowance and float(allowance.weekly_quick_clip_credits))  # fmt: skip
 
 
 class UsageScript(ScriptRow):

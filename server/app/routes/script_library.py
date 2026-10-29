@@ -481,7 +481,7 @@ def create_script(
     if body.look:
         looks.pick(db, user, body.look)
     if body.language:
-        languages.pick(user, body.language)
+        languages.pick(db, user, body.language)
     script = Script(
         workspace_id=user.workspace_id,
         created_by_id=user.id,

@@ -9,7 +9,7 @@ import { fakeServer } from "../test/server";
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
-  cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 60, credits_used: 0, budget_pct: 0,
+  cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 60, credits_used: 0, budget_pct: 0, created_by_id: 2,
 };
 const script = { version: 4, source: "paste", words: 9, created_by_id: 2, created_at: "2026-10-23T10:00:00Z", text: "Mia scrolls her phone.\nMIA: Wait… it dipped?" };
 const mark = (o: object) => ({ id: 1, key: "a", kind: "camera", line: 1, quote: "Mia scrolls", start: 0, end: 11, placement: "after", text: "Slow push-in on her face.", screen_id: null, reason: "Builds the hook.", status: "pending", ...o });

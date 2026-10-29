@@ -25,7 +25,7 @@ from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown
 from app.routes.projects import get_project
 from app.routes.scripts import latest
-from app.storyboard import image_model
+from app.storyboard import image_model, still_credits
 
 router = APIRouter(prefix="/projects/{project_id}/estimate", tags=["credits"])
 
@@ -49,8 +49,7 @@ def _claude(db: Session, ws: int) -> Decimal:
 
 
 def _still(db: Session, ws: int, project: Project | None = None) -> Decimal:
-    job = {"model": image_model(project).id, "input": {"resolution": "1K"}}
-    return estimate(db, ws, "image", Decimal(1), job)
+    return still_credits(db, ws, image_model(project))  # the job's own model and size
 
 
 def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -> Decimal:

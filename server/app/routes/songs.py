@@ -18,7 +18,7 @@ from app.models.songs import SongTake
 from app.prompts import check
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 from app.routes.script_library import Slot
 from app.schemas import LongText, UtcTime
 
@@ -353,7 +353,8 @@ def video_songs(
     return _video_songs(request, db, user, project, draft)
 
 
-@router.post("/projects/{project_id}/songs", response_model=VideoSongsOut, status_code=201)
+@router.post("/projects/{project_id}/songs", response_model=VideoSongsOut, status_code=201,
+             dependencies=[Depends(video_writer)])  # fmt: skip
 def make_video_songs(
     project_id: int,
     request: Request,
@@ -368,7 +369,8 @@ def make_video_songs(
     return _video_songs(request, db, user, project, draft)
 
 
-@router.put("/projects/{project_id}/song", response_model=VideoSongOut)
+@router.put("/projects/{project_id}/song", response_model=VideoSongOut,
+            dependencies=[Depends(video_writer)])  # fmt: skip
 def use_video_song(
     project_id: int,
     body: VideoSongIn,

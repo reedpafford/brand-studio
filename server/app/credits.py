@@ -105,14 +105,13 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     from app import clip_prompts
     from app.breakdown import video_model
     from app.sheets import look_usual
-    from app.storyboard import image_model
+    from app.storyboard import image_model, still_credits
 
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
     calls = len(clip_prompts.batches(bd)) if bd else math.ceil(clips / clip_prompts.BATCH_CLIPS)
     claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + calls)
-    still = {"model": image_model(video).id, "input": {"resolution": "1K"}}
     clip = {"model": video_model(video).id, "input": {"resolution": "480p"}}
-    return (claude + estimate(db, ws, "image", Decimal(clips), still) + look_usual(db, ws) * roles
+    return (claude + clips * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
             + estimate(db, ws, "video", Decimal(seconds), clip))  # fmt: skip
 
 
@@ -201,12 +200,10 @@ def own_script(db: Session, project: Project, user: User) -> bool:
     return author == user.id
 
 
-def quick_clip_used(db: Session, user: User) -> Decimal:
-    """This week's (Mon-Sun, UTC) credits on this person's own work: jobs outside any
-    project (Quick clips, script steps) and on videos from scripts they wrote, plus the
-    later steps of a reel read they pressed for, which are held until they run."""
-    from app.reel_read import held
-
+def week_jobs(user: User) -> tuple:
+    """What counts toward this person's week (Mon-Sun, UTC): their own jobs outside any
+    project (Quick clips, script steps, looks, checks) and on videos from scripts they wrote.
+    The allowance and the cost log's week both read through this, so they never drift."""
     own = (
         select(Project.id)
         # a released video keeps counting: releasing must not hand the credits back
@@ -217,12 +214,19 @@ def quick_clip_used(db: Session, user: User) -> Decimal:
         .join(Script, Script.id == ScriptDraft.script_id)
         .where(Script.created_by_id == user.id)
     )
-    return _sum_credits(
-        db,
+    return (
         or_(Job.project_id.is_(None), Job.project_id.in_(own)),
         Job.created_by_id == user.id,
         Job.created_at >= week_start(),
-    ) + held(db, user)
+    )
+
+
+def quick_clip_used(db: Session, user: User) -> Decimal:
+    """This week's credits on this person's own work (`week_jobs`), plus the later steps of
+    a reel read they pressed for, which are held until they run."""
+    from app.reel_read import held
+
+    return _sum_credits(db, *week_jobs(user)) + held(db, user)
 
 
 def credits_left(db: Session, user: User) -> Decimal | None:
@@ -305,3 +309,12 @@ def needs_approval(db: Session, user: User, project: Project | None, credits: De
     if project.status != ProjectStatus.active:
         return True
     return credits_used(db, project) + credits > project.budget_credits
+
+
+def test_budget_fits(db: Session, provider: str, budget_usd: float, credits: Decimal) -> bool:
+    """A real lane on the test site (look samples, language tests; Reed, 2026-10-29): whether
+    a press of `credits` still fits its budget. A job counts once sent, whatever happens to
+    it after; a finished one at its real cost."""
+    jobs = db.scalars(select(Job).where(Job.provider == provider))
+    spent = sum(j.credits for j in jobs if j.status != JobStatus.cancelled or j.provider_ref)
+    return (spent + credits) * USD_PER_CREDIT <= Decimal(str(budget_usd))

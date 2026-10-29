@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, FileText, Pencil } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
-import { Button, Card, Field, Skeleton, StepPicker } from "../components";
+import { Banner, Button, Card, Field, Skeleton, StepPicker, ViewOnly } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { BreakdownPane } from "./BreakdownPane";
@@ -82,6 +82,9 @@ export function ProjectPage() {
   };
   const target = { id: id, name: p.name, creditsUsed: p.credits_used };
   const menu = mayManage(p) && <VideoMenu title={p.name} onRelease={p.script_draft_id ? () => video.release(target) : undefined} onArchive={p.script_draft_id ? undefined : () => video.archive(target)} />;
+  // Only its maker or the owner may change a video (the server refuses the rest): anyone else can look, with every changing press greyed out.
+  const lookOnly = !mayManage(p) && !p.archived_at;
+  const maker = p.created_by_name || "someone else";
   const label = STEPS.find((s) => s.id === step)?.label;
   const next = nextOf(step);
   const nextReason = next ? (step === "shots" && dirty ? "Save your changes first." : lockReason(next.id, progress)) : null;
@@ -114,9 +117,9 @@ export function ProjectPage() {
                 <span className={`shrink-0 text-sm font-medium tabular-nums ${p.budget_pct > 100 ? "text-danger" : p.budget_pct >= 75 ? "text-warning" : "text-accent-text"}`}>
                   {Math.round(p.budget_pct)}%<span className="sr-only"> of the budget used</span>
                 </span>
-                <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
+                {!lookOnly && <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
                   <Pencil size={20} strokeWidth={1.75} aria-hidden />
-                </button>
+                </button>}
                 {menu}
               </>
             ) : (
@@ -133,9 +136,9 @@ export function ProjectPage() {
           rail && (
             <h1 className="flex min-w-0 items-center gap-2 type-page">
               <span className="min-w-0 break-words">{p.name}</span>
-              <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
+              {!lookOnly && <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
                 <Pencil size={20} strokeWidth={1.75} aria-hidden />
-              </button>
+              </button>}
             </h1>
           )
         ) : (
@@ -168,6 +171,7 @@ export function ProjectPage() {
         )}
       </div>
       {video.dialog}
+      {lookOnly && <Banner tone="info" title={`This is ${p.created_by_name ? `${maker}'s` : "someone else's"} video. You can look, but only ${maker} or the owner can change it.`} />}
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
@@ -183,6 +187,7 @@ export function ProjectPage() {
         <h2 className="type-section">{label}</h2>
         {rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
       </div>
+      <ViewOnly on={lookOnly}>
       {step === "brief" && (
         <Card>
           <BriefEditor project={p} hasScript={progress.script} onEditing={setEditingBrief} />
@@ -202,6 +207,7 @@ export function ProjectPage() {
       {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "final" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
+      </ViewOnly>
       {!rail && (
         <Card>
           <Meter used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />

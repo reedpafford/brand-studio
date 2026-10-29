@@ -51,6 +51,8 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 30. Real brand names (cars, sneakers and the like) are fine in scripts and prompts; Seedance doesn't refuse them (Reed).
 31. A published script's lines, cast and breakdown are final; only Reed (the owner) may still edit its title, about and notes (Reed, 2026-10-28), and its role words to match an approved look. An editor brings a video in line by updating that video's own look; the script stays as it is. A song ad's lyrics are the script's lines (final once published); the Preferred song take, Sung or B-roll per section, re-timing and new takes are each video's own choices (Producer, 2026-10-28).
 
+32. Budgets use the usual cost (the likely charge). Any figure shown before a press that charges (Make this version's quote, the cost bar, a button's price) uses "up to", never below what that press can charge, and the words say "up to" wherever the most is shown (Producer, 2026-10-29).
+
 ## History (oldest first; one line each, with date)
 - 2026-10-23 (Reed) App screens (fomo) don't need to be pixel-exact: the logo and UI must be right; balances, prices and other numbers can be invented. The "Use the real image" cut-in is optional for screens too (default off). (Superseded: Current rules 14.)
 - 2026-10-23 (Reed) Montages: the main character is in every shot. When growing wealth matters to the story, show it creatively with escalating payoffs the character is part of (e.g. a big balance on the fomo screen, buying a car, a penthouse, walking out on the balcony), not empty rooms or coin prices.
@@ -173,3 +175,4 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-28 Reed approved the Phase 2 spec with changes: House style plus styles (Disney, Song, Zack D, Skeleton first); other models at real Replicate cost; music behind one interface (MiniMax first, Suno if real access); song ads are B-roll timed to the track; a separate test site (Brand Studio Next, branch `next`), see ops/NEXT.md (Current rules 2, 20).
 - 2026-10-28 Reed (Next): a script's language is chosen when it's written; "Make a copy in another language" makes a translated, unpublished copy for the owner to check and publish; videos follow their script's language.
 - 2026-10-28 Producer (Next, rule 12): a library character in another style gets a per-video look in that style (it stays with the video); only the owner adds a style sheet to the character in Cast & places.
+- 2026-10-29 Producer (Next): budgets = usual; figures shown before a paid press = up to, never below the charge (Current rules 32).

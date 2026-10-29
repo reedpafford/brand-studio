@@ -14,10 +14,12 @@ from app.docimport import DocumentError, kind_of, to_text
 from app.models.accounts import User
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 from app.schemas import UtcTime
 
-router = APIRouter(prefix="/projects/{project_id}/script", tags=["scripts"])
+router = APIRouter(
+    prefix="/projects/{project_id}/script", tags=["scripts"], dependencies=[Depends(video_writer)]
+)
 MAX_DOC_BYTES = 10 * 1024 * 1024
 MAX_SCRIPT_CHARS = 50_000
 ScriptText = Annotated[
@@ -98,14 +100,14 @@ def paste_script(
 
 
 @router.post("/upload", response_model=ScriptOut, status_code=201)
-async def upload_script(
+def upload_script(
     project_id: int,
     upload: UploadFile,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     project = get_project(db, user, project_id)
-    data = await upload.read(MAX_DOC_BYTES + 1)
+    data = upload.file.read(MAX_DOC_BYTES + 1)
     if len(data) > MAX_DOC_BYTES:
         raise HTTPException(413, "That document is too big (10 MB max).")
     try:

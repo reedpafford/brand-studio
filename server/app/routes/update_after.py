@@ -12,9 +12,11 @@ from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.routes.clips import generation_on
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 
-router = APIRouter(prefix="/projects/{project_id}", tags=["update after"])
+router = APIRouter(
+    prefix="/projects/{project_id}", tags=["update after"], dependencies=[Depends(video_writer)]
+)
 From = Literal["plan", "storyboard", "clips"]
 
 

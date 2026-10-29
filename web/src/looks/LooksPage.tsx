@@ -115,6 +115,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
               ))}
             </Select>
           )}
+          {s.test_site && <p className="text-sm text-muted">{s.test_site}</p>}
           <Button price={s.credits} busy={make.isPending} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>
             {s.status === "failed" ? "Try again" : "Make a sample"}
           </Button>

@@ -37,7 +37,7 @@ function opens(m: Item, brandId: number): { to: string; step: string } {
   return { to: video("downloads"), step: "Final cut" }; // a final video, or a video's song
 }
 
-function Tile({ m, brandId, mayRestore }: { m: Item; brandId: number; mayRestore: boolean }) {
+function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: number | undefined; owner: boolean }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const restore = useMutation({
@@ -51,6 +51,8 @@ function Tile({ m, brandId, mayRestore }: { m: Item; brandId: number; mayRestore
   const { to, step } = opens(m, brandId);
   const isVideo = m.content_type.startsWith("video/");
   const title = m.video_name ?? (m.open_step === "quick" ? "Quick clip" : m.kind === "sheet" ? "Cast & places" : kindName(m.kind));
+  const gone = m.deleted_video_by; // the deleted video's maker: they or the owner may restore it (as the Archived list offers)
+  const mayRestore = owner || (!!gone && gone.id === meId);
   const meta = [kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
   return (
     <li>
@@ -62,12 +64,12 @@ function Tile({ m, brandId, mayRestore }: { m: Item; brandId: number; mayRestore
         video={!m.poster_file_id && isVideo ? fileUrl(m.file_id) : null}
         playable={isVideo}
         icon={m.kind === "song" ? Music : m.kind === "sheet" ? Users : Images}
-        badge={m.from_deleted_video ? <Badge tone="warning">From a deleted video</Badge> : undefined}
+        badge={m.from_deleted_video ? <Badge tone="warning">{!gone ? "From a deleted video" : gone.id === meId ? "From your deleted video" : `From ${gone.name}'s deleted video`}</Badge> : undefined}
       >
         {m.kind === "song" && <audio controls preload="none" src={fileUrl(m.file_id)} aria-label={`Play ${title}`} className="w-full" />}
         <div className="flex flex-wrap gap-2">
           {m.from_deleted_video ? (
-            mayRestore && ( // the owner, or whoever made it (as the Archived list offers)
+            mayRestore && (
               <Button variant="secondary" dense busy={restore.isPending} onClick={() => restore.mutate()}>
                 Restore the video
               </Button>
@@ -198,7 +200,7 @@ export function MediaPage() {
           <>
             <ul aria-label="Media" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {items.map((m) => (
-                <Tile key={m.key} m={m} brandId={brandId} mayRestore={owner || (!!me && m.made_by?.id === me.id)} />
+                <Tile key={m.key} m={m} brandId={brandId} meId={me?.id} owner={owner} />
               ))}
             </ul>
             {media.hasNextPage && (

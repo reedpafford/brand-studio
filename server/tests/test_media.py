@@ -3,6 +3,8 @@ with who sees what, the filters, a deleted video's media and pages. Free."""
 
 import uuid
 
+from fastapi.testclient import TestClient
+
 from app.db import utcnow
 from app.models.brands import Brand
 from app.models.clips import FinalVideo, ProjectClip
@@ -12,7 +14,7 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.routes import media
-from tests.conftest import upload
+from tests.conftest import PASSWORD, upload
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
@@ -82,6 +84,17 @@ def test_media_lists_what_was_made_and_who_sees_it(app, db, owner, editor, setup
     db.commit()
     gone = _media(editor, brand, kind="final")["items"]
     assert [i["from_deleted_video"] for i in gone] == [True]
+    maker = {"id": project.created_by_id, "name": "Ed"}  # who may restore it, with the owner
+    assert [i["deleted_video_by"] for i in gone] == [maker]
+    assert [i["deleted_video_by"] for i in _media(owner, brand, kind="final")["items"]] == [maker]
+    everything = _media(owner, brand)["items"]
+    assert not [i for i in everything if i["deleted_video_by"] and not i["from_deleted_video"]]
+    token = owner.post("/team/invites", json={"email": "sam@example.com"}).json()["token"]
+    with TestClient(app) as sam:
+        sam.post("/auth/accept-invite", json={"token": token, "name": "Sam", "password": PASSWORD})
+        seen = _media(sam, brand)["items"]
+        mine = [i for i in seen if i["project_id"] == pid or i["deleted_video_by"]]
+        assert seen and not mine  # only the brand's own sheets
 
 
 def test_pages_walk_the_list_once(app, db, owner, monkeypatch):
