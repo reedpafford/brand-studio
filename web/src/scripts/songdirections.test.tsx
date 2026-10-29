@@ -54,7 +54,7 @@ test("while writing: in words with a timer, and Cancel only before it starts", a
 
 test("two cards: Recommended, the length, Leaves out and Not checked; Use this one with empty boxes fills them, with Undo", async () => {
   setViewport(1440);
-  const two = [direction({ left_out: ["the vet quote"], unchecked_claims: ["vet-approved in 7 days"] }), direction({ id: 12, title: "Lick It Clean", recommended: false })];
+  const two = [direction({ left_out: ["the vet quote"], unchecked_claims: ["vet-approved in 7 days"] }), direction({ id: 12, title: "Lick It Clean", recommended: false, style_names: ["Jack Johnson"] })];
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, song({ song_directions: two })], "POST /scripts/7/drafts/0/directions/11/use": [200, { was_text: "", was_style_line: "" }], "PUT /scripts/7/drafts/0": [200, song()] });
   open();
   const cards = await screen.findByRole("region", { name: "Song directions" });
@@ -62,6 +62,7 @@ test("two cards: Recommended, the length, Leaves out and Not checked; Use this o
   expect(within(cards).getAllByText(/13 sung words: a song of about 0:05–0:07/)).toHaveLength(2);
   expect(within(cards).getByText("Leaves out: the vet quote")).toBeInTheDocument();
   expect(within(cards).getByText('Not checked: "vet-approved in 7 days"')).toBeInTheDocument();
+  expect(within(cards).getByText(/The style names "Jack Johnson"\. Suno won't take names/)).toBeInTheDocument();
   expect(within(cards).getByRole("button", { name: /Write 2 more · 3 credits/ })).toBeInTheDocument();
   await userEvent.click(within(cards).getAllByRole("button", { name: "Use this one" })[0]);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/directions/11/use")).toBe(true));

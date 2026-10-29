@@ -10,7 +10,7 @@ import { lengthNote, type Song } from "./SongStep";
 import { useAllowanceStop, type Script } from "./useScript";
 
 /** One song direction Claude wrote (flows S3): a suggestion only; nothing reaches the lyrics without Use this one (rule 19). */
-export type Direction = { id: number; title: string; concept: string; lyrics: string; style_line: string; visual_concept: string; recommended: boolean; left_out: string[]; unchecked_claims: string[] };
+export type Direction = { id: number; title: string; concept: string; lyrics: string; style_line: string; visual_concept: string; recommended: boolean; left_out: string[]; unchecked_claims: string[]; length_note?: string; style_names?: string[]; made_at?: string };
 type Job = { id: number; status: "queued" | "running" | "failed" | "refused"; reason: string | null; started_at: string };
 /** The S3 fields on a song script's version (Next-Server's directions route). */
 export type DirectionsDraft = { song_directions: Direction[]; directions_job: Job | null; directions_estimate_credits: number; directions_stop: string | null; claims_to_check: string[] };
@@ -149,8 +149,9 @@ export function SongDirections({ script: s, brandId, saved, hasWords, onUsed }: 
                   </div>
                   <p className="text-sm">{x.concept}</p>
                   <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-surface-2 p-3 type-script">{x.lyrics}</pre>
-                  <p className="text-sm text-muted">{lengthNote(x.lyrics)}</p>
+                  <p className="text-sm text-muted">{x.length_note ?? lengthNote(x.lyrics)}</p>
                   <p className="text-sm">Style: {x.style_line}</p>
+                  {!!x.style_names?.length && <p className="text-sm text-warning">The style names "{x.style_names[0]}". Suno won't take names: after Use this one, describe the sound in the Style box instead.</p>}
                   <p className="text-sm text-muted">On screen: {x.visual_concept}</p>
                   {x.left_out.length > 0 && <p className="text-sm">Leaves out: {x.left_out.join(", ")}</p>}
                   {x.unchecked_claims.length > 0 && <p className="text-sm text-warning">Not checked: {x.unchecked_claims.map((c) => `"${c}"`).join(", ")}</p>}
