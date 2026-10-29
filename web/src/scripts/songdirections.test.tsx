@@ -119,3 +119,30 @@ test("before the server offers directions, the section isn't shown at all (no de
   expect(await screen.findByLabelText("Lyrics")).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Song directions" })).toBeNull();
 });
+
+test("Use this one while typing unsaved lyrics: the confirm says so, and Undo puts the saved lyrics and the typing back", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song({ text: "", song_directions: [direction()] })], "POST /scripts/7/drafts/0/directions/11/use": [200, { was_text: "", was_style_line: "" }], "PUT /scripts/7/drafts/0": [200, song()] });
+  open();
+  const box = await screen.findByLabelText("Lyrics");
+  await userEvent.type(box, "My own first line");
+  await userEvent.click(screen.getByRole("button", { name: "Use this one" }));
+  const ask = screen.getByRole("alertdialog", { name: 'Replace your lyrics with "Clean Bowl"?' });
+  expect(ask).toHaveTextContent("Your saved lyrics and the words you're typing are kept in Undo.");
+  await userEvent.click(within(ask).getByRole("button", { name: "Replace" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /scripts/7/drafts/0")).toBe(true));
+  expect(await screen.findByDisplayValue("My own first line")).toBeInTheDocument();
+});
+
+test("Use this one when takes exist says the takes go out of date, as Edit lyrics does", async () => {
+  setViewport(1440);
+  const take = { id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null };
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song({ text: LYRICS, song_directions: [direction()] })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [take, { ...take, id: 2, number: 2, preferred: false }] }] });
+  open();
+  await userEvent.click(await screen.findByText("Directions · 1"));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts/7/drafts/0/songs")).toBe(true));
+  await new Promise((r) => setTimeout(r, 0)); // the takes are read
+  await userEvent.click(screen.getByRole("button", { name: "Use this one" }));
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("Your 2 takes will be out of date. They're kept, and you can make new ones.");
+});

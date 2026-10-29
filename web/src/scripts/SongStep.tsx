@@ -182,7 +182,21 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
     put.mutate(next, { onSuccess: () => toast(said, () => put.mutate(before)) });
   };
 
-  const directions = (hasWords: boolean) => <SongDirections script={s} brandId={brandId} saved={saved} hasWords={hasWords} onUsed={() => setDraft(null)} />;
+  const directions = (hasWords: boolean) => (
+    <SongDirections
+      script={s}
+      brandId={brandId}
+      saved={saved}
+      hasWords={hasWords}
+      typing={dirty}
+      takes={takes}
+      onUsed={() => {
+        const typed = dirty ? draft : null;
+        setDraft(null);
+        return typed ? () => setDraft(typed) : undefined;
+      }}
+    />
+  );
 
   if (draft === null) {
     return (

@@ -55,7 +55,8 @@ export function ClaimsNote({ script: s, claims, onEdit }: { script: Script; clai
 }
 
 /** S3: Write 2 song directions (optional). From a script and Sounds like boxes, the two cards, Use this one (Undo), Write 2 more. */
-export function SongDirections({ script: s, brandId, saved, hasWords, onUsed }: { script: Script; brandId: number; saved: Song; hasWords: boolean; onUsed: () => void }) {
+/** `onUsed` clears the boxes and returns how to put unsaved typing back, so Undo restores what was on screen. */
+export function SongDirections({ script: s, brandId, saved, hasWords, typing, takes, onUsed }: { script: Script; brandId: number; saved: Song; hasWords: boolean; typing: boolean; takes: number; onUsed: () => (() => void) | undefined }) {
   const v = s.versions.find((x) => x.slot === 0);
   const d = directionsOf(v);
   const queryClient = useQueryClient();
@@ -81,12 +82,16 @@ export function SongDirections({ script: s, brandId, saved, hasWords, onUsed }: 
     mutationFn: (x: Direction) => call("POST", `${base}/${x.id}/use`) as Promise<{ was_text: string; was_style_line: string }>,
     onSuccess: async (r, x) => {
       setAsking(null);
-      onUsed();
+      const putBack = onUsed();
       await refresh();
       void queryClient.invalidateQueries({ queryKey: ["songs", s.id] });
       const before: Song = { ...saved, text: r?.was_text ?? saved.text, style_line: r?.was_style_line ?? saved.style_line };
       toast(`"${x.title}" is in. The lyrics are yours now: the AI won't change them.`, () =>
-        void api.PUT("/scripts/{script_id}/drafts/{slot}", { params: { path: { script_id: s.id, slot: 0 } }, body: before }).then(refresh),
+        void api.PUT("/scripts/{script_id}/drafts/{slot}", { params: { path: { script_id: s.id, slot: 0 } }, body: before }).then(async () => {
+          await refresh();
+          void queryClient.invalidateQueries({ queryKey: ["songs", s.id] });
+          putBack?.();
+        }),
       );
     },
   });
@@ -99,7 +104,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, onUsed }: 
   });
   // Only the latest press's refusal shows, until the next press.
   const latest = [write, cancel, use, remove].reduce((a, m) => (m.submittedAt > a.submittedAt ? m : a));
-  const pick = (x: Direction) => (hasWords ? setAsking(x) : use.mutate(x));
+  const pick = (x: Direction) => (hasWords || takes > 0 ? setAsking(x) : use.mutate(x));
   // Hidden until the server offers directions (its route sends the price): never a press with nothing behind it.
   if (s.published || !(v && "directions_estimate_credits" in v)) return null;
   const any = d.song_directions.length > 0;
@@ -168,7 +173,8 @@ export function SongDirections({ script: s, brandId, saved, hasWords, onUsed }: 
       )}
       {asking && (
         <Dialog title={`Replace your lyrics with "${asking.title}"?`} cancelLabel="Not yet" actionLabel="Replace" busy={use.isPending} onCancel={() => setAsking(null)} onConfirm={() => use.mutate(asking)}>
-          Your words are kept in Undo.
+          {typing ? "Your saved lyrics and the words you're typing are kept in Undo." : "Your words are kept in Undo."}
+          {takes > 0 && ` Your ${takes === 1 ? "take" : `${takes} takes`} will be out of date. They're kept, and you can make new ones.`}
         </Dialog>
       )}
     </section>
