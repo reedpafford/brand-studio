@@ -300,6 +300,7 @@ def edit(
     plan = plans.current(db, project)
     if plan is None:
         raise HTTPException(404, "This video has no plan yet.")
+    _one_at_a_time(db, project)  # a plan being made would overwrite the edit (Flow-QA)
     stars = plans.job_input(db, project, version)["stars"]
     if not stars and any(x.star and not x.product for s in body.scenes for x in s.lines):
         raise HTTPException(  # never drop a ★ silently (QA-2)

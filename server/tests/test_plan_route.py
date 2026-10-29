@@ -128,6 +128,8 @@ def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa:
     job = editor.post(f"{url}/scenes/1/change", json={"note": "funnier"}).json()
     assert job["credits"] == plan["change_scene_credits"]  # the price shown is the charge
     assert "<note>funnier</note>" in db.get(Job, job["id"]).input["prompt"]
+    busy = editor.put(url, json={"scenes": plan["scenes"]})  # Flow-QA: never lost to the job
+    assert (busy.status_code, busy.json()["detail"]) == (409, "A plan is already being made.")
     _write(app, db)
     changed = editor.get(url).json()
     assert {x["action"] for x in changed["scenes"][0]["lines"]} == {
