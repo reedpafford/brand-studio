@@ -366,5 +366,5 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
                 sh["character_ids"] = []
         row.data = copy.deepcopy(plan)
         db.commit()
-        dropped = declined - float(look_usual(db, 1))
+        dropped = declined - float(look_price(db, 1))
         assert float(vs.to_finish(db, video)) == pytest.approx(dropped, abs=0.001)
