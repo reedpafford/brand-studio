@@ -156,7 +156,7 @@ export function BreakdownView(props: {
   // Desktop: a bar sticks to the bottom of the window. Below 1024 it takes the action bar's place (Next steps aside while edits are unsaved).
   const bar = (
     <div className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2"} role="group" aria-label="Unsaved changes">
-      <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>You have unsaved changes.</span>
+      <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>Edits wait for Save. Fixes and flips save at once.</span>
       <Button busy={save.isPending} onClick={() => save.mutate()}>
         Save changes
       </Button>

@@ -86,7 +86,8 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           </section>
           {readyToMake && v.estimate_credits > 0 && (
             <p className="text-sm text-muted">
-              About {wholeCredits(v.estimate_credits)} credits to make
+              {/* One price line: what the press starts with, then the whole video (the button holds the first). */}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(v.estimate_credits)}` : `The whole video costs about ${wholeCredits(v.estimate_credits)} credits`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
           )}

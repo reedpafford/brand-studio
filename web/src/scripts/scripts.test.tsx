@@ -610,7 +610,7 @@ test("the version panel says what it is a variation of, who planned the breakdow
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" });
   expect(await within(panel).findByText("Variation of A")).toBeInTheDocument();
   expect(within(panel).getByText("Planned by Reed · 28 s · 4 clips")).toBeInTheDocument();
-  expect(within(panel).getByText("About 210 credits to make")).toBeInTheDocument();
+  expect(within(panel).getByText("The whole video costs about 210 credits")).toBeInTheDocument();
   expect(within(panel).getByRole("button", { name: "Make this version" })).not.toHaveTextContent(/credit/); // a saved breakdown is free
 });
 

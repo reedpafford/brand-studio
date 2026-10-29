@@ -157,3 +157,10 @@ test("a script with no variations is approved right on the Cast step, with an Un
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/approve")).toBe(true));
 });
+
+test("an unlocked role says each video makes its own look, and about what it costs", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /scripts/7/cast": [200, [slot]] }));
+  open();
+  expect(await screen.findByText("Not locked: each video makes its own look (about 3 credits each).")).toBeInTheDocument();
+});
