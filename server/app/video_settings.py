@@ -153,6 +153,8 @@ def to_finish(db: Session, project: Project) -> Decimal:
     redo += sum((clip_takes.take_credits(db, project, c) for c in clips), Decimal(0))
     roles = len(sheets.roles_needing_look(db, project))  # a new look in this look (ST1, ST2)
     redo += roles * sheets.look_price(db, project.workspace_id)
+    first = len(sheets.roles_without_a_look(db, project))  # their first look, as the quote
+    redo += first * sheets.look_usual(db, project.workspace_id)
     return (left + redo).quantize(Decimal("0.01"))
 
 

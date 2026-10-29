@@ -87,6 +87,39 @@ def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
     return out
 
 
+def roles_without_a_look(db, owner, draft=None) -> list[str]:
+    """The roles that will need their first look, each priced at `look_usual`, by one rule
+    for a version's quote (`estimate.version_cost`) and its video's to-finish (VS1), so the
+    two never drift apart: each role not cast yet (on a video, not one whose own look is
+    made, nor one the editor said "Not now" to), and each speaker in the version with no role
+    yet, whom making the video adds as a role (QA-3: Nate). `owner` is a video, or a script
+    with the version (`draft`) it would be made from."""
+    from sqlalchemy import select
+
+    from app import cast_roles
+    from app.models.projects import Project
+    from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
+    from app.script_cast_read import _speakers
+
+    if isinstance(owner, Project):
+        draft = db.get(ScriptDraft, owner.script_draft_id or owner.released_draft_id or 0)
+        own = owner.slot_looks or {}
+        missing = [s.role for s in cast_roles.video_slots(db, owner)
+                   if not cast_roles.pick(db, owner, s) and str(s.id) not in own]  # fmt: skip
+        script = db.get(Script, draft.script_id) if draft else None
+    else:
+        script = owner
+        uncast = select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id,
+                                              ScriptCastSlot.library_item_id.is_(None))  # fmt: skip
+        missing = [s.role for s in db.scalars(uncast)]
+    if script is None or draft is None:
+        return missing
+    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id)).all()
+    return missing + [name for name, versions in _speakers(db, script).items()
+                      if draft.slot in versions
+                      and not any(cast_roles.labels(name, s.role) for s in slots)]  # fmt: skip
+
+
 def require_sheet(item: LibraryItem) -> None:
     """A plain 422 when a character or place has no approved sheet yet."""
     if item.kind in SHEET_KINDS and not usable_files(item):

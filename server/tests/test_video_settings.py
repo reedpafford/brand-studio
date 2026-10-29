@@ -315,22 +315,33 @@ def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
 
 def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeypatch):
     """QA-3: with no saved plan, 14.73 was quoted from 2 s of spoken words, but the video
-    plans for 15 s until its plan exists (28.06). The quote now uses the video's own rules,
-    plus a look for Nate, who speaks with no role yet (making the video adds him)."""
+    plans for 15 s until its plan exists (28.06). Now the quote and the video's to-finish use
+    one rule (sheets.roles_without_a_look): equal, Nate's first look in both, before and
+    after making the video adds him as a role; "Not now" on his look takes it out."""
     import pytest
 
     import tests.test_script_produce as produce
+    from app import breakdown, cast_roles
+    from app.models.script_library import Script
     from app.sheets import look_usual
     from tests.test_script_library import SCRIPT, _make
 
     monkeypatch.setattr(produce, "_make", lambda c, **kw: _make(c, text=SCRIPT))
-    nate = float(look_usual(db, 1))  # his look, once he's a role
     for picks in ({}, {"look": "disney-pixar"}):
         base, _ = _published(owner, db)  # Mom is Mia (a House sheet only); Nate has no role
         quote = owner.post(f"{base}/drafts/0/estimate", json=picks).json()["credits"]
         card = owner.get(base).json()["versions"][0]["estimate_credits"]
         made = owner.post(f"{base}/drafts/0/produce", json=picks).json()["project_id"]
-        to_finish = float(vs.to_finish(db, db.get(Project, made)))
-        assert quote == pytest.approx(to_finish + nate, abs=0.01)
+        video = db.get(Project, made)
+        assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
         if not picks:  # the version card shows the same figure (in the script's own look)
-            assert card == pytest.approx(to_finish + nate, abs=0.01)
+            assert card == pytest.approx(quote, abs=0.001)
+        added = breakdown.add_speakers(db, db.get(Script, int(base.rsplit("/", 1)[1])))
+        db.commit()
+        assert added == ["Nate"]  # the cast adds him: still one first look, not two
+        assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
+        nate = next(s for s in cast_roles.video_slots(db, video) if s.role == "Nate")
+        video.slot_looks = {**(video.slot_looks or {}), str(nate.id): None}  # "Not now"
+        db.commit()
+        less = quote - float(look_usual(db, 1))
+        assert float(vs.to_finish(db, video)) == pytest.approx(less, abs=0.001)
