@@ -28,6 +28,10 @@ NOTHING = "Add what the brand sells on the brand page, or paste a script to adap
 APPROVED = "These lyrics are approved. Press Undo approval on Publish to use a direction here."
 PUBLISHED = "This script is published, so its lyrics are final. Duplicate the script to try one."
 UNFINISHED = "The directions didn't finish. Nothing was charged."
+COPIED = (  # the rewrite still copied the studied song ad (flows S3a): why, and both ways out
+    "The directions kept copying a line from the song ad you studied. Nothing was charged. "
+    "Try again, or turn off Use as a guide."
+)
 STILL = "still needs fixing: "  # the raw reason (owner-only) when the one rewrite didn't fix it
 
 
@@ -85,6 +89,13 @@ def _study(found: dict | None) -> dict | None:
     return {"seconds": found["seconds"], "bpm": found.get("bpm"),
             "sections": [{k: x[k] for k in ("name", "start", "end", "lines")}
                          for x in found.get("sections", [])]}  # fmt: skip
+
+
+def failure(detail: str) -> str | None:
+    """What a failed directions job says (None: not one of ours)."""
+    if not detail.startswith(STILL):
+        return None
+    return COPIED if check.COPIED in detail else UNFINISHED
 
 
 def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:

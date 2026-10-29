@@ -191,4 +191,4 @@ def test_a_line_copied_from_the_study_is_asked_again_then_fails_uncharged(
     assert job.status == "failed" and "repeats a line of the reference song" in job.error_detail
     version = _version(owner, song)
     assert version["song_directions"] == []  # no copied line is ever shown
-    assert version["directions_job"]["reason"] == song_directions.UNFINISHED
+    assert version["directions_job"]["reason"] == song_directions.COPIED  # why, and both ways out

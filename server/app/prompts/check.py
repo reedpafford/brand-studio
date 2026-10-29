@@ -1018,6 +1018,9 @@ def finish_directions(
     return repaired + [x for x in found if x.startswith(ADVICE)], fixes
 
 
+COPIED = "repeats a line of the reference song"
+
+
 def copied_lines(result: SongDirections, study: dict | None) -> list[str]:
     """A direction's line that repeats a line of the song-ad study, word for word or nearly
     (flows S3a: the study is someone else's song). A fix: the directions are written again,
@@ -1033,7 +1036,7 @@ def copied_lines(result: SongDirections, study: dict | None) -> list[str]:
         for line in sung_lines(d.lyrics):
             mine = _words(line)
             if len(mine.split()) >= 4 and any(_close(mine, t) for t in theirs):
-                problems.append(f"direction {n}: “{line}” repeats a line of the reference song")
+                problems.append(f"direction {n}: “{line}” {COPIED}")
     return problems
 
 
