@@ -82,6 +82,7 @@ for (const [step, ready] of [
       expect(b).toBeDisabled();
       expect(b).toHaveAccessibleDescription("Only Sam or the owner can change this video."); // the step's own press says why
     }
+    for (const r of within(screen.getByRole("main")).queryAllByRole("radio")) expect(r).toBeDisabled(); // picking a take changes the video (QA on #977)
     if (step === "downloads") expect(screen.getByRole("link", { name: /Download MP4/ })).toHaveAttribute("href", expect.stringContaining("/api/files/60"));
   });
 }
@@ -107,4 +108,20 @@ test("on an approved plan a second editor can still switch between Shots and Sce
   await userEvent.click(await screen.findByRole("tab", { name: "Scenes" }));
   expect(await screen.findByRole("tab", { name: "Scenes", selected: true })).toBeInTheDocument();
   expect(screen.getByText("Bo eats.")).toBeInTheDocument();
+});
+
+test("the older video page (/projects/:id, made before scripts) is look-only too: the banner, no Rename, Edit brief greyed out (Flow-QA on #977)", async () => {
+  setViewport(1440);
+  const older = { ...project, goal: "Show the buy flow", script_draft_id: null };
+  fakeServer({ ...base, "GET /projects/9": [200, older] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={["/b/1/projects/9"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Rename/ })).toBeNull();
+  expect(await screen.findByRole("button", { name: "Edit brief" })).toBeDisabled();
 });

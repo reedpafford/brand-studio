@@ -197,7 +197,7 @@ export function ClipCard(props: {
           <span className="text-muted">Takes:</span>
           {[...c.takes].reverse().map((t) => (
             <label key={t.id} className="inline-flex min-h-11 items-center gap-1 sm:min-h-0">
-              <input type="radio" name={`takes-${c.id}`} className="size-5 sm:size-4" checked={t.id === c.picked_take_id} onChange={() => props.onPick(t.id)} />
+              <input type="radio" name={`takes-${c.id}`} disabled={viewOnly} className="size-5 sm:size-4" checked={t.id === c.picked_take_id} onChange={() => props.onPick(t.id)} />
               Take {t.number}
             </label>
           ))}
