@@ -23,6 +23,7 @@ import { useSongs } from "./useSongs";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { useScript, usePatchScript } from "./useScript";
 import { LookSetting } from "./Looks";
+import { ProjectPicker } from "../folders/Projects";
 import { FormatAdvice, FormatSetting } from "./Format";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
@@ -169,6 +170,7 @@ export function ScriptFlowPage() {
         )}
         <FormatSetting script={s} />
         <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
+        <ProjectPicker brandId={s.brand_id} kind="script" id={s.id} folderId={(s as { folder_id?: number | null }).folder_id} />
         {allowance.data && (
           <p className="ml-auto text-sm tabular-nums text-muted">
             This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits

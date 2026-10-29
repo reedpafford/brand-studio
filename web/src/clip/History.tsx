@@ -1,3 +1,4 @@
+import { ProjectPicker, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
@@ -56,9 +57,10 @@ export function Elapsed({ since }: { since: string }) {
 
 /** The clips list, with what was typed in Search and, for Removed, the clips taken off the history. */
 function useHistoryJobs(q: string, removed: boolean) {
+  const folder = useFolderFilter(); // a project picked in the Projects list (flows OR1)
   return useQuery({
-    queryKey: ["jobs", "history", { q, removed }],
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { ...(q ? { q } : {}), ...(removed ? { removed: true } : {}) } } })).data ?? [],
+    queryKey: ["jobs", "history", { q, removed, folder }],
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { ...folderQuery(folder), ...(q ? { q } : {}), ...(removed ? { removed: true } : {}) } } })).data ?? [],
     refetchInterval: (query) => (query.state.data?.some((j) => ACTIVE.includes(j.status)) ? 3000 : false),
   });
 }
@@ -201,6 +203,7 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
               Download
             </a>
           )}
+          {mine && j.brand_id != null && <ProjectPicker brandId={j.brand_id} kind="clip" id={j.id} folderId={(j as { folder_id?: number | null }).folder_id} />}
           {menu && <span className="ml-auto">{menu}</span>}
         </div>
       </div>
