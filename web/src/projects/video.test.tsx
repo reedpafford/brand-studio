@@ -854,6 +854,17 @@ test("a take made from an older Cast & places look says Out of date, stays appro
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/keep")?.body).toMatchObject({ problem: older }));
 });
 
+test("Downloads agrees with the lists: a take from an older look marks the finished video Out of date, and Make it again waits for a new take or Keep anyway (N6)", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [{ ...done, take_stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+  expect(screen.queryByText("Ready")).toBeNull();
+  expect(screen.getByText(/every clip approved/)).toBeInTheDocument(); // still approved
+  expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Make another take on Clips, or keep the older look (1 left)");
+});
+
 test("a take from the current look shows no Out of date", async () => {
   setViewport(390);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, approved: true, take_stale: false, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]] });
