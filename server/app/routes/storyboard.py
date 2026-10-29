@@ -24,7 +24,7 @@ from app.db import get_db
 from app.item_checks import CheckOut
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown, Frame
@@ -40,7 +40,6 @@ router = APIRouter(
     tags=["storyboard"],
     dependencies=[Depends(video_writer)],
 )
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class StoryboardIn(BaseModel):
