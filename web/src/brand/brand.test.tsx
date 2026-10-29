@@ -183,6 +183,14 @@ test("Add product takes a name, a first flavour and its picture, and saves it as
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/screens")?.body).toMatchObject({ product: "Bag", variant: "Chicken", name: "Bag Chicken" }));
 });
 
+test("the End line's example uses the brand's own name (#749 LW10)", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, name: "Iron Paws", slug: "iron-paws" }]] });
+  renderAt("/b/1/kit");
+  const end = await screen.findByLabelText(/End line/);
+  expect(end).toHaveAccessibleDescription(/Find Iron Paws through the link in my bio/);
+  expect(end).not.toHaveAccessibleDescription(/fomo/);
+});
+
 test("the End line is shown and saved with the kit", async () => {
   const calls = fakeServer({
     "GET /auth/me": [200, editor],

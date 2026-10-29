@@ -1,4 +1,25 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 03:58 · Into `next`: #781 song and Change song on the Breakdown; #794 Director adapt a script, sounds-like, length; #802 a video's own takes are never Preferred; #800 song sidecar in data.md; #807, #811 Reed's song workflow recipe and flow map; #766, #771, #779 Next-Layout words for Clips, Storyboard and small words; #787 UX audit fold-in; #776, #806 Flow-QA checklists
+- 2026-10-29 03:42 · Process (#813): three push rules for agents: check the PR is still open before every push, branch every PR from its base (never from another open PR), don't push to a head after QA passes it unless the Producer asks merged
+- 2026-10-29 03:15 · #804 Usage says Finished · changes waiting too, and In production's count of them links to Usage merged
+- 2026-10-29 02:52 · #805 ops: HANDOFF/LOG refresh as of 12e92b4 merged (by the Producer)
+- 2026-10-29 02:58 · Into `next`: #759, #775, #783 song ads web; #755 Director song ads; #795, #796, #797 Iron Paws pilot notes and flows; #763 song pilot directions; #780 flow map LW3/M16; #778 prices hold their place; #772 UX audit part 6
+- 2026-10-29 02:37 · #801 Redo this frame names the way on when the script moved (QA) merged
+- 2026-10-29 02:36 · #798, #792 Usage's video rows say "changes waiting" too, read once per list (LW2); a version's length is its video's once the video has a breakdown (LW9) merged
+- 2026-10-29 02:24 · #793 Videos and In production say Finished · changes waiting when a finished video's clips changed since merged
+- 2026-10-29 02:18 · #790 Redo this frame: an out-of-date still is written again, then drawn (LW3) merged
+- 2026-10-29 02:05 · #769 Spend log: Iron Paws song-ad pilot merged
+- 2026-10-29 01:53 · #789 Wording: a failed newest take leaves "Nothing was charged" to the error alone; both version-panel lines end in credits merged
+- 2026-10-29 01:51 · #788 Lists say when a finished video's clips changed since (LW2) merged
+- 2026-10-29 01:50 · #791 ops: HANDOFF/LOG refresh as of db4b1e1 merged (by the Producer)
+- 2026-10-29 01:50 · Into `next`: #750 a video's own song take; #748 song data and takes; #770 flow map (narrated looks, who edits the Brand page); #755 Director song ads; #772 UX audit part 6; #746 music interface (Suno); #742 screens.md; #758 Flow-QA checklist; #743 flow map for styles, brand setup, video settings, organization, layout
+- 2026-10-29 01:42 · #786 Breakdown says "of N s planned" only when a length was set; Assets gets its tick only once looked at merged
+- 2026-10-29 01:34 · #784 Small live fixes: one price line on the version panel, the End line example names the brand, Improve prompt says why it's grey merged
+- 2026-10-29 01:26 · #782 Clips: a failed newest take doesn't mark a clip Failed while an earlier take is picked merged
+- 2026-10-29 01:17 · #765 The real bag goes in when a shot or a Change note shows it, old breakdowns too merged
+- 2026-10-29 01:09 · #767 Week limit says "credits", not "free credits"; the script title is 44 px on a phone merged
+- 2026-10-29 00:53 · #764, #761, #760 Publish: every version is approved first; a finished video stays reachable after a breakdown edit; a shot that shows the brand's product attaches the real one, merged
+- 2026-10-28 23:48 · #762 ops: HANDOFF/LOG refresh as of 90e952a merged (by the Producer)
 - 2026-10-28 23:44 · Into `next`: #753 the rest of the styles and per-style sample tests; #749 UX audit; #756 deploy lock; #736 Flow-QA checklist; #740 flow map and data plan; #741 test site as its own Compose project; #745 style registry; #737 song-ad screen plan
 - 2026-10-28 23:42 · #754 Clips: Change it's price is read again when a take is made (rewrite + take) merged
 - 2026-10-28 23:33 · #751 Clips: Make clip says why it can't be pressed, and marks Looks good for you merged

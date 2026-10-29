@@ -62,6 +62,13 @@ test("with no breakdown it offers to make one and shows the cost", async () => {
   expect(await screen.findByText(/Planning shots…/)).toBeInTheDocument();
 });
 
+test("with no set length, the breakdown says its own length, not \"22 s of 22 s planned\" (#749 LW9)", async () => {
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, planned_seconds: null, breakdown_seconds: 5 }], "GET /projects/9/breakdown": [200, breakdown()] });
+  open();
+  expect(await screen.findByText(/1 scene · 2 shots · 1 clip · 5 s$/)).toBeInTheDocument();
+  expect(screen.queryByText(/s planned/)).toBeNull();
+});
+
 test("the breakdown shows scenes, clips and shots with names, the spoken line and the star screens", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
   open();
