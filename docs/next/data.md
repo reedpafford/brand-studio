@@ -30,10 +30,10 @@ Numbers are names, not an order. Each migration's `down_revision` is the head on
 | Turn | Migration | PR | `down_revision` | State |
 |---|---|---|---|---|
 | — | n01 | #748 | 0053 | On `next` |
-| 1 | n02 | #829 | n01 | Open, merges first |
-| 2 | n04 | #851 | n02 (currently says n01: change it when #829 lands) | Open |
-| 3 | n05 | Next-Server, narrated PR 1 | the head then (n04 if #851 is in) | Not open |
-| 4 | n06 | Builder-Server-8, 1b PR 1 | the head then | Not open |
+| 1 | n02 | #829 | n01 | On `next` (3063729d) |
+| 2 | n04 | #851 | n02 | Open: being re-pointed to n02 now |
+| 3 | n05 | #858 | n04 (once #851 is in) | Open: placeholder n01 until its turn |
+| 4 | n06 | #862 | n05 (once #858 is in) | Open: placeholder n01 until its turn |
 | 5 | n07 | Next-Server, Format and Look PR 1 | the head then | Not open |
 | — | n03 | Next-Server, flavours | the head when it's built | Not started |
 
