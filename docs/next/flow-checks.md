@@ -343,3 +343,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #970 Real look samples on the test site | b16138c0 | FAIL (QA-4; my PASS corrected): switch on with no key says "real" and sends the job to a lane with no provider |
 | 2026-10-29 | #972 Language tests switch a language on (n14) | 2b25bb54 | FAIL: Undo of Reject leaves the language off. Price shown, owner only, editors limited to On languages; 6/6 |
 | 2026-10-29 | #974 A role's own look drawn in another look holds the still | 4bf38f35 | PASS: refused before any charge; Cast offers Make a look in the video's look; House again without a new look is usable; 33/33. Next: n12 (free switch back after a new look) |
+| 2026-10-29 | #963 (re-check) | aa7e101f | PASS: next merged (with #957), the typed api; holds and Undo unchanged; 80/80 |
