@@ -354,6 +354,28 @@ The lip-sync clips were made from the same song, so they match. If the picture c
 | Spoken end line | When set (S2), it's spoken over the song's last seconds with the music lowered under it (free, in the stitch). | — |
 | Lengths | A take longer than its song stretch is trimmed to it; a shorter one holds its last frame to fill it. Never a gap, never silence. A clip with no approved take blocks the stitch as today: "Approve every clip to make the video (N left)." with the press to Clips. | — |
 
+## V6n. Narrated videos: the narrator track underneath (a variant of V6)
+
+Reed's narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads", #814) used the song recipe with a narrator: **one narrator track over silent clips**. It's a Story script whose spoken lines are all the narrator's voiceover (no one speaks on camera). It uses the same timing, trim, track-under and fade as a song video. **Decided here:** the track is the script version's, like a song take, so both videos of a pair share the same voice and the same timing.
+
+**N1. Narration (owner, on a Story script; a button on Write, not a step).** Shown when every spoken line is the narrator's (the cast read marks the narrator, as narrated looks do).
+
+| State | What they see | The one press |
+|---|---|---|
+| E | "Narrated: one voice reads the whole script over silent clips." A voice picker (the catalogue's voices, each with a 5-second sample, free) and the pace ("about 3.4 words a second", from the words and the voice). | **Make the narration · N credits** (one paid voice call, catalogue price, rule 2). |
+| Q/R | "Making the narration…" with a timer. | Cancel (before it starts). |
+| Done | The player, its length, and each sentence's start time (measured free, one "line" per sentence, as a take is measured). | **Use this narration** (like Preferred). **Make another** keeps this one until the new one is used. |
+| Words changed | "Reads older words": it can't be used, and stays playable. | **Make the narration** again. |
+| F | "The narration didn't finish. Nothing was charged." | **Try again**. |
+| B | Past the week: the button says why and is disabled (rule 5). | — |
+| U | Without a narration in use, the script is a plain Story script: its videos are made as today. Nothing blocks. | — |
+
+**In the video:** the breakdown is timed to the narration's sentences (V2's song clock, with sentences as the lines). Every shot is B-roll: there's no Sung and no lip-sync. Clip prompts ask for no speech. The video can change its narration like V2a (**Change narration**: the version's, or one made in this video), with the same re-flow, Undo and out-of-date marks as a take change.
+
+**Final cut:** V6 steps 1–4 with the narration in place of the song: each take is trimmed to its sentences, the takes are joined, their own sound is dropped, the narration is laid under, and the end fades. The states are as V6, with "Narration: [voice], laid under the whole video" and **Download the narration**.
+
+**Reusing scenes across a pair** (the pilot reused shots with no dog or face in them in the second video) is held with V3a until Reed answers. Until then, each video makes its own clips.
+
 ## Reed's song workflow: what's built (#807, "Building it into Next")
 
 | # | Reed's item | Flows | Built on `next` | Still to build | Owner |
@@ -363,6 +385,7 @@ The lip-sync clips were made from the same song, so they match. If the picture c
 | 3 | The song as the only sound in Make video | V6 | Flow written (#796) | Trim each take to its slice, lay the song under, fade (`n02`'s `song_slice`, `final_videos.song_take_id`) | Next-Server, then Next-Screens for V6's screen |
 | 4 | A study of a song ad: transcript, BPM, sections, frames | S3a | The reel import's free prep (download, cuts, frames, transcript) | The study job (BPM, sections) and its card; the directions taking it as a guide, with the no-repeated-lines check | Next-Server (study), Next-Screens (card), Director (directions input) |
 | 5 | One cast for a pair of videos | V3a | — | **Use this look** at Assets, after Reed's OK on rule 12 | Next-Server, Next-Screens |
+| — | Narrated ads (#814): one narrator track over silent clips | N1, V6n | The timing, trim and stitch come with 2 and 3 | The voice provider (Replicate speech, a free stand-in first) and N1's job; the breakdown and stitch taking a narration where they take a song; reusing scenes, held with V3a | Next-Server (provider, job, timing, stitch), Next-Screens (N1, Change narration), Director (no-speech clip prompts, the narrator check) |
 | 6 | Smaller alarms: "Check the cast" on insert shots, "answer" read as a spoken line, the free clip-prompt fix with nothing to fix | — | — | Prompt and check fixes, live and Next | Director |
 
 Order: 1's S3 route and 2 (#799) first, then 3, then 4, then 5 once Reed says yes.
