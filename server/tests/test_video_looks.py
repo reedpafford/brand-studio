@@ -316,3 +316,32 @@ def test_a_roles_own_house_look_holds_after_a_switch_and_is_back_with_house(owne
     assert made.status_code == 200, made.text  # made in the video's look
     new = next(r for r in made.json() if r["slot_id"] == nate)["library_item_id"]
     assert new != look and db.get(LibraryItem, new).sheet_look == "disney-pixar"
+
+
+def test_switching_back_recasts_a_role_to_the_own_look_it_has_in_that_look(owner, editor, db):
+    """Flows VS1 "U" and ST1 (the earlier looks come back, kept per look): Nate's own House
+    look, then a Disney Pixar one; back to House he's ready with his House look again, free,
+    and the switch's confirm doesn't count him as needing a new look (n12)."""
+    _, pid, nate = _video(owner, editor, db)
+    url = f"/projects/{pid}"
+    rows = editor.post(f"{url}/assets/slots/{nate}/make-look").json()
+    house = next(r for r in rows if r["slot_id"] == nate)["library_item_id"]
+    _drawn(db, editor, house)
+    editor.post(f"/library/character/{house}/sheet/approve")
+    owner.post(f"{url}/settings", json={"look": "disney-pixar"})
+    rows = owner.post(f"{url}/assets/slots/{nate}/make-look").json()
+    pixar = next(r for r in rows if r["slot_id"] == nate)["library_item_id"]
+    _drawn(db, editor, pixar)
+    editor.post(f"/library/character/{pixar}/sheet/approve")
+    assert _row(editor, pid, nate)["library_item_id"] == pixar
+
+    preview = owner.post(f"{url}/settings/preview", json={"look": "house"}).json()
+    assert preview["roles_needing_look"] == []  # he has one in House already: nothing to pay
+    jobs = db.query(Job).count()
+    assert owner.post(f"{url}/settings", json={"look": "house"}).status_code == 200
+    back = _row(editor, pid, nate)
+    assert (back["library_item_id"], back["sheet_status"], back["ready"]) == (house, "approved",
+                                                                            True)  # fmt: skip
+    assert db.query(Job).count() == jobs  # nothing made or charged
+    owner.post(f"{url}/settings", json={"look": "disney-pixar"})
+    assert _row(editor, pid, nate)["library_item_id"] == pixar  # and forth again

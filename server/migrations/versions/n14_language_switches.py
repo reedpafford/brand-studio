@@ -2,14 +2,14 @@
 test, in place of the fixed on/off list
 
 Revision ID: n14
-Revises: n03
+Revises: n12
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n14"
-down_revision = "n03"  # tracks next's head for CI; re-pointed to the head just before merge
+down_revision = "n12"  # tracks next's head for CI; re-pointed to the head just before merge
 branch_labels = None
 depends_on = None
 

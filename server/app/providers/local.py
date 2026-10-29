@@ -1,7 +1,7 @@
 """Free work done on our own server (`paid = False`, so it runs even with generation off):
-`reel_prepare` (app/reel.py), `song_timing` (app/song_timing.py) and `song_study`
-(app/song_study.py). Files it makes are handed to the worker as `local://` paths, which
-`fetch` reads once and deletes."""
+`reel_prepare` (app/reel.py), `song_timing` (app/song_timing.py), `song_study`
+(app/song_study.py) and `site_fetch` (app/site_fetch.py). Files it makes are handed to the
+worker as `local://` paths, which `fetch` reads once and deletes."""
 
 import shutil
 import tempfile
@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from app import narration, reel, song_study, song_timing
+from app import narration, reel, site_fetch, song_study, song_timing
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg"}
@@ -29,10 +29,12 @@ class LocalProvider:
         hear_voice: Callable[[Path, str], list[dict]] = song_timing.words,
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
+        read_site: Callable[[str], dict] = site_fetch.switched_off,
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
         self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study
         self.fetch_study = fetch_study  # a song-ad study's link (the stand-ins give a clip)
+        self.read_site = read_site  # Import from website (BR2): off unless switched on
         self.root = Path(tempfile.mkdtemp(prefix="bs-local-"))
 
     def run(self, kind: str, input: dict) -> Result:
@@ -42,6 +44,11 @@ class LocalProvider:
             return self._time_narration(input)
         if kind == "song_study":
             return self._study(input)
+        if kind == "site_fetch":
+            try:  # a site we can't read: a plain reason, free (the read says so)
+                return Result("succeeded", output=self.read_site(input["url"]))
+            except site_fetch.Refused as no:
+                return Result("succeeded", output={"problem": str(no)})
         if kind != "reel_prepare":
             raise ValueError(f"Unknown local job {kind!r}.")
         folder = Path(tempfile.mkdtemp(dir=self.root))

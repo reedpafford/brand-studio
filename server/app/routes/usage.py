@@ -403,11 +403,19 @@ class MyProject(BaseModel):
     credits: float
 
 
+class MyScript(BaseModel):
+    script_id: int
+    title: str
+    credits: float  # the caller's own calls writing it, in the period
+
+
 class MineOut(BaseModel):
-    credits: float  # the videos listed, plus quick clips
+    credits: float  # the videos listed, plus quick clips and writing scripts
     quick_clip_credits: float  # in the period
+    script_credits: float  # writing scripts, in the period: their own calls only
     videos: list[MyVideo]
     projects: list[MyProject]
+    scripts: list[MyScript] = []
 
 
 @router.get("/mine", response_model=MineOut)
@@ -419,7 +427,8 @@ def mine(
     db: Session = Depends(get_db),
 ):
     """OR4 for anyone: the caller's own videos in the brand, in credits only (never dollars,
-    never someone else's video), and their quick clips' credits in the period. Videos are
+    never someone else's video), and their quick clips' and script writing's credits in the
+    period (both come out of an editor's week). Videos are
     picked by the period as on the owner's list: done ones finished in it, others active."""
     get_brand(db, user, brand_id)
     when, names = usage.period(period), _names(db, brand_id)
@@ -441,12 +450,18 @@ def mine(
             last_activity_at=active))  # fmt: skip
     quick = usage.filed(db, brand_id, when, made_by=user.id, quick_only=True)
     quick_credits = float(sum((c["credits"] for c in quick.values()), Decimal(0)))
+    written = usage.script_credits(db, brand_id, when, user.id)
+    scripts = [MyScript(script_id=s.id, title=s.title, credits=float(written[s.id]))
+               for s in db.scalars(select(Script).where(Script.id.in_(written)))]  # fmt: skip
+    script_total = sum(s.credits for s in scripts)
     groups: dict = {}
     for v in videos:
         group = groups.setdefault(v.folder_id, [0, 0.0])
         group[0], group[1] = group[0] + 1, group[1] + v.credits
     return MineOut(
-        credits=sum(v.credits for v in videos) + quick_credits, quick_clip_credits=quick_credits,
+        credits=sum(v.credits for v in videos) + quick_credits + script_total,
+        quick_clip_credits=quick_credits, script_credits=script_total,
+        scripts=sorted(scripts, key=lambda s: -s.credits),
         videos=sorted(videos, key=lambda v: -v.last_activity_at.timestamp()),
         projects=[MyProject(folder_id=f, name=names.get(f, "No project"), videos=n, credits=c)
                   for f, (n, c) in sorted(groups.items(), key=lambda g: g[0] is None)])  # fmt: skip

@@ -9,6 +9,14 @@ class NetworkError(Exception):
     """The provider couldn't be reached. The only kind of error that is retried."""
 
 
+class NoKey(RuntimeError):
+    """A paid provider with no key refuses to send: a request without one could still be
+    signed on the way (a sandbox's network proxy adds credentials), and so cost money."""
+
+    def __init__(self, service: str):
+        super().__init__(f"{service} has no key here, so nothing was sent.")
+
+
 class NotStarted(Exception):
     """The provider certainly did not start the work (e.g. it said "too busy").
     Safe to try again later, even for paid work."""
@@ -60,6 +68,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             hear_song,
             hear_study,
             hear_voice,
+            read_site,
             refuse_link,
             study_link,
             transcript,
@@ -67,7 +76,8 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
 
         local = LocalProvider(storage, transcribe=transcript, fetch_link=refuse_link,
                               hear_song=hear_song, hear_voice=hear_voice,
-                              hear_study=hear_study, fetch_study=study_link)  # fmt: skip
+                              hear_study=hear_study, fetch_study=study_link,
+                              read_site=read_site)  # fmt: skip
         return {
             "fake": FakeProvider(),
             "replicate": FakeMedia(),
@@ -92,7 +102,10 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
         max_download_mb=settings.max_download_mb,
         token=settings.replicate_token.get_secret_value(),
     )
-    local = LocalProvider(storage)
+    from app import site_fetch
+
+    local = LocalProvider(storage, read_site=site_fetch.read_site if settings.site_read_real
+                          else site_fetch.switched_off)  # fmt: skip
     providers = {"fake": FakeProvider(), "replicate": replicate, "claude": _claude(settings),
                  "local": local}  # fmt: skip
     if kie_on(settings):  # Suno through KIE: only once Reed switches it on

@@ -129,6 +129,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.script_cast_read import save_cast_slots
     from app.script_variations import save_variations
     from app.script_write import save_written
+    from app.site_read import save_fetched, save_read
     from app.song_directions import save as save_directions
     from app.song_study import save as save_study
     from app.song_takes import save_take as save_song
@@ -164,6 +165,8 @@ def save_step_result(db: Session, job: Job) -> None:
         "narration_bed": save_bed,
         "song_timing": save_timing,
         "song_study": save_study,
+        "site_fetch": save_fetched,
+        "site_read": save_read,
     }
     handler = handlers.get(job.input.get("step", ""))
     if handler is None:

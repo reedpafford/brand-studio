@@ -27,7 +27,11 @@ def test_always_sends_aspect_and_never_the_fallback(app, editor, db, model):
     fake = FakeReplicate()
     run_once(
         db,
-        {"replicate": ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(fake)))},
+        {
+            "replicate": ReplicateProvider(
+                BASE, httpx.Client(transport=httpx.MockTransport(fake)), token="test-token"
+            )
+        },
         app.state.storage,
     )
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
