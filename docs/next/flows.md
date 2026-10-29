@@ -346,7 +346,7 @@ Where: the script's header, next to the title ("Style: House ▾"). Story and So
 | Owner sees Off entries | Owner can pick an Off entry on their own draft to try it, labelled "Off for editors: only you can use it". | **Use this style**, or **Switch on for editors** (only once a sample is approved, ST3). |
 | Publishing on an Off style | Publish says first: "Claymation is off for editors, so they couldn't make this." | **Publish on House instead** (free, Undo), or **Make a sample** (ST3) and switch it on, then publish. |
 | Format entry | "Song" is a format: on a Story script its card says "Song is a kind of script: start a new song script". | **Start a song script** (opens S1 with Song picked). |
-| Voiceover-led entry | Zack D and Skeleton are narrated: they use the narrator voiceover lines clips already carry ("Voiceover (Biscuit, in English…)", as Iron Paws Pitbull 1 does). Picking one on a script with no narrator line: Advice "This style is narrated: the script has no narrator lines yet." | **Make the narrator a role** (free: the cast read marks the script's voiceover speaker as the narrator), or keep it as a look only. |
+| Narrated look | Zack D and Skeleton are looks with `narrated: yes` in their registry file (so they're pickable on any script) and are narrated: they use the narrator voiceover lines clips already carry ("Voiceover (Biscuit, in English…)", as Iron Paws Pitbull 1 does). Picking one on a script with no narrator line: Advice "This style is narrated: the script has no narrator lines yet." | **Make the narrator a role** (free: the cast read marks the script's voiceover speaker as the narrator), or keep it as a look only. |
 | Format not built | An entry that needs steps we don't have (podcast, whiteboard): "Needs its own steps: not built yet". Not pickable. | — |
 | Change after looks exist | Confirm with the whole price of redoing: "Change to Claymation? 3 roles need a new look, 9 stills and 4 clips go out of date. To finish: about N credits (was M)." Not yet / Change. | **Change**. |
 | B | The estimate updates before the confirm; an editor over budget sees the reason and the picker stays on the current style. | — |
@@ -379,7 +379,7 @@ Where: the script's header, next to the title ("Style: House ▾"). Story and So
 
 # 3. Brand setup (build third)
 
-One Brand page with sections, each saying where it's used ("Used in: script, stills, clips"). Owner edits; editors read.
+One Brand page with sections, each saying where it's used ("Used in: script, stills, clips"). The new sections (products' description and claim, voice and tone, CTA lines, default cast, music style, default style and language, website import) are owner-only; editors read them. What editors can edit today (logo, colours, screens, Cast & places characters) stays as it is until Reed decides otherwise (behaviour unchanged, per the UX audit).
 
 ## BR1. The Brand page
 
