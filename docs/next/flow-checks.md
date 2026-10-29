@@ -52,8 +52,9 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | S4 | A section-level `[Lip-sync]` mark ("[Chorus] [Lip-sync]") still dates the takes and is sent to Suno to sing (line-level marks too) | Skip tag-only lines and strip inline marks, as #755's `check.sung_lines` does | #748 at 3607b3d |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
-| ST1 | #755 now makes Zack D and Skeleton `look`; flows.md ST1 treats them as narrated ("Make the narrator a role"), which a look can't signal | `format`, or `look` + `narrated: yes` (Next-Lead decides) | #755 at 7164efc3 |
+| ST1 | Zack D and Skeleton: decided as `look` + `narrated: yes` (Next-Lead); the field still to be added in #755 | Add `narrated: yes` | #755 at 7164efc3 |
 | V2 (to walk) | `song_breakdown(written=True)` by default: the editor's flip/split/join route must pass False | Walk when the route lands | #755 at 7164efc3 |
+| Repo | `web/node_modules` committed as a symlink to a local path (`node_modules/` in .gitignore misses symlinks) | `git rm --cached`; ignore `node_modules` | #771 at 1b48be60 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -94,3 +95,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #766 at bf5fbe3f (Clips words, Next-Layout) | Full browser suite at 390 and 1440; grey-button reasons, status chip, failure line, 44px on phones | PASS (52 passed, 1 skipped) |
 | 2026-10-29 | #755 at 7164efc3 | Story clip prompts vs next; Sung Advice on editor flips; 28 tests | PASS (Zack D / Skeleton kind to settle) |
 | 2026-10-29 | #759 at 99dc54a8 | Playwright at 1440 and 390: over the cap + trim, style refusal + default style, words refusal + Edit lyrics, earlier cases | PASS, 16/16 (note: the trimmed take could become Preferred itself) |
+| 2026-10-29 | #771 at 1b48be60 (Storyboard words, Next-Layout) | Full browser suite at 390 and 1440; reasons, one amber, in-app confirm | Flow PASS (52 passed); FAIL on the committed node_modules symlink |
