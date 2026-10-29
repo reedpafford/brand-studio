@@ -158,6 +158,7 @@ test("Products groups screens by product and lists their flavours; renaming a pr
   const calls = withScreens([bag, peanut], { "PATCH /brands/1/screens/4": [200, bag], "PATCH /brands/1/screens/5": [200, peanut] });
   renderAt("/b/1/brand?tab=products");
   expect(await screen.findByRole("heading", { name: /bag/ })).toHaveTextContent("2 flavours");
+  expect(screen.getByRole("link", { name: /line and main claim are on its page in Cast & places/ })).toHaveAttribute("href", "/b/1/library/props");
   expect(screen.getByRole("button", { name: "Chicken" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Peanut butter" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "More for bag" }));
