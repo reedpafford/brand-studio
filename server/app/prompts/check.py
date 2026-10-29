@@ -941,7 +941,11 @@ def without_names(result: SongDirections, sounds_like: str) -> list[str]:
 
 def copied_lines(result: SongDirections, study: dict | None) -> list[str]:
     """A direction's line that repeats a line of the song-ad study, word for word or nearly
-    (flows S3a: the study is someone else's song). A fix: the directions are written again."""
+    (flows S3a: the study is someone else's song). A fix: the directions are written again,
+    at most once, inside the same job and charged once, as the press's price promised (rule 22:
+    no surprise second charge). If a line still repeats after that rewrite, the job ends as
+    failed ("The directions didn't finish. Nothing was charged.") rather than showing a
+    copied line (Next-Lead)."""
     theirs = [_words(str(t)) for x in (study or {}).get("sections", [])
               for t in (x.get("lines") if isinstance(x.get("lines"), list) else [])]  # fmt: skip
     theirs = [t for t in theirs if len(t.split()) >= 4]
