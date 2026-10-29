@@ -48,6 +48,8 @@ class SongTakeOut(BaseModel):
 class SongsOut(BaseModel):
     songs_on: bool  # false: this server makes no songs (say so, don't offer Make)
     estimate_credits: float  # "Make 2 takes" (one request)
+    video_estimate_credits: float  # about what a video of these lyrics costs (a guess)
+    keep_lines: int | None  # over the cap: keep the first this-many sung lines to fit
     takes: list[SongTakeOut]
 
 
@@ -102,9 +104,12 @@ def _song(db: Session, user: User, script_id: int, slot: int, edit: bool) -> Scr
 
 
 def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> SongsOut:
+    video, keep = song_takes.lyrics_estimate(db, draft)
     return SongsOut(
         songs_on=songs_on(request),
         estimate_credits=float(song_takes.price(db, user)),
+        video_estimate_credits=float(video),
+        keep_lines=keep,
         takes=[_take_out(db, t, draft) for t in song_takes.takes(db, draft)],
     )
 

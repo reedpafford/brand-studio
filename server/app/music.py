@@ -21,6 +21,12 @@ TAKES = 2  # songs per request (A2)
 MAX_STYLE = 1000
 MAX_LYRICS = 5000
 TAG = re.compile(r"^\s*\[([^\]]*)\]\s*$")  # [Verse 1], [Chorus]: directions, never sung
+TAGS_ONLY = re.compile(r"^\s*(\[[^\]]*\]\s*)+$")  # "[Chorus] [Lip-sync]": no words either
+LIP_SYNC = re.compile(r"\s*\[lip[- ]?sync[^\]]*\]", re.I)  # our mark, never sent to Suno
+# Before a song exists its length is a guess from the words (sung pop: about 2 words a
+# second, plus an intro and an outro); the take's measured length replaces it.
+WORDS_PER_SECOND = 2
+INTRO_OUTRO_SECONDS = 8
 
 NO_LYRICS = "Add the lyrics first (or pick a song direction): the song sings them word for word."
 TOO_LONG = "The lyrics are too long for one song (5,000 characters at most). Cut a verse."
@@ -60,14 +66,31 @@ class NotReady(ValueError):
     """The request can't be made as it is; the message says what to do."""
 
 
+def for_suno(lyrics: str) -> str:
+    """The lyrics as sung: our [Lip-sync] marks taken out (a line left with nothing goes)."""
+    kept = []
+    for line in lyrics.strip().splitlines():
+        bare = LIP_SYNC.sub("", line).rstrip()
+        if bare.strip() or not line.strip():  # blank lines stay; a lone mark goes
+            kept.append(bare)
+    return "\n".join(kept)
+
+
 def sung(lyrics: str) -> list[str]:
-    """The lyric lines that are sung: everything but [tag] lines and blank lines."""
-    return [ln.strip() for ln in lyrics.splitlines() if ln.strip() and not TAG.match(ln)]
+    """The lyric lines that are sung: no lines made only of tags, no blank lines."""
+    return [ln.strip() for ln in for_suno(lyrics).splitlines()
+            if ln.strip() and not TAGS_ONLY.match(ln)]  # fmt: skip
+
+
+def guessed_seconds(lines: list[str]) -> int:
+    """About how long a song of these sung lines runs (see WORDS_PER_SECOND)."""
+    words = sum(len(ln.split()) for ln in lines)
+    return round(words / WORDS_PER_SECOND) + INTRO_OUTRO_SECONDS
 
 
 def job(lyrics: str, style_line: str) -> dict:
     """The worker input for one request (2 takes). Raises NotReady with a plain reason."""
-    lyrics = lyrics.strip()
+    lyrics = for_suno(lyrics)
     if not sung(lyrics):
         raise NotReady(NO_LYRICS)
     if len(lyrics) > MAX_LYRICS:

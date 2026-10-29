@@ -5998,6 +5998,10 @@ export interface components {
             songs_on: boolean;
             /** Estimate Credits */
             estimate_credits: number;
+            /** Video Estimate Credits */
+            video_estimate_credits: number;
+            /** Keep Lines */
+            keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
         };
@@ -6447,6 +6451,10 @@ export interface components {
             songs_on: boolean;
             /** Estimate Credits */
             estimate_credits: number;
+            /** Video Estimate Credits */
+            video_estimate_credits: number;
+            /** Keep Lines */
+            keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
             /** Song Take Id */
