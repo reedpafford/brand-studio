@@ -15,9 +15,9 @@ A state passes only if the person sees what's happening and has one press that m
 | S2 | Lyrics and style (word count, cap, end-line Advice) | ✅ save, edit-with-takes confirm | ✅ | #759 at 5698de50 (word count, cap and end-line Advice not built) |
 | S3 | Write 2 song directions | ⬜ | ⬜ | — |
 | S4 | Make the song: takes, Preferred, timing | ✅ (too long not built) | ✅ (too long not built) | #759 at 19bbca56 (UI); #748 at 317efac0 (API) |
-| S5 | Cast: who sings | ⬜ | ⬜ | — |
+| S5 | Cast: who sings | ✅ (Nobody only on the stand-in) | ✅ | #775 at f424baa8 (Singer role from the cast read, pre-pick and out-of-date preview still to walk) |
 | S6 | Breakdown preview (owner) | ⬜ | ⬜ | — |
-| S7 | Publish | ⬜ | API: ✅ takes read-only once published | #748 at 9a44a675 (API) |
+| S7 | Publish | ✅ card: song, style, singer | ✅ | #775 at f424baa8 (UI); #750 (API guard) |
 | V2a | The video's own song (editor: Change song, Make 2 more; rule 31) | ⬜ | API: ✅ 5 states, ❌ over-cap take | #750 at b4ef028e (API) |
 | V1 | Make this version | ⬜ | ⬜ | — |
 | V2 | Breakdown on the song (Sung / B-roll, split, join) | ⬜ | ⬜ | — |
@@ -104,3 +104,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #755 at 691a5eb5 | `written=False` default, `narrated: yes` | PASS, 28 tests |
 | 2026-10-29 | #773 at b3afd16f (Breakdown words, Assets loading, owner's OK) | Full browser suite at 390 and 1440 | Flow PASS (52 passed); FAIL on the committed node_modules symlink |
 | 2026-10-29 | #774 (audit Part 6, docs) | Read for dead ends and rule breaks | 3 live items added to Open failures |
+| 2026-10-29 | #775 at f424baa8 (S5 Singer, S7 Publish card, V1 song) | Playwright at 1440 and 390 + song.e2e | PASS (notes: Singer role from the cast read, out-of-date preview on a Singer change) |
