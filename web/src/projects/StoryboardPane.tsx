@@ -34,7 +34,7 @@ export function useFrames(projectId: number) {
 }
 
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. */
-export function StoryboardPane(props: { hold?: string | null; castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
+export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null; castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -224,7 +224,7 @@ export function StoryboardPane(props: { hold?: string | null; castRedraw?: { [ke
   const bar = !!props.oneStep && !frames.isPending && frames.isFetchedAfterMount && !frames.isError && !writingNow && !stillOld;
   const barApproves = bar && list.length > 0 && outOfDate.length === 0 && missing.length === 0;
   useCostBarAction(
-    !bar
+    !bar || props.barTaken // the video's Update everything after this has the bar
       ? null
       : list.length === 0
         ? { label: makeLabel, price: makeTotal ?? null, reason: stopFor(makeTotal), busy: make.isPending, onPress: () => make.mutate() }
