@@ -4666,8 +4666,9 @@ export interface paths {
         put?: never;
         /**
          * Undo Save
-         * @description Undo Save: the brand's colours and logo as they were, the products it made removed and
-         *     the descriptions it filled cleared. The read can be saved again.
+         * @description Undo Save: the colours it added taken out and its logo replaced by the one before
+         *     (unless changed since), the products it made removed and the descriptions it filled
+         *     cleared (unless edited since). The read can be saved again.
          */
         post: operations["undo_save_brands__brand_id__site_read__job_id__undo_post"];
         delete?: never;
