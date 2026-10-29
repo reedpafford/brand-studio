@@ -546,7 +546,7 @@ stateDiagram-v2
 | S10 | Assets (and every step): one skeleton covers the step picker counts, the header line and the cards until the step's own read lands. "Loading assets…" is said once. | G6, V6 | S |
 | S11 | The Cast & places page heading reads "Cast & places", not "Library". | G3 | S |
 | S12 | Downloads → **Final cut**: Download MP4 is the amber, the zip is secondary; "Video done" shows as a state line, not a toast on the zip. Same rename in In production and the Videos list. | V23, V24, O2 | S |
-| S13 | Shape change after stills: an in-app Dialog with the price ("Changing the shape redraws 6 stills · 2 credits"), not a browser pop-up. Same for "Redo storyboard" ("drops 6 stills"). | V1, V11 | S |
+| S13 | Shape change after stills: an in-app Dialog that says what really happens. Today nothing is redrawn (NL6), so it should say "6 stills and 4 clips go out of date" once N13 lands, and offer the redo with its price. The same goes for "Redo storyboard" ("drops 6 stills"). | V1, V11, NL6 | S |
 | S14 | The duplicated "Clips · N · M approved" and "Storyboard · N frames" headings fold into the page's own step heading meta line. | V14 | S |
 
 ### Medium
@@ -633,16 +633,20 @@ stateDiagram-v2
 | M21 | **Cast & places item page**: History says what changed; the sheet's main press is amber. Needs N9. | CP3 | M |
 | M22 | **One card system** (§6.11) shared by Scripts, Videos, In production, Usage lists, Quick clip History and Cast & places. Deletes the per-list cards it replaces (rule 26). | §6.11 | M |
 | M23 | **"This week: N of M"** on the Videos home and beside every paid amber for editors (the cost bar, M1). | §6.1, QC5 | S/M |
+| S37 | The editor's Scripts list: no script shown twice; the default filter shows as a chip ("Ready to make ✕") so finished scripts can be found. | NL4 | S |
+| S38 | 44 px at 390 for script title links, Cast & places tabs and buttons. | NL5 | S |
 | M24 | The **Reference filter** lists only references used by this brand's scripts. | LC7 | S/M |
 
 **For Next-Server (Part 6):**
 
 | # | What | Why |
 |---|---|---|
-| N8 | `GET /jobs` filters by person and brand (`mine`, `brand_id`), so History can show "my clips in this brand". | QC1 |
+| N8 | `GET /jobs` filters by person, brand and kind (`mine`, `brand_id`, Quick clips only), and pages, so History can show "my clips in this brand" and a busy week never pushes a paid clip out (NL1). | QC1, NL1 |
 | N9 | A library item's History says what changed in each version (a short diff of name, notes, outfits, sheet). | CP3 |
 | N10 | *If Reed wants it:* per-editor weekly allowance (today it's one number for all). | ST5, Q7 |
 | N11 | The "Lower the weekly allowance?" check counts an editor whose use **equals** the new limit. | ST5 |
+| N13 | A shape change marks the stills and clips made for the old shape out of date (kept, with the usual redo), as a breakdown change does. | NL6 |
+| N14 | *Per Reed's answer:* two weekly allowances (Quick clips 150, own scripts about 145) as rule 5 says, or rule 5 changes to one. | NL3 |
 | N12 | *If Reed decides editors can't edit brands:* `PATCH /brands/{id}` becomes owner-only (or the menu line changes instead). | B5, Q5 |
 
 ### Suggested build order
@@ -1037,6 +1041,19 @@ The rules:
 - Times say what they are ("made 2 days ago", "deleted 4 min ago").
 - Version numbers ("v4") and job numbers are never shown.
 - On owner pages, money is credits, then dollars.
+
+## 6.12 From Next-Layout's walk (folded in)
+
+Next-Layout ran its own walk before the hand-off (84 shots on branch `agent/next-layout/audit-part6`, closed as a duplicate, #774). Reed's words to them (2026-10-29): *"i want not only perfect, professional UI - but i want EVERYTHING looked at. I mean even brand selection. Does it make sense the way it is organized right now? How editors see whats available, what's been done - what information is shown at each card, everything"*. The points not already above:
+
+| Id | Finding | Sev | Evidence |
+|---|---|---|---|
+| **NL1** | **Quick clip History is built from the studio's newest 200 jobs of every kind,** then filtered to Quick clips in the browser. On a busy week a paid clip drops out of History altogether. | Major | `server/app/routes/jobs.py:198–214` (`limit(200)`); `clip/History.tsx` |
+| **NL2** | **Editors can save more than the Brand page:** screens, and Reed's own Cast & places characters, including a paid sheet redo. This is part of Q5; Next-Lead holds it as is until Reed decides. | Major | `brand/BrandPage.tsx:27, 51`; `library/ItemPage.tsx:146, 157–162`; `server/app/routes/library.py:240` |
+| **NL3** | **The server has one weekly allowance (145),** but rule 5 has two (Quick clips 150 a week, own scripts about 145). Next-Lead is taking this to the Producer and Reed. | Major | `server/app/models/credits.py:16–17`; rule 5 |
+| **NL4** | **The editor's Scripts list shows a script twice** (in "Making now" and in the list). It also defaults to "Ready to make" without saying so, so the editor's own finished script disappears from it. | Major | `scripts/ScriptsPage.tsx:130, 196–200, 372–383` |
+| **NL5** | **Under 44 px at 390:** script title links (23 px), Cast & places tabs (40 px) and its buttons (42 px). There's no sideways scroll on any screen. | Minor | Next-Layout's shots |
+| **NL6** | **Changing the shape doesn't redraw or mark the stills out of date on the server:** `PATCH /projects` only stores it, though the confirm says "Changing the shape redraws them". So after a shape change, stills and clips silently keep the old shape. Next-Lead is asking Next-Server to mark them out of date. | **Major** | `server/app/routes/projects.py:334–351`; `ShapeRow.tsx:21` |
 
 ---
 

@@ -17,8 +17,8 @@ does. Assumptions, to check against those docs:
 
 import re
 
-from app.prompts import SUNO_PACE, song_request
-from app.prompts.check import SUNG_RATE, sung_lines
+from app.prompts import SUNG_RATE, SUNO_PACE, song_request
+from app.prompts.check import sung_lines
 
 PROVIDER = "suno"
 TAKES = 2  # songs per request (A2)
@@ -76,9 +76,10 @@ class NotReady(ValueError):
 
 
 def guessed_seconds(lines: list[str]) -> int:
-    """About how long a song of these sung lines runs (check.SUNG_RATE words a second)."""
+    """About how long a song of these sung lines runs, at the slow end of prompts.SUNG_RATE
+    (words a second Suno sang), so the cap estimate is never short."""
     words = sum(len(ln.split()) for ln in lines)
-    return round(words / SUNG_RATE) + INTRO_OUTRO_SECONDS
+    return round(words / SUNG_RATE[0]) + INTRO_OUTRO_SECONDS
 
 
 def job(lyrics: str, style_line: str) -> dict:
