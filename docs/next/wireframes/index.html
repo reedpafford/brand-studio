@@ -211,7 +211,9 @@ const more = (what) => `<button class="more" aria-label="More for ${esc(what)}" 
 const media = (label, r = "r916") => `<div class="media ${r}">${label}</div>`;
 
 /* ---------- the screens ---------- */
-const VIDEO_STEPS = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-storyboard", "Storyboard"], ["v-clips", "Clips"], ["v-final", "Final cut"]];
+const VIDEO_STEPS_NO = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-storyboard", "Storyboard"], ["v-clips", "Clips"], ["v-final", "Final cut"]];
+const VIDEO_STEPS_YES = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-make", "Make"], ["v-final", "Final cut"]];
+const vsteps = () => (S.p51 === "yes" ? VIDEO_STEPS_YES : VIDEO_STEPS_NO);
 const STORY_STEPS = [["write", "Write"], ["plan", "Plan"], ["cast", "Cast"], ["publish", "Publish"]];
 const SONG_STEPS = [["song", "Song"], ["songtakes", "Takes"], ["plan", "Plan"], ["cast", "Cast"], ["publish", "Publish"]];
 
@@ -245,7 +247,7 @@ function videoHead(cur, extra) {
     ${S.view === "phone" ? "" : crumbs(`fomo › November launch › From: <a href="#" data-go="${song ? "song" : "write"}">${song ? "Pitbull song" : "The altar reel"}</a> · version ${song ? "A" : "B"}`, ["videos", "Videos"])}
     ${S.view === "phone" ? "" : `<div class="hrow"><h1>${title}</h1>${badge(song ? "Song" : "Dialogue")}${more(title)}<span class="spacer"></span>${settingsRow(song)}</div>`}
     ${S.view === "phone" ? settingsRow(song) : ""}
-    ${stepper(VIDEO_STEPS, cur, extra)}
+    ${stepper(vsteps(), S.p51 === "yes" && ["v-storyboard", "v-clips", "v-start"].includes(cur) ? "v-make" : cur, extra)}
   </div>`;
 }
 
@@ -566,19 +568,21 @@ function workView(kind) {
       ${c ? "" : `<div class="box">Change this…</div>`}</div>`;
   };
   const progress = S.st === "wait" ? (kind === "still" ? "Drawing stills: 6 of 9 · You can leave this page." : "Making takes: 6 of 9 made · 3 making · You can leave this page.") : kind === "still" ? (yes ? "9 stills · 8 approved on their own · 1 waits for you" : "9 stills · 1 approved") : yes ? "9 takes · 8 approved on their own · 1 waits for you" : "9 takes · 1 approved";
-  const head = videoHead(kind === "still" ? "v-storyboard" : "v-clips", { [kind === "still" ? "v-storyboard" : "v-clips"]: "1 with notes" });
+  const head = videoHead(kind === "still" ? "v-storyboard" : "v-clips", { [yes ? "v-make" : kind === "still" ? "v-storyboard" : "v-clips"]: "1 with notes" })
+    + (yes ? `<div class="tabsx" role="tablist" aria-label="Make"><button class="tabx" role="tab" aria-selected="${kind === "still"}" data-go="v-storyboard">Stills · 9</button><button class="tabx" role="tab" aria-selected="${kind === "clip"}" data-go="v-clips">Clips · 9</button></div>` : "");
   return {
     main: `<div class="stack-lg">${head}
       <div class="hrow"><span class="meta">${progress}</span><span class="spacer"></span><button class="badge" style="border:0;cursor:pointer" data-review>3 items with Advice ▸</button></div>
       ${reviewPanel()}
       <div class="grid">${[0, 1, 2].map(card).join("")}</div></div>`,
     bar: costbar({ used: kind === "still" ? 21 : 80, budget: 172, finish: S.st === "wait" ? "about 40" : kind === "still" ? "about 59" : "", press: S.st === "wait" ? "running · no press needed" : "",
-      amber: S.st === "wait" ? "" : yes ? (kind === "still" ? "Next: Clips" : "Next: Final cut") : (kind === "still" ? "Approve all frames (2)" : "Approve all takes (2)"),
-      go: S.st === "wait" ? "" : yes ? (kind === "still" ? "v-clips" : "v-final") : "", toast: yes ? "" : "Approved 2 (1 with Advice). Undo." }),
+      amber: S.st === "wait" ? "" : yes ? "Next: Final cut" : (kind === "still" ? "Approve all frames (2)" : "Approve all takes (2)"),
+      go: S.st === "wait" ? "" : yes ? "v-final" : "", toast: yes ? "" : "Approved 2 (1 with Advice). Undo." }),
   };
 }
-def("v-storyboard", "Video · Storyboard", () => workView("still"));
-def("v-clips", "Video · Clips", () => workView("clip"));
+def("v-make", "Video · Make (P5.1 yes: Stills and Clips tabs)", () => workView("clip"));
+def("v-storyboard", "Video · Storyboard (or Make › Stills)", () => workView("still"));
+def("v-clips", "Video · Clips (or Make › Clips)", () => workView("clip"));
 
 /* Video: Final cut */
 def("v-final", "Video · Final cut", () => {
