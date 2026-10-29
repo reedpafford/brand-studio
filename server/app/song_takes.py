@@ -142,6 +142,8 @@ def save_timing(db: Session, job: Job) -> None:
     elif usable and preferred(db, draft) is None:
         for t in takes(db, draft):  # an older take's mark goes: it sings old words
             t.preferred = t.id == take.id
+    if usable and project and project.song_take_id is None:  # a video's first song
+        project.song_take_id = take.id
 
 
 def advice(timing: dict) -> list[str]:
