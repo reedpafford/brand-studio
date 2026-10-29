@@ -20,6 +20,7 @@ from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.models.scripts import ScriptVersion
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
@@ -523,16 +524,40 @@ def unapprove(
     return _out(db, row, _newest_breakdown(db, project))
 
 
-def final_out_of_date(db: Session, project: Project) -> bool:
-    """A finished video whose clips changed since (LW2: lists said "Video done" while it was
-    out of date), read as Downloads reads it: a clip unapproved or made for an older
-    breakdown, or the final cut's picks or real images changed. Free, never stored."""
-    newest = _newest_breakdown(db, project)
-    if any(not c.approved or _stale(db, c, newest) for c in _clips(db, project.id)):
-        return True
-    query = select(FinalVideo).where(FinalVideo.project_id == project.id)
-    video = db.scalar(query.order_by(FinalVideo.id.desc()).limit(1))
-    return bool(video) and _video_out(db, video).out_of_date
+def out_of_date(db: Session, projects: list[Project]) -> set[int]:
+    """The finished videos whose clips changed since (LW2: lists said "Video done" while it
+    was out of date), read as Downloads reads it: a clip unapproved or made for an older
+    breakdown or script, or the final cut's picks or real images changed. Free, never
+    stored; one query per kind for the whole list, a video's cut-ins only read last."""
+    ids = [p.id for p in projects if p.finished_at]
+    if not ids:
+        return set()
+    clips: dict[int, list[ProjectClip]] = {}
+    for c in db.scalars(select(ProjectClip).where(ProjectClip.project_id.in_(ids))
+                        .order_by(ProjectClip.id)):  # fmt: skip
+        clips.setdefault(c.project_id, []).append(c)
+    top = select(func.max(BreakdownVersion.id)).where(BreakdownVersion.project_id.in_(ids))
+    bds = {b.project_id: b for b in db.scalars(select(BreakdownVersion).where(
+        BreakdownVersion.id.in_(top.group_by(BreakdownVersion.project_id))))}  # fmt: skip
+    script = dict(db.execute(select(ScriptVersion.project_id, func.max(ScriptVersion.version))
+                             .where(ScriptVersion.project_id.in_(ids))
+                             .group_by(ScriptVersion.project_id)).all())  # fmt: skip
+    videos: dict[int, FinalVideo] = {}
+    for v in db.scalars(select(FinalVideo).where(FinalVideo.project_id.in_(ids))
+                        .order_by(FinalVideo.id)):  # fmt: skip
+        videos[v.project_id] = v  # the newest wins
+    old = set()
+    for p in (p for p in projects if p.id in ids):
+        bd, rows = bds.get(p.id), clips.get(p.id, [])
+        moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
+        if any(not c.approved or moved or c.breakdown_id != bd.id for c in rows):
+            old.add(p.id)
+        elif (video := videos.get(p.id)) and (
+            video.take_ids != [c.picked_take_id for c in rows]
+            or (video.cut_ins or []) != _cut_ins(db, p, rows)
+        ):
+            old.add(p.id)
+    return old
 
 
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:
