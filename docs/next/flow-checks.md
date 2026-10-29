@@ -59,6 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
+| Script page's project picker (#950) | An editor on the owner's script sees "Project: none ▾"; every pick is refused (403) | Show it only to the owner or the script's maker, as on videos and quick clips |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -312,3 +313,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #952 at 88cc3834 | PASS: VS1's look switch confirm names the roles needing a new look (ST1) |
 | 2026-10-29 | #945 a0752c67; #941 58b94d73 (both with #934 in) | #945 PASS (read_again covers the version's stand-in). #941 PASS: all four produce paths priced right (no plan → plan job; preview → free; owner plan → shots; older preview → fresh shots) |
 | 2026-10-29 | #954 at 60cabd90 (OR2 Media, server) | PASS: empty list, items with Open in {step} and Download, editor sees only what they can already open, deleted video flagged, filters. Note: sheets have no made_by |
+| 2026-10-29 | 17:27 check-in; #950 at 0fab818b (OR1 screens) | Projects list, New/Rename/Delete with Undo, filters, phone sheet, pickers on videos and clips: PASS. FAIL: the script picker for editors (open above). Clear to merge: #944 #945 #947 #948 #952 #954. None into main |
