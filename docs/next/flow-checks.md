@@ -128,3 +128,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #780 at 176ab254 | The four states named (drawing fails after rewrite, Undo both, limits, shot; Redo the changed frames) | PASS |
 | 2026-10-29 | #794 at dc146653 (song pilot follow-ups) | Story prompts identical; 32 tests; sounds-like handling | PASS (note: the artist name in the style is Advice, better as a fix) |
 | 2026-10-29 | #799 at 1a1ac61e (song timing, re-flow) | Re-flow free; Undo exact (7/7); effect on clips | FAIL: clips not marked out of date after a song switch |
+| 2026-10-29 | #802 at db5c0c58 (video takes never Preferred) | V2a API cases | PASS (6/6); #799 at dc121c63 still has the clips-not-out-of-date FAIL |
