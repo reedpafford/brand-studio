@@ -301,7 +301,18 @@ def test_a_roles_own_house_look_holds_after_a_switch_and_is_back_with_house(owne
     with pytest.raises(HTTPException) as held:
         require_looks(shown(), storyboard.assets(db, project))
     assert held.value.detail == "Nate has no approved look yet. Approve one in Cast."
+    row = _row(editor, pid, nate)  # Cast offers Make a look, not Approve (QA-3)
+    assert (row["library_item_id"], row["sheet_status"], row["ref"]) == (None, "missing",
+                                                                        f"slot:{nate}")  # fmt: skip
+    assert row["own_look_id"] == look and not row["ready"]
     assert owner.post(f"/projects/{pid}/settings", json={"look": "house"}).status_code == 200
     db.refresh(project)
     assert sheet_for(db, project, item) == [item.sheet_file_id]
     require_looks(shown(), storyboard.assets(db, project))  # House again: nothing held
+    assert _row(editor, pid, nate)["library_item_id"] == look
+
+    owner.post(f"/projects/{pid}/settings", json={"look": "disney-pixar"})
+    made = owner.post(f"/projects/{pid}/assets/slots/{nate}/make-look")
+    assert made.status_code == 200, made.text  # made in the video's look
+    new = next(r for r in made.json() if r["slot_id"] == nate)["library_item_id"]
+    assert new != look and db.get(LibraryItem, new).sheet_look == "disney-pixar"
