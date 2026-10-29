@@ -1,3 +1,5 @@
+import json
+
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
@@ -67,3 +69,33 @@ def test_saved_caps_on_the_old_default_move_to_729(tmp_path):
         weekly = conn.execute(text("SELECT weekly_quick_clip_credits FROM credit_limits")).all()
     assert caps == {1: 729, 2: 500}
     assert {float(w) for (w,) in weekly} == {145}  # the old 150 default became $15 (0024)
+
+
+def test_n08_copies_never_say_and_end_line_and_keeps_them(tmp_path):
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n05")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO workspaces (id, name, created_at) VALUES (1, 'S', '2026-01-01')")
+        )
+        conn.execute(text(
+            "INSERT INTO brands (id, workspace_id, name, slug, archived, colours, fonts,"
+            " tone_notes, never_say, legal_line, end_line, created_at) VALUES (1, 1, 'B', 'b',"
+            " 0, '[]', '[]', '', :never, '', 'Link in bio', '2026-01-01')"
+        ), {"never": json.dumps(["cure", "cure", " guaranteed "])})  # fmt: skip
+    command.upgrade(cfg, "n08")
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT dont_list, cta_lines, never_say, end_line FROM brands")
+        ).one()
+    assert json.loads(row.dont_list) == ["cure", "guaranteed"]
+    lines = json.loads(row.cta_lines)
+    assert [(x["text"], x["default"]) for x in lines] == [("Link in bio", True)]
+    assert row.end_line == "Link in bio" and json.loads(row.never_say)[0] == "cure"  # kept
+    command.downgrade(cfg, "n05")
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT never_say, end_line FROM brands")).one()
+    assert json.loads(row.never_say) == ["cure", "guaranteed"] and row.end_line == "Link in bio"
