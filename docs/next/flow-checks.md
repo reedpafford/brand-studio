@@ -319,3 +319,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #956 at e30fc287 (VS1 settings at Make this version) | PASS: settings land on the new video; an off look (409) or bad model (422) makes nothing and leaves the version free; song version Sung → B-roll on 2.0 |
 | 2026-10-29 | #958 at c37a062f (OR4 cost log, server) | PASS: owner per-project and per-video in dollars, spend follows filing, editors 404 there and credits-only on their own videos and quick clips |
 | 2026-10-29 | #959 at e7c74e22 | PASS: a long menu scrolls inside itself; New brand reachable with 25 brands (zzmenu.e2e live) |
+| 2026-10-29 | #960 at 9f0d2ae0 | PASS: with the owner's plan approved, the version panel says "(the shots)"; closes the #942 note. scripts.test 94 |
