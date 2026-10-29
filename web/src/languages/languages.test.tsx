@@ -87,6 +87,15 @@ test("a failed test says why with Try again; the test site says first if it's a 
   expect(within(card).getByRole("button", { name: /Try again · 3 credits/ })).toBeInTheDocument();
 });
 
+test("a card whose test couldn't load says why with Try again", async () => {
+  setViewport(390);
+  const calls = fakeServer(routes({ "GET /languages/es/sample": [500, { detail: "Something went wrong." }] }));
+  open();
+  const card = await screen.findByLabelText("Spanish");
+  await userEvent.click(await within(card).findByRole("button", { name: "Try again" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /languages/es/sample").length).toBeGreaterThan(1));
+});
+
 test("editors don't get the Languages page", async () => {
   setViewport(1440);
   fakeServer(routes({ "GET /auth/me": [200, editor] }));
