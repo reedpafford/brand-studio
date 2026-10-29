@@ -22,6 +22,7 @@ NO_FOLDER = "No such project."
 NO_ITEM = "No such {} to file."
 NOT_YOURS = "Only whoever made it, or the owner, can do that."
 OTHER_BRAND = "That project is for another brand."
+PICK = "Pick a project, or No project."
 VIDEO_JOB = "That's part of a video, so it's filed with the video."
 
 
@@ -102,7 +103,7 @@ def where(column, folder: str | None):
     try:
         return column == int(folder)
     except ValueError:
-        raise HTTPException(422, "Pick a project, or No project.") from None
+        raise HTTPException(422, PICK) from None
 
 
 def _scripts(user: User):

@@ -24,6 +24,7 @@ from app.routes import (
     languages,
     library,
     looks,
+    media,
     models,
     plan,
     production,
@@ -133,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         draft_plan,
         video_settings,
         languages,
+        media,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)
