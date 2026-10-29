@@ -1,9 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../api/client";
+import { useMayManageVideo } from "./ReleaseVideo";
 import { orCall } from "./orCall";
 import { VersionList } from "./Versions";
 
 type Maker = { id: number; name: string } | null;
 const n = (k: number, one: string) => `${k} ${one}${k === 1 ? "" : "s"}`;
+
+/** OR3's presses are whoever made the video's, or the owner's (403 otherwise, #957): for anyone else they're hidden. */
+export function useMayChangeVideo(projectId: number) {
+  const may = useMayManageVideo();
+  const project = useQuery({ queryKey: ["project", projectId], queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: projectId } } })).data ?? null });
+  return !!project.data && may(project.data);
+}
 
 /** Each step's own lists and everything made from it: going back marks later steps Out of date (or current again). */
 function useRefresh(projectId: number) {
@@ -13,10 +22,11 @@ function useRefresh(projectId: number) {
 
 /** OR3: the storyboard's versions, the one in hand first, then up to 10 earlier. Undo uses index 0 (the one replaced). */
 export function StoryboardVersions({ projectId, hold }: { projectId: number; hold: string | null }) {
+  const may = useMayChangeVideo(projectId);
   const refresh = useRefresh(projectId);
   const key = ["storyboard-versions", projectId];
   type Row = { index: number | null; made_at: string | null; made_by: Maker; frames: number; current: boolean };
-  const rows = useQuery({ queryKey: key, queryFn: () => orCall<Row[]>("GET", `/projects/${projectId}/storyboard/versions`) }).data ?? [];
+  const rows = useQuery({ enabled: may, queryKey: key, queryFn: () => orCall<Row[]>("GET", `/projects/${projectId}/storyboard/versions`) }).data ?? [];
   const use = async (index: string) => {
     await orCall("POST", `/projects/${projectId}/storyboard/versions/${index}/use`);
     await refresh(key);
@@ -38,6 +48,7 @@ export function StoryboardVersions({ projectId, hold }: { projectId: number; hol
 
 /** OR3: one clip prompt's versions (index 0 is in hand; at most 10). Going back clears Looks good; Undo uses index 1. */
 export function ClipVersions({ projectId, clipRowId, label, versions }: { projectId: number; clipRowId: number; label: string; versions: { index: number; made_at: string | null; made_by: Maker; current: boolean }[] }) {
+  const may = useMayChangeVideo(projectId);
   const refresh = useRefresh(projectId);
   const base = `/projects/${projectId}/clips/${clipRowId}/versions`;
   const use = async (index: string) => {
@@ -48,6 +59,7 @@ export function ClipVersions({ projectId, clipRowId, label, versions }: { projec
       await refresh();
     };
   };
+  if (!may) return null;
   return (
     <VersionList
       title={`Prompt versions for clip ${label}`}
@@ -62,10 +74,11 @@ const SOURCE: Record<string, string> = { claude: "Made by Claude", edit: "Edited
 
 /** OR3: the breakdown's versions, newest first (20). Undo goes back to the one replaced (`was_id`). */
 export function BreakdownVersions({ projectId, hold }: { projectId: number; hold?: string | null }) {
+  const may = useMayChangeVideo(projectId);
   const refresh = useRefresh(projectId);
   const key = ["breakdown-versions", projectId];
   type Row = { id: number; made_at: string | null; made_by: Maker; source: string; current: boolean };
-  const rows = useQuery({ queryKey: key, queryFn: () => orCall<Row[]>("GET", `/projects/${projectId}/breakdown/versions`) }).data ?? [];
+  const rows = useQuery({ enabled: may, queryKey: key, queryFn: () => orCall<Row[]>("GET", `/projects/${projectId}/breakdown/versions`) }).data ?? [];
   const go = (id: string | number) => orCall<{ was_id?: number | null }>("POST", `/projects/${projectId}/breakdown/versions/${id}/use`);
   const use = async (id: string) => {
     const was = (await go(id))?.was_id;

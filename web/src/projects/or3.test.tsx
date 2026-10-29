@@ -10,7 +10,7 @@ import { setViewport } from "../test/viewport";
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
-  cast_ids: [4], reference_file_id: null, estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0,
+  cast_ids: [4], reference_file_id: null, estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0, created_by_id: 2,
 };
 const script = { version: 5, source: "paste", words: 9, created_by_id: 2, created_at: "2026-10-23T10:00:00Z", text: "Mia scrolls her phone." };
 const breakdown = { id: 1, script_version: 5, source: "claude", stale: false, problems: [], breakdown: { hook: "Hook.", scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [] }], clips: [] } };
@@ -106,4 +106,14 @@ test("E: the breakdown's versions go back to an earlier one, and Undo goes back 
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown/versions/1/use")).toBe(true));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown/versions/3/use")).toBe(true));
+});
+
+test("an editor who didn't make the video sees no earlier stills or versions to go back to (403 on the server)", async () => {
+  setViewport(1440);
+  const other = { ...base, "GET /projects/9": [200, { ...project, created_by_id: 7 }] as [number, unknown] };
+  fakeServer({ ...other, "GET /projects/9/storyboard": [200, [frame({ file_id: 40, earlier: [{ file_id: 38, prompt: "p", made_at: null, made_by: null }] })]], "GET /projects/9/storyboard/versions": [200, [{ index: null, made_at: null, made_by: null, frames: 1, current: true }, { index: 1, made_at: null, made_by: null, frames: 1, current: false }]] });
+  open();
+  await screen.findByLabelText("Frame c1");
+  expect(screen.queryByText(/Earlier stills/)).toBeNull();
+  expect(screen.queryByText(/Storyboard versions/)).toBeNull();
 });
