@@ -55,6 +55,8 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | ST1 | Zack D and Skeleton: decided as `look` + `narrated: yes` (Next-Lead); the field still to be added in #755 | Add `narrated: yes` | #755 at 7164efc3 |
 | V2 (to walk) | `song_breakdown(written=True)` by default: the editor's flip/split/join route must pass False | Walk when the route lands | #755 at 7164efc3 |
 | Repo | `web/node_modules` committed as a symlink to a local path (`node_modules/` in .gitignore misses symlinks) | `git rm --cached`; ignore `node_modules` | #771 at 1b48be60 |
+| S4 (rule 3) | Trim → Preferred → Undo the trim leaves an over-cap take Preferred, and the script publishes (200) over the 729 cap | Un-trim hands Preferred back or refuses; `preferred()` and `use_in_video` skip over-cap takes | #748 at 3607b3d |
+| S4 U (UI) | When the trim also makes the take Preferred, its Undo toast is replaced by "Take 1 is Preferred." (no Undo); the trim can't be undone | One toast, one Undo reversing both | #759 at da86aa07 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -96,3 +98,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #755 at 7164efc3 | Story clip prompts vs next; Sung Advice on editor flips; 28 tests | PASS (Zack D / Skeleton kind to settle) |
 | 2026-10-29 | #759 at 99dc54a8 | Playwright at 1440 and 390: over the cap + trim, style refusal + default style, words refusal + Edit lyrics, earlier cases | PASS, 16/16 (note: the trimmed take could become Preferred itself) |
 | 2026-10-29 | #771 at 1b48be60 (Storyboard words, Next-Layout) | Full browser suite at 390 and 1440; reasons, one amber, in-app confirm | Flow PASS (52 passed); FAIL on the committed node_modules symlink |
+| 2026-10-29 | #759 at da86aa07, #748 at 3607b3d | Trim → auto-Preferred → Undo (Playwright 390/1440 + API) | FAIL: Undo lost (UI); untrim + publish breaks the cap (API) |
