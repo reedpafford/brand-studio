@@ -99,14 +99,12 @@ export function ClipCard(props: {
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
   const problems = blocking(c.problems, c.kept).length > 0;
   // A grey paid button always says why, naming the press that moves it on.
-  const why = props.toRead
-    ? "Press Prompt OK first."
-    : props.blockers.length > 0
+  const why = props.blockers.length > 0
       ? `Approve ${blockerNames(props.blockers)}'s sheet first.`
       : c.stale
         ? "Rewrite this clip's prompt first."
         : problems
-          ? "Fix the problem above first."
+          ? "Fix the problems above first."
           : props.busy
             ? "A take is being made."
             : props.stopFor(props.cost);
@@ -259,7 +257,7 @@ export function ClipCard(props: {
         <div className="flex flex-wrap items-center gap-2">
           {updated && (
             <p className="w-full text-muted" role="status">
-              Prompt updated. Read it, press Prompt OK, then press {verb}.
+              Prompt updated. Read it, then press {verb}.
             </p>
           )}
           {c.picked_take_id !== null && !c.approved && (
@@ -277,8 +275,9 @@ export function ClipCard(props: {
               {props.toRead ? "Prompt OK" : "Undo Prompt OK"}
             </Button>
           )}
+          {/* A prompt only waiting for Prompt OK isn't a reason: the press marks it Prompt OK and makes the take (#751). */}
           {note === null && (
-            <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => props.onGenerate()}>
+            <Button variant="secondary" dense price={props.cost} disabled={!!why} reason={why} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
               {verb}
             </Button>
           )}

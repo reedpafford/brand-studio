@@ -190,13 +190,13 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   // In the new flow every prompt is read and marked "Looks good" before takes are paid for.
   const toRead = (c: Clip) => !!props.review && c.takes.length === 0 && !c.prompt_ok;
   const unread = list.filter(toRead).length;
-  // The clips "Make the takes" makes: unread prompts count too (the button waits for them, and says so).
-  const missing = list.filter((c) => c.takes.length === 0 && blocking(c.problems, c.kept).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
+  const missing = list.filter((c) => c.takes.length === 0 && !toRead(c) && blocking(c.problems, c.kept).length === 0 && !c.stale && !busyFor(c) && blocks.forClip(c.clip_id).length === 0);
   const waitingForSheet = list.filter((c) => c.takes.length === 0 && blocks.forClip(c.clip_id).length > 0);
   const allCost = missing.reduce((n, c) => n + c.take_credits, 0);
   const approved = list.filter((c) => c.approved).length;
   const stale = list.filter((c) => c.stale);
-  const unreadWhy = `Press Prompt OK on each prompt before the takes are made (${unread} left).`;
+  // Make the takes makes only prompts already checked; a clip's own Make clip checks its prompt and makes it in one press (#751).
+  const unreadWhy = `Check each prompt first: Prompt OK, or Make clip on its card (${unread} left).`;
   // The rewrite comes first: a stale prompt is read again after it.
   const makeWhy = stale.length > 0 ? `Rewrite the clips made for an older breakdown first (${stale.length}).` : unread > 0 ? unreadWhy : stopFor(allCost);
   const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
@@ -259,7 +259,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
       {approveAll.line}
       {declined && <p className="text-sm text-warning">{declined}</p>}
       {stale.length > 0 && <RewriteNote projectId={projectId} count={stale.length} writing={writingNow} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(undefined)} />}
-      {unread > 0 && missing.length === 0 && <p className="text-sm text-muted">{unreadWhy}</p>}
+      {unread > 0 && missing.length === 0 && stale.length === 0 && <p className="text-sm text-muted">{unreadWhy}</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       {waitingForSheet.length > 0 && (
         <p className="text-sm text-warning">

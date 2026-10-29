@@ -1,13 +1,13 @@
-"""Free work done on our own server (`paid = False`, so it runs even with generation off).
-Today one job: `reel_prepare` (app/reel.py). Files it makes are handed to the worker as
-`local://` paths, which `fetch` reads once and deletes."""
+"""Free work done on our own server (`paid = False`, so it runs even with generation off):
+`reel_prepare` (app/reel.py) and `song_timing` (app/song_timing.py). Files it makes are handed
+to the worker as `local://` paths, which `fetch` reads once and deletes."""
 
 import shutil
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from app import reel
+from app import reel, song_timing
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg"}
@@ -23,11 +23,15 @@ class LocalProvider:
         storage,
         transcribe: Callable[[Path], list[dict]] = reel.transcribe,
         fetch_link: Callable[[str, Path], Path] = reel.fetch,
+        hear_song: Callable[[Path, str], list[dict]] = song_timing.words,
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
+        self.hear_song = hear_song
         self.root = Path(tempfile.mkdtemp(prefix="bs-local-"))
 
     def run(self, kind: str, input: dict) -> Result:
+        if kind == "song_timing":
+            return self._time_song(input)
         if kind != "reel_prepare":
             raise ValueError(f"Unknown local job {kind!r}.")
         folder = Path(tempfile.mkdtemp(dir=self.root))
@@ -46,6 +50,14 @@ class LocalProvider:
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)
             raise
+
+    def _time_song(self, input: dict) -> Result:
+        with tempfile.TemporaryDirectory(dir=self.root) as folder:
+            song = Path(folder) / "song.mp3"
+            song.write_bytes(self.storage.get(input["song_key"]))
+            hear = (lambda path, lyrics: []) if input.get("spread") else self.hear_song
+            timing = song_timing.measure(song, input["lyrics"], hear=hear)
+        return Result("succeeded", output={"timing": timing})
 
     def _prepare(self, input: dict, folder: Path) -> dict:
         if input.get("url"):

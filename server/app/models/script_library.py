@@ -15,6 +15,7 @@ class Script(Entity, Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(20), default="story")  # story | song (song ads)
     description: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     reference_id: Mapped[str | None] = mapped_column(String(80))  # a GET /references reel
@@ -41,8 +42,15 @@ class ScriptDraft(Entity, Base):
     __table_args__ = (UniqueConstraint("script_id", "slot"),)
     script_id: Mapped[int] = mapped_column(ForeignKey("scripts.id"), index=True)
     slot: Mapped[int]
-    text: Mapped[str] = mapped_column(Text, default="")
+    text: Mapped[str] = mapped_column(Text, default="")  # a song's lyrics
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | approved
+    # Song ads: the music style line, and the song directions offered for it
+    # ([{title, concept, lyrics, style_line, visual_concept, recommended, unchecked_claims}])
+    style_line: Mapped[str] = mapped_column(Text, default="")
+    song_directions: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    singer: Mapped[str] = mapped_column(String(120), default="")  # a cast role; "": nobody seen
+    # Rule 18: an end line spoken over the song's last seconds (music lowered), at the stitch
+    spoken_end_line: Mapped[str] = mapped_column(Text, default="")
     approved_at: Mapped[datetime | None]
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     target_seconds: Mapped[int | None]  # null: the breakdown decides the length

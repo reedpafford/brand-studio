@@ -133,14 +133,14 @@ for (const width of [1440, 390]) {
     }
     await page.getByRole("button", { name: /Next: Clips/ }).click();
 
-    // Each prompt is read and marked Prompt OK before the take is made.
+    // Each prompt is read and marked Prompt OK before the take is made; Make clip marks it for you (Reed's #32 c6).
     await page.getByRole("button", { name: /Write clip prompts/ }).click();
     await expect(page.getByRole("listitem", { name: "Clip c1" })).toBeVisible({
       timeout: 30_000,
     });
-    await expect(
-      page.getByRole("button", { name: /^Make clip/ }).first(),
-    ).toBeDisabled();
+    const make = page.getByRole("button", { name: /^Make clip/ }).first();
+    await expect(make).toBeEnabled();
+    if (width === 390) expect((await make.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     if (width === 390) {
       // A change that didn't finish (Reed's c5, job 876): a plain line, the words kept, Try again, nothing sideways.
       await page.route(`**/api/projects/${id}/clips`, async (route) => {

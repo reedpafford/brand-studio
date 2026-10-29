@@ -407,7 +407,7 @@ test("a grey Make clip always says why, on the line under it", async () => {
   const card = await screen.findByLabelText("Clip c1");
   const make = within(card).getByRole("button", { name: "Make clip · 24 credits" });
   expect(make).toBeDisabled();
-  expect(make).toHaveAccessibleDescription("Fix the problem above first.");
+  expect(make).toHaveAccessibleDescription("Fix the problems above first.");
 });
 
 test("a failed newest take never turns a card with a good picked take red, and never says Ask the owner", async () => {

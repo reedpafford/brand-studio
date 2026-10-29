@@ -99,9 +99,9 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
               scripts: [
                 ...linkList.map((url) => ({ brand_id: brandId, reel_url: url })),
                 ...files.ready.flatMap((f) => (f.id === null ? [] : [{ brand_id: brandId, upload_id: f.id }])),
-              ].map((row) => ({ ...row, description: "", notes: "", reference_replace: change.trim(), new_lines: newLines, text: "" })),
+              ].map((row) => ({ ...row, description: "", notes: "", reference_replace: change.trim(), new_lines: newLines, text: "", kind: "story" as const })),
             }
-          : { scripts: rows.map((r) => ({ brand_id: brandId, title: r.title.trim(), description: r.description.trim(), notes: "", reference_replace: "", text: "", ...(r.reference ? { reference_id: r.reference } : {}) })) },
+          : { scripts: rows.map((r) => ({ brand_id: brandId, title: r.title.trim(), description: r.description.trim(), notes: "", reference_replace: "", text: "", kind: "story" as const, ...(r.reference ? { reference_id: r.reference } : {}) })) },
       });
       if (!data) throw new Error(errorText(error));
       return data;
