@@ -299,6 +299,19 @@ test("on an editor's own script the header shows the week, not a budget", async 
   expect(screen.queryByText(/% ·|credits · \d+%/)).toBeNull();
 });
 
+test("Assets gets its tick only once it has been opened, not before (#749 LW9)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
+  open("?step=breakdown");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  const tick = () => within(steps).getByRole("button", { name: "Assets" }).querySelector(".text-success");
+  await vi.waitFor(() => expect(within(steps).getByRole("button", { name: "Assets" })).toBeEnabled());
+  expect(tick()).toBeNull();
+  await userEvent.click(within(steps).getByRole("button", { name: "Assets" }));
+  await userEvent.click(await within(steps).findByRole("button", { name: "Breakdown" }));
+  await vi.waitFor(() => expect(tick()).not.toBeNull());
+});
+
 test("Assets shows where each one is used, the role's description, and the products and app screens the shots show", async () => {
   setViewport(1440);
   fakeServer({
