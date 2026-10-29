@@ -75,12 +75,12 @@ test("no plan yet: Make the plan shows its price; Shots is greyed until approved
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan")).toBe(true));
 });
 
-test("making: in words with a timer, Cancel before it starts", async () => {
+test("making: in words with a timer, and Stop (queued or running, never charged)", async () => {
   setViewport(1440);
   fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [200, plan({ scenes: [], job: { id: 30, status: "queued", reason: null, started_at: new Date().toISOString() } })] });
   open();
   expect(await screen.findByText(/Waiting to start/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
 });
 
 test("ready to check: structure, cast, scene cards with place, lines, actions and the ★; Approve the plan · makes the shots opens Shots", async () => {
@@ -130,5 +130,130 @@ test("over budget: the paid presses say why; Write it myself stays", async () =>
   fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ stop: "That's more than this video's budget." })] });
   open();
   expect(await screen.findByRole("button", { name: /Approve the plan/ })).toBeDisabled();
-  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(screen.getAllByText("That's more than this video's budget.").length).toBeGreaterThan(0); // every paid press says why
+});
+
+const two = [
+  { id: "s1", part: "Problem", place: "Kitchen", time: "Morning", cast_ids: ["char:4"], lines: [{ n: 1, text: "Mia scrolls.", action: "Coffee freezes.", star: false }, { n: 2, text: "It dipped?", action: "Eyes wide.", star: false }] },
+  { id: "s2", part: "Payoff", place: "Kitchen", time: "Morning", cast_ids: ["char:4"], lines: [{ n: 3, text: "Buy the dip.", action: "She grins.", star: true }] },
+];
+
+test("a line moves across its edge with one press (a sheet at 390), saved at once with Undo", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [200, plan({ scenes: two })] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Move to scene 2" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/plan")?.body).toMatchObject({ scenes: [{ lines: [{ n: 1 }] }, { lines: [{ n: 2 }, { n: 3 }] }] }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /projects/9/plan").at(-1)?.body).toMatchObject({ scenes: [{ lines: [{ n: 1 }, { n: 2 }] }, { lines: [{ n: 3 }] }] }));
+});
+
+test("a middle line offers Start a new scene here but no move; the last scene offers no Join", async () => {
+  setViewport(1440);
+  const three = [{ ...two[0], lines: [...two[0].lines, { n: 2.5, text: "Wait.", action: "", star: false }].map((l, i) => ({ ...l, n: i + 1 })) }, { ...two[1], lines: [{ ...two[1].lines[0], n: 4 }] }];
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: three })] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
+  expect(screen.getByRole("menuitem", { name: "Start a new scene here" })).toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: /Move to scene/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "More for scene 2" })).toBeNull();
+  expect(screen.getByRole("button", { name: "More for scene 1" })).toBeInTheDocument();
+});
+
+test("editing an approved plan asks first, then saves; Edit types the place and each line's action", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two })], "PUT /projects/9/plan": [200, plan({ scenes: two })] });
+  open("?step=plan&view=scenes");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit scene 2" }));
+  const place = screen.getByLabelText("Place");
+  await userEvent.clear(place);
+  await userEvent.type(place, "Office");
+  await userEvent.click(screen.getByRole("button", { name: "Save scene" }));
+  const ask = screen.getByRole("alertdialog", { name: "Change the plan?" });
+  expect(calls.some((c) => c.key === "PUT /projects/9/plan")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/plan")?.body).toMatchObject({ scenes: [{ place: "Kitchen" }, { place: "Office" }] }));
+});
+
+test("on an approved plan, Not yet keeps the editor open with what was typed; the confirm names what goes out of date", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two, after: { shots: 3, clips: 2 } })] });
+  open("?step=plan&view=scenes");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit scene 2" }));
+  await userEvent.clear(screen.getByLabelText("Place"));
+  await userEvent.type(screen.getByLabelText("Place"), "Office");
+  await userEvent.click(screen.getByRole("button", { name: "Save scene" }));
+  const ask = screen.getByRole("alertdialog", { name: "Change the plan?" });
+  expect(within(ask).getByText(/This puts 3 shots and 2 clips out of date\./)).toBeInTheDocument();
+  await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
+  expect(screen.getByLabelText("Place")).toHaveValue("Office");
+  expect(calls.some((c) => c.key === "PUT /projects/9/plan")).toBe(false);
+});
+
+test("Use this one on an approved plan asks first, as an edit does", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()] });
+  open("?step=plan&view=scenes");
+  await userEvent.click(await screen.findByText("Earlier plans · 1"));
+  await userEvent.click(screen.getByRole("button", { name: "Use this one · free" }));
+  const ask = screen.getByRole("alertdialog", { name: "Change the plan?" });
+  expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
+});
+
+test("a ★ the server couldn't keep (the brand has no product) says so, with a way to add one, and no success toast", async () => {
+  setViewport(390);
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [200, plan({ scenes: two })] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
+  expect(await screen.findByText(/The ★ wasn't kept: the brand has no product to show yet\./)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toHaveAttribute("href", "/b/1/brand?tab=products");
+  expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
+});
+
+test("a ★ refused for want of a product (409) shows the server's sentence with Add a product, and no success toast", async () => {
+  setViewport(1440);
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [409, { detail: "This brand has no product or screen to show yet. Add one to the brand first." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for line 2" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "★ Show the product here" }));
+  expect(await screen.findByText(/This brand has no product or screen to show yet\. Add one to the brand first\./)).toBeInTheDocument();
+  expect(screen.getAllByText(/This brand has no product or screen/)).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "Add a product to the brand" })).toBeInTheDocument();
+  expect(screen.queryByText("Line 2 shows the product.")).toBeNull();
+});
+
+test("a refused edit says why in the server's words", async () => {
+  setViewport(1440);
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two })], "PUT /projects/9/plan": [422, { detail: "Line 2 is missing from the plan." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "More for line 3" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Remove the ★" }));
+  expect(await screen.findByText("Line 2 is missing from the plan.")).toBeInTheDocument();
+});
+
+test("out of date: Made for older words with Make a new plan; earlier plans come back free; a new plan takes a note", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()], "POST /projects/9/plan": [201, { id: 40 }] });
+  open();
+  expect(await screen.findByText("Made for older words.")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /Make a new plan · 6 credits/ })[0]).toBeInTheDocument();
+  expect(screen.getByText(/this one is kept under Earlier plans/)).toBeInTheDocument();
+  await userEvent.click(screen.getByText("Earlier plans · 1"));
+  await userEvent.click(screen.getByRole("button", { name: "Use this one · free" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
+  await userEvent.click(screen.getByText("Make a new plan", { selector: "summary" }));
+  await userEvent.type(screen.getByLabelText("What to change (optional)"), "funnier");
+  await userEvent.click(screen.getAllByRole("button", { name: /Make a new plan · 6 credits/ }).at(-1)!);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/plan")?.body).toEqual({ note: "funnier" }));
+});
+
+test("with no plan yet, Make the plan is priced from the video's plan_credits", async () => {
+  setViewport(1440);
+  fakeServer({ ...withPlan("none"), "GET /projects/9": [200, { ...project, plan_status: "none", plan_credits: 9 }], "GET /projects/9/plan": [404, { detail: "none" }] });
+  open();
+  expect(await screen.findByRole("button", { name: /Make the plan · 9 credits/ })).toBeInTheDocument();
 });

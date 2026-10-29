@@ -378,6 +378,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
             kind = {"image": "a picture", "audio": "a sound"}.get(ref.kind, f"a {ref.kind}")
             problems.append(f"{clip.clip_id}: {ref.id} is attached as {kind} but isn't one")
     problems += check.text_on_screen_advice(clip.prompt)  # a shot that's only drawn words (#890)
+    problems += check.look_words(clip.prompt, project.look)[2]  # a quoted banned word (ST2)
     return plain(problems, names(known))
 
 
@@ -411,12 +412,13 @@ def _unquoted(text: str, fn) -> str:
     return "".join(p if i % 2 else fn(p) for i, p in enumerate(parts))
 
 
-def reword(prompt: str) -> tuple[str, list[str]]:
+def reword(prompt: str, look: str = "house") -> tuple[str, list[str]]:
     """The prompt with its wording flags fixed, free: aspect and resolution words removed
     (they're settings), asks for words drawn on screen taken out (check.text_on_screen) and,
     in a shot nobody speaks in, an action that reads like a line ("he says no") said as what
-    the body does. The spoken lines are never touched. Returns
-    the prompt and what was fixed, in plain words ([] when nothing was)."""
+    the body does, and the video's look's banned words repaired (check.look_words, flows
+    ST2). The spoken lines are never touched. Returns the prompt and what was fixed, in
+    plain words ([] when nothing was)."""
     fixed: list[str] = []
 
     def settings(text: str) -> str:
@@ -442,6 +444,8 @@ def reword(prompt: str) -> tuple[str, list[str]]:
         lines.append(line)
     words, shown = check.text_on_screen("\n".join(lines))  # the Director's list (#869)
     fixed.extend(f'removed "{w}"' for w in shown)
+    words, changed, _ = check.look_words(words, look)
+    fixed.extend(changed)
     return words, list(dict.fromkeys(fixed))
 
 
@@ -478,7 +482,7 @@ def repair(db: Session, project: Project) -> int:
             now = now.model_copy(update={"prompt": _sheet_words(now.prompt, n, _name(known, r))})
         fix = row.auto_fix or {}
         kept_words = fix.get("undone") and row.prompt == fix.get("before")
-        if not kept_words and (words := reword(now.prompt))[1]:
+        if not kept_words and (words := reword(now.prompt, project.look))[1]:
             row.auto_fix = {"before": was.prompt, "after": words[0], "fixed": words[1],
                             "undone": False}  # fmt: skip
             now = now.model_copy(update={"prompt": words[0]})
@@ -541,7 +545,7 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             if job.input.get("fix"):  # the free fix never drops who isn't lip-syncing (c4)
                 c = _kept_voiceover(c, job.input.get("before") or "")
             written_as = c.prompt
-            c = c.model_copy(update={"prompt": (words := reword(c.prompt))[0]})
+            c = c.model_copy(update={"prompt": (words := reword(c.prompt, project.look))[0]})
             problems = clip_problems(db, project, bd, c)
         except Exception:
             log.exception("job %s: saving clip %s's prompt failed", job.id, c.clip_id)

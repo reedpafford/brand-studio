@@ -444,6 +444,7 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
         for c in shot.character_ids:
             if not any(_same(known, c, r) for r in people):
                 problems.append(f"{_name(known, c)} has no approved look yet. Approve one in Cast.")
+    problems += check.look_words(frame.prompt, project.look)[2]  # a quoted banned word (ST2)
     return plain(problems, names(known))
 
 
@@ -540,6 +541,18 @@ def softened(prompt: str) -> dict | None:
             "after": after, "unchanged": False, "softened": True}  # fmt: skip
 
 
+def look_fixed(prompt: str, look: str, note: dict | None) -> tuple[str, dict | None]:
+    """The look's banned words repaired for you (flows ST2, free): the prompt, and its change
+    note with Before and After (Undo is PUT of the earlier prompt), added to a softening's."""
+    after, fixed, _ = check.look_words(prompt, look)
+    if not fixed:
+        return prompt, note
+    said = f"Fixed for the look: {', '.join(fixed)}."
+    base = note or {"note": "", "status": "done", "before": prompt, "unchanged": False}
+    return after, {**base, "note": f"{base['note']} {said}".strip(), "after": after,
+                   "look_fixed": fixed}  # fmt: skip
+
+
 REFUSED = ("Advice: the image model refused to draw this still, so nothing was charged. "
            "It may refuse a word here: soften it, or change the prompt.")  # fmt: skip
 
@@ -570,6 +583,8 @@ def save_frames(db: Session, job: Job) -> None:
     for f in (with_cast(db, project, f, bd, known) for f in result.frames):
         note = softened(f.prompt)  # a word the image model refuses never blocks
         f = f.model_copy(update={"prompt": note["after"]}) if note else f
+        after, note = look_fixed(f.prompt, project.look, note)
+        f = f.model_copy(update={"prompt": after})
         db.add(
             StoryboardFrame(
                 project_id=project.id,

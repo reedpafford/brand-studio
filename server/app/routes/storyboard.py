@@ -13,6 +13,7 @@ from app import (
     credits,
     item_checks,
     looks,
+    prompts,
     redo_frame,
     storyboard,
     video_settings,
@@ -69,6 +70,10 @@ class FrameOut(BaseModel):
     # after, unchanged, error}; cleared on Approve or the next note ("What your note changed").
     change: dict | None
     softened: dict | None = None  # softened by itself so it can be drawn: {before, after}
+    # The look's banned words repaired for you (ST2): {fixed: ["stage → world"], before,
+    # after}, with Undo (PUT the before); and the look's fix to offer when a still is refused
+    look_fixed: dict | None = None
+    look_fix: str | None = None
     drawing: bool = False  # a still for it is queued or being made (a Change it's included)
     still_credits: int = 0  # one still for it, rounded up (Make still, Redo, Save and redraw)
     # Out of date because the breakdown changed: Redo this frame · N (written again, then
@@ -133,7 +138,8 @@ def _out(
     stale = _stale(db, project, frame)
     waiting = _waiting(db, project) if waiting is None else waiting
     computed = ("stale", "approved", "softened", "change", "drawing", "still_credits",
-                "redo_credits", "redo_blocked", "still_stale", "check")  # fmt: skip
+                "redo_credits", "redo_blocked", "still_stale", "check", "look_fixed",
+                "look_fix")  # fmt: skip
     other = looks.frame_other(project, frame) or video_settings.frame_stale(project, frame)  # VS1
     newest = _newest_breakdown(db, project)
     redo = stale and newest and frame.breakdown_id != newest.id and not _script_moved(db, project)
@@ -156,6 +162,16 @@ def _out(
         redo_credits=credits.price(redo_frame.price(db, project)) if redo and not blocked else None,
         redo_blocked=blocked or None,
         check=item_checks.shown(db, item_checks.latest(db, "frame", [frame.id]).get(frame.id)),
+        look_fixed={
+            "fixed": asked["look_fixed"],
+            "before": asked["before"],
+            "after": asked["after"],
+        }
+        if asked.get("look_fixed")
+        else None,
+        look_fix=prompts.look_fixes(project.look).get("refused")
+        if storyboard.REFUSED in (frame.problems or [])
+        else None,
         softened={"before": asked["before"], "after": asked["after"]}
         if asked.get("softened")
         else None,
