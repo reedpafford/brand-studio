@@ -202,7 +202,7 @@ function Studio({ models }: { models: Model[] }) {
             }}
           />
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" icon={Sparkles} disabled={prompt.trim().length < 8} onClick={() => setImproving(true)}>
+            <Button variant="ghost" icon={Sparkles} disabled={prompt.trim().length < 8} reason={prompt.trim().length < 8 ? "Describe the clip first (8 or more characters)" : null} onClick={() => setImproving(true)}>
               Improve prompt
             </Button>
             {before !== null && (

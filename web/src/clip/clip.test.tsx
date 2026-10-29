@@ -228,6 +228,7 @@ test("Improve prompt writes a prompt, Use this fills the box and Generate says i
   open();
   const prompt = await screen.findByLabelText(/What happens/);
   expect(screen.getByRole("button", { name: "Improve prompt" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Improve prompt" })).toHaveAccessibleDescription("Describe the clip first (8 or more characters)"); // #749 LW12
   await userEvent.type(prompt, "Mia buys bitcoin");
   await userEvent.click(screen.getByRole("button", { name: "Improve prompt" }));
   const dialog = await screen.findByRole("dialog", { name: "Improve prompt" });
