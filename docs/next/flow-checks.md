@@ -251,7 +251,7 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #915 at 685c295f (Videos home groups; /projects → Videos) | Playwright 390 + 1440; vitest videos + projects (349) | PASS |
 | 2026-10-29 | #917 at f9f32934 (M14 part 2 server: Update everything after this) | code walk; update_after + storyboard (11) | PASS |
 | 2026-10-29 | #893 at 657174e6 (merge of next) | plan_route + plan + needs_you + migrations (16) | PASS |
-| 2026-10-29 | #915 at 74550901 (Done label; earlier-way New video back link) | vitest videos + projects (349) | PASS (note: back says Scripts, pressed from Videos) |
+| 2026-10-29 | #915 at 74550901 (Done label; earlier-way New video back link) | vitest videos + projects (349) | PASS (back to Scripts is right: the earlier-way list is on Scripts) |
 | 2026-10-29 | #912 at a43c4046 (music off by default with a budget; true charge message; bed-only retry) | narration + needs_you (19) | PASS |
 | 2026-10-29 | #893 at 9afd850a (★ with no product or screen: 409 with the way out) | plan_route + plan (9) | PASS |
 | 2026-10-29 | #916 at 4133068a (merge of next after #910) | KitPage editor body | FAIL: editors still lose tone notes, never say, end line (Producer asked to keep them) |
