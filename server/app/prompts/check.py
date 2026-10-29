@@ -7,7 +7,7 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 import re
 from itertools import zip_longest
 
-from app.prompts import SUNG_RATE, spoken_words
+from app.prompts import SUNG_RATE, plan_lines, spoken_words
 from app.prompts.schemas import (
     Breakdown,
     CastSlots,
@@ -16,7 +16,9 @@ from app.prompts.schemas import (
     ImprovedPrompt,
     ItemCheck,
     NarrationMusic,
+    PlanScene,
     ReelWatch,
+    ScenePlan,
     SongBreakdown,
     SongDirections,
     StoryboardFrames,
@@ -1172,6 +1174,82 @@ NOT_SPEAKERS = {
     "ON SCREEN",
     "ON-SCREEN",
 }  # fmt: skip — directions, never a speaker (Flow-QA: "CTA:")
+
+
+# --- The scene plan (flows 1b, P1) ---
+
+TWO_PLACES = re.compile(
+    r"\b(?:INT|EXT)\..*\b(?:INT|EXT)\.|→|\s/\s|\bthen\b", re.I
+)  # "kitchen, then park"
+WORDS_A_SECOND = {"dialogue": 4.8, "narrated": 3.4, "song": sum(SUNG_RATE) / 2}
+
+
+def _said(line: str, labelled: bool) -> str:
+    """The words heard on a script line: after a speaker's label; in a script with labels, an
+    unlabelled line is action and is heard as nothing; in plain prose, the whole line."""
+    m = LABEL.match(line.strip())
+    return line.strip()[m.end() :] if m else ("" if labelled else line)
+
+
+def _lines(ns: list[int], many: str = "are", one: str = "is") -> str:
+    """ "line 4 is", "lines 4, 7 are"."""
+    return f"lines {', '.join(map(str, ns))} {many}" if len(ns) > 1 else f"line {ns[0]} {one}"
+
+
+def plan(
+    script: str,
+    result: ScenePlan,
+    cast: list[str],
+    stars: list[str],
+    fmt: str = "dialogue",
+    max_seconds: float = 0,
+) -> list[str]:
+    """The plan's checks, free (flows P1). Fixes (the plan can't be used): a line missing,
+    twice or out of order, a line that isn't the script's, a ★ that isn't the brand's. Advice
+    (never a block, each with its press): two places in a scene, the product never shown,
+    someone not in the cast, a scene longer than one clip. With fixes, the plan job asks
+    once more, inside the same job and charged once; if the second answer still has fixes,
+    the job ends as failed ("The plan didn't finish. Nothing was charged.") and no plan with a
+    missing or reordered line is ever shown (Next-Lead on #866, as with song directions)."""
+    problems, words = [], dict(enumerate(script.splitlines(), 1))
+    used = [x.line for sc in result.scenes for x in sc.lines]
+    want = plan_lines(script)
+    labelled = any(LABEL.match(words[n].strip()) for n in want)
+    if missing := [n for n in want if n not in used]:
+        problems.append(f"{_lines(missing)} in no scene")
+    if twice := sorted({n for n in used if used.count(n) > 1}):
+        problems.append(f"{_lines(twice)} in more than one scene")
+    if extra := [n for n in used if n not in want]:
+        problems.append(f"{_lines(extra, 'are', 'is')} not a script line with words")
+    if not (missing or twice or extra) and used != want:
+        problems.append("the lines are out of order: every line stays where the script has it")
+    for sc in result.scenes:
+        for x in sc.lines:
+            if x.product and x.product not in stars:
+                problems.append(f"scene {sc.id}: ★ {x.product} isn't the brand's product or screen")
+        if TWO_PLACES.search(sc.place):
+            problems.append(f"{ADVICE}scene {sc.id}: two places (“{sc.place}”); Split here")
+        if others := [c for c in sc.cast if c not in cast]:
+            problems.append(f"{ADVICE}scene {sc.id}: {', '.join(others)} isn't in the cast")
+        rate = WORDS_A_SECOND.get(fmt, 4.8)
+        said = sum(len(_said(words.get(x.line, ""), labelled).split()) for x in sc.lines)
+        seconds = said / rate + (len(sc.lines) if fmt == "dialogue" else 0)
+        if max_seconds and seconds > max_seconds:
+            problems.append(f"{ADVICE}scene {sc.id} runs about {round(seconds)} s, over one "
+                            f"clip's {round(max_seconds)} s; Split here")  # fmt: skip
+    if result.scenes and not any(x.product for sc in result.scenes for x in sc.lines):
+        problems.append(f"{ADVICE}the product is never shown; ★ a line")
+    return problems
+
+
+def plan_scene(before: PlanScene, after: PlanScene) -> list[str]:
+    """ "Change this scene…" keeps the scene's id and its lines, in order (rule 19)."""
+    problems = []
+    if after.id != before.id:
+        problems.append(f"the changed scene is {after.id}, not {before.id}")
+    if [x.line for x in after.lines] != [x.line for x in before.lines]:
+        problems.append("the changed scene's lines differ: keep the same lines, in order")
+    return problems
 
 
 # --- Automatic fixes and the advisory check (flows 1b, P3, P4) ---
