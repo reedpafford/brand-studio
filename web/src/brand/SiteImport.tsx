@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Globe } from "lucide-react";
+import { Globe, Image } from "lucide-react";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Banner, Button, Card, Field, creditsLabel, useToast } from "../components";
@@ -9,6 +9,22 @@ import { useRail } from "../useMedia";
 
 type Read = components["schemas"]["app__routes__site_read__ReadOut"];
 const WEB = /^https?:\/\/[^\s/]+\.[^\s]+$/i;
+// The read in review lives on the server; its id is kept here so a reload comes back to it.
+const stored = (brandId: number) => {
+  try {
+    return Number(localStorage.getItem(`site-read:${brandId}`)) || null;
+  } catch {
+    return null;
+  }
+};
+const store = (brandId: number, id: number | null) => {
+  try {
+    if (id === null) localStorage.removeItem(`site-read:${brandId}`);
+    else localStorage.setItem(`site-read:${brandId}`, String(id));
+  } catch {
+    /* private window: the read just doesn't survive a reload */
+  }
+};
 const key = (name: string) => name.split(/\s+/).filter(Boolean).join(" ").toLowerCase(); // as the server matches products
 
 /** Import from website (flows BR2), the owner's: read the brand's site, review what it found (nothing saved yet),
@@ -19,8 +35,11 @@ export function SiteImport({ brandId, waitFor, onSaved, onReviewing }: { brandId
   const rail = useRail();
   const [url, setUrl] = useState("");
   const [bad, setBad] = useState(false);
-  const [jobId, setJobId] = useState<number | null>(null);
-  const [logoBroke, setLogoBroke] = useState(false); // the site's picture didn't load here: name it instead
+  const [jobId, setJob] = useState<number | null>(() => stored(brandId));
+  const setJobId = (id: number | null) => {
+    store(brandId, id);
+    setJob(id);
+  };
   const [ticks, setTicks] = useState<{ logo: boolean; colours: string[]; products: number[] } | null>(null);
   const price = useQuery({ queryKey: ["site-read-estimate", brandId], queryFn: () => must(api.GET("/brands/{brand_id}/site-read/estimate", { params: { path: { brand_id: brandId } } })).then((r) => r.data!.credits) });
   const props = useQuery({ queryKey: ["library", "prop", brandId], queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "prop" }, query: { brand_id: brandId } } })).data ?? [] });
@@ -43,6 +62,10 @@ export function SiteImport({ brandId, waitFor, onSaved, onReviewing }: { brandId
     refetchInterval: (q) => (q.state.data?.status === "reading" ? 1500 : false),
   });
   const r = read.data;
+  const gone = read.isError; // the stored read is no longer there: the address box shows again
+  useEffect(() => {
+    if (gone || r?.status === "failed" || r?.status === "empty") store(brandId, null); // nothing left to come back to
+  }, [gone, r?.status, brandId]);
   const reviewing = jobId !== null && r?.status === "done";
   useEffect(() => onReviewing(reviewing), [reviewing, onReviewing]);
   // What a found product would do: new, fill an empty description, or nothing (it's already described).
@@ -110,11 +133,14 @@ export function SiteImport({ brandId, waitFor, onSaved, onReviewing }: { brandId
             <legend className="text-sm font-medium">Logo</legend>
             <label className="flex min-h-control items-center gap-3">
               <input type="checkbox" className="size-5 sm:size-4" checked={tick.logo} onChange={() => setTicks({ ...tick, logo: !tick.logo })} />
-              {logoBroke ? (
-                <span className="min-w-0 break-all text-sm">The logo on the site ({found.logo_url.split("/").pop()})</span>
-              ) : (
-                <img src={found.logo_url} alt="The logo on the site" referrerPolicy="no-referrer" onError={() => setLogoBroke(true)} className="h-12 max-w-48 rounded-sm bg-surface-2 object-contain" />
-              )}
+              {/* Not loaded from the site here (that would tell the site who's looking); it's fetched on Save. */}
+              <span aria-hidden className="grid size-12 shrink-0 place-items-center rounded-sm bg-surface-2 text-muted">
+                <Image className="size-5" />
+              </span>
+              <span className="min-w-0 space-y-0.5 text-sm">
+                <span className="block font-medium">Logo found on the site</span>
+                <span className="block break-all text-muted">{found.logo_url.split("/").pop()}</span>
+              </span>
             </label>
           </fieldset>
         )}
@@ -163,11 +189,14 @@ export function SiteImport({ brandId, waitFor, onSaved, onReviewing }: { brandId
           </fieldset>
         )}
         {save.isError && <p role="alert" className="text-sm text-danger">{save.error.message}</p>}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {rail ? saveButton : <ActionBar phone>{saveButton}</ActionBar>}
-          <Button variant="ghost" onClick={again}>
+          <Button variant="ghost" aria-describedby="site-read-cancel" onClick={again}>
             Cancel
           </Button>
+          <span id="site-read-cancel" className="text-sm text-muted">
+            Cancel drops this read. Reading the site again costs credits again.
+          </span>
         </div>
       </div>
     );

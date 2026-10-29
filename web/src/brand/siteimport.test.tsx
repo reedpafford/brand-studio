@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -47,7 +47,10 @@ async function readSite(url = "https://fomo.app") {
   await userEvent.type(await screen.findByLabelText("Paste the brand's website"), url);
   await userEvent.click(await screen.findByRole("button", { name: "Read the site · about 3 credits" }));
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  localStorage.clear();
+});
 
 test("the owner pastes the site and reads it for about 3 credits; a bad address says so and nothing runs (flows BR2)", async () => {
   setViewport(1440);
@@ -68,7 +71,7 @@ test("while it reads it says so, then the review ticks what's new: the logo, a n
   expect(calls.find((c) => c.key === "POST /brands/1/site-read")?.body).toEqual({ url: "https://fomo.app" });
   routes["GET /brands/1/site-read/40"] = [200, read("done")];
   const card = await section();
-  expect(await within(card).findByRole("checkbox", { name: "The logo on the site" }, { timeout: 4000 })).toBeChecked();
+  expect(await within(card).findByRole("checkbox", { name: /^Logo found on the site/ }, { timeout: 4000 })).toBeChecked();
   expect(within(card).getByText("Already in your colours")).toBeInTheDocument();
   expect(within(card).getAllByRole("checkbox")).toHaveLength(4); // the logo, #ff6600, fomo app, Gold card: never #112233 or Pro plan
   expect(within(card).getByText("New product")).toBeInTheDocument();
@@ -150,18 +153,63 @@ test("on a phone the review stacks and Save sits in the action bar", async () =>
   open();
   await readSite();
   const card = await section();
-  await within(card).findByRole("checkbox", { name: "The logo on the site" });
+  await within(card).findByRole("checkbox", { name: /^Logo found on the site/ });
   expect(within(card).queryByRole("button", { name: "Save the ticked ones" })).toBeNull();
   expect(screen.getByRole("button", { name: "Save the ticked ones" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull(); // one press in the bar while the form is untouched
 });
 
-test("a logo picture that won't load here is named instead", async () => {
+test("the site's logo is named, never loaded from the site here", async () => {
   setViewport(1440);
   fakeServer(base());
   open();
   await readSite();
   const card = await section();
-  fireEvent.error(await within(card).findByRole("img", { name: "The logo on the site" }));
-  expect(within(card).getByRole("checkbox", { name: "The logo on the site (logo.png)" })).toBeChecked();
+  expect(await within(card).findByRole("checkbox", { name: /^Logo found on the site\s*logo\.png$/ })).toBeChecked();
+  expect(card.querySelector('img[src^="https://fomo.app"]')).toBeNull();
 });
+
+test("a reload comes back to the read in review; Cancel says it drops the read, and then a reload starts fresh", async () => {
+  setViewport(1440);
+  fakeServer(base());
+  open();
+  await readSite();
+  await within(await section()).findByRole("button", { name: "Save the ticked ones" });
+  cleanup(); // the reload
+  open();
+  const card = await section();
+  const cancel = await within(card).findByRole("button", { name: "Cancel" });
+  expect(cancel).toHaveAccessibleDescription("Cancel drops this read. Reading the site again costs credits again.");
+  await userEvent.click(cancel);
+  cleanup();
+  open();
+  expect(await screen.findByLabelText("Paste the brand's website")).toBeInTheDocument();
+});
+
+test("after Save, or a read that failed, or one the server no longer has, a reload shows the address box", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, { "POST /brands/1/site-read/40/save": [200, { colours_added: 1, logo: true, products_made: 1, products_filled: 0, problems: [] }] }));
+  open();
+  await readSite();
+  await userEvent.click(await within(await section()).findByRole("button", { name: "Save the ticked ones" }));
+  await screen.findByText(/^Saved /);
+  cleanup();
+  open();
+  expect(await screen.findByLabelText("Paste the brand's website")).toBeInTheDocument();
+  cleanup();
+
+  fakeServer(base(owner, { "GET /brands/1/site-read/40": [200, read("failed", { reason: "Couldn't read that site. Nothing was charged." })] }));
+  open();
+  await readSite();
+  await screen.findByText("Couldn't read that site. Nothing was charged.");
+  cleanup();
+  open();
+  expect(await screen.findByLabelText("Paste the brand's website")).toBeInTheDocument();
+  cleanup();
+
+  localStorage.setItem("site-read:1", "41");
+  fakeServer(base(owner, { "GET /brands/1/site-read/41": [404, { detail: "Not found" }] }));
+  open();
+  expect(await screen.findByLabelText("Paste the brand's website", undefined, { timeout: 12000 })).toBeInTheDocument(); // after the usual retries
+  expect(localStorage.getItem("site-read:1")).toBeNull();
+}, 20000);
