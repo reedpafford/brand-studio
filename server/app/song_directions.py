@@ -25,18 +25,21 @@ from app.script_preview import stand_in_project
 
 STEP = "song_directions"
 NOTHING = "Add what the brand sells on the brand page, or paste a script to adapt."
-APPROVED = "These lyrics are approved, so a direction can't be used here. Duplicate it to try one."
+APPROVED = "These lyrics are approved. Press Undo approval on Publish to use a direction here."
+PUBLISHED = "This script is published, so its lyrics are final. Duplicate the script to try one."
 UNFINISHED = "The directions didn't finish. Nothing was charged."
 STILL = "still needs fixing: "  # the raw reason (owner-only) when the one rewrite didn't fix it
 
 
 def stop(db: Session, script: Script, draft: ScriptDraft, source: str = "") -> str | None:
-    """Why a press can't run, in plain words (None: it can): an approved version can't take
-    a direction, and with nothing at all to go on (no About, script, lyrics, brand notes or
-    product) there's nothing to write from."""
+    """Why a press can't run, in plain words (None: it can): a published or approved
+    version can't take a direction, and with nothing at all to go on (no About, script,
+    lyrics, brand notes or product) there's nothing to write from."""
     from app.models.brands import Brand
     from app.models.library import Kind
 
+    if script.published:
+        return PUBLISHED
     if draft.status == "approved":
         return APPROVED
     brand = db.get(Brand, script.brand_id)

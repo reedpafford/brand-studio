@@ -68,6 +68,10 @@ def test_an_approved_version_says_why_before_anything_is_charged(app, db, owner,
     r = owner.post(f"{song}/directions", json={})
     assert (r.status_code, r.json()["detail"]) == (409, song_directions.APPROVED)
     assert db.query(Job).filter(Job.kind == "write-claude").count() == 0
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    assert owner.post(f"{_base(song)}/publish").status_code == 200
+    assert _version(owner, song)["directions_stop"] == song_directions.PUBLISHED
 
 
 def test_writing_more_keeps_the_older_pair_and_a_card_can_be_removed(
