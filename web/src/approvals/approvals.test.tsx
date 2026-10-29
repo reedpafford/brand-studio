@@ -47,20 +47,20 @@ test("a held job shows what it is, its credits and what it does to the budget, a
   expect(screen.getByRole("link", { name: "Mia buys the dip" })).toHaveAttribute("href", "/b/1/projects/9");
   expect(screen.getByText(/27 credits · takes the project to 117% of its budget/)).toBeInTheDocument();
   expect(screen.getByText(/Over budget/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Approve Clip take" }));
+  await userEvent.click(screen.getByRole("button", { name: "Approve a new take" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /jobs/50/approve")).toBe(true));
-  expect(await screen.findByText("Approved. Clip take is starting.")).toBeInTheDocument();
+  expect(await screen.findByText("Approved. A new take is being made.")).toBeInTheDocument();
 });
 
 test("Decline asks first in a dialog, then cancels and says nothing was charged", async () => {
   const calls = fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "POST /jobs/50/cancel": [200, held({ status: "cancelled" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Decline Clip take" }));
-  const ask = await screen.findByRole("alertdialog", { name: "Decline Sam's clip take?" });
+  await userEvent.click(await screen.findByRole("button", { name: "Decline a new take" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Decline a new take for Sam?" });
   expect(within(ask).getByText(/Nothing is charged\. Sam can ask again\./)).toBeInTheDocument();
   await userEvent.click(within(ask).getByRole("button", { name: "Keep it" }));
   expect(calls.some((c) => c.key === "POST /jobs/50/cancel")).toBe(false);
-  await userEvent.click(screen.getByRole("button", { name: "Decline Clip take" }));
+  await userEvent.click(screen.getByRole("button", { name: "Decline a new take" }));
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Decline" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /jobs/50/cancel")).toBe(true));
   expect(await screen.findByText("Declined. Nothing was charged.")).toBeInTheDocument();
@@ -155,7 +155,7 @@ test("an editor who opens Approvals sees no held work and no dollars", async () 
   open("/approvals");
   expect(await screen.findByText("Page not found.")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
-  expect(screen.queryByText(/Clip take/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/A new take/)).not.toBeInTheDocument();
 });
 
 test("a held Quick clip says why it is held: that editor's week, from the allowances", async () => {

@@ -10,7 +10,7 @@ test("on a phone, the four bottom tabs reach every brand section and there is no
   await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
 
   await tabs.getByRole("link", { name: "Cast" }).click();
-  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();
 
   await tabs.getByRole("link", { name: "Quick clip" }).click();
   await expect(page.getByRole("heading", { name: "Quick clip", exact: true })).toBeVisible();

@@ -7,7 +7,7 @@ export const VIDEO_STEPS = [
   { id: "assets", label: "Assets", old: "shots" },
   { id: "storyboard", label: "Storyboard", old: "storyboard" },
   { id: "clips", label: "Clips", old: "clips" },
-  { id: "downloads", label: "Downloads", old: "final" },
+  { id: "downloads", label: "Final cut", old: "final" }, // the address keeps "downloads", so old links still land here
 ] as const satisfies readonly { id: string; label: string; old: StepId }[];
 type VideoStepId = (typeof VIDEO_STEPS)[number]["id"];
 

@@ -15,10 +15,10 @@ import { serverTime } from "../time";
 
 type Project = components["schemas"]["ProjectOut"];
 
-const STEP: Record<string, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Downloads" };
+const STEP: Record<string, string> = { breakdown: "Breakdown", assets: "Assets", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
-/** Where a video opens: the new page for one made from a script version (Downloads when it is done), the earlier six-step page for the rest. */
+/** Where a video opens: the new page for one made from a script version (Final cut when it is done), the earlier six-step page for the rest. */
 // A finished video whose clips changed since opens at Clips, where the changes wait (#749 LW2).
 const to = (p: Project) => (p.script_draft_id ? `/b/${p.brand_id}/videos/${p.id}${p.final_out_of_date ? "?step=clips" : p.finished_at ? "?step=downloads" : ""}` : `/b/${p.brand_id}/projects/${p.id}`);
 
@@ -26,7 +26,7 @@ function Row({ p, mineView }: { p: Project; mineView: boolean }) {
   const done = !!p.finished_at;
   const meta = [
     p.created_by_name || "Someone",
-    done ? `${p.final_out_of_date ? "Finished" : "Video done"} · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
+    done ? `Finished · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
     p.own_script && mineView ? "On your week" : null,
     p.script_draft_id ? null : "(earlier way)",
   ]
@@ -48,7 +48,7 @@ function Row({ p, mineView }: { p: Project; mineView: boolean }) {
               </Badge>
             ) : done ? (
               <Badge tone="success" icon={Check}>
-                Video done
+                Finished
               </Badge>
             ) : (
               <Badge tone="warning" icon={Clock}>
@@ -126,7 +126,7 @@ export function VideosPage() {
         <Select label="Status" value={status} onChange={(e) => set("status", e.target.value)}>
           <option value="">Any</option>
           <option value="making">Making</option>
-          <option value="done">Video done</option>
+          <option value="done">Finished</option>
         </Select>
       </div>
       <Button variant={archived ? "primary" : "secondary"} aria-pressed={archived} onClick={() => set("archived", archived ? "" : "1")}>
