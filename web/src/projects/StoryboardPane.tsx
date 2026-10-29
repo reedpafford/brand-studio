@@ -17,6 +17,7 @@ import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
 import { ReviewChip } from "./Checks";
+import { StoryboardVersions, useMayChangeVideo } from "./VersionLists";
 import { type Softened } from "./Soften";
 import { FrameCard } from "./FrameCard";
 import { useCostBarAction } from "./CostBar";
@@ -39,6 +40,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const queryClient = useQueryClient();
   const toast = useToast();
   const path = { project_id: projectId };
+  const mayChange = useMayChangeVideo(projectId);
   const { pieces } = useBrandPieces(brandId);
   const jobs = useJobs();
   const blocks = useSheetBlocks(projectId, brandId);
@@ -357,6 +359,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
               stopFor={stopFor}
               oneStep={!!props.oneStep}
               onPick={(file) => pick.mutate({ frame: f, file })}
+              onPrefer={mayChange ? (file) => pick.mutateAsync({ frame: f, file }) : undefined}
               onRender={(note) => render.mutate({ frame: f, note })}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
@@ -372,6 +375,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
           );
         })}
       </ul>
+      <StoryboardVersions projectId={projectId} hold={writingNow || Object.values(drawingNow).some(Boolean) ? "Wait for the storyboard and stills being made." : null} />
       {lightbox && lightbox.file_id !== null && (
         <Sheet title={`Clip ${lightbox.clip_id} · shot ${lightbox.shot_id}`} onClose={() => setLightbox(null)}>
           <img src={fileUrl(lightbox.file_id)} alt={`Still for clip ${lightbox.clip_id}`} className="w-full rounded-md" />

@@ -58,19 +58,21 @@ def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -
     return estimate(db, ws, "video", Decimal(seconds), job)
 
 
-def version_cost(db: Session, draft: ScriptDraft) -> Decimal:
+def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     """A version's whole price before it's started: `credits.plan_cost`, with a look for
     each role not cast yet and no breakdown call when one is saved. A Song version's is its
-    Preferred take's video (the song decides the length), the figure its take cards show."""
+    Preferred take's video (the song decides the length), the figure its take cards show.
+    `video`: the video it would make, for its models (Make this version's settings, VS1)."""
     from app import song_takes
 
     script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
     if script.kind == "song" and (take := song_takes.preferred(db, draft)):
-        return song_takes.video_credits(db, take)
+        return song_takes.video_credits(db, take, video=video)
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
     slot = ScriptCastSlot
     uncast = select(func.count()).where(slot.script_id == script.id, slot.library_item_id.is_(None))
-    return plan_cost(db, script.workspace_id, seconds, bd, db.scalar(uncast), breakdown=not bd)
+    return plan_cost(db, script.workspace_id, seconds, bd, db.scalar(uncast), breakdown=not bd,
+                     video=video)  # fmt: skip
 
 
 def _stages(db: Session, project: Project) -> list[StageOut]:

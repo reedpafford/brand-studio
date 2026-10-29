@@ -431,6 +431,8 @@ def _make_look(
     db.add(look)
     db.flush()
     project.slot_looks = {**project.slot_looks, str(slot.id): look.id}  # the sheet knows its role
+    kept = {**(project.own_looks or {}).get(str(slot.id), {}), look.sheet_look: look.id}
+    project.own_looks = {**(project.own_looks or {}), str(slot.id): kept}  # per look (n12)
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()

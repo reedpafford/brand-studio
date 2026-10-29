@@ -171,7 +171,11 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     fake = FakeNanoBanana()
     client = httpx.Client(transport=httpx.MockTransport(fake))
     for _ in range(2):
-        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+        run_once(
+            db,
+            {"replicate": ReplicateProvider(BASE, client, token="test-token")},
+            app.state.storage,
+        )
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
     assert sent["aspect_ratio"] == "9:16" and len(sent["image_input"]) == 2  # sheet, screen
     assert db.get(Job, job.json()["id"]).status == "succeeded"
@@ -210,7 +214,11 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     fake = FakeNanoBanana()
     client = httpx.Client(transport=httpx.MockTransport(fake))
     for _ in range(2):
-        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+        run_once(
+            db,
+            {"replicate": ReplicateProvider(BASE, client, token="test-token")},
+            app.state.storage,
+        )
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
     assert sent["prompt"].endswith("Change from the last still: Make Mom angrier.")
     after = editor.get(url).json()[0]
@@ -310,7 +318,11 @@ def test_a_word_the_image_model_may_refuse_never_blocks_and_a_refusal_says_so(
     assert job.status_code == 201
     client = httpx.Client(transport=httpx.MockTransport(RefusingNano()))
     for _ in range(2):
-        run_once(db, {"replicate": ReplicateProvider(BASE, client)}, app.state.storage)
+        run_once(
+            db,
+            {"replicate": ReplicateProvider(BASE, client, token="test-token")},
+            app.state.storage,
+        )
     assert db.get(Job, job.json()["id"]).error.startswith("The image model refused to draw")
     assert REFUSED in editor.get(url).json()[0]["problems"]  # with Soften it on the card
     assert credits_used(db, db.get(Project, setup["project"])) == before  # nothing charged

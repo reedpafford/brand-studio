@@ -11,6 +11,7 @@ import { backLink, btnPrimary, btnSecondary, card, errorText as errorClass, inpu
 import { CharacterExtras } from "./CharacterExtras";
 import { SheetPanel } from "./SheetPanel";
 import { LookSheets } from "./LookSheets";
+import { SheetVersions } from "./SheetVersions";
 import { KINDS, isKindSlug } from "./kinds";
 import { serverTime } from "../time";
 
@@ -97,6 +98,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
       {others.length > 0 && <p className="text-sm text-muted">Shared with {others.join(", ")}. Changes apply there too.</p>}
       {kind !== "prop" && <SheetPanel item={item} kind={kind} ensureSaved={async () => changed && form.brand_ids.length > 0 && (await save.mutateAsync())} />}
       {kind === "character" && <LookSheets item={item} />}
+      {kind !== "prop" && <SheetVersions item={item} kind={kind} />}
       <form onSubmit={submit} className={`${card} space-y-4`}>
         {kind === "prop" && (
         <div className="space-y-2">
