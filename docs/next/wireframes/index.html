@@ -183,6 +183,7 @@ h3 { font-size:17px; margin:0; font-weight:700; }
   <span class="seg" role="group" aria-label="Card state">
     <button data-set="st" data-v="ok">Normal</button><button data-set="st" data-v="wait">Waiting</button><button data-set="st" data-v="fail">Failed</button><button data-set="st" data-v="refused">Refused</button><button data-set="st" data-v="stale">Out of date</button><button data-set="st" data-v="over">Over budget</button>
   </span>
+  <span class="seg" role="group" aria-label="Reed's P5.1"><button data-set="p51" data-v="no">Approvals today</button><button data-set="p51" data-v="yes">Three presses (P5.1 yes)</button></span>
   <label>Go to <select id="jump" aria-label="Go to a screen"></select></label>
   <span class="seg" role="group" aria-label="Theme">
     <button data-set="theme" data-v="dark">Dark</button><button data-set="theme" data-v="light">Light</button>
@@ -194,13 +195,13 @@ h3 { font-size:17px; margin:0; font-weight:700; }
 
 <script>
 "use strict";
-const S = { view: "desk", who: "editor", st: "ok", theme: "dark", screen: "videos", kind: "story", toast: null, side: "script", prompts: "prompts" };
+const S = { p51: "yes", view: "desk", who: "editor", st: "ok", theme: "dark", screen: "videos", kind: "story", toast: null, side: "script", prompts: "prompts" };
 try { const saved = JSON.parse(localStorage.getItem("bs-wire") || "{}"); Object.assign(S, saved, { toast: null }); } catch (e) {}
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const btn = (label, o = {}) => {
   const cls = ["btn", o.amber ? "amber" : "", o.ghost ? "ghost" : "", o.dense ? "dense" : "", o.full ? "full" : ""].join(" ");
-  const attrs = (o.go ? ` data-go="${o.go}"` : "") + (o.toast ? ` data-toast="${esc(o.toast)}"` : "") + (o.disabled ? " disabled" : "") + (o.st ? ` data-st="${o.st}"` : "") + (o.kind ? ` data-kind="${o.kind}"` : "");
+  const attrs = (o.go ? ` data-go="${o.go}"` : "") + (o.toast ? ` data-toast="${esc(o.toast)}"` : "") + (o.disabled ? " disabled" : "") + (o.st ? ` data-st="${o.st}"` : "") + (o.kind ? ` data-kind="${o.kind}"` : "") + (o.flag ? ` data-flag="${o.flag}"` : "");
   const price = o.price !== undefined ? ` <span class="price">· ${o.price}</span>` : "";
   const b = `<button class="${cls}"${attrs}>${label}${price}</button>`;
   return o.why ? `<span style="display:inline-flex;flex-direction:column;gap:4px">${b}<span class="why">${o.why}</span></span>` : b;
@@ -210,9 +211,11 @@ const more = (what) => `<button class="more" aria-label="More for ${esc(what)}" 
 const media = (label, r = "r916") => `<div class="media ${r}">${label}</div>`;
 
 /* ---------- the screens ---------- */
-const VIDEO_STEPS = [["v-breakdown", "Breakdown"], ["v-assets", "Assets"], ["v-storyboard", "Storyboard"], ["v-clips", "Clips"], ["v-final", "Final cut"]];
-const STORY_STEPS = [["write", "Write"], ["cast", "Cast"], ["plan", "Plan"], ["publish", "Publish"]];
-const SONG_STEPS = [["song", "Song"], ["songtakes", "Takes"], ["cast", "Cast"], ["plan", "Plan"], ["publish", "Publish"]];
+const VIDEO_STEPS_NO = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-storyboard", "Storyboard"], ["v-clips", "Clips"], ["v-final", "Final cut"]];
+const VIDEO_STEPS_YES = [["v-plan", "Plan"], ["v-assets", "Cast"], ["v-make", "Make"], ["v-final", "Final cut"]];
+const vsteps = () => (S.p51 === "yes" ? VIDEO_STEPS_YES : VIDEO_STEPS_NO);
+const STORY_STEPS = [["write", "Write"], ["plan", "Plan"], ["cast", "Cast"], ["publish", "Publish"]];
+const SONG_STEPS = [["song", "Song"], ["songtakes", "Takes"], ["plan", "Plan"], ["cast", "Cast"], ["publish", "Publish"]];
 
 const screens = {};
 const label = {};
@@ -235,16 +238,16 @@ function stepper(list, cur, extra = {}) {
   }).join("")}</nav>`;
 }
 function settingsRow(song) {
-  return `<div class="hrow meta" aria-label="Video settings"><span class="chip">9:16</span><span class="chip">Reels</span><span class="chip">Peanut butter</span>${song ? '<span class="chip">Song: Take 2 · 0:31 ▾</span>' : ""}<button class="btn ghost dense" data-toast="Video settings opens: shape, platform, flavour${song ? ", song" : ""} (later: style, models, language). Each change says what goes out of date and its price first.">Settings</button></div>`;
+  return `<div class="hrow meta" aria-label="Video settings"><span class="chip">9:16</span><span class="chip">Reels</span><span class="chip">Peanut butter</span><span class="chip">Look: House ▾</span>${song ? '<span class="chip">Song: Take 2 · 0:31 ▾</span>' : ""}<button class="btn ghost dense" data-toast="Video settings opens: shape, platform, flavour${song ? ", song" : ""} (later: models, language; Look is here too). Each change says what goes out of date and its price first.">Settings</button></div>`;
 }
 function videoHead(cur, extra) {
   const song = S.kind === "song";
   const title = song ? "Pitbull song · A" : "The altar reel · B";
   return `<div class="stack">
-    ${S.view === "phone" ? "" : crumbs(`fomo › November launch › From: <a href="#" data-go="write">The altar reel</a> · version B`, ["videos", "Videos"])}
-    ${S.view === "phone" ? "" : `<div class="hrow"><h1>${title}</h1>${more(title)}<span class="spacer"></span>${settingsRow(song)}</div>`}
+    ${S.view === "phone" ? "" : crumbs(`fomo › November launch › From: <a href="#" data-go="${song ? "song" : "write"}">${song ? "Pitbull song" : "The altar reel"}</a> · version ${song ? "A" : "B"}`, ["videos", "Videos"])}
+    ${S.view === "phone" ? "" : `<div class="hrow"><h1>${title}</h1>${badge(song ? "Song" : "Dialogue")}${more(title)}<span class="spacer"></span>${settingsRow(song)}</div>`}
     ${S.view === "phone" ? settingsRow(song) : ""}
-    ${stepper(VIDEO_STEPS, cur, extra)}
+    ${stepper(vsteps(), S.p51 === "yes" && ["v-storyboard", "v-clips", "v-start"].includes(cur) ? "v-make" : cur, extra)}
   </div>`;
 }
 
@@ -259,7 +262,7 @@ function cardState(kind, price) {
     default: return null;
   }
 }
-function costbar({ used = 412, budget = 660, finish = "about 140", press = "", amber = "", go = "", disabled = false, why = "", toast = "", meter = true }) {
+function costbar({ used = 412, budget = 660, finish = "about 140", press = "", amber = "", go = "", disabled = false, why = "", toast = "", meter = true, flag = "" }) {
   if (!amber && !press) return "";
   const pct = Math.round((used / budget) * 100);
   const week = S.who === "editor" && S.screen.match(/^(write|cast|plan|publish|song|songtakes)$/);
@@ -270,7 +273,7 @@ function costbar({ used = 412, budget = 660, finish = "about 140", press = "", a
   const w = over && /·/.test(amber) ? "That's more than this video's budget. The free presses above still work." : why;
   return `<div class="costbar" role="region" aria-label="Cost bar">${left}
     ${S.view === "phone" ? "" : `<div class="what">${finish ? `To finish: ${finish} ▾` : ""}${press ? ` · This press: ${press}` : ""}</div>`}
-    <div class="go">${amber ? `<button class="btn amber ${S.view === "phone" ? "full" : ""}"${go ? ` data-go="${go}"` : ""}${toast ? ` data-toast="${esc(toast)}"` : ""}${dis ? " disabled" : ""}>${amber}</button>` : ""}${w ? `<span class="why">${w}</span>` : ""}</div></div>`;
+    <div class="go">${amber ? `<button class="btn amber ${S.view === "phone" ? "full" : ""}"${go ? ` data-go="${go}"` : ""}${flag ? ` data-flag="${flag}"` : ""}${toast ? ` data-toast="${esc(toast)}"` : ""}${dis ? " disabled" : ""}>${amber}</button>` : ""}${w ? `<span class="why">${w}</span>` : ""}</div></div>`;
 }
 
 /* Videos (editor home) */
@@ -281,14 +284,14 @@ def("videos", "Videos (editor home)", () => {
       <div class="hrow"><h1>Videos</h1><span class="spacer"></span><button class="btn dense" data-toast="Filters: status, project, mine/anyone, quick clips.">Filters</button></div>
       <section class="stack"><p class="eyebrow">Needs you</p><div class="list">
         ${row("The altar reel · B", badge("Clips · 2 to check", "check"), "62% of budget · Kel", "v-clips", "story")}
-        ${row("Pitbull 1 · A", badge("Assets · 1 look to approve", "check"), "18% of budget · Kel", "v-assets", "story")}
+        ${row("Pitbull 1 · A", badge("Cast · 1 look to approve", "check"), "18% of budget · Kel", "v-assets", "story")}
       </div></section>
       <section class="stack"><p class="eyebrow">Making</p><div class="list">
-        ${row("Pitbull song · A", badge("Storyboard · Making… 1:10"), "30% of budget", "v-storyboard", "song")}
+        ${row("Pitbull song · A", badge("Storyboard · Making… 1:10"), "30% of budget", "v-clips", "song")}
       </div></section>
       <section class="stack"><p class="eyebrow">Done</p><div class="list">
         ${row("Mom's 3 days · C", badge("Final cut", "ok"), "Downloaded 14:02 · 71 credits", "v-final", "story")}
-        ${row("Gym bro · B", badge("Finished · changes waiting", "warn"), "Breakdown changed after the final cut", "v-storyboard", "story")}
+        ${row("Gym bro · B", badge("Finished · changes waiting", "warn"), "Breakdown changed after the final cut", "v-clips", "story")}
       </div></section></div>`,
     bar: costbar({ used: 40, budget: 145, finish: "", amber: "Open: The altar reel · B", go: "v-clips" }),
   };
@@ -361,7 +364,7 @@ def("production", "In production (owner)", () => {
   const row = (t, step, k, meta) => `<div class="card vrow">${media("")}<div class="stack" style="margin:0;flex:1;min-width:0"><h3>${t}</h3><div class="hrow">${badge(step, k)}</div><p class="meta">${meta}</p></div></div>`;
   return {
     main: `<div class="stack-lg"><div class="hrow"><h1>In production</h1><span class="spacer"></span><button class="btn dense" data-toast="Filters: brand, editor, needs attention.">Filters</button></div><p class="meta">Every brand · 3 videos being made</p>
-      <div class="list">${row("The altar reel · B", "Clips · 2 to check", "check", "fomo · Kel · 4 min ago · 412 credits ($42.35) of a 660-credit budget")}${row("Itchy paws at night · A", "Assets · 1 look to approve", "check", "Iron Paws · Maya · 1 h ago · 5 credits ($0.51) of a 56-credit budget")}${row("Gym bro · B", "Finished · changes waiting", "warn", "fomo · Sam · 2 days ago · nothing for 2 days")}</div></div>`,
+      <div class="list">${row("The altar reel · B", "Clips · 2 to check", "check", "fomo · Kel · 4 min ago · 412 credits ($42.35) of a 660-credit budget")}${row("Itchy paws at night · A", "Cast · 1 look to approve", "check", "Iron Paws · Maya · 1 h ago · 5 credits ($0.51) of a 56-credit budget")}${row("Gym bro · B", "Finished · changes waiting", "warn", "fomo · Sam · 2 days ago · nothing for 2 days")}</div></div>`,
     bar: costbar({ finish: "", amber: "" }),
   };
 });
@@ -389,13 +392,13 @@ def("version", "Make this version (the handoff)", () => ({
         <dt>Words</dt><dd class="script">NATE: Will you marry me?<br>LEXI: Hell no.<br><span class="meta">… 6 lines · Show all</span></dd>
         <dt>Reel</dt><dd>DeiD2HlPrBt (live action becomes the end line)</dd>
         <dt>Cast</dt><dd>Lexi = Goth GF ${badge("Locked")} · The Boss ${badge("Made for this video")}<div class="meta">Not locked: each video makes its own look (about 2 credits each).</div></dd>
-        <dt>Plan</dt><dd>9 clips · 54 s · saved by Reed, free to start</dd>
+        <dt>Format · Look</dt><dd>Dialogue · House (the look can change per video)</dd><dt>Plan</dt><dd>Approved by Reed · 9 clips · 54 s · free to start</dd>
         <dt>Settings</dt><dd><span class="hrow"><span class="chip">9:16</span><span class="chip">Reels</span><span class="chip">Peanut butter (set by Reed)</span><button class="btn ghost dense" data-toast="Change before you start: shape, platform, flavour.">Change</button></span></dd>
         <dt>Notes from Reed</dt><dd>"Keep the ring throw in slow motion."</dd>
       </dl>
       <p class="meta">Starting is free (the plan is saved) · the whole video about 86 credits · budget 172</p>
     </div></div>`,
-  bar: costbar({ used: 0, budget: 172, finish: "about 86", press: "free (plan saved)", amber: "Make this version", go: "v-breakdown" }),
+  bar: costbar({ used: 0, budget: 172, finish: "about 86", press: "free (plan saved)", amber: "Make this version", go: "v-plan" }),
 }));
 
 /* Writing: Write */
@@ -408,10 +411,10 @@ def("write", "Write (story)", () => {
     <div class="box tall script">NATE: Will you marry me?<br>LEXI: Hell no.<br>…<br>NATE: Want to trade like me? Download fomo through the link in my bio.</div>
     <div class="hrow">${btn("Save", { dense: true, toast: "Saved." })}<span class="meta">About ▸ · Reel: read ✓</span>${btn("Have Claude write it", { dense: true, ghost: true, price: "3 credits", toast: "Write a new script? Your words are kept in Undo." })}</div></div>`;
   return {
-    main: `<div class="stack-lg">${crumbs("fomo › Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>The altar reel</h1>${badge("Draft · only you can see it")}<span class="spacer"></span>${more("script")}</div>${stepper(STORY_STEPS, "write", { plan: "optional" })}
+    main: `<div class="stack-lg">${crumbs("fomo › Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>The altar reel</h1>${badge("Dialogue")}<span class="chip">House ▾</span>${badge("Draft · only you can see it")}<span class="spacer"></span>${more("script")}</div>${stepper(STORY_STEPS, "write", { plan: "optional" })}
       ${S.view === "phone" ? words + `<div class="hrow">${btn("Suggestions", { dense: true, toast: "Opens Suggestions as a full-height sheet." })}${btn("Versions", { dense: true, toast: "Opens Versions as a full-height sheet." })}</div>` : words}</div>`,
     side: S.view === "phone" ? null : side,
-    bar: costbar({ finish: "", amber: "Approve the words · Next: Cast", go: "cast", why: S.view === "phone" ? "" : "Approving makes the words final. Undo is offered." }),
+    bar: costbar({ finish: "", amber: "Approve the words · Next: Plan", go: "plan", why: S.view === "phone" ? "" : "Approving makes the words final. Undo is offered." }),
   };
 });
 
@@ -435,7 +438,7 @@ def("songtakes", "Takes (the song)", () => {
       ${S.st === "stale" ? `<p class="line warn">Take 1 and Take 2 sing older words. Make takes of the new lyrics first.</p>` : ""}
       <p class="meta">The song sets the video's length. Take 2 is 0:31: about 34 credits to make the video at 480p.</p>
       ${btn("Make 2 more", { price: "up to 4 credits", dense: true, toast: "Two more takes are being made." })}</div>`,
-    bar: costbar({ finish: "", amber: S.st === "stale" ? "Make 2 takes · up to 4 credits" : "Next: Cast", go: S.st === "stale" ? "" : "cast" }),
+    bar: costbar({ finish: "", amber: S.st === "stale" ? "Make 2 takes · up to 4 credits" : "Next: Plan", go: S.st === "stale" ? "" : "plan" }),
   };
 });
 
@@ -448,36 +451,62 @@ def("cast", "Cast (writing)", () => {
       ${song ? `<div class="card stack"><h3>Who sings on camera?</h3><div class="hrow"><span class="chip">Bo (hero)</span><span class="chip">Nobody on camera</span></div></div>` : ""}
       <div class="grid">${role(song ? "Bo" : "Lexi", "Late 20s · woman · bride · from the script", true)}${role("The Boss", "40s · man · boss (a guess)", false)}${role("Kimchi", "20s · man · trader friend", false)}</div>
       <div class="hrow">${btn("Add a role", { dense: true, toast: "Add a role: name, kind, description." })}${btn("Find roles again", { dense: true, ghost: true, price: "3 credits", toast: "Find the roles again? Locks are kept." })}</div></div>`,
-    bar: costbar({ finish: "", amber: "Next: Plan (optional)", go: "plan" }),
+    bar: costbar({ finish: "", amber: "Next: Publish", go: "publish" }),
   };
 });
 
+
+/* The creative plan: a table on desktop, scene cards on a phone (ux-audit Part 7). */
+function planView(owner) {
+  const song = S.kind === "song";
+  const rows = song
+    ? [["0:00–0:05", "Bedroom, dawn", "Extreme close-up: Bo wakes, one eye glued shut with crust; he paws at it dramatically.", "Crusty eyes every morning…", ["Bo"], false],
+       ["0:05–0:09", "Couch, night", "He licks his paw so fast his tongue is a blur, ears flapping.", "Lickin' my paws every night…", ["Bo"], false],
+       ["1:35–1:49", "Kitchen, night", "She scoops from the bag into his bowl; he launches mid-air and empties it before it lands.", "Thursday night she mixed it in…", ["Bo", "Her"], true]]
+    : [["1", "Altar, day", "Nate drops to one knee; the whole church gasps in slow motion.", 'NATE: "Will you marry me?"', ["Nate", "Lexi"], false],
+       ["2", "Altar, day", "Lexi laughs, throws the ring over her shoulder into the font.", 'LEXI: "Hell no."', ["Lexi"], false],
+       ["7", "Penthouse, night", "Nate taps Buy on fomo; the balance climbs past $14,800 as his face lights green.", "(montage)", ["Nate", "Kimchi"], true]];
+  const cast = `<div class="card stack"><div class="hrow"><h3>Cast in every scene</h3><span class="spacer"></span><span class="meta">${song ? "B-roll only · the song is the only sound" : "9 clips · 54 s"}</span></div><div class="hrow">${(song ? [["Bo", "fawn Frenchie, red bandana"], ["Her", "mid-30s, cream knit sweater"]] : [["Nate", "late 20s, grey suit"], ["Lexi", "Goth GF · locked"], ["Kimchi", "trader friend"]]).map(([n, d]) => `<span class="chip">${n} · ${d}</span>`).join("")}<span class="chip">★ ${song ? "Peanut butter bag" : "fomo on the phone"}</span></div></div>`;
+  const t = S.view === "phone"
+    ? rows.map(([n, place, see, line, who, star]) => `<div class="card stack"><div class="hrow"><b>${song ? n : "Scene " + n}</b><span class="meta">${place}</span><span class="spacer"></span>${star ? badge("★ product", "check") : ""}${more("scene " + n)}</div><button class="nav" style="color:var(--text);flex-direction:column;align-items:flex-start;padding:6px 8px" data-linesheet="${n}"><span class="meta">${line}</span><span class="script">${see}</span></button><div class="hrow">${who.map((w) => `<span class="chip">${w}</span>`).join("")}</div></div>`).join("")
+    : `<div class="card" style="padding:0;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr class="meta" style="text-align:left">${[song ? "Song time" : "Scene", "Place", "What we see", song ? "Lines" : "Line", "Who", ""].map((h) => `<th style="padding:10px 12px;border-bottom:1px solid var(--border)">${h}</th>`).join("")}</tr></thead><tbody>${rows.map(([n, place, see, line, who, star]) => `<tr><td style="padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap">${n}</td><td style="padding:10px 12px;border-bottom:1px solid var(--border)">${place}</td><td class="script" style="padding:10px 12px;border-bottom:1px solid var(--border)">${see}${star ? " " + badge("★ product", "check") : ""}</td><td class="meta" style="padding:10px 12px;border-bottom:1px solid var(--border)">${line}</td><td style="padding:10px 12px;border-bottom:1px solid var(--border)">${who.join(", ")}</td><td style="padding:4px;border-bottom:1px solid var(--border)">${more("scene " + n)}</td></tr>`).join("")}</tbody></table></div>`;
+  const status = S.st === "stale" ? `<div class="banner warn"><span class="t">The words changed after this plan was made.</span>${btn("Redo the plan", { price: "3 credits", dense: true })}</div>`
+    : S.st === "wait" ? `<p class="meta">Writing the plan… 0:14 · You can leave this page.</p>`
+    : S.st === "fail" ? `<div class="banner bad"><span class="t">The plan didn't finish · nothing charged.</span>${btn("Try again", { price: "3 credits", dense: true })}</div>`
+    : `<div class="hrow">${badge(owner ? "Ready to check" : "Approved · From Reed's plan", owner ? "check" : "ok")}<span class="meta">Pattern: Problem → Why → Discovery → Proof → Payoff · 9 scenes · every line used once · the product in 4</span></div><p class="meta">The words never change: the plan only says where each line happens and what we see. ${S.view === "phone" ? "Tap a line to move it, start a new scene, or ★ it." : ""}</p>`;
+  return `${status}${cast}${t}<div class="hrow">${btn("Shots", { dense: true, go: owner ? "" : "v-breakdown", toast: owner ? "Shots: the breakdown preview (shot ids, seconds, camera, problems with their free fixes)." : "" })}${btn("Redo the plan", { dense: true, ghost: true, price: "3 credits", toast: "Redo the plan? Your edits are kept in Earlier (Undo)." })}</div>`;
+}
+
 /* Plan (writing) */
-def("plan", "Plan (optional breakdown)", () => {
+def("plan", "Plan (writing)", () => {
   const song = S.kind === "song";
   return {
-    main: `<div class="stack-lg">${crumbs("Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>${song ? "Pitbull song" : "The altar reel"}</h1></div>${stepper(song ? SONG_STEPS : STORY_STEPS, "plan", { plan: "optional" })}
-      <div class="banner"><span class="t">Plan the shots now, or let it happen when an editor starts this version.</span>${btn("Make the plan", { price: "3 credits", dense: true, toast: "Planning… 0:12" })}</div>
-      ${song ? `<div class="card stack"><div class="wave"></div><div class="segs"><span class="sung">1 · Sung</span><span>2</span><span>3</span><span>4</span><span class="sung">5 · Sung</span><span>6</span></div><p class="meta">Made from Take 2 (Preferred) · 0:31</p></div>` : `<div class="card stack"><p class="meta">3 scenes · 9 clips · 54 s</p><p class="script">1.1 · 3 s · NATE: "Will you marry me?"</p><p class="script">1.2 · 2 s · LEXI: "Hell no."</p></div>`}</div>`,
-    bar: costbar({ finish: "", amber: "Next: Publish", go: "publish" }),
+    main: `<div class="stack-lg">${crumbs("Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>${song ? "Pitbull song" : "The altar reel"}</h1>${badge(song ? "Song" : "Dialogue")}<span class="chip">House ▾</span></div>${stepper(song ? SONG_STEPS : STORY_STEPS, "plan")}${planView(true)}</div>`,
+    bar: costbar({ finish: "", amber: "Approve the plan · Next: Cast", go: "cast" }),
   };
 });
 
 def("publish", "Publish", () => ({
   main: `<div class="stack-lg">${crumbs("Scripts", ["scripts", "Scripts"])}<div class="hrow"><h1>The altar reel</h1></div>${stepper(S.kind === "song" ? SONG_STEPS : STORY_STEPS, "publish")}
-    <div class="grid"><div class="card stack"><h3>Version A</h3><dl class="kv"><dt>Words</dt><dd>Approved ✓</dd><dt>Cast</dt><dd>Lexi locked · 2 made per video</dd><dt>Plan</dt><dd>54 s (saved)</dd><dt>Defaults</dt><dd>9:16 · Reels · Peanut butter</dd><dt>Notes</dt><dd>"Keep the ring throw in slow motion."</dd></dl></div>
+    <div class="grid"><div class="card stack"><h3>Version A</h3><dl class="kv"><dt>Words</dt><dd>Approved ✓</dd><dt>Cast</dt><dd>Lexi locked · 2 made per video</dd><dt>Plan</dt><dd>Approved · 9 clips · 54 s</dd><dt>Format · Look</dt><dd>Dialogue · House</dd><dt>Defaults</dt><dd>9:16 · Reels · Peanut butter</dd><dt>Notes</dt><dd>"Keep the ring throw in slow motion."</dd></dl></div>
     <div class="card stack"><h3>Version B</h3><p class="line warn">Not approved yet: it's approved when you publish.</p></div></div>
     <p class="meta">Publishing makes the words final (rule 31). Afterwards you can still edit the title, about and notes.</p></div>`,
   bar: costbar({ finish: "", amber: "Publish 2 versions", go: "scripts", toast: "Published. 2 versions are ready to make." }),
 }));
 
+/* Video: Plan */
+def("v-plan", "Video · Plan", () => ({
+  main: `<div class="stack-lg">${videoHead("v-plan", {})}${planView(false)}</div>`,
+  bar: costbar({ used: 3, budget: 172, finish: "about 86", amber: "Next: Cast", go: "v-assets" }),
+}));
+
 /* Video: Breakdown */
-def("v-breakdown", "Video · Breakdown", () => {
+def("v-breakdown", "Video · Plan › Shots", () => {
   const song = S.kind === "song";
   const st = S.st === "stale" ? `<div class="banner warn"><span class="t">This breakdown was made for older words.</span></div>` : "";
   const shot = (id, s, l, who) => `<div class="card stack"><div class="hrow"><b>${id}</b><span class="meta">${s}</span><span class="spacer"></span>${btn("Edit", { dense: true, ghost: true, toast: "The shot editor opens. Edits wait for Save; fixes save at once." })}${more("shot " + id)}</div><p class="script">${l}</p><div class="hrow">${who.map((w) => `<span class="chip">${w}</span>`).join("")}</div></div>`;
   return {
-    main: `<div class="stack-lg">${videoHead("v-breakdown", { "v-clips": "" })}
+    main: `<div class="stack-lg">${videoHead("v-plan", {})}<div class="hrow">${btn("‹ Back to the plan", { dense: true, ghost: true, go: "v-plan" })}<h2>Shots</h2></div>
       ${st}
       ${S.st === "fail" ? `<div class="banner bad"><span class="t">The breakdown didn't finish · nothing charged.</span>${btn("Try again", { price: "3 credits", dense: true })}</div>` : ""}
       ${S.st === "wait" ? `<p class="meta">Making the breakdown… 0:12 · You can leave this page.</p><div class="card media r169"></div>` : `
@@ -485,12 +514,12 @@ def("v-breakdown", "Video · Breakdown", () => {
       ${song ? `<div class="card stack"><div class="wave"></div><div class="segs"><span class="sung">1 · Sung</span><span>2</span><span>3</span><span>4</span><span>5</span><span class="sung">6 · Sung</span></div></div>` : ""}
       <div class="banner bad"><span class="t"><b>2 problems</b> to fix before the storyboard · "Shot 4.2 shows Kimchi, but the line is Lexi's."</span>${btn("Fix 2 problems", { dense: true, price: "free", toast: "Fixed 2 problems. Undo." })}${btn("Keep anyway", { dense: true, ghost: true })}</div>
       <p class="eyebrow">Scene 1 · The altar</p>${shot("1.1", "3 s · close", 'NATE: "Will you marry me?"', ["Nate", "Altar"])}${shot("1.2", "2 s · wide", 'LEXI: "Hell no."', ["Lexi", "Nate"])}`}</div>`,
-    bar: costbar({ finish: "about 140", amber: S.st === "stale" ? "Make the breakdown again · 3 credits" : "Next: Assets", go: S.st === "stale" ? "" : "v-assets", disabled: false, why: "", toast: S.st === "stale" ? "Making the breakdown again…" : "" }),
+    bar: costbar({ finish: "about 140", amber: S.st === "stale" ? "Make the shots again · 3 credits" : "Next: Cast", go: S.st === "stale" ? "" : "v-assets", disabled: false, why: "", toast: S.st === "stale" ? "Making the breakdown again…" : "" }),
   };
 });
 
-/* Video: Assets */
-def("v-assets", "Video · Assets", () => {
+/* Video: Cast (was Assets) */
+def("v-assets", "Video · Cast", () => {
   const cs = cardState("look", "up to 2 credits");
   const look = (n, sub, st, check) => {
     const c = check ? cs : null;
@@ -501,57 +530,59 @@ def("v-assets", "Video · Assets", () => {
       <div class="banner info"><span class="t">Making 1 look for The Boss · up to 4 credits (usually 2) · starting in 5 s</span>${btn("Not now", { dense: true, ghost: true, toast: "Not now. The card keeps its own Make a look button." })}</div>
       <h2>Cast</h2><div class="grid">${look("Lexi · Goth GF", "Locked · in 6 shots", badge("Approved", "ok"), false)}${look("The Boss", "40s · man · boss · in 3 shots", badge("Check this", "check"), true)}${look("Kimchi", "20s · man · trader friend · in 4 shots", badge("Approved", "ok"), false)}</div>
       <h2>Places · Products · App screens</h2><p class="meta">Pictures from the brand; nothing to approve. The flavour is set in Settings.</p><div class="grid">${media("Altar", "r169")}${media("PB bag", "r169")}</div></div>`,
-    bar: costbar({ used: 18, budget: 220, finish: "about 120", amber: "Approve all looks (1)", toast: "Approved 1 look. Undo. Next: Storyboard is open.", go: "v-storyboard" }),
+    bar: costbar({ used: 18, budget: 220, finish: "about 120", amber: "Approve all looks (1)", toast: S.p51 === "yes" ? "Approved 1 look. Undo. Next: one press makes the video." : "Approved 1 look. Undo. Next: Storyboard.", go: S.p51 === "yes" ? "v-start" : "v-storyboard" }),
   };
 });
 
-/* Video: Storyboard */
-def("v-storyboard", "Video · Storyboard", () => {
-  const frame = (n, line, i) => {
-    const c = i === 1 ? cardState("still", "1 credit") : null;
-    return `<div class="card stack">${media(c && S.st === "wait" ? "Making… 0:20" : "still " + n)}<div class="hrow"><b>Clip ${n}</b>${c ? c.badge : i === 0 ? badge("Approved", "ok") : badge("Check this", "check")}<span class="spacer"></span>${more("frame " + n)}</div><p class="script">${line}</p>${c ? c.lines + `<div class="hrow">${c.press}</div>` : i === 0 ? "" : `<div class="hrow">${btn("Approve", { dense: true, toast: "Approved. Undo." })}${btn("Make another", { dense: true, price: "1 credit", toast: "Drawing… the earlier still is kept." })}</div><div class="box">Change this…</div>`}</div>`;
-  };
-  const stale = S.st === "stale";
-  return {
-    main: `<div class="stack-lg">${videoHead("v-storyboard", { "v-storyboard": stale ? "out of date" : "2 to check" })}
-      ${stale ? `<div class="banner warn"><span class="t">The breakdown changed after these stills. Clips and Final cut stay open to look at; new takes wait until the stills are redone.</span></div>` : ""}
-      <div class="grid">${frame(1, 'NATE: "Will you marry me?"', 0)}${frame(2, 'LEXI: "Hell no."', 1)}${frame(3, "The ring hits the floor.", 2)}</div></div>`,
-    bar: costbar({ used: 120, budget: 220, finish: "about 90", amber: stale ? "Update everything after this · 4 credits" : "Approve all frames (2)", go: stale ? "" : "v-clips", press: stale ? "3 stills + 2 clip prompts" : "", toast: stale ? "Redrawing 3 stills, then rewriting 2 clip prompts. Stops at the first step that fails or is over budget." : "Approved 2 frames. Undo." }),
-  };
-});
-
-/* Video: Clips (Prompts / Takes) */
-def("v-clips", "Video · Clips (Prompts, Takes)", () => {
-  const phase = S.prompts;
-  const tabs = `<div class="tabsx" role="tablist" aria-label="Clips phase"><button class="tabx" role="tab" aria-selected="${phase === "prompts"}" data-phase="prompts">Prompts · 2 to check</button><button class="tabx" role="tab" aria-selected="${phase === "takes"}" data-phase="takes">Takes</button></div>`;
+/* Video: Storyboard and Clips (AI check notes, automatic fixes, P5.1 yes/no) */
+function reviewPanel() {
+  if (!S.review && S.screen !== "v-final") return "";
+  return `<div class="card stack" style="background:var(--surface-2)"><div class="hrow"><h3>Review · 3 items with Advice</h3><span class="spacer"></span>${S.screen !== "v-final" ? '<button class="btn ghost dense" data-review>Close</button>' : ""}</div>
+    ${[["Storyboard", "Still 4", "The bag's label isn't readable"], ["Clips", "Clip 2", "Lexi's hair looks shorter than her sheet (0:02)"], ["Clips", "Clip 6", "The red bandana is missing (0:03)"]].map(([st, it, n]) => `<div class="hrow"><span class="meta" style="width:84px">${st}</span><b>${it}</b><span class="line" style="flex:1;min-width:160px">${n}</span>${btn("Open", { dense: true, ghost: true, go: st === "Storyboard" ? "v-storyboard" : "v-clips" })}</div>`).join("")}
+    <p class="meta">Nothing here blocks. Each opens its card, with Change this… ready.</p></div>`;
+}
+def("v-start", "Video · before Make the video (P5.1 yes)", () => ({
+  main: `<div class="stack-lg">${videoHead("v-storyboard", {})}<div class="card stack" style="max-width:640px"><h2>Ready to make the video</h2>
+      <p>Stills, then clip prompts, then takes, in order, for the 9 clips in the plan. You can leave this page; it carries on.</p>
+      <ul class="meta" style="margin:0;padding-left:18px"><li>9 stills · about 3 credits</li><li>9 clip prompts · about 5 credits</li><li>9 takes, 54 s · about 54 credits</li><li>Automatic retries are free · the AI check is a few cents</li></ul>
+      <p class="meta">Each still and take is checked against the looks and the product. Clean ones are approved on their own; anything with Advice waits for you. Prompts show before their takes and can be changed. Want to OK each prompt first? Turn on "Check prompts before takes" in Settings.</p></div></div>`,
+  bar: costbar({ used: 18, budget: 172, finish: "about 62", press: "Make the video · about 62 credits → leaves 92", amber: "Make the video · about 62 credits", go: "v-storyboard" }),
+}));
+function workView(kind) {
   const song = S.kind === "song";
-  const pcard = (n, line, i) => {
-    const c = i === 1 ? cardState("clip", "6 credits") : null;
-    return `<div class="card stack">${media("still " + n)}<div class="hrow"><b>Clip ${n} · 6 s</b>${c ? c.badge : i === 0 ? badge("Prompt OK", "ok") : badge("Check this", "check")}<span class="spacer"></span>${more("clip " + n)}</div>
-      ${song ? `<p class="meta">${i === 1 ? "Sung · lip-syncs 0:06–0:11" : "B-roll · picture only"}</p>` : ""}
-      <p class="script">${line}</p><p class="meta">${song ? "Bo · Kitchen" : "Lexi, Nate · Altar"}</p>
-      <p class="meta" style="border-left:2px solid var(--border-strong);padding-left:8px">Summary: ${song ? "Bo, the bowl, the song's hook" : "Lexi turns him down at the altar"}… <a href="#" data-toast="The full prompt opens (pictures named, never [Image1]).">Read the prompt</a></p>
-      ${c ? c.lines + `<div class="hrow">${c.press}</div>` : i === 0 ? btn("Undo Prompt OK", { dense: true, ghost: true }) : `<div class="hrow">${btn("Prompt OK", { dense: true, toast: "Prompt OK. Undo." })}</div><div class="box">Change this…</div>${btn("Change the prompt", { dense: true, price: "1 credit" })}`}</div>`;
+  const yes = S.p51 === "yes";
+  const notesChip = (n) => `<button class="badge" style="border:0;cursor:pointer" data-notes="${n}">${S.notesOpen === n ? "Hide notes" : "2 notes"}</button>`;
+  const panel = (n) => S.notesOpen === n ? `<div class="card stack" style="background:var(--surface-2)"><p class="eyebrow">AI check · Advice</p>
+      <div class="stack"><p class="line">${kind === "still" ? "The bag's label isn't readable." : "Lexi's hair looks shorter than her sheet (0:02)."}</p><div class="hrow">${btn("Change this…", { dense: true, toast: "The change box opens with the note filled in · up to 7 credits. One more press runs it." })}${btn("Looks fine", { dense: true, ghost: true, toast: "Note dismissed for this one (kept in its history). Undo." })}</div></div>
+      <div class="stack"><p class="line">${kind === "still" ? "Mia's outfit changed: the red bandana is missing." : "The fomo logo may be misspelt on the phone (0:04)."}</p><div class="hrow">${btn("Change this…", { dense: true, toast: "The change box opens with the note filled in." })}${btn("Looks fine", { dense: true, ghost: true, toast: "Dismissed. Undo." })}</div></div></div>` : "";
+  const lines = song ? ["Bo wakes, one eye crusted (B-roll)", "Bo licks his paw in a blur (B-roll)", 'BO (sung): "Iron Paws, every single bowl"'] : ['NATE: "Will you marry me?"', 'LEXI: "Hell no."', "The ring hits the floor."];
+  const card = (i) => {
+    const c = i === 2 ? cardState(kind, kind === "still" ? "1 credit" : "6 credits") : null;
+    const flagged = i === 1;
+    const status = c ? c.badge : flagged ? badge("Check this", "check") + " " + notesChip(i) : yes ? badge("Approved ✓ checked", "ok") : badge("✓ checked", "");
+    const auto = i === 0 && kind === "clip" ? `<p class="line meta">Tried again once on its own (the service was busy) · nothing extra charged</p>` : "";
+    const fixed = i === 1 && kind === "clip" ? `<p class="line meta">Fixed for you: removed 'logo text' · <a href="#" data-toast="Before/after of the one changed phrase, with Undo.">See the change</a></p>` : "";
+    const approve = !yes && !c ? `<div class="hrow">${btn(kind === "still" ? "Approve" : "Approve take", { dense: true, toast: "Approved. Undo." })}</div>` : flagged ? `<div class="hrow">${btn(kind === "still" ? "Approve" : "Approve take", { dense: true, toast: "Approved with Advice. Undo." })}</div>` : "";
+    return `<div class="card stack">${media(c && S.st === "wait" ? "Making… 0:42" : kind === "still" ? "still " + (i + 1) : "▶ take")}<div class="hrow"><b>${kind === "still" ? "Still" : "Clip"} ${i + 1}</b>${status}<span class="spacer"></span>${more("item " + (i + 1))}</div>
+      <p class="script">${lines[i]}</p><p class="meta">${song ? "Bo · Kitchen" : "Lexi, Nate · Altar"}</p>${auto}${fixed}${c ? c.lines + `<div class="hrow">${c.press}</div>` : ""}${approve}${flagged ? panel(i) : ""}
+      ${c ? "" : `<div class="box">Change this…</div>`}</div>`;
   };
-  const tcard = (n, line, i) => {
-    const c = i === 1 ? cardState("clip", "6 credits") : null;
-    return `<div class="card stack">${media(c && S.st === "wait" ? "Making… 0:42" : "▶ take")}<div class="hrow"><b>Clip ${n} · 6 s</b>${c ? c.badge : i === 0 ? badge("Approved", "ok") : badge("Take 2 picked", "check")}<span class="spacer"></span>${more("clip " + n)}</div>
-      <p class="script">${line}</p>
-      <div class="hrow"><span class="chip">Take 1</span><span class="chip" style="border-color:var(--accent)">Take 2 ●</span></div>
-      ${c ? c.lines + `<div class="hrow">${c.press}</div>` : i === 0 ? "" : `<div class="hrow">${btn("Approve take", { dense: true, toast: "Approved. Undo." })}${btn("Make another take", { dense: true, price: "6 credits", toast: "Making… the earlier takes are kept." })}</div><div class="box">Change this…</div>${btn("Change it and make a new take", { dense: true, price: "up to 7 credits", why: "Rewrite 1 + take 6. Anything not used comes back." })}`}</div>`;
-  };
-  const lines = song ? ["Bo licks the bowl clean (B-roll).", 'BO (sung): "Iron Paws, every single bowl"', "The empty bowl spins (B-roll)."] : ['NATE: "Will you marry me?"', 'LEXI: "Hell no."', "The ring hits the floor."];
-  const cards = phase === "prompts" ? lines.map((l, i) => pcard(i + 1, l, i)).join("") : lines.map((l, i) => tcard(i + 1, l, i)).join("");
+  const progress = S.st === "wait" ? (kind === "still" ? "Drawing stills: 6 of 9 · You can leave this page." : "Making takes: 6 of 9 made · 3 making · You can leave this page.") : kind === "still" ? (yes ? "9 stills · 8 approved on their own · 1 waits for you" : "9 stills · 1 approved") : yes ? "9 takes · 8 approved on their own · 1 waits for you" : "9 takes · 1 approved";
+  const head = videoHead(kind === "still" ? "v-storyboard" : "v-clips", { [yes ? "v-make" : kind === "still" ? "v-storyboard" : "v-clips"]: "1 with notes" })
+    + (yes ? `<div class="tabsx" role="tablist" aria-label="Make"><button class="tabx" role="tab" aria-selected="${kind === "still"}" data-go="v-storyboard">Stills · 9</button><button class="tabx" role="tab" aria-selected="${kind === "clip"}" data-go="v-clips">Clips · 9</button></div>` : "");
   return {
-    main: `<div class="stack-lg">${videoHead("v-clips", { "v-clips": phase === "prompts" ? "2 to check" : "2 to approve" })}${tabs}<div class="grid">${cards}</div></div>`,
-    side: S.view === "phone" ? null : `<div class="tabsx" role="tablist"><button class="tabx" role="tab" aria-selected="${S.side !== "media"}" data-side="script">Script</button><button class="tabx" role="tab" aria-selected="${S.side === "media"}" data-side="media">Media</button></div>
-      ${S.side === "media" ? `<div class="stack" style="margin-top:12px"><p class="eyebrow">This video's looks</p><div class="grid" style="grid-template-columns:1fr 1fr">${media("Lexi")}${media("Boss")}</div><p class="meta">Looks and stills made here stay with this video. Reed's characters come from Cast & places.</p></div>`
-        : `<div class="stack script" style="margin-top:12px">${song ? '<p>[Verse]</p><p class="hl">Mixed it in my bowl, peanut butter gold…</p><p>[Chorus]</p><p class="hl">Iron Paws, every single bowl…</p>' : '<p class="hl">1 NATE: Will you marry me?</p><p class="hl">2 LEXI: Hell no.</p><p>3 NATE: …</p><p>4 …</p>'}</div>`}`,
-    bar: phase === "prompts"
-      ? costbar({ used: 412, budget: 660, finish: "about 140", amber: "Prompt OK for all ready (2)", toast: "2 prompts OK. Undo. Next: Make the takes.", press: "free" })
-      : costbar({ used: 412, budget: 660, finish: "about 140", press: "Make the takes · 54 credits → leaves 194", amber: "Make the takes · 54 credits", toast: "Making 9 takes… You can leave this page." }),
+    main: `<div class="stack-lg">${head}
+      <div class="hrow"><span class="meta">${progress}</span><span class="spacer"></span><button class="badge" style="border:0;cursor:pointer" data-review>3 items with Advice ▸</button></div>
+      ${reviewPanel()}
+      <div class="grid">${[0, 1, 2].map(card).join("")}</div></div>`,
+    bar: costbar({ used: kind === "still" ? 21 : 80, budget: 172, finish: S.st === "wait" ? "about 40" : kind === "still" ? "about 59" : "", press: S.st === "wait" ? "running · no press needed" : "",
+      amber: S.st === "wait" ? "" : yes ? "Next: Final cut" : (kind === "still" ? "Approve all frames (2)" : "Approve all takes (2)"),
+      go: S.st === "wait" ? "" : yes ? "v-final" : "", toast: yes ? "" : "Approved 2 (1 with Advice). Undo." }),
   };
-});
+}
+def("v-make", "Video · Make (P5.1 yes: Stills and Clips tabs)", () => workView("clip"));
+def("v-storyboard", "Video · Storyboard (or Make › Stills)", () => workView("still"));
+def("v-clips", "Video · Clips (or Make › Clips)", () => workView("clip"));
 
 /* Video: Final cut */
 def("v-final", "Video · Final cut", () => {
@@ -561,7 +592,7 @@ def("v-final", "Video · Final cut", () => {
     main: `<div class="stack-lg">${videoHead("v-final", {})}
       ${stale ? `<div class="banner warn"><span class="t">Older cut: made before the breakdown changed. It stays downloadable.</span></div>` : ""}
       ${S.st === "fail" ? `<div class="banner bad"><span class="t">The video couldn't be put together · nothing charged.</span>${btn("Try again", { dense: true, price: "free" })}</div>` : ""}
-      <div class="card stack" style="max-width:420px">${media(S.st === "wait" ? "Putting it together… 0:08" : "▶ final cut")}<div class="hrow"><b>The altar reel · B</b>${stale ? badge("Older cut", "warn") : badge("Final cut ready", "ok")}</div><p class="meta">54 s · 9:16 · 480p · 71 credits${song ? " · Song: Take 2, laid under the whole video" : ""}</p></div>
+      <div class="card stack" style="max-width:420px">${media(S.st === "wait" ? "Putting it together… 0:08" : "▶ final cut")}<div class="hrow"><b>The altar reel · B</b>${stale ? badge("Older cut", "warn") : badge("Final cut ready", "ok")}</div><p class="meta">54 s · 9:16 · 480p · 71 credits${song ? " · Song: Take 2, laid under the whole video" : ""}</p><p class="meta">Watch it through before you download.</p></div>${reviewPanel()}
       <div class="hrow">${btn("Download all clips (.zip)", { dense: true })}${song ? btn("Download the song (.mp3)", { dense: true }) : ""}<button class="btn ghost dense" data-toast="Each clip's picked take and its older takes open here.">Each clip ▸</button></div></div>`,
     bar: costbar({ used: 471, budget: 660, finish: "", amber: "Download MP4", toast: "Downloading. Final cut ready · downloaded 14:02." }),
   };
@@ -594,7 +625,7 @@ function render() {
   document.documentElement.dataset.theme = S.theme;
   document.querySelectorAll(".proto [data-set]").forEach((b) => b.setAttribute("aria-pressed", String(S[b.dataset.set] === b.dataset.v)));
   const sel = document.getElementById("jump");
-  sel.innerHTML = Object.keys(screens).map((k) => `<option value="${k}"${k === S.screen ? " selected" : ""}>${label[k]}</option>`).join("") + `<option value="v-clips|song"${S.screen === "v-clips" && S.kind === "song" ? "" : ""}>Song ad · Clips (Sung / B-roll)</option>`;
+  sel.innerHTML = Object.keys(screens).map((k) => `<option value="${k}"${k === S.screen ? " selected" : ""}>${label[k]}</option>`).join("") + `<option value="v-clips|song">Song ad · Clips (Sung / B-roll)</option>`;
   const app = document.getElementById("app");
   app.className = "app " + S.view;
   const scr = (screens[S.screen] || screens.videos)();
@@ -604,7 +635,8 @@ function render() {
   const menu = S.menu === "brands" ? `<div class="toast" style="top:${S.view === "phone" ? 60 : 60}px;bottom:auto;left:${S.view === "phone" ? "50%" : "16px"};transform:${S.view === "phone" ? "translateX(-50%)" : "none"};flex-direction:column;align-items:stretch;min-width:300px;gap:2px" role="dialog" aria-label="Brands">
       <p class="eyebrow" style="padding:4px 10px">Brands</p>${brandRow("#f4a940", "fomo ✓", S.who === "owner" ? "2 need you · 3 being made" : "1 needs you")}${brandRow("#5bd08a", "Iron Paws", S.who === "owner" ? "1 needs you" : "—")}${brandRow("#8ab4ff", "Night Owl Coffee", "set up 3 of 7")}
       ${S.who === "owner" ? '<button class="nav" data-close data-go="brand">+ New brand</button>' : '<p class="meta" style="padding:6px 10px">Brands are added by the owner.</p>'}</div>` : "";
-  const toast = (S.toast ? `<div class="toast" role="status"><span>${esc(S.toast)}</span><button class="btn ghost dense" data-close>OK</button></div>` : "") + menu;
+  const sheet = S.lineSheet ? `<div class="toast" style="bottom:${S.view === "phone" ? 70 : 100}px;flex-direction:column;align-items:stretch;min-width:300px;gap:2px" role="dialog" aria-label="This line"><p class="eyebrow" style="padding:4px 10px">Line in scene ${esc(S.lineSheet)}</p>${["Move to the previous scene", "Move to the next scene", "Start a new scene here", "★ Show the product here"].map((l) => `<button class="nav" style="color:var(--text)" data-close data-toast="${l}: done, free. Undo.">${l}</button>`).join("")}<button class="nav" data-close>Cancel</button></div>` : "";
+  const toast = (S.toast ? `<div class="toast" role="status"><span>${esc(S.toast)}</span><button class="btn ghost dense" data-close>OK</button></div>` : "") + menu + sheet;
   if (S.view === "desk") {
     const rail = `<nav class="rail ${inVideo ? "slim" : ""}" aria-label="Main">${inVideo ? "" : '<p class="eyebrow">fomo</p>'}${NAV.map(([id, l]) => `<button class="nav" ${sec === id ? 'aria-current="page"' : ""} data-go="${id}" title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}
       ${S.who === "owner" ? `<p class="eyebrow">${inVideo ? "" : "Studio"}</p>${STUDIO.map(([id, l]) => `<button class="nav" ${S.screen === id ? 'aria-current="page"' : ""} data-go="${id}" title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}${inVideo ? "" : '<p class="meta" style="padding:6px 10px">Approvals is hidden while nothing waits.</p>'}` : ""}</nav>`;
@@ -616,7 +648,7 @@ function render() {
     app.innerHTML = `<div class="phead">${back}</div><main class="work">${scr.main}</main>${scr.bar}
       <nav class="ptabs" aria-label="Tabs">${NAV.map(([id, l]) => `<button class="ptab" ${sec === id ? 'aria-current="page"' : ""} data-go="${id}"><span class="ico"></span>${l === "Cast & places" ? "Cast" : l === "Quick clip" ? "Quick" : l}</button>`).join("")}</nav>${toast}`;
   }
-  try { localStorage.setItem("bs-wire", JSON.stringify({ view: S.view, who: S.who, st: S.st, theme: S.theme, screen: S.screen, kind: S.kind, side: S.side, prompts: S.prompts })); } catch (e) {}
+  try { localStorage.setItem("bs-wire", JSON.stringify({ view: S.view, who: S.who, st: S.st, theme: S.theme, screen: S.screen, kind: S.kind, side: S.side, prompts: S.prompts, p51: S.p51 })); } catch (e) {}
 }
 
 document.addEventListener("click", (e) => {
@@ -624,9 +656,12 @@ document.addEventListener("click", (e) => {
   if (!t) return;
   if (t.matches("[data-set]")) { S[t.dataset.set] = t.dataset.v; S.toast = null; return render(); }
   if (t.matches("[data-menu]")) { S.menu = S.menu ? null : t.dataset.menu; S.toast = null; return render(); }
-  if (t.matches("[data-close]")) { S.toast = null; S.menu = null; if (!t.dataset.go) return render(); }
+  if (t.matches("[data-close]")) { S.toast = null; S.menu = null; S.lineSheet = null; if (!t.dataset.go) return render(); }
   if (t.matches("[data-side]")) { S.side = t.dataset.side; return render(); }
   if (t.matches("[data-phase]")) { S.prompts = t.dataset.phase; return render(); }
+  if (t.matches("[data-review]")) { S.review = !S.review; return render(); }
+  if (t.matches("[data-linesheet]")) { S.lineSheet = t.dataset.linesheet; return render(); }
+  if (t.matches("[data-notes]")) { e.preventDefault(); const n = Number(t.dataset.notes); S.notesOpen = S.notesOpen === n ? null : n; return render(); }
   e.preventDefault();
   if (t.disabled) return;
   if (t.dataset.kind) S.kind = t.dataset.kind;
@@ -634,13 +669,11 @@ document.addEventListener("click", (e) => {
     S.screen = t.dataset.go;
     if (S.screen === "song" || S.screen === "songtakes") S.kind = "song";
     if (S.screen === "write") S.kind = "story";
-    if (S.screen === "v-clips" && t.dataset.toast && /Prompt OK for all/.test(t.textContent)) S.prompts = "takes";
-    S.toast = t.dataset.toast || null; S.menu = null;
+    S.toast = t.dataset.toast || null; S.menu = null; S.review = false; S.lineSheet = null;
     document.getElementById("app").scrollIntoView({ block: "nearest" });
     return render();
   }
   if (t.dataset.toast) {
-    if (S.screen === "v-clips" && /Prompt OK for all/.test(t.textContent)) S.prompts = "takes";
     S.toast = t.dataset.toast; return render();
   }
 });

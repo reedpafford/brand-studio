@@ -61,8 +61,11 @@ class SongPreferredOut(BaseModel):
 
 
 def songs_on(request: Request) -> bool:
-    """Only the stand-ins make songs until Suno is connected (app/music.py)."""
-    return bool(request.app.state.settings.fake_providers)
+    """The stand-ins, or Suno through KIE once Reed switches it on (app/providers/kie.py)."""
+    from app.providers import kie_on
+
+    settings = request.app.state.settings
+    return bool(settings.fake_providers or kie_on(settings))
 
 
 def _refused_for(reason: str | None) -> str | None:
