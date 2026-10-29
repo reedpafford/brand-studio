@@ -6110,6 +6110,11 @@ export interface components {
              * Format: date-time
              */
             last_activity_at: string;
+            /**
+             * Final Out Of Date
+             * @default false
+             */
+            final_out_of_date: boolean;
         };
         /** UsageVideosOut */
         UsageVideosOut: {
