@@ -59,6 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | Music bed check (#853) | "instrumental, no vocals" is flagged as asking for a voice | Skip voice words after no/without/non- | #853 at cccf5fcb |
+| P3 retry (#862) | Busy take, retry waits; the editor edits the prompt; the retry runs the old prompt, charges, take shows current | A prompt change cancels a waiting auto retry | #862 at af72f9ce |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -161,4 +162,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #857 at c4819084 (S3a screen: Study a song ad) | Code and vitest (221), tsc, eslint | PASS; notes: "couldn't open that reel" for uploads too; no Stop while running; must show a failed reason above a kept study once #851 is fixed |
 | 2026-10-29 | #857 at 05291860 | Failed wording | PASS: "We couldn't study it: …" for links and uploads |
 | 2026-10-29 | #851 at c2f558c0 | Failed re-study over a done one; good re-study; cancel over done and first; Remove/Undo; tests (12) | PASS; #857 follow-up shows `attempt` above the kept study |
+| 2026-10-29 | #862 at af72f9ce (P3 automatic fixes) | test_clip_takes (13); Make clip while retry waits; edit prompt while retry waits, then let it run | FAIL: the waiting retry runs the old prompt, charges 5, take shows current |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
