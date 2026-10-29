@@ -9,7 +9,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from tests.conftest import upload
-from tests.helpers import with_sheet
+from tests.helpers import approved_plan, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_script_library import SCRIPT, _make
 
@@ -41,6 +41,7 @@ def _video(owner, editor, db):
 
 def test_cast_lines_name_the_role_each_character_plays(owner, editor, db):
     pid, mia, kid = _video(owner, editor, db)
+    approved_plan(db, f"/projects/{pid}")  # shots come from a plan (1b)
     job = editor.post(f"/projects/{pid}/breakdown").json()
     prompt = db.get(Job, job["id"]).input["prompt"]
     assert f"char:{kid} | Kid | plays Nate" in prompt  # cast at Assets

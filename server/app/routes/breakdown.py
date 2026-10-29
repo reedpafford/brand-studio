@@ -104,8 +104,11 @@ def _working(db: Session, user: User, project_id: int):
 
 @router.post("", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)])
 def make(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Queue a breakdown call (a paid Claude call, counted against the project budget)."""
+    """Queue a breakdown call (a paid Claude call, counted against the project budget). The
+    shots are made from an approved plan (flows.md 1b): "Approve the plan first" until then;
+    a video made before plans reads its plan from its breakdown, so it's never stopped."""
     project, version = _working(db, user, project_id)
+    plans.require_approved(db, project)
     return queue(db, user, project, version)
 
 

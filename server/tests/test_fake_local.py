@@ -9,6 +9,7 @@ from app.providers import get_providers
 from app.providers.replicate import ReplicateProvider
 from app.settings import Settings
 from app.worker import run_once
+from tests.helpers import approved_plan
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
 
@@ -26,6 +27,7 @@ def test_script_to_clip_take_with_stand_ins(app, db, editor, setup):  # noqa: F8
     assert not (providers["replicate"].paid or providers["claude"].paid)
     url = f"/projects/{setup['project']}"
 
+    approved_plan(db, f"{url}")  # shots come from a plan (1b)
     assert editor.post(f"{url}/breakdown").status_code == 201
     _drain(app, db, providers)
     bd = editor.get(f"{url}/breakdown").json()

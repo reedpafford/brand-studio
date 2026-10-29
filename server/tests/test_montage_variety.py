@@ -8,6 +8,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.prompts import check
 from app.prompts.schemas import Breakdown
+from tests.helpers import approved_plan
 from tests.test_breakdown import BREAKDOWN, _shot
 from tests.test_enhance import SCRIPT, FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -42,15 +43,18 @@ def test_recent_payoffs_are_told_and_a_repeat_is_advice(app, db, editor, setup):
     first = setup["project"]
     db.get(Project, first).name = "Altar reel"
     db.commit()
+    approved_plan(db, f"/projects/{first}")  # shots come from a plan (1b)
     editor.post(f"/projects/{first}/breakdown")
     _run(app, db, FakeClaude(_montage()))
     gone = _video(editor, "Put away")
+    approved_plan(db, f"/projects/{gone}")  # shots come from a plan (1b)
     editor.post(f"/projects/{gone}/breakdown")
     _run(app, db, FakeClaude(_montage()))
     db.get(Project, gone).archived_at = db.get(Project, first).created_at  # archived: left out
     db.commit()
 
     second = _video(editor, "Second")
+    approved_plan(db, f"/projects/{second}")  # shots come from a plan (1b)
     editor.post(f"/projects/{second}/breakdown")
     job = db.query(Job).filter(Job.input["project_id"].as_integer() == second).one()
     block = job.input["prompt"].split("<recent_payoffs>")[1].split("</recent_payoffs>")[0]
@@ -69,6 +73,7 @@ def test_a_video_whose_script_is_private_to_someone_else_is_left_out(app, db, ow
     from app.models.script_library import Script, ScriptDraft
 
     first = setup["project"]
+    approved_plan(db, f"/projects/{first}")  # shots come from a plan (1b)
     editor.post(f"/projects/{first}/breakdown")
     _run(app, db, FakeClaude(_montage()))
     made = owner.post(

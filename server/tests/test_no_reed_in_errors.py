@@ -7,6 +7,7 @@ import ast
 import re
 from pathlib import Path
 
+from tests.helpers import approved_plan
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
 APP = Path(__file__).resolve().parents[1] / "app"
@@ -106,6 +107,7 @@ def test_stored_checks_show_no_ids(app, db, editor, setup):  # noqa: F811
     bad["scenes"][0]["shots"][0]["place_id"] = "place:7"
     saved = editor.put(f"{url}/breakdown", json=bad)  # never refused: taken out, as advice
     refused = " ".join(saved.json()["problems"])
+    approved_plan(db, f"{url}")  # shots come from a plan (1b)
     editor.post(f"{url}/breakdown")
     _run(app, db, FakeClaude(bad))
     shown = editor.get(f"{url}/breakdown").json()["problems"]

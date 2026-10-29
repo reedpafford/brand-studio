@@ -4,7 +4,7 @@ import copy
 
 from app.models.jobs import Job
 from tests.conftest import upload
-from tests.helpers import assert_hidden, assert_no_dollars
+from tests.helpers import approved_plan, assert_hidden, assert_no_dollars
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -51,6 +51,7 @@ def test_clip_prompts_written_checked_and_edited(app, db, editor, setup):  # noq
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom]})
     bd = copy.deepcopy(BREAKDOWN)
     bd["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mom}"]
+    approved_plan(db, f"/projects/{setup['project']}")  # shots come from a plan (1b)
     editor.post(f"/projects/{setup['project']}/breakdown")
     _run(app, db, FakeClaude(bd))
 
@@ -79,6 +80,7 @@ def test_clip_prompts_written_checked_and_edited(app, db, editor, setup):  # noq
 def test_clip_prompts_switch_workspace_and_dollars(app, db, editor, outsider, setup):  # noqa: F811
     url = f"/projects/{setup['project']}/clips"
     assert_hidden(outsider, [("POST", f"{url}/prompts"), ("GET", url)])
+    approved_plan(db, f"/projects/{setup['project']}")  # shots come from a plan (1b)
     editor.post(f"/projects/{setup['project']}/breakdown")
     _run(app, db, FakeClaude(BREAKDOWN))
     app.state.settings.generation_enabled = False

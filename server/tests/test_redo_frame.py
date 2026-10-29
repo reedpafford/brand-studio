@@ -8,12 +8,14 @@ from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
 from app.models.storyboards import StoryboardFrame
 from app.redo_frame import CHANGED
+from tests.helpers import approved_plan
 from tests.test_breakdown import BREAKDOWN
 from tests.test_change_notes import _frame
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
 
 def _new_breakdown(app, db, editor, setup, data=None):  # noqa: F811
+    approved_plan(db, f"/projects/{setup['project']}")  # shots come from a plan (1b)
     editor.post(f"/projects/{setup['project']}/breakdown")
     _run(app, db, FakeClaude(data or BREAKDOWN))
 

@@ -9,6 +9,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.providers import get_providers
+from tests.helpers import approved_plan
 from tests.test_enhance import setup  # noqa: F401 - fixture
 from tests.test_fake_local import _drain
 
@@ -17,6 +18,7 @@ def _made(app, db, editor, url):
     """A video with its shots, stills and clip prompts, then new shots made from it."""
     app.state.settings.fake_providers = True
     providers = get_providers(app.state.settings)
+    approved_plan(db, f"{url}")  # shots come from a plan (1b)
     editor.post(f"{url}/breakdown")
     _drain(app, db, providers)
     editor.post(f"{url}/storyboard", json={"per_shot": False})
@@ -27,6 +29,7 @@ def _made(app, db, editor, url):
     editor.post(f"{url}/clips/prompts")
     _drain(app, db, providers)
     old = db.query(BreakdownVersion).one().id
+    approved_plan(db, f"{url}")  # shots come from a plan (1b)
     assert editor.post(f"{url}/breakdown").status_code == 201  # the shots change
     _drain(app, db, providers)
     for clip in db.query(ProjectClip):  # as if their own rewrite hadn't fitted the budget

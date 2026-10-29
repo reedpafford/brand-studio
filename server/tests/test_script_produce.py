@@ -12,7 +12,7 @@ from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.routes.jobs import enqueue
 from tests.conftest import PASSWORD, upload
-from tests.helpers import with_sheet
+from tests.helpers import approved_plan, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_script_library import IMPORTED, SCRIPT, _imported, _make
 
@@ -242,6 +242,7 @@ def test_a_video_can_be_archived_and_brought_back(app, owner, editor, db):
     two, _ = _second_editor(app, owner, db)
     assert two.post(f"/projects/{pid}/archive").status_code == 403
     assert editor.post(f"/projects/{pid}/archive").json()["archived_at"]
+    approved_plan(db, f"/projects/{pid}")  # shots come from a plan (1b)
     paid = editor.post(f"/projects/{pid}/breakdown")  # nothing new runs on an archived video
     assert paid.status_code == 409 and "archived" in paid.json()["detail"]
     assert [p["id"] for p in editor.get("/projects").json()] == []

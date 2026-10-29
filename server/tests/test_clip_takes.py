@@ -11,7 +11,7 @@ from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import upload
-from tests.helpers import _usd_keys, assert_hidden, assert_no_dollars, with_sheet
+from tests.helpers import _usd_keys, approved_plan, assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _answer, _prompt
@@ -65,6 +65,7 @@ def clip(app, db, editor, setup):  # noqa: F811
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom]})
     bd = json.loads(json.dumps(BREAKDOWN))
     bd["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mom}"]
+    approved_plan(db, f"/projects/{setup['project']}")  # shots come from a plan (1b)
     editor.post(f"/projects/{setup['project']}/breakdown")
     _run(app, db, FakeClaude(bd))
     editor.post(f"/projects/{setup['project']}/clips/prompts")

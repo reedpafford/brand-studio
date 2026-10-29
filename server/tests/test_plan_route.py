@@ -7,6 +7,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.providers.fake_local import FakeWriter
 from app.worker import run_once
+from tests.helpers import approved_plan
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -67,6 +68,7 @@ def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: 
 
 def test_an_old_video_is_planned_from_its_breakdown_free(app, db, editor, setup):  # noqa: F811
     pid = setup["project"]
+    approved_plan(db, f"/projects/{pid}")  # shots come from a plan (1b)
     editor.post(f"/projects/{pid}/breakdown")  # made before plans existed
     _run(app, db, FakeClaude(BREAKDOWN))
     db.get(Project, pid).plan = None
