@@ -603,7 +603,7 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 |---|---|---|
 | L | Section outlines. | — |
 | Typing | "Saved" per section after a pause. Leaving unsaved: "Leave without saving?" | Stay / Leave. |
-| Editor | Read only, with "Only the owner changes the brand." | — |
+| Editor | The new sections (products' description and claim, voice and tone, CTA lines, default cast, music style, default look and language) are read only, with "Only the owner changes the brand." What editors edit today (logo, colours, screens, the products list) stays editable (see above). | — |
 | P | Sections stacked, each collapsible; lists edited one row at a time. | — |
 | U | Every delete has Undo. | — |
 | S | Brand changes never touch published scripts, and nothing already made goes out of date. A video in progress uses the brand as it is when each later step runs (a new end line shows up in clips not yet written). Said under the page title: "Changes apply to work from now on. Nothing already made changes." | — |

@@ -1084,6 +1084,39 @@ test("Approve all on Clips approves the clips with a picked take", async () => {
   expect(await screen.findByText("Approved 1 clip.")).toBeInTheDocument(); // the toast, with Undo
 });
 
+test("clips made before the storyboard went out of date stay open, with a banner, and their paid presses wait (audit M14)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]] });
+  open("?step=clips");
+  expect(await screen.findByText("The plan changed after these were made. Make the storyboard again first.")).toBeInTheDocument();
+  const bar = screen.getByRole("region", { name: "Cost" });
+  const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
+  expect(make).toBeDisabled();
+  expect(make).toHaveAccessibleDescription("The plan changed after these were made. Make the storyboard again first.");
+  await userEvent.click(screen.getByRole("button", { name: "Open Storyboard" }));
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+  expect(calls.some((c) => c.key.startsWith("POST /projects/9/clips"))).toBe(false);
+});
+
+test("a storyboard made before the shots changed stays open, and its stills wait for new shots in Plan", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true }], "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, earlier: [], change: null }, { ...frame, id: 2, clip_id: "c2", approved: false, file_id: null, still_credits: 4, earlier: [], change: null }]] });
+  open("?step=storyboard");
+  expect(await screen.findByText("The plan changed after these were made. Make new shots in Plan first.")).toBeInTheDocument();
+  const make = within(screen.getByRole("region", { name: "Cost" })).getByRole("button", { name: /^Make 1 still/ });
+  expect(make).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Open Plan" })).toBeInTheDocument();
+});
+
+test("with every take made, Clips' Approve all is the bar's press and not repeated in the step", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ id: 3, clip_id: "c1", prompt_ok: true, takes: [{ id: 5 }], picked_take_id: 5 })]] });
+  open("?step=clips");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Approve all" })).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Approve all" })).toHaveLength(1);
+});
+
 const staleClips = [clip({ id: 3, clip_id: "c1", stale: true, takes: [{ id: 5 }], picked_take_id: 5 }), clip({ id: 4, clip_id: "c2", stale: true })];
 const staleRoutes = {
   ...toClips,
@@ -1137,6 +1170,15 @@ test("Approve all on Assets approves the looks made for this video, says which r
   expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: Nate: no look yet");
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/approve-all/undo")?.body).toEqual({ ids: [12] }));
+});
+
+test("Cast's one press is Approve all, in the cost bar, and not repeated beside the cast", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({})]], "GET /projects/9/assets/missing-looks": noMissing });
+  open();
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Approve all" })).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Approve all" })).toHaveLength(1);
 });
 
 test("Approve all on Assets is not offered for a library character, which is approved in Cast & places", async () => {

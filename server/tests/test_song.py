@@ -68,7 +68,7 @@ def test_directions_advise_on_length_style_and_the_brand_line():
     result.directions[0].style_line = " ".join(["pop"] * 26)
     result.directions[1].lyrics = "[Chorus]\nShort and sweet"
     problems = check.song_directions(result, "Iron Paws", 30)
-    assert "Advice: direction 1: the style line is over 25 words" in problems
+    assert "Advice: direction 1: the music style is over 25 words" in problems
     assert f"Advice: direction 2: {check.NO_CTA}" in problems
     assert any(p.startswith("Advice: direction 2: 3 sung words") for p in problems)
     result.directions.pop()
@@ -180,7 +180,7 @@ def test_a_sounds_like_song_becomes_a_style_line_without_its_name():
     assert any("names “Jack Johnson”" in p and p.startswith("Advice: ") for p in problems)
     notes = check.without_names(result, like)  # the free repair, before anyone sees it
     assert result.directions[0].style_line == "acoustic pop, 96 BPM"
-    assert notes == ["Advice: direction 1: took “Jack Johnson” out of the style line "
+    assert notes == ["Advice: direction 1: took “Jack Johnson” out of the music style "
                      "(the music service refuses names)"]  # fmt: skip
     assert check.song_directions(result, "Iron Paws", 30, sounds_like=like) == []
     assert check.without_names(result, like) == []  # again changes nothing

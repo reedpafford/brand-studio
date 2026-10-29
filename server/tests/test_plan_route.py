@@ -28,6 +28,8 @@ def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: 
     _write(app, db)
     plan = editor.get(url).json()
     assert plan["status"] == "ready" and plan["source"] == "claude" and plan["job"] is None
+    listed = {v["id"]: v for v in editor.get("/projects").json()}
+    assert listed[pid]["waiting_on"] == "Check the scene plan"  # Needs you
     assert [x["n"] for s in plan["scenes"] for x in s["lines"]] == [2, 3, 4]  # each line once
     assert plan["scenes"][0]["lines"][1]["text"] == "MOM: Nate, where is all your money?"
     assert plan["scenes"][0]["place"] == "SCENE 1 — INT. KITCHEN" and plan["scenes"][0]["time"]

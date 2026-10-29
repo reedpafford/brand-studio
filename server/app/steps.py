@@ -32,6 +32,10 @@ def step_failed(db: Session, job: Job) -> None:
     from app.reel_read import watch_failed
 
     explain(db, job)
+    if job.input.get("step") == "item_check":
+        from app.item_checks import failed
+
+        failed(db, job)
     if job.input.get("step") == "clip_take":
         try:
             retry(db, job)
@@ -98,6 +102,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_prompts import save_clip_prompts
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
+    from app.item_checks import save as save_check
     from app.plans import save as save_plan
     from app.reel_read import follow_on, save_watch
     from app.routes.improve import save_improved
@@ -124,6 +129,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "sheet": save_sheet,
         "look_fit": save_fit,
         "frame": save_still,
+        "item_check": save_check,
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
         "variations": save_variations,
