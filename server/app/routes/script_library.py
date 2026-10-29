@@ -414,7 +414,7 @@ def create_script(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    get_brand(db, user, body.brand_id)
+    brand = get_brand(db, user, body.brand_id)
     _check_reference(request, body.reference_id)
     if body.look:
         looks.pick(db, user, body.look)
@@ -423,9 +423,13 @@ def create_script(
         created_by_id=user.id,
         **body.model_dump(exclude={"text"}, exclude_none=True),
     )
+    if not body.look:  # the brand's default look; an Off one starts editors on House (BR1)
+        on = user.is_owner or looks.is_on(db, user.workspace_id, brand.default_look)
+        script.look = brand.default_look if on else looks.DEFAULT
     db.add(script)
     db.flush()
-    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip()))
+    style = brand.music_style.strip() if script.kind == "song" else ""  # S2: prefilled
+    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip(), style_line=style))
     db.commit()
     return _out(db, script)
 

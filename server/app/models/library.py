@@ -30,6 +30,9 @@ class LibraryItem(Entity, Base):
     kind: Mapped[Kind] = mapped_column(String(20))
     name: Mapped[str] = mapped_column(String(120))
     notes: Mapped[str] = mapped_column(Text, default="")
+    # Products (flows BR1): what it is in a line, and the claim scripts may make about it
+    short_description: Mapped[str] = mapped_column(Text, default="")
+    main_claim: Mapped[str] = mapped_column(Text, default="")
     image_file_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # sheet / reference
     # Characters only: [{"name": "Gym kit", "file_ids": [..]}], and a voice sample.
     outfits: Mapped[list[dict]] = mapped_column(JSON, default=list)

@@ -35,6 +35,9 @@ class ItemIn(BaseModel):
     voice_file_id: int | None = None  # characters only
     # Characters and places: a photo kept as source material only, never used in videos.
     source_photo_file_id: int | None = None
+    # Products (flows BR1; owner only): what it is in a line, and the claim scripts may make
+    short_description: LongText | None = None  # left out: as it is
+    main_claim: LongText | None = None
 
 
 class NewItemIn(ItemIn):
@@ -54,6 +57,8 @@ class ItemPatch(BaseModel):
     outfits: list[Outfit] | None = None
     voice_file_id: int | None = None
     source_photo_file_id: int | None = None
+    short_description: LongText | None = None  # products, owner only
+    main_claim: LongText | None = None  # products, owner only
 
 
 class LookFitOut(BaseModel):
@@ -73,6 +78,7 @@ class ItemOut(ItemIn):
     sheet_credits: int = 0  # Make sheet / Redo: "up to" (its check and one redo, held)
     sheet_usual_credits: int = 0  # "Usually N": the sheet and its check
     change_credits: int = 0  # Change this…: the sheet and its check (never redone by itself)
+    advice: list[str] = []  # a product with no main claim: "Scripts won't mention…" (BR1)
 
 
 class VersionOut(BaseModel):
@@ -80,6 +86,10 @@ class VersionOut(BaseModel):
     snapshot: ItemIn
     saved_by_id: int | None
     created_at: UtcTime
+
+
+PRODUCT_WORDS = ("short_description", "main_claim")
+NO_CLAIM = "Scripts won't mention a claim for this product."
 
 
 def _snapshot(item: LibraryItem) -> dict:
@@ -91,6 +101,8 @@ def _snapshot(item: LibraryItem) -> dict:
         "outfits": item.outfits,
         "voice_file_id": item.voice_file_id,
         "source_photo_file_id": item.source_photo_file_id,
+        "short_description": item.short_description,
+        "main_claim": item.main_claim,
         "sheet_file_id": item.sheet_file_id,
         "sheet_approved": item.sheet_approved,
     }
@@ -141,6 +153,7 @@ def _out(item: LibraryItem) -> ItemOut:
         owner_project_id=item.owner_project_id,
         owner_script_id=item.owner_script_id,
         look_fit=item.look_fit,
+        advice=[NO_CLAIM] if item.kind == Kind.prop and not item.main_claim.strip() else [],
         **_prices(item),
         **data,
     )
@@ -190,6 +203,15 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
             values.pop(field, None)
     if item.kind != Kind.character and (values.get("outfits") or values.get("voice_file_id")):
         raise HTTPException(422, "Only characters have outfits and a voice.")
+    words = {k for k in PRODUCT_WORDS  # changed, not just sent again (a version, a create)
+             if values.get(k) is not None and values[k] != (getattr(item, k) or "")}  # fmt: skip
+    if words and item.kind != Kind.prop:
+        raise HTTPException(422, "Only products have a description and a main claim.")
+    if words and not user.is_owner:
+        raise HTTPException(403, "Only the owner changes the brand.")
+    for field in PRODUCT_WORDS:
+        if values.get(field) is None:
+            values.pop(field, None)
     images = list(values.get("image_file_ids") or [])
     images += [f for o in values.get("outfits") or [] for f in o["file_ids"]]
     for file_id in images:
@@ -275,9 +297,13 @@ def update_item(
     db: Session = Depends(get_db),
 ):
     item = get_item(db, user, kind, item_id)
-    _save_version(db, user, item)
-    _apply(db, user, item, body.model_dump(exclude_unset=True))
-    item.sheet_approved = False  # any edit (a new photo included) needs the sheet approved again
+    values = body.model_dump(exclude_unset=True)
+    words_only = set(values) <= set(PRODUCT_WORDS)  # a product's words don't change its picture
+    if not words_only:
+        _save_version(db, user, item)
+    _apply(db, user, item, values)
+    if not words_only:
+        item.sheet_approved = False  # any other edit needs the sheet approved again
     db.commit()
     return _out(item)
 

@@ -85,8 +85,9 @@ def test_seed_fills_an_empty_end_line(app, db, owner):
     from app.seed import seed_brands
 
     fomo = db.query(Brand).filter_by(slug="fomo").one()
-    fomo.end_line = ""  # a brand made before end lines existed
+    fomo.end_line, fomo.cta_lines = "", []  # a brand made before end lines existed (n08)
     db.commit()
     seed_brands(db, fomo.workspace_id, app.state.storage)
     db.refresh(fomo)
     assert fomo.end_line == FOMO_END
+    assert [x["text"] for x in fomo.cta_lines if x["default"]] == [FOMO_END]

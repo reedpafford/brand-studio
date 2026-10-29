@@ -29,6 +29,19 @@ class Brand(Entity, Base):
     end_line: Mapped[str] = mapped_column(
         Text, default=""
     )  # the default call to action every video ends on (Current rules 18)
+    # Brand setup (flows BR1, n08). `never_say` and `end_line` stay until the move to main
+    # and are written through (app/brand_setup.sync): never_say = dont_list, end_line = the
+    # default CTA line's text. Next reads the new fields.
+    audience: Mapped[str] = mapped_column(Text, default="")
+    do_list: Mapped[list[str]] = mapped_column(JSON, default=list)
+    dont_list: Mapped[list[str]] = mapped_column(JSON, default=list)
+    cta_lines: Mapped[list[dict]] = mapped_column(
+        JSON, default=list
+    )  # {id, text, default, deleted_at}
+    default_cast: Mapped[list[int]] = mapped_column(JSON, default=list)  # library character ids
+    music_style: Mapped[str] = mapped_column(Text, default="")  # prefills new song versions
+    default_language: Mapped[str] = mapped_column(String(10), default="en")
+    default_look: Mapped[str] = mapped_column(String(40), default="house")  # new scripts' look
 
 
 class BrandScreen(Entity, Base):

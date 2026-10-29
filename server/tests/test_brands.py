@@ -13,7 +13,9 @@ def test_create_and_edit_kit(owner, editor):
     assert r.status_code == 201
     brand = r.json()
     assert brand["slug"] == "night-owl"
-    r = editor.patch(
+    no = editor.patch(f"/brands/{brand['id']}", json={"legal_line": "x"})
+    assert no.status_code == 403  # BR1: only the owner changes the brand; editors read it
+    r = owner.patch(
         f"/brands/{brand['id']}",
         json={
             "logo_file_id": logo,
