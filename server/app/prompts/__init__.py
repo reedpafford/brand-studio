@@ -391,8 +391,9 @@ def song_study_block(study: dict) -> str:
     tempo and sections, each with its lines (someone else's song: a guide to the shape, never
     words to reuse; check.copied_lines holds that). `study` is {seconds, bpm, sections:
     [{name, start, end, lines}], words}; words are left out."""
-    whole = round(study["seconds"])
-    head = f"A song ad that works: {whole // 60}:{whole % 60:02d} long"
+    from app.prompts.check import _clock  # check imports this module: import here
+
+    head = f"A song ad that works: {_clock(study['seconds'])} long"
     if study.get("bpm"):
         head += f", about {round(study['bpm'])} BPM"
     out = [head + ".", "Sections (follow their order, their lengths and their pace):"]
