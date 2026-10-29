@@ -812,8 +812,12 @@ def _waiting(db: Session, project: Project) -> set[str]:
     return {j.input.get("step") for j in jobs}
 
 
-def queue_rewrite(db: Session, user, project: Project, clip_ids: list[str] | None) -> Job:
-    """The clip-prompts call (paid) for `clip_ids` (None: every clip)."""
+def queue_rewrite(
+    db: Session, user, project: Project, clip_ids: list[str] | None,
+    extra: dict | None = None, prepaid: bool = False,
+) -> Job:  # fmt: skip
+    """The clip-prompts call (paid) for `clip_ids` (None: every clip). `extra` and `prepaid`:
+    a step of Update everything after this (app/update_after.py), already paid for."""
     from app.routes.jobs import enqueue
 
     bd = newest(db, project)
@@ -824,9 +828,10 @@ def queue_rewrite(db: Session, user, project: Project, clip_ids: list[str] | Non
         raise HTTPException(409, "Wait for the clips being made to finish first.")
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
-    data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids}
+    data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids, **(extra or {})}
     units = max(len(data["batches"]), 1)  # one price per Claude call
-    return enqueue(db, user, "write-claude", data, units=units, project=project, provider="claude")
+    return enqueue(db, user, "write-claude", data, units=units, project=project,
+                   provider="claude", prepaid=prepaid)  # fmt: skip
 
 
 def follow(db: Session, project: Project, user) -> Job | None:
