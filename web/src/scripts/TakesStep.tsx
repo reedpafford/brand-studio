@@ -143,8 +143,9 @@ function TakeCard({ t, a, requestPrice, readOnly, others, onDefaultStyle }: { t:
       {tooLong && (
         <div className="space-y-2">
           <p className="text-sm text-warning">This take is {t.seconds !== null ? clock(t.seconds) : "long"}: a video of it would go over the limit.</p>
+          {/* With no other take Preferred, the trimmed take becomes the one used (flows S4). */}
           {!readOnly && t.fits_until != null && (
-            <Button variant="secondary" busy={a.trim.isPending && a.trim.variables?.id === t.id} onClick={() => a.trim.mutate(t)}>
+            <Button variant="secondary" busy={a.trim.isPending && a.trim.variables?.id === t.id} onClick={() => a.trim.mutate(t, { onSuccess: () => !others.some((o) => o.preferred && !o.out_of_date) && a.prefer.mutate(t.id) })}>
               Use the first {clock(t.fits_until)} · free
             </Button>
           )}
