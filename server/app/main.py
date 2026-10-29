@@ -22,6 +22,7 @@ from app.routes import (
     library,
     looks,
     models,
+    plan,
     production,
     project_assets,
     project_clips,
@@ -122,6 +123,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         songs,
         looks,
         song_study,
+        plan,
         checks,
     ):
         app.include_router(module.router)

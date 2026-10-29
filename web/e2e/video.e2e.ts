@@ -36,7 +36,9 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("heading", { name: "Plan", level: 2, exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: /Make the breakdown/ }).click();
+    // The plan first (item 1b): made on the stand-in, then Approve makes the shots.
+    await page.getByRole("button", { name: /Make the plan/ }).click();
+    await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 30_000 });
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
@@ -123,7 +125,9 @@ for (const width of [1440, 390]) {
     ).toBeTruthy();
 
     await page.goto(`/b/${brandId}/videos/${id}`);
-    await page.getByRole("button", { name: /Make the breakdown/ }).click();
+    // The plan first (item 1b): made on the stand-in, then Approve makes the shots.
+    await page.getByRole("button", { name: /Make the plan/ }).click();
+    await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 30_000 });
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });

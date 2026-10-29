@@ -49,20 +49,27 @@ def step_failed(db: Session, job: Job) -> None:
 
 
 def recheck(job_input: dict, result, ask):
-    """Song directions and a narration's music prompt: the Director's check on the answer;
-    with fixes, the one rewrite inside the same job (`ask` runs it; charged once: credits
-    never pass the shown price), and if that still needs fixing the job fails, so nothing is
-    shown or charged (rule 22)."""
+    """Song directions, a narration's music prompt and the scene plan: the Director's check
+    on the answer; with fixes, the one rewrite inside the same job (`ask` runs it; charged
+    once: credits never pass the shown price), and if that still needs fixing the job fails,
+    so nothing is shown or charged (rule 22)."""
     from app import narration_music as nm
+    from app import plans
     from app import song_directions as sd
     from app.providers import Result
 
     if result.state != "succeeded":
         return result
+    if job_input.get("plan"):  # shots made from a plan (P2)
+        return _shots_follow(job_input, result, ask)
+    still = sd.STILL
     if job_input.get("step") == sd.STEP:
         check, again = (lambda out: sd.checked(job_input, out)), sd.again
     elif job_input.get("step") == nm.STEP:
         check, again = nm.checked, nm.again
+    elif job_input.get("step") == plans.STEP:
+        check, again = (lambda out: plans.checked(job_input, out)), plans.again
+        still = plans.STILL
     else:
         return result
     output, fixes = check(result.output)
@@ -73,8 +80,29 @@ def recheck(job_input: dict, result, ask):
             return second
         result, (output, fixes) = second, check(second.output)
     if fixes:
-        return Result("failed", error=sd.STILL + "; ".join(fixes), usage=result.usage)
+        return Result("failed", error=still + "; ".join(fixes), usage=result.usage)
     result.output = output
+    return result
+
+
+def _shots_follow(job_input: dict, result, ask):
+    """Shots made from an approved plan: the Director's follows_plan check, the one rewrite
+    inside the same job (charged once), and what it still finds is kept as Advice on the
+    breakdown, never a failed job (rule 22: the shots are there, with a free fix)."""
+    from app import plans
+    from app.prompts.check import ADVICE
+
+    _, fixes = plans.shots_checked(job_input, result.output)
+    if fixes:
+        second = ask(plans.shots_again(job_input, fixes))
+        second.usage = [*result.usage, *second.usage]
+        if second.state == "succeeded":
+            result.output, result.usage = second.output, second.usage
+            _, fixes = plans.shots_checked(job_input, result.output)
+        else:
+            result.usage = second.usage
+    if fixes:
+        result.output = {**result.output, "plan_advice": [f"{ADVICE}{f}" for f in fixes]}
     return result
 
 
@@ -87,6 +115,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.item_checks import save as save_check
     from app.narration_music import save_bed
     from app.narration_music import save_prompt as save_music_prompt
+    from app.plans import save as save_plan
     from app.reel_read import follow_on, save_watch
     from app.routes.improve import save_improved
     from app.routes.script_import import save_prepared
@@ -103,6 +132,7 @@ def save_step_result(db: Session, job: Job) -> None:
     handlers = {
         "enhance": save_suggestions,
         "breakdown": save_breakdown,
+        "plan": save_plan,
         "song_breakdown": save_breakdown,
         "narrated_breakdown": save_breakdown,
         "storyboard": save_frames,
