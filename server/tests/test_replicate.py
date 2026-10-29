@@ -69,7 +69,7 @@ def fake():
 
 def _providers(fake):
     client = httpx.Client(transport=httpx.MockTransport(fake))
-    return {"replicate": ReplicateProvider(BASE, client)}
+    return {"replicate": ReplicateProvider(BASE, client, token="test-token")}
 
 
 def _job(db):
@@ -95,7 +95,9 @@ def test_video_runs_downloads_output_and_records_real_cost(app, owner, editor, d
     usage = db.query(Usage).one()
     assert (usage.units, usage.cost_usd, usage.estimated) == (5, Decimal("0.5140"), False)
     assert job.credits == 5
-    assert all("authorization" not in r.headers for r in fake.requests)  # proxy adds it
+    api = [r for r in fake.requests if str(r.url).startswith(BASE)]
+    assert api and all(r.headers["authorization"] == "Bearer test-token" for r in api)
+    assert all("authorization" not in r.headers for r in fake.requests if r not in api)
 
 
 def test_missing_metrics_falls_back_to_request_and_is_marked_estimate(app, owner, db):
@@ -144,7 +146,7 @@ def test_base_url_is_configurable(app, owner, db):
         return httpx.Response(201, json={"id": "x"})
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
-    provider = ReplicateProvider("https://proxy.internal/replicate/v1/", client)
+    provider = ReplicateProvider("https://proxy.internal/replicate/v1/", client, token="test-token")
     provider.submit("video", {"model": "seedance-2.5", "input": {}})
     assert seen == ["https://proxy.internal/replicate/v1/predictions"]
 
@@ -172,7 +174,9 @@ def test_watch_model_text_output_and_call_price():
             },
         )
 
-    provider = ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(handler)))
+    provider = ReplicateProvider(
+        BASE, httpx.Client(transport=httpx.MockTransport(handler)), token="test-token"
+    )
     result = provider.poll("g1")
     assert result.output == {"text": "A cat buys the dip."} and result.files == []
     assert (result.usage[0].unit, result.usage[0].estimated) == ("call", True)
@@ -185,7 +189,9 @@ def test_plain_text_string_output_is_text_not_a_file():
     def handler(request):
         return httpx.Response(200, json={**reply, "output": "The video shows a cat."})
 
-    provider = ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(handler)))
+    provider = ReplicateProvider(
+        BASE, httpx.Client(transport=httpx.MockTransport(handler)), token="test-token"
+    )
     result = provider.poll("g")
     assert (result.output, result.files) == ({"text": "The video shows a cat."}, [])
 
