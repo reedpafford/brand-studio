@@ -154,6 +154,9 @@ class VersionSummary(BaseModel):
     project_id: int | None  # the video made from it
     editor: Person | None = None  # who's making it (reserved it), once in production
     flavours: dict[str, str] = {}  # each new video's default flavour; a product left out: Auto
+    # Products whose default flavour the brand has deleted since: a new video starts them on
+    # Auto (lib.offered_flavours), so the screens show Auto, never the gone flavour as current
+    flavours_gone: list[str] = []
 
 
 class VersionOut(VersionSummary):
@@ -277,6 +280,13 @@ def _directions(db: Session, draft: ScriptDraft) -> dict:
     }
 
 
+def _gone(db: Session, draft: ScriptDraft) -> list[str]:
+    if not draft.flavours:
+        return []
+    brand_id = db.get(Script, draft.script_id).brand_id
+    return sorted(set(draft.flavours) - set(lib.offered_flavours(db, brand_id, draft)))
+
+
 def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | VersionOut:
     status, project_id = lib.version_status(db, draft)
     base = dict(
@@ -287,6 +297,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         project_id=project_id,
         editor=_person(db, draft.reserved_by_id) if project_id else None,
         flavours=draft.flavours or {},
+        flavours_gone=_gone(db, draft),
     )
     if not full:
         return VersionSummary(**base)

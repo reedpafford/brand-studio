@@ -9172,6 +9172,11 @@ export interface components {
             flavours: {
                 [key: string]: string;
             };
+            /**
+             * Flavours Gone
+             * @default []
+             */
+            flavours_gone: string[];
         };
         /** VideoMerged */
         VideoMerged: {
@@ -9542,6 +9547,11 @@ export interface components {
             flavours: {
                 [key: string]: string;
             };
+            /**
+             * Flavours Gone
+             * @default []
+             */
+            flavours_gone: string[];
             /** Text */
             text: string;
             /** Words */
