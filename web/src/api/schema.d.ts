@@ -5547,6 +5547,11 @@ export interface components {
              * @default house
              */
             look: string;
+            /**
+             * Look Redo Credits
+             * @default 0
+             */
+            look_redo_credits: number;
             /** Planned Seconds */
             planned_seconds: number | null;
             /** Breakdown Seconds */

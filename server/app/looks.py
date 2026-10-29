@@ -14,7 +14,8 @@ from app.models.looks import LookSwitch
 
 DEFAULT = "house"
 UNKNOWN = "There's no such look."
-OFF = "{} is off for editors. Pick a look that's on, or ask the owner to switch it on."
+OFF = "{} is off for editors. Pick a look that's on."
+OTHER = "{} made in another look. Redo them in this video's look, then make the video."
 NO_SAMPLE = "Make a sample first: a look is switched on only once its sample is approved."
 
 
@@ -38,6 +39,34 @@ def switch(db: Session, workspace_id: int, look_id: str) -> LookSwitch | None:
 def is_on(db: Session, workspace_id: int, look_id: str) -> bool:
     row = switch(db, workspace_id, look_id)
     return row.on if row else get(look_id)["on"]
+
+
+def frame_other(project, frame) -> bool:
+    """A still drawn in another look than the video's now (VS1): "Out of date"; changing the
+    look back (Undo) makes it current again."""
+    return bool(frame.file_id) and frame.look != project.look
+
+
+def take_other(db: Session, project, clip) -> bool:
+    """A clip whose picked take was made in another look than the video's now (VS1)."""
+    from app.models.clips import ClipTake
+
+    take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
+    return bool(take) and take.look != project.look
+
+
+def redo_credits(db: Session, project) -> float:
+    """What redrawing the stills and remaking the clips made in another look costs (VS1)."""
+    from app import clip_takes, storyboard
+    from app.models.clips import ProjectClip
+    from app.models.storyboards import StoryboardFrame
+
+    frames = db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
+    clips = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id))
+    stills = sum(frame_other(project, f) for f in frames) * storyboard.still_price(db, project)
+    takes = sum(clip_takes.take_credits(db, project, c) for c in clips
+                if take_other(db, project, c))  # fmt: skip
+    return float(stills + takes)
 
 
 def pick(db: Session, user: User, look_id: str) -> str:

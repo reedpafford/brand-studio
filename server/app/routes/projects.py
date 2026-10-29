@@ -69,6 +69,7 @@ class ProjectOut(BaseModel):
     song: bool = False  # made from a Song script: timed to its song (song_take_id)
     song_take_id: int | None = None
     look: str = "house"  # how its pictures are drawn (VS1)
+    look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
     status: ProjectStatus
@@ -143,6 +144,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         song=_is_song(db, project),
         song_take_id=project.song_take_id,
         look=project.look,
+        look_redo_credits=looks.redo_credits(db, project),
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
         status=project.status,

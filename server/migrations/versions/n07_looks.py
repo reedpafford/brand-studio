@@ -1,5 +1,5 @@
-"""Format and Look (docs/next/data.md, n07): a script's and a video's look, and the owner's
-switch for each look
+"""Format and Look (docs/next/data.md, n07): a script's and a video's look, the look each
+still and clip take was made in, and the owner's switch for each look
 
 Revision ID: n07
 Revises: n01
@@ -15,7 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    for table in ("scripts", "projects"):
+    for table in ("scripts", "projects", "storyboard_frames", "clip_takes"):
         with op.batch_alter_table(table, schema=None) as batch_op:
             batch_op.add_column(
                 sa.Column("look", sa.String(40), nullable=False, server_default="house")
@@ -39,6 +39,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_look_switches_workspace_id", table_name="look_switches")
     op.drop_table("look_switches")
-    for table in ("projects", "scripts"):
+    for table in ("clip_takes", "storyboard_frames", "projects", "scripts"):
         with op.batch_alter_table(table, schema=None) as batch_op:
             batch_op.drop_column("look")

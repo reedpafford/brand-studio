@@ -55,10 +55,12 @@ def test_a_look_is_switched_on_only_with_a_sample(db, owner, editor):
 
 
 def _a_file(db):
+    import uuid
+
     from app.models.files import StoredFile
 
-    row = StoredFile(workspace_id=1, key="sample", filename="s.png", content_type="image/png",
-                     size=1, sha256="0" * 64)  # fmt: skip
+    row = StoredFile(workspace_id=1, key=uuid.uuid4().hex, filename="s.png",
+                     content_type="image/png", size=1, sha256="0" * 64)  # fmt: skip
     db.add(row)
     db.commit()
     return row.id
@@ -78,3 +80,47 @@ def test_a_video_takes_its_scripts_look_and_its_prompts_use_its_own(owner, edito
     assert system[0] == prompts.system("storyboard", "disney-pixar") != prompts.system("storyboard")
     assert editor.patch(video, json={"look": "zack-d"}).status_code == 409  # off for editors
     assert owner.patch(video, json={"look": "house"}).json()["look"] == "house"
+
+
+def test_a_look_change_puts_its_stills_and_clips_out_of_date_and_undo_brings_them_back(
+    owner, editor, db
+):
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ClipTake, ProjectClip
+    from app.models.jobs import Job
+    from app.models.storyboards import StoryboardFrame
+    from tests.test_breakdown import BREAKDOWN
+
+    base, _ = _published(owner, db, breakdown=BREAKDOWN)
+    video = f"/projects/{editor.post(f'{base}/drafts/0/produce').json()['project_id']}"
+    pid = int(video.rsplit("/", 1)[1])
+    bd = db.query(BreakdownVersion).filter_by(project_id=pid).one()
+    still, take_file = _a_file(db), _a_file(db)
+    job = Job(workspace_id=1, kind="video", provider="fake", input={}, credits=0)
+    db.add(job)
+    db.flush()
+    db.add(StoryboardFrame(project_id=pid, breakdown_id=bd.id, clip_id="c1", shot_id="1.1",
+                           prompt="A still.", file_id=still, approved=True))  # fmt: skip
+    clip = ProjectClip(project_id=pid, breakdown_id=bd.id, clip_id="c1", seconds=5,
+                       prompt="A clip.", approved=True)  # fmt: skip
+    db.add(clip)
+    db.flush()
+    take = ClipTake(clip_id=clip.id, number=1, job_id=job.id, file_id=take_file)
+    db.add(take)
+    db.flush()
+    clip.picked_take_id, clip.file_id = take.id, take_file
+    db.commit()
+
+    changed = owner.patch(video, json={"look": "disney-pixar"}).json()
+    assert changed["look_redo_credits"] > 0
+    (frame,) = editor.get(f"{video}/storyboard").json()
+    assert frame["still_stale"] and not frame["approved"]
+    (shown,) = editor.get(f"{video}/clips").json()
+    assert shown["take_stale"] and not shown["approved"]
+    made = editor.post(f"{video}/video")
+    assert (made.status_code, made.json()["detail"]) == (409, looks.OTHER.format("1 clip was"))
+
+    back = owner.patch(video, json={"look": "house"}).json()  # Undo: current again, free
+    assert back["look_redo_credits"] == 0
+    assert editor.get(f"{video}/storyboard").json()[0]["approved"]
+    assert editor.get(f"{video}/clips").json()[0]["approved"]
