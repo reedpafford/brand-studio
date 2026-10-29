@@ -160,7 +160,7 @@ export function BreakdownView(props: {
   const bar = (
     <div className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2"} role="group" aria-label="Unsaved changes">
       <span className={rail ? "flex-1 text-sm" : "block text-sm text-muted"}>
-        You have unsaved changes.
+        Edits wait for Save. Fixes and flips save at once.
         {made && " Saving them marks Clips and Final cut out of date; your finished video stays downloadable."}
       </span>
       <Button busy={save.isPending} onClick={() => save.mutate()}>
