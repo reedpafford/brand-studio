@@ -96,3 +96,13 @@ test("a fix without the earlier words offers Undo but no See the change", async 
   expect(within(note).queryByRole("button", { name: "See the change" })).toBeNull();
   expect(within(note).getByRole("button", { name: "Undo" })).toBeInTheDocument();
 });
+
+test("an Undo the server refuses (the prompt was edited since) says why in its words, not a loop of try again", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ auto_fix: { fixed: ['removed "9:16"'], undone: false } })]], "POST /projects/9/clips/1/auto-fix/undo": [409, { detail: "The prompt has changed since the fix, so there's nothing to undo." }] });
+  open();
+  const note = await screen.findByRole("note", { name: "Fixed for you" });
+  await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
+  expect(await screen.findByText("The prompt has changed since the fix, so there's nothing to undo.")).toBeInTheDocument();
+  expect(screen.queryByText(/try again/)).toBeNull();
+});

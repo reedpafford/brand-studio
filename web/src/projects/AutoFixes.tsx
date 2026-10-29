@@ -27,9 +27,13 @@ export function AutoFixLine({ projectId, clip }: { projectId: number; clip: obje
   const undo = useMutation({
     mutationFn: async () => {
       const r = await fetch(`${location.origin}/api/projects/${projectId}/clips/${c.id}/auto-fix/undo`, { method: "POST", credentials: "include" });
-      if (!r.ok) throw new Error("The undo didn't go through. Nothing changed; try again.");
+      if (!r.ok) {
+        const detail = await r.json().then((j: { detail?: unknown }) => j.detail, () => null);
+        throw new Error(typeof detail === "string" ? detail : "The undo didn't go through. Nothing changed; try again.");
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
+    // Either way the clip is read again: a refused Undo (the prompt was edited since) is said in the server's words, and a stale line goes.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
   });
   const [seeing, setSeeing] = useState(false);
   const fix = c.auto_fix;
