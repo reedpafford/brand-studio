@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, Images, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
@@ -20,6 +20,7 @@ const SECTIONS: { to: string; also?: string; label: string; short: string; icon:
   { to: "videos", also: "projects", label: "Videos", short: "Videos", icon: Film },
   { to: "scripts", label: "Scripts", short: "Scripts", icon: FileText },
   { to: "clip", label: "Quick clip", short: "Quick clip", icon: Zap },
+  { to: "media", label: "Media", short: "Media", icon: Images },
   { to: "library", label: "Cast & places", short: "Cast", icon: Users },
   { to: "brand", label: "Brand", short: "Brand", icon: Palette },
 ];
