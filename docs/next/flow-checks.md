@@ -61,7 +61,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Redraw after a look switch (next a627db21; fixed by #962 screen + #967 server, both PASS; closes on merge) | House to Disney Pixar, then Storyboard's "Redraw 1 out-of-date still": no hold shows, and the paid redraw is drawn with no picture of the person | Server: count a locked character with no sheet in the video's look as having no look, so the redraw is refused. Screen: refresh the cast list after a switch, so the cast hold shows |
 | Another editor's video (#964 + #977) | #977 greys every press for a second editor, but also the presses that only show things: the Plan's Scenes/Shots tabs (stuck on Shots), show-all toggles, See the change, Problems, check chips | Keep show-only presses live (a `look` mark on the shared Button, or outside the fieldset); merge #964 with #977 |
-| Import from website: Undo (#971) | Undo after a later edit in the brand kit throws that edit away (a colour added after Save is gone; a later logo is replaced) | Undo removes only the colours Save added, and puts the logo back only if it's still the one Save stored |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -346,3 +345,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #970 Real look samples (re-walk) | 05dc97a5 | PASS: no key makes a stand-in sample, never a failed job; the deploy writes the switch only with the key; 11/11 |
 | 2026-10-29 | #977 Read-only video for a second editor | 3d3ee0d5 (+#964) | FAIL: the Plan tabs and other show-only presses are greyed. Banner, greyed presses, cost bar reason, live steps and players pass; e2e 6/6 at 1440 and 390 |
 | 2026-10-29 | #978 Media: Restore for the video's maker | d2b8fdc7 | PASS; 11/11 |
+| 2026-10-29 | #971 Import from website (re-walk) | 682c3cb4 | PASS: Undo takes out only what Save added; later edits stay; 28/28 |
