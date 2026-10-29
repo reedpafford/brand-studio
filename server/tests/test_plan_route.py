@@ -151,3 +151,21 @@ def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa:
     assert after["out_of_date"] is False and [
         x["n"] for s in after["scenes"] for x in s["lines"]
     ] == [2, 3, 4, 5]
+
+
+def test_a_plan_that_lands_mid_read_is_never_read_as_none(app, db, editor, setup):  # noqa: F811
+    """The video.e2e flake: the read loaded the project (no plan yet), the worker then saved the
+    plan and ended its job in one commit, and the read saw a done job and no plan: a 404, and the
+    page stopped waiting. The job is read first and the project again after, so they agree."""
+    from app.models.accounts import User
+    from app.routes.plan import _out
+
+    pid = setup["project"]
+    assert editor.post(f"/projects/{pid}/plan", json={}).status_code == 201
+    with app.state.sessionmaker() as request:  # the read's own session, as a request has one
+        project = request.get(Project, pid)
+        assert project.plan is None  # loaded before the plan lands
+        user = request.get(User, project.created_by_id)
+        _write(app, db)  # the worker, in its own session: the plan and the job's end together
+        out = _out(request, user, project)
+    assert out is not None and out.job is None and len(out.scenes) > 0
