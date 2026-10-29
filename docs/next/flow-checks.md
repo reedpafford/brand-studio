@@ -58,9 +58,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| Migration order (#858) | #873 merged: n06 → n07; #858 n05 must follow n07 (data.md #900) | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
 | Drawn-words-only shot Advice (#886) | Fixed in #890 (line kept), but text_on_screen_advice is not wired yet | Wire it in reword, on the fixed prompt | #890 at 6820b8f3 |
 | Plan versions (#893) | Earlier plans → use v1: shots from v2 not "older"; an edit reuses v2's number | One _next() for _set, edit, use_earlier | #893 at b7f56c4d |
 | Needs you (#896) | "A step didn't finish" for change, look_fit, song, plan, narration; failed item_check flags the video | Skip check-claude; name the steps; leave unknown out | #896 at 18afb0e |
@@ -221,3 +219,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #892 at e2a47360 (Director: breakdown films the plan; check.follows_plan) | prompt read; test_plan (6) | PASS (follows_plan not wired yet: with or after #893) |
 | 2026-10-29 | #901 + next (#873) live | Playwright 390 + 1440: chip, picker, use, toast, Undo, server look | PASS |
 | 2026-10-29 | #897 at 666b7028 (copied-line message) | test_song_directions (12) | PASS |
+| 2026-10-29 | #858 at ec10d0f5 (next + #887 merged; n05 → n07) | 3 narration scripts via narration.job; narration + narrated + migrations (17) | PASS |
