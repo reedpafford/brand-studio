@@ -50,6 +50,7 @@ test("an unplanned version offers the breakdown at its price, and Next: Publish 
   setViewport(1440);
   const calls = fakeServer(base({ "POST /scripts/7/drafts/0/breakdown": [201, { id: 90, kind: "write-claude", status: "queued", step: "breakdown", script_id: 7 }] }));
   open();
+  await userEvent.click(await screen.findByRole("tab", { name: "Shots" }));
   expect(await screen.findByText("Plan the shots now, or let it happen when an editor starts this version.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next: Publish" })).toBeEnabled();
   await userEvent.click(screen.getByRole("button", { name: "Make the breakdown · 6 credits" }));
@@ -63,6 +64,7 @@ test("a run in progress shows Planning shots and no button", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/drafts/0/breakdown": [200, { breakdown: null, problems: [], seconds: 0, running: true }] }));
   open();
+  await userEvent.click(await screen.findByRole("tab", { name: "Shots" }));
   expect(await screen.findByText(/Planning shots…/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Make the breakdown/ })).toBeNull();
 });
@@ -126,4 +128,40 @@ test("Keep anyway on a plan's advice calls the plan's keep route", async () => {
   open();
   await userEvent.click(await screen.findByRole("button", { name: /Keep anyway/, hidden: true }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/breakdown/keep")?.body).toEqual({ problem: plan.problems[0] }));
+});
+
+// S6 (#934): the owner's scene plan on a version, before its shots preview.
+const scenes = [{ id: "s1", part: "Hook", place: "Kitchen", time: "Morning", cast_ids: [], lines: [{ n: 1, text: "MIA: Hell no!", action: "Mia pushes the bowl away.", star: false }] }];
+const scenePlan = (o: object = {}) => ({ status: "ready", approved_by: null, approved_at: null, source: "claude", structure: null, cast: [], scenes, summary: null, advice: [], job: null, estimate_credits: 3, approve_credits: 3, change_scene_credits: 3, stop: null, ...o });
+
+test("a version opens on its scene plan: none yet says it's optional, and Make the plan is priced and starts it", async () => {
+  setViewport(390);
+  const calls = fakeServer(base({ "GET /credits/rates": [200, [{ kind: "write-claude", credits_per_unit: 3 }]], "GET /scripts/7/drafts/0/plan": [404, { detail: "This version has no plan yet." }], "POST /scripts/7/drafts/0/plan": [201, { id: 91, kind: "write-claude", status: "queued" }] }));
+  open();
+  expect(await screen.findByText(/Skip it and it's made when an editor starts/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next: Publish" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Make the plan · 3 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/plan")).toBe(true));
+});
+
+test("a ready plan has no Change this scene… or Earlier plans here; Approve the plan is free and moves on to Shots", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({ "GET /credits/rates": [200, []], "GET /scripts/7/drafts/0/plan": [200, scenePlan({ earlier: [{ id: 1, version: 1, source: "claude", made_at: null }] })], "POST /scripts/7/drafts/0/plan/approve": [200, scenePlan({ status: "approved" })] }));
+  open();
+  expect(await screen.findByLabelText("Scene 1")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Change this scene/ })).toBeNull();
+  expect(screen.queryByText(/Earlier plans/)).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: /^Approve the plan/ }));
+  await vi.waitFor(() => expect(calls.map((c) => c.key)).toContain("POST /scripts/7/drafts/0/plan/approve"));
+  expect(await screen.findByRole("tab", { name: "Shots", selected: true })).toBeInTheDocument();
+});
+
+test("a preview made before the owner's plan says Made for an older plan, with Make the preview again", async () => {
+  setViewport(1440);
+  const older = { ...script, versions: [version(0, { preview_older_plan: true }), version(1)] };
+  const calls = fakeServer(base({ "GET /scripts/7": [200, older], "GET /scripts/7/drafts/0/breakdown": [200, plan], "POST /scripts/7/drafts/0/breakdown": [201, { id: 92, kind: "write-claude", status: "queued", step: "breakdown", script_id: 7 }] }));
+  open();
+  expect(await screen.findByText("Made for an older plan.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Make the preview again · 6 credits" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/breakdown")).toBe(true));
 });
