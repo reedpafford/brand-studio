@@ -829,7 +829,8 @@ export interface paths {
         put?: never;
         /**
          * Cancel Job
-         * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled.
+         * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled: by
+         *     whoever asked for it, whoever made its video, or the owner.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
         delete?: never;
@@ -10199,6 +10200,7 @@ export interface operations {
             query?: {
                 brand_id?: number | null;
                 archived?: boolean;
+                item_id?: number | null;
             };
             header?: never;
             path: {
@@ -10230,7 +10232,9 @@ export interface operations {
     };
     create_item_library__kind__post: {
         parameters: {
-            query?: never;
+            query?: {
+                item_id?: number | null;
+            };
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
@@ -10269,7 +10273,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10301,7 +10305,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10331,7 +10335,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10367,7 +10371,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10399,7 +10403,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10429,7 +10433,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10461,7 +10465,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
                 version: number;
             };
             cookie?: never;
@@ -10494,7 +10498,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10532,7 +10536,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
@@ -10566,7 +10570,7 @@ export interface operations {
             header?: never;
             path: {
                 kind: components["schemas"]["Kind"];
-                item_id: number;
+                item_id: number | null;
             };
             cookie?: never;
         };
