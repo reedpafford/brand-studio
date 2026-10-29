@@ -377,6 +377,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
         elif known[ref.id][1] != ref.kind:
             kind = {"image": "a picture", "audio": "a sound"}.get(ref.kind, f"a {ref.kind}")
             problems.append(f"{clip.clip_id}: {ref.id} is attached as {kind} but isn't one")
+    problems += check.text_on_screen_advice(clip.prompt)  # a shot that's only drawn words (#890)
     return plain(problems, names(known))
 
 
@@ -412,8 +413,9 @@ def _unquoted(text: str, fn) -> str:
 
 def reword(prompt: str) -> tuple[str, list[str]]:
     """The prompt with its wording flags fixed, free: aspect and resolution words removed
-    (they're settings) and, in a shot nobody speaks in, an action that reads like a line
-    ("he says no") said as what the body does. The spoken lines are never touched. Returns
+    (they're settings), asks for words drawn on screen taken out (check.text_on_screen) and,
+    in a shot nobody speaks in, an action that reads like a line ("he says no") said as what
+    the body does. The spoken lines are never touched. Returns
     the prompt and what was fixed, in plain words ([] when nothing was)."""
     fixed: list[str] = []
 
@@ -438,7 +440,9 @@ def reword(prompt: str) -> tuple[str, list[str]]:
         if line.startswith("Shot ") and not check.QUOTED.search(line):
             line = check.SAYS.sub(body, line)
         lines.append(line)
-    return "\n".join(lines), list(dict.fromkeys(fixed))
+    words, shown = check.text_on_screen("\n".join(lines))  # the Director's list (#869)
+    fixed.extend(f'removed "{w}"' for w in shown)
+    return words, list(dict.fromkeys(fixed))
 
 
 def undone_flags(row: ProjectClip, problems: list[str]) -> list[str]:
@@ -808,8 +812,12 @@ def _waiting(db: Session, project: Project) -> set[str]:
     return {j.input.get("step") for j in jobs}
 
 
-def queue_rewrite(db: Session, user, project: Project, clip_ids: list[str] | None) -> Job:
-    """The clip-prompts call (paid) for `clip_ids` (None: every clip)."""
+def queue_rewrite(
+    db: Session, user, project: Project, clip_ids: list[str] | None,
+    extra: dict | None = None, prepaid: bool = False,
+) -> Job:  # fmt: skip
+    """The clip-prompts call (paid) for `clip_ids` (None: every clip). `extra` and `prepaid`:
+    a step of Update everything after this (app/update_after.py), already paid for."""
     from app.routes.jobs import enqueue
 
     bd = newest(db, project)
@@ -820,9 +828,10 @@ def queue_rewrite(db: Session, user, project: Project, clip_ids: list[str] | Non
         raise HTTPException(409, "Wait for the clips being made to finish first.")
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
-    data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids}
+    data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids, **(extra or {})}
     units = max(len(data["batches"]), 1)  # one price per Claude call
-    return enqueue(db, user, "write-claude", data, units=units, project=project, provider="claude")
+    return enqueue(db, user, "write-claude", data, units=units, project=project,
+                   provider="claude", prepaid=prepaid)  # fmt: skip
 
 
 def follow(db: Session, project: Project, user) -> Job | None:

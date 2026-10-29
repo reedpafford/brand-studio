@@ -1,0 +1,74 @@
+{
+ "model": "stability-ai/stable-audio-2.5",
+ "version": "a61ac8edbb27cd2eda1b2eff2bbc03dcff1131f5560836ff77a052df05b77491",
+ "fetched": "2026-10-29",
+ "Input": {
+  "type": "object",
+  "title": "Input",
+  "required": [
+   "prompt"
+  ],
+  "properties": {
+   "seed": {
+    "type": "integer",
+    "title": "Seed",
+    "nullable": true,
+    "description": "Random seed for reproducible results. Leave blank for random seed."
+   },
+   "steps": {
+    "type": "integer",
+    "title": "Steps",
+    "default": 8,
+    "maximum": 8,
+    "minimum": 4,
+    "description": "Number of diffusion steps (higher = better quality but slower)"
+   },
+   "prompt": {
+    "type": "string",
+    "title": "Prompt",
+    "description": "Text prompt describing the desired audio"
+   },
+   "duration": {
+    "type": "integer",
+    "title": "Duration",
+    "default": 190,
+    "maximum": 190,
+    "minimum": 1,
+    "description": "Duration of generated audio in seconds"
+   },
+   "cfg_scale": {
+    "type": "number",
+    "title": "Cfg Scale",
+    "default": 1,
+    "maximum": 25,
+    "minimum": 1,
+    "description": "Classifier-free guidance scale (higher = more prompt adherence)"
+   }
+  }
+ },
+ "enums": {
+  "Status": {
+   "enum": [
+    "starting",
+    "processing",
+    "succeeded",
+    "canceled",
+    "failed"
+   ],
+   "type": "string",
+   "title": "Status",
+   "description": "An enumeration."
+  },
+  "WebhookEvent": {
+   "enum": [
+    "start",
+    "output",
+    "logs",
+    "completed"
+   ],
+   "type": "string",
+   "title": "WebhookEvent",
+   "description": "An enumeration."
+  }
+ }
+}

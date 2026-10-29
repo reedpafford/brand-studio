@@ -1103,7 +1103,7 @@ test("a storyboard made before the shots changed stays open, and its stills wait
   fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true }], "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, earlier: [], change: null }, { ...frame, id: 2, clip_id: "c2", approved: false, file_id: null, still_credits: 4, earlier: [], change: null }]] });
   open("?step=storyboard");
   expect(await screen.findByText("The plan changed after these were made. Make new shots in Plan first.")).toBeInTheDocument();
-  const make = within(screen.getByRole("region", { name: "Cost" })).getByRole("button", { name: /^Make 1 still/ });
+  const make = await within(screen.getByRole("region", { name: "Cost" })).findByRole("button", { name: /^Make 1 still/ }); // the bar fills in once the step has read its frames
   expect(make).toBeDisabled();
   expect(screen.getByRole("button", { name: "Open Plan" })).toBeInTheDocument();
 });
