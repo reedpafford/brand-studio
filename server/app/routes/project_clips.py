@@ -84,6 +84,7 @@ class ProjectClipOut(BaseModel):
     prompt_ok: bool  # Looks good on the prompt; Make the takes waits for every clip's
     take_credits: float  # what one more take costs (shown on Make clip / Redo)
     stale: bool  # made from an older breakdown
+    take_stale: bool = False  # its picked take shows an older sheet (N6): "Out of date"
     inserts: list[InsertOut]
     change: dict | None  # the last Change it note, as on a frame (app/change.py)
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
@@ -100,7 +101,8 @@ _stale = clip_prompts.is_stale
 
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
-    computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change")
+    computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
+                "take_stale")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -117,6 +119,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
+        take_stale=clip_prompts.take_stale(row),
         take_warning=clip_takes.take_warning(db, row),
         change=asked or None,
     )
@@ -550,7 +553,8 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
     for p in (p for p in projects if p.id in ids):
         bd, rows = bds.get(p.id), clips.get(p.id, [])
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
-        if any(not c.approved or moved or c.breakdown_id != bd.id for c in rows):
+        if any(not c.approved or moved or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
+               for c in rows):  # fmt: skip
             old.add(p.id)
         elif (video := videos.get(p.id)) and (
             video.take_ids != [c.picked_take_id for c in rows]
