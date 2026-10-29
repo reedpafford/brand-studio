@@ -56,7 +56,9 @@ function KitForm({ brand }: { brand: Brand }) {
   const toast = useToast();
   const patch = async (all: typeof kit) => {
     const { never_say, end_line, audience, do_list, dont_list, music_style, default_look, default_language, default_cast, tone_notes, ...rest } = all;
-    const body = !setup ? { ...rest, tone_notes, never_say, end_line } : owner ? { ...rest, tone_notes, audience, do_list, dont_list, music_style, default_look, default_language, default_cast } : rest;
+    // Until the owner decides, editors keep what they edit today: tone notes, never say and the end line (the server
+    // carries those into the Don't list and the Default CTA line). The owner edits the new fields themselves.
+    const body = owner && setup ? { ...rest, tone_notes, audience, do_list, dont_list, music_style, default_look, default_language, default_cast } : { ...rest, tone_notes, never_say, end_line };
     const { error, response } = await api.PATCH("/brands/{brand_id}", { params: { path: { brand_id: brand.id } }, body: body as typeof kit });
     if (!response.ok) throw new Error(errorText(error));
     await queryClient.invalidateQueries({ queryKey: ["brands"] });
@@ -137,21 +139,26 @@ function KitForm({ brand }: { brand: Brand }) {
         <div className="min-w-0 space-y-4 lg:self-start">
           <Card className="min-w-0 space-y-5">
             <h2 className="type-section">Voice and tone</h2>
-            {!owner && <p className="text-sm text-muted">{OWNER_ONLY}</p>}
-            <TextArea label="Audience" rows={2} readOnly={!owner} placeholder="Dog owners who've tried everything" value={kit.audience ?? ""} onChange={(e) => set("audience", e.target.value)} />
-            <TextArea label="How the brand talks" rows={5} readOnly={!owner} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
+            <TextArea label="How the brand talks" rows={5} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
             {owner ? (
               <>
+                <TextArea label="Audience" rows={2} placeholder="Dog owners who've tried everything" value={kit.audience ?? ""} onChange={(e) => set("audience", e.target.value)} />
                 <ChipList label="Do" items={kit.do_list ?? []} onChange={(v) => set("do_list", v)} placeholder="Something to always do" />
                 <ChipList label="Don't" items={kit.dont_list ?? []} onChange={(v) => set("dont_list", v)} placeholder="A word or phrase to never say" />
+                <Field label="Music style" value={kit.music_style ?? ""} placeholder="Upbeat pop, warm" hint="New song versions start with this music style." onChange={(e) => set("music_style", e.target.value)} />
               </>
             ) : (
               <>
-                <ReadList label="Do" items={kit.do_list ?? []} />
-                <ReadList label="Don't" items={kit.dont_list ?? []} />
+                <ChipList label="Don't" items={kit.never_say} onChange={(v) => set("never_say", v)} placeholder="A word or phrase to never say" />
+                <Field label="End line" value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} hint="The Default call to action: the last clip of a video says it." />
+                <div className="space-y-3 rounded-md bg-surface-2 p-3">
+                  <p className="text-sm text-muted">{OWNER_ONLY}</p>
+                  <TextArea label="Audience" rows={2} readOnly value={kit.audience ?? ""} />
+                  <ReadList label="Do" items={kit.do_list ?? []} />
+                  <Field label="Music style" readOnly value={kit.music_style ?? ""} />
+                </div>
               </>
             )}
-            <Field label="Music style" readOnly={!owner} value={kit.music_style ?? ""} placeholder="Upbeat pop, warm" hint="New song versions start with this music style." onChange={(e) => set("music_style", e.target.value)} />
             <Field label="Legal line" value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
           </Card>
           <CtaLines brandId={brand.id} lines={setup.cta_lines} advice={setup.advice} owner={owner} />

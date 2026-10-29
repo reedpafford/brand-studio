@@ -100,23 +100,26 @@ test("no CTA line left: the Advice says videos end without one", async () => {
   expect(await screen.findByText("Videos will end without a saved call to action.")).toBeInTheDocument();
 });
 
-test("an editor sees the new sections read only, with who changes them; the look's fields still save", async () => {
+test("an editor keeps what they edit today (tone notes, Don't as never say, End line); only the new sections are read only", async () => {
   setViewport(390);
   const calls = fakeServer({ ...routes(editor), "PATCH /brands/1": [200, brand] });
   renderAt("/b/1/brand");
-  expect(await screen.findAllByText("Only the owner changes the brand.")).toHaveLength(3);
+  expect(await screen.findAllByText("Only the owner changes the brand.")).toHaveLength(2);
   expect(screen.getByLabelText("Audience")).toHaveAttribute("readonly");
+  expect(screen.getByLabelText("Music style")).toHaveAttribute("readonly");
   expect(await screen.findByLabelText("Look")).toBeDisabled();
   expect(screen.queryByRole("button", { name: "Add line" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Make default" })).toBeNull();
   expect(screen.queryByLabelText("Add to the default cast")).toBeNull();
-  await userEvent.clear(screen.getByLabelText("Name"));
-  await userEvent.type(screen.getByLabelText("Name"), "Fomo");
+  await userEvent.type(screen.getByLabelText("How the brand talks"), ", warm");
+  await userEvent.type(screen.getByLabelText("Add to don't"), "miracle{Enter}");
+  await userEvent.clear(screen.getByLabelText("End line"));
+  await userEvent.type(screen.getByLabelText("End line"), "Link in bio.");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")).toBeTruthy());
   const body = calls.find((c) => c.key === "PATCH /brands/1")!.body as Record<string, unknown>;
-  expect(body).toMatchObject({ name: "Fomo" });
-  for (const k of ["audience", "dont_list", "default_cast", "tone_notes", "never_say", "end_line"]) expect(body).not.toHaveProperty(k);
+  expect(body).toMatchObject({ tone_notes: "Punchy, warm", never_say: ["cure", "miracle"], end_line: "Link in bio." });
+  for (const k of ["audience", "do_list", "dont_list", "music_style", "default_look", "default_cast"]) expect(body).not.toHaveProperty(k);
 });
 
 test("without brand setup on the server the page is as before", async () => {

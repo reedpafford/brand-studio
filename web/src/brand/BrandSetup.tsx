@@ -45,7 +45,7 @@ export function CtaLines({ brandId, lines, advice, owner }: { brandId: number; l
         <h2 className="type-section">Call to action</h2>
         <p className="text-sm text-muted">The last clip of a video says the Default line.</p>
       </div>
-      {!owner && <p className="text-sm text-muted">{OWNER_ONLY}</p>}
+      {!owner && <p className="text-sm text-muted">Only the owner adds or changes these lines. The End line above changes the Default.</p>}
       {advice.map((a) => (
         <p key={a} className="text-sm text-warning">{a}</p>
       ))}
