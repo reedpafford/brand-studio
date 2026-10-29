@@ -190,3 +190,28 @@ def test_go_back_to_an_earlier_breakdown_with_undo(app, db, editor, setup):  # n
     assert not stale()  # made for the one gone back to: current again, nothing to redo
     undo = editor.post(f"{base}/versions/{back['was_id']}/use").json()
     assert undo["breakdown"]["hook"] == "A new hook." and stale()
+
+
+def test_only_the_maker_or_the_owner_goes_back(app, db, owner, editor, setup):  # noqa: F811
+    """QA-4 on #957: a second editor can open the video but not change what it uses (as Video
+    settings); the owner and whoever made it can."""
+    from tests.test_script_produce import _second_editor
+
+    url, frame = _frame(app, db, editor, setup)
+    row = _take_from(db, editor, frame)
+    base = f"/projects/{setup['project']}"
+    first = editor.get(f"{base}/breakdown").json()["id"]
+    two, _ = _second_editor(app, owner, db)
+    presses = [
+        (f"{url}/frames/{frame.id}/pick", {"file_id": frame.file_id}),
+        (f"{url}/versions/0/use", None),
+        (f"{base}/clips/{row.id}/versions/1/use", None),
+        (f"{base}/breakdown/versions/{first}/use", None),
+    ]
+    for path, body in presses:
+        refused = two.post(path, json=body)
+        assert refused.status_code == 403, path
+        assert refused.json()["detail"].startswith("Only whoever made this video, or the owner")
+    assert two.get(f"{url}/versions").status_code == 200  # reading stays open
+    assert owner.post(presses[3][0]).status_code == 409  # the owner gets past it (in use)
+    assert editor.post(presses[3][0]).status_code == 409  # and so does the maker

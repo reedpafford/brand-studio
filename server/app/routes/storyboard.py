@@ -30,7 +30,7 @@ from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown, Frame
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import _mine, get_project
 from app.routes.scripts import latest
 from app.schemas import PromptText
 from app.sheets import require_looks
@@ -274,8 +274,9 @@ def use_version(
     project_id: int, index: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Go back to this: free, never refused over budget; Undo is index 0 (the one it replaced).
-    Waits while a storyboard or a still is being made, so nothing lands on a frame that's gone."""
-    project = get_project(db, user, project_id)
+    Waits while a storyboard or a still is being made, so nothing lands on a frame that's gone.
+    Whoever made the video, or the owner."""
+    project = _mine(db, user, project_id)
     if project.archived_at is not None:
         raise HTTPException(409, "This video is archived. Restore it first.")
     if any(j.input.get("step") in ("storyboard", "frame") or j.input.get("frame_id")
@@ -446,7 +447,8 @@ def pick_still(
     """Use an earlier still again, with the prompt it was made from: OR3's Preferred still,
     and the Undo of a change. Free, never refused over budget. The one it replaces becomes an
     earlier still (`was_file_id`: pick it back to undo); a take made from the replaced still
-    reads Out of date (clip_prompts.older_still)."""
+    reads Out of date (clip_prompts.older_still). Whoever made the video, or the owner."""
+    _mine(db, user, project_id)
     project, frame = _frame(db, user, project_id, frame_id)
     old = next((e for e in frame.earlier or [] if e["file_id"] == body.file_id), None)
     if old is None:

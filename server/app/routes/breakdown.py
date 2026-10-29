@@ -20,7 +20,7 @@ from app.models.projects import Project
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import _mine, get_project
 from app.routes.scripts import latest
 
 router = APIRouter(prefix="/projects/{project_id}/breakdown", tags=["breakdown"])
@@ -221,7 +221,8 @@ def use_version(
     it (history only grows). Free: never refused over budget, and nothing is rewritten for it.
     Frames and clips made for the one gone back to are current again (they move to the copy);
     those made for the one it replaces read "made for an older breakdown", with their usual
-    redo. Undo is this press with `was_id`."""
+    redo. Undo is this press with `was_id`. Whoever made the video, or the owner."""
+    _mine(db, user, project_id)
     project, version = _working(db, user, project_id)
     if project.archived_at is not None:
         raise HTTPException(409, "This video is archived. Restore it first.")

@@ -43,7 +43,7 @@ from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import _mine, get_project
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
 from app.schemas import PromptText, UtcTime
 from app.sheets import require_looks
@@ -425,7 +425,9 @@ def use_version(
 ):
     """Go back to this (OR3): an earlier version of the prompt is the one in hand again. Free,
     never refused over budget; Undo is index 1 (the one it replaced). Waits while a take or a
-    rewrite is being made for this clip, so nothing lands on the wrong version."""
+    rewrite is being made for this clip, so nothing lands on the wrong version. Whoever made
+    the video, or the owner."""
+    _mine(db, user, project_id)
     project, row = _clip(db, user, project_id, clip_id)
     if project.archived_at is not None:
         raise HTTPException(409, "This video is archived. Restore it first.")
