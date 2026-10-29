@@ -113,15 +113,22 @@ def _scripts(user: User):
     return query
 
 
+def _videos(user: User):
+    """The videos the caller's Videos list shows (live; an editor's: only theirs)."""
+    query = select(Project.folder_id, func.count()).where(Project.archived_at.is_(None))
+    if not user.is_owner:
+        query = query.where(Project.created_by_id == user.id)
+    return query
+
+
 def counts(db: Session, user: User, folder_ids: list[int]) -> dict[int, dict[str, int]]:
     """Each project's items as its lists show them: live scripts, videos and quick clips."""
     out = {i: {"scripts": 0, "videos": 0, "clips": 0} for i in folder_ids}
     queries = {
         "scripts": _scripts(user).where(Script.folder_id.in_(folder_ids))
         .group_by(Script.folder_id),
-        "videos": select(Project.folder_id, func.count()).where(
-            Project.folder_id.in_(folder_ids), Project.archived_at.is_(None)
-        ).group_by(Project.folder_id),
+        "videos": _videos(user).where(Project.folder_id.in_(folder_ids))
+        .group_by(Project.folder_id),
         "clips": select(Job.folder_id, func.count()).where(
             Job.folder_id.in_(folder_ids), Job.project_id.is_(None), Job.removed_at.is_(None)
         ).group_by(Job.folder_id),

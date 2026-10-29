@@ -85,3 +85,9 @@ def test_who_files_what_videos_and_quick_clips(app, owner, editor, db):
     assert (no.status_code, no.json()["detail"]) == (409, folders.VIDEO_JOB)
     rows = editor.get(f"/brands/{brand}/folders").json()
     assert rows[0]["items"] == {"scripts": 0, "videos": 1, "clips": 2}
+    other, _ = _published(owner, db, breakdown=BREAKDOWN)
+    mine = owner.post(f"{other}/drafts/0/produce").json()["project_id"]
+    assert _file(owner, "video", mine, fid).status_code == 200
+    counted = {"editor": editor, "owner": owner}  # as each one's Videos list shows them
+    assert {k: c.get(f"/brands/{brand}/folders").json()[0]["items"]["videos"]
+            for k, c in counted.items()} == {"editor": 1, "owner": 2}  # fmt: skip
