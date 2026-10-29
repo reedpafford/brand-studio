@@ -511,7 +511,7 @@ test("a Ready to make chip opens the version panel, and Make this version reserv
   expect(within(panel).getByText(/Bo sniffs the salmon/)).toBeInTheDocument();
   expect(within(panel).getByText("Bo · Locked look")).toBeInTheDocument();
   expect(within(panel).getByText("Planned automatically when you start")).toBeInTheDocument();
-  expect(within(panel).getByText("Starting costs 3 (the breakdown) · the whole video about 21")).toBeInTheDocument(); // one line (#749 LW5)
+  expect(within(panel).getByText("Starting costs 3 (the breakdown) · the whole video about 21 credits")).toBeInTheDocument(); // one line (#749 LW5)
   // No saved breakdown: starting one is a paid call, so the button says its price.
   await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
