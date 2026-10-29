@@ -18,8 +18,9 @@ const BUSY: SongTake["status"][] = ["making", "timing"];
 const length = (t: SongTake) => t.trim_to ?? t.seconds;
 
 /** A song video's takes (its version's, then its own) and the one it is timed to (flows V2a). */
-function useVideoSongs(projectId: number) {
+function useVideoSongs(projectId: number, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ["video-songs", projectId],
     queryFn: async () => {
       const { data, error } = await api.GET("/projects/{project_id}/songs", { params: { path: { project_id: projectId } } });
@@ -234,17 +235,19 @@ export function SongShotTime({ part, shotId }: { part: components["schemas"]["So
 /** Final cut on a song video (flows V6): "Song: take 2, laid under the whole video", Download the song, and, when the video
  * now uses another take, a line saying so (the server marks the video out of date; Make it again is free). */
 export function FinalSong({ projectId, madeWith }: { projectId: number; madeWith: number | null | undefined }) {
-  const songs = useVideoSongs(projectId);
+  const songs = useVideoSongs(projectId, madeWith != null); // a video without a song never asks
   if (madeWith == null) return null; // not a song video
   const takes = songs.data?.takes ?? [];
   const t = takes.find((x) => x.id === madeWith);
   const now = takes.find((x) => x.id === songs.data?.song_take_id);
-  if (!t) return songs.isPending ? <Skeleton className="h-6 w-2/3" /> : null;
+  if (songs.isPending) return <Skeleton className="h-6 w-2/3" />;
+  // The take in the cut may since have been deleted: the line about the take in use still shows.
+  if (!t && !now) return null;
   return (
     <div className="space-y-2" aria-label="The song">
-      <p className="text-sm">Song: take {t.number}, laid under the whole video</p>
-      {now && now.id !== t.id && <p className="text-sm text-warning">This video now uses take {now.number}. Make it again to lay it under (free).</p>}
-      {t.file_id != null && (
+      <p className="text-sm">{t ? `Song: take ${t.number}, laid under the whole video` : "Song: an earlier take, laid under the whole video"}</p>
+      {now && now.id !== madeWith && <p className="text-sm text-warning">This video now uses take {now.number}. Make it again to lay it under (free).</p>}
+      {t && t.file_id != null && (
         <a className={buttonClass("secondary")} href={fileUrl(t.file_id)} download={`song-take-${t.number}.mp3`}>
           <Download size={20} strokeWidth={1.75} aria-hidden />
           Download the song

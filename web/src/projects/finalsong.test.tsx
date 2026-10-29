@@ -72,10 +72,19 @@ test("when the video now uses another take, the final cut says so: Make it again
   expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
 });
 
-test("a video without a song shows no song line", async () => {
+test("a video without a song shows no song line and never asks for songs", async () => {
   setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
   expect(await screen.findByText("Final cut ready")).toBeInTheDocument();
   expect(screen.queryByLabelText("The song")).toBeNull();
+  expect(calls.some((c) => c.key === "GET /projects/9/songs")).toBe(false);
+});
+
+test("if the take in the cut was deleted since, the line about the take in use still shows", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true, song_take_id: 1 }], "GET /projects/9/songs": [200, songs([songTake({ id: 4, number: 3 })], 4)] });
+  open("?step=downloads");
+  expect(await screen.findByText("Song: an earlier take, laid under the whole video")).toBeInTheDocument();
+  expect(screen.getByText("This video now uses take 3. Make it again to lay it under (free).")).toBeInTheDocument();
 });
