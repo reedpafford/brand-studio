@@ -60,8 +60,13 @@ def _video(db: Session, ws: int, seconds: int) -> Decimal:
 
 def version_cost(db: Session, draft: ScriptDraft) -> Decimal:
     """A version's whole price before it's started: `credits.plan_cost`, with a look for
-    each role not cast yet and no breakdown call when one is saved."""
+    each role not cast yet and no breakdown call when one is saved. A Song version's is its
+    Preferred take's video (the song decides the length), the figure its take cards show."""
+    from app import song_takes
+
     script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
+    if script.kind == "song" and (take := song_takes.preferred(db, draft)):
+        return song_takes.video_credits(db, take)
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
     slot = ScriptCastSlot
     uncast = select(func.count()).where(slot.script_id == script.id, slot.library_item_id.is_(None))

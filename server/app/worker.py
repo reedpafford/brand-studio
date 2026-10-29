@@ -32,7 +32,7 @@ from app.models.jobs import Job, JobStatus, Usage
 from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
 from app.purge import purge_deleted, purge_uploads
 from app.references import fit_image
-from app.steps import explain, save_step_result, step_failed
+from app.steps import explain, recheck, save_step_result, step_failed
 from app.storage import LocalStorage, Storage
 
 log = logging.getLogger("worker")
@@ -89,6 +89,10 @@ def _plain(job: Job, detail: str) -> str:
         if detail.startswith("TooLong"):
             return music.TIMING_TOO_LONG
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
+    from app import song_directions
+
+    if detail.startswith(song_directions.STILL):
+        return song_directions.UNFINISHED
     return FAILED
 
 
@@ -367,6 +371,7 @@ def start_next(
 def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
     try:  # a Claude check that looks at a picture gets it as data, like other providers
         result = provider.run(job.kind, _files_as_data(db, storage, job))
+        result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
     except NotStarted as exc:
         db.refresh(job)
         if job.attempts < MAX_SUBMIT_TRIES:
