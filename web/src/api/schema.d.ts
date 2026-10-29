@@ -6014,6 +6014,11 @@ export interface components {
             credits_per_check: number;
             /** Check Credits Per Video */
             check_credits_per_video: number;
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
             /** Items */
             items: components["schemas"]["FlaggedOut"][];
         };

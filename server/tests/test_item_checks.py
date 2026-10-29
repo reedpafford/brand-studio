@@ -96,6 +96,7 @@ def test_over_budget_is_skipped_and_a_failed_check_is_free(app, db, editor, setu
     db.commit()
     _work(app, db, FakeSeedance([_mp4("red")]))
     assert editor.get(clips).json()[0]["takes"][0]["check"]["status"] == "skipped"
+    assert editor.get(f"/projects/{setup['project']}/checks").json()["paused"] is True  # PL7
     assert not db.query(Job).filter(Job.kind == "check-claude").count()
 
     db.query(Job).filter(Job.credits == spent, Job.provider == "fake").delete()
