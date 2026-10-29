@@ -420,3 +420,31 @@ test("an editor sees the other looks' sheets but can't add one", async () => {
   expect(within(pixar).getByText("Only the owner adds a sheet in a look.")).toBeInTheDocument();
   expect(within(pixar).queryByRole("button")).toBeNull();
 });
+
+test("a first sheet in a look says Drawing… with no second Make until it's in, then offers Approve (QA-3)", async () => {
+  const routes: Record<string, [number, unknown]> = { ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90, status: "queued" }], "GET /jobs/90": [200, { id: 90, status: "running" }] };
+  const calls = fakeServer(routes);
+  renderAt("/b/1/library/characters/5");
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet/ }));
+  expect(await within(pixar).findByText("Drawing…")).toBeInTheDocument();
+  expect(within(pixar).queryByRole("button", { name: /Make a Disney Pixar sheet/ })).toBeNull();
+  routes["GET /library/character/5"] = [200, { ...mia, look_sheets: { pixar: { file_id: 71, status: "needs_approval" } } }];
+  expect(await within(pixar).findByRole("button", { name: "Approve" }, { timeout: 5000 })).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /library/character/5/sheet")).toHaveLength(1);
+});
+
+test("a first sheet that didn't finish says so, and Try again is the press", async () => {
+  fakeServer({ ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90, status: "queued" }], "GET /jobs/90": [200, { id: 90, status: "failed" }] });
+  renderAt("/b/1/library/characters/5");
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet/ }));
+  expect(await within(pixar).findByText("The sheet didn't finish. Nothing was charged.")).toBeInTheDocument();
+  expect(within(pixar).getByRole("button", { name: /Try again/ })).toBeInTheDocument();
+});
+
+test("a look starting with a vowel reads Make an …", async () => {
+  fakeServer({ ...charRoutes(owner, {}), "GET /looks": [200, [...looksList, { id: "anime", name: "Anime comic", blurb: "", on: true }]] });
+  renderAt("/b/1/library/characters/5");
+  expect(await screen.findByRole("button", { name: /Make an Anime comic sheet/ })).toBeInTheDocument();
+});

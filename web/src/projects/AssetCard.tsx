@@ -395,7 +395,7 @@ export function AssetCard({
           )}
           {lookNeeded && id !== null && !deleted && (
             <Button variant="secondary" busy={copy.isPending} price={asset.look_credits ?? price} upTo={asset.look_credits != null} usually={asset.look_usual_credits ?? price} disabled={!!stopFor(asset.look_credits ?? price)} reason={stopFor(asset.look_credits ?? price)} onClick={() => copy.mutate()}>
-              Make a {lookNeeded} look for this video
+              Make {/^[aeiou]/i.test(lookNeeded) ? "an" : "a"} {lookNeeded} look for this video
             </Button>
           )}
           {copyFailed && (

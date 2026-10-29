@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -23,7 +23,20 @@ export function LookSheets({ item }: { item: Item }) {
   const sheets = item.look_sheets ?? {};
   const path = { kind: "character" as const, item_id: item.id };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", "character"] });
-  const drawing = Object.values(sheets).some((s) => s.status === "drawing");
+  // A look just pressed (QA-3): the character lists a look's sheet only once there is one, so a first sheet never reads
+  // "drawing". Until it's in (or its job failed) the card says Drawing… and Make waits.
+  const [pressed, setPressed] = useState<Record<string, { job: number }>>({});
+  // The pressed sheets' jobs, so one that fails says so (and Make is back) instead of Drawing… for good.
+  const jobIds = Object.values(pressed).map((p) => p.job);
+  const jobs = useQuery({
+    enabled: jobIds.length > 0,
+    queryKey: ["sheet-jobs", jobIds],
+    queryFn: async () => Object.fromEntries(await Promise.all(jobIds.map(async (id) => [id, (await api.GET("/jobs/{job_id}", { params: { path: { job_id: id } } })).data?.status]))) as Record<number, string | undefined>,
+    refetchInterval: (q) => (jobIds.some((id) => !["failed", "succeeded"].includes(q.state.data?.[id] ?? "")) ? 3000 : false),
+  });
+  const failed = (id: string) => pressed[id] !== undefined && jobs.data?.[pressed[id].job] === "failed";
+  const waiting = (id: string) => pressed[id] !== undefined && (sheets[id]?.status ?? "none") === "none" && !sheets[id]?.file_id && !failed(id);
+  const drawing = Object.values(sheets).some((s) => s.status === "drawing") || Object.keys(pressed).some(waiting);
   // While one is drawn, read the character again until its sheet is in.
   useEffect(() => {
     if (!drawing) return;
@@ -32,7 +45,10 @@ export function LookSheets({ item }: { item: Item }) {
   }, [drawing]); // eslint-disable-line react-hooks/exhaustive-deps
   const make = useMutation({
     mutationFn: (look_id: string) => must(api.POST("/library/{kind}/{item_id}/sheet", { params: { path }, body: { model_id: model, change: "", look_id } })),
-    onSuccess: refresh,
+    onSuccess: (r, look_id) => {
+      setPressed((p) => ({ ...p, [look_id]: { job: r.data!.id } }));
+      return refresh();
+    },
   });
   const approve = useMutation({
     mutationFn: (look_id: string) => must(api.POST("/library/{kind}/{item_id}/sheet/approve", { params: { path, query: { look_id } } })),
@@ -55,7 +71,7 @@ export function LookSheets({ item }: { item: Item }) {
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {looks.map((l) => {
-          const s = sheets[l.id] ?? { file_id: null, status: "none" as const };
+          const s = waiting(l.id) ? { file_id: null, status: "drawing" as const } : (sheets[l.id] ?? { file_id: null, status: "none" as const });
           return (
             <li key={l.id} className="space-y-2 text-sm" aria-label={`${l.name} sheet`}>
               <div className="grid aspect-[9/16] place-items-center overflow-hidden rounded-md bg-surface-2">
@@ -66,9 +82,10 @@ export function LookSheets({ item }: { item: Item }) {
                 {s.status === "approved" && <Badge tone="success">Approved</Badge>}
                 {s.status === "waiting_for_owner" && <Badge>Waiting for the owner</Badge>}
               </p>
+              {failed(l.id) && s.status === "none" && <p role="alert" className={errorClass}>The sheet didn't finish. Nothing was charged.</p>}
               {owner && s.status === "none" && (
                 <Button variant="secondary" dense price={price} busy={make.isPending && make.variables === l.id} onClick={() => make.mutate(l.id)}>
-                  Make a {l.name} sheet
+                  {failed(l.id) ? "Try again" : <>Make {/^[aeiou]/i.test(l.name) ? "an" : "a"} {l.name} sheet</>}
                 </Button>
               )}
               {owner && s.status === "needs_approval" && (
