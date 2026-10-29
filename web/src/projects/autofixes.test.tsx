@@ -77,15 +77,15 @@ test("an undone fix, or none, shows no line", async () => {
   open();
   await screen.findByLabelText("Clip c1");
   expect(screen.queryByRole("note", { name: "Fixed for you" })).toBeNull();
-  expect(screen.queryByText(/Tried again once/)).toBeNull();
+  expect(screen.queryByText(/tried again once/)).toBeNull();
   expect(screen.queryByText(/Tried again on its own/)).toBeNull();
 });
 
-test("after the retried take finishes, a muted line keeps saying it was tried again once on its own", async () => {
+test("after the retried take finishes, a muted line says the newest take was tried again once on its own", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ retried: "busy", file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]] });
   open();
-  expect(within(await screen.findByLabelText("Clip c1")).getByText("Tried again once on its own (busy).")).toBeInTheDocument();
+  expect(within(await screen.findByLabelText("Clip c1")).getByText("The newest take was tried again once on its own (busy).")).toBeInTheDocument();
 });
 
 test("a fix without the earlier words offers Undo but no See the change", async () => {

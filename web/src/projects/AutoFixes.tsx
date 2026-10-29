@@ -10,11 +10,12 @@ type Auto = { id: number; prompt: string; retrying?: "refused" | "busy" | null; 
 
 const WHY = { refused: "the first try was refused", busy: "the service was busy" } as const;
 
-/** While the retry runs: "Tried again on its own: the first try was refused." After it: "Tried again once on its own (refused)", muted, so it stays known (PL9). */
+/** While the retry runs: "Tried again on its own: the first try was refused." After it: "The newest take was tried again once on its own (refused)", muted, so it stays known (PL9). */
 export function RetryLine({ clip }: { clip: object }) {
   const c = clip as Auto;
   if (c.retrying) return <p role="status" className="text-sm text-muted">Tried again on its own: {WHY[c.retrying]}.</p>;
-  if (c.retried) return <p className="text-sm text-muted">Tried again once on its own ({c.retried}).</p>;
+  // `retried` is about the clip's newest take, which may not be the picked one (Builder-Server-8, #883).
+  if (c.retried) return <p className="text-sm text-muted">The newest take was tried again once on its own ({c.retried}).</p>;
   return null;
 }
 
