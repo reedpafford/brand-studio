@@ -134,5 +134,5 @@ def test_sheet_past_the_weekly_allowance_is_declined(owner, editor):
     url = f"/library/character/{mia['id']}"
     declined = editor.post(f"{url}/sheet", json={})
     assert declined.status_code == 409
-    assert "this week's 1 free credit (0 used)" in declined.json()["detail"]
+    assert "this week's 1 credit (0 used)" in declined.json()["detail"]
     assert editor.get(url).json()["sheet_status"] == "none"  # nothing queued or held

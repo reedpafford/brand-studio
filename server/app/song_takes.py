@@ -131,11 +131,12 @@ def save_timing(db: Session, job: Job) -> None:
     draft = db.get(ScriptDraft, take.draft_id)
     project = db.get(Project, take.project_id) if take.project_id else None
     usable = not out_of_date(take, draft) and not over_cap(db, take)
-    if usable and preferred(db, draft, project) is None:
-        for t in takes(db, draft, project):  # an older take's mark goes: it sings old words
+    if usable and project:  # a video picks its song by song_take_id, never Preferred
+        if project.song_take_id is None:
+            project.song_take_id = take.id
+    elif usable and preferred(db, draft) is None:
+        for t in takes(db, draft):  # an older take's mark goes: it sings old words
             t.preferred = t.id == take.id
-    if usable and project and project.song_take_id is None:  # a video's first song
-        project.song_take_id = take.id
 
 
 def advice(timing: dict) -> list[str]:
@@ -296,7 +297,10 @@ def spread(db: Session, user: User, take: SongTake) -> None:
 
 
 def prefer(db: Session, take: SongTake) -> int | None:
-    """Make this take Preferred; returns the one that was (for Undo)."""
+    """Make this take Preferred; returns the one that was (for Undo). Only a version's own
+    takes: a video's song is its song_take_id (PUT /projects/{id}/song)."""
+    if take.project_id:
+        raise HTTPException(409, "In a video, press Use in this video to make it the song.")
     if state(db, take)[0] != "ready":
         raise HTTPException(409, "Only a finished take can be Preferred.")
     draft = db.get(ScriptDraft, take.draft_id)

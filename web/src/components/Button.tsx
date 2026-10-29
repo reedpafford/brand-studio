@@ -23,8 +23,9 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   dense?: boolean;
   /** Shows a spinner, disables the button and keeps its label. */
   busy?: boolean;
-  /** A paid action says its price inside the button: "Make the takes · 8 credits". */
-  price?: number;
+  /** A paid action says its price inside the button: "Make the takes · 8 credits". `null`: not known yet, so a grey
+   *  placeholder holds its place (the label never changes length after it shows) and a press waits for it. */
+  price?: number | null;
   /** The price can vary: the button shows the most it can cost ("up to 4 credits"), and `usually` says the usual price under it. */
   upTo?: boolean;
   usually?: number;
@@ -44,13 +45,14 @@ export function Button({ variant = "primary", dense, busy, price, upTo, usually,
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
   const label = children;
   const size = dense && variant !== "primary" ? "min-h-control px-4 lg:min-h-control-dense lg:px-3" : "min-h-control px-4";
+  const waiting = busy || price === null; // a press never goes before its price is shown
   const button = (
     <button
       type={type}
       disabled={disabled}
-      aria-busy={busy || undefined}
-      aria-disabled={busy || undefined}
-      onClick={busy ? (e) => e.preventDefault() : onClick}
+      aria-busy={waiting || undefined}
+      aria-disabled={waiting || undefined}
+      onClick={waiting ? (e) => e.preventDefault() : onClick}
       aria-describedby={reason ? why : undefined}
       className={`${base} ${look[variant]} ${size} ${spread ? "w-full justify-between text-left" : ""} ${busy ? "cursor-progress" : ""} ${className}`}
       {...rest}
@@ -58,7 +60,14 @@ export function Button({ variant = "primary", dense, busy, price, upTo, usually,
       {busy ? <LoaderCircle size={16} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" /> : Icon ? <Icon size={20} strokeWidth={1.75} aria-hidden /> : null}
       <span className={spread ? "min-w-0 flex-1" : undefined}>
         {label}
-        {price !== undefined && (
+        {price === null && (
+          <>
+            {" "}
+            <span className="inline-block h-[1em] w-16 animate-pulse rounded-sm bg-surface-3 align-middle motion-reduce:animate-none" aria-hidden />
+            <span className="sr-only">· price loading</span>
+          </>
+        )}
+        {price !== undefined && price !== null && (
           <>
             {" "}
             <span className="tabular-nums">· {upTo ? "up to " : ""}{creditsLabel(price)}</span>
@@ -68,7 +77,7 @@ export function Button({ variant = "primary", dense, busy, price, upTo, usually,
       {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />}
     </button>
   );
-  const usual = upTo && usually !== undefined && price !== undefined && !busy ? `Usually ${wholeCredits(usually)}. Anything not used comes back.` : null;
+  const usual = upTo && usually !== undefined && price !== undefined && price !== null && !busy ? `Usually ${wholeCredits(usually)}. Anything not used comes back.` : null;
   if (!reason && !usual) return button;
   return (
     <span className="flex flex-col items-stretch gap-1">
