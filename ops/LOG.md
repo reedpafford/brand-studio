@@ -1,4 +1,10 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 05:00 · Into `next`: #799, #783 song breakdown and Suno's input; #814 narrated Iron Paws ads and song_ad fixes; #823 flow map for narrated videos; #819 Director follows the workflow behind Reed's song ads, plus the song-ad study; #773 layout words; #830 data.md notes; #836 S3a's study job goes to Builder-Server-7
+- 2026-10-29 04:50 · #827, #824 A copyright refusal says to make it again first (it costs nothing); an insert is a shot about a thing, never a person, merged
+- 2026-10-29 04:08 · #820 Spend: Iron Paws narrated ads ($32.62 of $40) merged
+- 2026-10-29 03:59 · #812 Three false alarms from Reed's song pilot merged
+- 2026-10-29 03:58 · #809, #808 A changed Cast & places sheet marks the stills and takes made from the old one (N6); Redo this frame stays "changing" until its still is drawn, merged
+- 2026-10-29 03:53 · #815 ops: HANDOFF/LOG refresh as of 5bc5823 merged (by the Producer)
 - 2026-10-29 03:58 · Into `next`: #781 song and Change song on the Breakdown; #794 Director adapt a script, sounds-like, length; #802 a video's own takes are never Preferred; #800 song sidecar in data.md; #807, #811 Reed's song workflow recipe and flow map; #766, #771, #779 Next-Layout words for Clips, Storyboard and small words; #787 UX audit fold-in; #776, #806 Flow-QA checklists
 - 2026-10-29 03:42 · Process (#813): three push rules for agents: check the PR is still open before every push, branch every PR from its base (never from another open PR), don't push to a head after QA passes it unless the Producer asks merged
 - 2026-10-29 03:15 · #804 Usage says Finished · changes waiting too, and In production's count of them links to Usage merged
