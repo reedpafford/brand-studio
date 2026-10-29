@@ -989,7 +989,8 @@ export interface paths {
         /**
          * Mine
          * @description OR4 for anyone: the caller's own videos in the brand, in credits only (never dollars,
-         *     never someone else's video), and their quick clips' credits in the period. Videos are
+         *     never someone else's video), and their quick clips' and script writing's credits in the
+         *     period (both come out of an editor's week). Videos are
          *     picked by the period as on the owner's list: done ones finished in it, others active.
          */
         get: operations["mine_usage_mine_get"];
@@ -6589,10 +6590,17 @@ export interface components {
             credits: number;
             /** Quick Clip Credits */
             quick_clip_credits: number;
+            /** Script Credits */
+            script_credits: number;
             /** Videos */
             videos: components["schemas"]["MyVideo"][];
             /** Projects */
             projects: components["schemas"]["MyProject"][];
+            /**
+             * Scripts
+             * @default []
+             */
+            scripts: components["schemas"]["MyScript"][];
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -6707,6 +6715,15 @@ export interface components {
             name: string;
             /** Videos */
             videos: number;
+            /** Credits */
+            credits: number;
+        };
+        /** MyScript */
+        MyScript: {
+            /** Script Id */
+            script_id: number;
+            /** Title */
+            title: string;
             /** Credits */
             credits: number;
         };
