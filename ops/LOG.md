@@ -1,4 +1,7 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 10:10 · Into `next`: #873 Format and Look step 1 (n07); #858 narrated ads step 1; #892 Director breakdown films the approved plan; #888 Videos in the menu and an editor's home; #881 cost bar part 2 for Storyboard; #883 P3 retry wording; #897 song directions follow the study; #890 quoted words to be drawn; #889 song banner; #899, #900, #903 data.md brand setup BR1 and migration order
+- 2026-10-29 09:01 · Agents (#895): Builder-Server-6 archived; Builder-Server-7's new items merged (by the Producer)
+- 2026-10-29 09:00 · #894 ops: HANDOFF/LOG refresh as of 39fa54b merged (by the Producer)
 - 2026-10-29 09:05 · Into `next`: #866 Director scene plan; #869 advisory check on stills and takes and the on-screen text fix; #864 real Suno on the test site only, stopped at the test budget; #882 final cut names the song; #879 song-ad web follow-ups; #875 study Stop and 10-minute limit; #885 stand-in test clip; #887 narration_text fix
 - 2026-10-29 08:14 · #878 Clips: a save puts words after the audio line where they will stay (Builder-Server-6) merged
 - 2026-10-29 08:00 · #884 ops: HANDOFF/LOG refresh as of 71784ae merged (by the Producer)
