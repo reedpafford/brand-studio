@@ -40,6 +40,18 @@ Code notes for Next-Server (not tables):
 - **Music provider interface.** One `music` kind behind the provider registry: **Suno** (Reed, 2026-10-28: the same service we'd use live; MiniMax dropped), its key in the server's environment through the deploy secrets only, and a free stand-in under `BS_FAKE_PROVIDERS` that, like Suno, returns two takes per request with known word timings, so every flow can be walked for free. One request makes both takes, so `song_takes.batch` is the request.
 - **Credit rate** for a song take comes from the catalogue at its real Replicate cost (rule 2), seeded like the other rates.
 
+## 1b. The plan, automatic fixes, the check (every video)
+
+| Where | Change | Notes |
+|---|---|---|
+| `projects` (a video) | `plan` JSON (default null): `{version, source: "made"/"owner"/"from_breakdown"/"by_hand", structure: {name, parts: [..], from: "reference"/"pattern", pattern}, cast: [role names], scenes: [{id, part, place, lines: [script line numbers], actions: {line: text}, product: {line: item id}, cast: [roles]}], approved_at, approved_by_id, job_id, made_for_text_hash}` | Every script line is in exactly one scene, in order (enforced in code and tested; rule 19: the words are never stored here, only line numbers). |
+| `projects` | `plan_history` JSON list (default []): earlier plans, newest first, for **Earlier plans** | Capped at 10. |
+| `script_drafts` (a version) | `plan` JSON, the same shape: the owner's plan, each new video's start (S6) | Read only once published (rule 31). |
+| Breakdown rows | `data["plan_version"]`: the plan version the breakdown was made from | No migration (inside the JSON). A smaller number than `projects.plan.version` means "Made for an older plan". |
+| `jobs` | `retry_of_id` (nullable FK jobs) and `auto` bool (default false): the one automatic retry (P3) | At most one auto retry per job, enforced in code and tested. |
+| New: `item_checks` | `id`, `project_id`, `target` (`frame` or `take`), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind: face/outfit/product, role, text, change_note}]`, `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. |
+| Migration plan | Existing videos with a breakdown get `plan` from it in the same migration (in code, free, `source = "from_breakdown"`, approved), so no video is blocked. | One number for all of 1b, claimed by Next-Server first. |
+
 ## 2–6. Later items
 
 Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; a `looks/` folder, `look` text on `scripts` and `projects`, default `house`, and per-look sheets as library versions; Format is `scripts.kind`, above), brand setup (new brand columns, `never_say` moving into `dont_list`), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).
