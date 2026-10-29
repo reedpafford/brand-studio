@@ -348,3 +348,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #979 Own looks per look (n12) | 421137dc | PASS: switching back (or Undo) re-casts a role to its look in that look, free; the confirm counts no role; 34/34. Merge with or after #974 |
 | 2026-10-29 | #976 A first sheet in a look lists as drawing | a698ab3e | PASS: after a reload the look reads drawing (no Make); a second press still 409; 6/6 |
 | 2026-10-29 | #975 Cost log: an editor's script writing | 7aed75cb | PASS: their own calls only, never a video's twice; 3/3 |
+| 2026-10-29 | Re-checks after next merges | #963 6179c7cf, #964 09520d86, #970 45e0d907, #972 dc40fb1b | Unchanged verdicts: merges of next, and #970's test now stubs the real provider (never built in tests). #964's write tests 18/18 with #957 and #974 in |
