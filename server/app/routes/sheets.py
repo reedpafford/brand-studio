@@ -25,11 +25,12 @@ from app.models.projects import Project
 from app.prompts.schemas import LookFit
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.library import ItemOut, _out, _save_version, get_item, sheet_status
+from app.routes.library import ItemOut, _out, _save_version, get_item, look_writer, sheet_status
 from app.sheets import RESOLUTION, SHEET_MODEL, check_price, is_checked, worst
 
 log = logging.getLogger(__name__)
-router = APIRouter(prefix="/library/{kind}/{item_id}/sheet", tags=["library"])
+router = APIRouter(prefix="/library/{kind}/{item_id}/sheet", tags=["library"],
+                   dependencies=[Depends(look_writer)])  # fmt: skip
 ASPECT = {Kind.character: "9:16", Kind.place: "16:9"}  # a tall turnaround / a wide view
 
 

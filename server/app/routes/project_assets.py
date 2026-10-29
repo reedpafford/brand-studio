@@ -26,7 +26,7 @@ from app.models.script_library import CastMerge, Script, ScriptCastSlot, ScriptD
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.library import LookFitOut, _save_version, pick_item, sheet_status
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 from app.routes.script_cast import (
     MergePreview,
     PairIn,
@@ -42,7 +42,9 @@ from app.routes.sheets import SheetIn, check_fit, queue_sheet
 from app.schemas import LongText
 from app.sheets import check_price, is_checked, look_copy, look_price, look_usual, own, sheet_for
 
-router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
+router = APIRouter(
+    prefix="/projects/{project_id}/assets", tags=["assets"], dependencies=[Depends(video_writer)]
+)
 
 
 class TextFitOut(BaseModel):

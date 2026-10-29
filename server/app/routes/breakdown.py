@@ -19,11 +19,17 @@ from app.models.projects import Project
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import get_project, video_writer
 from app.routes.scripts import latest
 
-router = APIRouter(prefix="/projects/{project_id}/breakdown", tags=["breakdown"])
-shots = APIRouter(prefix="/projects/{project_id}/shots", tags=["breakdown"])
+router = APIRouter(
+    prefix="/projects/{project_id}/breakdown",
+    tags=["breakdown"],
+    dependencies=[Depends(video_writer)],
+)
+shots = APIRouter(
+    prefix="/projects/{project_id}/shots", tags=["breakdown"], dependencies=[Depends(video_writer)]
+)
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
