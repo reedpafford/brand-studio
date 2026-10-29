@@ -50,7 +50,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
-| S4 | A section-level `[Lip-sync]` mark ("[Chorus] [Lip-sync]") still dates the takes and is sent to Suno to sing (line-level marks too) | Skip tag-only lines and strip inline marks, as #755's `check.sung_lines` does | #748 at 3607b3d |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | V2 (to walk) | `song_breakdown(written=False)` by default now; walk the editor's flip/split/join route when it lands | — | #755 at 691a5eb5 |
 | Repo | `web/node_modules` committed as a symlink to a local path (`node_modules/` in .gitignore misses symlinks) | `git rm --cached`; ignore `node_modules` | #771 at 1b48be60, #773 at b3afd16f |
@@ -105,3 +104,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #773 at b3afd16f (Breakdown words, Assets loading, owner's OK) | Full browser suite at 390 and 1440 | Flow PASS (52 passed); FAIL on the committed node_modules symlink |
 | 2026-10-29 | #774 (audit Part 6, docs) | Read for dead ends and rule breaks | 3 live items added to Open failures |
 | 2026-10-29 | #775 at f424baa8 (S5 Singer, S7 Publish card, V1 song) | Playwright at 1440 and 390 + song.e2e | PASS (notes: Singer role from the cast read, out-of-date preview on a Singer change) |
+| 2026-10-29 | #748 at 5c3d02f | `[Lip-sync]` section and line marks; untrim cap case | Lip-sync PASS; cap bypass through the trim's Undo still open |
