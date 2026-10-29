@@ -142,6 +142,38 @@ def test_real_songs_stop_at_the_test_budget(app, db, owner):
     assert real == [True, True, False]  # the third is never sent to KIE
 
 
+def test_a_real_song_sent_to_kie_counts_even_if_its_video_is_put_away(app, db, owner):
+    from app import song_takes
+    from app.models.jobs import Job, JobStatus
+
+    settings = app.state.settings
+    settings.kie_suno, settings.kie_budget_usd, settings.kie_usd_per_request = True, 0.25, 0.1
+    settings.fake_providers = True  # the test site: past the budget, stand-ins
+    sent = Job(
+        workspace_id=1,
+        kind="music",
+        provider="suno",
+        input={"kie": True},
+        credits=1,
+        status=JobStatus.cancelled,
+        provider_ref="t1",
+    )  # put away mid-song: still paid
+    never = Job(
+        workspace_id=1,
+        kind="music",
+        provider="suno",
+        input={"kie": True},
+        credits=1,
+        status=JobStatus.cancelled,
+    )  # cancelled before it was sent: costs nothing
+    db.add_all([sent, never])
+    db.commit()
+    assert song_takes.real_songs(db, settings) == 0.1  # one left: 1 counted, not 2 or 0
+    db.add(Job(workspace_id=1, kind="music", provider="suno", input={"kie": True}, credits=1))
+    db.commit()
+    assert song_takes.real_songs(db, settings) == 0.0 and song_takes.budget_used(db, settings)
+
+
 def test_past_the_budget_a_stand_in_sings_and_kie_hears_nothing():
     from app.providers.fake_local import FakeSuno
 

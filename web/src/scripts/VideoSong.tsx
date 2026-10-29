@@ -155,6 +155,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
               );
             })}
           </ul>
+          {data.songs_note && <p className="text-sm text-muted">{data.songs_note}</p>}
           {data.songs_on && (
             <Button variant="secondary" icon={Music} price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
               Make 2 more takes

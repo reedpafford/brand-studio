@@ -360,9 +360,12 @@ def budget_used(db: Session, settings) -> bool:
 
 
 def _real_jobs(db: Session) -> list[Job]:
-    jobs = db.scalars(select(Job).where(Job.provider == music.PROVIDER, Job.kind == "music",
-                                        Job.status != JobStatus.cancelled))  # fmt: skip
-    return [j for j in jobs if j.input.get("kie")]
+    """Every real request that's waiting or was sent to KIE: one sent counts whatever happens
+    to it after (a video put away mid-song is still paid for); only one cancelled before it
+    was sent doesn't."""
+    jobs = db.scalars(select(Job).where(Job.provider == music.PROVIDER, Job.kind == "music"))
+    return [j for j in jobs if j.input.get("kie")
+            and (j.status != JobStatus.cancelled or j.provider_ref is not None)]  # fmt: skip
 
 
 def spread(db: Session, user: User, take: SongTake) -> None:

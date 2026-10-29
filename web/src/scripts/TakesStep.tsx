@@ -257,6 +257,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           {dropsEnd && <span className="block text-warning">The brand's end line is in the part dropped. On the Song step you can sing it at the end again, or speak it over the end.</span>}
         </Dialog>
       ) : null}
+      {data.songs_note && <p className="text-sm text-muted">{data.songs_note}</p>}
       {!data.songs_on && <Banner tone="info" title="Songs aren't switched on here.">The lyrics and style still save. Takes can be made where songs are on.</Banner>}
       {takes.length === 0 ? (
         readOnly ? (
