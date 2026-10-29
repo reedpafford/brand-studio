@@ -199,6 +199,23 @@ def fits_until(db: Session, take: SongTake) -> float | None:
     return max(fits, default=None)
 
 
+def lyrics_estimate(db: Session, draft: ScriptDraft) -> tuple[Decimal, int | None]:
+    """Before any take: about what a video of the version's lyrics costs, and if that's over
+    the per-video cap, how many sung lines to keep so it fits ("Keep the first N lines"; 0
+    when not even one does). None when it fits."""
+    script = db.get(Script, draft.script_id)
+    ws, lines = script.workspace_id, music.sung(draft.text)
+    limit = get_limits(db, ws).per_video_max_credits
+
+    def cost(n: int) -> Decimal:
+        return plan_cost(db, ws, music.guessed_seconds(lines[:n]), None, roles=0)
+
+    whole = cost(len(lines))
+    if whole <= limit:
+        return whole, None
+    return whole, max((n for n in range(len(lines)) if cost(n) <= limit), default=0)
+
+
 def clock(seconds: float) -> str:
     return f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
 
