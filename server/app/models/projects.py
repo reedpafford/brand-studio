@@ -58,6 +58,9 @@ class Project(Entity, Base):
     # Assets step: unlocked cast slot id (as text) -> the library character the editor gave it.
     slot_cast: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
     slot_looks: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)  # slot -> own look
+    # ST2: a locked role's library character -> this video's own copy drawn in its look ("Make
+    # a {look} look for this video"). Not slot_looks, which is for unlocked roles' own looks.
+    look_copies: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
     # Roles merged into another on this video's Assets only: slot -> the role kept
     slot_merged: Mapped[dict[str, int]] = mapped_column(JSON, default=dict)
     # Role pairs kept apart on this video's Assets ("They're different"): [[a, b], ...]

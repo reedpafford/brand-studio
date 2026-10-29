@@ -42,6 +42,10 @@ class LibraryItem(Entity, Base):
     source_photo_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
     sheet_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
     sheet_approved: Mapped[bool] = mapped_column(default=False)
+    # ST2: the owner's sheets in other looks, {look_id: {"file_id", "approved"}}; House stays
+    # in sheet_file_id. sheet_look: the look a video's own look was drawn in.
+    look_sheets: Mapped[dict] = mapped_column(JSON, default=dict)
+    sheet_look: Mapped[str] = mapped_column(String(40), default="house")
     # The look-fit check (prompts/look_fit.md) found the sheet doesn't read as its description:
     # {"seen": "girl of about 10", "problem": "draw an adult woman…"}; null when it fits.
     look_fit: Mapped[dict | None] = mapped_column(JSON)
