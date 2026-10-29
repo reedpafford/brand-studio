@@ -191,7 +191,7 @@ export function ClipCard(props: {
         ) : null;
       })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
-      <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} versions={(c as { versions?: Parameters<typeof ClipVersions>[0]["versions"] }).versions ?? []} />
+      <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} hold={props.busy || props.fixBusy ? "Wait for this clip's take or prompt being made." : null} versions={(c as { versions?: Parameters<typeof ClipVersions>[0]["versions"] }).versions ?? []} />
       {c.takes.length > 0 && (
         <fieldset className="flex flex-wrap items-center gap-3">
           <legend className="sr-only">Takes for clip {c.clip_id}</legend>

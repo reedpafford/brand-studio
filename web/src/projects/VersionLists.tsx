@@ -47,7 +47,7 @@ export function StoryboardVersions({ projectId, hold }: { projectId: number; hol
 }
 
 /** OR3: one clip prompt's versions (index 0 is in hand; at most 10). Going back clears Looks good; Undo uses index 1. */
-export function ClipVersions({ projectId, clipRowId, label, versions }: { projectId: number; clipRowId: number; label: string; versions: { index: number; made_at: string | null; made_by: Maker; current: boolean }[] }) {
+export function ClipVersions({ projectId, clipRowId, label, versions, hold }: { projectId: number; clipRowId: number; label: string; hold?: string | null; versions: { index: number; made_at: string | null; made_by: Maker; current: boolean }[] }) {
   const may = useMayChangeVideo(projectId);
   const refresh = useRefresh(projectId);
   const base = `/projects/${projectId}/clips/${clipRowId}/versions`;
@@ -64,6 +64,7 @@ export function ClipVersions({ projectId, clipRowId, label, versions }: { projec
     <VersionList
       title={`Prompt versions for clip ${label}`}
       said={`Clip ${label} has its earlier prompt back. Its take shows Out of date.`}
+      hold={hold}
       onUse={use}
       versions={versions.map((v) => ({ key: String(v.index), made_at: v.made_at, made_by: v.made_by, current: v.current }))}
     />

@@ -133,10 +133,17 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
       </section>
     );
 
+  // #957 refuses Go back while this video's later steps are being made (an Update everything after this run's jobs among them).
+  const waiting = (jobs.data ?? []).filter((j) => j.project_id === projectId && GOING.includes(j.status));
+  const versionsHold = waiting.some((j) => j.step?.endsWith("breakdown"))
+    ? "Wait for the breakdown being made."
+    : waiting.some((j) => ["storyboard", "frame", "clip_prompts", "change"].includes(j.step ?? "") || j.frame_id != null)
+      ? "Wait for the storyboard, stills and clip prompts being made."
+      : null;
   return (
     <div className="space-y-4">
       <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} onDirty={props.onDirty} />
-      <BreakdownVersions projectId={projectId} />
+      <BreakdownVersions projectId={projectId} hold={versionsHold} />
     </div>
   );
 }

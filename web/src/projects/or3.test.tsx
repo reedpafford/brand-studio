@@ -117,3 +117,36 @@ test("an editor who didn't make the video sees no earlier stills or versions to 
   expect(screen.queryByText(/Earlier stills/)).toBeNull();
   expect(screen.queryByText(/Storyboard versions/)).toBeNull();
 });
+
+test("Go back on the breakdown waits while stills are being made, and says why", async () => {
+  setViewport(1440);
+  const versions = [
+    { id: 3, made_at: null, made_by: null, source: "edit", script_version: 5, current: true },
+    { id: 1, made_at: null, made_by: null, source: "claude", script_version: 5, current: false },
+  ];
+  fakeServer({ ...base, "GET /jobs": [200, [{ id: 8, project_id: 9, step: "frame", frame_id: 1, status: "running", kind: "image" }]], "GET /projects/9/breakdown/versions": [200, versions] });
+  open("?stage=breakdown");
+  await userEvent.click(await screen.findByText("Breakdown versions · 2"));
+  const back = within(screen.getByRole("list", { name: "Breakdown versions" })).getByRole("button", { name: /Go back to this/ });
+  await vi.waitFor(() => expect(back).toBeDisabled());
+  expect(back).toHaveAccessibleDescription(/Wait for the storyboard, stills and clip prompts being made/);
+});
+
+test("a clip's prompt versions wait while its take is being made", async () => {
+  setViewport(1440);
+  const versions = [{ index: 0, made_at: null, made_by: null, current: true }, { index: 1, made_at: null, made_by: null, current: false }];
+  fakeServer({
+    ...base,
+    "GET /jobs": [200, [{ id: 8, project_id: 9, project_clip_id: 1, step: "clip_take", status: "running", kind: "video", created_at: "2026-10-29T10:00:00Z", started_at: "2026-10-29T10:00:00Z" }]],
+    "GET /projects/9/storyboard": [200, [frame({ file_id: 40, approved: true })]],
+    "GET /projects/9/clips/prompts/price": [200, { clip_ids: [], credits: 6 }],
+    "GET /projects/9/video": [404, { detail: "none" }],
+    "GET /projects/9/clips": [200, [clip({ versions })]],
+  });
+  open("?stage=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(within(card).getByText("Prompt versions for clip c1 · 2"));
+  const back = within(card).getByRole("button", { name: /Go back to this/ });
+  await vi.waitFor(() => expect(back).toBeDisabled());
+  expect(back).toHaveAccessibleDescription(/Wait for this clip's take or prompt being made/);
+});
