@@ -126,3 +126,17 @@ def test_out_of_date_stills_alone_are_drawn_again(app, db, editor, setup):  # no
     db.refresh(frame)
     assert frame.file_id != was and not frame.still_stale
     assert editor.get(f"{url}/update-after").json()["steps"] == []
+
+
+def test_a_frame_to_fix_stops_at_the_stills(app, db, editor, setup, monkeypatch):  # noqa: F811
+    url = f"/projects/{setup['project']}"
+    providers = _made(app, db, editor, url)
+    monkeypatch.setattr("app.advice.blocking", lambda problems: True)  # every new frame to fix
+    editor.post(f"{url}/update-after")
+    from app.worker import run_once
+
+    run_once(db, providers, app.state.storage)  # the storyboard: nothing can be drawn
+    shown = editor.get(f"{url}/update-after").json()
+    assert shown["stopped_at"] == "stills" and "on Storyboard" in shown["reason"]
+    shot = db.query(StoryboardFrame).first().shot_id
+    assert f"shot {shot}" in shown["reason"]

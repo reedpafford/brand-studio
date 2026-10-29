@@ -27,7 +27,7 @@ RUN, THEN, STOP = "update_run", "update_then", "update_stopped"
 FROM = {"plan": 0, "storyboard": 0, "clips": 2}  # where each held step's press starts
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 NOTHING = "Nothing after this is out of date."
-STOPPED = "Stopped before the clip prompts: draw the stills that are left first."
+STOPPED = "Fix {} on Storyboard and draw {}: the clip prompts wait for every still."
 
 
 def _frames(db: Session, project: Project) -> list[StoryboardFrame]:
@@ -142,9 +142,10 @@ def follow(db: Session, job: Job) -> None:
             from app import advice
 
             frames = [f for f in _frames(db, project) if not advice.blocking(f.problems)]
-            if len(frames) < len(_frames(db, project)):
+            if fix := [f.shot_id for f in _frames(db, project) if f not in frames]:
                 tag = {RUN: run, THEN: []}  # a frame to fix first: no clip prompts after
-                _stop(job, "clip_prompts", STOPPED)
+                shots = ", ".join(f"shot {s}" for s in fix)
+                _stop(job, "stills", STOPPED.format(shots, "it" if len(fix) == 1 else "them"))
             _draw(db, user, project, frames, tag, prepaid=True)
         elif then[0] == "clip_prompts" and not _others(db, job, run):
             _prompts(db, user, project, tag)
