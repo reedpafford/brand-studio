@@ -76,8 +76,13 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             "suno": _kie(settings, FakeSuno()) if kie_on(settings) else FakeSuno(),
             "claude": FakeWriter(),
             "local": local,
-            # Language tests, written for real once Reed switches them on (2026-10-29)
-            **({REAL_TESTS: _claude(settings)} if tests_on(settings) else {}),
+            # Language tests, written for real once Reed switches them on (2026-10-29); on
+            # without the key (only the Claude worker holds it), a stand-in, never a failure
+            **(
+                {REAL_TESTS: _claude(settings) if tests_on(settings) else FakeWriter()}
+                if settings.real_language_samples
+                else {}
+            ),  # fmt: skip
         }
     from app.providers.replicate import ReplicateProvider
 

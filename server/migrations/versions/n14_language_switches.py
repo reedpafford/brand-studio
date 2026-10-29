@@ -2,14 +2,14 @@
 test, in place of the fixed on/off list
 
 Revision ID: n14
-Revises: n11
+Revises: n13
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n14"
-down_revision = "n11"  # tracks next's head for CI; re-pointed to the head just before merge
+down_revision = "n13"  # tracks next's head for CI; re-pointed to the head just before merge
 branch_labels = None
 depends_on = None
 
@@ -24,6 +24,7 @@ def upgrade() -> None:
         sa.Column("on", sa.Boolean(), nullable=False),
         sa.Column("sample_job_id", sa.Integer(), sa.ForeignKey("jobs.id"), nullable=True),
         sa.Column("rejected", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("was_on", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("switched_by_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("switched_at", sa.DateTime(), nullable=True),
         sa.UniqueConstraint("workspace_id", "language_id"),

@@ -2,6 +2,8 @@
 in it for a brand; the owner approves it (the language switches on for editors) or rejects
 it. All on the free stand-ins (no paid calls)."""
 
+from pydantic import SecretStr
+
 from app import language_samples, languages
 from app.models.jobs import Job
 from tests.test_song_takes import _work
@@ -52,7 +54,8 @@ def test_a_rejected_sample_keeps_it_off_with_undo_and_test_again(app, db, owner)
     rejected = owner.patch("/languages/fr/sample", json={"rejected": True}).json()
     assert rejected["status"] == "rejected" and not rejected["language"]["on"]  # back off
     assert owner.patch("/languages/fr", json={"on": True}).status_code == 409
-    assert owner.patch("/languages/fr/sample", json={"rejected": False}).json()["status"] == "ready"
+    undone = owner.patch("/languages/fr/sample", json={"rejected": False}).json()
+    assert undone["status"] == "ready" and undone["language"]["on"]  # Undo: on, as it was
     owner.patch("/languages/fr/sample", json={"rejected": True})
     assert owner.post("/languages/fr/sample", json={"brand_id": brand}).json()["status"] == "making"
     english = owner.post("/languages/en/sample", json={"brand_id": brand})
@@ -82,3 +85,25 @@ def test_real_tests_on_the_test_site_go_real_until_the_budget(app, db, owner, mo
     owner.post("/languages/it/sample", json={"brand_id": brand})  # past the budget
     newest = db.query(Job).order_by(Job.id.desc()).first()
     assert newest.input["language"] == "it" and newest.provider == "claude"  # a stand-in
+
+
+def test_with_real_tests_on_only_the_test_goes_real_and_no_key_means_a_stand_in(app, db, owner):
+    """QA-4 and Flow-QA on #972: every other script call stays a stand-in while the switch is
+    on; switched on without the key, the test's lane writes a stand-in, never a failed job."""
+    from app.providers import REAL_TESTS, get_providers
+    from app.providers.fake_local import FakeWriter
+
+    settings = app.state.settings
+    settings.fake_providers, settings.real_language_samples = True, True
+    settings.language_samples_budget_usd, settings.anthropic_key = 2, SecretStr("")  # no key
+    assert isinstance(get_providers(settings)[REAL_TESTS], FakeWriter)
+    brand = _brand(owner)
+    words = {"brand_id": brand, "title": "Paws", "text": "MAYA: Hi."}
+    script = owner.post("/scripts", json=words).json()
+    enhance = owner.post(f"/scripts/{script['id']}/drafts/0/enhance")
+    assert enhance.status_code == 201, enhance.text
+    assert db.get(Job, enhance.json()["id"]).provider == "claude"  # another call: a stand-in
+    owner.post("/languages/nl/sample", json={"brand_id": brand})
+    assert db.query(Job).order_by(Job.id.desc()).first().provider == REAL_TESTS
+    _work(app, db, ticks=2)
+    assert owner.get("/languages/nl/sample").json()["status"] == "ready"  # a stand-in test

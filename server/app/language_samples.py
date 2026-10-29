@@ -54,7 +54,8 @@ def price(db: Session, ws: int) -> Decimal:
 
 def lane(db: Session, settings, credits: Decimal) -> str:
     """Claude's (real on live, a stand-in on the test site), or the test site's real lane
-    while real tests are on and this one still fits their budget."""
+    while real tests are on and this one still fits their budget. The switch alone decides
+    here: the key is only the Claude worker's, and the deploy writes the switch only with it."""
     if not (settings.fake_providers and settings.real_language_samples):
         return "claude"
     if not test_budget_fits(db, REAL_TESTS, settings.language_samples_budget_usd, credits):
@@ -115,13 +116,15 @@ def make(db: Session, owner: User, language: str, brand: Brand, settings) -> Non
 
 def reject(db: Session, owner: User, language: str, rejected: bool) -> None:
     """Reject the sample (the language goes or stays off; Test again writes a new one), or
-    Undo that (it stays off until switched on)."""
+    Undo that (on again if it was on)."""
     if state(db, owner.workspace_id, language)[0] not in ("ready", "rejected"):
         raise HTTPException(409, NO_SAMPLE)
     row = switch_row(db, owner.workspace_id, language)
+    if rejected and not row.rejected:
+        row.was_on, row.on = languages.is_on(db, owner.workspace_id, language), False
+    elif not rejected and row.rejected:
+        row.on = row.was_on  # Undo: as it was before the Reject
     row.rejected = rejected
-    if rejected:
-        row.on = False
     db.commit()
 
 

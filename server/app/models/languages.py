@@ -18,5 +18,6 @@ class LanguageSwitch(Entity, Base):
     on: Mapped[bool] = mapped_column(default=False)
     sample_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))  # the newest test
     rejected: Mapped[bool] = mapped_column(default=False)  # its sample was read and rejected
+    was_on: Mapped[bool] = mapped_column(default=False)  # On when rejected: Undo puts it back
     switched_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     switched_at: Mapped[datetime | None]
