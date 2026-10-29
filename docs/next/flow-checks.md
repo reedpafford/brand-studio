@@ -59,7 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
-| The cost bar leaves out first looks (VS1; #987) | to_finish fixed at 85d4aa10 (Not now included), but the cost bar and estimate note read /estimate remaining_credits (24.66) not to_finish (28.06): the bar people see still omits a role's first look | /estimate's remaining = to_finish (a looks stage); screens then say "up to" (rule 32) |
+| Price wording "up to" (rule 32; after #987) | The bar, the estimate note, VS1's confirm and Make this version still say "about N" though first looks are priced at their most | Next-Screens' exact-prices PR ("up to N") |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -366,3 +366,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #991 A version marks a deleted default flavour | 378f93aa (+ next) | PASS: flavours_gone lists it, so the screens show Auto; 3/3 |
 | 2026-10-29 | #996 Shown price = charge on the story steps | c1f42db0 | PASS at its head (key guard in): Make the shots shows its clip prompts' rewrite; N stills rounded once (3, not 9); 16/16. Conflicts with next in storyboard.py: needs a merge |
 | 2026-10-29 | #997 Media: a deleted video's maker restores it | 12b8af07 (+ next) | PASS: the badge names the video's maker; Restore for them or the owner (the video's maker, not the item's); 2/2 + 11/11 |
+| 2026-10-29 | #987 (re-walk) | 23e999fd (+ next) | PASS: quote = card = cost bar = to-finish at every step (28.06; 24.66 after Nate's look, charged 1.70 ≤ 3.40; Pixar 31.46; Not now kept); 45/45, 112/112 |
