@@ -29,6 +29,7 @@ export type Plan = {
   stop?: string | null;
   out_of_date?: boolean;
   earlier?: { id: number; version: number; source: string; made_at: string | null }[];
+  after?: { shots: number; clips: number } | null;
 };
 type Project = { id: number; plan_status?: "none" | "ready" | "approved" | null; plan_credits?: number | null };
 
@@ -77,7 +78,7 @@ const ago = (iso: string) => {
 /** One scene: its part, one place and time, its lines read only with each line's action, ★ product marks, and who's in it.
  *  Each line has a "…" (a sheet at 390, PL1): Move to scene N−1 / N+1 (across its edge only), Start a new scene here, ★. The card's
  *  own "…" has Join with next, and Edit opens the place, time and actions to type. */
-function SceneCard({ scene, si, count, cast, advice, change }: { scene: Scene; si: number; count: number; cast: Plan["cast"]; advice: Plan["advice"]; change?: (fn: (s: Scene[]) => Scene[], said: string) => void }) {
+function SceneCard({ scene, si, count, cast, advice, change }: { scene: Scene; si: number; count: number; cast: Plan["cast"]; advice: Plan["advice"]; change?: (fn: (s: Scene[]) => Scene[], said: string, done?: () => void) => void }) {
   const who = scene.cast_ids.map((id) => cast.find((c) => c.ref_id === id)?.name ?? id);
   const [editing, setEditing] = useState<{ place: string; time: string; part: string; actions: string[] } | null>(null);
   const n = si + 1;
@@ -122,7 +123,7 @@ function SceneCard({ scene, si, count, cast, advice, change }: { scene: Scene; s
         ))}
         <p className="text-sm text-muted">The words are the script's: change them in the script.</p>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => { change((s) => editScene(s, si, editing), `Scene ${n} saved.`); setEditing(null); }}>Save scene</Button>
+          <Button variant="secondary" onClick={() => change((s) => editScene(s, si, editing), `Scene ${n} saved.`, () => setEditing(null))}>Save scene</Button>
           <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
         </div>
       </Card>
@@ -190,7 +191,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   const toast = useToast();
   const [note, setNote] = useState("");
   // An approved plan asks "Change the plan?" first, for an edit or an earlier plan alike.
-  const [asking, setAsking] = useState<{ next: Scene[]; said: string } | { earlier: number } | null>(null);
+  const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | null>(null);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["plan", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
   const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); return refresh(); } });
   // Stop works queued or running and is never charged (#893).
@@ -272,13 +273,17 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
     // Undo puts the scenes back, not an approval: the plan waits for Approve again, and the toast says so.
     save.mutate(next, { onSuccess: () => toast(approved ? `${said} It waits for your approval again.` : said, () => save.mutate(before)) });
   };
-  const change = (fn: (s: Scene[]) => Scene[], said: string) => {
+  // `done` runs once the change goes ahead (an open editor closes then): Not yet keeps what was typed.
+  const change = (fn: (s: Scene[]) => Scene[], said: string, done?: () => void) => {
     const next = fn(p.scenes);
-    if (next === p.scenes) return;
-    if (approved) setAsking({ next, said });
-    else commit(next, said);
+    if (next === p.scenes) return done?.();
+    if (approved) return setAsking({ next, said, done });
+    commit(next, said);
+    done?.();
   };
   const earlier = p.earlier ?? [];
+  // What a change to an approved plan puts out of date (#893's `after`; null before there are shots): "3 shots and 2 clips".
+  const outOfDate = [[p.after?.shots ?? 0, "shot"], [p.after?.clips ?? 0, "clip"]].filter(([k]) => (k as number) > 0).map(([k, w]) => `${k} ${w}${k === 1 ? "" : "s"}`).join(" and ");
   return (
     <div className="space-y-4">
       {p.structure && <p className="text-sm">{p.structure.from === "pattern" ? `Pattern: ${p.structure.label}` : `From the reference ${p.structure.from === "reel" ? "reel" : "study"}: ${p.structure.label}`}</p>}
@@ -342,8 +347,9 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
         </details>
       )}
       {asking && (
-        <Dialog title="Change the plan?" cancelLabel="Not yet" actionLabel="Change" busy={save.isPending || useEarlier.isPending} onCancel={() => setAsking(null)} onConfirm={() => { const a = asking; setAsking(null); if ("earlier" in a) useEarlier.mutate(a.earlier); else commit(a.next, a.said); }}>
-          It goes back to Ready to check, and its shots are made again from the new plan once you approve it. Your current final cut stays downloadable.
+        <Dialog title="Change the plan?" cancelLabel="Not yet" actionLabel="Change" busy={save.isPending || useEarlier.isPending} onCancel={() => setAsking(null)} onConfirm={() => { const a = asking; setAsking(null); if ("earlier" in a) useEarlier.mutate(a.earlier); else { commit(a.next, a.said); a.done?.(); } }}>
+          It goes back to Ready to check, and its shots are made again from the new plan once you approve it.
+          {outOfDate && ` This puts ${outOfDate} out of date.`} Your current final cut stays downloadable.
         </Dialog>
       )}
     </div>

@@ -176,6 +176,21 @@ test("editing an approved plan asks first, then saves; Edit types the place and 
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/plan")?.body).toMatchObject({ scenes: [{ place: "Kitchen" }, { place: "Office" }] }));
 });
 
+test("on an approved plan, Not yet keeps the editor open with what was typed; the confirm names what goes out of date", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two, after: { shots: 3, clips: 2 } })] });
+  open("?step=plan&view=scenes");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit scene 2" }));
+  await userEvent.clear(screen.getByLabelText("Place"));
+  await userEvent.type(screen.getByLabelText("Place"), "Office");
+  await userEvent.click(screen.getByRole("button", { name: "Save scene" }));
+  const ask = screen.getByRole("alertdialog", { name: "Change the plan?" });
+  expect(within(ask).getByText(/This puts 3 shots and 2 clips out of date\./)).toBeInTheDocument();
+  await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
+  expect(screen.getByLabelText("Place")).toHaveValue("Office");
+  expect(calls.some((c) => c.key === "PUT /projects/9/plan")).toBe(false);
+});
+
 test("Use this one on an approved plan asks first, as an edit does", async () => {
   setViewport(390);
   const calls = fakeServer({ ...withPlan("approved"), "GET /projects/9/plan": [200, plan({ status: "approved", scenes: two, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()] });
