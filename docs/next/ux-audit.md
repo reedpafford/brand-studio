@@ -26,7 +26,7 @@ So this is a **re-layout and re-wording**, not new logic. Every rule stays as it
    - Writing: six steps become four: **Write → Cast → Plan → Publish**. Directions and Variations move inside Write.
    - Video: the five steps stay, but Downloads is called **Final cut**, and Clips shows two clear phases (**Prompts**, then **Takes**).
    - Navigation: **Videos** gets its own place in the menu. Today an editor's videos hide behind a switch inside Scripts.
-6. **The video flow with the creative plan** (Part 7): four video steps (Plan, Looks, Make, Final cut) instead of eight; three human presses (approve the plan, approve all looks, watch the final cut); the AI check as a quiet "2 notes" chip with a ready Change this… note; automatic fixes said after the fact on the card. Rule 21 needs Reed's answer.
+6. **The video flow with the creative plan** (Part 7): five editor steps (Plan with its Shots view, Cast, Storyboard, Clips, Final cut) instead of eight. If Reed agrees (P5.1), three human presses (approve the plan, approve all looks, watch the final cut) and one priced Make the video. The AI check is a quiet "2 notes" chip with a ready Change this… note, and one Review list. Automatic fixes are said after the fact on the card.
 7. **Every screen and card** (Part 6): Quick clip History shows everyone's clips from every brand; a version chip on a script card names a person but not the step, and opens the wrong place; one video has three names; the Brand page has no setup checklist; money mixes credits and dollars with decimals; Approvals can't receive anything any more.
 8. **Reed's wider ask** (Part 5): the hierarchy, the script → editor handoff, saving, editing ease, and how much each step shows. The biggest gaps:
    - the script never says the flavour, so every editor is stopped to pick it again;
@@ -226,7 +226,7 @@ Confirmed by the walk: G1/V15 (`22-390-video-clips-before-looks-good`, `23a-390-
 
 ## 2.1 Step order
 
-> **Superseded for the video steps by Part 7** if Reed agrees (Q9). There the video has four steps: Plan, Looks, Make (Stills and Clips tabs), Final cut. Writing becomes Write → Plan → Cast → Publish.
+> **Updated by Part 7** (agreed with the Producer): the video has five steps (Plan with its Shots view, Cast, Storyboard, Clips, Final cut), and writing is Write → Plan → Cast → Publish.
 
 **Writing (owner, or an editor on their own script).** Six steps become four. Nothing is removed: Directions and Variations become panels inside Write.
 
@@ -372,7 +372,7 @@ This is Starpop's three columns: the brand and its videos, the work, and the med
 
 # Part 3. Low-fi wireframes
 
-**Clickable version** (updated for Part 7: Plan, Looks, Make with AI notes and automatic-fix lines, Final cut; writing Write → Plan → Cast → Publish; Format and Look chips): [`wireframes/index.html`](wireframes/index.html) is one self-contained file, grey-box, dark or light. It toggles between phone 390 and desktop and between editor and owner, and a state switch shows Normal, Waiting, Failed, Refused, Out of date and Over budget on the video steps. It covers the Videos home, the Scripts library, Make this version (the handoff card), Write, Song, Takes, Cast, Plan, Publish, Breakdown, Assets, Storyboard, Clips (Prompts and Takes), Final cut, the cost bar and the state words. Part 6 adds:
+**Clickable version** (updated for Part 7: Plan with Shots, Cast, Storyboard, Clips with AI notes and automatic-fix lines, Final cut with the Review list; a switch for Reed's P5.1 yes or no; writing Write → Plan → Cast → Publish; Format and Look chips): [`wireframes/index.html`](wireframes/index.html) is one self-contained file, grey-box, dark or light. It toggles between phone 390 and desktop and between editor and owner, and a state switch shows Normal, Waiting, Failed, Refused, Out of date and Over budget on the video steps. It covers the Videos home, the Scripts library, Make this version (the handoff card), Write, Song, Takes, Cast, Plan, Publish, Breakdown, Assets, Storyboard, Clips (Prompts and Takes), Final cut, the cost bar and the state words. Part 6 adds:
 - the brand switcher (with colours and "N need you");
 - script cards with version rows;
 - Quick clip with "my clips in this brand";
@@ -1088,154 +1088,183 @@ If each new piece became its own step, the editor's video would have **eight**:
 | **P7** | **Cast sits in the wrong place for narrated and song scripts.** In those, the people on screen come from the plan (the owner, the dog), not the words, so a Cast step before the plan has nothing to read. | Major | `ironpaws-vo/plan.py`: the owner isn't in the narration |
 | **P8** | **Rule 21 vs Reed's three human moments.** Rule 21 says clip prompts are reviewable before takes are paid for; today that means a "Prompt OK" press per clip. If people only approve plan, looks and the final video, takes start without a per-prompt press. That's a rule change. | **Needs Reed** | rule 21 |
 
-## 7.2 The proposed order
+## 7.2 The proposed order (agreed with the Producer and Next-Lead, 2026-10-29)
 
 **Writing (owner, or an editor's own script):** four steps for every format. The Song format adds Takes after Song.
 
 | Step | Dialogue | Song | Narrated | Ends with |
 |---|---|---|---|---|
 | **1 Write** | The words (Suggestions and Versions panels) | **Song** (lyrics, style, directions), then **Takes** | The narration, then the voice (N1) | **Approve the words** |
-| **2 Plan** | The creative plan from the words: scenes, one action per line, ★ product moments, cast. **Shots** view inside it (today's breakdown preview) | The plan timed to the preferred take | The plan timed to the narration | **Approve the plan** |
-| **3 Cast** | Roles read from the words **and the plan**; lock to a look, or "made for each video" | the same (Who sings on camera?) | the same (no one speaks) | Next |
+| **2 Plan** | The scene plan (flows.md P1), with its **Shots** view (the breakdown preview) | the same, with the song clock | the same, with the narration clock | **Approve the plan** |
+| **3 Cast** | Roles read from the words **and the plan**; lock to a look, or "made for each video" | + Who sings on camera? | nobody speaks; the people and pets come from the plan | Next |
 | **4 Publish** | the version card (words, plan, cast, defaults, notes) | + the song | + the voice | **Publish** |
 
-Plan comes **before** Cast because the plan decides who's on screen (P7). Cast reads both.
+Plan comes **before** Cast because the plan decides who's on screen (P7): a narrated ad's owner and dog aren't in the narration's words.
 
-**Making a video (editor):** four steps, three of them human.
+**Making a video (editor): five steps.** The Producer agreed to fold Breakdown into Plan. The step formerly called Assets is called **Cast**, not "Looks", because Look is now the drawing style (House, Disney Pixar…). It stays distinct from the **Cast & places** library.
 
-| Step | What happens | The person's press | Runs on its own |
-|---|---|---|---|
-| **1 Plan** | Reed's approved plan arrives approved. The editor reads it, and may edit a scene, **Redo the plan · N**, or open **Shots** (the breakdown's shots, timing and problems, with their free fixes) | **Approve the plan** only if they changed it; otherwise **Next: Looks** | the breakdown is made from the plan, free when Reed saved it |
-| **2 Looks** (today's Assets) | Every role's look, the places, the product. Auto looks are made with the price first (as today) | **Approve all looks** (one click, rule 8) | missing looks, within budget |
-| **3 Make** | Two tabs on one step: **Stills** and **Clips**. Stills are drawn, prompts written and takes made in order, within the budget, with **one price said once** in the cost bar before it starts: "Make the video · about 86 credits". Automatic fixes happen here. The AI check's notes appear on cards. | **Make the video · N** (one press), then nothing, unless they choose to **Change this…** on a still or take | stills, prompts, takes, retries, wording fixes |
-| **4 Final cut** | The cut is put together for free when the takes are in. The AI check's kept notes are summarised. | **Watch it**, then **Download MP4** | the stitch |
-
-- **Storyboard and Clips become tabs of Make,** not steps. Nothing is lost:
-  - every still and take is on screen with "Change this…", Make another, the takes list and the Earlier strip;
-  - rule 8's lock holds, since Make opens only after Looks is approved;
-  - rule 29 is the plan's and the breakdown's job, as today.
-- **Review isn't a step.** Reviewing is the AI check's notes on each card, plus watching the final cut (P3).
-- **Breakdown isn't a step.** It's the plan's Shots view, and its problems keep their free fixes on the same screen (rule 22) (P1).
-- **Approvals in Make:**
-  - Stills and takes are approved by the plan, the looks and the final watch. There are no per-card Approve presses by default.
-  - The picked take is the newest good one; picking another is one tap.
-  - **Approve all** stays available on Stills and Clips for anyone who wants to tick through, so rule 21's "Approve all" lists still exist.
-- **Rule 21 (P8), proposed wording for Reed:** "Clip prompts are shown, and can be changed with Change this…, before their takes are made. Turning on **Check prompts before takes** in Video settings pauses Make after the prompts until each is OK'd (the old way)." Default: off. *Reed decides (Q8).*
-- **Narrated and Song videos** follow the same four steps. Their Plan is timed to the narration or the song, and the song or voice sits in Video settings (V2a).
-
-**Count, 9-clip video, nothing going wrong:**
-
-| | Today | Proposed |
+| Step | What it holds | The step's one amber |
 |---|---|---|
-| Steps | 5 | 4 |
-| Presses | about 40 (5 Next, Approve all ×3, Prompt OK ×9 or for all, Make the takes, approve ×9…) | **4**: Next: Looks, Approve all looks, Make the video, Download (plus Approve the plan if they edited it) |
+| **1 Plan** | The scene plan (P1). **Shots** is a view inside it, with everything today's Breakdown holds: shots, timing, the song clock, Sung/B-roll, split and join, problems with their free fixes, "Made for an older plan". A video from Reed's approved plan opens **Approved · From Reed's plan**. | **Approve the plan** if it was changed, else **Next: Cast** |
+| **2 Cast** (was Assets) | Every role's look from the plan's cast list, the places, the ★ products; auto looks with the price first | **Approve all looks** (one press, rule 8) |
+| **3 Storyboard** | One still per clip, each with its AI check line (P4) | see "If Reed says yes / no" below |
+| **4 Clips** | Prompts, then takes; automatic retries and wording fixes (P3); AI check lines | see below |
+| **5 Final cut** | The cut; the **Review** list of items with Advice; watch, then download | **Download MP4** (after watching) |
 
-## 7.3 The hierarchy, with Format and Look
+Not a separate step:
+- **Breakdown** is Plan's Shots view (P1).
+- **Review** is the one list of flagged items, opened from a chip in the step header on Storyboard, Clips and Final cut (P3).
+- Nothing is lost: every still and take keeps Change this…, Make another, the takes list and the Earlier strip.
+- Rule 8's lock holds: Storyboard opens only after Cast is approved.
+- Rule 29 stays the plan's and the shots' job.
+
+### The case for "only three human presses" (flows.md P5.1, needs Reed)
+
+Reed's list of what stays with people is: **approving the plan, approving the looks (one click), and watching the final video**. Today an editor also presses Approve on every still and every take, and Prompt OK on every clip prompt, plus Approve all on each list.
+
+| | **If Reed says yes** (recommended) | **If Reed says no** (today's way) |
+|---|---|---|
+| After Cast | One priced press in the cost bar, **Make the video · about 62 credits**, draws the stills, writes the prompts and makes the takes in order | **Next: Storyboard**, then each step's own presses as today |
+| Storyboard | Stills are approved on their own **once checked with nothing found**. A still with Advice stays **Check this** for a person. Approve all is still there. The amber is **Next: Clips** | Approve each still or Approve all, then Next |
+| Clips | Prompts show before their takes and can be changed. Takes start on their own. A take checked clean is picked and approved on its own; one with Advice waits. The setting **Check prompts before takes** (Video settings, off by default) brings back the per-prompt OK | Prompt OK on each (or for all), Make the takes, pick and approve each (or Approve all) |
+| Final cut | Watch, then Download MP4. The Review list shows what was approved with Advice still open | the same |
+| Presses, 9-clip video, nothing flagged | **about 4** (Next: Cast, Approve all looks, Make the video, Download) | about 40 |
+| Rule 21 | Changes to: "Clip prompts are shown, and can be changed, before their takes are made; *Check prompts before takes* pauses for a per-prompt OK." | unchanged |
+| Risk | A bad take with no Advice reaches the cut unseen until the watch. That's why watching stays with people, and every take is still one tap from Make another. | none new |
+
+**Why yes:**
+- It's what Reed said stays with people.
+- The AI check is now the reviewer of every still and take. A person spends attention only where it found something.
+- The money is said once, before Make the video, in the cost bar, so there's no surprise spend.
+- The per-item rules (Approve all, Undo, Change this…) all stay available.
+
+**If no:** everything in this part still applies except the Make the video press and the automatic approvals. The AI check, automatic fixes, Plan, Cast and the Review list are the same.
+
+## 7.3 Findings on flows.md item 1b (#846)
+
+| Id | Where | Finding | Proposal |
+|---|---|---|---|
+| **PL1** | P1 Editing at 390 | **Move, split and join are per line, but the "…" menu sits on the card.** Moving line 4 to the next scene from a card menu means picking the line first, which is two menus. | Tap a line → a small sheet: **Move to scene 3**, **Move to scene 5**, **Start a new scene here**, **★ product** / **un-★**. One press each, Undo in the toast. **Join with next** stays on the card's "…". |
+| **PL2** | P1 Approved → edit | **Any edit sends an approved plan back to "Ready to check",** so ★-ing one line makes the editor approve again and, with a breakdown, puts it out of date. | Keep the rule (it's honest), but the confirm names the cost before the edit, as P1's Going back says. The amber stays **Approve the plan**, so it's one press. |
+| **PL3** | Existing videos | **"Approved · from the breakdown"** is accurate, but the cards are only the breakdown's own actions, so P1's Advice (product never shown, two places) would fire on old videos and nag. | Label it **"Approved · made from this video's breakdown"** with a muted line, "This video started before plans existed." Don't run P1's Advice on plans read from a breakdown. Only fresh or edited plans get it. |
+| **PL4** | P1 E state | **"From Reed's plan" opening Approved** is right. Make it visible in the step picker too: "Plan ✓ · Reed's". | — |
+| **PL5** | P4 "Nothing found" | **"Checked · matches the sheets" under every still and take** is a line on 18 cards that says nothing is wrong. That's noise. | Nothing under a clean item. A ✓ inside the item's status chip ("Approved ✓ checked"). Lines only for Advice. |
+| **PL6** | P4 Advice lines | **One line per finding, each with two buttons,** can make a card three findings tall. | The quiet chip ("2 notes") on the card. The lines and their **Change this…** / **Looks fine** presses open from it (a panel on desktop, a sheet at 390). A card with one finding may show it inline. |
+| **PL7** | P4 Over budget | **"Not checked: the video is at its budget" on each card** repeats on every card. | Say it once, in the step's summary line: "Checks paused: the video is at its budget." |
+| **PL8** | Review | **Two places** (the Clips header, and Final cut "before Make the video"). | One list, opened from the same chip in the step header on Storyboard, Clips and Final cut ("3 items with Advice ▸"), grouped by step, each row linking to its card. Final cut shows it open by default above **Download**, so the watch and the notes are together. |
+| **PL9** | P3 lines | **The retry line shows only while "Making…".** Once the take is done, nobody knows it was retried. | Keep a muted line after it's done, "Tried again on its own once (refused)", and in the card's "…" › What happened. |
+| **PL10** | P3 wording fix | **"Fixed for you: removed 'logo text'" sits under the prompt,** which is collapsed by default (§5.5 I2), so it's hidden. | Show it on the card, under the take, with **See the change** and **Undo**. |
+| **PL11** | Format in the header | **ST0 lets Dialogue ↔ Narrated change before publishing,** so the Format chip is a picker on drafts, but Song can't change. | Script header: **Dialogue ▾ · House ▾** on a draft; **Song** (a plain chip) · House ▾ for a song; both plain once published. Video header: **Dialogue** (plain) · Look in Video settings. |
+| **PL12** | Editor step count | #846 has six editor steps (Plan, Breakdown, Assets, Storyboard, Clips, Final cut). | Five, as agreed: Plan (with Shots), Cast, Storyboard, Clips, Final cut. Next-Lead folds it into flows.md. |
+
+## 7.4 The hierarchy, with Format and Look
 
 ```mermaid
 flowchart TD
   B[Brand · default Look, voice, products] --> PR[Project, later spec 5]
-  PR --> S["Script · Format: Dialogue / Song / Narrated (fixed) · Look: House (default)"]
+  PR --> S["Script · Format: Dialogue / Song / Narrated · Look: House (default)"]
   S --> V["Version A · B · C · its plan, cast, defaults"]
   V --> VID["Video · Look (changeable) · shape · flavour · models · song or voice"]
-  VID --> P[Plan] --> L[Looks] --> M["Make: Stills · Clips"] --> F[Final cut]
+  VID --> P["Plan (+ Shots)"] --> C[Cast] --> SB[Storyboard] --> CL[Clips] --> F[Final cut]
 ```
 
-- **Format** belongs to the script. It's picked at New script, shown on every card and header as a word chip ("Dialogue"), and never changes on a video. ST0 lets the owner change it before publishing.
-- **Look** belongs to the brand (default), the script (its default) and the video (its own, in Video settings). It's shown as "House ▾" in the header, beside the format.
-- **Script header:** "The altar reel · Dialogue · House ▾".
-- **Video header:** "The altar reel · B · Dialogue · House".
-- **Library card:** a Format chip next to Draft/Published.
-- **The word "Style" goes everywhere** (the Video settings row, VS1, the Styles page, which is now Looks), so one thing has one name (P6).
+- **Format** belongs to the script. It's picked at New script, and is changeable Dialogue ↔ Narrated on a draft (ST0), never to or from Song. It shows as a chip on every card and header, and is fixed on a video.
+- **Look** has a default at brand and script level, and can be changed per video in Video settings.
+- **Script header:** "The altar reel · Dialogue ▾ · House ▾". **Video header:** "The altar reel · B · Dialogue", with Look in the settings row. **Library card:** a Format chip next to Draft/Published.
+- **The word "Style" goes:** everywhere, it's **Look** (Video settings, VS1, the Looks page) (P6).
 
-## 7.4 What each step shows (and what it doesn't)
+## 7.5 What each step shows (and what it doesn't)
 
-| Step | Shows (first screen) | On demand (one tap) | Never shown |
+| Step | Shows first | One tap away | Never shown |
 |---|---|---|---|
-| **Plan** | One row per scene: number, time (song or narration), place, **what we see** (the one vivid action), ★ product, who's in it. The cast block on top (name, look thumbnail, outfit). Total length and clips. | The script lines under each row; the **Shots** view (shot ids, seconds, camera, seams, problems); the reference's structure. | Prompt text; raw ids; model names |
-| **Looks** | Each role's sheet, name, age/gender/job, "in N scenes"; places; the product picture. | The look's earlier sheets; role words; Merge into… | Sheet prompt text |
-| **Make · Stills** | Each still with its scene line and who's in it; AI notes chip. | The still's prompt; Earlier stills | — |
-| **Make · Clips** | Each take playing, the lines it covers, who's in it, its status; AI notes chip; "Retried once on its own". | The prompt's Summary, then the full prompt; other takes; Use the real image | `[ImageN]`; job ids |
-| **Final cut** | The video; length; credits used (dollars for the owner); "AI check: 2 notes kept". | Each clip and its takes; the notes list | — |
+| **Plan** | The structure line ("Pattern: Problem → Why → Discovery → Proof → Payoff"); the cast block (name, look thumbnail, outfit); one row per scene: part, place and time, the lines, **what we see**, ★, who; "9 scenes · every line used once · the product in 4" | **Shots** (shot ids, seconds, camera, Sung/B-roll, problems); Earlier plans; Change this scene… | prompt text; raw ids; model names |
+| **Cast** | Each role's sheet, name, age/gender/job, "in N scenes"; places; the ★ product picture | earlier sheets; role words; Merge into… | sheet prompts |
+| **Storyboard** | Each still, its scene line, who's in it, its status chip (with ✓ checked, or "2 notes") | the still's prompt; Earlier stills | — |
+| **Clips** | Each take playing, the lines it covers, who's in it, its status chip; the retry or wording-fix line when there is one | the prompt's Summary, then the full prompt; other takes; Use the real image | `[ImageN]`; job ids |
+| **Final cut** | The video; length; credits used (dollars for the owner); the **Review** list ("2 items with Advice") | each clip and its takes | — |
 
-**Plan at 390:** each scene is a card (time · place on top, what we see in the script font, ★ chip, people chips). At desktop it's a table, as in Reed's examples.
+**Plan at 390:** one card per scene (part · place on top, the lines in the script font, the action under each line, ★ chips, people chips). Tapping a line opens its sheet (PL1). At desktop, the same rows sit in a table, as in Reed's examples.
 
-## 7.5 Where approvals happen
+## 7.6 Where approvals happen
 
 | Who | What | Where | One press |
 |---|---|---|---|
 | Reed | The words | Write | Approve the words |
-| Reed | The plan (owner preview, kept from S6) | Plan | Approve the plan |
+| Reed | The plan (S6), the start for every video of the version | Plan | Approve the plan |
 | Reed | Publish | Publish | Publish |
-| Editor | The plan, only if they changed or redid it | Plan | Approve the plan |
-| Editor | The looks | Looks | Approve all looks |
-| Editor | Spend for the video | Make (cost bar) | Make the video · N |
-| Editor | The result | Final cut | Watch it → Download MP4 |
-| (optional) | Stills, prompts, takes | Make tabs | Approve all / Prompt OK (only with "Check prompts before takes" on) |
+| Editor | The plan, only if they changed it | Plan | Approve the plan |
+| Editor | The looks | Cast | Approve all looks |
+| Editor | Stills and takes | Storyboard, Clips | **If yes (P5.1):** only items with Advice, the rest on their own; **if no:** each, or Approve all |
+| Editor | Spend | the cost bar | **If yes:** Make the video · N once; **if no:** each step's priced press |
+| Editor | The result | Final cut | watch → Download MP4 |
 
 An **edit after approval** puts the later work out of date, viewable as M14 says. One press brings it in line: "Update everything after this · N".
 
-## 7.6 How the AI check's Advice shows, without nagging
+## 7.7 How the AI check's Advice shows, without nagging
 
 | Rule | How |
 |---|---|
-| **Quiet by default** | One neutral chip per card, "2 notes", grey, never red or amber. No toast, no banner, no sound, no badge on the step picker beyond a muted "· 3 notes". |
-| **Specific** | Each note names the thing and the shot: "Face: Lexi's hair looks shorter than her sheet (clip 3, 0:02)." "Product: the bag label may read 'Chiken' (clip 6)." |
-| **One press to act** | Each note has **Use this note** (it fills "Change this…" with the ready note, shown with its price, still one press away), and **Looks fine**. |
-| **Dismissed means gone** | "Looks fine" hides the note for this still or take for good, with Undo in the toast. The same take is never checked again. A new take gets its own check. |
-| **Never blocks, never redoes** | No button is disabled by a note. Nothing runs on its own because of a note (Reed). |
-| **Summarised once** | The Make step's top line: "AI check: 3 notes on 2 clips · Show". At Final cut: "2 notes kept as fine", or "1 note not looked at · Show". |
-| **Costs** | Reed approved a few cents a video. Editors see nothing about its cost; Usage shows it for the owner as "AI check". |
-| **Not ready** | "Checking…" in the chip while it runs; if the check fails, the chip disappears (it's Advice; a failed check isn't a problem to fix). |
+| **Quiet by default** | A clean item shows nothing extra, only "✓ checked" inside its status chip (PL5). An item with findings gets one neutral chip, "2 notes", grey, never red or amber. No toast, no banner, no sound. The step picker shows a muted "· 3 notes". |
+| **Specific** | Each note names what, who and when: "Mia's face may differ from her sheet (clip 3, 0:02)". "The bag's label isn't readable (clip 6)". |
+| **One press to act** | **Change this…** opens the change box with the ready note and its usual price; one more press runs it. **Looks fine** dismisses it, kept in the item's history, with Undo. |
+| **Dismissed means gone** | A dismissed note never returns for that still or take. A new take gets its own check. |
+| **Never blocks, never redoes** | No button is disabled by a note. Approve and Approve all work, and the summary says "2 approved with Advice". |
+| **One Review list** | It opens from the header chip on Storyboard, Clips and Final cut, and is open by default on Final cut above Download (PL8). |
+| **Costs** | Said once in Video settings ("Checks: about N credits a video"). If the budget is reached, one line in the step summary (PL7). |
+| **Not ready / failed** | "Checking…" in the chip. A failed check shows nothing on the card (it's Advice), and "1 not checked" in the summary. |
 
-## 7.7 How automatic fixes read
+## 7.8 How automatic fixes read
 
-| What happened | The card's line (after the fact) | Where else |
+| What happened | While it runs | After |
 |---|---|---|
-| A take refused, retried once for free, worked | "Retried once on its own (the model refused the first try) · nothing extra charged" | The card's "…" > What happened |
-| A take hit "service busy", retried once, worked | "Retried once on its own (the service was busy)" | — |
-| The retry also failed | the usual **Didn't finish / Refused** state with its one press (§2.5). It isn't retried again. | — |
-| A clip prompt's wording flag fixed in code | "Wording fixed on its own: a word the model refuses was changed" with **See the change** (before/after) and **Undo** | — |
+| A take refused, tried again once for free | "Making… (tried again on its own: the first try was refused)" | a muted line on the card: "Tried again once on its own (refused) · nothing extra charged" (PL9) |
+| "Service busy", tried again once | "Making… (tried again on its own: the service was busy)" | "Tried again once on its own (busy)" |
+| Both tries fail | — | the usual **Didn't finish / Refused** with its one press (§2.5); never retried again |
+| A wording flag fixed in code | — | on the card: "Fixed for you: removed 'logo text'" with **See the change** and **Undo** (PL10) |
 
 The rules for these lines:
-- They're grey meta lines, written in the past tense.
-- They show only on the card it happened to, and never as a toast.
-- They never ask for a press.
+- They're grey and written in the past tense.
+- They show only on the card where it happened, and never as a toast.
+- They never ask for a press, except Undo.
 
-## 7.8 Format, step by step
+## 7.9 Format, step by step
 
 | | Dialogue | Song | Narrated |
 |---|---|---|---|
 | Write | words | Song + Takes | narration + voice |
-| Plan columns | scene · place · what we see · who speaks · ★ | song time · lines · place · what we see · Sung/B-roll · ★ | narration time · sentence · place · what we see · ★ |
-| Looks | as today | + "Who sings on camera?" | nobody speaks; the owner and the pet are roles from the plan |
-| Make · Clips | lines spoken on camera | Sung clips lip-sync; B-roll is picture only | all B-roll under the narration |
+| Plan rows | part · place · lines (speaker) · what we see · who · ★ | part · song time · lyric lines · what we see · ★ (Sung/B-roll is set in Shots) | part · narration time · sentences · what we see · ★ |
+| Cast | as today | + "Who sings on camera?" | nobody speaks; people and pets from the plan |
+| Clips | lines spoken on camera | Sung clips lip-sync; B-roll is picture only | B-roll under the narration |
 | Final cut | sound from the takes | the song underneath | narration + ducked music (V6n) |
 
-## 7.9 Phone (390) and desktop
+## 7.10 Phone (390) and desktop
 
 | | Phone | Desktop |
 |---|---|---|
-| Steps | "Step 2 of 4 · Looks ▾" | Plan ✓ — Looks · 1 to approve — Make — Final cut |
-| Plan | scene cards, one column | the table, with the cast block on the right |
-| Make | the Stills / Clips tabs; cards one column; the progress line "6 of 9 takes made · 3 making" sticks under the tabs | two to three columns; the right column shows the Script or the Plan (M22/L1) |
-| AI notes | the chip opens a bottom sheet | the chip opens a small panel beside the card |
+| Steps | "Step 1 of 5 · Plan ✓ Reed's ▾" | Plan ✓ — Cast · 1 to approve — Storyboard — Clips · 2 notes — Final cut |
+| Plan | scene cards; tap a line for its sheet (PL1); the Approve bar fixed at the bottom | the table, the cast block above, Shots as a toggle |
+| Notes and Review | chip → bottom sheet | chip → a panel beside the card; Review as a side panel |
 | Cost bar | above the tabs, with the step's one amber | at the bottom of the work area |
 
-## 7.10 Changes added to the list
+## 7.11 Changes added to the list
 
 | # | Change | Fixes | Size |
 |---|---|---|---|
-| **M25** | **Plan step** for every format: the scene table (desktop) or scene cards (390), the cast block, Approve the plan, Redo the plan · N, edit a scene. The breakdown becomes its **Shots** view. | P1, P7 | L |
+| **M25** | **Plan step** with its **Shots** view (today's Breakdown folded in): the scene table (desktop) and scene cards (390), the line sheet (PL1), Approve the plan, Change this scene…, Make a new plan, Earlier plans. | P1, P7, PL1 | L |
 | **M26** | **Writing order Write → Plan → Cast → Publish**; Cast reads the plan too. | P7 | M |
-| **M27** | **Make step** with Stills and Clips tabs and one **Make the video · N** press; per-card approvals optional; the newest good take is picked by default. | P2, P3 | L |
-| **M28** | **AI check notes**: the chip, the notes panel with "Use this note" and "Looks fine", the step summary, and the Final cut summary. | P4 | M |
-| **S39** | **Automatic-fix lines** on cards (§7.7), with See the change and Undo for a wording fix. | P5 | S |
-| **S40** | **Format and Look shown everywhere** (header, cards, Video settings); "Style" renamed **Look** in every screen. | P6 | S |
-| **N15** | *Server, per Reed's answer to Q8:* "Check prompts before takes" as a per-video setting (default off), and Make running stills → prompts → takes in one priced job chain. | P2, P8 | M |
-| **N16** | *Server:* the AI check's notes stored per still or take, with "dismissed" kept, so a dismissed note never returns. | P4 | S |
+| **M27** | *If Reed says yes to P5.1:* **Make the video · N** in the cost bar after Cast, automatic approval of items checked clean, and "Check prompts before takes" in Video settings. *If no:* nothing to build. | P2, P8 | M |
+| **M28** | **AI check display**: "✓ checked" in the chip, the "2 notes" chip and its panel or sheet, Change this… prefilled, Looks fine, and the one **Review** list from the step header (open on Final cut). | P4, PL5–PL8 | M |
+| **S39** | **Automatic-fix lines** (§7.8), kept after the take is done, with See the change and Undo for a wording fix. | P5, PL9, PL10 | S |
+| **S40** | **Format and Look shown everywhere** (header, cards, Video settings); "Style" renamed **Look** in every screen; the Assets step renamed **Cast**. | P6, PL11 | S |
+| **S41** | Existing videos: "Approved · made from this video's breakdown", with no plan Advice on such plans. | PL3 | S |
+| **N15** | *Server, if Reed says yes to P5.1:* one priced job chain (stills → prompts → takes), automatic approval of clean items, and the "Check prompts before takes" setting. | P2, P8 | M |
+| **N16** | *Server:* AI check notes stored per still or take, with dismissals kept, so a dismissed note never returns. | P4 | S |
 
-**Build order for Part 7:** S40 and S39 first (small, independent), then M25 Plan (the biggest change, which everything after reads), then M26, M28, then M27 with N15 once Reed has answered Q8.
+**Build order for Part 7:**
+1. S40, S39 and S41 first (small and independent).
+2. Then M25 Plan, the biggest change, which everything after reads.
+3. Then M26 and M28.
+4. Then M27 with N15, once Reed has answered P5.1.
 
 ---
 
@@ -1258,7 +1287,7 @@ Until then, §1.8 stands in: the same `next` code, run locally on the same stand
 6. **Reed:** Approvals can't receive anything any more. Hide it while empty (proposed), or retire it?
 7. **Reed:** one weekly allowance for all editors (today), or one per editor?
 8. **Reed (Part 7):** rule 21 asks that clip prompts be reviewable before takes are paid for. With people only approving the plan, the looks and the final video, should takes start right after **Make the video**, with prompts still shown and changeable (proposed, plus an optional "Check prompts before takes" setting), or keep a per-prompt OK press?
-9. **Reed (Part 7):** fold Breakdown into Plan (its Shots view) and Storyboard and Clips into one **Make** step (four video steps: Plan, Looks, Make, Final cut)? Rules 8 and 29 keep their locks either way.
+9. **Reed (Part 7):** the Producer agreed to fold Breakdown into Plan (five editor steps: Plan, Cast, Storyboard, Clips, Final cut). Reed can still overrule it.
 
 **Agreed with Next-Lead (2026-10-28):** flows.md takes the renames and moves in one PR. V6 becomes Final cut; V5 gets Prompts then Takes (Approve all on both lists); owner S6 becomes Plan; story Write → Cast → Plan → Publish and song Song → Takes → Cast → Plan → Publish. flows.md stays the one place for every state and press; this audit gives the order, the look and the reasons.
 
