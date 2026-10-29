@@ -369,6 +369,18 @@ class FakeWriter:
         scene = {"id": 1, "heading": "INT. TEST — DAY", "look": "Plain grey.", "shots": shots}
         return {"hook": "Local test breakdown.", "scenes": [scene], "clips": clips}
 
+    def _song_breakdown(self, prompt):
+        """The story stand-in's plan, its shots back to back over the song's beats, all
+        B-roll (no [Lip-sync] asked)."""
+        plan = self._breakdown(prompt)
+        seconds = float(re.search(r'<song seconds="([\d.]+)"', prompt).group(1))
+        beats = [float(b) for b in re.search(r"Beats: ([\d. ]*)", prompt).group(1).split()]
+        shots = [s for scene in plan["scenes"] for s in scene["shots"]]
+        edges = [0.0, *(beats[len(beats) * k // len(shots)] for k in range(1, len(shots)))]
+        for shot, a, b in zip(shots, edges, [*edges[1:], seconds], strict=True):
+            shot.update(song_start=a, song_end=b, sung=False)
+        return plan
+
     def _storyboard(self, prompt):
         bd = json.loads(_tag(prompt, "breakdown") or "{}")
         shots = {s["id"]: s for scene in bd.get("scenes", []) for s in scene["shots"]}

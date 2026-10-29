@@ -287,4 +287,8 @@ def use_video_song(
     if take is None:
         raise HTTPException(404, "No such take for this video.")
     was = song_takes.use_in_video(db, project, take)
+    from app import song_breakdown
+
+    song_breakdown.follow_take(db, project, user.id)  # the shots move to the new take, free
+    db.commit()
     return VideoSongOut(song_take_id=take.id, was_song_take_id=was)
