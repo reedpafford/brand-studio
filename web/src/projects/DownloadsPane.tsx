@@ -176,7 +176,7 @@ export function DownloadsPane({
                 <p className="text-sm text-muted">Made from: {madeFrom}</p>
               )}
               <ReviewChip projectId={projectId} open />
-              <FinalSong projectId={projectId} madeWith={v.song_take_id} />
+              <FinalSong projectId={projectId} madeWith={v.song_take_id} narration={v.narration} />
             </div>
           </Card>
         ) : (

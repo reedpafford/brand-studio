@@ -18,7 +18,7 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
   - Each state says what the person sees and the one press that moves them on (rule 22).
   - Each PR names the flows it touches and the effects on other steps.
   - Flow-QA walks them all.
-- **Order:** 0 infra + flow map → 1 song ads → 2 styles (Disney, Song, Zack D, Skeleton) → 3 brand setup → 4 video settings (style, model, language) → 5 organization → 6 cleaner layout. Layout is designed alongside, built last.
+- **Order:** 0 infra + flow map → 1 song ads → 2 styles (Disney, Song, Zack D, Skeleton) → 3 brand setup → 4 video settings (look, models, shape, flavour, language) → 5 organization → 6 cleaner layout. Layout is designed alongside, built last.
 
 ## Team
 | Agent | Owns |
@@ -30,10 +30,15 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 | Flow-QA | Walks every flow in docs/next/flows.md on the test site and in tests; no dead ends; Advice vs block |
 | QA / QA-2 | Review PRs into `next` as they do for `main` |
 
+## Queued (Next-Lead keeps this list)
+- **Builder-Server-7:** after #925, a languages list (English on, others off until a sample test), `GET /languages`, and checks on a script's and a brand's language. Then the settings on Make this version, once Builder-Server-8's plan-first change to that press is on `next`.
+- **Next-Server:** after #927 and #930, the cost confirm when a script's look changes (ST1), using #925's estimate. Then organization (item 5).
+- **Not assigned:** "Make a copy in another language" (a paid translation into a new, unpublished script). It's its own item.
+
 ## Moving to main: changes that must travel together
 When Reed says to bring Next to live, these go to `main` in one move, never split (Next-Lead keeps this list):
 - **Five editor steps (#871).** The screens (Plan → Cast → Storyboard → Clips → Final cut, the redirects) and four server messages that now say "Approve one in Cast" instead of "in Assets" (server/app/sheets.py, storyboard.py, clip_prompts.py). Live's screens say Assets until then, so the messages must not go alone.
 - **Rule 11 → the advisory check (1b P4).** DECISIONS.md rule 11 changes on live only when the check itself ships.
 - **Brand setup (n08).** `brands.never_say` and `brands.end_line` stay on next, written through from `dont_list` and the default CTA line, because main still reads them. At the move, main's readers switch to the new fields and one migration drops the two columns.
-- **Migrations n01–n08.** They join main's 00xx chain with one merge migration at the move (data.md, "Migration rules").
+- **Migrations n01–n10.** They join main's 00xx chain with one merge migration at the move (data.md, "Migration rules").
 

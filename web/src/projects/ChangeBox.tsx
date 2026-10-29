@@ -101,7 +101,9 @@ export function ChangeBox(props: {
     setEdited(true);
   }
   useEffect(() => {
-    if (seeded) box.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    if (!seeded) return;
+    box.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    box.current?.querySelector("textarea")?.focus({ preventScroll: true }); // the note is ready to read or edit
   }, [seeded]);
   // "Changing…" never outlasts its rewrite: a job that failed, was stopped or is gone (or finished a while ago while the
   // note still says changing, so its answer wasn't saved) reads as a change that didn't finish.
