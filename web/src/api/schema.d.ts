@@ -3542,6 +3542,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/songs/{take_id}/trim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trim Take
+         * @description Over the cap: "Use the first 0:55" (to the last section end that fits).
+         */
+        post: operations["trim_take_songs__take_id__trim_post"];
+        /**
+         * Untrim Take
+         * @description Undo: the whole take again.
+         */
+        delete: operations["untrim_take_songs__take_id__trim_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/songs/{take_id}/preferred": {
         parameters: {
             query?: never;
@@ -5957,6 +5981,16 @@ export interface components {
             advice: string[];
             /** Timing Guessed */
             timing_guessed: boolean;
+            /** Refused For */
+            refused_for: ("words" | "style") | null;
+            /** Video Credits */
+            video_credits: number | null;
+            /** Over Cap */
+            over_cap: boolean;
+            /** Fits Until */
+            fits_until: number | null;
+            /** Trim To */
+            trim_to: number | null;
         };
         /** SongsOut */
         SongsOut: {
@@ -13877,6 +13911,68 @@ export interface operations {
         };
     };
     spread_timing_songs__take_id__spread_timing_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trim_take_songs__take_id__trim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongTakeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    untrim_take_songs__take_id__trim_delete: {
         parameters: {
             query?: never;
             header?: never;

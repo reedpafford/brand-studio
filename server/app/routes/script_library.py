@@ -679,6 +679,13 @@ def publish(script_id: int, user: User = Depends(current_user), db: Session = De
         raise HTTPException(409, "Approve or remove every version first.")
     if lib.writing(db, script.id):
         raise HTTPException(409, "Claude is still writing for this script. Publish when it's done.")
+    if script.kind == "song":  # its videos are timed to the song: one must exist (#750)
+        from app import song_takes
+
+        if songless := [d for d in versions if song_takes.preferred(db, d) is None]:
+            name = "ABC"[songless[0].slot]
+            raise HTTPException(409, f"Make the song first: version {name} has no Preferred take "
+                                     "of its lyrics. Press Make 2 takes.")  # fmt: skip
     script.published = True
     db.commit()
     return _out(db, script)

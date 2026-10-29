@@ -225,3 +225,66 @@ def test_a_refused_take_in_a_video_doesnt_ask_to_change_final_lyrics(app, db, ow
     _work(app, db)
     own = editor.get(f"{video}/songs").json()["takes"][-1]
     assert (own["status"], own["failed_reason"]) == ("failed", music.REFUSED_IN_VIDEO)
+    assert own["refused_for"] == "words"
+
+
+def test_a_take_over_the_cap_offers_its_first_part_with_undo(app, db, owner, song):
+    _style(owner, song, "pop fake:long=800")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    take = owner.get(f"{song}/songs").json()["takes"][0]
+    assert take["status"] == "ready" and take["over_cap"] and not take["preferred"]
+    assert take["fits_until"] == 14.25 and take["video_credits"] > 729
+    r = owner.post(f"/songs/{take['id']}/preferred")
+    assert r.status_code == 409 and "Press Use the first 0:14" in r.json()["detail"]
+    trimmed = owner.post(f"/songs/{take['id']}/trim").json()
+    assert (trimmed["trim_to"], trimmed["over_cap"]) == (14.25, False)
+    assert owner.post(f"/songs/{take['id']}/preferred").status_code == 200
+    whole = owner.delete(f"/songs/{take['id']}/trim").json()  # Undo
+    assert (whole["trim_to"], whole["over_cap"]) == (None, True)
+
+
+def test_a_tag_change_doesnt_date_the_takes(app, db, owner, song):
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.put(song, json={"text": f"[Lip-sync]\n{LYRICS}", "style_line": "pop"})
+    assert not any(t["out_of_date"] for t in owner.get(f"{song}/songs").json()["takes"])
+
+
+def test_a_song_script_publishes_only_with_a_preferred_take(app, db, owner, song):
+    base = song.rsplit("/drafts", 1)[0]
+    _style(owner, song, "pop")
+    owner.post(f"{song}/approve")
+    r = owner.post(f"{base}/publish")
+    assert r.status_code == 409 and r.json()["detail"].startswith("Make the song first")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    assert owner.post(f"{base}/publish").status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("marker", "about"), [("fake:refuse", "words"), ("fake:copyright", "style")]
+)
+def test_a_refusal_says_whether_to_change_the_words_or_the_style(
+    app, db, owner, song, marker, about
+):
+    _style(owner, song, f"pop {marker}")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    assert owner.get(f"{song}/songs").json()["takes"][0]["refused_for"] == about
+
+
+def test_an_over_cap_take_becomes_the_videos_song_only_trimmed(app, db, owner, editor, song):
+    video = _video(app, db, owner, editor, song)
+    project = db.get(Project, int(video.rsplit("/", 1)[1]))
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    draft.style_line = "pop fake:long=800"  # only to make a long take on the stand-in
+    db.commit()
+    editor.post(f"{video}/songs", json={})
+    _work(app, db)
+    long = editor.get(f"{video}/songs").json()["takes"][-1]
+    r = editor.put(f"{video}/song", json={"take_id": long["id"]})
+    assert r.status_code == 409 and "Press Use the first 0:14" in r.json()["detail"]
+    assert editor.post(f"/songs/{long['id']}/trim").json()["trim_to"] == 14.25
+    assert editor.put(f"{video}/song", json={"take_id": long["id"]}).status_code == 200

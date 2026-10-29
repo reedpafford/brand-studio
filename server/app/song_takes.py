@@ -6,6 +6,7 @@ version, or to one video when it makes its own (rule 31: a published script stay
 is). In each, one take is Preferred: the first one ready, until someone picks another. Every
 failure says why and offers the press that helps (rule 22); nothing failed is charged."""
 
+import math
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -13,16 +14,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import music
-from app.credits import estimate
+from app.credits import estimate, get_limits, plan_cost
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
-from app.models.script_library import ScriptDraft
+from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
 
 WAITING = (JobStatus.queued, JobStatus.running)
 GUESSED = "Timing guessed: the lines are spread evenly over the song, so check the shot times."
+OVER_CAP = "A video of this whole take would go over the {}-credit cap. {}"
+SHORTEN = "Shorten the lyrics, then make 2 more."
 OLDER_WORDS = "This take sings older words. Make 2 takes of the lyrics as they are now."
 
 
@@ -123,10 +126,11 @@ def save_timing(db: Session, job: Job) -> None:
     take.advice = [GUESSED] if take.timing_guessed else advice(timing)
     draft = db.get(ScriptDraft, take.draft_id)
     project = db.get(Project, take.project_id) if take.project_id else None
-    current = not out_of_date(take, draft)
-    if current and not any(t.preferred for t in takes(db, draft, project)):
-        take.preferred = True
-    if current and project and project.song_take_id is None:  # a video's first song
+    usable = not out_of_date(take, draft) and not over_cap(db, take)
+    if usable and preferred(db, draft, project) is None:
+        for t in takes(db, draft, project):  # an older take's mark goes: it sings old words
+            t.preferred = t.id == take.id
+    if usable and project and project.song_take_id is None:  # a video's first song
         project.song_take_id = take.id
 
 
@@ -162,9 +166,64 @@ def state(db: Session, take: SongTake) -> tuple[str, str | None, bool]:
 
 
 def out_of_date(take: SongTake, draft: ScriptDraft) -> bool:
-    """Sings other words, or in another style line, than the version has now."""
-    now = (draft.text.strip(), draft.style_line.strip())
-    return (take.lyrics, take.style_line) != now
+    """Sings other words, or in another style line, than the version has now. Only the sung
+    lines count: adding or removing a tag (e.g. [Lip-sync]) changes nothing that's sung."""
+    now = (music.sung(draft.text), draft.style_line.strip())
+    return (music.sung(take.lyrics), take.style_line) != now
+
+
+def preferred(db: Session, draft: ScriptDraft, project: Project | None = None):
+    """The Preferred take of the current words (a new video starts on it), or None."""
+    found = [t for t in takes(db, draft, project) if t.preferred and not out_of_date(t, draft)]
+    return found[0] if found else None
+
+
+def video_credits(db: Session, take: SongTake, seconds: float | None = None) -> Decimal:
+    """About what a video of this take (or its first `seconds`) costs, every step at plan:
+    the song decides the video's length (spec §1)."""
+    length = seconds or take.trim_to or take.seconds or 0
+    script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
+    return plan_cost(db, script.workspace_id, math.ceil(length), None, roles=0)
+
+
+def cap(db: Session, take: SongTake) -> int:
+    script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
+    return get_limits(db, script.workspace_id).per_video_max_credits
+
+
+def over_cap(db: Session, take: SongTake) -> bool:
+    """Its video (the whole take, or the part it's trimmed to) is over the per-video cap."""
+    return bool(take.seconds) and video_credits(db, take) > cap(db, take)
+
+
+def fits_until(db: Session, take: SongTake) -> float | None:
+    """The longest start of the song, ending where a section ends, whose video fits under
+    the per-video cap ("Use the first 0:55"); None if not even the first section fits."""
+    ends = [s["end"] for s in (take.timing or {}).get("sections", [])]
+    fits = [e for e in ends if video_credits(db, take, e) <= cap(db, take)]
+    return max(fits, default=None)
+
+
+def clock(seconds: float) -> str:
+    return f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
+
+
+def _usable(db: Session, take: SongTake, draft: ScriptDraft) -> None:
+    """A take that can be Preferred or a video's song: current words, under the cap."""
+    if out_of_date(take, draft):
+        raise HTTPException(409, OLDER_WORDS)
+    if over_cap(db, take):
+        fits = fits_until(db, take)
+        said = f"Press Use the first {clock(fits)} to keep it under." if fits else SHORTEN
+        raise HTTPException(409, OVER_CAP.format(cap(db, take), said))
+
+
+def trim(db: Session, take: SongTake, on: bool) -> None:
+    """Use only the start of the take that fits under the cap; `on=False` is its Undo."""
+    if on and (not over_cap(db, take) or fits_until(db, take) is None):
+        raise HTTPException(409, "This take doesn't need trimming, or no part of it fits.")
+    take.trim_to = fits_until(db, take) if on else None
+    db.commit()
 
 
 def try_again(db: Session, user: User, take: SongTake) -> None:
@@ -200,20 +259,13 @@ def prefer(db: Session, take: SongTake) -> int | None:
     if state(db, take)[0] != "ready":
         raise HTTPException(409, "Only a finished take can be Preferred.")
     draft = db.get(ScriptDraft, take.draft_id)
-    if out_of_date(take, draft):
-        raise HTTPException(409, OLDER_WORDS)
+    _usable(db, take, draft)
     project = db.get(Project, take.project_id) if take.project_id else None
     was = next((t.id for t in takes(db, draft, project) if t.preferred), None)
     for t in takes(db, draft, project):
         t.preferred = t.id == take.id
     db.commit()
     return was
-
-
-def preferred(db: Session, draft: ScriptDraft) -> SongTake | None:
-    """The version's Preferred take of its current words: a new video starts on it."""
-    found = [t for t in takes(db, draft) if t.preferred and not out_of_date(t, draft)]
-    return found[0] if found else None
 
 
 def for_video(db: Session, project: Project) -> list[SongTake]:
@@ -230,8 +282,7 @@ def use_in_video(db: Session, project: Project, take: SongTake) -> int | None:
         raise HTTPException(404, "No such take for this video.")
     if state(db, take)[0] != "ready":
         raise HTTPException(409, "Only a finished take can be this video's song.")
-    if out_of_date(take, db.get(ScriptDraft, take.draft_id)):
-        raise HTTPException(409, OLDER_WORDS)
+    _usable(db, take, db.get(ScriptDraft, take.draft_id))
     was, project.song_take_id = project.song_take_id, take.id
     db.commit()
     return was
