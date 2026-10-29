@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import breakdown, credits, narration, plans, script_preview, song_takes
+from app import breakdown, credits, narration, plans, script_preview, sheets, song_takes
 from app import script_library as lib
 from app import video_settings as vs
 from app.auth import current_user
@@ -160,7 +160,9 @@ def version_estimate(
     )  # never saved
     for field, value in (body.model_dump(exclude_none=True) if body else {}).items():
         setattr(video, *vs.check(db, user, video, {field: value}).popitem())
-    cost = version_cost(db, draft, video)
+    cost = version_cost(db, draft, video)  # a look for each uncast role included
+    roles = sheets.roles_needing_look(db, script, video.look)  # cast ones without this look
+    cost += len(roles) * sheets.look_price(db, user.workspace_id)  # as VS1's to_finish
     cap = credits.get_limits(db, user.workspace_id).per_video_max_credits
     week = credits.over_allowance(db, user, video, cost)
     reason = vs.OVER_CAP.format(cap) if cost > cap else week

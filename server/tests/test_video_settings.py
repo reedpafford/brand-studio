@@ -4,6 +4,7 @@ video, the script's language and the brand's default cast. Free, on the stand-in
 
 from sqlalchemy import select
 
+from app import sheets
 from app import video_settings as vs
 from app.models.brands import BrandScreen
 from app.models.breakdowns import BreakdownVersion
@@ -297,6 +298,8 @@ def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
     auto = editor.post(url).json()
     shown = editor.get(base).json()["versions"][0]["estimate_credits"]
     assert auto == {"credits": shown, "over_cap": False, "reason": ""}  # the card's figure
+    look = owner.post(url, json={"look": "disney-pixar"}).json()  # Mia has only House: one look
+    assert look["credits"] == round(auto["credits"] + float(sheets.look_price(db, 1)), 2)
     cheaper = editor.post(url, json={"video_model": "seedance-2.0"}).json()
     assert 0 < cheaper["credits"] < auto["credits"]
     assert editor.post(url, json={"look": "zack-d"}).status_code == 409  # Off for editors
