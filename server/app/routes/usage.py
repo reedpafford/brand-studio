@@ -169,6 +169,9 @@ def brands(
         query = query.where(Brand.name.ilike(f"%{q.strip()}%"))
     f = usage.figures(db, owner.workspace_id, usage.period(period))
     rows = sorted((_row(b, f) for b in db.scalars(query)), key=SORTS[sort])
+    # Archived first, so one just archived is never behind "Show more"; the sort holds in each.
+    if archived:
+        rows.sort(key=lambda r: not r.archived)
     start = int(cursor) if cursor and cursor.isdigit() else 0
     page = rows[start : start + limit]
     more = start + limit < len(rows)

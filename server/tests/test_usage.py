@@ -100,6 +100,19 @@ def test_every_brand_is_listed_once_new_ones_with_zeros(owner, db):
     assert [r["name"] for r in found["items"]] == ["Night Owl"] and found["total"] == 1
 
 
+def test_show_archived_lists_archived_brands_first_on_the_first_page(owner, db):
+    for name in ["Alpha", "Beta", "Zulu"]:
+        assert owner.post("/brands", json={"name": name}).status_code == 201
+    zulu = next(b["id"] for b in owner.get("/brands").json() if b["name"] == "Zulu")
+    assert owner.delete(f"/brands/{zulu}").status_code == 204
+    first = owner.get("/usage/brands", params={"archived": True, "sort": "name", "limit": 1}).json()
+    assert [r["name"] for r in first["items"]] == ["Zulu"] and first["items"][0]["archived"]
+    rest = owner.get("/usage/brands", params={"archived": True, "sort": "name"}).json()["items"][1:]
+    names = [r["name"] for r in rest]
+    assert names == sorted(names, key=str.lower) and not any(r["archived"] for r in rest)
+    assert "Zulu" not in [r["name"] for r in owner.get("/usage/brands").json()["items"]]
+
+
 def test_editors_and_other_workspaces_never_see_usage(owner, editor, outsider):
     for url in ENDPOINTS:
         assert editor.get(url).status_code == 404
