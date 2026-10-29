@@ -14,6 +14,7 @@ from app.prompts.schemas import (
     ClipPrompts,
     EnhanceResult,
     ImprovedPrompt,
+    NarrationMusic,
     ReelWatch,
     SongBreakdown,
     SongDirections,
@@ -1111,7 +1112,7 @@ def narrator(script: str) -> str | None:
     labels = [m for x in said if (m := LABEL.match(x)) and m[1].upper() not in NOT_SPEAKERS]
     if not labels:  # plain prose is read by a narrator; a silent story with scenes is not
         return "Narrator" if said and not heads else None
-    if any(not re.fullmatch(r"V\.?\s?O\.?", (m[3] or "").strip(), re.I) for m in labels):
+    if any(not VO.fullmatch((m[3] or "").strip()) for m in labels):
         return None
     names = {m[1].strip().title() for m in labels}
     return names.pop() if len(names) == 1 else None
@@ -1131,3 +1132,60 @@ NOT_SPEAKERS = {
     "ON SCREEN",
     "ON-SCREEN",
 }  # fmt: skip — directions, never a speaker (Flow-QA: "CTA:")
+VO = re.compile(r"V\.?\s?O\.?", re.I)  # "(V.O.)", "(VO)"
+
+
+def narration_text(script: str) -> str:
+    """What the narrator reads (flows N1), line by line as written: the voiced
+    words of each speaker line, label taken off; in a script of plain prose, every line. Never
+    scene headings, ★ brand lines, [tag] lines or directions ("CTA:", "SUPER:"), and never
+    action lines when the script has speaker lines."""
+    lines = [x.strip() for x in script.splitlines()]
+    lines = [x for x in lines if x and not x.startswith(("SCENE", "INT.", "EXT.", SCREEN_LINE))]
+    lines = [x for x in lines if not TAG.match(x)]
+    labelled = [(m, x) for x in lines if (m := LABEL.match(x))]
+    if not labelled:
+        return "\n".join(lines)
+    return "\n".join(x[m.end() :].strip() for m, x in labelled if m[1].upper() not in NOT_SPEAKERS)
+
+
+# A name in a music prompt ("like Hans Zimmer", "in the style of Interstellar"): the model refuses
+# them, so the step never writes one (flows N1).
+NAMED = re.compile(
+    r"\b(?i:like|by|in the style of|à la|inspired by|reminiscent of)\s+(?i:the\s+)?[A-Z]"
+)
+VOICED = re.compile(
+    r"\b(?:vocals?|choir|singing|singer|sung|humm(?:ing|ed)|lyrics?|chant\w*)\b", re.I
+)
+
+
+def narration_music(result: NarrationMusic) -> list[str]:
+    """Fixes for a music prompt, free: a name, or vocals under the narrator ("under the
+    voice" is fine: it asks for none)."""
+    problems = []
+    if m := NAMED.search(result.prompt):
+        problems.append(f"the music prompt names someone (“{m.group(0)}…”); describe the sound")
+    if m := VOICED.search(result.prompt):
+        problems.append(f"the music prompt asks for a voice (“{m.group(0)}”); it's instrumental")
+    if not 20 <= len(result.prompt.split()) <= 80:
+        problems.append("the music prompt should be 30 to 60 words")
+    return problems
+
+
+def format_advice(script: str, fmt: str) -> list[str]:
+    """The narrator check on a script's format (flows ST0, N1), as Advice: a Dialogue script
+    that is all one narrator could be Narrated; on a Narrated script, each line spoken on
+    camera will be read by the narrator. Numbered as number_lines numbers them."""
+    if fmt == "dialogue":
+        return [f"{ADVICE}This reads as narrated. Make it Narrated?"] if narrator(script) else []
+    if fmt != "narrated":
+        return []
+    out = []
+    for n, line in enumerate(script.splitlines(), 1):
+        m = LABEL.match(TAG.sub("", line).strip())
+        if m and m[1].upper() not in NOT_SPEAKERS and not VO.fullmatch((m[3] or "").strip()):
+            out.append(
+                f"{ADVICE}line {n}: This line is spoken on camera, but a Narrated script has "
+                "one voice. The narrator will read it."
+            )
+    return out
