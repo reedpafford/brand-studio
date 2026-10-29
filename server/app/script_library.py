@@ -48,6 +48,24 @@ def editable(user: User, script: Script) -> Script:
     return script
 
 
+def flavours(db: Session, brand_id: int, picks: dict[str, str]) -> dict[str, str]:
+    """A version's default flavours (n03): the picks, checked against the brand, plus each
+    product that has one flavour; a product with several and no pick stays Auto."""
+    from app.routes.projects import _check_variants, variants
+
+    only = {p: next(iter(v)) for p, v in variants(db, brand_id).items() if len(v) == 1}
+    return {**only, **_check_variants(db, brand_id, picks)}
+
+
+def offered_flavours(db: Session, brand_id: int, draft: ScriptDraft) -> dict[str, str]:
+    """A new video's flavours from its version (n03): the defaults the brand still offers; one
+    deleted since is dropped, so that product starts on Auto."""
+    from app.routes.projects import variants
+
+    offered = variants(db, brand_id)
+    return {p: v for p, v in (draft.flavours or {}).items() if v in offered.get(p, set())}
+
+
 def drafts(db: Session, script: Script) -> list[ScriptDraft]:
     query = select(ScriptDraft).where(ScriptDraft.script_id == script.id)
     return list(db.scalars(query.order_by(ScriptDraft.slot)))

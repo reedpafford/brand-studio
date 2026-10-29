@@ -330,6 +330,19 @@ class ImprovedPrompt(BaseModel):
 # --- Look fit: does a made look read as its role? (Reed, "looks must fit the role") ---
 
 
+class SiteProduct(BaseModel):
+    name: str = Field(description="The product's name as the site writes it.")
+    short_description: str = Field(description="What it is, in one plain line from the page.")
+
+
+class SiteRead(BaseModel):
+    """Import from website (flows BR2): what a brand's own page shows of its kit."""
+
+    products: list[SiteProduct] = Field(description="What the brand sells, at most 12.")
+    colours: list[str] = Field(description="The brand's colours, only from <colours>, at most 6.")
+    logo: bool = Field(description="The page names an image that is likely the brand's logo.")
+
+
 class LookFit(BaseModel):
     fits: bool = Field(
         description="False only for a clear mismatch a viewer would notice at a glance: the "

@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     # The advisory check on stills and takes (flows 1b, P4) costs real calls: off until the
     # Producer approves a real test; with the stand-ins on, it always runs (free).
     item_checks_paid: bool = False
+    # Import from website (BR2): reading a real site. Off until the Producer approves a real
+    # test; the stand-ins give a practice page, and with it off a read says so.
+    site_read_real: bool = False
     # The music bed under a narration (N1) is a Claude call and a Stable Audio file: off until
     # the Producer approves a real test; with the stand-ins on, it always runs (free). Real
     # runs stop before their spend would pass the budget, each counted at its rough price.
