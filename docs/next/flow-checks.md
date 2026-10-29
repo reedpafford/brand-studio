@@ -63,6 +63,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
 | Old Videos links (#888) | /scripts?view=videos stays on Scripts | Copy params before deleting view | #888 at b8050325 |
 | Empty shot after text fix (#869 on next, #890, #886) | A shot that is only drawn text becomes "Shot 1 &#124; 0-3 s." and is sent so | If removal empties the shot, keep the line as Advice | #890 at 1914e0f0 |
+| Plan versions (#893) | Earlier plans → use v1: shots from v2 not "older"; an edit reuses v2's number | One _next() for _set, edit, use_earlier | #893 at b7f56c4d |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -209,3 +210,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #881 at 95e50919 (Make N stills kept grey; "The plan changed"; "1 credit") | vitest projects (321); step name check | PASS (old ProjectPage EstimateNote says "Breakdown", "1 credits": owner to delete or rename) |
 | 2026-10-29 | #890 at 1914e0f0 (drawn words in quotes) | text_on_screen on 9 prompts; test_item_check (2) | FAIL: a shot that is only drawn text is emptied ("Shot 1 | 0-3 s."); on next since #869 (missed in my #869 walk) |
 | 2026-10-29 | #891 at a1928c52 (P4 advisory check, server) | checking/ok/advice/Looks fine/review/skipped/failed; test_item_checks + migrations (6) | PASS (notes: a queued check holds 0.2 credits; check cost to show in Video settings before real checks) |
+| 2026-10-29 | #888 at dca52d6a | Playwright 390 + 1440 again | still FAIL: old ?view=videos link stays on Scripts (fix not in) |
+| 2026-10-29 | #893 at b7f56c4d (P1/P2 plan, server) | E, make, Stop, 10-min limit, Advice, edits, by hand, Earlier plans, approve, old video; test_plan_route + repro (4) | FAIL: after Earlier plans the shots from a newer plan aren't "Made for an older plan" (version reused) |
