@@ -31,6 +31,7 @@ class FindingOut(BaseModel):
     kind: str  # face, outfit or product
     text: str  # the card's line: "Mia's face may differ from her sheet"
     note: str  # the ready "Change this…" note
+    fix: str = ""  # the video's look's fix for this kind of finding (ST2), as next step
 
 
 class CheckOut(BaseModel):
@@ -206,7 +207,9 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
         if job and job.status in ("failed", "cancelled"):
             row.status = "failed"
     gone = {d["index"] for d in row.dismissed or []}
-    findings = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"])
+    fixes = prompts.look_fixes(db.get(Project, row.project_id).look)
+    findings = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"],
+                           fix=fixes.get(f["kind"], ""))
                 for i, f in enumerate(row.findings or []) if i not in gone]  # fmt: skip
     status = {"checking": "checking", "failed": "failed", "skipped": "skipped"}.get(
         row.status, "advice" if findings else "ok"
