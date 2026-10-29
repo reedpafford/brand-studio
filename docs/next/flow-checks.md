@@ -186,5 +186,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #877 at a5f19e45 (cost bar part 2: Clips) | vitest 733, tsc, Playwright full at 1440 and 390 (55 passed, 1 skipped) | PASS |
 | 2026-10-29 | 07:30 check-in: #875 at 2c4466ea (race), #877 at 567b8cac (rewrite waits for its price), #873 at fc0725a7 and #866 at 0ffd2499 (next merged in) | test_song_study (13), test_looks (5), test_plan (5) | PASS all; #873's n07 now also follows n04 |
 | 2026-10-29 | #869 at 7950de1b (Director: P4 advisory check, P3 on-screen text fix) | 21 house prompts identical; text_on_screen on 7 phrasings; tests (107) | FAIL: "No captions, no text overlays", "without any on-screen text", "No text on screen" stripped and reported as fixes |
+| 2026-10-29 | #878 at 134233b2 (main: the save puts the words where they stay) | Repro: PUT == GET, stable, once; Shot edit; tests (14) | PASS |
 | 2026-10-29 | #858 at 2055786a (next merged in) | test_narration, test_song_takes, test_kie, publish with old narration (36) | PASS |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
