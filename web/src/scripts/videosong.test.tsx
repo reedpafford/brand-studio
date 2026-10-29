@@ -9,7 +9,7 @@ import { setViewport } from "../test/viewport";
 import { SongSetting, SongStrip } from "./VideoSong";
 
 const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspace_id: 1 };
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.2, 0.8], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, in_video: false, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, retry_credits: 0, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.2, 0.8], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, in_video: false, ...o });
 const songs = (takes: object[], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, song_take_id: 1, ...o });
 const project = (o: object = {}) => ({ id: 5, brand_id: 1, name: "Bowl song", own_script: false, credits_used: 10, budget_credits: 100, budget_pct: 10, ...o }) as never;
 
@@ -98,7 +98,7 @@ test("a refusal inside a video says the lyrics are final and the way on is anoth
   await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
   const panel = await screen.findByRole("dialog", { name: "Change song" });
   expect(within(panel).getByText("The lyrics are final in a video: try again, or use another take.")).toBeInTheDocument();
-  expect(within(panel).getByRole("button", { name: /Try again/ })).toBeInTheDocument();
+  expect(within(panel).getByRole("button", { name: /^Try again · free$/ })).toBeInTheDocument(); // the server's retry_credits, 0 here
 });
 
 test("both takes this video made can be deleted, unless the video uses one", async () => {

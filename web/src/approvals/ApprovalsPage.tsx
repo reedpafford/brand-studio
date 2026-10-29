@@ -103,7 +103,7 @@ export function ApprovalsPage() {
   const money = known && held.heldJobs.length > 0 ? ` (${dollars(totalUsd)})` : "";
   const count = `${held.count} waiting${credits > 0 ? ` · ${creditsText(credits)}${money}` : ""}`;
   const all = (
-    <Button charge="fixed" price={credits > 0 ? credits : undefined} disabled={held.count === 0} busy={approveAll.isPending} onClick={() => setAsking(true)}>
+    <Button charge="estimate" price={credits > 0 ? credits : undefined} disabled={held.count === 0} busy={approveAll.isPending} onClick={() => setAsking(true)}>
       Approve all
     </Button>
   );
