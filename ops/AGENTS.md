@@ -19,6 +19,9 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 
 ## Flow
 Producer opens issue → (Designer sketches screens) → Builder opens PR from `agent/<name>/<topic>` → QA (+ Steward, Designer) review → merge → Scribe logs → Explorer checks live.
+- **Before every push, check the PR is still open.** A push to a merged PR never ships; put it in a new PR from the base branch instead.
+- **Branch every PR from its base (`main` or `next`), never from another open PR.** Squash merges break stacked PRs.
+- **After QA passes a head, don't push to it** unless the Producer asks; a new head needs a new pass.
 
 ## Size budgets (Steward enforces)
 - Whole app: about 36,000 lines of app code (server/app Python plus web/src without tests or the generated schema.d.ts) is a guide, not a hard cap (Current rules 26). The app can grow when needed, but no redundant or duplicate code, and each change deletes what it replaces. The Steward reports the count on every PR. Any file over 400 lines needs a reason.
