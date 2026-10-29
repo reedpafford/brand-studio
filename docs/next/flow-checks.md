@@ -59,6 +59,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
+| Narration music (#912) | Real music model runs wherever generation is on; a failed bed says nothing was charged after the prompt was | Off-by-default setting; retry the bed only from the saved prompt | #912 at 6ba27460 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -240,3 +241,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #893 at 4d2b36f7 (one next version; follows_plan wired, leftovers as Advice) | version repro; plan_route + plan (10) | PASS |
 | 2026-10-29 | #886 at 624a68da (text_on_screen_advice on the fixed prompt) | reword on 2 prompts; clip_takes + item_check (18) | PASS |
 | 2026-10-29 | #909 at 04350686 (Make another waits while timing; "Wait for the narration to finish") | vitest scripts + projects (587) | PASS |
+| 2026-10-29 | #912 at 6ba27460 (narration music bed, narrated mix) | code walk; narration + needs_you (18) | FAIL: no off switch for real Stable Audio (only generation_enabled); "Nothing was charged" wrong when the prompt succeeded and the bed failed |
