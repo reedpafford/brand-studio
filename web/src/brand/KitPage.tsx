@@ -192,10 +192,10 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
               </Select>
             )}
             {languages && (
-              // Only languages that are on; a default switched off since stays, said plainly (rule 22).
-              <Select label="Language" disabled={!owner} value={kit.default_language} onChange={(e) => set("default_language", e.target.value)} hint={languages.some((l) => l.id === kit.default_language && !l.on) ? "Switched off: new scripts start in English. Pick a language that's on." : undefined}>
-                {languages.filter((l) => l.on || l.id === kit.default_language).map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}{l.on ? "" : ", switched off"}</option>
+              // Every language, as the Look picker: an Off one is marked, and editors start in English.
+              <Select label="Language" disabled={!owner} value={kit.default_language} onChange={(e) => set("default_language", e.target.value)} hint={languages.some((l) => l.id === kit.default_language && !l.on) ? "New scripts by editors start in English." : undefined}>
+                {languages.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}{l.on ? "" : " (off for editors)"}</option>
                 ))}
               </Select>
             )}

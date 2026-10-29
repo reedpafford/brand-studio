@@ -51,25 +51,24 @@ test("the owner edits voice and tone and the defaults; one save sends them, neve
   expect(body).not.toHaveProperty("end_line");
 });
 
-test("the default language offers the languages that are on; one switched off since is said plainly", async () => {
+test("the default language lists every language, an Off one marked as on the Look picker", async () => {
   setViewport(390);
   const calls = fakeServer({ ...routes(owner), "PATCH /brands/1": [200, brand] });
   renderAt("/b/1/brand");
   const picker = await screen.findByLabelText("Language");
-  expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["English", "Spanish"]); // Indonesian is off
+  expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["English", "Spanish", "Indonesian (off for editors)"]);
   await userEvent.selectOptions(picker, "es");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect((calls.find((c) => c.key === "PATCH /brands/1")?.body as Record<string, unknown>)?.default_language).toBe("es"));
 });
 
-test("a brand whose default language was switched off shows it with a way to pick another", async () => {
+test("an Off default language says editors' new scripts start in English", async () => {
   setViewport(1440);
   fakeServer(routes(owner, { ...brand, default_language: "id" }));
   renderAt("/b/1/brand");
   const picker = await screen.findByLabelText("Language");
-  expect(within(picker).getByRole("option", { name: "Indonesian, switched off" })).toBeInTheDocument();
-  expect(screen.getByText("Switched off: new scripts start in English. Pick a language that's on.")).toBeInTheDocument();
-  expect(within(picker).getByRole("option", { name: "Spanish" })).toBeInTheDocument();
+  expect(picker).toHaveValue("id");
+  expect(screen.getByText("New scripts by editors start in English.")).toBeInTheDocument();
 });
 
 test("a deleted default character says so, with Pick another and Remove; only workspace characters are offered", async () => {
