@@ -36,6 +36,8 @@ def test_two_directions_are_written_from_a_script_and_one_is_used_with_undo(
     assert version["directions_job"] is None
     assert a["recommended"] and not b["recommended"] and "Your dog's gut is a mess" in a["lyrics"]
     assert b["left_out"] == ["Link in my bio"] and "sung words" in a["length_note"]
+    assert "Jack Johnson" not in a["style_line"]  # the stand-in named it; taken out, free
+    assert any("Jack Johnson" in x for x in a["advice"])
 
     used = owner.post(f"{song}/directions/{b['id']}/use").json()
     after = _version(owner, song)
@@ -109,3 +111,31 @@ def test_a_brand_with_notes_is_enough_to_go_on(app, db, owner):
     empty = owner.post("/scripts", json={"brand_id": brand, "title": "x", "description": "",
                                          "kind": "song", "text": ""}).json()  # fmt: skip
     assert _version(owner, f"/scripts/{empty['id']}/drafts/0")["directions_stop"] is None
+
+
+def test_a_sounds_like_name_never_reaches_the_music_service(app, db, owner, song):  # noqa: F811
+    owner.post(f"{song}/directions", json={"sounds_like": "Jack Johnson"})
+    _work(app, db)
+    a = _version(owner, song)["song_directions"][0]
+    owner.post(f"{song}/directions/{a['id']}/use")
+    assert owner.post(f"{song}/songs", json={}).status_code == 201
+    sent = db.query(Job).filter(Job.kind == "music").one().input["input"]
+    assert "jack johnson" not in str(sent).lower()
+
+
+def test_an_answer_to_fix_is_written_again_once_in_the_same_job(app, db, owner, song):  # noqa: F811
+    made = owner.post(f"{song}/directions", json={"note": "fake:three"}).json()
+    _work(app, db)
+    job = db.get(Job, made["id"])
+    assert job.status == "succeeded" and job.credits == made["credits"]  # charged once
+    assert len(_version(owner, song)["song_directions"]) == 2
+
+
+def test_an_answer_still_to_fix_fails_and_nothing_is_shown_or_charged(app, db, owner, song):  # noqa: F811
+    made = owner.post(f"{song}/directions", json={"note": "fake:three-always"}).json()
+    _work(app, db)
+    version = _version(owner, song)
+    assert version["song_directions"] == []
+    failed = version["directions_job"]
+    assert failed["status"] == "failed" and failed["reason"] == song_directions.UNFINISHED
+    assert db.get(Job, made["id"]).status == "failed"  # failed jobs are never counted

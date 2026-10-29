@@ -37,6 +37,28 @@ def step_failed(db: Session, job: Job) -> None:
             log.exception("job %s: retrying the reel watch failed", job.id)
 
 
+def recheck(job_input: dict, result, ask):
+    """Song directions: the Director's check on the answer; with fixes, the one rewrite
+    inside the same job (`ask` runs it; charged once: credits never pass the shown price),
+    and if that still needs fixing the job fails, so nothing is shown or charged (rule 22)."""
+    from app import song_directions as sd
+    from app.providers import Result
+
+    if job_input.get("step") != sd.STEP or result.state != "succeeded":
+        return result
+    output, fixes = sd.checked(job_input, result.output)
+    if fixes:
+        second = ask(sd.again(job_input, fixes))
+        second.usage = [*result.usage, *second.usage]  # both calls' dollars are listed
+        if second.state != "succeeded":
+            return second
+        result, (output, fixes) = second, sd.checked(job_input, second.output)
+    if fixes:
+        return Result("failed", error=sd.STILL + "; ".join(fixes), usage=result.usage)
+    result.output = output
+    return result
+
+
 def save_step_result(db: Session, job: Job) -> None:
     from app.breakdown import save_breakdown
     from app.change import save_changed

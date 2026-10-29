@@ -26,6 +26,8 @@ from app.script_preview import stand_in_project
 STEP = "song_directions"
 NOTHING = "Add what the brand sells on the brand page, or paste a script to adapt."
 APPROVED = "These lyrics are approved, so a direction can't be used here. Duplicate it to try one."
+UNFINISHED = "The directions didn't finish. Nothing was charged."
+STILL = "still needs fixing: "  # the raw reason (owner-only) when the one rewrite didn't fix it
 
 
 def stop(db: Session, script: Script, draft: ScriptDraft, source: str = "") -> str | None:
@@ -66,7 +68,25 @@ def job_input(
         source=escape(source), sounds_like=escape(sounds_like),
     )  # fmt: skip
     return {"step": STEP, "script_id": script.id, "slot": draft.slot, "system": system,
-            "prompt": message, "sounds_like": sounds_like}  # fmt: skip
+            "prompt": message, "sounds_like": sounds_like, "brand": script_brand(db, script),
+            "seconds": draft.target_seconds}  # fmt: skip
+
+
+def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
+    """An answer after the Director's free repair (a "sounds like" name never reaches the
+    music service) and check: the answer to save, with its notes, and its fixes."""
+    result = SongDirections.model_validate(output)
+    notes, fixes = check.finish_directions(
+        result, job_input["brand"], job_input.get("seconds"), job_input.get("sounds_like", "")
+    )
+    return {**result.model_dump(), "notes": notes}, fixes
+
+
+def again(job_input: dict, fixes: list[str]) -> dict:
+    """The one rewrite inside the same job (charged once): the same ask, with what to fix."""
+    said = "\n".join(f"- {f}" for f in fixes)
+    fix = f"<fix>\nYour last answer can't be used:\n{said}\nWrite both directions again.\n</fix>"
+    return {**job_input, "prompt": f"{job_input['prompt']}\n{fix}"}
 
 
 def save(db: Session, job: Job) -> None:
@@ -76,13 +96,11 @@ def save(db: Session, job: Job) -> None:
                                                 ScriptDraft.slot == job.input["slot"]))  # fmt: skip
     if draft is None or script.published:
         return
-    result = SongDirections.model_validate(job.output)
-    brand = script_brand(db, script)
-    advice = check.song_directions(result, brand, draft.target_seconds,
-                                   sounds_like=job.input.get("sounds_like", ""))  # fmt: skip
+    result = SongDirections.model_validate(job.output)  # repaired and checked (`recheck`)
+    advice = job.output.get("notes", [])
     pair = []
     for n, d in enumerate(result.directions, 1):
-        names = [a for a in advice if a.startswith(f"direction {n}")]
+        names = [a for a in advice if a.removeprefix(check.ADVICE).startswith(f"direction {n}")]
         pair.append({
             **d.model_dump(), "id": uuid.uuid4().hex[:12], "recommended": n == result.recommended,
             "length_note": check.length_note(d.lyrics), "advice": names,
