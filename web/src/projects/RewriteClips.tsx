@@ -15,7 +15,8 @@ export function useRewritePrice(projectId: number, clipId?: string) {
 type Props = { projectId: number; busy: boolean; stopFor: (cost: number | undefined) => string | null; onRewrite: () => void };
 
 /** The Clips step never dead-ends: clips written for an older breakdown get their prompts written again (takes are kept). */
-export function RewriteNote({ count, ...props }: Props & { count: number; writing: boolean }) {
+/** `inBar`: the rewrite is the cost bar's press (the video page), so the banner only says what happened. */
+export function RewriteNote({ count, inBar, ...props }: Props & { count: number; writing: boolean; inBar?: boolean }) {
   const price = useRewritePrice(props.projectId);
   if (props.writing) return <Banner tone="info" title="Rewriting clip prompts…" />;
   const stop = props.stopFor(price);
@@ -24,9 +25,11 @@ export function RewriteNote({ count, ...props }: Props & { count: number; writin
       tone="warning"
       title={`${count} clip${count === 1 ? " was" : "s were"} made for an older breakdown. Rewrite ${count === 1 ? "its prompt" : "their prompts"} so ${count === 1 ? "it matches" : "they match"}.`}
       action={
-        <Button busy={props.busy} price={price} reason={stop} disabled={!!stop} onClick={props.onRewrite}>
-          Rewrite clip prompts
-        </Button>
+        inBar ? undefined : (
+          <Button busy={props.busy} price={price} reason={stop} disabled={!!stop} onClick={props.onRewrite}>
+            Rewrite clip prompts
+          </Button>
+        )
       }
     />
   );

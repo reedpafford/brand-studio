@@ -15,6 +15,7 @@ import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
 import { RewriteNote, RewriteOne, useRewritePrice } from "./RewriteClips";
 import { ClipCard } from "./ClipCard";
+import { useCostBarAction } from "./CostBar";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -180,9 +181,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     ready: rows.filter((c) => c.picked_take_id !== null && !c.approved && !c.stale && blocking(c.problems, c.kept).length === 0).length,
     waiting: rows.filter((c) => !c.approved).length,
   });
-  if (clips.isPending || frames.isPending || !clips.isFetchedAfterMount || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
-  if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
-  const list = clips.data;
+  const loading = clips.isPending || frames.isPending || !clips.isFetchedAfterMount || !frames.isFetchedAfterMount; // read again for this step, never a cached earlier list
+  const list = rows;
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
   const err = write.error ?? generate.error ?? review.error ?? edit.error ?? realImage.error ?? promptOk.error;
   const takeCost = (c: Clip) => c.take_credits;
@@ -200,6 +200,18 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   // The rewrite comes first: a stale prompt is read again after it.
   const makeWhy = stale.length > 0 ? `Rewrite the clips made for an older breakdown first (${stale.length}).` : unread > 0 ? unreadWhy : stopFor(allCost);
   const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
+  const makeAll = async () => {
+    for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
+  };
+  // On the video page the step's one amber sits in the cost bar (audit M1): write the prompts, rewrite the ones made for an
+  // older breakdown, or make the takes. Approve all and each card's presses stay here.
+  const bar = !!props.review && !loading && !clips.isError && !writingNow;
+  const rewrite = { price: writeCost, reason: stopFor(writeCost), busy: write.isPending, onPress: () => write.mutate(undefined) };
+  useCostBarAction(
+    !bar ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : null,
+  );
+  if (loading) return <p role="status" className="text-muted">Loading…</p>;
+  if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
 
   if (writingNow && list.length === 0)
     return (
@@ -223,9 +235,11 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
         <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
-        <Button dense price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
-          Write clip prompts
-        </Button>
+        {!bar && (
+          <Button dense price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
+            Write clip prompts
+          </Button>
+        )}
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
         {declined && <p className="text-sm text-warning">{declined}</p>}
       </section>
@@ -234,12 +248,15 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   return (
     <div className="space-y-4" aria-label="Clips">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[length:var(--text-md)] font-semibold">
-          Clips <span className="font-normal text-muted">· {list.length} · {approved} approved</span>
-        </h2>
+        {/* On the video page the step heading above already carries the counts (audit S14). */}
+        {!props.review && (
+          <h2 className="text-[length:var(--text-md)] font-semibold">
+            Clips <span className="font-normal text-muted">· {list.length} · {approved} approved</span>
+          </h2>
+        )}
         <span className="flex w-full flex-wrap gap-2 sm:w-auto">
           {approveAll.button}
-        {missing.length > 0 && (
+        {missing.length > 0 && !bar && (
           <Button
             variant={stale.length > 0 ? "secondary" : "primary"} // the rewrite is the step's amber while any clip is stale
             dense
@@ -247,9 +264,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
             busy={generate.isPending}
             disabled={!!makeWhy}
             reason={makeWhy}
-            onClick={async () => {
-              for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
-            }}
+            onClick={() => void makeAll()}
           >
             {props.review ? "Make the takes" : "Make missing"}
           </Button>
@@ -258,7 +273,7 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
       </div>
       {approveAll.line}
       {declined && <p className="text-sm text-warning">{declined}</p>}
-      {stale.length > 0 && <RewriteNote projectId={projectId} count={stale.length} writing={writingNow} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(undefined)} />}
+      {stale.length > 0 && <RewriteNote projectId={projectId} count={stale.length} writing={writingNow} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(undefined)} inBar={bar} />}
       {unread > 0 && missing.length === 0 && stale.length === 0 && <p className="text-sm text-muted">{unreadWhy}</p>}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       {waitingForSheet.length > 0 && (
