@@ -297,6 +297,21 @@ test("a redo that didn't finish says why by its button, which can be pressed aga
   expect(within(card).getByRole("button", { name: /Redo this frame/ })).toBeEnabled();
 });
 
+test("a redo whose still didn't finish says so on the card (the frame is no longer out of date), until a newer still is started", async () => {
+  setViewport(390);
+  const said = "The frame was written again, but its still didn't finish, so the still wasn't charged. Press Make still to draw it.";
+  const failed = withStill({ prompt: "p2", change: { note: "Redo this frame", job_id: 51, made_job_id: 52, status: "failed", error: said } });
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [failed]], "GET /jobs": [200, [{ id: 52, kind: "image", step: "frame", status: "failed", frame_id: 1, project_id: 9, credits: 0, created_at: "2026-10-29T03:00:00Z" }]] });
+  open();
+  expect(await within(await screen.findByLabelText("Frame c1")).findByRole("alert")).toHaveTextContent(said);
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [failed]], "GET /jobs": [200, [{ id: 53, kind: "image", step: "frame", status: "succeeded", frame_id: 1, project_id: 9, credits: 1, created_at: "2026-10-29T03:05:00Z" }]] });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  await vi.waitFor(() => expect(within(card).queryByText(said)).toBeNull());
+});
+
 test("a frame whose clip's shots changed says why it can't be redone alone, with Redo storyboard right there (no dead end)", async () => {
   setViewport(390);
   const calls = fakeServer({

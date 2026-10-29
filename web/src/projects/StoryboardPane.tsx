@@ -337,6 +337,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               onPick={(file) => pick.mutate({ frame: f, file })}
               onRender={(note) => render.mutate({ frame: f, note })}
               redoing={redoFrame.isPending && redoFrame.variables?.id === f.id}
+              newerJob={frameJobs.some((j) => j.id > ((f.change as { made_job_id?: number; job_id?: number } | null)?.made_job_id ?? (f.change as { job_id?: number } | null)?.job_id ?? Infinity))}
               onRedo={() => {
                 if (window.confirm(`Redo frame ${f.clip_id} for ${creditsLabel(f.redo_credits ?? 0)}? Its prompt is written again from the new breakdown and its still drawn again. The current still stays, to pick back.`)) redoFrame.mutate(f);
               }}
