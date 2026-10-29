@@ -148,8 +148,9 @@ def refused(db: Session, job: Job) -> None:
                  if r["id"].startswith("char:")), None)  # fmt: skip
     item = db.get(LibraryItem, int(char.split(":")[1])) if char else None
     lead = item.name if item else "the main character"
-    job.error = (f"{REFUSED} Try another look for {lead}, or use Change this… on the opening "
-                 "shot. Nothing was charged.")  # fmt: skip
+    job.error = (f"{REFUSED} This check can be a little random, so try making it again first; "
+                 f"a refused take costs nothing. If it's refused again, try another look for "
+                 f"{lead}, or use Change this… on the opening shot.")  # fmt: skip
 
 
 def take_warning(db: Session, row: ProjectClip) -> str | None:
