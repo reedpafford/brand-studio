@@ -58,7 +58,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Usage (live today, small) | With 25+ brands the list pages at 25 + Show more; with "Show archived" ticked, a just-archived brand can sit behind Show more (reachable, not a dead end) | Archived first when shown | 10+ brands check |
-| Song breakdown edit (#799) | Delete the last shot, then Undo: the last shot comes back 0 seconds long (the shot before keeps the stretched end); no problem shown. A reorder gives 0-second shots too | Undo exact; a 0-second shot is a problem | #799 at a7cb3567, still at 106e9061 |
+| Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -134,4 +134,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #799 at 106e9061 (Sung clips out of date on any take change) | Same 12 checks | FAIL: same last-shot Undo state; the other 11 pass |
 | 2026-10-29 | #810 at 50859f17 (take video cost, Delete on own takes, clips note) | Full suite + Change song walk at 1440 and 390 (57 passed); vitest 201 | PASS; fix expected: the cost isn't rounded (`wholeCredits`) |
 | 2026-10-29 | #810 at e2efd06b | The cost rounding fix | PASS |
+| 2026-10-29 | #799 at 8e20e1fa (a stretch is never a shot's own time; 0.5 s floor) | 15 checks: last-shot Undo, last two shots, one-step Undo, reorder, song switch | PASS (14/15); a reorder's Undo is not exact, API only |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
