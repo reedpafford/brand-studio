@@ -1588,3 +1588,27 @@ test("Clips' one amber is in the cost bar: Make the takes, with its price and wh
   await userEvent.click(make);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/generate")).toBe(true));
 });
+
+test("switching the look re-reads the cast, so a role with no sheet in the new look holds Storyboard's redraw (Flow-QA on #926)", async () => {
+  setViewport(1440);
+  const looks = [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }, { id: "pixar", name: "Disney Pixar", blurb: "", on: true, sample_still_id: null }];
+  const settings = { look: "house", video_model: null, image_model: null, aspect_ratio: "9:16", product_variants: {}, language: "en", video_models: [], image_models: [], shapes: ["9:16"], flavours: {} };
+  const routes: Record<string, [number, unknown]> = {
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }]],
+    "GET /looks": [200, looks],
+    "GET /projects/9/settings": [200, settings],
+    "POST /projects/9/settings/preview": [200, { to_finish_credits: 30, was_credits: 30, stills_out_of_date: 1, clips_out_of_date: 0, sung_to_broll: 0, over_budget: false, over_cap: false, reason: null, roles_needing_look: ["Bo"] }],
+    "POST /projects/9/settings": [200, { settings: { ...settings, look: "pixar" }, was: { look: "house" } }],
+  };
+  fakeServer(routes);
+  open("?step=storyboard");
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+  expect(screen.queryByText("Waiting on the cast")).toBeNull();
+  await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
+  await userEvent.click((await screen.findAllByRole("button", { name: "Use this look" }))[0]);
+  const ask = await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
+  routes["GET /projects/9/assets"] = [200, [asset({ locked: true })]]; // Bo has no sheet in Disney Pixar yet
+  await userEvent.click(await within(ask).findByRole("button", { name: "Switch" }));
+  expect(await screen.findByText("Waiting on the cast")).toBeInTheDocument();
+});
