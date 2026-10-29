@@ -151,3 +151,21 @@ def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa:
     assert after["out_of_date"] is False and [
         x["n"] for s in after["scenes"] for x in s["lines"]
     ] == [2, 3, 4, 5]
+
+
+def test_a_plan_finished_mid_read_is_never_missed(app, db, editor, setup, monkeypatch):  # noqa: F811
+    """Next-Screens' flake: the job finished and saved its plan between reading the video and
+    reading the job, and the page was told "no plan yet"."""
+    from app import plans
+
+    url = f"/projects/{setup['project']}/plan"
+    editor.post(url, json={})
+    real = plans.job_state
+
+    def finishes_now(db_, project):
+        _write(app, db)  # the worker, in its own session, mid-request
+        return real(db_, project)
+
+    monkeypatch.setattr(plans, "job_state", finishes_now)
+    got = editor.get(url)
+    assert got.status_code == 200 and got.json()["source"] == "claude"

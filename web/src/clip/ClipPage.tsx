@@ -1,3 +1,4 @@
+import { ProjectsChip } from "../folders/Projects";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -180,6 +181,7 @@ function Studio({ models }: { models: Model[] }) {
           <p className="type-eyebrow text-muted">{brand?.name}</p>
           <h1 className="type-page">Quick clip</h1>
         </div>
+        <ProjectsChip brandId={brandId} />
         {allowanceLine}
       </div>
       <section aria-label="Clip settings" className="flex flex-col lg:self-start lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:shadow-card">

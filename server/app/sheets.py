@@ -32,9 +32,12 @@ def sheet_for(db, project, item: LibraryItem) -> list[int]:
     """The picture a video uses for an item, in the video's look (flows ST2). House: the
     approved House sheet, as always. Another look: the owner's approved sheet in that look,
     else this video's own copy drawn in it (look_copies), else none, so the editor is offered
-    "Make a {look} look for this video". A video's own looks are drawn for it (sheet_look);
-    places and props keep their House pictures. ST1 counts the roles left with none."""
+    "Make a {look} look for this video". A video's own looks are drawn for it (sheet_look),
+    so one drawn in another look has none here; places and props keep their House pictures.
+    ST1 counts the roles left with none."""
     look = project.look or "house"
+    if item.kind == Kind.character and own(item) and (item.sheet_look or "house") != look:
+        return []  # a role's own look drawn in another look: none yet (Flow-QA on #967)
     if look == "house" or item.kind != Kind.character or own(item):
         return usable_files(item)
     sheet = (item.look_sheets or {}).get(look) or {}
@@ -107,11 +110,19 @@ def require_cast_sheets(db, breakdown_data: dict, shot_ids: list[str], known=Non
         require_looks([[i for i in ids if i]], known)
 
 
+NO_LOOK = "no look in this video's look yet"  # an asset line's end: see lookless
+
+
 def lookless(shots: list[list[str]], known: dict) -> list[str]:
     """The names of the roles in these shots (each a list of character ids) that have no
-    approved look yet, each once."""
+    approved look yet, each once. A cast character counts too when it has a House sheet but
+    none in the video's look (storyboard.assets marks it NO_LOOK: sheet_for found neither that
+    look's approved sheet nor the video's own copy), so it's never drawn without one (Flow-QA:
+    Mia, House only, on Pixar). One with no sheet at all is require_sheet's."""
     out = [r.partition(":")[2] for ids in shots for r in ids if r.startswith("unroled:")]
-    for ref in (r for ids in shots for r in ids if r.startswith("slot:")):
+    for ref in (r for ids in shots for r in ids if r.startswith(("slot:", "char:"))):
+        if ref.startswith("char:") and not known.get(ref, ("",))[0].endswith(NO_LOOK):
+            continue
         if ref in known and not known[ref][-1]:
             parts = known[ref][0].split(" | ")
             out.append(parts[2].split(",")[0].strip() if len(parts) > 2 else "A character")

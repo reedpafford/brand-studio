@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -1465,7 +1465,7 @@ test("Make this version shows the video's settings, and a pick moves the price l
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   const row = await within(panel).findByRole("region", { name: "Video settings" });
   expect(within(row).getByText("Language: English (from the script)")).toBeInTheDocument();
-  expect(within(row).getByRole("button", { name: /Flavour: Salmon/ })).toBeInTheDocument();
+  expect(within(row).getByRole("button", { name: /Flavour: Auto/ })).toBeInTheDocument(); // no default, no pick
   // The estimate for the new pick; Kling can't lip-sync, and says so in the picker.
   fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 34, over_cap: false, reason: null }] }));
   await userEvent.click(within(row).getByRole("button", { name: /Video model: Auto/ }));
@@ -1483,7 +1483,7 @@ test("Make this version sends the picks as its body, and none when nothing was c
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   const row = await within(panel).findByRole("region", { name: "Video settings" });
-  await userEvent.click(within(row).getByRole("button", { name: /Flavour: Salmon/ }));
+  await userEvent.click(within(row).getByRole("button", { name: /Flavour: Auto/ }));
   await userEvent.click(within(await screen.findByRole("dialog", { name: "Flavour" })).getByRole("button", { name: "Chicken" }));
   await userEvent.click(await within(panel).findByRole("button", { name: /Make this version/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/produce")?.body).toEqual({ product_variants: { "Iron Paws": "Chicken" } }));
@@ -1507,6 +1507,46 @@ test("on a phone the settings are one line that opens a sheet", async () => {
   open();
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
-  await userEvent.click(await within(panel).findByRole("button", { name: /^Settings: 9:16 · Salmon · .*Auto · Auto$/ }));
+  await userEvent.click(await within(panel).findByRole("button", { name: /^Settings: 9:16 · Auto · .*Auto · Auto$/ }));
   expect(await screen.findByRole("dialog", { name: "Video settings" })).toBeInTheDocument();
+});
+
+test("with the owner's plan approved, Make this version says the shots come next and what they cost", async () => {
+  setViewport(390);
+  const full = { ...script({ versions: [v(0, "approved", { text: "INT. KITCHEN\nBo sniffs the salmon.", has_breakdown: false, estimate_credits: 21 })] }) };
+  const calls = fakeServer({
+    ...base,
+    "GET /scripts": [200, [script({ versions: [v(0, "approved")] })]],
+    "GET /scripts/7": [200, full],
+    "GET /scripts/7/cast": [200, []],
+    "GET /scripts/7/drafts/0/plan": [200, { status: "approved", scenes: [] }],
+    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]],
+    "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: 4 }],
+    "GET /projects/55": [404, { detail: "x" }],
+  });
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
+  expect(await within(panel).findByText("From the owner's plan: the shots are made when you start")).toBeInTheDocument();
+  expect(within(panel).getByText("Starting costs 3 (the shots) · the whole video about 21 credits")).toBeInTheDocument();
+  await userEvent.click(within(panel).getByRole("button", { name: /Make this version.*3 credits/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/produce")).toBe(true));
+  expect(await screen.findByText("Version A is yours. Next: the shots.")).toBeInTheDocument();
+});
+
+test("a version's default flavour is the row's; one the brand has since deleted shows as Auto", async () => {
+  setViewport(1440);
+  const withDefaults = (flavours: object) => [200, script({ look: "house", language: "en", versions: [v(0, "approved", { has_breakdown: false, estimate_credits: 21, flavours })] })] as [number, unknown];
+  fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Chicken" }) }));
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  let row = await within(await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" })).findByRole("region", { name: "Video settings" });
+  expect(within(row).getByRole("button", { name: /Flavour: Chicken/ })).toBeInTheDocument();
+  cleanup();
+  fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Beef" }) })); // Beef was deleted from the brand
+  open();
+  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
+  row = await within(await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" })).findByRole("region", { name: "Video settings" });
+  expect(within(row).getByRole("button", { name: /Flavour: Auto/ })).toBeInTheDocument();
+  expect(within(row).queryByText(/Beef/)).toBeNull();
 });

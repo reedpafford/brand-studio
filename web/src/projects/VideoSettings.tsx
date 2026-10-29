@@ -86,6 +86,9 @@ function confirmText(field: Field, choice: Choice, p: PreviewOut, finished: bool
   const lines: string[] = [];
   const later = [p.stills_out_of_date && n(p.stills_out_of_date, "still"), p.clips_out_of_date && n(p.clips_out_of_date, "clip")].filter(Boolean).join(" and ");
   if (finished) lines.push(`This video is finished.${later ? ` Changing the ${field.label.toLowerCase()} puts ${later} out of date;` : ""} your current final cut stays downloadable until you make a new one.`);
+  // A look switch leaves these roles with no look in it yet: they're made in Cast (flows ST1).
+  const roles = p.roles_needing_look ?? [];
+  if (roles.length > 0) lines.push(`${roles.length > 2 ? `${roles.length} roles` : roles.join(" and ")} need${roles.length === 1 ? "s" : ""} a new look, made in Cast.`);
   if (p.sung_to_broll > 0) lines.push(`${choice.label} can't lip-sync. Your ${n(p.sung_to_broll, "Sung shot")} become${p.sung_to_broll === 1 ? "s" : ""} B-roll (picture only).`);
   if (later && !finished) lines.push(`${cap(later)} already made stay as they are and show Out of date.`);
   lines.push(`To finish: about ${credits(wholeCredits(p.to_finish_credits))} (was ${wholeCredits(p.was_credits)}).`);
@@ -109,7 +112,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
     queryKey: ["video-settings-preview", p.id, asking?.choice.body],
     queryFn: () => must(api.POST("/projects/{project_id}/settings/preview", { params: { path: { project_id: p.id } }, body: asking!.choice.body })).then((r) => r.data! as PreviewOut),
   });
-  const refresh = () => Promise.all([["video-settings", p.id], ["project", p.id], ["project-estimate", p.id], ["storyboard", p.id], ["project-clips", p.id]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
+  const refresh = () => Promise.all([["video-settings", p.id], ["project", p.id], ["project-estimate", p.id], ["storyboard", p.id], ["project-clips", p.id], ["assets", p.id], ["missing-looks", p.id]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
   const apply = useMutation({ mutationFn: (body: SettingIn) => must(api.POST("/projects/{project_id}/settings", { params: { path: { project_id: p.id } }, body })).then((r) => r.data!) });
   const switchTo = (field: Field, choice: Choice) =>
     apply.mutate(choice.body, {

@@ -18,12 +18,15 @@ export type MakeEstimate = { credits: number; over_cap: boolean; reason: string 
 /** The row's choices before a video exists, built as the video's own settings are (Next-Lead: no settings route here):
  *  models and prices from the catalogue, looks, the fixed shapes, the brand's flavours. Defaults: the script's look, Auto
  *  models, 9:16, each product's first flavour. */
-function useChoices(script: Script, picks: Picks): SettingsOut | null {
+function useChoices(script: Script, picks: Picks, defaults: Record<string, string>): (SettingsOut & { auto: string[] }) | null {
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const screens = useQuery({ queryKey: ["screens", script.brand_id], queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: script.brand_id } } })).data ?? [] });
   if (!models.data || !screens.data) return null;
   const flavours: Record<string, string[]> = {};
   for (const s of screens.data) if (s.product && s.variant && !(flavours[s.product] ??= []).includes(s.variant)) flavours[s.product].push(s.variant);
+  // The version's default flavours (#968), each only while the brand still has it: a deleted one is Auto, never shown as current.
+  const kept = Object.fromEntries(Object.entries(defaults).filter(([p, v]) => flavours[p]?.includes(v)));
+  const variants = { ...kept, ...picks.product_variants };
   const rate = (m: (typeof models.data)[number], at: string) => m.credits_per_unit[at] ?? Object.values(m.credits_per_unit)[0] ?? 0;
   const lipSync = (m: object) => (m as { lip_sync?: boolean }).lip_sync ?? true; // in the catalogue's output with #956
   return {
@@ -31,7 +34,8 @@ function useChoices(script: Script, picks: Picks): SettingsOut | null {
     video_model: picks.video_model ?? null,
     image_model: picks.image_model ?? null,
     aspect_ratio: picks.aspect_ratio ?? "9:16",
-    product_variants: picks.product_variants ?? {},
+    product_variants: variants,
+    auto: Object.keys(flavours).filter((p) => !(p in kept)), // may go back to Auto (no default to fall back on)
     language: script.language,
     video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, "480p"), lip_sync: lipSync(m), default: m.default, over_cap: false })),
     image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default, over_cap: false })),
@@ -58,17 +62,28 @@ export function useMakeEstimate(scriptId: number, slot: number, picks: Picks, en
 
 /** Make this version's Video settings row (flows VS1, V1): the video's own row, its picks held here until the press. No
  *  confirm or Undo: nothing is made yet, so a pick only changes the price line. On a phone it is one line that opens a sheet. */
-export function MakeSettings({ script, picks, onPick }: { script: Script; picks: Picks; onPick: (p: Picks) => void }) {
+export function MakeSettings({ script, defaults, picks, onPick }: { script: Script; defaults: Record<string, string>; picks: Picks; onPick: (p: Picks) => void }) {
   const rail = useRail();
   const owner = useMe().data?.role === "owner";
   const looks = useLooks();
-  const settings = useChoices(script, picks);
+  const settings = useChoices(script, picks, defaults);
   const [sheet, setSheet] = useState(false);
   const [picking, setPicking] = useState<Field | null>(null);
   if (!settings) return null;
-  const fields = fieldsOf(settings, looks.data);
+  // A product with no flavour (none picked, no default) is Auto: the server picks, as on a video.
+  const fields = fieldsOf(settings, looks.data).map((f) => {
+    const product = f.key.startsWith("flavour:") ? f.key.slice("flavour:".length) : null;
+    if (!product || !settings.auto.includes(product)) return f;
+    const picked = product in settings.product_variants;
+    return { ...f, current: picked ? f.current : `auto:${product}`, valueLabel: picked ? f.valueLabel : "Auto", choices: [{ id: `auto:${product}`, label: "Auto", body: {} }, ...f.choices] };
+  });
   const pick = (c: Choice) => {
     setPicking(null);
+    if (c.id.startsWith("auto:")) {
+      const rest = { ...picks.product_variants };
+      delete rest[c.id.slice("auto:".length)];
+      return onPick({ ...picks, product_variants: Object.keys(rest).length ? rest : undefined });
+    }
     const { product_variants, ...one } = c.body;
     onPick(product_variants ? { ...picks, product_variants: { ...picks.product_variants, ...product_variants } } : { ...picks, ...one });
   };

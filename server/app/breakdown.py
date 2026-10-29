@@ -600,8 +600,9 @@ def save_breakdown(db: Session, job: Job) -> None:
             created_by_id=job.created_by_id,
         )
     )
-    from app import clip_prompts
+    from app import clip_prompts, video_settings
     from app.models.accounts import User
 
     db.flush()  # stale clip prompts are rewritten, within budget (follow commits first)
+    video_settings.follow_lip_sync(db, project, could=True)  # no lip-sync: Sung to B-roll (VS1)
     clip_prompts.follow(db, project, db.get(User, job.created_by_id))

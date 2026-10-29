@@ -52,6 +52,8 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect(page.getByText("3 roles · 0 locked")).toBeVisible();
   // Plan version A's shots first (stand-in provider, no cost), then publish.
   await page.getByRole("button", { name: "Next: Breakdown" }).click();
+  // The step opens on the scene plan (S6), which is optional: go straight to the shots.
+  await page.getByRole("tab", { name: "Shots" }).click();
   await page.getByRole("button", { name: /^Make the breakdown/ }).click();
   await expect(page.getByText(/^Planned · \d+ s/)).toBeVisible({ timeout: 60_000 });
   // Resizing the open page re-lays it out for the new width a moment later (the layout follows a media query), so wait for it to settle; measuring at once can catch the old layout squeezed into the new width.

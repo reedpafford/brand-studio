@@ -17,7 +17,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 |---|---|---|---|
 | n01 | Song ads: `scripts.kind`, `script_drafts.style_line`, `script_drafts.song_directions`, `script_drafts.singer`, `script_drafts.spoken_end_line`, `song_takes`, `projects.song_take_id` | Next-Server | #748 |
 | n02 | Song ads: `project_clips.song_slice`, `final_videos.song_take_id` | Next-Server (with the breakdown work) | #829 |
-| n03 | Flavour from the script: `script_drafts.flavours` JSON `{product: variant}` (default `{}`), copied to the video at Make this version (the video's own pick stays where it is today) | Next-Server | — |
+| n03 | Flavour from the script: `script_drafts.flavours` JSON `{product: variant}` (default `{}`), copied to the video at Make this version (the video's own pick stays where it is today; a pick sent with Make this version wins) | Next-Server | #968 |
 | n04 | Song-ad study (S3a): `script_drafts.song_study` JSON, default null | Builder-Server-7 | — |
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
 | n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, `project_clips.auto_fix`, new `item_checks`; existing videos are planned from their breakdown in code, when read | Builder-Server-8 | — |
@@ -25,6 +25,10 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n08 | Brand setup (BR1): new `brands` columns and product description/claim, below | Builder-Server-7 | #910 |
 | n09 | Video settings (VS1): `projects.video_model`, `projects.image_model`, `projects.sung_flipped`, `storyboard_frames.made_with`, `clip_takes.made_with`, `scripts.language`, below | Builder-Server-7 | #925 |
 | n10 | Per-look sheets (ST2): `library_items.look_sheets`, `library_items.sheet_look`, `projects.look_copies`, below | Next-Server | #930 |
+| n11 | Projects (OR1): new `folders`, `folder_id` on `scripts`, `projects` and `jobs`, below | Next-Server | #946 |
+| n12 | A role's own look per look: `projects.own_looks` JSON `{slot_id: {look: item_id}}`, so switching back to a look reuses its own look (ST2) | Next-Server | — |
+| n13 | Preferred and going back (OR3): `projects.storyboard_history`, `project_clips.prompt_history`, below | Builder-Server-8 | #957 |
+| n14 | Languages (LG1): new `language_switches` {workspace_id, language_id, on, sample, switched_by_id, switched_at}, one per workspace and language | Switch-On | #972 |
 
 ## Merge order (the chain on `next`)
 
@@ -39,9 +43,12 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 4 | n07 | #873 | n06 | On `next` (merged before n05) |
 | 5 | n05 | #858 | n07 | On `next` (ade1a9f1) |
 | 6 | n08 | #910 | n05 | On `next` (c098abd9) |
-| 7 | n09 | #925 | n08 | Open: its turn |
-| 8 | n10 | #930 | n09 (points at n08 for CI until #925 merges) | Open: after #925 |
-| — | n03 | Next-Server, flavours | the head when it's built | Not started |
+| 7 | n09 | #925 | n08 | On `next` |
+| 8 | n10 | #930 | n09 | On `next` |
+| 9 | n11 | #946 | n10 | On `next` |
+| 10 | n13 | #957 | n11 | On `next` (20d1df59) |
+| 11 | n03 | #968 | n13 | Open: its turn |
+| — | n12, n14 | own_looks; #972 | next's head when each merges | Open (they re-point to the head of their turn) |
 
 ## 1. Song ads
 
@@ -101,9 +108,20 @@ Code notes for Next-Server (not tables):
 | `projects.video_model`, `projects.image_model` | String(40), null = Auto (the catalogue default) | n09. The price and the job follow the pick. `catalogue.json` marks `lip_sync` on video models (no migration). |
 | `projects.sung_flipped` | JSON [] : `[{shot, print}]`, the song shots a no-lip-sync model turned to B-roll | n09. Switching to a lip-sync model flips exactly those back, unless the shot's print (its plan and song timing) changed since. |
 | `storyboard_frames.made_with`, `clip_takes.made_with` | JSON {} : the model, shape and products (product → variant actually attached) a still or take was made with; a take also keeps its Sung shots | n09. Out of date = any recorded value differs from the video's now; switching back makes it current again (nothing deleted). n09 fills in older rows from their job, else today's default and the video's shape. `look` keeps its own column. |
-| `scripts.language` | String(10) "en", filled from the brand's `default_language` when a script is made (every create path; a copy keeps its original's) | n09. A video reads it, read only. "Make a copy in another language" is its own (paid) item. A languages registry (English on, others off until a sample test) validates it next. |
+| `scripts.language` | String(10) "en", filled from the brand's `default_language` when a script is made (every create path; a copy keeps its original's) | n09. A video reads it, read only. "Make a copy in another language" is its own (paid) item. Checked against the languages list (`app/languages.py`, #937): English on, the others off until their sample test (LG1, `language_switches` overrides a language's `on`). An editor can't pick an Off language; an Off brand default starts an editor's script in English. |
 | Brand `default_cast` | No column: a new video with no cast starts with the brand's live default cast | — |
+| `projects.own_looks` | JSON {} : `{slot_id: {look: item_id}}`, every own look a role has had in each look | n12. A look switch re-points `slot_cast`/`slot_looks` to the role's own look in the new look when there is one (free, Undo = switch back), and VS1's preview doesn't count it. |
 
-## 5–6. Later items
+## 5. Organization
 
-Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; looks read from the existing `server/app/prompts/styles/` files (kind: look; the folder keeps its name, the screens say Look), `look` text on `scripts` and `projects`, default `house`, `look_switches` for On/Off (n07), and per-look sheets as library versions; Format is `scripts.kind`, above), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).
+| Where | Change | Notes |
+|---|---|---|
+| `folders` (people see "Project") | {id, workspace_id, brand_id, name String(120), created_by_id, created_at, deleted_at} | n11. Delete is soft: its items read as No project everywhere until Undo restores it. A live name is unique per brand, checked in code (a deleted one never blocks). |
+| `scripts.folder_id`, `projects.folder_id`, `jobs.folder_id` | Nullable FK to `folders`; null = No project | n11. Only quick clips (jobs with no video) are filed by `jobs.folder_id`; a video's own jobs follow the video. An item goes only in a project of its own brand. Counts match the lists as the person sees them (an editor's own videos). |
+| Media (OR2) | No storage: read from stills, sheets, takes, quick clips, songs and final videos | #954. A take's poster is the still it was made from. |
+| `projects.storyboard_history`, `project_clips.prompt_history` | JSON [] : the 10 newest earlier storyboards (their frames as data) and clip prompts | n13. "Use this version" puts the one in hand into history first (Undo). Breakdowns go back by copying the old row as a new one (history only grows). A frame's earlier stills gain `made_at`/`made_by`; a take records its `prompt_version` in `made_with`. Files are never deleted. |
+| Cost log (OR4) | No storage | #958. Spend follows where an item is filed now. |
+
+## Brand: import from website (BR2)
+
+No storage: the found items wait in the read's own job output until Save or Cancel; Save writes only the ticked ones through BR1's brand writes (#971).

@@ -24,6 +24,15 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // S6: with the owner's plan approved, starting makes the shots from it, not a plan (#934); the same one paid call.
+  const ownerPlan = useQuery({
+    queryKey: ["draft-plan", scriptId, slot],
+    queryFn: async () => {
+      const r = await fetch(`${location.origin}/api/scripts/${scriptId}/drafts/${slot}/plan`, { credentials: "include" });
+      return r.ok ? ((await r.json()) as { status: string }) : null; // 404: no plan yet
+    },
+  });
+  const planned = ownerPlan.data?.status === "approved";
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const [all, setAll] = useState(false);
   const [picks, setPicks] = useState<Picks>({}); // the Video settings row's picks (VS1), sent with the press
@@ -47,7 +56,8 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
       navigate(`/b/${brandId}/projects/${made.project_id}?step=plan`);
     },
   });
-  // With no saved preview, starting makes the plan (one paid call, #941); with one saved, making the version is free.
+  // With no saved preview, starting makes the plan, or the shots from an approved owner's plan (one paid call each, #941);
+  // with one saved, making the version is free.
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
   const stop = useAllowanceStop(s, cost);
   const week = useWeek(s); // an editor making their own script sees how much of the week is used
@@ -95,14 +105,16 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
             <p>
               {v.has_breakdown
                 ? [`Planned${v.planned_by ? ` by ${v.planned_by.name}` : ""}`, v.seconds ? `${Math.round(v.seconds)} s` : null, v.clips ? `${v.clips} clip${v.clips === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")
-                : "The plan is made when you start"}
+                : planned
+                  ? "From the owner's plan: the shots are made when you start"
+                  : "The plan is made when you start"}
             </p>
           </section>
-          {readyToMake && <MakeSettings script={s} picks={picks} onPick={setPicks} />}
+          {readyToMake && <MakeSettings script={s} defaults={v.flavours ?? {}} picks={picks} onPick={setPicks} />}
           {readyToMake && whole > 0 && (
             <p className="text-sm text-muted">
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the plan) · the whole video about ${wholeCredits(whole)} credits` : `Starting is free · the whole video about ${wholeCredits(whole)} credits`}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (${planned ? "the shots" : "the plan"}) · the whole video about ${wholeCredits(whole)} credits` : `Starting is free · the whole video about ${wholeCredits(whole)} credits`}
               {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>

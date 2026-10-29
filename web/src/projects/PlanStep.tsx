@@ -47,13 +47,12 @@ async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: obje
 /** The plan, read again every 3 s while its job runs. After a press (`since`), it keeps reading until a plan or a failed
  *  job comes back: the server answers 404 between a job that just ended and its plan being there, and that once stopped
  *  the reading for good, leaving "No plan yet" with the plan made (Next-Layout, QA-2). It gives up after two minutes. */
-function usePlan(projectId: number, enabled: boolean, since: number | null = null) {
+function usePlan(base: string, queryKey: unknown[], since: number | null = null) {
   return useQuery({
-    enabled,
-    queryKey: ["plan", projectId],
+    queryKey,
     queryFn: async () => {
       try {
-        return await call<Plan>("GET", `/projects/${projectId}/plan`);
+        return await call<Plan>("GET", base);
       } catch (e) {
         if ((e as { status?: number }).status === 404) return null; // no plan yet (E)
         throw e;
@@ -208,10 +207,15 @@ function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene:
   );
 }
 
+/** Where a plan lives: a video's, or the owner's on a script version (flows S6, #934), whose routes are the same less
+ *  Earlier plans, Change this scene… and Update the plan. */
+export type PlanHome = { base: string; key: unknown[]; refresh: unknown[][]; script?: boolean };
+
 /** The Scenes view: every P1 state, editing with Undo, and the step's one amber, "Approve the plan · makes the shots". */
-function Scenes({ projectId, planCredits, onApproved }: { projectId: number; planCredits?: number | null; onApproved: () => void }) {
+export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; planCredits?: number | null; onApproved: () => void }) {
   const [pressed, setPressed] = useState<number | null>(null); // when a plan job was last started here
-  const plan = usePlan(projectId, true, pressed);
+  const { base } = home;
+  const plan = usePlan(base, home.key, pressed);
   const { brandId } = useParams();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -219,17 +223,17 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   // An approved plan asks "Change the plan?" first, for an edit or an earlier plan alike.
   const [noProduct, setNoProduct] = useState<string | null>(null); // a ★ the brand has nothing to show for
   const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | { run: () => void } | null>(null);
-  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["plan", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
-  const make = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan`, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); setPressed(Date.now()); return refresh(); } });
+  const refresh = () => Promise.all([home.key, ...home.refresh].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  const make = useMutation({ mutationFn: () => call("POST", base, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); setPressed(Date.now()); return refresh(); } });
   // Stop works queued or running and is never charged (#893).
-  const stopMaking = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan/stop`), onSettled: refresh });
-  const byHand = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan/by-hand`), onSuccess: refresh });
-  const useEarlier = useMutation({ mutationFn: (i: number) => call("POST", `/projects/${projectId}/plan/earlier/${i}/use`), onSuccess: refresh });
-  const save = useMutation({ mutationFn: (scenes: Scene[]) => call<Plan>("PUT", `/projects/${projectId}/plan`, toPut(scenes)), onSuccess: refresh });
-  const changeScene = useMutation({ mutationFn: (v: { id: string; note: string }) => call("POST", `/projects/${projectId}/plan/scenes/${encodeURIComponent(v.id)}/change`, { note: v.note }), onSuccess: refresh });
-  const update = useMutation({ mutationFn: () => call("POST", `/projects/${projectId}/plan/update`), onSuccess: refresh });
+  const stopMaking = useMutation({ mutationFn: () => call("POST", `${base}/stop`), onSettled: refresh });
+  const byHand = useMutation({ mutationFn: () => call("POST", `${base}/by-hand`), onSuccess: refresh });
+  const useEarlier = useMutation({ mutationFn: (i: number) => call("POST", `${base}/earlier/${i}/use`), onSuccess: refresh });
+  const save = useMutation({ mutationFn: (scenes: Scene[]) => call<Plan>("PUT", base, toPut(scenes)), onSuccess: refresh });
+  const changeScene = useMutation({ mutationFn: (v: { id: string; note: string }) => call("POST", `${base}/scenes/${encodeURIComponent(v.id)}/change`, { note: v.note }), onSuccess: refresh });
+  const update = useMutation({ mutationFn: () => call("POST", `${base}/update`), onSuccess: refresh });
   const approve = useMutation({
-    mutationFn: () => call("POST", `/projects/${projectId}/plan/approve`),
+    mutationFn: () => call("POST", `${base}/approve`),
     onSuccess: async () => {
       await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["jobs"] })]);
       onApproved();
@@ -270,7 +274,8 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
     );
   const stop = p?.stop ?? null;
   const price = p?.estimate_credits ?? planCredits ?? rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit ?? null;
-  const makeButton = (label: string, primary = true) => (
+  // On a script the plan is optional and Next stays the step's amber press, so its presses are secondary there.
+  const makeButton = (label: string, primary = !home.script) => (
     <Button variant={primary ? "primary" : "secondary"} price={price} disabled={!!stop} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
       {label}
     </Button>
@@ -286,6 +291,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
         {refused && <p role="alert" className={errorClass}>{refused}</p>}
         <EmptyState icon={MapPin} title="No plan yet" action={job?.status === "failed" ? undefined : makeButton("Make the plan")}>
           Turn the script into scenes: where each line happens and what we see.
+          {home.script && " Optional: each new video of this version starts from it once you approve it. Skip it and it's made when an editor starts."}
         </EmptyState>
         <Button variant="ghost" busy={byHand.isPending} onClick={() => byHand.mutate()}>Write it myself · free</Button>
       </div>
@@ -324,7 +330,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
   const earlier = p.earlier ?? [];
   // A paid rewrite of an approved plan asks first, as an edit does. The scene's note stays through Not yet or a refusal.
   const askFirst = (run: () => void) => (approved ? setAsking({ run }) : run());
-  const canRewrite = p.change_scene_credits !== undefined;
+  const canRewrite = p.change_scene_credits !== undefined && !home.script;
   const rewrite: SceneRewrite | undefined = canRewrite ? { credits: p.change_scene_credits!, stop: stop ?? null, busy: changeScene.isPending, run: (id, note, done) => askFirst(() => changeScene.mutate({ id, note }, { onSuccess: done })) } : undefined;
   // What a change to an approved plan puts out of date (#893's `after`; null before there are shots): "3 shots and 2 clips".
   const outOfDate = [[p.after?.shots ?? 0, "shot"], [p.after?.clips ?? 0, "clip"]].filter(([k]) => (k as number) > 0).map(([k, w]) => `${k} ${w}${k === 1 ? "" : "s"}`).join(" and ");
@@ -354,7 +360,7 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
         >
           {canRewrite
             ? "The script's words changed since this plan was made. Updating keeps the scenes whose lines didn't change; this one is kept under Earlier plans."
-            : "The script's words changed since this plan was made. A new plan is made from the new words; this one is kept under Earlier plans."}
+            : `The script's words changed since this plan was made. A new plan is made from the new words${home.script ? "." : "; this one is kept under Earlier plans."}`}
         </Banner>
       )}
       {approved ? (
@@ -383,8 +389,8 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
         ))}
       </ul>
       {!approved && (
-        <Button price={p.approve_credits ?? null} disabled={!!stop} reason={stop} busy={approve.isPending} onClick={() => approve.mutate()}>
-          Approve the plan · makes the shots
+        <Button variant={home.script ? "secondary" : "primary"} price={home.script ? undefined : (p.approve_credits ?? null)} disabled={!home.script && !!stop} reason={home.script ? null : stop} busy={approve.isPending} onClick={() => approve.mutate()}>
+          {home.script ? "Approve the plan" : "Approve the plan · makes the shots"}
         </Button>
       )}
       <details className="rounded-lg border border-border bg-surface px-4">
@@ -392,10 +398,10 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
         <div className="space-y-2 pb-4">
           <TextArea label="What to change (optional)" rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={note} onChange={(e) => setNote(e.target.value)} />
           {makeButton("Make a new plan", false)}
-          <p className="text-sm text-muted">This plan is kept under Earlier plans; one press brings it back, free.</p>
+          <p className="text-sm text-muted">{home.script ? "The new plan takes this one's place." : "This plan is kept under Earlier plans; one press brings it back, free."}</p>
         </div>
       </details>
-      {earlier.length > 0 && (
+      {earlier.length > 0 && !home.script && (
         <details className="rounded-lg border border-border bg-surface px-4">
           <summary className="flex min-h-11 cursor-pointer items-center py-2 font-medium">Earlier plans · {earlier.length}</summary>
           <ul className="space-y-2 pb-4">
@@ -410,8 +416,14 @@ function Scenes({ projectId, planCredits, onApproved }: { projectId: number; pla
       )}
       {asking && (
         <Dialog title="Change the plan?" cancelLabel="Not yet" actionLabel="Change" busy={save.isPending || useEarlier.isPending || changeScene.isPending || update.isPending} onCancel={() => setAsking(null)} onConfirm={() => { const a = asking; setAsking(null); if ("earlier" in a) useEarlier.mutate(a.earlier); else if ("run" in a) a.run(); else { commit(a.next, a.said); a.done?.(); } }}>
-          It goes back to Ready to check, and its shots are made again from the new plan once you approve it.
-          {outOfDate && ` This puts ${outOfDate} out of date.`} Your current final cut stays downloadable.
+          {home.script ? (
+            "It goes back to Ready to check. New videos start from it once you approve it again, and the shots preview says it was made for an older plan."
+          ) : (
+            <>
+              It goes back to Ready to check, and its shots are made again from the new plan once you approve it.
+              {outOfDate && ` This puts ${outOfDate} out of date.`} Your current final cut stays downloadable.
+            </>
+          )}
         </Dialog>
       )}
     </div>
@@ -454,7 +466,7 @@ export function PlanStep({ shots, project }: { shots: ReactNode; project?: Proje
         {tab("shots", "Shots", approved ? null : "Approve the plan first")}
         {!approved && <span className="ml-2 text-sm text-muted">Shots: approve the plan first</span>}
       </div>
-      {view === "scenes" ? <Scenes projectId={project.id} planCredits={project.plan_credits} onApproved={() => go("shots")} /> : shots}
+      {view === "scenes" ? <Scenes home={{ base: `/projects/${project.id}/plan`, key: ["plan", project.id], refresh: [["project", project.id]] }} planCredits={project.plan_credits} onApproved={() => go("shots")} /> : shots}
     </div>
   );
 }
