@@ -1,3 +1,4 @@
+import { ProjectsChip, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, CircleAlert, Clock, FileText, Layers, Pencil, Search } from "lucide-react";
@@ -145,16 +146,18 @@ export function ScriptsPage() {
   const refs = useReferences();
 
   // "Mine" and "Versions left: None" aren't asked of the server, so they are applied to what came back: then one page holds everything.
+  const folder = useFolderFilter(); // a project picked in the Projects list (flows OR1)
   const clientSide = mine || left === "0";
   const pageSize = clientSide ? 200 : PAGE;
   const scripts = useInfiniteQuery({
-    queryKey: ["scripts", { brandId: all ? null : brandId, removed, status: apiStatus, q, ref, left, lo, hi, sort, pageSize }],
+    queryKey: ["scripts", { brandId: all ? null : brandId, removed, status: apiStatus, q, ref, left, lo, hi, sort, pageSize, folder }],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const { data, response } = await api.GET("/scripts", {
         params: {
           query: {
             ...(all ? {} : { brand_id: brandId }),
+            ...folderQuery(folder),
             ...(removed ? { removed: true } : {}),
             ...(apiStatus ? { status: apiStatus } : {}),
             ...(q ? { q } : {}),
@@ -333,6 +336,7 @@ export function ScriptsPage() {
           <h1 className="type-page">Scripts</h1>
         </div>
         <div className="flex items-center gap-2">
+          <ProjectsChip brandId={brandId} />
           <Button variant="secondary" icon={Layers} onClick={() => setBulk(true)} aria-label={rail ? undefined : "Bulk create"}>
             {rail ? "Bulk create" : ""}
           </Button>

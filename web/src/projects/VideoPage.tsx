@@ -24,6 +24,7 @@ import { ShapeRow } from "./ShapeRow";
 import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
 import { useOwnScriptStop } from "./useOwnScriptStop";
+import { ProjectPicker } from "../folders/Projects";
 import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
@@ -136,6 +137,7 @@ export function VideoPage() {
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="min-w-0 break-words type-page">{p.name}</h1>
           {menu}
+          {mayManage(p) && <ProjectPicker brandId={p.brand_id} kind="video" id={id} folderId={p.folder_id} />}
         </div>
       </div>
       {video.dialog}
