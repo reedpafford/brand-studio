@@ -2,7 +2,7 @@
 
 Both videos: the Frenchie sings the whole story (no lip-sync), Pixar B-roll under every line, the peanut butter bag. Built from Reed's two scripts, keeping his story, his key lines and his claims; the references (PetLab Co. ads 1444775817556737 and 1034535439565247) set the shape: chanted symptom hook in the first seconds, the story, the "we're good" payoff, proof, "you just didn't know… now you do… waiting on you".
 
-Pick one direction per video (or mix: "A's lyrics with B's sound"). Once picked, the lyrics are locked word for word.
+**Locked (Reed, 2026-10-29): Video 1 = OPTION 1A, Video 2 = OPTION 2A, lyrics unchanged, warm female vocal.** These lyrics are now final, word for word. The 1B and 2B options below are kept for the record.
 
 Song tags like [Verse] aren't sung. The style line gets Suno's pacing add-on when it's made: ", vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending" (excluded: instrumental intro, instrumental break, long outro, spoken word).
 
@@ -10,7 +10,7 @@ Song tags like [Verse] aren't sung. The style line gets Suno's pacing add-on whe
 
 ## Video 1: "That's My Gut" (eyes, paws, shedding)
 
-### OPTION 1A (recommended): "That's My Gut Breaking Down"
+### OPTION 1A (LOCKED): "That's My Gut Breaking Down"
 Concept: the reference's formula with your script. A breezy laid-back pop Frenchie with a chanted hook, running about 1:45 like the reference. Recommended because it's the proven shape and keeps every beat of your script.
 
 Lyrics:
@@ -117,7 +117,7 @@ Visual concept: the same three-symptom close-ups, played gently. The chorus is a
 
 ## Video 2: "Until the Day at the Park" (ears, nose, eyes)
 
-### OPTION 2A (recommended): "Same Gut, Three Places"
+### OPTION 2A (LOCKED): "Same Gut, Three Places"
 Concept: the reference 2 shape with your script, as a breezy laid-back pop Frenchie running about 1:55. The park meeting with the older dog ("I used to look like you") is the turn. Recommended for the same reason as 1A.
 
 Lyrics:
