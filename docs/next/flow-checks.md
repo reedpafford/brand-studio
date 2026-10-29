@@ -52,12 +52,11 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | V2 (to walk) | `song_breakdown(written=False)` by default now; walk the editor's flip/split/join route when it lands | — | #755 at 691a5eb5 |
-| Repo | `web/node_modules` committed as a symlink to a local path (`node_modules/` in .gitignore misses symlinks) | `git rm --cached`; ignore `node_modules` | #771 at 1b48be60, #773 at b3afd16f |
+| Repo | `web/node_modules` committed as a symlink to a local path (`node_modules/` in .gitignore misses symlinks) | `git rm --cached`; ignore `node_modules` | #771 at 1b48be60, #773 at b3afd16f, #777 at e52817cd |
 | Clips, Storyboard "Change this…" (live today) | "Changing…" can spin for good when the change has no job id or its job is never picked up: no timer, no Stop (audit G8, Blocker) | A timer, then "didn't finish" + Try again | #774 audit |
 | Brand, Cast & places (live today) | Editors can edit the brand and Reed's characters; flows.md BR1 says owner edits, editors read; a sheet redo by an editor changes every video (rule 12) | Owner-only writes (audit N11, Next-Lead to agree) | #774 audit |
 | Scripts, empty brand (live today) | An editor on an empty brand gets "The owner publishes scripts here…" with no press | A press beside it (audit S31/S23) | #774 audit |
 | S4 (rule 3) | Trim → Preferred → Undo the trim leaves an over-cap take Preferred, and the script publishes (200) over the 729 cap | Un-trim hands Preferred back or refuses; `preferred()` and `use_in_video` skip over-cap takes | #748 at 3607b3d |
-| S4 B before (rule 18) | "Keep the first N lines" can drop the brand's end line without saying so | Name a dropped end line in the confirm; end-line Advice after | #759 at a7dd6a94 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -108,3 +107,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #759 at 75d2ac8b | Trim + Preferred + Undo at 1440 and 390 | One toast and Undo PASS; after Undo, Next: Cast is open on an over-cap song (FAIL) |
 | 2026-10-29 | #759 at a7dd6a94 | Keep the first N lines (cap lowered to 300 to reach it; lyrics alone top out at about 629 credits) | PASS at 1440 and 390 (notes: end line, over_cap gate) |
 | 2026-10-29 | #759 at 37344101 | Full song walk at 1440 and 390 (20 cases) | PASS; the screen holds the cap after a trim's Undo |
+| 2026-10-29 | #777 at e52817cd (Final cut, Approvals words, back link) | Full browser suite; old links; no Ask the owner; no dollars; #751 kept | Flow PASS (52 passed); FAIL on the committed node_modules symlink |
