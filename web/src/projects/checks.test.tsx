@@ -65,13 +65,16 @@ afterEach(() => vi.unstubAllGlobals());
 
 test("a still with Advice shows a quiet notes chip; Change this… fills the change box with its note, Looks fine dismisses it", async () => {
   setViewport(1440);
-  const calls = fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, check: advice }]], "POST /projects/9/checks/7/findings/1/dismiss": [200, { ...advice, findings: [face] }] }));
+  const calls = fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, check: advice }]], "POST /projects/9/checks/7/findings/1/dismiss": [200, { ...advice, findings: [face] }], "POST /projects/9/checks/7/findings/1/restore": [200, advice] }));
   open("?step=storyboard");
   await userEvent.click(await screen.findByRole("button", { name: "2 notes on clip c1" }));
   const notes = screen.getByLabelText("Notes for clip c1");
   expect(within(notes).getByText("The outfit changed: the red bandana is missing")).toBeInTheDocument();
   await userEvent.click(within(notes).getAllByRole("button", { name: "Looks fine" })[1]);
   expect(calls.some((c) => c.key === "POST /projects/9/checks/7/findings/1/dismiss")).toBe(true);
+  expect(await screen.findByText("Marked as fine.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/checks/7/findings/1/restore")).toBe(true));
   await userEvent.click(within(notes).getAllByRole("button", { name: "Change this…" })[0]);
   expect(screen.getByLabelText("Change this… c1")).toHaveValue("Make Bo's face match his sheet");
   await vi.waitFor(() => expect(screen.getByLabelText("Change this… c1")).toHaveFocus());
@@ -120,7 +123,7 @@ test("over budget the step says once that checks are paused", async () => {
   setViewport(390);
   fakeServer(routes({ "GET /projects/9/checks": [200, review({ items: [], paused: true })] }));
   open("?step=storyboard");
-  expect(await screen.findByText("Checks paused: the video is at its budget.")).toBeInTheDocument();
+  expect(await screen.findByText("Not checked: the video was at its budget.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /with Advice/ })).toBeNull();
 });
 

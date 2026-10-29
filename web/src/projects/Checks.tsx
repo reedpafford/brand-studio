@@ -35,10 +35,16 @@ export function CheckNotes({ check, projectId, label, onChange }: { check: ItemC
   const phone = useMedia("(max-width: 639px)");
   const queryClient = useQueryClient();
   const toast = useToast();
+  const refresh = () => Promise.all(["storyboard", "project-clips", "checks"].map((k) => queryClient.invalidateQueries({ queryKey: [k, projectId] })));
   const fine = useMutation({
     mutationFn: (index: number) => call("POST", `/projects/${projectId}/checks/${check!.id}/findings/${index}/dismiss`),
+    // Looks fine has Undo (#913's restore): the note comes back on the card and in the Review list.
+    onSuccess: (_r, index) => {
+      const id = check!.id;
+      toast("Marked as fine.", () => void call("POST", `/projects/${projectId}/checks/${id}/findings/${index}/restore`).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
+    },
     onError: (e) => toast(e.message),
-    onSettled: () => Promise.all(["storyboard", "project-clips", "checks"].map((k) => queryClient.invalidateQueries({ queryKey: [k, projectId] }))),
+    onSettled: refresh,
   });
   // A check that just ended changes the Review list and the summary line.
   const status = check?.status;
@@ -85,18 +91,22 @@ export function CheckNotes({ check, projectId, label, onChange }: { check: ItemC
   );
 }
 
-/** The step summary line: "AI check: 3 notes on 2 clips", or once only "Checks paused: the video is at its budget." (PL7). */
+/** The step summary line: "AI check: 3 notes on 2 clips", and once only "Not checked: the video was at its budget." (PL7). */
 export function CheckSummary({ projectId }: { projectId: number }) {
   const review = useReview(projectId).data;
   if (!review?.on) return null;
-  if (review.paused) return <p className="text-sm text-muted">Checks paused: the video is at its budget.</p>;
   const notes = review.items.reduce((n, i) => n + i.findings, 0);
   const clips = new Set(review.items.map((i) => i.clip_id)).size;
-  if (notes === 0) return null;
+  if (notes === 0 && !review.paused) return null;
   return (
-    <p className="text-sm text-muted tabular-nums">
-      AI check: {notes} note{notes === 1 ? "" : "s"} on {clips} clip{clips === 1 ? "" : "s"}
-    </p>
+    <>
+      {notes > 0 && (
+        <p className="text-sm text-muted tabular-nums">
+          AI check: {notes} note{notes === 1 ? "" : "s"} on {clips} clip{clips === 1 ? "" : "s"}
+        </p>
+      )}
+      {review.paused && <p className="text-sm text-muted">Not checked: the video was at its budget.</p>}
+    </>
   );
 }
 
