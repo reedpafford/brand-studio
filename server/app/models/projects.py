@@ -22,6 +22,8 @@ class Project(Entity, Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     name: Mapped[str] = mapped_column(String(120))
+    # How its pictures are drawn (ST1): its script's at Make this version, then its own (VS1)
+    look: Mapped[str] = mapped_column(String(40), default="house")
     planned_seconds: Mapped[int | None]  # a set length; null: the breakdown decides
     breakdown_seconds: Mapped[int | None]  # the newest breakdown's clips added up
     # "Video done": the first final video, or the first full download of the picked takes.

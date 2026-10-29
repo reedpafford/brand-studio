@@ -89,7 +89,8 @@ def test_over_budget_is_skipped_and_a_failed_check_is_free(app, db, editor, setu
     clips = f"/projects/{setup['project']}/clips"
     project = db.get(Project, setup["project"])
     editor.post(f"{clips}/{clip['id']}/generate")
-    spent = project.budget_credits - credits_used(db, project)  # this take is all that's left
+    # after this take, 1 credit is left: enough for a check, not for one more take
+    spent = project.budget_credits - credits_used(db, project) - 1
     db.add(Job(workspace_id=project.workspace_id, kind="video", provider="fake", input={},
                project_id=project.id, credits=spent, status="succeeded"))  # fmt: skip
     db.commit()

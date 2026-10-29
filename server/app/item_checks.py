@@ -77,6 +77,20 @@ def key(db: Session, project: Project, shots: list[dict], refs: list[str]) -> bo
     )
 
 
+def _one_take(db: Session, project: Project, breakdown_id: int, shot_ids: list[str]) -> Decimal:
+    """A check never takes the room for one more take of its clip (Flow-QA, Producer): it's
+    skipped when, after it, the video couldn't pay for one."""
+    from app.clip_takes import take_credits
+    from app.models.clips import ProjectClip
+
+    data = db.get(BreakdownVersion, breakdown_id).data
+    clip_id = next((c["id"] for c in data.get("clips", []) if set(shot_ids) & set(c["shot_ids"])),
+                   None)  # fmt: skip
+    row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
+                                              ProjectClip.clip_id == clip_id))  # fmt: skip
+    return take_credits(db, project, row) if row else Decimal(0)
+
+
 def per_video(db: Session, project: Project) -> Decimal:
     """About what the checks cost on this video, at the scope in force: one take a clip (and
     one still a clip with `everything`), from its newest breakdown."""
@@ -118,7 +132,8 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
     db.add(row)
     user = db.get(User, job.created_by_id)
     credits = price(db, project)
-    if not user or fits(db, project, user, credits):
+    if not user or fits(db, project, user, credits + _one_take(db, project, breakdown_id,
+                                                                 shot_ids)):  # fmt: skip
         row.status = "skipped"  # "Not checked: the video is at its budget."
         db.flush()
         return row

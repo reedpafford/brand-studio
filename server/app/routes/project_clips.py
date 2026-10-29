@@ -20,7 +20,8 @@ from app import (
     clip_takes,
     credits,
     cut_in,
-    item_checks,  # noqa: E402
+    item_checks,
+    looks,
 )
 from app.advice import Said
 from app.auth import current_user
@@ -132,7 +133,7 @@ _stale = clip_prompts.is_stale
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
-                "take_stale", "retrying", "auto_fix")  # fmt: skip
+                "take_stale", "approved", "retrying", "auto_fix")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -157,7 +158,8 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
-        take_stale=clip_prompts.take_stale(row),
+        take_stale=clip_prompts.take_stale(row) or looks.take_other(db, project, row),
+        approved=row.approved and not looks.take_other(db, project, row),
         take_warning=clip_takes.take_warning(db, row),
         retrying=clip_takes.retrying(db, row),
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
@@ -625,7 +627,7 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
         bd, rows = bds.get(p.id), clips.get(p.id, [])
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
         if any(not c.approved or moved or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
-               for c in rows):  # fmt: skip
+               or looks.take_other(db, p, c) for c in rows):  # fmt: skip
             old.add(p.id)
         elif (video := videos.get(p.id)) and (
             video.take_ids != [c.picked_take_id for c in rows]
@@ -660,6 +662,9 @@ def make_video(
     left = sum(not c.approved for c in clips)
     if left:
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
+    if other := sum(looks.take_other(db, project, c) for c in clips):  # VS1: never mixed looks
+        raise HTTPException(409, looks.OTHER.format("1 clip was" if other == 1
+                                                    else f"{other} clips were"))  # fmt: skip
     storage = request.app.state.storage
     song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
     if song and not all(c.song_slice for c in clips):
