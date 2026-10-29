@@ -407,6 +407,29 @@ test("what the note changed shows only the changed words, struck and bold, with 
   expect(within(changed).getByRole("button", { name: "Show the whole prompt" })).toBeInTheDocument();
 });
 
+test("on the video page, a redone frame says it changed, and Undo picks the earlier still back (#749 LW3)", async () => {
+  setViewport(390);
+  fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, []],
+    "GET /projects/9/storyboard": [200, [still({ stale: true, redo_credits: 4, change: { note: "Redo this frame", job_id: 51, status: "changing" } })]],
+    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
+    "POST /projects/9/storyboard/frames/1/pick": [200, {}],
+  });
+  open("?step=storyboard");
+  expect(await screen.findByText("Making the change…")).toBeInTheDocument();
+  // The redo lands: a new still, the earlier one kept.
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/assets": [200, []],
+    "GET /projects/9/storyboard": [200, [still({ file_id: 41, earlier: [{ file_id: 40 }], change: { note: "Redo this frame", job_id: 51, status: "done", before: "p", after: "p2" } })]],
+    "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }],
+    "POST /projects/9/storyboard/frames/1/pick": [200, {}],
+  });
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }, { timeout: 9000 }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/pick")?.body).toMatchObject({ file_id: 40 }));
+}, 20000);
+
 test("a note that left the prompt as it was says so, and nothing is made", async () => {
   setViewport(1440);
   fakeServer({

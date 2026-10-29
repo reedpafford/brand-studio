@@ -263,6 +263,56 @@ test("a frame can't be approved while its breakdown has changed", async () => {
   expect(await within(await screen.findByLabelText("Frame c1")).findByRole("button", { name: "Approve" })).toBeDisabled();
 });
 
+test("an out-of-date frame has its own Redo this frame · N: a confirm says what it does, then only that frame is redone (#749 LW3)", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ stale: true, redo_credits: 4 }), withStill({ id: 2, clip_id: "c2" })]], "POST /projects/9/storyboard/frames/1/redo": [201, { id: 51, kind: "write-claude", status: "queued", credits: 4, project_id: 9 }] });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  const redo = await within(card).findByRole("button", { name: /Redo this frame.*4 credits/ });
+  expect(within(screen.getByLabelText("Frame c2")).queryByRole("button", { name: /Redo this frame/ })).toBeNull();
+  const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+  await userEvent.click(redo);
+  expect(confirm).toHaveBeenCalledWith("Redo frame c1 for 4 credits? Its prompt is written again from the new breakdown and its still drawn again. The current still stays, to pick back.");
+  expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/redo")).toBe(false); // Cancel sends nothing
+  await userEvent.click(redo);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/1/redo")).toBe(true));
+  confirm.mockRestore();
+});
+
+test("while a frame is being redone it says so and can't be pressed again", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ stale: true, redo_credits: 4, change: { note: "Redo this frame", job_id: 51, status: "changing" } })]] });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(await within(card).findByText("Making the change…")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Redo this frame/ })).toBeDisabled();
+});
+
+test("a redo that didn't finish says why by its button, which can be pressed again (no dead end)", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ stale: true, redo_credits: 4, change: { note: "Redo this frame", job_id: 51, status: "failed", error: "The frame came back empty, so nothing was charged for its still. Try again." } })]] });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(await within(card).findByRole("alert")).toHaveTextContent("The frame came back empty, so nothing was charged for its still. Try again.");
+  expect(within(card).getByRole("button", { name: /Redo this frame/ })).toBeEnabled();
+});
+
+test("a frame whose clip's shots changed says why it can't be redone alone, with Redo storyboard right there (no dead end)", async () => {
+  setViewport(390);
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/storyboard": [200, [withStill({ stale: true, redo_credits: null, redo_blocked: "This clip changed in the breakdown, so its frames are planned again: Redo storyboard." })]],
+    "POST /projects/9/storyboard": [201, { id: 52, kind: "write-claude", status: "queued", credits: 3, project_id: 9 }],
+  });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(await within(card).findByText(/This clip changed in the breakdown/)).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: /Redo this frame/ })).toBeNull();
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  await userEvent.click(within(card).getByRole("button", { name: /^Redo storyboard/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard")).toBe(true));
+});
+
 test("Next: Clips waits until every frame is approved and says how many are left", async () => {
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ approved: true }), withStill({ id: 2, clip_id: "c2" }), withStill({ id: 3, clip_id: "c3" })]] });
   open();

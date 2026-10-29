@@ -150,6 +150,17 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     },
     onSuccess: refresh,
   });
+  // Redo this frame (#749 LW3): one out-of-date frame is written again from the new breakdown, then drawn. The earlier still stays to pick back.
+  const redoFrame = useMutation({
+    mutationFn: async (frame: Frame) => {
+      const { data, error } = await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/redo", { params: { path: { ...path, frame_id: frame.id } } });
+      if (!data) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      await refresh();
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
   const approve = useMutation({
     mutationFn: async ({ frame, yes }: { frame: Frame; yes: boolean }) => {
       const args = { params: { path: { ...path, frame_id: frame.id } } };
@@ -214,20 +225,18 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const declined = stopFor(makeTotal) ?? stopFor(allCost) ?? stopFor(imageCost);
   const err = make.error ?? approve.error;
   // A still or a saved prompt that was refused says why on its own frame, where it was pressed.
-  const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || null;
+  const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || (redoFrame.variables?.id === id && redoFrame.error?.message) || null;
   const approvedCount = list.filter((f) => f.approved).length;
 
+  const makeHeld = writingNow || stillOld || make.isPending || !!stopFor(makeTotal);
+  const makeAgain = () => {
+    const made = list.filter((f) => f.file_id !== null).length;
+    const ask = made > 0 ? `Replace these frames? The ${made} still${made === 1 ? "" : "s"} you've made will be dropped.` : "Replace these frames? New ones are written from the current breakdown.";
+    if (list.length && !window.confirm(ask)) return;
+    make.mutate();
+  };
   const makeButton = (
-    <button
-      className={`${list.length ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`}
-      disabled={writingNow || stillOld || make.isPending || !!stopFor(makeTotal)}
-      onClick={() => {
-        const made = list.filter((f) => f.file_id !== null).length;
-        const ask = made > 0 ? `Replace these frames? The ${made} still${made === 1 ? "" : "s"} you've made will be dropped.` : "Replace these frames? New ones are written from the current breakdown.";
-        if (list.length && !window.confirm(ask)) return;
-        make.mutate();
-      }}
-    >
+    <button className={`${list.length ? btnSecondary : btnPrimary} min-h-11 sm:min-h-9`} disabled={makeHeld} onClick={makeAgain}>
       {makeLabel}
       {price(makeTotal)}
     </button>
@@ -327,6 +336,11 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
               oneStep={!!props.oneStep}
               onPick={(file) => pick.mutate({ frame: f, file })}
               onRender={(note) => render.mutate({ frame: f, note })}
+              redoing={redoFrame.isPending && redoFrame.variables?.id === f.id}
+              onRedo={() => {
+                if (window.confirm(`Redo frame ${f.clip_id} for ${creditsLabel(f.redo_credits ?? 0)}? Its prompt is written again from the new breakdown and its still drawn again. The current still stays, to pick back.`)) redoFrame.mutate(f);
+              }}
+              redoAll={{ label: `Redo storyboard${price(makeTotal)}`, held: makeHeld, onPress: makeAgain }}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
               softening={soften.isPending && soften.variables?.id === f.id}

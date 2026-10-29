@@ -7,7 +7,7 @@ import { Sheet } from "./Sheet";
 import { SheetWarning, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { AdviceList, useKeep } from "./Keep";
-import { Badge, creditsLabel } from "../components";
+import { Badge, Button, creditsLabel } from "../components";
 import { RotateCcw } from "lucide-react";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
@@ -44,6 +44,11 @@ export function FrameCard(props: {
   onSoften: () => void;
   onUndoSoften: (before: string) => void;
   onOpen: () => void;
+  /** Redo this frame (#749 LW3): an out-of-date frame written again from the new breakdown, then drawn. */
+  redoing: boolean;
+  onRedo: () => void;
+  /** When this frame can't be redone alone (its clip's shots changed): the page's Redo storyboard. */
+  redoAll: { label: string; held: boolean; onPress: () => void };
 }) {
   const { frame: f } = props;
   const keep = useKeep(props.projectId, { of: "frame", id: f.id });
@@ -54,6 +59,9 @@ export function FrameCard(props: {
   // A word the image model may refuse: Soften it or Draw it as is, in place of Make still; a refusal said plainly (QA-2).
   const refusable = f.file_id === null && f.problems.some((p) => /may refuse/.test(p));
   const refused = f.problems.find((p) => /refused to draw/.test(p));
+  const changing = (f.change as ChangeState)?.status === "changing";
+  // A redo that didn't finish says so by its own button (still there to press again), not as a note in Change this….
+  const redoFailed = (f.change as ChangeState)?.note === "Redo this frame" && (f.change as ChangeState)?.status === "failed";
   const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
   const price = props.cost !== undefined ? ` · ${creditsLabel(props.cost)}` : "";
   const redoForm = (
@@ -108,6 +116,20 @@ export function FrameCard(props: {
         {f.clip_id} · shot {f.shot_id}
       </div>
       {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">Breakdown changed: redo this frame</span>}
+      {f.stale && f.redo_credits != null && (
+        <Button busy={props.redoing} price={f.redo_credits} disabled={props.busy || changing || !!props.stopFor(f.redo_credits)} reason={props.stopFor(f.redo_credits)} onClick={props.onRedo}>
+          Redo this frame
+        </Button>
+      )}
+      {f.stale && redoFailed && <p role="alert" className={errorClass}>{(f.change as ChangeState)?.error ?? "The redo didn't finish. Try again."}</p>}
+      {f.stale && f.redo_credits == null && f.redo_blocked && (
+        <div className="space-y-2">
+          <p className="text-sm text-warning">{f.redo_blocked}</p>
+          <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={props.redoAll.held} onClick={props.redoAll.onPress}>
+            {props.redoAll.label}
+          </button>
+        </div>
+      )}
       {props.error && <p role="alert" className={errorClass}>{props.error}</p>}
       {props.failed && <span className="inline-block rounded-sm bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Didn't finish · credits returned</span>}
       <p className="flex flex-wrap gap-1 text-xs">
@@ -187,8 +209,8 @@ export function FrameCard(props: {
               projectId={props.projectId}
               id={f.id}
               label={f.clip_id}
-              change={f.change as ChangeState}
-              hold={props.busy ? "This one is still being made" : f.stale ? "Make the storyboard again first" : null}
+              change={redoFailed ? null : (f.change as ChangeState)}
+              hold={props.busy ? "This one is still being made" : f.stale ? (f.redo_credits != null ? "Press Redo this frame first" : "Redo the storyboard first") : null}
               stopFor={props.stopFor}
               onUndo={f.earlier.length ? () => props.onPick((f.earlier.at(-1) as { file_id: number }).file_id) : undefined}
             />
