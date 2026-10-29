@@ -141,7 +141,9 @@ export function VideoPage() {
           <h2 className="type-section">{label}</h2>
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
         </div>
-        {waiting ? rail && <Skeleton className="h-control w-40" /> : rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
+        {waiting ? (
+          rail ? <Skeleton className="h-control w-40" /> : <ActionBar phone><Skeleton className="h-control w-full" /></ActionBar>
+        ) : rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
       </div>
       {step === "breakdown" && (
         <div className="space-y-4">

@@ -20,7 +20,7 @@ export function WaitingBadge() {
   return (
     <span className="block space-y-0.5">
       <span className="inline-block rounded-sm bg-surface-3 px-2 py-0.5 text-xs font-medium text-muted">Waiting for the owner's OK</span>
-      <span className="block text-sm text-muted">This would go past the video's budget.</span>
+      <span className="block text-sm text-muted">The owner approves this video before more is made.</span>
     </span>
   );
 }
