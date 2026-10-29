@@ -61,6 +61,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Music again past the week (#919) | An editor past their week sees a live "Try the music again · N credits" that the server refuses | useAllowanceStop(script, t.music_credits) as the press's disabled reason |
 | The earlier way's breakdown (#923) | New video (the earlier way) → ProjectPage has no Plan step; Make the breakdown · N credits is always refused "Approve the plan first." | Require the approved plan only when project.script_draft_id (or land the screen redirect first) |
+| Undo refused over the cap (#925) | A video over the limit at Auto switches to a cheaper model to fit; Undo (switch back with `was`) gets 409 "Over the video limit" | Undo is never refused: an `undo` flag on POST /settings skips the 409 (paid presses still check) |
 | Stop names the wrong step (#917 + #921) | A frame with a problem to fix stops Update everything after this at clip_prompts: the banner says Stopped at Clips with Open Clips, but the work is on Storyboard (the redrawn-still stop is fixed by #922) | _stop(job, "stills", STOPPED) in update_after.follow |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -270,3 +271,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #919 at 3bc09e40 | Narration with no words fixed (greyed, the reason, no price): that row closed. Music states PASS. FAIL: Try the music again past the editor's week (open above) |
 | 2026-10-29 | #919 3bc09e40 + #920 7e33b1a4, merged together | PASS live at 1440 and 390: headings only → Make the narration greyed, no price, "Write the words first…"; Next: Cast says why, Back leads to the words; with words the narration and its music are made on the stand-ins |
 | 2026-10-29 | #923 at 61aaf2c6; #924 at 711029ea | #923 FAIL: the earlier way's breakdown is refused with no Plan step (open above); new videos and old ones with a breakdown PASS. #924 PASS: every look's sample person passes its own word check |
+| 2026-10-29 | #925 at 837642ba (VS1 server) | Prices, preview, Out of date and back, Sung ↔ B-roll, 403 for others' videos, Make video's refusal: PASS. FAIL: Undo refused over the cap (open above) |
