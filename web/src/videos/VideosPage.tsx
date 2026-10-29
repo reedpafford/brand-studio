@@ -19,13 +19,14 @@ const STEP: Record<string, string> = { breakdown: "Breakdown", assets: "Assets",
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** Where a video opens: the new page for one made from a script version (Downloads when it is done), the earlier six-step page for the rest. */
-const to = (p: Project) => (p.script_draft_id ? `/b/${p.brand_id}/videos/${p.id}${p.finished_at ? "?step=downloads" : ""}` : `/b/${p.brand_id}/projects/${p.id}`);
+// A finished video whose clips changed since opens at Clips, where the changes wait (#749 LW2).
+const to = (p: Project) => (p.script_draft_id ? `/b/${p.brand_id}/videos/${p.id}${p.final_out_of_date ? "?step=clips" : p.finished_at ? "?step=downloads" : ""}` : `/b/${p.brand_id}/projects/${p.id}`);
 
 function Row({ p, mineView }: { p: Project; mineView: boolean }) {
   const done = !!p.finished_at;
   const meta = [
     p.created_by_name || "Someone",
-    done ? `Video done · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
+    done ? `${p.final_out_of_date ? "Finished" : "Video done"} · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
     p.own_script && mineView ? "On your week" : null,
     p.script_draft_id ? null : "(earlier way)",
   ]
@@ -41,7 +42,11 @@ function Row({ p, mineView }: { p: Project; mineView: boolean }) {
           <span className="block break-words type-card">{p.name}</span>
           <span className="block text-sm text-muted">{meta}</span>
           <span className="flex flex-wrap gap-2">
-            {done ? (
+            {done && p.final_out_of_date ? (
+              <Badge tone="warning" icon={Clock}>
+                Finished · changes waiting
+              </Badge>
+            ) : done ? (
               <Badge tone="success" icon={Check}>
                 Video done
               </Badge>
