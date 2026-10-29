@@ -83,7 +83,7 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
   await ed.waitForTimeout(3000);
   await state(ed, `${tag} breakdown`);
   if (await btn(ed, /^Make shots|^Make the breakdown|^Make breakdown/).count()) await clickWhenOn(ed, /^Make shots|^Make the breakdown|^Make breakdown/, 10_000);
-  if (!(await next(ed, /^Next: Assets/, `${tag} breakdown`, 90_000))) return;
+  if (!(await next(ed, /^Next: Cast/, `${tag} breakdown`, 90_000))) return;
   // Assets: looks are made by themselves, then approved
   await state(ed, `${tag} assets`);
   for (let i = 0; i < 8; i++) {

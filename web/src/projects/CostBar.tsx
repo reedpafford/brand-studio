@@ -75,7 +75,7 @@ export function CostBarProvider(props: {
       </div>
       {estimate.data && (
         <p className="text-sm tabular-nums text-muted">
-          {estimate.data.remaining_credits === 0 ? "Nothing left to make." : `To finish: about ${wholeCredits(estimate.data.remaining_credits)}`} · {wholeCredits(Math.max(0, left))} left
+          {estimate.data.remaining_credits === 0 ? "Nothing left to make." : `To finish: about ${wholeCredits(estimate.data.remaining_credits)} credits`} · {wholeCredits(Math.max(0, left))} left
         </p>
       )}
       {press && (

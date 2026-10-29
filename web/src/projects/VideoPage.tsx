@@ -10,6 +10,7 @@ import { useFreshProject } from "./useFreshProject";
 import { AssetsPane, useAssets } from "./AssetsPane";
 import { notInShots } from "./AssetCard";
 import { BreakdownPane } from "./BreakdownPane";
+import { PlanStep } from "./PlanStep";
 import { useBriefChoices } from "./BriefPickers";
 import { ClipsPane } from "./ClipsPane";
 import { DownloadsPane } from "./DownloadsPane";
@@ -25,7 +26,7 @@ import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 
-/** A video made from a library version: Breakdown · Assets · Storyboard · Clips · Final cut. */
+/** A video made from a library version: Plan · Cast · Storyboard · Clips · Final cut. */
 export function VideoPage() {
   const { brandId = "", projectId } = useParams();
   const id = Number(projectId);
@@ -35,7 +36,7 @@ export function VideoPage() {
   const [panel, setPanel] = useState(false);
   const [highlight, setHighlight] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
-  const [dirty, setDirty] = useState(false); // unsaved edits in Breakdown
+  const [dirty, setDirty] = useState(false); // unsaved edits in Plan's shots
   const navigate = useNavigate();
   const mayManage = useMayManageVideo();
   const video = useVideoActions(() => navigate(`/b/${brandId}/scripts`));
@@ -56,8 +57,8 @@ export function VideoPage() {
   const [opened, setOpened] = useState(() => ({ step, at: assets.dataUpdatedAt }));
   if (opened.step !== step) setOpened({ step, at: assets.dataUpdatedAt });
   // Assets counts as looked at once opened here, or once the storyboard is started (it comes after).
-  const [assetsSeen, setAssetsSeen] = useState(step === "assets");
-  if (step === "assets" && !assetsSeen) setAssetsSeen(true);
+  const [assetsSeen, setAssetsSeen] = useState(step === "cast");
+  if (step === "cast" && !assetsSeen) setAssetsSeen(true);
 
   if (project.isPending || loading || assets.isPending)
     return (
@@ -75,10 +76,14 @@ export function VideoPage() {
   const assetsLoading = (opened.at > 0 && assets.dataUpdatedAt <= opened.at && assets.errorUpdatedAt <= opened.at) || flavours.loading;
   const all: VideoProgress = { ...progress, assets: { total: list.length, ready: list.filter((a) => a.ready).length, seen: assetsSeen || progress.frames.total > 0 } };
   // A link to a step that is locked lands on the step that blocks it (Storyboard when its frames are out of date, say).
+  // Old addresses move to their new place: Breakdown is Plan on its Shots view, Assets is Cast (flows 1b).
+  const asked = params.get("step");
+  if (asked === "breakdown") return <Navigate to="?step=plan&view=shots" replace />;
+  if (asked === "assets") return <Navigate to="?step=cast" replace />;
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
   const pick = (to: string) => {
-    setParams(to === "breakdown" ? {} : { step: to });
+    setParams(to === "plan" ? {} : { step: to });
     setPanel(false);
   };
   const showLines = (lines: number[]) => {
@@ -88,18 +93,18 @@ export function VideoPage() {
   };
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
   const next = videoNext(step);
-  const reason = !next ? null : dirty && step === "breakdown" ? "Save your changes first." : step === "assets" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
-  // The cost bar's press when the step has none of its own. On a phone, unsaved Breakdown edits take the bar's place.
-  const nextAction: CostAction | null = next && !(step === "breakdown" && dirty && !rail) ? { label: `Next: ${next.label}`, reason, onPress: () => pick(next.id) } : null;
+  const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
+  // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
+  const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.label}`, reason, onPress: () => pick(next.id) } : null;
   // Release while it is being made; Archive once it is done. An archived video is read-only until it is restored.
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used };
   const menu = mayManage(p) && !p.archived_at && <VideoMenu title={p.name} onRelease={finished ? undefined : () => video.release(target)} onArchive={finished ? () => video.archive(target) : undefined} />;
   // Until Assets' own read lands, the step picker, the heading line and Next wait under one skeleton: no counts from an older read.
-  const waiting = step === "assets" && assetsLoading;
+  const waiting = step === "cast" && assetsLoading;
   const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
   const meta =
-    step === "assets" ? (waiting ? null : count(all.assets.total, "asset", all.assets.ready)) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : null;
+    step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : null;
 
   return (
     // One cost bar at the bottom: the budget (or the editor's week), what finishing costs, and the step's press (audit M1).
@@ -139,14 +144,18 @@ export function VideoPage() {
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
         </div>
       </div>
-      {step === "breakdown" && (
-        <div className="space-y-4">
-          <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
-          {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
-          <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
-        </div>
+      {step === "plan" && (
+        <PlanStep
+          shots={
+            <div className="space-y-4">
+              <ShapeRow projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
+              {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
+              <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
+            </div>
+          }
+        />
       )}
-      {step === "assets" && <AssetsPane projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} ownScript={p.own_script} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "cast" && <AssetsPane projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} ownScript={p.own_script} used={p.credits_used} budget={p.budget_credits} />}
       {step === "storyboard" && <StoryboardPane castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
@@ -156,7 +165,7 @@ export function VideoPage() {
           rail={rail}
           highlight={highlight}
           onLineClick={
-            step === "breakdown"
+            step === "plan"
               ? (n) => {
                   setLine(n);
                   setHighlight([n]);

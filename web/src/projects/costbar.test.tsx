@@ -38,7 +38,7 @@ test("the bar says the budget, what finishing costs, the step's one amber and wh
   show({ label: "Make the takes", price: 54, onPress: press });
   const bar = screen.getByRole("region", { name: "Cost" });
   expect(within(bar).getByText(/412 \/ 660 credits · 62%/)).toBeInTheDocument();
-  expect(await within(bar).findByText("To finish: about 140 · 248 left")).toBeInTheDocument();
+  expect(await within(bar).findByText("To finish: about 140 credits · 248 left")).toBeInTheDocument();
   expect(within(bar).getByText("This press leaves 194")).toBeInTheDocument();
   await userEvent.click(within(bar).getByRole("button", { name: "Make the takes · 54 credits" }));
   expect(press).toHaveBeenCalledOnce();
