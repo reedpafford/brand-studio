@@ -25,7 +25,7 @@ export function ProductsTab() {
       <BrandAction>{addButton}</BrandAction>
       {/* BR1: a product's line and main claim live on its page in Cast & places (its prop), not on these screens. */}
       <p className="text-sm text-muted">
-        <Link className="underline" to={`/b/${brandId}/library/props`}>Each product's line and main claim are on its page in Cast & places →</Link>
+        <Link className="inline-flex min-h-control items-center underline sm:min-h-control-dense" to={`/b/${brandId}/library/props`}>Each product's line and main claim are on its page in Cast & places →</Link>
       </p>
       {screens.isError && <Banner title="Couldn't load the products." action={<Button variant="secondary" onClick={() => void screens.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {screens.isPending && (
