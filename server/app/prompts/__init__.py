@@ -64,7 +64,7 @@ TOKEN = re.compile(r"\{\{(\w+)\}\}")
 @cache
 def styles() -> list[dict]:
     """The style registry, in Reed's order: one styles/<id>.md each (Reed, 2026-10-28). Each is
-    {id, name, kind ("look" or "format"), order, on, narrated, image_model, blurb, sections}.
+    {id, name, kind ("look" or "format"), order, on, image_model, blurb, sections}.
     `on` is only the starting switch (House alone); the server keeps Reed's own."""
     out = []
     for path in (HERE / "styles").glob("*.md"):
@@ -76,12 +76,28 @@ def styles() -> list[dict]:
             "kind": meta["kind"],
             "order": int(meta["order"]),
             "on": meta["on"] == "yes",
-            "narrated": meta.get("narrated") == "yes",  # ST1: "Make the narrator a role"
             "image_model": meta["image_model"],
             "blurb": meta["blurb"],
             "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
         })  # fmt: skip
     return sorted(out, key=lambda s: s["order"])
+
+
+# A look's data, never sent to a model (flows ST2): words repaired in its picture descriptions,
+# and the fix offered for each failure (Next-Server's ids and the advisory check's kinds).
+DATA = {"banned", "fixes"}
+
+
+def look_banned(look_id: str) -> list[tuple[str, str]]:
+    """The look's banned words and their replacements ("" deletes): its `## banned` lines."""
+    lines = style(look_id)["sections"].get("banned", "").splitlines()
+    return [(a.strip(), b.strip()) for a, _, b in (x.partition("→") for x in lines if "→" in x)]
+
+
+def look_fixes(look_id: str) -> dict[str, str]:
+    """The look's fix for each failure id (refused, face, outfit, product): `## fixes`."""
+    lines = style(look_id)["sections"].get("fixes", "").splitlines()
+    return {a.strip(): b.strip() for a, _, b in (x.partition(":") for x in lines if ":" in x)}
 
 
 def style(style_id: str) -> dict:

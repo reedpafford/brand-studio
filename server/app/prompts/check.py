@@ -995,7 +995,7 @@ def without_names(result: SongDirections, sounds_like: str) -> list[str]:
     notes = []
     for n, d in enumerate(result.directions, 1):
         d.style_line, taken = strip_names(d.style_line, sounds_like)
-        notes += [f"{ADVICE}direction {n}: took “{name}” out of the style line "
+        notes += [f"{ADVICE}direction {n}: took “{name}” out of the music style "
                   "(the music service refuses names)" for name in taken]  # fmt: skip
     return notes
 
@@ -1057,12 +1057,12 @@ def song_directions(
             problems.append(f"direction {n} has no lyrics")
             continue
         if len(d.style_line.split()) > 25:
-            problems.append(f"{ADVICE}direction {n}: the style line is over 25 words")
+            problems.append(f"{ADVICE}direction {n}: the music style is over 25 words")
         if not says_brand(sung[-1], brand):
             problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
         if named := [x for x in names if f" {_words(x)} " in f" {_words(d.style_line)} "]:
             problems.append(
-                f"{ADVICE}direction {n}: the style line names “{named[0]}”; the music service "
+                f"{ADVICE}direction {n}: the music style names “{named[0]}”; the music service "
                 "refuses artist and song names, so describe the sound instead"
             )
         words, short, long = sung_length(d.lyrics)
@@ -1377,7 +1377,7 @@ VOICED = re.compile(
     r"\b(?:vocals?|choir|singing|singer|sung|humm(?:ing|ed)|lyrics?|chant\w*)\b", re.I
 )
 
-NEGATED = re.compile(r"\b(?:no|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
+NEGATED = re.compile(r"\b(?:no|not|never|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
 
 
 def _negated(text: str, m: re.Match) -> bool:
@@ -1436,3 +1436,38 @@ def follows_plan(plan: ScenePlan, bd: Breakdown) -> list[str]:
                 if n in star and star[n] not in shot.screen_ids:
                     problems.append(f"shot {shot.id}: line {n} is ★ {star[n]} in the plan; show it")
     return problems
+
+
+def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
+    """A picture prompt with the look's banned words repaired (flows ST2, free): the prompt,
+    what changed ("stage → world"), and Advice for a banned word inside quotes, which is
+    never changed (rule 19). The audio lines are left alone."""
+    from app.prompts import look_banned
+
+    changed, advice, out = [], [], []
+    for line in prompt.splitlines():
+        if line.startswith("Audio:"):
+            out.append(line)
+            continue
+        parts = re.split(r'(["“][^"”]*["”])', line)  # outside, “a quote”, outside, …
+        quotes = parts[1::2]
+        for word, new in sorted(look_banned(look_id), key=lambda x: -len(x[0])):  # phrases first
+            found = re.compile(rf"\b{re.escape(word)}\b\s?", re.I)
+            for i in range(0, len(parts), 2):
+                hits = [m for m in found.finditer(parts[i]) if not _negated(parts[i], m)]
+                if hits:  # a safeguard ("no blood", "not floating") is never rewritten
+                    for m in reversed(hits):
+                        a, b = m.span()
+                        parts[i] = parts[i][:a] + _same_case(m.group(0), new) + parts[i][b:]
+                    changed.append(f"{word} → {new}" if new else f"{word} → (taken out)")
+            if any(found.search(q) for q in quotes):
+                advice.append(f"{ADVICE}“{word}” is in a quoted line; the look avoids it")
+        out.append(re.sub(r" {2,}", " ", "".join(parts)))
+    return "\n".join(out), list(dict.fromkeys(changed)), list(dict.fromkeys(advice))
+
+
+def _same_case(old: str, new: str) -> str:
+    """The replacement in the old word's case ("Stage " → "World "), keeping its space."""
+    tail = old[len(old.rstrip()) :]
+    new = new[:1].upper() + new[1:] if old[:1].isupper() and new else new
+    return new + tail if new else ""

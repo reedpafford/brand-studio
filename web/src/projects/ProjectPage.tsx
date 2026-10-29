@@ -31,7 +31,7 @@ export function ProjectPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const mayManage = useMayManageVideo();
-  const video = useVideoActions(() => navigate(`/b/${brandId}/scripts`));
+  const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`)) // a released version is ready to make again in Scripts; an archived video is under Videos;
   const [panel, setPanel] = useState(false);
   const [highlight, setHighlight] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
