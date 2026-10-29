@@ -40,7 +40,7 @@ NO_LYRICS = "Add the lyrics first (or pick a song direction): the song sings the
 TOO_LONG = (
     f"The lyrics are too long for one song ({MAX_OWN_LYRICS:,} characters at most). Cut a verse."
 )
-STYLE_TOO_LONG = f"The style line is too long ({MAX_OWN_STYLE} characters at most). Shorten it."
+STYLE_TOO_LONG = f"The music style is too long ({MAX_OWN_STYLE} characters at most). Shorten it."
 # What a failed request, or a take's timing, says (rule 22: the reason, nothing charged,
 # Try again).
 FAILED = "The songs couldn't be made this time. Nothing was charged; press Try again."
@@ -56,7 +56,7 @@ REFUSED_IN_VIDEO = (
 )
 QUOTED = 80  # characters of the style line a message repeats
 COPYRIGHT = (
-    "The music service wouldn't use this style line: it may name a real artist or song "
+    "The music service wouldn't use this music style: it may name a real artist or song "
     "(“{}”). Describe the sound instead (genre, voice, tempo, mood), then press Try again. "
     "Nothing was charged."
 )
