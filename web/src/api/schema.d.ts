@@ -4295,6 +4295,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/languages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Languages
+         * @description English first. Editors see the Off ones too, greyed.
+         */
+        get: operations["list_languages_languages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -5786,6 +5806,15 @@ export interface components {
          * @enum {string}
          */
         Kind: "character" | "place" | "prop";
+        /** LanguageOut */
+        LanguageOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** On */
+            on: boolean;
+        };
         /** LimitsIn */
         LimitsIn: {
             /** Weekly Quick Clip Credits */
@@ -17142,6 +17171,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_languages_languages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageOut"][];
                 };
             };
         };

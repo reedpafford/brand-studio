@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, looks, merge_roles, music, narration, rewritten, song_study
+from app import advice, languages, looks, merge_roles, music, narration, rewritten, song_study
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -455,6 +455,8 @@ def create_script(
     _check_reference(request, body.reference_id)
     if body.look:
         looks.pick(db, user, body.look)
+    if body.language:
+        languages.pick(user, body.language)
     script = Script(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
