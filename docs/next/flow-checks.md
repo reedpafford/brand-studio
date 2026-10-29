@@ -61,8 +61,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
 | S3 claims (#818) | Use, then Undo: "Not checked" stays for words no longer in the lyrics | Claims only while the text is that direction's lyrics | #818 at c3960556 |
 | S3 approved version (#818) | Write 2 song directions charges 3 credits; every Use is refused (approved) | `directions_stop` gives the reason | #818 at c3960556 |
-| S3 names and copies (#819 + #818) | `without_names` and the copy rewrite exist but no job calls them: a sounds-like name still reaches Suno | Wire into the directions job: names out, copy check, one rewrite, else failed and not charged | #819 at a6867f29 |
-| Length note (server, on next) | `check._clock` shows "0:60" and "1:60" (143, 119, 287 words) | Round the total seconds first | next at 66717fc0 |
+| S3 names and copies (#818) | `check.finish_directions` (#819) is not yet called by the directions job: a sounds-like name still reaches Suno | Next-Server wires it: names out, copy check, one rewrite, else failed and not charged | #819 at 00c4f96b |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
@@ -146,4 +145,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #816 at 41c3b02a | Unsaved typing kept in Undo; takes sentence; vitest 210, tsc | PASS on both; the refusal reason is still dropped |
 | 2026-10-29 | #816 at 3e288df5 | Refusal reason; song price on Make this version | Reason PASS; FAIL: the press now shows the take's cost (no looks for uncast roles), under the version's price (40 → 34 in its test) |
 | 2026-10-29 | #816 at 5c4a1cb8 | Price change reverted; only the song step files | PASS |
+| 2026-10-29 | #819 at 00c4f96b | Name removal on 9 inputs (lowercase, leftovers), length note at minute edges, test_song (18) | PASS; note: a one-word song title ("Happy") also drops that word from the style. Wiring waits on #818 |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
