@@ -307,16 +307,14 @@ test("Assets gets its tick only once it has been opened, not before (#749 LW9)",
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
   open("?step=breakdown");
-  // The step list is looked up each time: while Assets loads it waits under a skeleton and comes back new (#773).
-  const steps = () => screen.getByRole("list", { name: "Steps" });
-  await screen.findByRole("list", { name: "Steps" });
-  const tick = () => within(steps()).getByRole("button", { name: "Assets" }).querySelector(".text-success");
-  await vi.waitFor(() => expect(within(steps()).getByRole("button", { name: "Assets" })).toBeEnabled());
-  expect(tick()).toBeNull();
-  await userEvent.click(within(steps()).getByRole("button", { name: "Assets" }));
-  await vi.waitFor(() => expect(within(steps()).getByRole("button", { name: "Breakdown" })).toBeEnabled());
-  await userEvent.click(within(steps()).getByRole("button", { name: "Breakdown" }));
-  await vi.waitFor(() => expect(tick()).not.toBeNull());
+  // The step picker waits under a skeleton while Assets loads (#773), so each look finds the list afresh.
+  const steps = () => screen.findByRole("list", { name: "Steps" });
+  const tick = async () => within(await steps()).getByRole("button", { name: "Assets" }).querySelector(".text-success");
+  await vi.waitFor(async () => expect(within(await steps()).getByRole("button", { name: "Assets" })).toBeEnabled());
+  expect(await tick()).toBeNull();
+  await userEvent.click(within(await steps()).getByRole("button", { name: "Assets" }));
+  await userEvent.click(await within(await steps()).findByRole("button", { name: "Breakdown" }));
+  await vi.waitFor(async () => expect(await tick()).not.toBeNull());
 });
 
 test("Assets shows where each one is used, the role's description, and the products and app screens the shots show", async () => {
