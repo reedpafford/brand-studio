@@ -96,6 +96,23 @@ test("while the clip is being made the still shows with Clip coming…, on the c
   expect(within(viewer).getByRole("button", { name: "Switch on for editors" })).toBeInTheDocument();
 }, 15000);
 
+test("a refused clip after its still shows the still with the reason and Try again, never Clip coming… for ever (QA-3, Zack D tonight)", async () => {
+  setViewport(390);
+  const reason = "The video model wouldn't make this clip. Nothing was charged for it.";
+  fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ status: "failed", reason, still_id: 80 })] }));
+  open();
+  const card = await screen.findByLabelText("Disney Pixar");
+  expect(await within(card).findByAltText("Disney Pixar sample")).toHaveAttribute("src", "/api/files/80");
+  expect(within(card).getByText(reason)).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /^Try again/ })).toBeInTheDocument();
+  expect(within(card).queryByText(/Clip coming/)).toBeNull();
+  await userEvent.click(within(card).getByRole("button", { name: "Open the Disney Pixar sample" }));
+  const viewer = await screen.findByRole("dialog", { name: "Disney Pixar sample" });
+  expect(within(viewer).getByText(reason)).toBeInTheDocument();
+  expect(within(viewer).getByRole("button", { name: /^Try again/ })).toBeInTheDocument();
+  expect(within(viewer).queryByText(/Clip coming/)).toBeNull();
+});
+
 test("a failed sample says why with Try again; an On look offers Switch off", async () => {
   setViewport(1440);
   fakeServer(routes({ "GET /looks": [200, [house, pixar, { ...pixar, id: "zack", name: "Zack D", on: true }]], "GET /looks/pixar/sample": [200, sample({ status: "failed", reason: "The still was refused. Nothing was charged." })], "GET /looks/zack/sample": [200, sample()] }));
