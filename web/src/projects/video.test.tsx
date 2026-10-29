@@ -1169,6 +1169,22 @@ test("an update the server refuses says why, and the press can be tried again wi
   expect(within(bar).getByRole("button", { name: "Update everything after this · 16 credits" })).toBeEnabled();
 });
 
+test("while a look in the cast isn't ready, Update everything after this waits with the same reason", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
+    "GET /projects/9/assets": [200, [asset({})]],
+    "GET /projects/9/update-after?from=plan": [200, updatePlan],
+  });
+  open("?step=storyboard");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  const update = await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" });
+  expect(update).toBeDisabled();
+  expect(update).toHaveAccessibleDescription("A look in the cast isn't ready. Make or approve it in Cast first.");
+  expect(calls.some((c) => c.key === "POST /projects/9/update-after")).toBe(false);
+});
+
 const staleClips = [clip({ id: 3, clip_id: "c1", stale: true, takes: [{ id: 5 }], picked_take_id: 5 }), clip({ id: 4, clip_id: "c2", stale: true })];
 const staleRoutes = {
   ...toClips,
