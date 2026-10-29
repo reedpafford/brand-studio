@@ -347,3 +347,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #978 Media: Restore for the video's maker | d2b8fdc7 | PASS; 11/11 |
 | 2026-10-29 | #971 Import from website (re-walk) | 682c3cb4 | PASS: Undo takes out only what Save added; later edits stay; 28/28 |
 | 2026-10-29 | #979 Own looks per look (n12) | 421137dc | PASS: switching back (or Undo) re-casts a role to its look in that look, free; the confirm counts no role; 34/34. Merge with or after #974 |
+| 2026-10-29 | #976 A first sheet in a look lists as drawing | a698ab3e | PASS: after a reload the look reads drawing (no Make); a second press still 409; 6/6 |
+| 2026-10-29 | #975 Cost log: an editor's script writing | 7aed75cb | PASS: their own calls only, never a video's twice; 3/3 |
