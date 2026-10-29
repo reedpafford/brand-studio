@@ -8,7 +8,7 @@ import { Badge, Button, Panel, Skeleton, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
-import { SongRow, useSongCredits, useSongLength } from "./SongParts";
+import { SongRow, useSongLength } from "./SongParts";
 import { beingMade } from "./ScriptsPage";
 import { useAllowanceStop, useScript, useWeek } from "./useScript";
 
@@ -45,7 +45,6 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const stop = useAllowanceStop(s, cost);
   const week = useWeek(s); // an editor making their own script sees how much of the week is used
   const songLength = useSongLength(scriptId, s?.kind === "song");
-  const whole = useSongCredits(scriptId, s?.kind === "song") ?? v?.estimate_credits ?? 0; // a song video: its Preferred take's cost, as on the take card
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   return (
@@ -91,7 +90,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           {readyToMake && v.estimate_credits > 0 && (
             <p className="text-sm text-muted">
               {/* One price line: what the press starts with, then the whole video (the button holds the first). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(whole)}` : `The whole video costs about ${wholeCredits(whole)} credits`}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (the breakdown) · the whole video about ${wholeCredits(v.estimate_credits)}` : `The whole video costs about ${wholeCredits(v.estimate_credits)} credits`}
               {songLength && ` · ${songLength} song`}
               {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>

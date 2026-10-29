@@ -64,11 +64,6 @@ export function useSongLength(scriptId: number, enabled: boolean) {
   return seconds != null ? clock(seconds) : null;
 }
 
-/** What a video of the Preferred take costs: the same figure its take card shows, so a song is never priced twice. */
-export function useSongCredits(scriptId: number, enabled: boolean) {
-  return useSongs(scriptId, enabled).data?.takes.find((t) => t.preferred && !t.out_of_date)?.video_credits ?? null;
-}
-
 /** The song's lines on a Publish card: the song, its style and who sings (flows S7). */
 export function SongFacts({ script: s }: { script: Script }) {
   const now = songOf(s);
