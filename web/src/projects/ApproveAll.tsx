@@ -5,7 +5,7 @@ import { api, errorText } from "../api/client";
 import { Button, useToast } from "../components";
 
 type Skipped = { id: number | null; reason: string; label?: string };
-export type ApproveAllResult = { approved: number[]; skipped: Skipped[] };
+export type ApproveAllResult = { approved: number[]; skipped: Skipped[]; approved_with_advice?: number };
 
 /** Scrolls to a card and outlines it for a moment. */
 export function show(label: string) {
@@ -71,6 +71,8 @@ export function useApproveAllWith(opts: {
   ) : result && result.approved.length + left.length > 0 ? (
     <p className="text-sm text-muted" role="status" data-approve-line>
       Approved {result.approved.length}.
+      {/* P4: the check's Advice never stops Approve all; the items stay in the Review list ("N items with Advice"). */}
+      {!!result.approved_with_advice && ` ${result.approved_with_advice} approved with Advice, listed under items with Advice.`}
       {left.length > 0 && ` ${left.length} not approved: `}
       {left.map((s, i) => (
         <span key={`${s.id}-${s.label}`}>

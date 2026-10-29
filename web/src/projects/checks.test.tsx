@@ -139,3 +139,12 @@ test("without checks on the server nothing shows", async () => {
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(screen.queryByText(/AI check|notes on|✓ checked/)).toBeNull();
 });
+
+test("Approve all approves items with Advice too, and says how many", async () => {
+  setViewport(390);
+  const clips = [clip({ id: 4, clip_id: "c2", prompt_ok: true, takes: [take(2, 2, advice)], picked_take_id: 2 })];
+  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips], "POST /projects/9/clips/approve-all": [200, { approved: [4], skipped: [], approved_with_advice: 1 }] }));
+  open("?step=clips");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
+  expect(await screen.findByText(/1 approved with Advice, listed under items with Advice\./)).toBeInTheDocument();
+});
