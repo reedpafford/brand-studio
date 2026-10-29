@@ -38,6 +38,7 @@ class ModelOut(BaseModel):
     audio: str | None
     unit: str
     credits_per_unit: dict[str, float]
+    lip_sync: bool = False  # video models: false shows "No lip-sync" (VS1)
 
 
 class ModelPriceOut(BaseModel):
