@@ -12,6 +12,7 @@ from app.routes import (
     clips,
     clips_zip,
     credits,
+    draft_plan,
     drafts,
     enhance,
     estimate,
@@ -127,6 +128,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         song_study,
         plan,
         checks,
+        draft_plan,
         video_settings,
         languages,
     ):
