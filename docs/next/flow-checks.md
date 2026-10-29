@@ -61,7 +61,6 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | Migration order (#873) | n04 → n06 → n05 on #858 at 7fa31331; #873 n07 must follow n05 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
-| Old Videos links (#888) | /scripts?view=videos stays on Scripts | Copy params before deleting view | #888 at b8050325 |
 | Drawn-words-only shot Advice (#886) | Fixed in #890 (line kept), but text_on_screen_advice is not wired yet | Wire it in reword, on the fixed prompt | #890 at 6820b8f3 |
 | Plan versions (#893) | Earlier plans → use v1: shots from v2 not "older"; an edit reuses v2's number | One _next() for _set, edit, use_earlier | #893 at b7f56c4d |
 | Needs you (#896) | "A step didn't finish" for change, look_fit, song, plan, narration; failed item_check flags the video | Skip check-claude; name the steps; leave unknown out | #896 at 18afb0e |
@@ -215,3 +214,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #893 at b7f56c4d (P1/P2 plan, server) | E, make, Stop, 10-min limit, Advice, edits, by hand, Earlier plans, approve, old video; test_plan_route + repro (4) | FAIL: after Earlier plans the shots from a newer plan aren't "Made for an older plan" (version reused) |
 | 2026-10-29 | #890 at 6820b8f3 (no shot emptied; capital after a cut) | text_on_screen + advice on 5 prompts; test_item_check (2) | PASS (#886 must wire text_on_screen_advice on the fixed prompt) |
 | 2026-10-29 | #896 at 18afb0e (Videos: Needs you, waiting_on) | code walk; test_needs_you (2) | FAIL: unnamed steps read "A step didn't finish"; a failed advisory check (with #891) would flag the video |
+| 2026-10-29 | #888 at e2d2d666 (old-link fix) | Playwright 390 + 1440 | PASS |
