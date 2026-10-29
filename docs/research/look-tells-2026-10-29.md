@@ -55,12 +55,14 @@ For the ones I couldn't open, the looks keep their tells from the Starpop skill 
 - **Camera:** a miniature set shot with a macro lens and strong bokeh.
 - **Light:** warm practical light.
 - **Motion:** 12 fps stop-motion.
-- **Change:** it now says outright "never smooth computer animation or a Pixar-style render".
+- **Change:** it now says outright "never smooth, glossy computer animation".
 
 **Wool crochet** (one look, as Reed confirmed; both his Wool and Crochet references belong to it):
 - **Materials:** everything is knitted or crocheted yarn with visible stitch rows. Knitted dolls with painted faces.
 - **Light:** bright daylight.
 - **Camera:** a stop-motion film still, from a step back.
-- **Change:** it now says outright "never smooth computer animation… every surface shows yarn".
+- **Change:** it now says outright "never smooth, glossy computer animation: every surface shows yarn".
+
+**No studio names (the Producer):** every look except Disney Pixar (and House and Song, built on it) is described by its own tells, never as "like Pixar". A test holds this.
 
 **Song** (a format, not a look): its look is Disney Pixar's with music-video light. Reed's Song / Pixar references couldn't be opened either.

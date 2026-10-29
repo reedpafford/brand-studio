@@ -154,3 +154,16 @@ def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
     for part in ("sheet_look", "place_look", "still_look", "clip_style"):
         assert "semi-realistic 3D" in zack[part] or "Semi-realistic 3D" in zack[part], part
         assert "cyan" not in zack[part] and "Pixar register" not in zack[part], part
+
+
+def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
+    """The Producer, 2026-10-29: only Disney Pixar (and House and Song, which are built on it)
+    may name a studio; every other look describes what it looks like."""
+    studios = ("pixar", "disney", "ghibli", "aardman", "laika")
+    for s in prompts.styles():
+        if s["id"] in ("house", "disney-pixar", "song"):
+            continue
+        for name, text in s["sections"].items():
+            if name in prompts.DATA:  # banned words name a studio to take it out
+                continue
+            assert not any(x in text.lower() for x in studios), (s["id"], name)
