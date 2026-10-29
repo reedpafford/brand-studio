@@ -3,14 +3,14 @@ version's default flavour per product, {product: variant}, copied to a video at 
 version (the video's own pick stays in projects.product_variants).
 
 Revision ID: n03
-Revises: n11
+Revises: n13
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n03"
-down_revision = "n11"
+down_revision = "n13"
 branch_labels = None
 depends_on = None
 

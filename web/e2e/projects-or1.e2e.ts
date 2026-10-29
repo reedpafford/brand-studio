@@ -37,7 +37,7 @@ for (const width of [1440, 390]) {
     await list.getByRole("button", { name: `More for ${name}` }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     const ask = page.getByRole("alertdialog", { name: `Delete ${name}?` });
-    await expect(ask).toContainText("Its 1 item move to No project. Nothing inside is deleted.");
+    await expect(ask).toContainText("Its 1 item moves to No project. Nothing inside is deleted.");
     await ask.getByRole("button", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(list.getByRole("button", { name: `${name} · 1 item` })).toBeVisible();

@@ -43,7 +43,7 @@ from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, Reference
 from app.routes.clips import _check_media_length, generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.projects import get_project
+from app.routes.projects import _mine, get_project
 from app.routes.storyboard import ChangeIn, PriceOut, _newest_breakdown
 from app.schemas import PromptText, UtcTime
 from app.sheets import require_looks
@@ -109,6 +109,18 @@ class AutoFixOut(BaseModel):
     before: str  # the prompt as written, for See the change (after is the clip's prompt)
 
 
+class Maker(BaseModel):
+    id: int
+    name: str
+
+
+class PromptVersionOut(BaseModel):
+    index: int  # 0 is the prompt in hand; Go back to this takes another
+    made_at: str
+    made_by: Maker | None  # null: written by Claude for a job nobody is named on, or before
+    current: bool
+
+
 class ProjectClipOut(BaseModel):
     id: int
     clip_id: str
@@ -133,6 +145,16 @@ class ProjectClipOut(BaseModel):
     retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
     auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
     look_fix: str | None = None  # the look's fix to offer when its takes are refused (ST2)
+    versions: list[PromptVersionOut] = []  # OR3: this prompt's versions, the one in hand first
+
+
+def _versions(db: Session, row: ProjectClip) -> list[PromptVersionOut]:
+    from app.auth import user_name
+
+    return [PromptVersionOut(index=i, made_at=e["made_at"], current=i == 0,
+                             made_by=Maker(id=by, name=user_name(db, by)) if (
+                                 by := e.get("made_by_id")) else None)
+            for i, e in enumerate(row.prompt_history or [])]  # fmt: skip
 
 
 def _takes(db: Session, row: ProjectClip) -> list[ClipTake]:
@@ -147,7 +169,7 @@ _stale = clip_prompts.is_stale
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
-                "look_fix")  # fmt: skip
+                "look_fix", "versions")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -186,6 +208,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         else None,
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
+        versions=_versions(db, row),
     )
 
 
@@ -367,9 +390,51 @@ def edit_clip(
         clip = clip.model_copy(update={"prompt": fixed})
         row.auto_fix = {"before": typed, "after": fixed, "fixed": said,
                         "undone": False} if said else None  # fmt: skip
+    new = clip.prompt != row.prompt or [r.model_dump() for r in clip.references] != row.references
+    clip_prompts.before_change(db, row)
     row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
     row.prompt_ok = True
     row.problems = clip_prompts.clip_problems(db, project, bd, clip) + refused
+    if new:
+        clip_prompts.log_prompt(db, row, user.id)  # OR3: Versions
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
+def _for_clip(given: dict, row: ProjectClip) -> bool:
+    """A job that lands on this clip: its take, a change note on it, or a rewrite of it (a
+    rewrite of every clip names none)."""
+    if given.get("project_clip_id") == row.id:
+        return True
+    if given.get("step") == "change" and (given.get("target"), given.get("target_id")) == (
+        "clip",
+        row.id,
+    ):
+        return True
+    ids = given.get("clip_ids")
+    return given.get("step") == "clip_prompts" and (ids is None or row.clip_id in ids)
+
+
+@router.post("/clips/{clip_id}/versions/{index}/use", response_model=ProjectClipOut)
+def use_version(
+    project_id: int,
+    clip_id: int,
+    index: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Go back to this (OR3): an earlier version of the prompt is the one in hand again. Free,
+    never refused over budget; Undo is index 1 (the one it replaced). Waits while a take or a
+    rewrite is being made for this clip, so nothing lands on the wrong version. Whoever made
+    the video, or the owner."""
+    _mine(db, user, project_id)
+    project, row = _clip(db, user, project_id, clip_id)
+    if project.archived_at is not None:
+        raise HTTPException(409, "This video is archived. Restore it first.")
+    busy = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
+    if any(_for_clip(j.input, row) for j in busy):
+        raise HTTPException(409, "Wait for this clip's take or prompt being made.")
+    clip_prompts.use_prompt(row, index)
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
