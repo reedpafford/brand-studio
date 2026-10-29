@@ -309,3 +309,13 @@ def test_only_real_names_go_and_a_style_line_is_never_left_empty():
     assert check.strip_names("laid-back like jack johnson", "jack johnson")[0] == "laid-back"
     assert check.strip_names("Jack Johnson", "Jack Johnson") == ("pop", ["Jack Johnson"])
     assert check.strip_names("Jack Johnson acoustic", "Jack Johnson")[0] == "acoustic"
+
+
+def test_a_name_after_a_genre_word_goes_and_leaves_no_like_the():
+    """Flow-QA on #831: "country Taylor Swift" kept the name, and "beatles" left "like the"."""
+    assert check.strip_names("country pop like Taylor Swift", "country Taylor Swift") == (
+        "country pop", ["Taylor Swift"])  # fmt: skip
+    assert check.strip_names("rock like the Beatles, 1965", "beatles") == (
+        "rock, 1965", ["beatles"])  # fmt: skip
+    assert check.strip_names("rock like the Beatles, 1965", "The Beatles")[0] == "rock, 1965"
+    assert check.strip_names("Beatles-style rock", "the beatles")[0] == "rock"

@@ -942,11 +942,22 @@ def _names(sounds_like: str) -> list[str]:
     dashes that isn't only sound words ("upbeat pop" is a genre, never a name)."""
     text = re.sub(r"^\s*(?:sounds? like|like|the song)\s+", "", sounds_like.strip(), flags=re.I)
     parts = re.split(r"\s+(?:by|and|&|feat\.?|ft\.?)\s+|[,/;]|\s+[-–]\s+", text, flags=re.I)
-    names = [x.strip(" \"'“”‘’") for x in parts]
-    return [x for x in names if len(x) > 2 and not set(_words(x).split()) <= SOUND]
+    return [x for x in map(_bare, parts) if len(x) > 2]
 
 
-AROUND = r"(?:\s*,?\s*\b(?:like|by|in the style of|à la|inspired by|reminiscent of)\s+)?"
+def _bare(part: str) -> str:
+    """A name without the sound words and "the" around it: "country Taylor Swift" → "Taylor
+    Swift", "the beatles" → "beatles", "upbeat pop" → "" (Flow-QA on #831)."""
+    words = part.strip(" \"'“”‘’").split()
+    while words and (words[0].lower() == "the" or _words(words[0]) in SOUND):
+        words = words[1:]
+    while words and _words(words[-1]) in SOUND:
+        words = words[:-1]
+    return " ".join(words)
+
+
+# "like the", "by", "in the style of"…: taken with the name, so nothing dangles ("rock like the").
+AROUND = r"(?:\s*,?\s*\b(?:like|by|in the style of|à la|inspired by|reminiscent of)\s+)?(?:the\s+)?"
 
 
 def _tidy(style: str) -> str:
