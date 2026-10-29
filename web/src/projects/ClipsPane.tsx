@@ -20,7 +20,7 @@ import { useCostBarAction } from "./CostBar";
 type Clip = components["schemas"]["ProjectClipOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
 
-export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
+export function ClipsPane(props: { hold?: string | null; ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
   const { projectId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -49,7 +49,9 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
   });
-  const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget });
+  const limit = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget });
+  // While an earlier step is out of date every paid press waits, with why (audit M14); free ones (Approve, Prompt OK) stay.
+  const stopFor = (cost: number | undefined) => props.hold ?? limit(cost);
   const { words, fix } = useProblemWords(projectId, props.brandId);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
@@ -198,8 +200,8 @@ export function ClipsPane(props: { ownScript?: boolean; review?: boolean; projec
   // Make the takes makes only prompts already checked; a clip's own Make clip checks its prompt and makes it in one press (#751).
   const unreadWhy = `Check each prompt first: Prompt OK, or Make clip on its card (${unread} left).`;
   // The rewrite comes first: a stale prompt is read again after it.
-  const makeWhy = stale.length > 0 ? `Rewrite the clips made for an older breakdown first (${stale.length}).` : unread > 0 ? unreadWhy : stopFor(allCost);
-  const declined = stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
+  const makeWhy = props.hold ? props.hold : stale.length > 0 ? `Rewrite the clips made for an older breakdown first (${stale.length}).` : unread > 0 ? unreadWhy : stopFor(allCost);
+  const declined = props.hold ? null : stopFor(writeCost) ?? stopFor(allCost) ?? list.map((c) => stopFor(takeCost(c))).find(Boolean) ?? null;
   const makeAll = async () => {
     for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
   };

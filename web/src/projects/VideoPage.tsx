@@ -24,7 +24,7 @@ import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
-import { VIDEO_STEPS, videoBlocker, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
+import { VIDEO_STEPS, videoBlocker, videoHold, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 
 /** A video made from a library version: Plan · Cast · Storyboard · Clips · Final cut. */
 export function VideoPage() {
@@ -92,6 +92,9 @@ export function VideoPage() {
     setPanel(true);
   };
   const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
+  // Made work whose earlier step changed stays viewable; its paid presses wait, and the banner says where to go (audit M14).
+  const hold = videoHold(step, all);
+  const fixAt = hold ? VIDEO_STEPS.find((s) => s.id === videoBlocker(step, all)) : undefined;
   const next = videoNext(step);
   const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
@@ -144,6 +147,11 @@ export function VideoPage() {
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
         </div>
       </div>
+      {hold && (
+        <Banner tone="warning" title="Out of date" action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
+          {hold}
+        </Banner>
+      )}
       {step === "plan" && (
         <PlanStep
           project={p as typeof p & { plan_status?: "none" | "ready" | "approved" | null }}
@@ -157,8 +165,8 @@ export function VideoPage() {
         />
       )}
       {step === "cast" && <AssetsPane projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} ownScript={p.own_script} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "storyboard" && <StoryboardPane castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "clips" && <ClipsPane ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "storyboard" && <StoryboardPane hold={hold} castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "clips" && <ClipsPane hold={hold} ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       {panel && (
         <ScriptPanel
