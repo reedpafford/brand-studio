@@ -12,6 +12,8 @@ import { useBrandCharacters, useCast, useCastActions, useMergeRoles, type Slot }
 import { MergeRole, mergedText } from "../projects/MergeRole";
 import { MaybeSame, MaybeSameBadge, pairId, type Pair } from "../projects/MaybeSame";
 import { RoleFacts } from "../projects/RoleFacts";
+import { useSheetPrice } from "../library/SheetPanel";
+import { wholeCredits } from "../components/credits";
 
 /** Step 5: the roles of the script, each with one locked look or none (made at Assets). Every role is optional. */
 export function CastStep({ script, brandId, readOnly }: { script: Script; brandId: number; readOnly: boolean }) {
@@ -20,6 +22,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
   const chars = useBrandCharacters(brandId);
   const act = useCastActions(scriptId);
   const toast = useToast();
+  const sheet = useSheetPrice().price;
   const [adding, setAdding] = useState(false);
   const [locking, setLocking] = useState<Slot | null>(null);
   const [renaming, setRenaming] = useState<Slot | null>(null);
@@ -114,7 +117,8 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
                       </>
                     ) : (
                       <>
-                        <span className="text-sm text-muted">Made at Assets</span>
+                        {/* An unlocked role gets its own look in every video made from this script, each paid for there (rule 7). */}
+                        <span className="text-sm text-muted">Not locked: each video makes its own look{sheet !== undefined && ` (about ${wholeCredits(sheet)} credit${wholeCredits(sheet) === 1 ? "" : "s"} each)`}.</span>
                         {!readOnly && (
                           <Button variant="secondary" aria-label={`Lock ${s.role} to a look`} onClick={() => setLocking(s)}>
                             Lock to a look
