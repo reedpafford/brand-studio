@@ -123,3 +123,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #759 at 16b9f166, #775 at bd184249, #781 at 2a3751ca | Full browser suite each (54/54/55 passed) + song walk 18/18 + V2a at 1440 and 390 | PASS |
 | 2026-10-29 | next (10+ brands, Producer's ask) | Switcher, landing brand, New brand, archive + Restore with 14 and 32 brands at 390 and 1440 | PASS: no screen problem; the suite failures were test setup (remembered last brand; Restore past 25 rows) |
 | 2026-10-29 | #780 at 02728f5e (flows LW3 Redo this frame) | Paper | PASS, 4 states to name (rewrite ok/draw failed, Undo both, over budget, shot vs clip) |
+| 2026-10-29 | #785 at fa4261df (main into next) | Full browser suite | PASS (52 passed, 1 skipped) |
