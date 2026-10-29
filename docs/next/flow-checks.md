@@ -135,4 +135,5 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #810 at 50859f17 (take video cost, Delete on own takes, clips note) | Full suite + Change song walk at 1440 and 390 (57 passed); vitest 201 | PASS; fix expected: the cost isn't rounded (`wholeCredits`) |
 | 2026-10-29 | #810 at e2efd06b | The cost rounding fix | PASS |
 | 2026-10-29 | #799 at 8e20e1fa (a stretch is never a shot's own time; 0.5 s floor) | 15 checks: last-shot Undo, last two shots, one-step Undo, reorder, song switch | PASS (14/15); a reorder's Undo is not exact, API only |
+| 2026-10-29 | 03:50 check-in: #783 at dd8efec0 (next merged in), #777 at 87f75a6c (next merged in), #773 at 4a6152a9 | Song API walks (71 of 72; the one miss is my old S4 U setup), no node_modules link | PASS; #814 is a tool and docs, no app flow |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
