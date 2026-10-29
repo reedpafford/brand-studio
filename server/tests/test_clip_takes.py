@@ -379,6 +379,11 @@ def test_a_reworded_refusal_is_made_again_on_its_own_once(app, db, editor, setup
     _work(app, db, FakeSeedance([_mp4("red")]))
     (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
     assert len(shown["takes"]) == 1 and shown["retrying"] is None
+    assert shown["retried"] == "refused"  # "Tried again once on its own" stays
+    editor.post(f"/projects/{setup['project']}/clips/{shown['id']}/generate")
+    _work(app, db, FakeSeedance([_mp4("red"), _mp4("blue")]))
+    (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
+    assert len(shown["takes"]) == 2 and shown["retried"] is None  # a person's newer take
 
 
 def test_a_sensitive_take_is_made_again_on_its_own_then_reworded(app, db, editor, setup, clip):  # noqa: F811
@@ -404,7 +409,8 @@ def test_wording_flags_fix_themselves_with_undo(app, db, editor, setup, clip):  
     flagged = clip["prompt"].replace("Summary: ", "Summary: Vertical 9:16, 480p. ")
     shown = editor.put(url, json={"prompt": flagged, "references": clip["references"]}).json()
     assert shown["prompt"] == clip["prompt"].replace("Summary: ", "Summary: Vertical. ")
-    assert shown["auto_fix"] == {"fixed": ['removed "9:16"', 'removed "480p"'], "undone": False}
+    assert shown["auto_fix"] == {"fixed": ['removed "9:16"', 'removed "480p"'], "undone": False,
+                                 "before": flagged}  # fmt: skip
     assert shown["problems"] == []
     undone = editor.post(f"{url}/auto-fix/undo").json()
     assert undone["prompt"] == flagged and undone["auto_fix"]["undone"] is True

@@ -84,6 +84,7 @@ class InsertIn(BaseModel):
 class AutoFixOut(BaseModel):
     fixed: list[str]  # 'removed "9:16"', 'changed "says" to "gestures"'
     undone: bool
+    before: str  # the prompt as written, for See the change (after is the clip's prompt)
 
 
 class ProjectClipOut(BaseModel):
@@ -107,6 +108,7 @@ class ProjectClipOut(BaseModel):
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
     take_warning: str | None = None  # said before the next take: its last two were refused
     retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
+    retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
     auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
 
 
@@ -121,7 +123,7 @@ _stale = clip_prompts.is_stale
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
-                "take_stale", "retrying", "auto_fix")  # fmt: skip
+                "take_stale", "retrying", "retried", "auto_fix")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -141,6 +143,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         take_stale=clip_prompts.take_stale(row),
         take_warning=clip_takes.take_warning(db, row),
         retrying=clip_takes.retrying(db, row),
+        retried=clip_takes.retried(db, row),
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
     )
@@ -278,7 +281,9 @@ def undo_auto_fix(
     if not fix or fix.get("undone"):
         raise HTTPException(409, "There's nothing to undo on this clip.")
     if row.prompt != fix.get("after"):
-        raise HTTPException(409, "This prompt has changed since, so the fix can't be undone.")
+        raise HTTPException(
+            409, "The prompt has changed since the fix, so there's nothing to undo."
+        )
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     row.same_fix = True  # its own words back: a used free fix stays used
     row.prompt, row.auto_fix = fix["before"], {**fix, "undone": True}
