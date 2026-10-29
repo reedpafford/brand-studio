@@ -220,3 +220,20 @@ test("switching to Dialogue from the Narration step lands on Script", async () =
   await userEvent.click(within(screen.getByRole("alertdialog", { name: "Make this Dialogue?" })).getByRole("button", { name: "Change" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
 });
+
+test("an editor past their week sees Try the music again and Try again greyed with why", async () => {
+  setViewport(390);
+  const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
+  fakeServer({
+    ...base,
+    "GET /auth/me": [200, editor],
+    "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }],
+    "GET /scripts/7": [200, narrated({}, { created_by_id: 2 })],
+    "GET /scripts/7/drafts/0/songs": [200, songs([narration({ id: 2, number: 2, music_status: "failed", music_credits: 2 }), narration({ id: 3, number: 3, status: "failed", file_id: null, seconds: null })])],
+  });
+  open("/b/1/scripts/7?step=narration");
+  const music = await screen.findByRole("button", { name: /Try the music again/ });
+  await vi.waitFor(() => expect(music).toBeDisabled());
+  expect(music).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday.");
+  expect(screen.getByRole("button", { name: /^Try again/ })).toBeDisabled();
+});

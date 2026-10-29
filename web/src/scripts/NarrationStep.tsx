@@ -22,7 +22,10 @@ function Elapsed() {
 }
 
 /** One narration: its player, length, pauses trimmed, its state in words and the press each state needs (flows N1). */
-function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<typeof useSongActions>; readOnly: boolean; price: number }) {
+function NarrationCard({ t, a, readOnly, price, script }: { t: Narration; a: ReturnType<typeof useSongActions>; readOnly: boolean; price: number; script: Script }) {
+  // Past the week (rule 5) a paid press says why and waits, as Make the narration does (Flow-QA).
+  const musicStop = useAllowanceStop(script, t.music_credits);
+  const tryStop = useAllowanceStop(script, t.status === "failed" ? price : 0);
   const label = `Narration ${t.number}`;
   const length = t.seconds;
   return (
@@ -54,7 +57,7 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
         <div className="space-y-2">
           <p role="alert" className="text-sm text-warning">{t.music_reason || "The music didn't finish. Nothing was charged for it."} The narration is kept.</p>
           {!readOnly && (
-            <Button variant="secondary" icon={RotateCcw} price={t.music_credits} busy={a.musicAgain.isPending && a.musicAgain.variables === t.id} onClick={() => a.musicAgain.mutate(t.id)}>
+            <Button variant="secondary" icon={RotateCcw} price={t.music_credits} disabled={musicStop !== null} reason={musicStop} busy={a.musicAgain.isPending && a.musicAgain.variables === t.id} onClick={() => a.musicAgain.mutate(t.id)}>
               Try the music again
             </Button>
           )}
@@ -78,7 +81,7 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
         <div className="space-y-2">
           <p role="alert" className={errorClass}>{t.failed_reason ?? "The narration didn't finish. Nothing was charged."}</p>
           {!readOnly && t.retry_helps && (
-            <Button variant="secondary" icon={RotateCcw} price={t.status === "failed" ? price : 0} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+            <Button variant="secondary" icon={RotateCcw} price={t.status === "failed" ? price : 0} disabled={tryStop !== null} reason={tryStop} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
               Try again
             </Button>
           )}
@@ -154,7 +157,7 @@ export function NarrationStep({ script: s }: { script: Script }) {
           <ul className="grid gap-4 [&>li]:min-w-0">
             {narrations.map((t) => (
               <li key={t.id}>
-                <NarrationCard t={t} a={a} readOnly={readOnly} price={data.estimate_credits} />
+                <NarrationCard t={t} a={a} readOnly={readOnly} price={data.estimate_credits} script={s} />
               </li>
             ))}
           </ul>
