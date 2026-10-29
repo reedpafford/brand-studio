@@ -346,3 +346,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #977 Read-only video for a second editor | 3d3ee0d5 (+#964) | FAIL: the Plan tabs and other show-only presses are greyed. Banner, greyed presses, cost bar reason, live steps and players pass; e2e 6/6 at 1440 and 390 |
 | 2026-10-29 | #978 Media: Restore for the video's maker | d2b8fdc7 | PASS; 11/11 |
 | 2026-10-29 | #971 Import from website (re-walk) | 682c3cb4 | PASS: Undo takes out only what Save added; later edits stay; 28/28 |
+| 2026-10-29 | #979 Own looks per look (n12) | 421137dc | PASS: switching back (or Undo) re-casts a role to its look in that look, free; the confirm counts no role; 34/34. Merge with or after #974 |
