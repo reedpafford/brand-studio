@@ -10,33 +10,57 @@ export const WRITING_STEPS = [
   { id: "breakdown", label: "Breakdown" },
   { id: "publish", label: "Publish" },
 ] as const;
-type WritingStep = (typeof WRITING_STEPS)[number]["id"];
 
-/** Steps that are built so far; the rest show in the picker but can't be opened yet. */
-const BUILT: WritingStep[] = ["script", "directions", "variations", "cast", "breakdown", "publish"];
+/** A song script (song ads): the lyrics and style, the takes, then Cast, Plan and Publish as a story's. No Directions or Variations (flows S1–S7). */
+export const SONG_STEPS = [
+  { id: "song", label: "Song" },
+  { id: "takes", label: "Takes" },
+  { id: "cast", label: "Cast" },
+  { id: "breakdown", label: "Plan" }, // the owner's breakdown preview (flows, UX audit #749)
+  { id: "publish", label: "Publish" },
+] as const;
 
-export const stepFromParam = (p: string | null): WritingStep => (WRITING_STEPS.find((s) => s.id === p)?.id ?? "script") as WritingStep;
+type WritingStep = (typeof WRITING_STEPS)[number]["id"] | (typeof SONG_STEPS)[number]["id"];
+
+/** What the song steps need to know about the takes: is one Preferred, how many sing the lyrics as they are now, and how many sing older words. */
+export type SongState = { preferred: boolean; overCap?: boolean; takes: number; older: number };
+
+export const stepsFor = (s: Pick<Script, "kind">) => (s.kind === "song" ? SONG_STEPS : WRITING_STEPS);
+
+export const stepFromParam = (s: Pick<Script, "kind">, p: string | null): WritingStep => {
+  const steps = stepsFor(s);
+  return (steps.find((x) => x.id === p)?.id ?? steps[0].id) as WritingStep;
+};
 
 export const hasWords = (s: Script) => (s.versions.find((v) => v.slot === 0)?.text ?? "").trim() !== "";
 
-export function lockReason(step: WritingStep, s: Script): string | null {
-  if (!BUILT.includes(step)) return "Coming soon";
+export function lockReason(step: WritingStep, s: Script, song?: SongState): string | null {
+  if (s.kind === "song") {
+    if (step === "song") return null;
+    if (!hasWords(s)) return "Write or pick the lyrics first";
+    if (step === "takes") return null;
+    // Cast, Breakdown and Publish follow the Preferred take (flows S5–S7).
+    if (song?.overCap) return "The Preferred take is too long for a video. Use the first part of it first";
+    if (!song?.preferred) return song && song.takes > 0 ? "Pick the preferred take first" : song && song.older > 0 ? "Make takes of the new lyrics first" : "Make the song first";
+    return null;
+  }
   if ((step === "directions" || step === "cast" || step === "breakdown" || step === "publish") && !hasWords(s)) return "Write the script first";
   return null;
 }
 
-export function stepStates(current: WritingStep, s: Script): { id: WritingStep; label: string; state: StepState; reason?: string }[] {
-  return WRITING_STEPS.map((x) => {
-    const reason = lockReason(x.id, s);
-    const done = (x.id === "script" && hasWords(s)) || (x.id === "cast" && hasWords(s) && (s.cast?.length ?? 0) > 0) || (x.id === "breakdown" && s.versions.some((v) => v.has_breakdown)) || (x.id === "publish" && s.published);
+export function stepStates(current: WritingStep, s: Script, song?: SongState): { id: WritingStep; label: string; state: StepState; reason?: string }[] {
+  return stepsFor(s).map((x) => {
+    const reason = lockReason(x.id, s, song);
+    const words = (x.id === "script" || x.id === "song") && hasWords(s);
+    const done = words || (x.id === "takes" && !!song?.preferred) || (x.id === "cast" && hasWords(s) && (s.cast?.length ?? 0) > 0) || (x.id === "breakdown" && s.versions.some((v) => v.has_breakdown)) || (x.id === "publish" && s.published);
     const state: StepState = x.id === current ? "current" : reason !== null ? "todo" : done ? "done" : "open";
     return { id: x.id, label: x.label, state, ...(reason ? { reason } : {}) };
   });
 }
 
-/** The step before and after, stepping over the optional ones that are not built yet. */
-export function around(step: WritingStep) {
-  const open = WRITING_STEPS.filter((x) => BUILT.includes(x.id));
-  const i = open.findIndex((x) => x.id === step);
-  return { prev: open[i - 1], next: open[i + 1] };
+/** The step before and after. */
+export function around(s: Pick<Script, "kind">, step: WritingStep) {
+  const steps = stepsFor(s);
+  const i = steps.findIndex((x) => x.id === step);
+  return { prev: steps[i - 1], next: steps[i + 1] };
 }

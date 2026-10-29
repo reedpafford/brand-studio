@@ -6,6 +6,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import type { Script } from "./useScript";
 import { FindRoles } from "./FindRoles";
+import { SingerCard } from "./SongParts";
 import { LockPanel } from "./LockPanel";
 import { useBrandCharacters, useCast, useCastActions, useMergeRoles, type Slot } from "./useCast";
 import { MergeRole, mergedText } from "../projects/MergeRole";
@@ -51,6 +52,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
 
   return (
     <div className="max-w-[820px] space-y-4">
+      {script.kind === "song" && <SingerCard script={script} />}
       {cast.isError && <Banner title="Couldn't load the cast." action={<Button variant="secondary" onClick={() => void cast.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {cast.isPending && (
         <div className="space-y-2" aria-label="Loading">
