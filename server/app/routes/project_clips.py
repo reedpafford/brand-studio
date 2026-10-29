@@ -523,6 +523,18 @@ def unapprove(
     return _out(db, row, _newest_breakdown(db, project))
 
 
+def final_out_of_date(db: Session, project: Project) -> bool:
+    """A finished video whose clips changed since (LW2: lists said "Video done" while it was
+    out of date), read as Downloads reads it: a clip unapproved or made for an older
+    breakdown, or the final cut's picks or real images changed. Free, never stored."""
+    newest = _newest_breakdown(db, project)
+    if any(not c.approved or _stale(db, c, newest) for c in _clips(db, project.id)):
+        return True
+    query = select(FinalVideo).where(FinalVideo.project_id == project.id)
+    video = db.scalar(query.order_by(FinalVideo.id.desc()).limit(1))
+    return bool(video) and _video_out(db, video).out_of_date
+
+
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:
     clips = _clips(db, video.project_id)
     current = [c.picked_take_id for c in clips]

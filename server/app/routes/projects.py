@@ -94,6 +94,7 @@ class ProjectOut(BaseModel):
     # names it, or "done" once finished.
     poster_file_id: int | None = None
     step: Literal["breakdown", "assets", "storyboard", "clips", "downloads", "done"] | None = None
+    final_out_of_date: bool = False  # finished, but its clips changed since: "changes waiting"
 
 
 def archive(db: Session, project: Project) -> None:
@@ -119,8 +120,11 @@ def get_project(db: Session, user: User, project_id: int) -> Project:
 
 
 def _out(db: Session, project: Project, user: User) -> ProjectOut:
+    from app.routes.project_clips import final_out_of_date
+
     used = credits_used(db, project)
     return ProjectOut(
+        final_out_of_date=bool(project.finished_at) and final_out_of_date(db, project),
         id=project.id,
         brand_id=project.brand_id,
         name=project.name,
