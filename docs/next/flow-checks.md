@@ -177,5 +177,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #873 at 8e86ba8a (Format and Look step 1: ST1, ST3, VS1) | test_looks (4); code read for VS1 | FAIL: a video's look change marks nothing out of date (same as VS1 Shape); "ask the owner" in the editor's message |
 | 2026-10-29 | #871 at 699c1e47 | Messages and link say Cast; server tests (15) | PASS |
 | 2026-10-29 | #873 at 2be90844 | Look change: stills and clips out of date, redo price, Make video 409, Undo restores; Off message; tests (25) | PASS; n07 must be re-pointed to next's newest migration before merge |
+| 2026-10-29 | #875 at 88a6a377 (S3a Stop and 10-minute limit) | test_song_study (12); code read | PASS; notes: #857 needs Stop while running; Stop-vs-finish race |
 | 2026-10-29 | #858 at 2055786a (next merged in) | test_narration, test_song_takes, test_kie, publish with old narration (36) | PASS |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
