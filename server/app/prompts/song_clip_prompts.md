@@ -1,0 +1,4 @@
+# Song ads
+<!-- Added to the clip prompts step for a song video only (EXTENDS), so story videos' clip prompts stay as they were. Inputs as clip prompts, plus audio:song:<clip id> for a clip with a sung shot. Output: ClipPrompts. -->
+
+**Songs.** In a song ad (the breakdown's shots carry `sung`), the song is laid under the finished video. A B-roll clip (no sung shot) is silent picture: the no-one-speaks audio line, and nobody on screen sings or mouths words; cut and move on the beats the shots' song times give. A clip with a sung shot attaches its slice of the song (audio:song:<clip id>) and binds it: "[Image2] is Mia and sings [Audio1]."; its audio line is "Audio: only the song from [Audio1], sung by Mia, and <room sound>. No other music, voices or narration. No subtitles.", and the sung shot reads `Mia (singing, in English, how it's sung): "words"`, word for word, with everyone else in frame keeping their mouths closed.
