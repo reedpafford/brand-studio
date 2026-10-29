@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Music, RotateCcw } from "lucide-react";
+import { Music, RotateCcw, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
@@ -69,8 +69,18 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
       toast(`Take ${t?.number} now uses its first ${t?.trim_to ? clock(t.trim_to) : "part"}. The whole take is kept.`, () => void ok(api.DELETE("/songs/{take_id}/trim", { params: { path: { take_id: t!.id } } })).then(refresh));
     },
   });
+  const remove = useMutation({
+    mutationFn: async (t: SongTake) => {
+      await ok(api.DELETE("/songs/{take_id}", { params: { path: { take_id: t.id } } }));
+      return t;
+    },
+    onSuccess: async (t) => {
+      await refresh();
+      toast(`Take ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", { params: { path: { take_id: t.id } } })).then(refresh));
+    },
+  });
   // Only the latest press's refusal shows, until the next press.
-  const latest = [use, make, again, trim].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
+  const latest = [use, make, again, trim, remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
   const refused = latest.isError ? latest.error.message : null;
   const press = (t: SongTake) => (hasShots ? setAsking(t) : use.mutate(t));
   const current = data?.takes.find((t) => t.id === data.song_take_id);
@@ -102,6 +112,7 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
                       <h3 className="type-card">Take {t.number}</h3>
                       {length(t) != null && <span className="text-sm tabular-nums text-muted">{clock(length(t)!)}</span>}
                       {inUse && <Badge tone="accent">In this video</Badge>}
+                      {t.in_video && <Badge>Made in this video</Badge>}
                       {t.trim_to != null && <Badge>Uses the first {clock(t.trim_to)}</Badge>}
                       {t.timing_guessed && <Badge tone="warning">Timing guessed</Badge>}
                     </div>
@@ -124,6 +135,12 @@ function ChangeSong({ project: p, onClose, hasShots }: { project: Project; onClo
                     {tooLong && t.fits_until != null && (
                       <Button variant="secondary" busy={trim.isPending && trim.variables?.id === t.id} onClick={() => trim.mutate(t)}>
                         Use the first {clock(t.fits_until)} · free
+                      </Button>
+                    )}
+                    {/* Only takes this video made can be deleted, and not the one it uses (flows V2a); Undo brings it back. */}
+                    {t.in_video && !inUse && t.status !== "making" && (
+                      <Button variant="ghost" icon={Trash2} busy={remove.isPending && remove.variables?.id === t.id} onClick={() => remove.mutate(t)}>
+                        Delete take
                       </Button>
                     )}
                     {!inUse && (t.status === "ready" || t.status === "timing") && (

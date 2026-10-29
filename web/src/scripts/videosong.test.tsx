@@ -9,7 +9,7 @@ import { setViewport } from "../test/viewport";
 import { SongStrip } from "./VideoSong";
 
 const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspace_id: 1 };
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.2, 0.8], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.2, 0.8], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, in_video: false, ...o });
 const songs = (takes: object[], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, song_take_id: 1, ...o });
 const project = (o: object = {}) => ({ id: 5, brand_id: 1, name: "Bowl song", own_script: false, credits_used: 10, budget_credits: 100, budget_pct: 10, ...o }) as never;
 
@@ -74,4 +74,18 @@ test("at 390 Change song opens as a sheet with Close", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
   const sheet = await screen.findByRole("dialog", { name: "Change song" });
   expect(within(sheet).getByRole("button", { name: "Close" })).toBeInTheDocument();
+});
+
+test("a take this video made says so and can be deleted with Undo; the one in use can't", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 3, number: 1, preferred: false, in_video: true })])], "DELETE /songs/3": [204, null], "POST /songs/3/restore": [200, take({ id: 3, number: 1, in_video: true })] });
+  show();
+  await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
+  const panel = await screen.findByRole("dialog", { name: "Change song" });
+  expect(within(panel).getByText("Made in this video")).toBeInTheDocument();
+  expect(within(panel).getAllByRole("button", { name: "Delete take" })).toHaveLength(1);
+  await userEvent.click(within(panel).getByRole("button", { name: "Delete take" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /songs/3")).toBe(true));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/3/restore")).toBe(true));
 });
