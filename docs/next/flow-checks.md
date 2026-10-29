@@ -65,6 +65,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 screen vs server (#926 + #925) | #926 reads GET /settings as {fields, language{label,from}} and posts {key, value}; #925 serves a flat SettingsOut and wants one named field (422 otherwise). Merged together, s.fields.map throws and the video page breaks | Agree one shape; use the generated api client so the compiler checks it |
 | Sample's Try again (#927) | A look sample's clip fails: the only press, Make a sample · 6, makes a new still too (paid again) and replaces the kept one | After a failed clip, make() queues only the clip from the kept still, priced as the clip |
 | A scene change lost to an edit (#928) | Change this scene · 3 credits, then Split here while it runs: the result is dropped, the job is charged as succeeded, nothing says so | PUT /plan refused while a plan or scene job runs (_one_at_a_time in edit) |
+| Look fix screens (#929) | "Open the plan" shows on any 409 (budget, archived, the week); "Fixed for the look" with Undo stays after Undo | needsPlan only for "Approve the plan first."; show the note only while the prompt is still its `after` |
 
 Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad772), flows.md items 2–6 (#743 at 05ef4860). Every state there is to be re-checked on the built screens.
 
@@ -279,3 +280,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #922 at e7aef548 | PASS: a frame to fix stops the run at the stills, "Fix shot 1.1 on Storyboard and draw it…" (Open Storyboard); drawing it clears the stop. The open row for it is closed |
 | 2026-10-29 | #928 at 0acd4228 (P1 Change this scene, Update the plan) | PASS for both presses, their refusals and Earlier plans. FAIL: an edit during a scene change drops the paid result silently (open above) |
 | 2026-10-29 | 13:17 check-in; #919 at 542db621 | #919 PASS: a format switch without the current step lands on Script. #898, #914, #918 merged. Open PRs into next: #916 #919 #920 #921 #922 #923 #924 #925 #926 #927 #928; none into main. Holding #923, #925, #926, #927, #928 (open above) |
+| 2026-10-29 | #929 at 2d58eaa5 (ST2 screens, #898 follow-ups, #923's way on) | PASS: Undo only before the still is drawn; look tips; the #898 notes closed; Open the plan from the old page. FAIL: two one-line fixes (open above) |
