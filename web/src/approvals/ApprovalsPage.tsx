@@ -14,16 +14,18 @@ import { useRail } from "../useMedia";
 import { useHeld, type Job, type Project } from "./useHeld";
 import { serverTime } from "../time";
 
+const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+// What a request makes, in plain words (the card names the video beside it).
 const STEPS: Record<string, string> = {
-  enhance: "Enhance",
-  script_draft: "Script draft",
-  breakdown: "Breakdown",
-  storyboard: "Storyboard frames",
-  frame: "Frame still",
-  clip_prompts: "Clip prompts",
-  clip_take: "Clip take",
-  sheet: "House-style sheet",
-  improve: "Improve prompt",
+  enhance: "Script suggestions",
+  script_draft: "A script draft",
+  breakdown: "The breakdown",
+  storyboard: "The storyboard",
+  frame: "A new still",
+  clip_prompts: "The clip prompts",
+  clip_take: "A new take",
+  sheet: "A character's look",
+  improve: "A better prompt",
 };
 
 /** How long ago, in words: "just now", "2m", "3h", "4d". */
@@ -191,7 +193,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
     onSuccess: async (yes) => {
       setDeclining(false);
       await refresh();
-      toast(yes ? (who ? `Approved. ${who}'s ${what.toLowerCase()} is being made.` : `Approved. ${what} is starting.`) : "Declined. Nothing was charged.");
+      toast(yes ? `Approved. ${what}${who ? ` for ${who}` : ""} is being made.` : "Declined. Nothing was charged.");
     },
     onError: () => setDeclining(false),
   });
@@ -229,16 +231,16 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
         {project && after !== null && <Meter used={project.credits_used + job.credits} budget={project.budget_credits} pct={after} />}
         {act.isError && <p role="alert" className={errorClass}>{act.error.message}</p>}
         <div className="flex gap-2 pt-1">
-          <Button variant="ghost" className="flex-1 sm:flex-none" disabled={act.isPending} aria-label={`Decline ${what}`} onClick={() => setDeclining(true)}>
+          <Button variant="ghost" className="flex-1 sm:flex-none" disabled={act.isPending} aria-label={`Decline ${lower(what)}`} onClick={() => setDeclining(true)}>
             Decline
           </Button>
-          <Button variant="secondary" icon={Check} className="flex-1 sm:flex-none" busy={act.isPending && !declining} aria-label={`Approve ${what}`} onClick={() => act.mutate(true)}>
+          <Button variant="secondary" icon={Check} className="flex-1 sm:flex-none" busy={act.isPending && !declining} aria-label={`Approve ${lower(what)}`} onClick={() => act.mutate(true)}>
             Approve
           </Button>
         </div>
       </div>
       {declining && (
-        <Dialog title={`Decline ${who ? `${who}'s ` : "the "}${what.toLowerCase()}?`} cancelLabel="Keep it" actionLabel="Decline" danger busy={act.isPending} onCancel={() => setDeclining(false)} onConfirm={() => act.mutate(false)}>
+        <Dialog title={`Decline ${lower(what)}${who ? ` for ${who}` : ""}?`} cancelLabel="Keep it" actionLabel="Decline" danger busy={act.isPending} onCancel={() => setDeclining(false)} onConfirm={() => act.mutate(false)}>
           Nothing is charged.{who && ` ${who} can ask again.`}
         </Dialog>
       )}

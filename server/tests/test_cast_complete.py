@@ -93,7 +93,7 @@ def test_storyboard_and_clips_wait_for_every_look_naming_them(owner, editor, db)
         refused = editor.post(url, json={})
         assert refused.status_code == 409
         assert refused.json()["detail"] == (
-            "Nate and Bride have no approved look yet. Approve them in Assets."
+            "Nate and Bride have no approved look yet. Approve them in Cast."
         )
     for slot, name in ((bride, "Bride look"), (nate, "Nate look")):
         look = {"library_item_id": _look(owner, db, name)}

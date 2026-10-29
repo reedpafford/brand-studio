@@ -85,7 +85,7 @@ def test_storyboard_frames_made_checked_and_edited(app, db, editor, setup):  # n
     no_look = editor.put(
         f"{url}/frames/{frames[0]['id']}", json={"prompt": "x", "reference_ids": []}
     )
-    assert no_look.json()["problems"] == ["Mom has no approved look yet. Approve one in Assets."]
+    assert no_look.json()["problems"] == ["Mom has no approved look yet. Approve one in Cast."]
 
     editor.put(f"/projects/{setup['project']}/breakdown", json=BREAKDOWN)  # a newer breakdown
     assert editor.get(url).json()[0]["stale"] is True

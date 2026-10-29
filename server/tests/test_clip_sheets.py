@@ -85,7 +85,7 @@ def test_a_look_with_no_approved_sheet_is_named(app, db, editor, setup):  # noqa
     done = clip_prompts.with_cast(db, project, _clip(f"screen:{setup['screen']}"), bd)
     assert nate not in [r.id for r in done.references]
     problems = clip_prompts.clip_problems(db, project, bd, done)
-    assert "Nate has no approved look yet. Approve one in Assets." in problems
+    assert "Nate has no approved look yet. Approve one in Cast." in problems
     assert not [p for p in problems if "Mom" in p]
 
 

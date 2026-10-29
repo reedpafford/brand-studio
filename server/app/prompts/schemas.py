@@ -421,3 +421,16 @@ class ReelWatch(BaseModel):
     shots: list[WatchShot] = Field(description="Exactly one per entry in <cuts>, in order.")
     speakers: list[WatchSpeaker] = Field(description="Exactly one per <transcript> line.")
     why_it_works: list[str] = Field(description="3–6 short reasons it holds a viewer.")
+
+
+class NarrationMusic(BaseModel):
+    """The instrumental bed under a narrated video (flows N1)."""
+
+    prompt: str = Field(
+        description="30 to 60 words for the music model: genre and mood, three to five "
+        "instruments, the tempo, the turn by thirds, and 'Steady and low under the narration'. "
+        "No artist, song or composer names; no vocals."
+    )
+    arc: str = Field(
+        description="The mood in a few plain words: 'tense, then hopeful in the last third'."
+    )

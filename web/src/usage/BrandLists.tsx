@@ -13,7 +13,7 @@ const videoTitle = (v: { title: string; version_letter: string | null }) => (v.v
 
 const VIDEO_STATUS: Record<string, { label: string; tone: Tone; icon: typeof Check }> = {
   in_production: { label: "In production", tone: "warning", icon: Clock },
-  done: { label: "Video done", tone: "success", icon: Check },
+  done: { label: "Finished", tone: "success", icon: Check },
   failed: { label: "Didn't finish", tone: "danger", icon: CircleAlert },
 };
 // A finished video whose clips changed since isn't "done" any more, but it isn't being made either (#749 LW2).
@@ -86,7 +86,7 @@ function VideosTab({ brandId, period }: { brandId: number; period: Period }) {
       <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
         <option value="any">Any</option>
         <option value="in_production">In production</option>
-        <option value="done">Video done</option>
+        <option value="done">Finished</option>
         <option value="failed">Didn't finish</option>
       </Select>
       <Select label="Who" value={who} onChange={(e) => setWho(e.target.value)}>
@@ -218,7 +218,7 @@ function ScriptsTab({ brandId }: { brandId: number }) {
         <option value="writing">Writing</option>
         <option value="ready">Ready to make</option>
         <option value="in_production">In production</option>
-        <option value="done">Video done</option>
+        <option value="done">Finished</option>
       </Select>
       <Select label="Author" value={author} onChange={(e) => setAuthor(e.target.value)}>
         <option value="">Anyone</option>
