@@ -3,7 +3,8 @@
 # Brand Studio Next (the test site): its own checkout (~/brand-studio-next, branch next), its own
 # Compose project (brand-studio-next) and deploy/.env. Never touches the live checkout or stack.
 # Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC (keys only when FAKE=false),
-# and KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on).
+# and KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on), and
+# LANGUAGE_TESTS, LANGUAGE_BUDGET (with ANTHROPIC while real language tests are switched on).
 set -euo pipefail
 
 main() {
@@ -31,6 +32,8 @@ main() {
   db_password=$(old POSTGRES_PASSWORD .env)
   [ -n "$db_password" ] || db_password=$(openssl rand -hex 24)
   fake=${FAKE:-true}
+  tests=false  # real language tests among the stand-ins: switched on, with the Claude key
+  [ "${LANGUAGE_TESTS:-false}" = true ] && [ -n "${ANTHROPIC:-}" ] && tests=true
   umask 077
   {
     echo "DOMAIN=$domain"
@@ -42,7 +45,7 @@ main() {
       echo "BS_GENERATION_ENABLED=${GENERATION:-false}"
       echo "REPLICATE_API_TOKEN=$REPLICATE"
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
-    elif [ -n "${KIE:-}" ]; then  # stand-ins, but real songs: the one paid service here
+    elif [ -n "${KIE:-}" ] || [ "$tests" = true ]; then  # stand-ins, but real songs or tests
       echo "BS_FAKE_PROVIDERS=true"
       echo "BS_GENERATION_ENABLED=true"
     else
@@ -55,6 +58,11 @@ main() {
       echo "KIE_API_KEY=$KIE"
       echo "BS_KIE_BUDGET_USD=${KIE_BUDGET:-0}"
       echo "BS_KIE_DELIVERY_HOSTS=[$hosts]"
+    fi
+    if [ "$fake" != false ] && [ "$tests" = true ]; then  # language tests, stopped at the budget
+      echo "BS_REAL_LANGUAGE_SAMPLES=true"
+      echo "BS_LANGUAGE_SAMPLES_BUDGET_USD=${LANGUAGE_BUDGET:-0}"
+      echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
     fi
   } > .env.new
   mv .env.new .env

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useParams } from "react-router-dom";
@@ -14,6 +14,7 @@ import { ImagePicker } from "./ImagePicker";
 import { useMe } from "../auth/useMe";
 import { useLooks } from "../scripts/Looks";
 import { CtaLines, DefaultCast, LANGUAGES, OWNER_ONLY, setupOf } from "./BrandSetup";
+import { SiteImport } from "./SiteImport";
 
 type Brand = components["schemas"]["BrandOut"];
 
@@ -25,10 +26,25 @@ export function KitPage() {
   const brand = brands?.find((b) => b.id === Number(brandId));
   if (isError) return <Banner title="Couldn't load the brand." action={<Button variant="secondary" onClick={() => void refetch()}>Try again</Button>}>Check your connection.</Banner>;
   if (!brand) return <p className="p-6">That brand doesn't exist.</p>;
-  return <KitForm key={brand.id} brand={brand} />;
+  return <KitWithImport brand={brand} />;
 }
 
-function KitForm({ brand }: { brand: Brand }) {
+/** The owner's Import from website above the form; a save there starts the form again from the brand as saved. */
+function KitWithImport({ brand }: { brand: Brand }) {
+  const owner = useMe().data?.role === "owner";
+  const [round, setRound] = useState(0);
+  const [changed, setChanged] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  return (
+    <div className="space-y-4">
+      {owner && <SiteImport brandId={brand.id} waitFor={changed ? "Save or undo your changes below first" : null} onSaved={() => setRound((n) => n + 1)} onReviewing={setReviewing} />}
+      <KitForm key={`${brand.id}:${round}`} brand={brand} onChanged={setChanged} quiet={reviewing} />
+    </div>
+  );
+}
+
+/** `quiet`: an import review holds the page's one press, so an untouched form's Save changes steps aside. */
+function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (changed: boolean) => void; quiet: boolean }) {
   const setup = setupOf(brand); // BR1, once the server has it
   const owner = useMe().data?.role === "owner";
   const looks = useLooks().data;
@@ -80,6 +96,7 @@ function KitForm({ brand }: { brand: Brand }) {
   });
   const changed = JSON.stringify(kit) !== JSON.stringify(saved);
   useReportDirty(changed);
+  useEffect(() => onChanged(changed), [changed, onChanged]);
   const valid = kit.colours.every((c) => HEX.test(c));
 
   return (
@@ -90,11 +107,11 @@ function KitForm({ brand }: { brand: Brand }) {
         if (changed && valid) save.mutate();
       }}
     >
-      <BrandAction>
+      {!(quiet && !changed) && <BrandAction>
         <Button type="button" busy={save.isPending} disabled={!changed || !valid} reason={!changed ? "No changes yet" : !valid ? "Fix the colour codes first" : undefined} onClick={() => save.mutate()}>
           Save changes
         </Button>
-      </BrandAction>
+      </BrandAction>}
       <Card className="min-w-0 space-y-5">
         <h2 className="type-section">Look</h2>
         <Field label="Name" required value={kit.name} onChange={(e) => set("name", e.target.value)} />
