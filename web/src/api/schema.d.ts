@@ -4730,6 +4730,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands/{brand_id}/site-read/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Estimate */
+        get: operations["read_estimate_brands__brand_id__site_read_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/site-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Read
+         * @description Read the site: a free fetch, then the paid read only if the page had something.
+         */
+        post: operations["start_read_brands__brand_id__site_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/site-read/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read State */
+        get: operations["read_state_brands__brand_id__site_read__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/site-read/{job_id}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Ticked
+         * @description Save the ticked ones, through the brand's own writes (BR1's rules). Colours join the
+         *     brand's, never replace them; a product new to the brand is made, an existing one only
+         *     gets an empty description filled. Undo: POST …/undo.
+         */
+        post: operations["save_ticked_brands__brand_id__site_read__job_id__save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/site-read/{job_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Save
+         * @description Undo Save: the brand's colours and logo as they were, the products it made removed and
+         *     the descriptions it filled cleared. The read can be saved again.
+         */
+        post: operations["undo_save_brands__brand_id__site_read__job_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -5698,6 +5795,15 @@ export interface components {
             items: components["schemas"]["Items"];
             /** Can Manage */
             can_manage: boolean;
+        };
+        /** Found */
+        Found: {
+            /** Logo Url */
+            logo_url: string;
+            /** Colours */
+            colours: string[];
+            /** Products */
+            products: components["schemas"]["Product"][];
         };
         /** FrameIn */
         FrameIn: {
@@ -6995,6 +7101,13 @@ export interface components {
             /** Plan Job Id */
             plan_job_id?: number | null;
         };
+        /** Product */
+        Product: {
+            /** Name */
+            name: string;
+            /** Short Description */
+            short_description: string;
+        };
         /** ProductionRow */
         ProductionRow: {
             /** Project Id */
@@ -7347,12 +7460,13 @@ export interface components {
              */
             note: string;
         };
-        /** ReadOut */
-        ReadOut: {
-            /** Running */
-            running: boolean;
-            /** Problems */
-            problems: string[];
+        /** ReadIn */
+        ReadIn: {
+            /**
+             * Url
+             * Format: uri
+             */
+            url: string;
         };
         /** ReelRow */
         ReelRow: {
@@ -7549,6 +7663,37 @@ export interface components {
             /** Clip Id */
             clip_id: number | null;
             look: components["schemas"]["LookOut"];
+        };
+        /** SaveIn */
+        SaveIn: {
+            /**
+             * Logo
+             * @default false
+             */
+            logo: boolean;
+            /**
+             * Colours
+             * @default []
+             */
+            colours: string[];
+            /**
+             * Products
+             * @default []
+             */
+            products: number[];
+        };
+        /** SaveOut */
+        SaveOut: {
+            /** Colours Added */
+            colours_added: number;
+            /** Logo */
+            logo: boolean;
+            /** Products Made */
+            products_made: number;
+            /** Products Filled */
+            products_filled: number;
+            /** Problems */
+            problems: string[];
         };
         /** Scene */
         Scene: {
@@ -9050,6 +9195,13 @@ export interface components {
             /** Token */
             token: number;
         };
+        /** ReadOut */
+        app__routes__script_cast_read__ReadOut: {
+            /** Running */
+            running: boolean;
+            /** Problems */
+            problems: string[];
+        };
         /** ScriptIn */
         app__routes__script_library__ScriptIn: {
             /** Brand Id */
@@ -9364,6 +9516,21 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** EstimateOut */
+        app__routes__site_read__EstimateOut: {
+            /** Credits */
+            credits: number;
+        };
+        /** ReadOut */
+        app__routes__site_read__ReadOut: {
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string;
+            found: components["schemas"]["Found"];
+            /** Have Colours */
+            have_colours: string[];
         };
         /** InviteOut */
         app__routes__team__InviteOut: {
@@ -13482,7 +13649,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReadOut"];
+                    "application/json": components["schemas"]["app__routes__script_cast_read__ReadOut"];
                 };
             };
             /** @description Validation Error */
@@ -18816,6 +18983,170 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MediaPage"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_estimate_brands__brand_id__site_read_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__site_read__EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_read_brands__brand_id__site_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_state_brands__brand_id__site_read__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__site_read__ReadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_ticked_brands__brand_id__site_read__job_id__save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_save_brands__brand_id__site_read__job_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
