@@ -66,7 +66,7 @@ test("frames show their still or a placeholder, their label, references with nam
   expect(within(first).getByText("★ Chart down")).toBeInTheDocument();
   const second = screen.getByLabelText("Frame c2");
   expect(within(second).getByText("No still yet")).toBeInTheDocument();
-  expect(within(second).getByText("Breakdown changed: redo this frame")).toBeInTheDocument();
+  expect(within(second).getByText("The plan changed: redo this frame")).toBeInTheDocument();
   expect(within(second).getByText("Chart down is not attached.")).toBeInTheDocument();
   expect(within(second).getByRole("button", { name: /Make still/ })).toBeDisabled(); // problems first
 });

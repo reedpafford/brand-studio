@@ -15,7 +15,8 @@ import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { useProjectClips, useProjectVideo } from "./useProgress";
 import { serverTime } from "../time";
-import { FinalSong } from "../scripts/VideoSong";
+import { ReviewChip } from "./Checks";
+import { FinalSong, useSongChanged } from "../scripts/VideoSong";
 
 /** When a take was made, as the person's clock reads it: "10:42". */
 const madeAt = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -39,6 +40,7 @@ export function DownloadsPane({
   const rail = useRail();
   const clips = useProjectClips(projectId);
   const video = useProjectVideo(projectId);
+  const songChanged = useSongChanged(projectId, video.data?.song_take_id);
   const stitch = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/video", {
@@ -151,7 +153,7 @@ export function DownloadsPane({
               </Button>
             }
           >
-            Clips changed since this video was made. This MP4 still downloads. Making it again is free.
+            {songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
           </Banner>
         )}
         {v ? (
@@ -173,6 +175,7 @@ export function DownloadsPane({
               {madeFrom && (
                 <p className="text-sm text-muted">Made from: {madeFrom}</p>
               )}
+              <ReviewChip projectId={projectId} open />
               <FinalSong projectId={projectId} madeWith={v.song_take_id} />
             </div>
           </Card>

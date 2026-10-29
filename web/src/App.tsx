@@ -6,10 +6,10 @@ import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProductionPage } from "./production/ProductionPage";
 import { ProjectPage } from "./projects/ProjectPage";
 import { VideoPage } from "./projects/VideoPage";
-import { ProjectsPage } from "./projects/ProjectsPage";
 import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { ScriptsRoute } from "./videos/ScriptsRoute";
+import { VideosPage } from "./videos/VideosPage";
 import { ClipPage } from "./clip/ClipPage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
@@ -37,9 +37,10 @@ export function App() {
           <Route path="b/:brandId/scripts/new" element={<Navigate to=".." relative="path" replace />} />
           <Route path="b/:brandId/scripts/:scriptId" element={<ScriptFlowPage />} />
           <Route path="b/:brandId/scripts/:scriptId/reel" element={<ReelReviewPage />} />
-          <Route path="b/:brandId/projects" element={<ProjectsPage />} />
+          <Route path="b/:brandId/projects" element={<Navigate to="../videos" relative="path" replace />} />
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />
+          <Route path="b/:brandId/videos" element={<VideosPage />} />
           <Route path="b/:brandId/videos/:projectId" element={<VideoPage />} />
           <Route path="b/:brandId/brand" element={<BrandPage />} />
           <Route path="b/:brandId/kit" element={<ToBrand />} />

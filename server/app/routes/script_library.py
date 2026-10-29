@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app import advice, merge_roles, music, rewritten, song_study
+from app import advice, looks, merge_roles, music, narration, rewritten, song_study
 from app import script_library as lib
 from app.advice import Said
 from app.auth import current_user, user_name
@@ -40,6 +40,11 @@ Slot = Annotated[int, Field(ge=0, le=lib.MAX_SLOT)]
 StyleLine = Annotated[str, StringConstraints(strip_whitespace=True, max_length=20_000)]
 
 
+SONG_STAYS = (
+    "A song's words are lyrics, so it stays a song. To try this another way, start a new script."
+)
+
+
 class ScriptIn(BaseModel):
     brand_id: int
     title: Title
@@ -49,7 +54,8 @@ class ScriptIn(BaseModel):
     reference_replace: LongText = ""
     new_lines: bool | None = None  # write new lines in the reel's style, not its own
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
-    kind: Literal["story", "song"] = "story"  # song: the text is lyrics (song ads)
+    kind: Literal["story", "song", "narrated"] = "story"  # song: lyrics; narrated: one voice
+    look: str | None = None  # how the pictures are drawn (ST1); None: House
 
 
 class BulkRow(ScriptIn):
@@ -68,6 +74,11 @@ class BulkIn(BaseModel):
 MAX_REELS = 20  # links and uploaded videos together, per batch
 
 
+class DialogueLine(BaseModel):
+    line: int  # numbered as the script's lines are
+    text: str
+
+
 class ScriptPatch(BaseModel):
     title: Title | None = None
     description: LongText | None = None
@@ -75,6 +86,10 @@ class ScriptPatch(BaseModel):
     reference_id: str | None = None
     reference_replace: LongText | None = None
     new_lines: bool | None = None  # until version A is approved
+    kind: Literal["story", "narrated"] | None = (
+        None  # ST0: Dialogue <-> Narrated, before publishing
+    )
+    look: str | None = None  # ST1: before publishing; Undo is a PATCH back (changing back is free)
 
 
 class DraftIn(BaseModel):
@@ -150,6 +165,10 @@ class VersionOut(VersionSummary):
     )
     directions_job: DirectionsJob | None = None  # the press in hand (None: idle or done)
     claims_to_check: list[str] = []  # the used direction's claims, until the owner keeps them
+    # The narrator check (flows ST0, N1): a Dialogue version all one narrator could be
+    # Narrated; on a Narrated one, the lines spoken on camera the narrator will read
+    reads_narrated: bool = False
+    dialogue_lines: list[DialogueLine] = []
     song_study: SongStudyOut | None = None  # S3a (app/song_study.shown)
 
 
@@ -166,7 +185,8 @@ class ScriptRow(BaseModel):
     id: int
     brand_id: int
     title: str
-    kind: Literal["story", "song"]
+    kind: Literal["story", "song", "narrated"]
+    look: str = "house"
     description: str
     reference_id: str | None
     published: bool
@@ -199,6 +219,21 @@ class ScriptOut(ScriptRow):
 def _person(db: Session, user_id: int | None) -> Person | None:
     user = db.get(User, user_id) if user_id else None
     return Person(id=user.id, name=user.name) if user else None
+
+
+def _narrator(db: Session, draft: ScriptDraft) -> dict:
+    """The Director's narrator check on the version's format (check.format_advice)."""
+    from app.prompts import check
+
+    kind = db.get(Script, draft.script_id).kind
+    if kind == "story":
+        return {"reads_narrated": bool(check.format_advice(draft.text, "dialogue"))}
+    if kind != "narrated":
+        return {}
+    lines = draft.text.splitlines()
+    numbers = [int(a.split("line ", 1)[1].split(":", 1)[0])
+               for a in check.format_advice(draft.text, "narrated")]  # fmt: skip
+    return {"dialogue_lines": [DialogueLine(line=n, text=lines[n - 1].strip()) for n in numbers]}
 
 
 def _directions(db: Session, draft: ScriptDraft) -> dict:
@@ -258,6 +293,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         singer=draft.singer,
         spoken_end_line=draft.spoken_end_line,
         **_directions(db, draft),
+        **_narrator(db, draft),
         song_study=song_study.shown(db, draft),
     )
 
@@ -288,6 +324,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         brand_id=script.brand_id,
         title=script.title,
         kind=script.kind,
+        look=script.look,
         description=script.description,
         reference_id=script.reference_id,
         reel_imported=script.reference_breakdown is not None,
@@ -410,16 +447,22 @@ def create_script(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    get_brand(db, user, body.brand_id)
+    brand = get_brand(db, user, body.brand_id)
     _check_reference(request, body.reference_id)
+    if body.look:
+        looks.pick(db, user, body.look)
     script = Script(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
         **body.model_dump(exclude={"text"}, exclude_none=True),
     )
+    if not body.look:  # the brand's default look; an Off one starts editors on House (BR1)
+        on = user.is_owner or looks.is_on(db, user.workspace_id, brand.default_look)
+        script.look = brand.default_look if on else looks.DEFAULT
     db.add(script)
     db.flush()
-    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip()))
+    style = brand.music_style.strip() if script.kind == "song" else ""  # S2: prefilled
+    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip(), style_line=style))
     db.commit()
     return _out(db, script)
 
@@ -467,6 +510,8 @@ def create_many(
         )
     made = []
     for item, url, upload in zip(body.scripts, links, uploads, strict=True):
+        if item.look:
+            looks.pick(db, user, item.look)
         script = Script(
             workspace_id=user.workspace_id,
             created_by_id=user.id,
@@ -513,6 +558,13 @@ def update_script(
         lib.editable(user, script)
     if "reference_id" in values:
         _check_reference(request, values["reference_id"])
+    if values.get("kind") is not None:  # ST0: same words, other steps; Undo is a PATCH back
+        lib.editable(user, script)
+        if script.kind == "song":
+            raise HTTPException(409, SONG_STAYS)
+    if values.get("look") is not None:
+        lib.editable(user, script)  # a published script's look is final (ST1)
+        values["look"] = looks.pick(db, user, values["look"])
     if values.get("new_lines") is not None and any(
         d.slot == 0 and d.status == "approved" for d in lib.drafts(db, script)
     ):
@@ -737,11 +789,14 @@ def publish(script_id: int, user: User = Depends(current_user), db: Session = De
         raise HTTPException(409, "Approve or remove every version first.")
     if lib.writing(db, script.id):
         raise HTTPException(409, "Claude is still writing for this script. Publish when it's done.")
-    if script.kind == "song":  # its videos are timed to the song: one must exist (#750)
+    if script.kind in narration.TIMED:  # its videos are timed to the take: one must exist
         from app import song_takes
 
         if songless := [d for d in versions if song_takes.preferred(db, d) is None]:
             name = "ABC"[songless[0].slot]
+            if script.kind == "narrated":
+                said = f"Make the narration first: version {name} has no narration yet."
+                raise HTTPException(409, f"{said} Press Make the narration.")
             raise HTTPException(409, f"Make the song first: version {name} has no Preferred take "
                                      "of its lyrics. Press Make 2 takes.")  # fmt: skip
     script.published = True
@@ -758,6 +813,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
         brand_id=source.brand_id,
         title=f"{source.title} (copy)"[:200],
         kind=source.kind,
+        look=source.look,
         description=source.description,
         notes=source.notes,
         reference_id=source.reference_id,

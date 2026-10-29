@@ -3,12 +3,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { Button, useToast } from "../components";
+import type { CostAction } from "./CostBar";
 
 type Skipped = { id: number | null; reason: string; label?: string };
-export type ApproveAllResult = { approved: number[]; skipped: Skipped[] };
+export type ApproveAllResult = { approved: number[]; skipped: Skipped[]; approved_with_advice?: number };
 
 /** Scrolls to a card and outlines it for a moment. */
-function show(label: string) {
+export function show(label: string) {
   const card = document.querySelector<HTMLElement>(`[aria-label="${label}"]`);
   card?.scrollIntoView?.({ block: "center", behavior: "smooth" });
   card?.classList.add("outline", "outline-2", "outline-accent");
@@ -28,7 +29,7 @@ export function useApproveAllWith(opts: {
   waiting: number;
   /** Approve all is the step's one amber when nothing else is left to make. */
   primary?: boolean;
-}): { button: ReactNode; line: ReactNode } {
+}): { button: ReactNode; line: ReactNode; action: CostAction | null } {
   const { noun } = opts;
   const toast = useToast();
   const [result, setResult] = useState<ApproveAllResult | null>(null);
@@ -58,12 +59,15 @@ export function useApproveAllWith(opts: {
     return () => document.removeEventListener("click", away);
   }, [result]);
 
+  const label = opts.ready === opts.waiting ? "Approve all" : `Approve ${opts.ready}`;
   const button =
     opts.ready > 0 ? (
       <Button variant={opts.primary ? "primary" : "secondary"} icon={Check} busy={run.isPending} className="w-full sm:w-auto" onClick={() => run.mutate()}>
-        {opts.ready === opts.waiting ? "Approve all" : `Approve ${opts.ready}`}
+        {label}
       </Button>
     ) : null;
+  // For the cost bar: the same press, free.
+  const action = opts.ready > 0 ? { label, busy: run.isPending, onPress: () => run.mutate() } : null;
 
   const left = result?.skipped ?? [];
   const line = run.isError ? (
@@ -71,6 +75,8 @@ export function useApproveAllWith(opts: {
   ) : result && result.approved.length + left.length > 0 ? (
     <p className="text-sm text-muted" role="status" data-approve-line>
       Approved {result.approved.length}.
+      {/* P4: the check's Advice never stops Approve all; the items stay in the Review list ("N items with Advice"). */}
+      {!!result.approved_with_advice && ` ${result.approved_with_advice} approved with Advice, listed under items with Advice.`}
       {left.length > 0 && ` ${left.length} not approved: `}
       {left.map((s, i) => (
         <span key={`${s.id}-${s.label}`}>
@@ -83,7 +89,7 @@ export function useApproveAllWith(opts: {
       ))}
     </p>
   ) : null;
-  return { button, line };
+  return { button, line, action };
 }
 
 type Row = { id: number; clip_id: string };

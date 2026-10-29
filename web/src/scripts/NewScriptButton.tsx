@@ -1,21 +1,23 @@
 import { useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FileInput, FileText, Music, Plus } from "lucide-react";
+import { FileInput, FileText, Mic, Music, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Button, Menu, MenuItem, buttonClass } from "../components";
 import { errorText as errorClass } from "../ui";
 
 export const UNTITLED = "Untitled script";
+type Kind = "story" | "song" | "narrated";
 
-/** New script: Story or Song first (song ads, flows S1), then one press makes the draft and opens its first step (rename it there). */
+/** New script: the format first, Dialogue, Song or Narrated (flows S1), then one press makes the draft and opens its first step (rename it there). */
 export function NewScriptButton({ brandId }: { brandId: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pressed = useRef(false); // set at once, before a re-render, so a fast double tap makes one draft
   const make = useMutation({
-    mutationFn: async (kind: "story" | "song") => {
-      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text: "", kind } });
+    mutationFn: async (kind: Kind) => {
+      // "narrated" is Next-Server's #858; the generated types carry it once that's on next.
+      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text: "", kind: kind as "story" } });
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -27,7 +29,7 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
       pressed.current = false;
     },
   });
-  const choice = (kind: "story" | "song", Icon: typeof FileText, title: string, about: string, close: () => void) => (
+  const choice = (kind: Kind, Icon: typeof FileText, title: string, about: string, close: () => void) => (
     <MenuItem
       onClick={() => {
         close();
@@ -56,8 +58,9 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
       >
         {(close) => (
           <>
-            {choice("story", FileText, "Story", "Dialogue and action, as today.", close)}
-            {choice("song", Music, "Song", "Your lyrics, sung word for word over a music video.", close)}
+            {choice("story", FileText, "Dialogue", "People speak on camera", close)}
+            {choice("song", Music, "Song", "Your lyrics, sung word for word over a music video", close)}
+            {choice("narrated", Mic, "Narrated", "One voice reads your script over B-roll, with music", close)}
           </>
         )}
       </Menu>

@@ -69,7 +69,7 @@ function Advice({ song, brand, save }: { song: Song; brand?: { name: string; end
   const endLine = brand?.end_line.trim() ?? "";
   const named = !!brand && song.text.toLowerCase().includes(brand.name.toLowerCase());
   const items: { text: string; fix?: ReactNode }[] = [];
-  if (!song.style_line.trim()) items.push({ text: "No style yet: the song will be upbeat pop by default." });
+  if (!song.style_line.trim()) items.push({ text: "No music style yet: the song will be upbeat pop by default." });
   if (styleWords.length > 25)
     items.push({
       text: "Suno follows short styles better. Keep it under 25 words.",
@@ -215,7 +215,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
             )}
           </div>
           <pre className="whitespace-pre-wrap break-words type-script">{saved.text}</pre>
-          <p className="text-sm text-muted">{saved.style_line ? `Style: ${saved.style_line}` : "No style yet"} · {lengthNote(saved.text)}</p>
+          <p className="text-sm text-muted">{saved.style_line ? `Music style: ${saved.style_line}` : "No music style yet"} · {lengthNote(saved.text)}</p>
         </Card>
         {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
         <ClaimsNote script={s} claims={directionsOf(v).claims_to_check} onEdit={() => (takes > 0 ? setAsking(true) : setDraft({ text: saved.text, style: saved.style_line }))} />
@@ -248,7 +248,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
           error={over > 0 ? `That's ${n(over)} characters over the music model's ${n(MAX_LYRICS)}. Your words stay here; cut some, then save.` : null}
         />
         <TextArea
-          label="Style"
+          label="Music style"
           rows={Math.min(4, Math.max(1, Math.ceil(draft.style.length / 45)))}
           maxLength={MAX_STYLE}
           placeholder="pop, female lead, 120 BPM, upbeat, modern polished"

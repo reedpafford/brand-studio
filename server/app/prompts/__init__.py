@@ -64,7 +64,7 @@ TOKEN = re.compile(r"\{\{(\w+)\}\}")
 @cache
 def styles() -> list[dict]:
     """The style registry, in Reed's order: one styles/<id>.md each (Reed, 2026-10-28). Each is
-    {id, name, kind ("look" or "format"), order, on, narrated, image_model, blurb, sections}.
+    {id, name, kind ("look" or "format"), order, on, image_model, blurb, sections}.
     `on` is only the starting switch (House alone); the server keeps Reed's own."""
     out = []
     for path in (HERE / "styles").glob("*.md"):
@@ -76,12 +76,28 @@ def styles() -> list[dict]:
             "kind": meta["kind"],
             "order": int(meta["order"]),
             "on": meta["on"] == "yes",
-            "narrated": meta.get("narrated") == "yes",  # ST1: "Make the narrator a role"
             "image_model": meta["image_model"],
             "blurb": meta["blurb"],
             "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
         })  # fmt: skip
     return sorted(out, key=lambda s: s["order"])
+
+
+# A look's data, never sent to a model (flows ST2): words repaired in its picture descriptions,
+# and the fix offered for each failure (Next-Server's ids and the advisory check's kinds).
+DATA = {"banned", "fixes"}
+
+
+def look_banned(look_id: str) -> list[tuple[str, str]]:
+    """The look's banned words and their replacements ("" deletes): its `## banned` lines."""
+    lines = style(look_id)["sections"].get("banned", "").splitlines()
+    return [(a.strip(), b.strip()) for a, _, b in (x.partition("→") for x in lines if "→" in x)]
+
+
+def look_fixes(look_id: str) -> dict[str, str]:
+    """The look's fix for each failure id (refused, face, outfit, product): `## fixes`."""
+    lines = style(look_id)["sections"].get("fixes", "").splitlines()
+    return {a.strip(): b.strip() for a, _, b in (x.partition(":") for x in lines if ":" in x)}
 
 
 def style(style_id: str) -> dict:
@@ -391,7 +407,9 @@ def song_study_block(study: dict) -> str:
     tempo and sections, each with its lines (someone else's song: a guide to the shape, never
     words to reuse; check.copied_lines holds that). `study` is {seconds, bpm, sections:
     [{name, start, end, lines}], words}; words are left out."""
-    head = f"A song ad that works: {study['seconds'] / 60:.0f}:{study['seconds'] % 60:02.0f} long"
+    from app.prompts.check import _clock  # check imports this module: import here
+
+    head = f"A song ad that works: {_clock(study['seconds'])} long"
     if study.get("bpm"):
         head += f", about {round(study['bpm'])} BPM"
     out = [head + ".", "Sections (follow their order, their lengths and their pace):"]
@@ -484,6 +502,19 @@ def plan_input(
     return "\n".join(parts)
 
 
+# In the breakdown's user message, never its system prompt: the breakdown prompts stay as they
+# were for a video without a plan, and their cache with them (QA on #892).
+PLAN_RULE = (
+    "**The plan.** The <plan> below is the editor's approved plan: it is the story, and the "
+    "breakdown films it. Make its scenes, in order: each breakdown scene is one plan scene, with "
+    "its place and time as the heading (split a long one into two at a natural turn, never join "
+    "two). Its shots stage the plan's actions for those lines, made vivid and exact, and keep its "
+    "cast: nobody added, nobody dropped. A ★ line's shot shows that product or screen (list it in "
+    "`screen_ids`), the label or logo to camera. Everything in the step's rules still applies to "
+    "how you shoot it."
+)
+
+
 def plan_block(plan: schemas.ScenePlan, script: str) -> str:
     """A plan as later steps read it: the structure and cast, then each scene's place, who's
     in it, and each line's words with its action and ★ (the plan_scene step, the breakdown)."""
@@ -495,7 +526,7 @@ def plan_block(plan: schemas.ScenePlan, script: str) -> str:
         for x in sc.lines:
             star = f" ★ {x.product}" if x.product else ""
             out.append(f"{x.line}| {words.get(x.line, '').strip()}\n   → {x.action}{star}")
-    return "<plan>\n" + "\n".join(out) + "\n</plan>"
+    return f"{PLAN_RULE}\n<plan>\n" + "\n".join(out) + "\n</plan>"
 
 
 def plan_scene_input(

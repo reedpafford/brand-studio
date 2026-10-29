@@ -16,8 +16,10 @@ import { Banner, Button, Dialog, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
+import { ReviewChip } from "./Checks";
 import { type Softened } from "./Soften";
 import { FrameCard } from "./FrameCard";
+import { useCostBarAction } from "./CostBar";
 
 type Frame = components["schemas"]["FrameOut"];
 const GOING = ["queued", "running", "needs_owner_approval"];
@@ -32,7 +34,7 @@ export function useFrames(projectId: number) {
 }
 
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. */
-export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
+export function StoryboardPane(props: { hold?: string | null; castRedraw?: { [key: string]: unknown } | null; ownScript?: boolean; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -49,7 +51,9 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const [lightbox, setLightbox] = useState<Frame | null>(null);
   const [confirmRedo, setConfirmRedo] = useState(false);
   const auto = useRef(false);
-  const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
+  const limit = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
+  // While an earlier step is out of date every paid press waits, with why (audit M14); free ones (Approve, edits) stay.
+  const stopFor = (cost: number | undefined) => props.hold ?? limit(cost);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
   // A job the list never shows is waited on only briefly (a lost run or still must not read "Writing…" or "Drawing…" for ever).
@@ -190,9 +194,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
     // The step's one amber goes, in order, to: make the storyboard, redraw what's out of date, make the missing stills, approve all.
     primary: rows.length > 0 && !rows.some((f) => f.still_stale || (f.file_id === null && !blocking(f.problems).length && blocks.forShot(f.shot_id).length === 0)),
   });
-  if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
-  if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
-  const list = frames.data;
+  const list = rows;
   // After a cast change the stills that show the old cast are redrawn by themselves when the video can pay for it; otherwise they say "Out of date".
   const outOfDate = list.filter((f) => f.still_stale && !f.drawing && !drawingNow[f.id]); // ones already being redrawn (the server queues them after a cast change) are not asked for again
   const redrawn = list.filter((f) => f.redrawn && !f.approved);
@@ -218,6 +220,22 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || null;
   const approvedCount = list.filter((f) => f.approved).length;
 
+  // On the video page the step's one amber is in the cost bar, in the same order as above.
+  const bar = !!props.oneStep && !frames.isPending && frames.isFetchedAfterMount && !frames.isError && !writingNow && !stillOld;
+  const barApproves = bar && list.length > 0 && outOfDate.length === 0 && missing.length === 0;
+  useCostBarAction(
+    !bar
+      ? null
+      : list.length === 0
+        ? { label: makeLabel, price: makeTotal ?? null, reason: stopFor(makeTotal), busy: make.isPending, onPress: () => make.mutate() }
+        : outOfDate.length > 0
+          ? { label: `Redraw ${outOfDate.length} out-of-date still${outOfDate.length === 1 ? "" : "s"}`, price: redrawCost ?? null, reason: redrawBlocked, busy: render.isPending, onPress: () => void drawAll(outOfDate) }
+          : missing.length > 0
+            ? { label: `Make ${missing.length} still${missing.length === 1 ? "" : "s"}`, price: allCost ?? null, reason: stopFor(allCost), busy: render.isPending, onPress: () => void drawAll(missing) }
+            : approveAll.action,
+  );
+  if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
+  if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
   const made = list.filter((f) => f.file_id !== null).length;
   const makeButton = (
     <>
@@ -274,7 +292,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No frames yet.</p>
         <p className="text-muted">One still per clip, so you can check the look before making video.</p>
-        {makeButton}
+        {!bar && makeButton}
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
       </section>
     );
@@ -282,6 +300,7 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
   return (
     <div className="space-y-4" aria-label="Storyboard">
       <div className="flex flex-wrap items-center justify-between gap-2">
+        {props.oneStep && <ReviewChip projectId={projectId} />}
         {/* On the video page the step heading above already carries the counts. */}
         {!props.oneStep && (
           <h2 className="text-[length:var(--text-md)] font-semibold">
@@ -289,17 +308,18 @@ export function StoryboardPane(props: { castRedraw?: { [key: string]: unknown } 
           </h2>
         )}
         <span className="flex w-full flex-wrap items-start gap-2 sm:w-auto">
-          {outOfDate.length > 0 && (
+          {!bar && outOfDate.length > 0 && (
             <Button dense price={redrawCost} busy={render.isPending} disabled={redrawBlocked !== null} reason={redrawBlocked} onClick={() => void drawAll(outOfDate)}>
               Redraw {outOfDate.length} out-of-date still{outOfDate.length === 1 ? "" : "s"}
             </Button>
           )}
-          {missing.length > 0 && (
+          {/* With Redraw in the bar, the missing stills that fit can still be made in one press here (grey). */}
+          {(!bar || outOfDate.length > 0) && missing.length > 0 && (
             <Button variant={outOfDate.length > 0 ? "secondary" : "primary"} dense price={allCost} busy={render.isPending} disabled={!!stopFor(allCost)} reason={stopFor(allCost)} onClick={() => void drawAll(missing)}>
               Make {missing.length} still{missing.length === 1 ? "" : "s"}
             </Button>
           )}
-          {approveAll.button}
+          {!barApproves && approveAll.button}
           {makeButton}
         </span>
       </div>

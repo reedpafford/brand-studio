@@ -379,6 +379,11 @@ def test_a_reworded_refusal_is_made_again_on_its_own_once(app, db, editor, setup
     _work(app, db, FakeSeedance([_mp4("red")]))
     (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
     assert len(shown["takes"]) == 1 and shown["retrying"] is None
+    assert shown["retried"] == "refused"  # "Tried again once on its own" stays
+    editor.post(f"/projects/{setup['project']}/clips/{shown['id']}/generate")
+    _work(app, db, FakeSeedance([_mp4("red"), _mp4("blue")]))
+    (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
+    assert len(shown["takes"]) == 2 and shown["retried"] is None  # a person's newer take
 
 
 def test_a_sensitive_take_is_made_again_on_its_own_then_reworded(app, db, editor, setup, clip):  # noqa: F811
@@ -404,7 +409,8 @@ def test_wording_flags_fix_themselves_with_undo(app, db, editor, setup, clip):  
     flagged = clip["prompt"].replace("Summary: ", "Summary: Vertical 9:16, 480p. ")
     shown = editor.put(url, json={"prompt": flagged, "references": clip["references"]}).json()
     assert shown["prompt"] == clip["prompt"].replace("Summary: ", "Summary: Vertical. ")
-    assert shown["auto_fix"] == {"fixed": ['removed "9:16"', 'removed "480p"'], "undone": False}
+    assert shown["auto_fix"] == {"fixed": ['removed "9:16"', 'removed "480p"'], "undone": False,
+                                 "before": flagged}  # fmt: skip
     assert shown["problems"] == []
     undone = editor.post(f"{url}/auto-fix/undo").json()
     assert undone["prompt"] == flagged and undone["auto_fix"]["undone"] is True
@@ -450,3 +456,26 @@ def test_an_edit_while_a_retry_waits_cancels_it_uncharged(app, db, editor, setup
     (shown,) = editor.get(f"/projects/{setup['project']}/clips").json()
     assert shown["takes"] == [] and shown["retrying"] is None
     assert credits_used(db, project) == before
+
+
+def test_reword_takes_out_words_drawn_on_screen_but_never_the_spoken_ones():
+    from app.clip_prompts import reword
+
+    prompt = ('Shot 1 | 0-2 s. Mom holds the bag up, big text "SALE" pops, captions below. '
+              'No one speaks.\nShot 2 | 2-4 s. Mom says "Add captions, darling."')  # fmt: skip
+    fixed, said = reword(prompt)
+    assert "captions below" not in fixed and 'Mom says "Add captions, darling."' in fixed
+    assert 'removed "captions"' in said
+    assert reword(fixed) == (fixed, [])  # fixed once: nothing more to do
+
+
+def test_a_shot_that_is_only_drawn_words_stays_and_gets_advice(app, db, editor, setup, clip):  # noqa: F811
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    lines = clip["prompt"].splitlines()
+    keep = next(i for i, x in enumerate(lines) if x.startswith("Keep: "))
+    words = "\n".join([*lines[:keep], "Shot 3 | 5-6 s. Title card: SALE.",
+                        *lines[keep:]])  # a wordless shot that is only drawn words  # fmt: skip
+    body = {"prompt": words, "references": clip["references"]}
+    shown = editor.put(url, json=body).json()
+    assert "Title card: SALE." in shown["prompt"]  # never emptied (#890)
+    assert any(p.startswith("Advice: ") and "only words on screen" in p for p in shown["problems"])

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, CircleAlert, Clock, FileText, Layers, Pencil, Search } from "lucide-react";
 import { BulkCreate } from "./BulkCreate";
+import { isNarrated } from "./flow";
 import { VersionPanel } from "./VersionPanel";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
@@ -17,8 +18,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
 import { ReelChip } from "./ReelImport";
-import { LegacyVideos, useProjectList } from "../projects/ProjectsPage";
-import { ViewSwitch } from "../videos/ViewSwitch";
+import { LegacyVideos, useProjectList } from "../projects/LegacyVideos";
 import { serverTime } from "../time";
 
 type Row = components["schemas"]["ScriptRow"];
@@ -339,7 +339,6 @@ export function ScriptsPage() {
           {rail && newScript}
         </div>
       </div>
-      <ViewSwitch />
       {bulk && <BulkCreate brandId={brandId} onClose={() => setBulk(false)} />}
       {!rail && <ActionBar phone><div className="flex gap-2">{newScript}</div></ActionBar>}
       {filters}
@@ -440,6 +439,12 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
             <>
               {" "}
               <Badge tone="accent">Song</Badge>
+            </>
+          )}
+          {isNarrated(r) && (
+            <>
+              {" "}
+              <Badge tone="accent">Narrated</Badge>
             </>
           )}
         </h3>

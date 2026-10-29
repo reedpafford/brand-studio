@@ -11,6 +11,7 @@ import { Badge, Button, creditsLabel } from "../components";
 import { RotateCcw } from "lucide-react";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
+import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 
 type Frame = components["schemas"]["FrameOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -49,6 +50,8 @@ export function FrameCard(props: {
   const keep = useKeep(props.projectId, { of: "frame", id: f.id });
   const [editing, setEditing] = useState<string | null>(null);
   const [redo, setRedo] = useState<string | null>(null);
+  const [seed, setSeed] = useState<{ text: string; n: number }>();
+  const check = (f as Frame & { check?: ItemCheck }).check;
   const phone = useMedia("(max-width: 639px)");
   const verb = f.file_id === null ? "Make still" : "Redo";
   // A word the image model may refuse: Soften it or Draw it as is, in place of Make still; a refusal said plainly (QA-2).
@@ -82,7 +85,7 @@ export function FrameCard(props: {
   return (
     <li className="space-y-2 text-sm" aria-label={`Frame ${f.clip_id}`}>
       <div className={`relative grid place-items-center overflow-hidden rounded-md bg-surface-2 ${f.approved ? "border-2 border-accent" : "border border-border"}`} style={{ aspectRatio: ratio(props.aspect) }}>
-        {f.approved && <span className="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-on-accent">✓ Approved</span>}
+        {f.approved && <span className="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-on-accent">✓ Approved{checkedMark(check)}</span>}
         {!f.approved && f.still_stale && (
           <span className="absolute left-2 top-2">
             <Badge tone="warning">Out of date</Badge>
@@ -110,8 +113,10 @@ export function FrameCard(props: {
       </div>
       <div className="font-medium">
         {f.clip_id} · shot {f.shot_id}
+        {!f.approved && <span className="font-normal text-muted">{checkedMark(check)}</span>}
       </div>
-      {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">Breakdown changed: redo this frame</span>}
+      <CheckNotes check={check} projectId={props.projectId} label={`clip ${f.clip_id}`} onChange={(text) => (props.oneStep ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setRedo(text))} />
+      {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">The plan changed: redo this frame</span>}
       {props.error && <p role="alert" className={errorClass}>{props.error}</p>}
       {props.failed && <span className="inline-block rounded-sm bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Didn't finish · credits returned</span>}
       <p className="flex flex-wrap gap-1 text-xs">
@@ -188,6 +193,7 @@ export function FrameCard(props: {
               change={f.change as ChangeState}
               hold={props.busy ? "This one is still being made" : f.stale ? "Make the storyboard again first" : null}
               stopFor={props.stopFor}
+              seed={seed}
               onUndo={f.earlier.length ? () => props.onPick((f.earlier.at(-1) as { file_id: number }).file_id) : undefined}
             />
           )}

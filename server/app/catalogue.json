@@ -83,6 +83,27 @@
    "max_reference_audios": 1,
    "price": {"unit": "call", "usd": {"any": 0.1028}},
    "price_source": "Producer estimate 2026-10-23 (about 1 credit per watch call; real cost trues up)"
+  },
+  {
+   "id": "elevenlabs-v3",
+   "name": "ElevenLabs v3",
+   "kind": "speech",
+   "provider_model": "elevenlabs/v3",
+   "provider_version": "5c33c00998ca79ba4caed10d97f1aaad5ca22d286ac27cb20373e6f6a6bcc00b",
+   "default": true,
+   "price": {"unit": "thousand_characters", "usd": {"any": 0.10}},
+   "price_source": "Replicate model page 2026-10-29: $0.10 per thousand input characters"
+  },
+  {
+   "id": "stable-audio-2.5",
+   "name": "Stable Audio 2.5",
+   "kind": "music",
+   "provider_model": "stability-ai/stable-audio-2.5",
+   "provider_version": "a61ac8edbb27cd2eda1b2eff2bbc03dcff1131f5560836ff77a052df05b77491",
+   "default": true,
+   "duration": {"min": 1, "max": 190},
+   "price": {"unit": "call", "usd": {"any": 0.20}},
+   "price_source": "Replicate model page 2026-10-29: $0.20 per output audio file"
   }
  ]
 }

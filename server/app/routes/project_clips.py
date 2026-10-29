@@ -12,10 +12,23 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import advice, breakdown, change, clip_prompts, clip_takes, credits, cut_in
+from app import (
+    advice,
+    breakdown,
+    change,
+    clip_prompts,
+    clip_takes,
+    credits,
+    cut_in,
+    item_checks,
+    looks,
+    narration,
+    narration_music,
+)
 from app.advice import Said
 from app.auth import current_user
 from app.db import get_db, utcnow
+from app.item_checks import CheckOut
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -56,6 +69,12 @@ class TakeOut(BaseModel):
     number: int
     file_id: int
     created_at: UtcTime  # "made 10:42"
+    check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
+
+
+class NarrationOut(BaseModel):
+    voice: str  # "Narration: Sarah · music under it"
+    music: bool
 
 
 class VideoOut(BaseModel):
@@ -63,6 +82,7 @@ class VideoOut(BaseModel):
     take_ids: list[int]  # the picked takes it was made from, in clip order
     out_of_date: bool  # a pick, a "Use the real image" switch or the video's song changed since
     song_take_id: int | None = None  # song ads: the take laid under the whole video (V6)
+    narration: NarrationOut | None = None  # narrated ads: whose voice, and music under it
 
 
 class InsertOut(BaseModel):
@@ -84,6 +104,7 @@ class InsertIn(BaseModel):
 class AutoFixOut(BaseModel):
     fixed: list[str]  # 'removed "9:16"', 'changed "says" to "gestures"'
     undone: bool
+    before: str  # the prompt as written, for See the change (after is the clip's prompt)
 
 
 class ProjectClipOut(BaseModel):
@@ -107,6 +128,7 @@ class ProjectClipOut(BaseModel):
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
     take_warning: str | None = None  # said before the next take: its last two were refused
     retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
+    retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
     auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
 
 
@@ -121,7 +143,7 @@ _stale = clip_prompts.is_stale
 
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
-                "take_stale", "retrying", "auto_fix")  # fmt: skip
+                "take_stale", "approved", "retrying", "retried", "auto_fix")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -129,18 +151,28 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         if getattr(rewrite, "status", None) not in WAITING:  # ended without saving (failed,
             asked = {**asked, "status": "failed", "error": change.UNFINISHED}  # or stopped)
     inserts = [InsertOut(**vars(i), use_real_image=i.on) for i in cut_in.inserts(db, project, row)]
+    takes = _takes(db, row)
+    checks = item_checks.latest(db, "take", [t.id for t in takes])
     return ProjectClipOut(
         inserts=inserts,
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
         takes=[
-            TakeOut(id=t.id, number=t.number, file_id=t.file_id, created_at=t.created_at)
-            for t in _takes(db, row)
+            TakeOut(
+                id=t.id,
+                number=t.number,
+                file_id=t.file_id,
+                created_at=t.created_at,
+                check=item_checks.shown(db, checks.get(t.id)),
+            )  # fmt: skip
+            for t in takes
         ],
         take_credits=clip_takes.take_credits(db, project, row),
         stale=_stale(db, row, newest),
-        take_stale=clip_prompts.take_stale(row),
+        take_stale=clip_prompts.take_stale(row) or looks.take_other(db, project, row),
+        approved=row.approved and not looks.take_other(db, project, row),
         take_warning=clip_takes.take_warning(db, row),
         retrying=clip_takes.retrying(db, row),
+        retried=clip_takes.retried(db, row),
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
     )
@@ -278,7 +310,9 @@ def undo_auto_fix(
     if not fix or fix.get("undone"):
         raise HTTPException(409, "There's nothing to undo on this clip.")
     if row.prompt != fix.get("after"):
-        raise HTTPException(409, "This prompt has changed since, so the fix can't be undone.")
+        raise HTTPException(
+            409, "The prompt has changed since the fix, so there's nothing to undo."
+        )
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     row.same_fix = True  # its own words back: a used free fix stays used
     row.prompt, row.auto_fix = fix["before"], {**fix, "undone": True}
@@ -439,7 +473,7 @@ def approve(
     return _out(db, row, _newest_breakdown(db, project))
 
 
-@router.post("/clips/approve-all", response_model=advice.ApproveAllOut)
+@router.post("/clips/approve-all", response_model=advice.ApproveAllChecked)
 def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Approve all (Reed, 2026-10-26): every clip with a picked take, made for the newest
     breakdown and with nothing to fix; the others are listed with why. Undo takes back
@@ -461,8 +495,11 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             continue
         row.approved, row.change = True, None
         approved.append(row.id)
+    picked = [r.picked_take_id for r in _clips(db, project.id) if r.id in approved]
+    flagged = item_checks.with_advice(db, "take", picked)
     db.commit()
-    return advice.ApproveAllOut(approved=approved, skipped=skipped)
+    return advice.ApproveAllChecked(approved=approved, skipped=skipped,
+                                    approved_with_advice=flagged)  # fmt: skip
 
 
 @router.post("/clips/approve-all/undo", response_model=list[ProjectClipOut])
@@ -603,7 +640,7 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
         bd, rows = bds.get(p.id), clips.get(p.id, [])
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
         if any(not c.approved or moved or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
-               for c in rows):  # fmt: skip
+               or looks.take_other(db, p, c) for c in rows):  # fmt: skip
             old.add(p.id)
         elif (video := videos.get(p.id)) and (
             video.take_ids != [c.picked_take_id for c in rows]
@@ -619,8 +656,11 @@ def _video_out(db: Session, video: FinalVideo) -> VideoOut:
     cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
     old = video.take_ids != current or (video.cut_ins or []) != cuts
     old = old or video.song_take_id != db.get(Project, video.project_id).song_take_id
+    take = db.get(SongTake, video.song_take_id) if video.song_take_id else None
+    told = (NarrationOut(voice=take.voice, music=bool(take.music_file_id))
+            if take and take.kind == narration.KIND else None)  # fmt: skip
     return VideoOut(file_id=video.file_id, take_ids=video.take_ids, out_of_date=old,
-                    song_take_id=video.song_take_id)  # fmt: skip
+                    song_take_id=video.song_take_id, narration=told)  # fmt: skip
 
 
 @router.post("/video", response_model=VideoOut, status_code=201)
@@ -638,6 +678,9 @@ def make_video(
     left = sum(not c.approved for c in clips)
     if left:
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
+    if other := sum(looks.take_other(db, project, c) for c in clips):  # VS1: never mixed looks
+        raise HTTPException(409, looks.OTHER.format("1 clip was" if other == 1
+                                                    else f"{other} clips were"))  # fmt: skip
     storage = request.app.state.storage
     song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
     if song and not all(c.song_slice for c in clips):
@@ -645,12 +688,16 @@ def make_video(
     newest = _newest_breakdown(db, project)
     if song and (old := sum(_stale(db, c, newest) for c in clips)):  # made for the earlier song
         raise HTTPException(409, SONG_CHANGED.format(old))
+    narrated = bool(song and song.kind == narration.KIND)
+    if narrated and narration_music.state(db, song)[0] == "making":
+        raise HTTPException(409, narration_music.MAKING)
     try:
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
-        if song:  # the song is the only sound (flows V6)
+        if song:  # the song is the only sound (V6); a narration keeps the takes' (V6n)
             lengths = [c.song_slice["end"] - c.song_slice["start"] for c in clips]
             sound = storage.get(db.get(StoredFile, song.file_id).key)
-            data = clip_takes.song_cut(videos, lengths, sound)
+            bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
+            data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
         else:
             data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
     except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly

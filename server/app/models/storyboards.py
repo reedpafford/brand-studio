@@ -21,6 +21,7 @@ class StoryboardFrame(Entity, Base):
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # the rendered still
     approved: Mapped[bool] = mapped_column(default=False)  # cleared on edit or a new still
     still_stale: Mapped[bool] = mapped_column(default=False)  # the still shows the old cast
+    look: Mapped[str] = mapped_column(String(40), default="house")  # its still's look (VS1)
     redrawn: Mapped[bool] = mapped_column(default=False)  # redrawn for a new cast, not approved
     earlier: Mapped[list[dict]] = mapped_column(JSON, default=list)  # [{file_id, prompt}]
     change: Mapped[dict | None] = mapped_column(JSON)  # the last note: app/change.py

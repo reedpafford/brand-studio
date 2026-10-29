@@ -125,7 +125,8 @@ export function SongStudy({ script: s }: { script: Script }) {
           <div role="status" className="flex flex-wrap items-center gap-3">
             <p className="min-w-0 flex-1 text-sm">
               {study.status === "done" ? "Studying a new song ad…" : "Studying the song ad…"}
-              <Elapsed since={(study.attempt?.job ?? study.job)?.started_at} />. You can leave this page.
+              <Elapsed since={(study.attempt?.job ?? study.job)?.started_at} />
+              {(study.attempt?.job ?? study.job)?.started_at ? "." : ""} You can leave this page.
             </p>
             <Button variant="ghost" busy={stop.isPending} onClick={() => stop.mutate()}>Stop</Button>
           </div>

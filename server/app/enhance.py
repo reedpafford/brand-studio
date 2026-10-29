@@ -91,7 +91,7 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     brand_dict = {
         "name": brand.name,
         "tone_notes": brand.tone_notes,
-        "never_say": brand.never_say,
+        "never_say": brand.dont_list,
         "legal_line": brand.legal_line,
         "end_line": brand.end_line,
     }
@@ -109,7 +109,8 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
         for c in cast
     )
     message = f"<brief>\n{escape(brief)}\n</brief>\n<cast>\n{escape(cast_lines)}\n</cast>"
-    return [prompts.system(step), prompts.brand_block(brand_dict, screens)], message
+    look = prompts.system(step, project.look or "house")  # the video's look (ST2)
+    return [look, prompts.brand_block(brand_dict, screens)], message
 
 
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:

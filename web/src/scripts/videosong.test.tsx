@@ -137,3 +137,17 @@ test("SongSetting, for the Video settings row, names the song and opens Change s
   await userEvent.click(await screen.findByRole("button", { name: "Song: Take 1 · 0:31" }));
   expect(await screen.findByRole("dialog", { name: "Change song" })).toBeInTheDocument();
 });
+
+test("a narrated video: the strip and the panel speak of narrations, one at a time", async () => {
+  setViewport(390);
+  const n = (o: object = {}) => take({ kind: "narration", voice: "Sarah", ...o });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([n(), n({ id: 2, number: 2, preferred: false, seconds: 140 })])] });
+  show();
+  expect(await screen.findByText("Narration 1 · 0:31")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Change narration" }));
+  const panel = await screen.findByRole("dialog", { name: "Change narration" });
+  expect(within(panel).getByText(/The words are final\. Which narration this video uses/)).toBeInTheDocument();
+  expect(within(panel).getByRole("button", { name: /Make another/ })).toBeInTheDocument();
+  await userEvent.click(within(panel).getByRole("button", { name: "Use this narration" }));
+  expect(screen.getByRole("alertdialog", { name: "Use narration 2?" })).toHaveTextContent("The shots keep their lines; their times move to narration 2 (free).");
+});

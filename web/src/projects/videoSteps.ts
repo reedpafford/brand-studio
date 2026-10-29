@@ -39,6 +39,15 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
   return lockReason(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
 }
 
+/** Why a step's paid presses wait while its work stays viewable: an earlier step changed after it was made (audit M14). */
+export function videoHold(step: VideoStepId, now: VideoProgress): string | null {
+  const made = (step === "storyboard" && now.frames.total > 0) || (step === "clips" && now.clips.total > 0);
+  if (!made) return null;
+  if (now.shots.stale) return "The plan changed after these were made. Make new shots in Plan first.";
+  if (step === "clips" && now.frames.stale) return "The plan changed after these were made. Make the storyboard again first.";
+  return null;
+}
+
 /** Where a link to a locked step should land: the first earlier step that isn't finished (or is out of date), since that is what blocks it. */
 export function videoBlocker(step: VideoStepId, p: VideoProgress): VideoStepId {
   const before = VIDEO_STEPS.slice(0, VIDEO_STEPS.findIndex((s) => s.id === step));

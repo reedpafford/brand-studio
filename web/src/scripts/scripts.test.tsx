@@ -53,10 +53,12 @@ test("a script is one row: its title, description, reference, length range and a
   expect(document.body.textContent).not.toMatch(/\bv\d\b|project/i);
 });
 
-test("an editor starts on Ready to make, and Reed on everything; the brand home is the library", async () => {
+test("an editor's brand opens on their videos; on Scripts they start on Ready to make", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []] });
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []], "GET /projects": [200, []] });
   open("/b/1");
+  expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
+  await userEvent.click(screen.getAllByRole("link", { name: "Scripts" })[0]);
   await screen.findByRole("heading", { name: "Scripts" });
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
   expect(screen.getByLabelText("Status")).toHaveValue("published");
@@ -119,7 +121,7 @@ test("New script asks Story or Song; Story makes an untitled draft at once and o
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
-  await userEvent.dblClick(screen.getByRole("menuitem", { name: /Story/ })); // a fast double tap
+  await userEvent.dblClick(screen.getByRole("menuitem", { name: /Dialogue/ })); // a fast double tap
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
   expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();

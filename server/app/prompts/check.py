@@ -995,7 +995,7 @@ def without_names(result: SongDirections, sounds_like: str) -> list[str]:
     notes = []
     for n, d in enumerate(result.directions, 1):
         d.style_line, taken = strip_names(d.style_line, sounds_like)
-        notes += [f"{ADVICE}direction {n}: took “{name}” out of the style line "
+        notes += [f"{ADVICE}direction {n}: took “{name}” out of the music style "
                   "(the music service refuses names)" for name in taken]  # fmt: skip
     return notes
 
@@ -1018,6 +1018,9 @@ def finish_directions(
     return repaired + [x for x in found if x.startswith(ADVICE)], fixes
 
 
+COPIED = "repeats a line of the reference song"
+
+
 def copied_lines(result: SongDirections, study: dict | None) -> list[str]:
     """A direction's line that repeats a line of the song-ad study, word for word or nearly
     (flows S3a: the study is someone else's song). A fix: the directions are written again,
@@ -1033,7 +1036,7 @@ def copied_lines(result: SongDirections, study: dict | None) -> list[str]:
         for line in sung_lines(d.lyrics):
             mine = _words(line)
             if len(mine.split()) >= 4 and any(_close(mine, t) for t in theirs):
-                problems.append(f"direction {n}: “{line}” repeats a line of the reference song")
+                problems.append(f"direction {n}: “{line}” {COPIED}")
     return problems
 
 
@@ -1054,12 +1057,12 @@ def song_directions(
             problems.append(f"direction {n} has no lyrics")
             continue
         if len(d.style_line.split()) > 25:
-            problems.append(f"{ADVICE}direction {n}: the style line is over 25 words")
+            problems.append(f"{ADVICE}direction {n}: the music style is over 25 words")
         if not says_brand(sung[-1], brand):
             problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
         if named := [x for x in names if f" {_words(x)} " in f" {_words(d.style_line)} "]:
             problems.append(
-                f"{ADVICE}direction {n}: the style line names “{named[0]}”; the music service "
+                f"{ADVICE}direction {n}: the music style names “{named[0]}”; the music service "
                 "refuses artist and song names, so describe the sound instead"
             )
         words, short, long = sung_length(d.lyrics)
@@ -1220,7 +1223,9 @@ def plan(
     if twice := sorted({n for n in used if used.count(n) > 1}):
         problems.append(f"{_lines(twice)} in more than one scene")
     if extra := [n for n in used if n not in want]:
-        problems.append(f"{_lines(extra, 'are', 'is')} not a script line with words")
+        problems.append(
+            f"{_lines(extra, 'are not script lines', 'is not a script line')} with words"
+        )
     if not (missing or twice or extra) and used != want:
         problems.append("the lines are out of order: every line stays where the script has it")
     for sc in result.scenes:
@@ -1258,43 +1263,79 @@ def plan_scene(before: PlanScene, after: PlanScene) -> list[str]:
 # label or logo ("label to camera", "the fomo logo reads"): those must show.
 TEXT_ON_SCREEN = re.compile(
     r"\b(?:text overlays?|on-?screen text|text on screen|captions?|(?<!No )subtitles?|title cards?|"
-    r"lower thirds?|logo text|words? (?:appear|pop up|flash)(?:s|ing)?(?: on screen)?|"
+    r"lower thirds?|logo text|words?\s+(?:\0\s+)?(?:appear|pop up|flash)(?:s|ing)?(?: on screen)?|"
     r"(?:big|bold|animated) (?:text|letters|title))\b",
     re.I,
 )
 CLAUSE = re.compile(r"[^,.;!?]+[,.;!?]?\s*")
+# A quote that is spoken (after a speaker's label or a speech verb), never one to be drawn:
+# 'Mom: "Hi"' is a line; 'big text "SALE" pops' is a picture of words (Flow-QA on #886).
+SPOKEN = re.compile(
+    r"(?::|\b(?:says?|said|speaks?|sings?|shouts?|whispers?|asks?|yells?|repl(?:y|ies)|answers?|calls?))\s*\0",
+    re.I,
+)
 
 
 def text_on_screen(prompt: str) -> tuple[str, list[str]]:
     """A clip prompt with each ask for on-screen words taken out, and what was taken (P3:
-    "Fixed for you: removed 'logo text'"). Only the clause holding it goes; a spoken line in
-    quotes is never touched (rule 19), and neither are the audio lines or a safeguard ("No
-    captions", "without any on-screen text": Flow-QA on #869)."""
+    "Fixed for you: removed 'logo text'"). Only the clause holding it goes, with any words in
+    quotes it asks to draw; a spoken line in quotes is never touched (rule 19), and neither
+    are the audio lines or a safeguard ("No captions", "without any on-screen text": Flow-QA
+    on #869)."""
     out, removed = [], []
     for line in prompt.splitlines():
         if line.startswith("Audio:") or not TEXT_ON_SCREEN.search(QUOTED.sub("", line)):
             out.append(line)
             continue
-        quotes = iter([q.group(0) for q in QUOTED.finditer(line)])
-        line = QUOTED.sub("\0", line)  # a quoted line is one piece, never split or searched
+        quotes = [q.group(0) for q in QUOTED.finditer(line)]
+        line = QUOTED.sub("\0", line)  # a quote is one piece, never split
         head = m.group(0) if (m := SHOT_LINE.match(line)) else ""
-        kept, cut = [], False
+        kept, kept_quotes, cut, n, before = [], [], False, 0, len(removed)
         for clause in CLAUSE.findall(line[len(head) :]):
+            mine, n = quotes[n : n + clause.count("\0")], n + clause.count("\0")
             asks = [m for m in TEXT_ON_SCREEN.finditer(clause) if not _negated(clause, m)]
-            if (found := next(iter(asks), None)) and "\0" not in clause:
-                removed.append(found.group(0))
+            if (found := next(iter(asks), None)) and not SPOKEN.search(clause):
+                removed.append(_phrase(found))
                 cut = True
                 continue
-            if (
-                cut and kept
-            ):  # the clause before a cut ends its sentence: "bowl; No one" → "bowl. No one"
+            # the clause before a cut ends its sentence: "bowl; No one" → "bowl. No one"
+            if cut and kept:
                 kept[-1] = re.sub(r"[,;]\s*$", ". " if clause[:1].isupper() else ", ", kept[-1])
             kept.append(clause)
+            kept_quotes += mine
             cut = False
         text = re.sub(r"[,;]\s*$", ".", "".join(kept).strip()) if cut else "".join(kept).strip()
-        text = re.sub("\0", lambda _, q=quotes: next(q), text)
+        if head and not re.search(r"\w", text.replace("\0", "")):  # the shot was only drawn words
+            out.append(re.sub("\0", lambda _, q=iter(quotes): next(q), line))
+            removed = removed[:before]  # left as Advice (text_on_screen_advice), never emptied
+            continue
+        text = re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m[1] + m[2].upper(), text)  # "then she…"
+        text = re.sub("\0", lambda _, q=iter(kept_quotes): next(q), text)
         out.append(f"{head} {text}".strip() if head else text)
     return "\n".join(out), removed
+
+
+def _phrase(m: re.Match) -> str:
+    """An ask as the card says it, without the quoted words held in its place."""
+    return " ".join(m.group(0).replace("\0", " ").split())
+
+
+def text_on_screen_advice(prompt: str) -> list[str]:
+    """Advice for asks for drawn words that text_on_screen left in place, because taking
+    them out would leave the shot empty (Flow-QA on #890)."""
+    out = []
+    for line in prompt.splitlines():
+        if not (m := SHOT_LINE.match(line)) or line.startswith("Audio:"):
+            continue
+        rest = QUOTED.sub("\0", line[m.end() :])
+        for clause in CLAUSE.findall(rest):
+            asks = [a for a in TEXT_ON_SCREEN.finditer(clause) if not _negated(clause, a)]
+            if asks and not SPOKEN.search(clause):
+                n = line.split(" |", 1)[0].removeprefix("Shot ")
+                out.append(f"{ADVICE}shot {n} is only words on screen (“{_phrase(asks[0])}”); "
+                           "show the moment instead, or the model draws the words")  # fmt: skip
+                break
+    return out
 
 
 def item_check(result: ItemCheck, ref_ids: list[str]) -> ItemCheck:
@@ -1336,7 +1377,7 @@ VOICED = re.compile(
     r"\b(?:vocals?|choir|singing|singer|sung|humm(?:ing|ed)|lyrics?|chant\w*)\b", re.I
 )
 
-NEGATED = re.compile(r"\b(?:no|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
+NEGATED = re.compile(r"\b(?:no|not|never|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
 
 
 def _negated(text: str, m: re.Match) -> bool:
@@ -1376,3 +1417,57 @@ def format_advice(script: str, fmt: str) -> list[str]:
                 "one voice. The narrator will read it."
             )
     return out
+
+
+def follows_plan(plan: ScenePlan, bd: Breakdown) -> list[str]:
+    """Fixes for a breakdown made from an approved plan (flows P2): each breakdown scene
+    stays inside one plan scene (one place and time), and each ★ line's shot shows its
+    product or screen, so the stills and clips draw the real one."""
+    scene_of = {x.line: sc.id for sc in plan.scenes for x in sc.lines}
+    star = {x.line: x.product for sc in plan.scenes for x in sc.lines if x.product}
+    problems = []
+    for sc in bd.scenes:
+        planned = sorted({scene_of[n] for s in sc.shots for n in s.script_lines if n in scene_of})
+        if len(planned) > 1:
+            problems.append(f"scene {sc.id} mixes plan scenes {', '.join(map(str, planned))}: "
+                            "keep each plan scene's place and time")  # fmt: skip
+        for shot in sc.shots:
+            for n in shot.script_lines:
+                if n in star and star[n] not in shot.screen_ids:
+                    problems.append(f"shot {shot.id}: line {n} is ★ {star[n]} in the plan; show it")
+    return problems
+
+
+def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
+    """A picture prompt with the look's banned words repaired (flows ST2, free): the prompt,
+    what changed ("stage → world"), and Advice for a banned word inside quotes, which is
+    never changed (rule 19). The audio lines are left alone."""
+    from app.prompts import look_banned
+
+    changed, advice, out = [], [], []
+    for line in prompt.splitlines():
+        if line.startswith("Audio:"):
+            out.append(line)
+            continue
+        parts = re.split(r'(["“][^"”]*["”])', line)  # outside, “a quote”, outside, …
+        quotes = parts[1::2]
+        for word, new in sorted(look_banned(look_id), key=lambda x: -len(x[0])):  # phrases first
+            found = re.compile(rf"\b{re.escape(word)}\b\s?", re.I)
+            for i in range(0, len(parts), 2):
+                hits = [m for m in found.finditer(parts[i]) if not _negated(parts[i], m)]
+                if hits:  # a safeguard ("no blood", "not floating") is never rewritten
+                    for m in reversed(hits):
+                        a, b = m.span()
+                        parts[i] = parts[i][:a] + _same_case(m.group(0), new) + parts[i][b:]
+                    changed.append(f"{word} → {new}" if new else f"{word} → (taken out)")
+            if any(found.search(q) for q in quotes):
+                advice.append(f"{ADVICE}“{word}” is in a quoted line; the look avoids it")
+        out.append(re.sub(r" {2,}", " ", "".join(parts)))
+    return "\n".join(out), list(dict.fromkeys(changed)), list(dict.fromkeys(advice))
+
+
+def _same_case(old: str, new: str) -> str:
+    """The replacement in the old word's case ("Stage " → "World "), keeping its space."""
+    tail = old[len(old.rstrip()) :]
+    new = new[:1].upper() + new[1:] if old[:1].isupper() and new else new
+    return new + tail if new else ""

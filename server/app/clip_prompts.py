@@ -130,12 +130,21 @@ def batches(bd: Breakdown, clip_ids: list[str] | None = None) -> list[list[str]]
     return out
 
 
+def _prompts_step(db: Session, project: Project) -> str:
+    """The Director's rules for this video's clips: a narrated video's keep the action's own
+    sound, with no voice or music of their own (flows V6n). The job's step stays clip_prompts."""
+    from app import narration, song_breakdown
+
+    take = song_breakdown.take_for(db, project)
+    return "narrated_clip_prompts" if take and take.kind == narration.KIND else "clip_prompts"
+
+
 def job_input(
     db: Session, project: Project, bd: BreakdownVersion, clip_ids: list[str] | None = None
 ) -> dict:
     """One job, one price: Claude is asked a few clips at a time (`parts`), so no answer runs
     out of room."""
-    system, _ = project_context(db, project, "clip_prompts")
+    system, _ = project_context(db, project, _prompts_step(db, project))
     groups = batches(Breakdown.model_validate(bd.data), clip_ids)
     lines = "\n".join(dict.fromkeys(line for line, _, _ in assets(db, project).values()))
     prompt = "\n".join(
@@ -368,6 +377,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
         elif known[ref.id][1] != ref.kind:
             kind = {"image": "a picture", "audio": "a sound"}.get(ref.kind, f"a {ref.kind}")
             problems.append(f"{clip.clip_id}: {ref.id} is attached as {kind} but isn't one")
+    problems += check.text_on_screen_advice(clip.prompt)  # a shot that's only drawn words (#890)
     return plain(problems, names(known))
 
 
@@ -403,8 +413,9 @@ def _unquoted(text: str, fn) -> str:
 
 def reword(prompt: str) -> tuple[str, list[str]]:
     """The prompt with its wording flags fixed, free: aspect and resolution words removed
-    (they're settings) and, in a shot nobody speaks in, an action that reads like a line
-    ("he says no") said as what the body does. The spoken lines are never touched. Returns
+    (they're settings), asks for words drawn on screen taken out (check.text_on_screen) and,
+    in a shot nobody speaks in, an action that reads like a line ("he says no") said as what
+    the body does. The spoken lines are never touched. Returns
     the prompt and what was fixed, in plain words ([] when nothing was)."""
     fixed: list[str] = []
 
@@ -429,7 +440,9 @@ def reword(prompt: str) -> tuple[str, list[str]]:
         if line.startswith("Shot ") and not check.QUOTED.search(line):
             line = check.SAYS.sub(body, line)
         lines.append(line)
-    return "\n".join(lines), list(dict.fromkeys(fixed))
+    words, shown = check.text_on_screen("\n".join(lines))  # the Director's list (#869)
+    fixed.extend(f'removed "{w}"' for w in shown)
+    return words, list(dict.fromkeys(fixed))
 
 
 def undone_flags(row: ProjectClip, problems: list[str]) -> list[str]:

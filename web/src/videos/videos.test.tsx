@@ -1,6 +1,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { StrictMode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
@@ -23,18 +24,20 @@ const base = (me: object, rows: object[], extra: Record<string, [number, unknown
   ...extra,
 });
 const urls = () => (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.map(([r]) => (typeof r === "string" ? r : r.url)).filter((u) => u.includes("/projects?"));
-function open(query = "?view=videos") {
+function open(at = "/b/1/videos") {
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/b/1/scripts${query}`]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+    <StrictMode>
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[at]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </StrictMode>,
+  ); // as in the app: StrictMode renders twice
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("Scripts · Videos switch: Videos lists the brand's videos with their status, who, and where each opens", async () => {
+test("Videos lists the brand's videos with their status, who, and where each opens", async () => {
   setViewport(1440);
   fakeServer(base(editor, [video({ own_script: true }), video({ id: 10, name: "Bo tries tuna · A", finished_at: "2026-10-24T10:00:00Z" }), video({ id: 11, name: "Old video", script_draft_id: null, archived_at: "2026-10-25T10:00:00Z" })]));
   open();
@@ -48,7 +51,8 @@ test("Scripts · Videos switch: Videos lists the brand's videos with their statu
   expect(screen.getAllByText("In production").length).toBeGreaterThan(0);
   expect(screen.getAllByText("Finished").length).toBeGreaterThan(0);
   expect(screen.getByText("3 videos")).toBeInTheDocument();
-  expect(screen.getByRole("navigation", { name: "View" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Videos" })).toBeInTheDocument();
+  expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page"); // its own section in the menu (audit M6)
 });
 
 test("a finished video whose clips changed since says Finished · changes waiting, not plain Finished, and opens at Clips (#749 LW2)", async () => {
@@ -101,7 +105,7 @@ test("an editor only ever asks for their own videos; Reed sees everyone's and ca
 test("status, Archived and search are sent to the server; filtered shows 'x of y' and Clear filters", async () => {
   setViewport(1440);
   fakeServer(base(owner, [video({}), video({ id: 10 })]));
-  open("?view=videos&status=making&archived=1");
+  open("/b/1/scripts?view=videos&status=making&archived=1"); // an old link lands on Videos with its filters
   await screen.findAllByText(/of 2 videos|2 videos/);
   await vi.waitFor(() => expect(urls().some((u) => u.includes("status=making") && u.includes("archived=true"))).toBe(true));
   expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
@@ -119,14 +123,40 @@ test("an editor with no videos is pointed back to the scripts; filters with no m
   vi.unstubAllGlobals();
   setViewport(1440);
   fakeServer(base(editor, []));
-  open("?view=videos&status=done");
+  open("/b/1/videos?status=done");
   expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
 });
 
-test("the Scripts page still shows by default and has the switch", async () => {
+test("Scripts is scripts only: no Scripts · Videos switch, and Reed's brand opens on it", async () => {
   setViewport(1440);
   fakeServer(base(owner, []));
-  open("");
-  expect(await screen.findByRole("navigation", { name: "View" })).toBeInTheDocument();
+  open("/b/1");
+  expect(await screen.findByRole("heading", { name: "Scripts" })).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "View" })).toBeNull();
   expect(screen.queryByRole("searchbox", { name: "Search videos" })).toBeNull();
+});
+
+test("with no status picked, the videos are grouped Needs you, Making, Done; a video that needs you says what it waits on", async () => {
+  setViewport(390);
+  fakeServer(base(editor, [
+    video({ id: 9, name: "Waits on me · A", needs_you: true, waiting_on: "2 stills and 1 clip ready to check" }),
+    video({ id: 10, name: "Being made · B", needs_you: false }),
+    video({ id: 11, name: "All done · C", needs_you: false, finished_at: "2026-10-24T10:00:00Z" }),
+  ]));
+  open();
+  const needs = await screen.findByRole("region", { name: "Needs you" });
+  expect(within(needs).getByRole("link", { name: /Waits on me · A/ })).toHaveTextContent("2 stills and 1 clip ready to check");
+  expect(within(screen.getByRole("region", { name: "Making" })).getByRole("link", { name: /Being made · B/ })).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "Done" })).getByRole("link", { name: /All done · C/ })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Needs you · 1" })).toBeInTheDocument();
+});
+
+test("Status: Needs you asks the server for just those, in one list", async () => {
+  setViewport(1440);
+  fakeServer(base(editor, [video({ needs_you: true, waiting_on: "Approve 2 looks" })]));
+  open("/b/1/videos?status=needs_you");
+  expect(await screen.findByText("Approve 2 looks")).toBeInTheDocument();
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("status=needs_you"))).toBe(true));
+  expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
+  expect(screen.getByLabelText("Status")).toHaveValue("needs_you");
 });

@@ -86,15 +86,19 @@ def _plain(job: Job, detail: str) -> str:
     """What everyone sees when a job fails; song steps say their own reason (rule 22)."""
     if job.kind == "music":
         return music.failure(detail, (job.input.get("input") or {}).get("style", ""))
+    if job.kind == "narration_timing":  # app/narration.py
+        from app import narration
+
+        if detail.startswith("ValueError"):
+            return narration.TIMING_UNREADABLE
+        return narration.TIMING_FAILED
     if job.kind == "song_timing":  # a ValueError: the file itself (app/song_timing.py)
         if detail.startswith("TooLong"):
             return music.TIMING_TOO_LONG
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
     from app import song_directions
 
-    if detail.startswith(song_directions.STILL):
-        return song_directions.UNFINISHED
-    return FAILED
+    return song_directions.failure(detail) or FAILED
 
 
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
@@ -313,7 +317,37 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
         payload["input"] = {**payload.get("input", {}), key: urls}
+    if take := job.input.get("take_frames"):  # the advisory check: the take's frames first
+        stored = _stored(db, storage, job, take["file_id"])
+        frames = [f"data:image/jpeg;base64,{base64.b64encode(f).decode()}"
+                  for f in video_frames(storage.get(stored.key), take["count"])]  # fmt: skip
+        given = payload.get("input", {})
+        payload["input"] = {**given, "reference_images": frames + given.get("reference_images", [])}
     return payload
+
+
+def video_frames(video: bytes, count: int) -> list[bytes]:
+    """`count` JPEG frames spread over a video, first to last (ffmpeg, free)."""
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "take.mp4"
+        src.write_bytes(video)
+        probe = subprocess.run(  # noqa: S603 - fixed arguments; the file is ours
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",  # noqa: S607
+             str(src)], capture_output=True, text=True, timeout=60, check=True)  # fmt: skip
+        length = float(probe.stdout.strip() or 0)
+        out = []
+        for n in range(count):
+            at = length / 2 if count == 1 else min(length * n / (count - 1), max(length - 0.5, 0))
+            dst = Path(tmp) / f"{n}.jpg"
+            subprocess.run(  # noqa: S603
+                ["ffmpeg", "-v", "error", "-y", "-ss", f"{at:.2f}", "-i", str(src),  # noqa: S607
+                 "-frames:v", "1", "-q:v", "4", str(dst)], timeout=60, check=True)  # fmt: skip
+            out.append(dst.read_bytes())
+        return out
 
 
 def start_next(

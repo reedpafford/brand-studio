@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import reference
+from app import looks, narration, needs_you, reference
 from app.auth import current_user, owner_only, user_name
 from app.credits import credits_used, get_limits, lock, over_cap, own_script
 from app.db import get_db, utcnow
@@ -58,6 +58,7 @@ class ProjectIn(BriefPatch):
 class ProjectPatch(BriefPatch):
     reference_id: str | None = None  # a reel from GET /references: its breakdown is copied in
     name: Name | None = None
+    look: str | None = None  # VS1: the video's own look (its stills and clips go out of date)
     planned_seconds: int | None = Field(None, gt=0, le=3600)
 
 
@@ -67,6 +68,8 @@ class ProjectOut(BaseModel):
     name: str
     song: bool = False  # made from a Song script: timed to its song (song_take_id)
     song_take_id: int | None = None
+    look: str = "house"  # how its pictures are drawn (VS1)
+    look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
     status: ProjectStatus
@@ -97,6 +100,10 @@ class ProjectOut(BaseModel):
     poster_file_id: int | None = None
     step: Literal["breakdown", "assets", "storyboard", "clips", "downloads", "done"] | None = None
     final_out_of_date: bool = False  # finished, but its clips changed since: "changes waiting"
+    # On the Videos list (audit M6): it waits on its editor, and for what ("3 stills ready to
+    # check"); null when nothing is theirs to do (app/needs_you.py)
+    needs_you: bool = False
+    waiting_on: str | None = None
 
 
 def archive(db: Session, project: Project) -> None:
@@ -125,7 +132,7 @@ def _is_song(db: Session, project: Project) -> bool:
     from app.models.script_library import Script, ScriptDraft
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    return bool(draft) and db.get(Script, draft.script_id).kind == "song"
+    return bool(draft) and db.get(Script, draft.script_id).kind in narration.TIMED
 
 
 def _out(db: Session, project: Project, user: User, old: set[int] | None = None) -> ProjectOut:
@@ -140,6 +147,8 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         name=project.name,
         song=_is_song(db, project),
         song_take_id=project.song_take_id,
+        look=project.look,
+        look_redo_credits=looks.redo_credits(db, project),
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
         status=project.status,
@@ -222,7 +231,7 @@ def list_projects(
     archived: bool = False,  # true: the archived videos instead, so they can be brought back
     q: str = "",  # in the video's name (a script's title, and its version's)
     mine: bool = False,  # only the videos the caller started
-    status: Literal["making", "done"] | None = None,  # done: "Video done"
+    status: Literal["making", "done", "needs_you"] | None = None,  # done: "Video done"
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -236,7 +245,7 @@ def list_projects(
         query = query.where(Project.name.ilike(f"%{q.strip()}%"))
     if mine:
         query = query.where(Project.created_by_id == user.id)
-    if status is not None:
+    if status in ("making", "done"):
         done = Project.finished_at.is_not(None)
         query = query.where(done if status == "done" else ~done)
     found = db.scalars(query.order_by(func.lower(Project.name))).all()
@@ -244,11 +253,14 @@ def list_projects(
     from app.routes.project_clips import out_of_date
 
     old = out_of_date(db, list(found))
+    waits = needs_you.waiting_on(db, list(found), old)
     out = [_out(db, p, user, old) for p in found]
     for row, project in zip(out, found, strict=True):
         row.poster_file_id = (frames.get(project.id) or (None, None))[1]
         row.step = "done" if project.finished_at else steps[project.id]
-    return out
+        row.waiting_on = waits.get(project.id)
+        row.needs_you = row.waiting_on is not None
+    return [r for r in out if r.needs_you] if status == "needs_you" else out
 
 
 @router.post("", response_model=ProjectOut, status_code=201)
@@ -350,6 +362,8 @@ def update_project(
     project = get_project(db, user, project_id)
     if body.name is not None:
         project.name = body.name
+    if body.look is not None:
+        project.look = looks.pick(db, user, body.look)
     if "planned_seconds" in body.model_fields_set:  # null clears it: the breakdown decides
         _set_length(db, user, project, body.planned_seconds)
     _set_brief(db, user, project, body.model_dump(exclude_unset=True))

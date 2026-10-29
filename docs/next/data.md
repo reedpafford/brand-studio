@@ -22,6 +22,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n05 | Narrated (N1, V6n): `song_takes.kind`, `voice`, `music_file_id`, `music_job_id`, `trimmed`; `scripts.kind` gains `narrated` (validation only) | Next-Server | — |
 | n06 | Every video (1b): `projects.plan`, `projects.plan_history`, `script_drafts.plan`, `jobs.retry_of_id`, `jobs.auto`, `project_clips.auto_fix`, new `item_checks`; existing videos are planned from their breakdown in code, when read | Builder-Server-8 | — |
 | n07 | Format and Look step 1: `scripts.look`, `projects.look` (text, default `house`), new `look_switches` {workspace_id, look_id, on, sample_still_id, sample_clip_id, switched_by_id, switched_at} | Next-Server | — |
+| n08 | Brand setup (BR1): new `brands` columns and product description/claim, below | Builder-Server-7 | — |
 
 ## Merge order (the chain on `next`)
 
@@ -32,9 +33,10 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | — | n01 | #748 | 0053 | On `next` |
 | 1 | n02 | #829 | n01 | On `next` |
 | 2 | n04 | #851 | n02 | On `next` |
-| 3 | n06 | #862 | n04 | On `next` (merged before n05) |
-| 4 | n05 | #858 | n06 | Open: being re-pointed to n06 |
-| 5 | n07 | #873 | n05 (once #858 is in) | Open: tracks next's head for CI until its turn |
+| 3 | n06 | #862 | n04 | On `next` |
+| 4 | n07 | #873 | n06 | On `next` (merged before n05) |
+| 5 | n05 | #858 | n07 | On `next` (ade1a9f1) |
+| 6 | n08 | #910 | n05 | Open: its turn, ready |
 | — | n03 | Next-Server, flavours | the head when it's built | Not started |
 
 ## 1. Song ads
@@ -67,9 +69,19 @@ Code notes for Next-Server (not tables):
 | Breakdown rows | `data["plan_version"]`: the plan version the breakdown was made from | No migration (inside the JSON). A smaller number than `projects.plan.version` means "Made for an older plan". |
 | `jobs` | `retry_of_id` (nullable FK jobs) and `auto` bool (default false): the one automatic retry (P3) | At most one auto retry per job, enforced in code and tested. |
 | `project_clips` | `auto_fix` JSON (default null): `{before, after, fixed: ["removed \"9:16\"", …], undone}`, the wording fixed for you (P3) | **Undo** puts `before` back and sets `undone`; while the prompt is still `before`, it isn't fixed again and its flags are Advice. Spoken (quoted) words are never changed. |
-| New: `item_checks` | `id`, `project_id`, `target` (`frame` or `take`), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind: face/outfit/product, role, text, change_note}]`, `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. |
+| New: `item_checks` | `id`, `project_id`, `target` (`frame` or `take`), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind: face/outfit/product, role, text, change_note}]`, `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. `findings[].role` holds the reference id the finding is about (char:N, slot:N or product:N). Runs on the stand-ins; for real only with `BS_ITEM_CHECKS_PAID` (off until the Producer approves a test). |
 | Migration plan | n06 adds the columns only. A video with a breakdown and no stored `plan` gets one read from its breakdown when it's first asked for (in code, free, `source = "from_breakdown"`, approved), so no video is blocked, made before or after. Every "is the plan approved?" (the Plan GET, the shots/breakdown guard, the step ✓ in ProjectOut, the lists and "Needs you") goes through that one function. | n06, one number for all of 1b (Builder-Server-8; Next-Lead agreed reading at read time, 2026-10-29). |
+
+## 3. Brand setup (BR1)
+
+| Where | Change | Notes |
+|---|---|---|
+| `brands` | `audience` text "", `do_list` JSON [], `dont_list` JSON [] (copied from `never_say`, deduped, order kept), `cta_lines` JSON `[{id, text, default, deleted_at}]` (seeded from `end_line`), `default_cast` JSON [] (library item ids), `music_style` text "", `default_language` String(10) "en", and later `default_look` String(40) "house" (after n07) | n08. Exactly one default among live CTA lines; deleting it promotes the next (Undo). A deleted or archived cast item reads `{id, deleted: true}`. `music_style` prefills new song versions only. |
+| `brands.tone_notes` | Unchanged column; shown as "How the brand talks" | No reader changes. |
+| `brands.never_say`, `brands.end_line` | **Kept on next** and written through: `never_say` = `dont_list`, `end_line` = the default CTA's text ("" if none) | Main still reads them, and main merges into next. They're dropped at the move to main (ops/NEXT.md). Next's readers use the new fields. |
+| `library_items` (products) | `short_description` text "", `main_claim` text "" | Empty claim: Advice "Scripts won't mention a claim for this product." |
+| BR1's S state | No brand write touches a script, version or video; later steps read the brand live | Tested: a published script and a made video are unchanged after brand edits. |
 
 ## 2–6. Later items
 
-Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; looks read from the existing `server/app/prompts/styles/` files (kind: look; the folder keeps its name, the screens say Look), `look` text on `scripts` and `projects`, default `house`, `look_switches` for On/Off (n07), and per-look sheets as library versions; Format is `scripts.kind`, above), brand setup (new brand columns, `never_say` moving into `dont_list`), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).
+Filled in before each item is built, in build order: looks (Reed, 2026-10-29: Format and Look are two settings; looks read from the existing `server/app/prompts/styles/` files (kind: look; the folder keeps its name, the screens say Look), `look` text on `scripts` and `projects`, default `house`, `look_switches` for On/Off (n07), and per-look sheets as library versions; Format is `scripts.kind`, above), video settings (`video_model`, `image_model`, `language` on videos), organization (a grouping table, `folder` links, `preferred` on stills and looks, versions on storyboards and clip prompts).

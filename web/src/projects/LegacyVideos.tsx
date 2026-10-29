@@ -1,17 +1,12 @@
-import { useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { Bell, Clapperboard, Plus } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Clapperboard } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { useHeld } from "../approvals/useHeld";
 import { useJobs } from "../clip/History";
-import { Badge, Banner, Button, EmptyState, MediaCard, Skeleton, buttonClass } from "../components";
-import { useBrands } from "../shell/useBrands";
-import { ActionBar } from "../shell/ActionBar";
-import { useMedia } from "../useMedia";
+import { Badge, MediaCard, buttonClass } from "../components";
 import { STEPS, firstUnfinished, type StepId } from "./steps";
-import { useProgress, videoQuery } from "./useProgress";
+import { useProgress } from "./useProgress";
 
 type Project = NonNullable<ReturnType<typeof useProjectList>["data"]>[number];
 type Job = NonNullable<ReturnType<typeof useJobs>["data"]>[number];
@@ -28,7 +23,6 @@ export function useProjectList(brandId: number) {
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const FINISHED_SHOWN = 8;
 
 /** Credits used against the budget: a thin bar always, the words on hover or focus on desktop (always on touch), and always when it matters. */
 function CreditsBar({ used, budget, pct }: { used: number; budget: number; pct: number }) {
@@ -97,100 +91,6 @@ function VideoCard({ p, brandId, job }: { p: Project; brandId: number; job?: Job
         <CreditsBar used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} />
       </MediaCard>
     </div>
-  );
-}
-
-export function ProjectsPage() {
-  const brandId = Number(useParams().brandId);
-  const { data: brands } = useBrands();
-  const held = useHeld();
-  const name = brands?.find((b) => b.id === brandId)?.name ?? "this brand";
-  const projects = useProjectList(brandId);
-  const jobs = useJobs();
-  const [all, setAll] = useState(false);
-  const list = projects.data;
-  const videos = useQueries({ queries: (list ?? []).map((p) => videoQuery(p.id)) });
-  const phone = !useMedia("(min-width: 1024px)");
-  const newVideo = (
-    <Link to={`/b/${brandId}/projects/new`} className={buttonClass("primary")}>
-      <Plus size={20} strokeWidth={1.75} aria-hidden />
-      New video
-    </Link>
-  );
-
-  // Newest first. A video with a final video is finished (even when it is out of date); the rest are in progress.
-  const newest = (list ?? []).map((p, i) => ({ p, made: !!videos[i]?.data })).sort((a, b) => b.p.id - a.p.id);
-  const inProgress = newest.filter((x) => !x.made).map((x) => x.p);
-  const finished = newest.filter((x) => x.made).map((x) => x.p);
-  const lastJob = (id: number) => (jobs.data ?? []).filter((j) => j.project_id === id).sort((a, b) => b.id - a.id)[0];
-  const grid = "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4";
-  const cards = (ps: Project[]) => (
-    <ul className={grid}>
-      {ps.map((p) => (
-        <li key={p.id}>
-          <VideoCard p={p} brandId={brandId} job={lastJob(p.id)} />
-        </li>
-      ))}
-    </ul>
-  );
-  const heldCredits = Math.round(held.allHeldJobs.reduce((n, j) => n + (j.credits ?? 0), 0));
-
-  return (
-    <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">
-      {held.owner && held.count > 0 && (
-        <Banner tone="info" title={`${held.count} ${held.count === 1 ? "request is" : "requests are"} waiting for you`} action={<Link to="/approvals" className={buttonClass("secondary")}><Bell size={20} strokeWidth={1.75} aria-hidden />Review</Link>}>
-          {heldCredits > 0 && `${heldCredits} credits in all`}
-        </Banner>
-      )}
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="type-eyebrow text-muted">{name}</p>
-          <h1 className="type-page">Videos</h1>
-        </div>
-        {list && list.length > 0 && !phone && newVideo}
-        {list && list.length > 0 && phone && <p className="text-sm text-muted">{inProgress.length} in progress</p>}
-      </div>
-      {projects.isError && (
-        <Banner title="Couldn't load your videos." action={<Button variant="secondary" onClick={() => void projects.refetch()}>Try again</Button>}>
-          Check your connection.
-        </Banner>
-      )}
-      {projects.isPending && (
-        <div className={grid} aria-label="Loading">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="aspect-[9/14] rounded-lg" />
-          ))}
-        </div>
-      )}
-      {list?.length === 0 && (
-        <EmptyState icon={Clapperboard} title={`No videos for ${name} yet`} action={newVideo}>
-          Start from a brief: what it's for, who's in it and how long. Claude helps with the script.
-        </EmptyState>
-      )}
-      {list && list.length > 0 && (
-        <>
-          <section aria-label="In progress" className="space-y-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="type-section">In progress</h2>
-              {!phone && <p className="text-sm text-muted">{plural(inProgress.length, "video")}{finished.length > 0 && ` · ${finished.length} finished`}</p>}
-            </div>
-            {inProgress.length > 0 ? cards(inProgress) : <p className="text-sm text-muted">Nothing in progress. Start a new video.</p>}
-          </section>
-          {finished.length > 0 && (
-            <section aria-label="Finished" className="space-y-3">
-              <h2 className="type-section">Finished</h2>
-              {cards(all ? finished : finished.slice(0, FINISHED_SHOWN))}
-              {!all && finished.length > FINISHED_SHOWN && (
-                <Button variant="secondary" onClick={() => setAll(true)}>
-                  Show all {finished.length}
-                </Button>
-              )}
-            </section>
-          )}
-          {phone && <ActionBar phone>{newVideo}</ActionBar>}
-        </>
-      )}
-    </main>
   );
 }
 
