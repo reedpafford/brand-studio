@@ -219,3 +219,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #898 at c63dde4a (P1 web: edit, Stop, Earlier plans, Out of date) | code walk; plan + planEdits (17) | FAIL: "Update the plan" is a paid new plan promising kept scenes; Use this one on an approved plan has no confirm |
 | 2026-10-29 | #901 at 47d1494e (ST0 format chip, ST1 look picker, "Music style") | code walk; vitest scripts (234) | PASS (hidden until #873; server still says "style line" in 3 messages; live walk after #873) |
 | 2026-10-29 | #892 at e2a47360 (Director: breakdown films the plan; check.follows_plan) | prompt read; test_plan (6) | PASS (follows_plan not wired yet: with or after #893) |
+| 2026-10-29 | #901 + next (#873) live | Playwright 390 + 1440: chip, picker, use, toast, Undo, server look | PASS |
