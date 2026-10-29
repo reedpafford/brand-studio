@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import clip_prompts
@@ -20,7 +20,7 @@ from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.projects import Project
-from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
+from app.models.script_library import Script, ScriptDraft
 from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown
 from app.routes.projects import get_project
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/projects/{project_id}/estimate", tags=["credits"])
 
 
 class StageOut(BaseModel):
-    stage: str  # script, breakdown, storyboard, clip_prompts, clips, video
+    stage: str  # script, breakdown, looks, storyboard, clip_prompts, clips, video
     done: bool
     credits: float  # still to spend on this stage (0 when done)
     note: str  # how it was worked out, in plain words
@@ -59,43 +59,39 @@ def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -
 
 def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     """A version's whole price before it's started, by the rules its video will cost by
-    (QA-3: 14.73 quoted, its video's to-finish 28.06): `credits.plan_cost` with no breakdown
-    call when one is saved; with neither a saved breakdown nor a target, at least the length
-    the video plans for until its plan exists (PRE_BREAKDOWN_SECONDS); a look for every role
-    that will need one: each not cast yet, each speaker the cast hasn't got yet (it becomes a
-    role), and each cast one with no look in the video's look (as VS1's to-finish). A Song
-    version's video is its Preferred take's (the song decides the length). `video`: the
-    video it would make, for its models and look (Make this version's settings, VS1)."""
+        (QA-3: 14.73 quoted, its video's to-finish 28.06): `credits.plan_cost` with no breakdown
+        call when one is saved; with neither a saved breakdown nor a target, at least the length
+        the video plans for until its plan exists (PRE_BREAKDOWN_SECONDS); a look for every role
+        that will need one: each not cast yet, each speaker the cast hasn't got yet (it becomes a
+        role), and each cast one with no look in the video's look: `sheets.roles_without_a_look`
+    and `roles_needing_look`, the rules VS1's to-finish uses too. A Song
+        version's video is its Preferred take's (the song decides the length). `video`: the
+        video it would make, for its models and look (Make this version's settings, VS1)."""
     from app import song_takes
     from app.models.projects import PRE_BREAKDOWN_SECONDS
-    from app.sheets import look_price, roles_needing_look
+    from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
     script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
-    looks = len(roles_needing_look(db, script, video.look if video else None))
-    looks_cost = looks * look_price(db, script.workspace_id)
-    if script.kind == "song" and (take := song_takes.preferred(db, draft)):
+    each = look_price(db, script.workspace_id)  # as the look press shows and holds
+    looks_cost = len(roles_needing_look(db, script, video.look if video else None)) * each
+    if script.kind == "song" and (take := song_takes.preferred(db, draft)):  # its take card's
         return song_takes.video_credits(db, take, video=video) + looks_cost
+    looks_cost += len(roles_without_a_look(db, script, draft)) * each  # their first look
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
     if not bd and not draft.target_seconds:
         seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
-    uncast = db.scalar(
-        select(func.count()).where(
-            ScriptCastSlot.script_id == script.id, ScriptCastSlot.library_item_id.is_(None)
-        )
-    )
-    uncast += len(_new_speakers(db, script, draft))  # fmt: skip
-    return looks_cost + plan_cost(db, script.workspace_id, seconds, bd, uncast,
+    return looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
                                   breakdown=not bd, video=video)  # fmt: skip
 
 
-def _new_speakers(db: Session, script: Script, draft: ScriptDraft) -> list[str]:
-    """Who speaks in this version with no role yet: making the video adds them as roles."""
-    from app.cast_roles import labels
-    from app.script_cast_read import _speakers
+def _looks(db: Session, project: Project) -> tuple:
+    """The looks still to make (rule 32: up to what Make a look can charge): each role's
+    first look and each one with none in the video's look, by the quote's own rules."""
+    from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
-    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id)).all()
-    return [name for name, versions in _speakers(db, script).items()
-            if draft.slot in versions and not any(labels(name, s.role) for s in slots)]  # fmt: skip
+    n = len(roles_without_a_look(db, project)) + len(roles_needing_look(db, project))
+    note = f"up to {n} look{'' if n == 1 else 's'} to make" if n else "every role has a look"
+    return ("looks", not n, n * look_price(db, project.workspace_id), note)
 
 
 def _stages(db: Session, project: Project) -> list[StageOut]:
@@ -127,6 +123,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     rows = [
         ("script", script is not None, claude, "one Claude call to draft it"),
         ("breakdown", bd_ok, claude, "one Claude call"),
+        _looks(db, project),
         (
             "storyboard",
             storyboard_done,
