@@ -48,7 +48,7 @@ test("with no frames it offers to write them and shows the cost", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/storyboard": [200, []], "POST /projects/9/storyboard": [201, { id: 7, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
   open();
   expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Make storyboard · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Make the storyboard · 6 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard")?.body).toEqual({ per_shot: false }));
   expect(await screen.findByText("Writing your frames…")).toBeInTheDocument();
 });
@@ -79,7 +79,7 @@ test("Make still and Make all stills queue the image jobs and say Drawing…", a
     "POST /projects/9/storyboard/frames/3/render": [201, { id: 12, kind: "image", status: "queued", credits: 3, project_id: 9 }],
   });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Make all stills · 6 credits" })); // two missing × 3
+  await userEvent.click(await screen.findByRole("button", { name: "Make 2 stills · 6 credits" })); // two missing × 3
   await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render"))).toHaveLength(2));
   expect(await within(screen.getByLabelText("Frame c2")).findByText("Drawing…")).toBeInTheDocument();
 });
@@ -171,7 +171,7 @@ test("a still opens full size with the prompt Claude wrote", async () => {
 test("close to the budget an editor's paid button is off with the reason, and Reed's is the plain label", async () => {
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
   open();
-  const make = await screen.findByRole("button", { name: "Make storyboard · 6 credits" });
+  const make = await screen.findByRole("button", { name: "Make the storyboard · 6 credits" });
   expect(make).toBeDisabled();
   expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
@@ -180,7 +180,7 @@ test("close to the budget an editor's paid button is off with the reason, and Re
 test("Reed near the budget can press the plain Make storyboard", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 598, budget_credits: 600 }], "GET /projects/9/storyboard": [200, []] });
   open();
-  expect(await screen.findByRole("button", { name: "Make storyboard · 6 credits" })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: "Make the storyboard · 6 credits" })).toBeEnabled();
 });
 
 test("Storyboard stays locked until there are shots", async () => {
@@ -230,12 +230,15 @@ test("shots made for an older script also keep the storyboard locked", async () 
   expect(within(steps).getByRole("button", { name: "Storyboard" })).toHaveAccessibleDescription("Make new shots first");
 });
 
-test("Redo storyboard says the stills already made will be dropped", async () => {
-  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2", file_id: 41 }), frame({ id: 3, clip_id: "c3" })]] });
+test("Make the storyboard again asks in the app first, saying the stills already made will be dropped and the price", async () => {
+  const calls = fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2", file_id: 41 }), frame({ id: 3, clip_id: "c3" })]] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo storyboard · 6 credits" }));
-  expect(confirm).toHaveBeenCalledWith("Replace these frames? The 2 stills you've made will be dropped.");
+  await userEvent.click(await screen.findByRole("button", { name: "Make the storyboard again · 6 credits" }));
+  const ask = screen.getByRole("alertdialog", { name: "Make the storyboard again?" });
+  expect(ask).toHaveTextContent("the 2 stills you've made are dropped");
+  await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(calls.some((c) => c.key === "POST /projects/9/storyboard")).toBe(false);
 });
 
 const withStill = (o: object = {}) => frame({ file_id: 40, ...o });
@@ -292,9 +295,9 @@ test("an editor with room for one still but not all of them gets Make all stills
     "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2" }), frame({ id: 3, clip_id: "c3" })]],
   });
   open();
-  const all = await screen.findByRole("button", { name: "Make all stills · 6 credits" });
+  const all = await screen.findByRole("button", { name: "Make 2 stills · 6 credits" });
   expect(all).toBeDisabled();
-  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(all).toHaveAccessibleDescription("That's more than this video's budget.");
   expect(screen.getAllByRole("button", { name: /^Make still · 3 credits/ })[0]).toBeEnabled();
 });
 
@@ -313,7 +316,7 @@ test("a frame whose character has no approved sheet says so, links to the charac
   expect(within(first).getByRole("button", { name: /Make still/ })).toBeDisabled();
   expect(within(screen.getByLabelText("Frame c2")).getByRole("button", { name: /Make still/ })).toBeEnabled();
   expect(screen.getByText(/1 frame waits for a sheet \(Mia\)\./)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make all stills · 3 credits" })).toBeInTheDocument(); // only the frame that can be made
+  expect(screen.getByRole("button", { name: "Make 1 still · 3 credits" })).toBeInTheDocument(); // only the frame that can be made
 });
 
 test("a failed frames run says so, nothing was charged, and the one Make button below asks again", async () => {
@@ -327,12 +330,11 @@ test("a failed frames run says so, nothing was charged, and the one Make button 
   expect(await screen.findByText("The frames didn't finish.")).toBeInTheDocument();
   expect(screen.queryByText("Writing your frames…")).toBeNull();
   expect(screen.getAllByRole("button", { name: /credits/ })).toHaveLength(1);
-  await userEvent.click(screen.getByRole("button", { name: "Make storyboard · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Make the storyboard · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard")).toBe(true));
 });
 
 test("after Redo storyboard the old frames are not shown while the new ones load, so none of them can be pressed", async () => {
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ id: 1, file_id: 40 })]], "POST /projects/9/storyboard": [201, { id: 7, kind: "write-claude", step: "storyboard", status: "queued", credits: 6, project_id: 9 }] });
   // The server replaces the frames when the run finishes; the new list is slow to arrive.
   const inner = (fetch as unknown as { getMockImplementation: () => (r: Request | string, i?: RequestInit) => Promise<Response> }).getMockImplementation();
@@ -352,7 +354,8 @@ test("after Redo storyboard the old frames are not shown while the new ones load
     return inner!(req.clone(), init);
   }));
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo storyboard · 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Make the storyboard again · 6 credits" }));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Make the storyboard again · 6 credits" }));
   // The run has finished but the new frames haven't come: the old ones are gone from the screen.
   expect(await screen.findByText("Writing your frames…")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Redo · / })).toBeNull();
@@ -371,7 +374,7 @@ test("stills that show the old cast say Out of date and Redraw N stills shows th
   open();
   expect(within(await screen.findByLabelText("Frame c1")).getByText("Out of date")).toBeInTheDocument();
   expect(within(screen.getByLabelText("Frame c3")).getByText("Redrawn")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Redraw 2 stills · 6 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Redraw 2 out-of-date stills · 6 credits" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render")).length).toBe(2));
 });
 
@@ -382,9 +385,9 @@ test("an editor past the video's budget is told why and can't redraw; the price 
     "GET /projects/9/storyboard": [200, [withStill({ still_stale: true }), withStill({ id: 2, clip_id: "c2", still_stale: true })]],
   });
   open();
-  const redraw = await screen.findByRole("button", { name: "Redraw 2 stills · 6 credits" });
+  const redraw = await screen.findByRole("button", { name: "Redraw 2 out-of-date stills · 6 credits" });
   expect(redraw).toBeDisabled();
-  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(redraw).toHaveAccessibleDescription("That's more than this video's budget.");
 });
 
 test("a still's price comes from the default image model's rate, so every frame button shows it before it is pressed", async () => {
@@ -503,7 +506,7 @@ test("a fractional rate is shown in whole credits, rounded up, and one credit is
     "GET /projects/9/storyboard": [200, [frame({}), frame({ id: 2, clip_id: "c2", shot_id: "2.1" }), frame({ id: 3, clip_id: "c3", shot_id: "3.1", file_id: 40 })]],
   });
   open();
-  expect(await screen.findByRole("button", { name: "Make all stills · 1 credit" })).toBeInTheDocument(); // two stills, 0.6666, rounded up
+  expect(await screen.findByRole("button", { name: "Make 2 stills · 1 credit" })).toBeInTheDocument(); // two stills, 0.6666, rounded up
   expect(screen.getByRole("button", { name: "Redo · 1 credit" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Edit the prompt for clip c3" }));
   expect(screen.getByRole("button", { name: "Save and redraw · 1 credit" })).toBeInTheDocument();
@@ -527,7 +530,7 @@ test("Make all stills asks for every still at once: the second request doesn't w
   });
   holdOpen("POST /projects/9/storyboard/frames/2/render"); // the first one never answers
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Make all stills · 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Make 2 stills · 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/3/render")).toBe(true));
 });
 
@@ -540,7 +543,7 @@ test("Redraw N stills leaves out stills the server is already redrawing, so noth
     "POST /projects/9/storyboard/frames/3/render": [409, { detail: "This frame's still is already being made." }],
   });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Redraw 1 still · 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Redraw 1 out-of-date still · 3 credits" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key.endsWith("/render"))).toHaveLength(1));
   expect(calls.filter((c) => c.key.endsWith("/render"))[0].key).toBe("POST /projects/9/storyboard/frames/1/render");
 });
@@ -563,5 +566,14 @@ test("Make all stills, Redraw N stills and Make storyboard are 44px tall on a ph
     "GET /projects/9/storyboard": [200, [frame({ file_id: 40, still_stale: true }), frame({ id: 2, clip_id: "c2" })]],
   });
   open();
-  for (const name of [/^Make all stills/, /^Redraw 1 still/, /^Redo storyboard/]) expect((await screen.findByRole("button", { name })).className).toContain("min-h-11");
+  for (const name of [/^Make \d+ stills?/, /^Redraw 1 out-of-date still/, /^Make the storyboard again/]) expect((await screen.findByRole("button", { name })).className).toContain("min-h-control");
+});
+
+test("an out-of-date still's grey Approve says why, and the step's one amber is the redraw", async () => {
+  fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ stale: true, still_stale: true }), withStill({ id: 2, clip_id: "c2" })]] });
+  open();
+  const card = await screen.findByLabelText("Frame c1");
+  expect(within(card).getByRole("button", { name: "Approve" })).toHaveAccessibleDescription("Make the storyboard again first.");
+  const ambers = screen.getAllByRole("button").filter((b) => b.className.includes("bg-accent ") && !b.hasAttribute("disabled") && /credit/.test(b.textContent ?? ""));
+  expect(ambers.map((b) => b.textContent)).toEqual(["Redraw 1 out-of-date still · 3 credits"]);
 });

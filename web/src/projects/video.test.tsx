@@ -93,16 +93,16 @@ const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids
 const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
 
-test("a clip's prompt is marked Looks good on the server, by its own button or by Make clip, which then makes the take", async () => {
+test("a clip's prompt is marked Prompt OK on the server, by its own button or by Make clip, which then makes the take", async () => {
   setViewport(390);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]], "POST /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: true })], "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 24, project_id: 9 }] });
   open("?step=clips");
   expect(await screen.findByText("Bo sniffs the salmon")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 looks good" }));
+  await userEvent.click(screen.getByRole("button", { name: "Prompt OK for c1" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/prompt-ok")).toBe(true));
 });
 
-test("Make clip on a prompt not yet marked Looks good marks it and makes the take in one press", async () => {
+test("Make clip on a prompt not yet marked Prompt OK marks it and makes the take in one press", async () => {
   setViewport(390);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]], "POST /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: true })], "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 24, project_id: 9 }] });
   open("?step=clips");
@@ -122,13 +122,13 @@ test("a Make clip that can't be pressed says why in a plain line under it", asyn
   expect(screen.getByText("Fix the problems above first.")).toBeVisible();
 });
 
-test("a prompt already marked Looks good keeps its badge, lets the take be made, and can be undone", async () => {
+test("a prompt already marked Prompt OK keeps its badge, lets the take be made, and can be undone", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]], "DELETE /projects/9/clips/3/prompt-ok": [200, clip({ prompt_ok: false })] });
   open("?step=clips");
-  expect(await screen.findByText("Looks good")).toBeInTheDocument();
+  expect(await screen.findByText("Prompt OK")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
-  await userEvent.click(screen.getByRole("button", { name: "Prompt for c1 undo looks good" }));
+  await userEvent.click(screen.getByRole("button", { name: "Undo Prompt OK for c1" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /projects/9/clips/3/prompt-ok")).toBe(true));
 });
 
@@ -176,7 +176,7 @@ test("one-press Make storyboard is off for an editor when the writing plus the s
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");
-  const make = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
+  const make = await screen.findByRole("button", { name: "Make the storyboard · 15 credits" });
   expect(make).toBeDisabled();
   expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
 });
@@ -285,7 +285,7 @@ test("on an editor's own script past the weekly allowance the storyboard is decl
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");
-  const button = await screen.findByRole("button", { name: "Make storyboard · 15 credits" });
+  const button = await screen.findByRole("button", { name: "Make the storyboard · 15 credits" });
   expect(button).toBeDisabled();
   expect(await screen.findByText(/more than this week's 145 credits/)).toBeInTheDocument();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
@@ -499,7 +499,7 @@ test("when the newest take failed but others are good, the line says the others 
   });
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
-  expect(await within(card).findByText(/The newest take failed; your other takes are below\./)).toBeInTheDocument();
+  expect(await within(card).findByText(/The last try didn't finish; your other takes are below\./)).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Change it and make a new take · 22 credits" })).toBeInTheDocument();
 });
 
@@ -1277,20 +1277,20 @@ function holdRequest(key: string) {
   return release;
 }
 
-test("pressing a prompt's Looks good shows it at once (the badge, Undo, the take button on), before the server answers; a refusal puts it back", async () => {
+test("pressing a prompt's Prompt OK shows it at once (the badge, Undo, the take button on), before the server answers; a refusal puts it back", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false })]] });
   const release = holdRequest("POST /projects/9/clips/3/prompt-ok");
   open("?step=clips");
-  await userEvent.click(await screen.findByRole("button", { name: "Prompt for c1 looks good" }));
-  expect(await screen.findByRole("button", { name: "Prompt for c1 undo looks good" })).toBeInTheDocument();
-  expect(screen.getByText("Looks good")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Prompt OK for c1" }));
+  expect(await screen.findByRole("button", { name: "Undo Prompt OK for c1" })).toBeInTheDocument();
+  expect(screen.getByText("Prompt OK")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Make clip/ })).toBeEnabled();
   release(409, { detail: "Not now." });
-  expect(await screen.findByRole("button", { name: "Prompt for c1 looks good" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Prompt OK for c1" })).toBeInTheDocument();
 });
 
-test("after Change this… on a clip with no take that must be read again, the line says Looks good first, then Make clip", async () => {
+test("after Change this… on a clip with no take that must be read again, the line says Prompt OK first, then Make clip", async () => {
   setViewport(1440);
   const change = { note: "Slower", status: "done", before: "a b", after: "a c" };
   fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: false, change })]] });
@@ -1319,6 +1319,13 @@ test("the credits meter follows the video's jobs: when one finishes, the project
   done = true; // the job finishes; the job list polls while it runs
   expect(await screen.findByText(/^13 \/ 24 credits/, {}, { timeout: 8000 })).toBeInTheDocument();
 }, 20000);
+
+test("Storyboard's counts are said once, in the step heading's line", async () => {
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, []] });
+  open("?step=storyboard");
+  expect(await screen.findByText("1 frame · 1 approved")).toBeInTheDocument();
+  expect(screen.queryByText(/· 1 frame · 1 approved/)).toBeNull(); // no second heading in the work area
+});
 
 test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {
   setViewport(1440);
