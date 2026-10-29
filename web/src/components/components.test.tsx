@@ -329,3 +329,16 @@ test("a toast stays while focus is inside it, even after the pointer leaves", as
   });
   expect(screen.getByRole("status")).toBeEmptyDOMElement();
 });
+
+test("a price not known yet holds its place with a grey slot, and the press waits for it", async () => {
+  const press = vi.fn();
+  render(
+    <Button price={null} onClick={press}>
+      Change it
+    </Button>,
+  );
+  const b = screen.getByRole("button", { name: /Change it/ });
+  expect(b).toHaveAccessibleName("Change it · price loading");
+  await userEvent.click(b);
+  expect(press).not.toHaveBeenCalled();
+});
