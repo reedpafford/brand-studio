@@ -59,11 +59,16 @@ def waiting_on(db: Session, projects: list[Project], old: set[int]) -> dict[int,
             elif not approved:
                 ready.setdefault(pid, {}).setdefault(model, 0)
                 ready[pid][model] += 1
+    from app import plans
+
+    ready_plan = {p.id for p in projects if p.id in ids and plans.status(db, p) == "ready"}
     out = {}
     for pid in ids:
         job = failed.get(pid)
         if job and (name := KINDS.get(job.kind) or NAMES.get(job.input.get("step", ""))):
             out[pid] = f"{name} didn't finish"
+        elif pid in ready_plan:  # made, not approved yet: the one press that moves it on
+            out[pid] = "Check the scene plan"
         elif looks.get(pid):
             out[pid] = f"Approve {_count(looks[pid], 'look', 'looks')}"
         elif counts := ready.get(pid):
