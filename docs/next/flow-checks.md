@@ -58,7 +58,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 | VS1 Shape | flows.md: a shape change puts stills and clips out of date with the redo price. Server: nothing is marked, stills keep the old shape, free; a video can mix shapes silently | Decided (Next-Lead): flows.md stands. Waiting on Next-Server: mark stills and clips out of date on a shape change, price the redo, Undo. #778's honest dialog is the interim | #778 at ef73d126 |
 | S2 | Style limit 893: server message plain (#783 f8a3199a); screens updated to 893 on #759 16b9f166 | Re-walk | #759 |
 | Song breakdown edit (#799, API only, not blocking) | After a reorder through the API, putting the plan back is not exact (1.1 0–12.58; 1.2–1.4 at 0.39 s). No screen reorders shots | Skip times from a row whose order differs, if a reorder ever reaches a screen | #799 at 8e20e1fa |
-| Migration order (#873) | n04 → n06 → n05 on #858 at 7fa31331; #873 n07 must follow n05 | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
+| Migration order (#858) | #873 merged: n06 → n07; #858 n05 must follow n07 (data.md #900) | Re-point each second one at merge, or two alembic heads | 2026-10-29 07:30 |
 | S4 B (rule 4) | The decline past the week says "N free credits" (credits.over_allowance, also on main) | Drop "free" | #748 at 9a44a675 |
 | Narration text (#858, fix in #887) | Prose with a "CTA:"/"SUPER:" line reads nothing; a "Name:" prose line drops the rest | Drop directions first; dialogue only when ≥ half the lines are speakers | #858 at b068ef81 |
 | Drawn-words-only shot Advice (#886) | Fixed in #890 (line kept), but text_on_screen_advice is not wired yet | Wire it in reword, on the fixed prompt | #890 at 6820b8f3 |
@@ -218,3 +218,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #897 at 0a8380e5 (S3a: study used as a guide for directions) | guide on/off/removed; copied line → one re-ask → fail; 26 tests | FAIL: copied-line failure shows the general message; say why and "Try again, or turn off Use as a guide" |
 | 2026-10-29 | #898 at c63dde4a (P1 web: edit, Stop, Earlier plans, Out of date) | code walk; plan + planEdits (17) | FAIL: "Update the plan" is a paid new plan promising kept scenes; Use this one on an approved plan has no confirm |
 | 2026-10-29 | #901 at 47d1494e (ST0 format chip, ST1 look picker, "Music style") | code walk; vitest scripts (234) | PASS (hidden until #873; server still says "style line" in 3 messages; live walk after #873) |
+| 2026-10-29 | #892 at e2a47360 (Director: breakdown films the plan; check.follows_plan) | prompt read; test_plan (6) | PASS (follows_plan not wired yet: with or after #893) |
