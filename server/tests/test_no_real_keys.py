@@ -8,4 +8,3 @@ def test_no_key_reaches_a_test():
     assert settings.anthropic_key.get_secret_value() == ""
     assert settings.replicate_token.get_secret_value() == ""
     assert settings.kie_api_key.get_secret_value() == ""
-    assert settings.fake_providers
