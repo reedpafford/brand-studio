@@ -1234,14 +1234,19 @@ def narration_text(script: str) -> str:
     """What the narrator reads (flows N1), line by line as written: the voiced
     words of each speaker line, label taken off; in a script of plain prose, every line. Never
     scene headings, ★ brand lines, [tag] lines or directions ("CTA:", "SUPER:"), and never
-    action lines when the script has speaker lines."""
+    action lines when the script has speaker lines. Speaker lines count only in a script with
+    scene headings, a V.O. label, or speakers on at least half its lines, so a prose line
+    that opens "Iron Paws: …" is read whole (Flow-QA on #858)."""
     lines = [x.strip() for x in script.splitlines()]
+    heads = any(x.startswith(("SCENE", "INT.", "EXT.")) for x in lines)
     lines = [x for x in lines if x and not x.startswith(("SCENE", "INT.", "EXT.", SCREEN_LINE))]
     lines = [x for x in lines if not TAG.match(x)]
-    labelled = [(m, x) for x in lines if (m := LABEL.match(x))]
-    if not labelled:
+    lines = [x for x in lines if not ((m := LABEL.match(x)) and m[1].upper() in NOT_SPEAKERS)]
+    said = [(m, x) for x in lines if (m := LABEL.match(x))]
+    vo = any(VO.fullmatch((m[3] or "").strip()) for m, _ in said)
+    if not said or not (heads or vo or 2 * len(said) >= len(lines)):
         return "\n".join(lines)
-    return "\n".join(x[m.end() :].strip() for m, x in labelled if m[1].upper() not in NOT_SPEAKERS)
+    return "\n".join(x[m.end() :].strip() for m, x in said)
 
 
 # A name in a music prompt ("like Hans Zimmer", "in the style of Interstellar"): the model refuses
