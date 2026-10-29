@@ -153,6 +153,6 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #818 at 2911002c (next in; one price; stop kind) | Song API walks + 4 song test files (74/75, the miss is my old setup) | One price PASS; still FAIL on "Duplicate it"; note: `video_credits` ignores a saved breakdown |
 | 2026-10-29 | #828 at b596b1b8 | Narrator on 14 scripts; test_narrated (3) | PASS; note: prose lines like "Day One: …" make it a story video (safe side) |
 | 2026-10-29 | #829 at 81fcf9ec (V6: Make video for a song video, n02) | Tests (15); switch to a 40 s take then Make video | FAIL: Make video uses clips made for the old song (24 s cut, new song under it, says current) |
-| 2026-10-29 | #831 at 08545fe2 (only real names leave the style) | 14 inputs; test_song (19) | FAIL: \"country Taylor Swift\" keeps the name; \"beatles\" leaves \"like the\" |
+| 2026-10-29 | #831 at 08545fe2 (only real names leave the style) | 14 inputs; test_song (19) | FAIL: "country Taylor Swift" keeps the name; "beatles" leaves "like the" |
 | 2026-10-29 | next red since #821 (Assets tick test) | Bisected: each side passes, the merge fails; test kept a detached Steps list | Fixed on next by #832 (my #835 closed as duplicate) |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
