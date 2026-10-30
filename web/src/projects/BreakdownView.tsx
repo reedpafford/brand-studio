@@ -79,7 +79,7 @@ export function BreakdownView(props: {
       if (!preview) toast(saved.problems.length === 0 ? "Saved. No problems." : `Saved. ${saved.problems.length} problem${saved.problems.length === 1 ? "" : "s"} left.`);
       await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
       // A new breakdown version replaces the frames and clips made from the old one.
-      if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] })]);
+      if (!preview) await Promise.all([["storyboard", projectId], ["project-clips", projectId], ["project-estimate", projectId]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
     },
   });
 
@@ -94,10 +94,11 @@ export function BreakdownView(props: {
       toast((e as Error).message, undefined, "error");
     }
   };
-  // After a fix or its Undo: the new breakdown, and what was made from the old one.
+  // After a fix or its Undo: the new breakdown, what was made from the old one, and the cost bar
+  // (a free fix such as Split changes what's left to pay, not what's been spent: QA-3 #1013).
   const refreshAll = async () => {
     await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });
-    if (!preview) await Promise.all([queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }), queryClient.invalidateQueries({ queryKey: ["project", projectId] })]);
+    if (!preview) await Promise.all([["storyboard", projectId], ["project-clips", projectId], ["project", projectId], ["project-estimate", projectId]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
   };
   const fixCast = useFixCast({ projectId, preview: preview?.fixCast, was: row.breakdown, putBack, refresh: refreshAll });
   // Free one-click fixes for lines that are missing or changed, and for shots with nothing in them.
