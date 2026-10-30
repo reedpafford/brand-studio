@@ -12,10 +12,9 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
-    assert set(ids[5:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet",
-                            "whiteboard", "vox", "podcast"}  # fmt: skip
-    for own_flow in ("whiteboard", "podcast"):  # they need their own flows first (spec)
-        assert prompts.style(own_flow)["kind"] == "format"
+    assert set(ids[5:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"}
+    # Formats: only Song for now (Reed, 30 Oct); podcast, vox and whiteboard are in git history
+    assert [s["id"] for s in prompts.styles() if s["kind"] == "format"] == ["song"]
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
         assert prompts.style(on_story)["kind"] == "look"
     # no look is narrated any more: narration is the Narrated format (Reed, 2026-10-29)
