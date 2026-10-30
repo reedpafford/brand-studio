@@ -1,12 +1,13 @@
 # The site's director (plan only, nothing built)
 
-**For Reed, in short.** You give a video a brief, a script or a reel, and the site's director (Claude) builds the whole video on its own, the way the agents do today: script, plan, cast, stills, clip prompts, takes, its own review of each take, redos of the clips that failed, and the final cut. It then delivers the video with what it cost and a short note on what it decided. You watch it and say what you'd change in the chat; it goes back, makes those changes and delivers again. It spends without asking while it stays inside the video's budget, and asks you only when a press would go past it (the same "Hold requests" approval you already have). Editors can use it too. It starts out knowing what the agents have learned so far (general craft, plus each brand's own notes). The step screens stay as they are, as the "look inside" view, so you or an editor can still change anything by hand.
+**For Reed, in short.** You give a video a brief, a script or a reel, and the site's director (Claude) builds the whole video on its own, the way the agents do today: script, plan, cast, stills, clip prompts, takes, its own review of each take, redos of the clips that failed, and the final cut. It then delivers the video with what it cost and a short note on what it decided. You watch it and say what you'd change in the chat; it goes back, makes those changes and delivers again. It spends without asking while it stays inside the video's budget, and asks you only when a press would go past it (the same "Hold requests" approval you already have). You can still set things yourself: lock the cast, the look, the length, the song, a screen or the end line, before or during a run, and it builds around them. Editors can use it too. It starts out knowing what the agents have learned so far (general craft, plus each brand's own notes). The step screens stay as they are, as the "look inside" view, so you or an editor can still change anything by hand.
 
-Status: plan for the Producer to publish to Reed. Nothing here is built. Reed's answers (30 Oct): "Act on it's own, it has been really good on it's own"; "Editors too"; "I just want the flow to be how it has with the agents… If i notice anything, i say it, it goes back and makes those changes."
+Status: plan for the Producer to publish to Reed. Nothing here is built. Reed's answers (30 Oct): "Act on it's own, it has been really good on it's own"; "Editors too"; "I just want the flow to be how it has with the agents… If i notice anything, i say it, it goes back and makes those changes."; "I would still like to be able to set the cast, and other things like that."
 
 ## 1. How it works
 
 1. **Start:** on a new video, give it a brief, a script, or a reel to adapt.
+   - **Locks:** before or during a run, the owner or editor can lock any choice: brand, cast and looks, look/style, length, song, specific screens, the end line. Locked choices are fixed; the director builds around them and never changes them (it may say in the delivery note if a lock caused a problem). Unlocking hands the choice back.
 2. **It builds the video itself**, step by step, pressing the site's own actions:
    - script: writes or revises it as a new version (rule 19: a published script's words are never edited in place);
    - plan (scenes and shots), cast and looks, stills, clip prompts;
@@ -53,7 +54,7 @@ Items marked *(fomo)* are fomo's brand notes; the rest is general craft.
 - Glowing eyes or extra people → a Keep note, redo.
 - A script change → new script version, then plan, then the stale clips' prompts, in that order.
 
-**Gap:** two fixes happen outside the site today: muting a span in the cut, and compositing a screen onto the phone. Both need to be site actions (#1059's screen figures cover part of the second).
+**Gap:** the agents still do some fixes by hand, outside the site. Each becomes a site action, and the director uses it in its loop on its own as soon as it's built (order and sizes in §6).
 
 ## 5. Prompt side and safety (Director, 30 Oct)
 
@@ -71,7 +72,17 @@ Items marked *(fomo)* are fomo's brand notes; the rest is general craft.
 | 3 | Server tool layer: each existing action as a tool with its price check, budget and permissions | M | Calls the same functions the routes call; no new money paths. |
 | 4 | Director job: builds a video end to end, then takes chat revisions | M | **First slice.** Same job and credits system as other Claude calls. |
 | 5 | Chat panel and running cost | M | 390 first. |
-| 6 | Mute a span in the final cut | S | The agents' most common free fix. |
+| 6 | Locks on a video's choices (cast and looks, look, brand, length, song, screens, end line) | S | Stored on the video; the director's tools refuse to change a locked choice. |
+
+**The agents' hand fixes, as site actions** (the director uses each automatically once it's built, in this order):
+
+| # | Action | Size | Notes |
+|---|---|---|---|
+| a | Pick the best take per clip | S | From the take check's results; earlier takes stay pickable (rule 21). |
+| b | Mute a span in the cut | S | The agents' most common free fix (an unscripted word). |
+| c | Splice a correctly said word from another take | M | Same clip, another take's audio over the span. |
+| d | Retime song takes to the song, end line over the instrumental | M | Song videos only. |
+| e | The moving chart on the phone | M | Builds on #1059's screen figures. |
 
 **Recommendation on the four-step flow:** fold it into this. Build the take check and the director's self-approval back end now, keep today's step screens as the "look inside" view, and regroup them into four steps later if it still helps.
 
