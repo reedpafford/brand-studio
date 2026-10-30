@@ -212,11 +212,14 @@ def list_jobs(
     q: str = "",  # in what was asked (the prompt)
     removed: bool = False,  # true: the Quick clips taken off the history, to bring back
     folder: str | None = None,  # OR1: a project's id, or "none" for No project
+    mine: bool = False,  # the History's Mine: only the caller's own (Everyone's: the owner's)
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     gone = Job.removed_at.is_not(None)
     query = select(Job).where(Job.workspace_id == user.workspace_id, gone if removed else ~gone)
+    if mine:
+        query = query.where(Job.created_by_id == user.id)
     if status:
         query = query.where(Job.status == status)
     if (filed := folders.where(Job.folder_id, folder)) is not None:

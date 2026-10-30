@@ -123,3 +123,17 @@ def test_every_response_time_uses_utc_time(app):
         if isinstance(route, APIRoute) and route.response_model is not None:
             walk(route.response_model, route.path)
     assert bare == []
+
+
+def test_history_mine_lists_only_the_callers_own_and_everyones_lists_all(owner, editor, db):
+    """Quick clip History (Reed's item 4): Mine is the caller's own; without it, everyone's."""
+    from app.models.accounts import Role
+
+    boss = db.query(User).filter_by(role=Role.owner).one()
+    them = db.query(User).filter_by(role=Role.editor).one()
+    ours, theirs = enqueue(db, boss, "video-480p", {}), enqueue(db, them, "video-480p", {})
+    assert [j["id"] for j in editor.get("/jobs", params={"mine": True}).json()] == [theirs.id]
+    assert [j["id"] for j in owner.get("/jobs", params={"mine": True}).json()] == [ours.id]
+    everyone = [j["id"] for j in owner.get("/jobs").json()]
+    assert everyone == [theirs.id, ours.id]  # newest first
+    assert owner.get("/jobs", params={"mine": True, "q": "nothing like it"}).json() == []
