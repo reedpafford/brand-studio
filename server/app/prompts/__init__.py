@@ -80,6 +80,7 @@ def styles() -> list[dict]:
             "kind": meta["kind"],
             "order": int(meta["order"]),
             "on": meta["on"] == "yes",
+            "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero
             "image_model": meta["image_model"],
             "blurb": meta["blurb"],
             "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
@@ -104,6 +105,25 @@ def look_sample(look_id: str) -> str:
     return style(look_id)["sections"].get("sample", "").strip()
 
 
+def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False) -> str:
+    """The prompt for a look's sample still (flows ST3). With `from_picture`, [Image1] is the
+    brand's hero drawn in another look: it says who they are, never how they're drawn, so
+    the sample doesn't copy the House look (Reed, 2026-10-29: samples read as generic Pixar).
+    Without it, the look's own `## sample` person."""
+    look = style(look_id)["sections"]
+    if from_picture:
+        who = (f"{name}, the same person as in [Image1]: the same face, hair, colouring, age and "
+               "outfit, redrawn completely in this look. [Image1] is drawn in another style: "
+               "copy who they are, never how they are drawn.")  # fmt: skip
+    else:
+        who = look_sample(look_id) or "A friendly adult in their thirties in one plain outfit"
+    return (
+        f"{look['still_look'].strip()}\nThe character, drawn in this look: "
+        f"{look['sheet_look'].strip()}\n{who.rstrip('.')}.\nA calm, friendly portrait, "
+        "looking into the camera, the whole figure in frame. No text on screen."
+    )
+
+
 def look_fixes(look_id: str) -> dict[str, str]:
     """The look's fix for each failure id (refused, face, outfit, product): `## fixes`."""
     lines = style(look_id)["sections"].get("fixes", "").splitlines()
@@ -122,6 +142,24 @@ def _styled(text: str, style_id: str) -> str:
     return TOKEN.sub(lambda m: looks[m.group(1)], text)
 
 
+def _in_look(value, style_id: str):
+    """A worked example with House's look lines swapped for the video's look's, so another
+    look's prompts are never steered toward House's ("Style: Pixar-style 3D…" in the clip
+    example: QA on #1009). House's example is unchanged."""
+    if style_id == "house":
+        return value
+    house, own = style("house")["sections"], style(style_id)["sections"]
+    if isinstance(value, dict):
+        return {k: _in_look(v, style_id) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_in_look(v, style_id) for v in value]
+    if isinstance(value, str):
+        for key, text in house.items():
+            if key not in DATA and text and own.get(key):
+                value = value.replace(text, own[key])
+    return value
+
+
 @cache
 def system(step: str, style_id: str = "house") -> str:
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
@@ -129,7 +167,7 @@ def system(step: str, style_id: str = "house") -> str:
         parts.append(_styled((HERE / f"{name}.md").read_text(), style_id))
     example = HERE / "examples" / f"{step}.json"
     if example.exists():
-        ex = json.loads(example.read_text())
+        ex = _in_look(json.loads(example.read_text()), style_id)
         parts.append(
             f"## Worked example ({ex['source']})\n{ex['note']}\n\n"
             f"<example_input>\n{ex['input']}\n</example_input>\n\n"
@@ -476,13 +514,32 @@ def song_request(lyrics: str, style_line: str) -> dict:
 
 
 HEADING = ("SCENE", "INT.", "EXT.")
+SECTION = re.compile(r"^\s*(\[[^\]]+\]\s*)+$")  # "[Chorus]", "[Chorus] [Lip-sync]"
 
 
-def plan_lines(script: str) -> list[int]:
+def plan_lines(script: str, song: bool = False) -> list[int]:
     """The script lines a scene plan covers, each once and in order (flows P1): every line
-    with words that isn't a scene heading."""
+    with words that isn't a scene heading. In a song, nor a section tag ("[Chorus]"): it
+    names the lines under it and gets no action of its own (Next-Layout's walk, row 7)."""
     lines = enumerate(script.splitlines(), 1)
-    return [n for n, x in lines if x.strip() and not x.strip().startswith(HEADING)]
+    return [n for n, x in lines if x.strip() and not x.strip().startswith(HEADING)
+            and not (song and SECTION.match(x))]  # fmt: skip
+
+
+def section_name(tag_line: str) -> str:
+    """A tag line's name: "[Chorus] [Lip-sync]" or "[Intro: …]": its first tag names it."""
+    return tag_line.split("]")[0].strip(" [").split(":")[0].strip()
+
+
+def sections(script: str) -> dict[int, str]:
+    """Each song line's section, from the tag line above it ("" before any)."""
+    out, now = {}, ""
+    for n, x in enumerate(script.splitlines(), 1):
+        if SECTION.match(x):
+            now = section_name(x)
+        elif x.strip():
+            out[n] = now
+    return out
 
 
 def plan_input(

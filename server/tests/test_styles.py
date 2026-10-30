@@ -93,7 +93,16 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
     for look in ("house", "disney-pixar", "zack-d", "skeleton"):
         assert prompts.look_banned(look), look
         assert set(prompts.look_fixes(look)) == {"refused", "face", "outfit", "product"}, look
-    assert ("stage", "world") in prompts.look_banned("zack-d")
+    assert ("Pixar-style", "semi-realistic 3D") in prompts.look_banned("zack-d")
+    # the look's own name never goes to a model (Next-Lead on #1009)
+    from app.prompts import check
+
+    said = check.look_words("A kitchen in the style of Zack D. Films, a Zack D close-up.", "zack-d")
+    assert said[0] == "A kitchen, a close-up.", said[0]
+    # QA on #1009: tidying a repair never touches a quote (rule 19), nor leaves a trailing space
+    for quote in ('"Voilà : ça va ; très bien ."', '"Hello , world : ok"', '"Wait . . .  what"'):
+        line = f"Mia says {quote} in the style of Zack D. Films"
+        assert check.look_words(line, "zack-d")[0] == f"Mia says {quote}", line
     assert prompts.look_banned("claymation") == [] and prompts.look_fixes("claymation") == {}
     for step in prompts.SCHEMAS:  # data, never sent to a model
         assert "## banned" not in prompts.system(step, "zack-d"), step
@@ -104,23 +113,23 @@ def test_a_looks_banned_words_are_repaired_but_never_in_a_spoken_line():
 
     prompt = "\n".join([
         "Audio: only the spoken lines and a hum. No music. No subtitles.",
-        "Shot 1 | 0-2 s. A bowl floats on a stage. Mom: “The stage is mine.” No one speaks.",
-        "Setting: the Stage glows cyan.",
+        "Shot 1 | 0-2 s. A bloody bone beside a corpse. Mom: “The blood is mine.”",
+        "Setting: the Blood pools red.",
     ])  # fmt: skip
-    fixed, changed, advice = check.look_words(prompt, "zack-d")
+    fixed, changed, advice = check.look_words(prompt, "skeleton")
     assert fixed.splitlines()[1:] == [
-        "Shot 1 | 0-2 s. A bowl rests in the world. Mom: “The stage is mine.” No one speaks.",
-        "Setting: the World glows cyan.",
+        "Shot 1 | 0-2 s. A glowing bone beside a skeleton. Mom: “The blood is mine.”",
+        "Setting: the Glow pools red.",
     ]
-    assert changed == ["on a stage → in the world", "floats → rests", "stage → world"]
-    assert advice == ["Advice: “stage” is in a quoted line; the look avoids it"]
-    assert check.look_words(fixed, "zack-d")[1] == []  # doing it again changes nothing
+    assert changed == ["bloody → glowing", "corpse → skeleton", "blood → glow"]
+    assert advice == ["Advice: “blood” is in a quoted line; the look avoids it"]
+    assert check.look_words(fixed, "skeleton")[1] == []  # doing it again changes nothing
     assert check.look_words("A live-action kitchen.", "house")[0] == "A kitchen."
     # Flow-QA on #908: a safeguard keeps its words
     for safe, look in (("Bones and glow, no blood, no gore.", "skeleton"),
-                       ("The bowl is not floating.", "zack-d"),
+                       ("Not a cartoon, no chibi faces.", "zack-d"),
                        ("Not photorealistic: stylised.", "house"),
-                       ("Never on a stage.", "zack-d")):  # fmt: skip
+                       ("Never Pixar-style.", "zack-d")):  # fmt: skip
         assert check.look_words(safe, look)[:2] == (safe, []), safe
 
 
@@ -133,3 +142,50 @@ def test_every_look_has_a_sample_person_and_formats_have_none():
     assert "skeleton" in prompts.look_sample("skeleton")
     for step in prompts.SCHEMAS:  # data, never step guidance
         assert prompts.look_sample("zack-d") not in prompts.system(step, "zack-d"), step
+
+
+def test_a_looks_sample_still_redraws_the_hero_in_the_look():
+    """Reed, 2026-10-29: tonight's samples read as generic Pixar, because the hero's House
+    sheet was copied "exactly". The sample uses the picture for who, the look for how."""
+    text = prompts.sample_still_prompt("claymation", "Mia", from_picture=True)
+    assert text.startswith(prompts.style("claymation")["sections"]["still_look"])
+    assert prompts.style("claymation")["sections"]["sheet_look"] in text
+    assert "copy who they are, never how they are drawn" in text and "exactly" not in text
+    own = prompts.sample_still_prompt("zack-d")
+    assert prompts.look_sample("zack-d").rstrip(".") in own and "[Image1]" not in own
+    # Skeleton's sample is always its own skeleton, never the brand's human hero
+    assert [s["id"] for s in prompts.styles() if s["own_sample"]] == ["skeleton"]
+
+
+def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
+    """Reed's references (YouTube shorts): semi-realistic 3D like a game cutscene."""
+    zack = prompts.style("zack-d")["sections"]
+    for part in ("sheet_look", "place_look", "still_look", "clip_style"):
+        assert "semi-realistic 3D" in zack[part] or "Semi-realistic 3D" in zack[part], part
+        assert "cyan" not in zack[part] and "Pixar register" not in zack[part], part
+
+
+def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
+    """The Producer, 2026-10-29: only Disney Pixar (and House and Song, which are built on it)
+    may name a studio; every other look describes what it looks like."""
+    studios = ("pixar", "disney", "ghibli", "aardman", "laika")
+    for s in prompts.styles():
+        if s["id"] in ("house", "disney-pixar", "song"):
+            continue
+        for name, text in s["sections"].items():
+            if name in prompts.DATA:  # banned words name a studio to take it out
+                continue
+            assert not any(x in text.lower() for x in studios), (s["id"], name)
+
+
+def test_the_worked_example_speaks_the_videos_look_and_house_is_unchanged():
+    """QA after #1009: the clip example's "Style: Pixar-style 3D…" line steered every
+    look's clips toward House. Another look's example carries its own lines."""
+    house = prompts.style("house")["sections"]["clip_style"]
+    assert house in prompts.system("clip_prompts")  # House as it was
+    for s in prompts.styles():
+        if s["id"] == "house":
+            continue
+        text = prompts.system("clip_prompts", s["id"])
+        example = text.split("## Worked example", 1)[1].split("## Style:", 1)[0]
+        assert house not in example and s["sections"]["clip_style"] in example, s["id"]

@@ -7,7 +7,7 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 import re
 from itertools import zip_longest
 
-from app.prompts import SUNG_RATE, plan_lines, spoken_words
+from app.prompts import SECTION, SUNG_RATE, plan_lines, spoken_words
 from app.prompts.schemas import (
     Breakdown,
     CastSlots,
@@ -879,7 +879,6 @@ def reel_note(note: str, said: list[str]) -> str:
 
 # --- Song ads (Reed, 2026-10-28): the lyrics are the script, the measured song is the clock ---
 
-SECTION = re.compile(r"^\s*(\[[^\]]+\]\s*)+$")  # "[Chorus]", "[Chorus] [Lip-sync]"
 LIP_SYNC = re.compile(r"\[lip[- ]?sync\]", re.I)
 
 
@@ -1216,7 +1215,7 @@ def plan(
     missing or reordered line is ever shown (Next-Lead on #866, as with song directions)."""
     problems, words = [], dict(enumerate(script.splitlines(), 1))
     used = [x.line for sc in result.scenes for x in sc.lines]
-    want = plan_lines(script)
+    want = plan_lines(script, fmt == "song")
     labelled = any(LABEL.match(words[n].strip()) for n in want)
     if missing := [n for n in want if n not in used]:
         problems.append(f"{_lines(missing)} in no scene")
@@ -1450,7 +1449,7 @@ def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
             out.append(line)
             continue
         parts = re.split(r'(["“][^"”]*["”])', line)  # outside, “a quote”, outside, …
-        quotes = parts[1::2]
+        quotes, touched = parts[1::2], set()
         for word, new in sorted(look_banned(look_id), key=lambda x: -len(x[0])):  # phrases first
             found = re.compile(rf"\b{re.escape(word)}\b\s?", re.I)
             for i in range(0, len(parts), 2):
@@ -1459,10 +1458,15 @@ def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
                     for m in reversed(hits):
                         a, b = m.span()
                         parts[i] = parts[i][:a] + _same_case(m.group(0), new) + parts[i][b:]
+                    touched.add(i)
                     changed.append(f"{word} → {new}" if new else f"{word} → (taken out)")
             if any(found.search(q) for q in quotes):
                 advice.append(f"{ADVICE}“{word}” is in a quoted line; the look avoids it")
-        out.append(re.sub(r" {2,}", " ", "".join(parts)))
+        for i in touched:  # tidy only what was changed, never a quote (rule 19)
+            parts[i] = re.sub(r" +([,.;:])", r"\1", re.sub(r" {2,}", " ", parts[i]))
+        if len(parts) - 1 in touched:
+            parts[-1] = parts[-1].rstrip()
+        out.append("".join(parts))
     return "\n".join(out), list(dict.fromkeys(changed)), list(dict.fromkeys(advice))
 
 

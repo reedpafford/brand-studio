@@ -3,17 +3,18 @@
 kind: look
 order: 4
 on: no
+own_sample: yes
 image_model: auto
 blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365.
 
 ## sheet_look
-Cinematic 3D animated render. A skeleton character (the description says so) is a full anatomical skeleton with natural adult human proportions, tall and lanky, smooth ivory-cream bones with realistic bone detail (not toy-smooth, not chibi, not scary), and large expressive cartoon eyes with white sclera and dark pupils set in the eye sockets: an emotive, lovable face; it wears nothing unless the description dresses it, and then wears that one outfit with the skull and hands still showing. Anyone else is a stylised 3D cartoon human whose body and face follow their age: an adult has an adult's height, build and face, never a child's. One fixed look, identical in every view.
+Cinematic 3D animated render. A skeleton character (the description says so) is a full anatomical skeleton with natural adult human proportions, tall and lanky, smooth ivory-cream bones with realistic bone detail (not toy-smooth, not chibi, not scary), and large expressive cartoon eyes with white sclera and dark pupils set in the eye sockets: an emotive, lovable face; its bones are bare, with no outfit, unless the description dresses it, and then it wears that one outfit with the skull and hands still showing. Anyone else is a stylised 3D cartoon human whose body and face follow their age: an adult has an adult's height, build and face, never a child's. One fixed look, identical in every view.
 
 ## place_look
 Cinematic 3D animated render of a photoreal, richly dressed environment, warm colour grade, soft volumetric light with drifting atmosphere (steam, dust, haze), shallow depth of field.
 
 ## still_look
-The Skeleton look, unless the brand block says otherwise: "Cinematic 3D animated render: a photoreal environment for the story's world, a warm colour grade, soft volumetric light with drifting atmosphere, shallow depth of field. The skeleton and everyone else come from the character sheets: the same ivory, cartoon-eyed skeleton in every shot. Its eyes and posture carry the feeling, big and readable with the sound off."
+The Skeleton look, unless the brand block says otherwise: "Cinematic 3D animated render: a photoreal environment for the story's world, a warm colour grade, soft volumetric light with drifting atmosphere, shallow depth of field. The skeleton and everyone else come from the character sheets: the same ivory, cartoon-eyed skeleton in every shot. Its eyes and posture carry the feeling, big and readable with the sound off. The skeleton is the only cartoon element: the place is photoreal, never a cartoon set or a toy."
 
 ## clip_style
 Cinematic 3D animation, the same ivory cartoon-eyed skeleton in every shot, its bones moving with natural weight, photoreal environment, warm grade, soft volumetric light
@@ -56,4 +57,4 @@ outfit: Change this… naming what the skeleton wears on its sheet.
 product: Change this… "the real product from its image in the skeleton's hand, the label facing the camera".
 
 ## sample
-One lovable cartoon skeleton with big round eye sockets and a soft white glow, in a small red cap, waving.
+One friendly full anatomical skeleton, tall and lanky, bare ivory-cream bones with no outfit, large expressive cartoon eyes in its sockets, smiling in a warm, softly hazy real kitchen.

@@ -89,6 +89,18 @@ def copy_to_video(project: Project, draft) -> None:
         project.plan = {**draft.plan, "source": "owner", "version": 1}
 
 
+def plan_first(db, draft) -> Decimal:
+    """What Make this version charges at once for the plan (flows 1b): one call, unless the
+    saved preview lands free or an owner's approved plan goes straight to the shots. The
+    quote counts it (rule 32: QA-3, 28.06 quoted while the video came to 31.06)."""
+    from app.credits import estimate
+    from app.models.script_library import Script
+
+    if (draft.breakdown and preview_follows(draft)) or (draft.plan or {}).get("approved_at"):
+        return Decimal(0)
+    return estimate(db, db.get(Script, draft.script_id).workspace_id, KIND, Decimal(1))
+
+
 def preview_follows(draft) -> bool:
     """The version's saved preview may start its video: there's no approved owner plan, or the
     preview was made from it. One made before ("Made for an older plan") is made again from the
@@ -142,6 +154,15 @@ def _fmt(db: Session, project: Project) -> str:
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     kind = db.get(Script, draft.script_id).kind if draft else "story"
     return {"song": "song", "narrated": "narrated"}.get(kind, "dialogue")
+
+
+def song(db: Session, project: Project) -> bool:
+    return _fmt(db, project) == "song"
+
+
+def lines(db: Session, project: Project, text: str) -> list[int]:
+    """The lines its plan covers: a song's section tags aren't plan lines."""
+    return prompts.plan_lines(text, song(db, project))
 
 
 def _tag(message: str, name: str) -> str:
@@ -205,7 +226,7 @@ def scene_input(db: Session, project: Project, version: ScriptVersion, scene_id:
 
 
 def scene_checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
-    after = PlanScene.model_validate(output)
+    after = _untagged(PlanScene.model_validate(output), job_input)
     return after.model_dump(), check.plan_scene(
         PlanScene.model_validate(job_input["before"]), after
     )
@@ -252,10 +273,22 @@ def price(db: Session, project: Project) -> Decimal:
 def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
     """The Director's free check: fixes (a line missing, twice, out of order, a ★ that isn't
     the brand's) and Advice (kept for the cards)."""
-    plan = ScenePlan.model_validate(output)
+    plan = _untagged(ScenePlan.model_validate(output), job_input)
     found = check.plan(job_input["script"], plan, job_input["cast_ids"], job_input["stars"],
                        job_input["fmt"], job_input["max_seconds"])  # fmt: skip
     return plan.model_dump(), [p for p in found if not p.startswith(check.ADVICE)]
+
+
+def _untagged(plan, job_input: dict):
+    """A song's section tag Claude planned anyway is dropped, never a fix to ask for."""
+    if job_input.get("fmt") == "song":
+        text = job_input["script"].splitlines()
+        tags = {n for n, x in enumerate(text, 1) if prompts.SECTION.match(x)}
+        for sc in plan.scenes if isinstance(plan, ScenePlan) else [plan]:
+            sc.lines = [x for x in sc.lines if x.line not in tags]
+        if isinstance(plan, ScenePlan):
+            plan.scenes = [sc for sc in plan.scenes if sc.lines]
+    return plan
 
 
 def again(job_input: dict, fixes: list[str]) -> dict:
@@ -313,17 +346,20 @@ def save(db: Session, job: Job) -> None:
 
 
 def by_hand(db: Session, project: Project, version: ScriptVersion) -> dict:
-    """Write it myself (free): one empty card per scene of the script (its headings), every
-    line once, in order."""
-    lines = prompts.plan_lines(version.text)
+    """Write it myself (free): one empty card per scene of the script (its headings; a song's
+    section tags), every line once, in order."""
     words = dict(enumerate(version.text.splitlines(), 1))
-    heads = [n for n, x in words.items() if x.strip().startswith(prompts.HEADING)]
+    sung = song(db, project)
+    heads = [n for n, x in words.items() if x.strip().startswith(prompts.HEADING)
+             or (sung and prompts.SECTION.match(x))]  # fmt: skip
     scenes: list[dict] = []
-    for n in lines:
+    for n in prompts.plan_lines(version.text, sung):
         head = max((h for h in heads if h < n), default=0)
         if not scenes or scenes[-1]["_head"] != head:
-            place = words.get(head, "").strip() if head else ""
-            scenes.append({"id": len(scenes) + 1, "part": "", "place": place, "cast": [],
+            tag = head and sung and prompts.SECTION.match(words[head])
+            part = prompts.section_name(words[head]) if tag else ""
+            place = words.get(head, "").strip() if head and not tag else ""
+            scenes.append({"id": len(scenes) + 1, "part": part, "place": place, "cast": [],
                            "lines": [], "_head": head})  # fmt: skip
         scenes[-1]["lines"].append({"line": n, "action": "", "product": None})
     for s in scenes:
@@ -334,12 +370,12 @@ def by_hand(db: Session, project: Project, version: ScriptVersion) -> dict:
     return _set(project, plan, "by_hand", None, version.text)
 
 
-def edit(project: Project, version: ScriptVersion, plan: ScenePlan) -> dict:
+def edit(db: Session, project: Project, version: ScriptVersion, plan: ScenePlan) -> dict:
     """An edit (place, actions, ★, cast, a line moved, a split or a join): free, every line
     still once and in order. An approved plan goes back to "ready" (Undo is the plan before,
     sent back)."""
     used = [x.line for s in plan.scenes for x in s.lines]
-    if used != prompts.plan_lines(version.text):
+    if used != lines(db, project, version.text):
         raise HTTPException(422, "Every script line must be in exactly one scene, in order.")
     keep = {k: v for k, v in (project.plan or {}).items() if k not in ScenePlan.model_fields}
     project.plan = {**keep, **plan.model_dump(), "approved_at": None, "approved_by_id": None,

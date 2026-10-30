@@ -42,8 +42,10 @@ def test_a_sample_of_the_brands_hero_is_made_then_the_look_switched_on(app, db, 
     assert ready["status"] == "ready" and ready["still_id"] and ready["clip_id"]
     still, clip = (db.query(Job).filter(Job.input["step"].as_string() == s).one()
                    for s in (look_samples.STILL, look_samples.CLIP))  # fmt: skip
-    assert "Mia, exactly as in [Image1]" in still.input["input"]["prompt"]
+    said = still.input["input"]["prompt"]  # who Mia is, never how she's drawn (#1009)
+    assert "Mia, the same person as in [Image1]" in said and "exactly as" not in said
     assert clip.input["input"]["duration"] == 5 and clip.input["files"]
+    assert clip.input["input"]["generate_audio"] is False  # no sound to be refused (Zack D)
 
     on = owner.patch("/looks/zack-d", json={"on": True})
     assert on.status_code == 200 and on.json()["on"]  # Switch on for editors
@@ -59,12 +61,12 @@ def test_with_no_hero_the_owner_picks_one_or_the_look_brings_its_own(app, db, ow
     job = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
     assert "[Image1]" not in job.input["input"]["prompt"] and not job.input.get("files")
     mia = _mia(owner, db, brand)
-    assert owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()["characters"] == [
+    assert owner.get(f"/looks/claymation/sample?brand_id={brand}").json()["characters"] == [
         {"id": mia, "name": "Mia"}
     ]
-    stranger = owner.post("/looks/skeleton/sample", json={"brand_id": brand, "character_id": 999})
+    stranger = owner.post("/looks/claymation/sample", json={"brand_id": brand, "character_id": 999})
     assert (stranger.status_code, stranger.json()["detail"]) == (422, look_samples.NOT_THEIRS)
-    picked = owner.post("/looks/skeleton/sample", json={"brand_id": brand, "character_id": mia})
+    picked = owner.post("/looks/claymation/sample", json={"brand_id": brand, "character_id": mia})
     assert picked.status_code == 201
     house = owner.post("/looks/house/sample", json={"brand_id": brand})
     assert (house.status_code, house.json()["detail"]) == (409, look_samples.HOUSE)
@@ -91,6 +93,9 @@ def test_after_a_clip_that_didnt_finish_only_the_clip_is_made_again(app, db, own
     jobs = db.query(Job).count()
     assert owner.post("/looks/zack-d/sample", json={"brand_id": brand}).status_code == 201
     assert db.query(Job).count() == jobs + 1  # only the clip, no new still
+    again = db.query(Job).order_by(Job.id.desc()).first()
+    assert again.input["files"] == {"reference_images": [kept]}  # from the kept still
+    assert again.input["input"]["generate_audio"] is False  # silent, as every sample clip
     db.expire_all()
     _work(app, db, ticks=3)
     ready = owner.get(url).json()
@@ -189,3 +194,22 @@ def test_two_presses_before_the_first_still_is_back_never_pass_the_budget(app, d
     owner.post("/looks/zack-d/sample", json={"brand_id": brand})
     lanes = {j.input["look_id"]: j.provider for j in db.query(Job).all()}
     assert lanes == {"disney-pixar": REAL_SAMPLES, "zack-d": "replicate"}
+
+
+def test_a_look_with_its_own_sample_person_never_draws_the_hero(app, db, owner):
+    """The Director on #1009: Skeleton brings its own sample person (`own_sample: yes`), so its
+    sample sends no picture of the brand's hero and uses the look's own `## sample` person."""
+    from app import prompts
+
+    app.state.settings.fake_providers = True
+    brand = _brand(owner)
+    owner.patch(f"/brands/{brand}", json={"default_cast": [_mia(owner, db, brand)]})
+    card = owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()
+    assert (card["hero"], card["characters"]) == (None, [])  # never "of Mia", no pick (Flow-QA)
+    assert card["look"]["own_sample"]  # the card shows no "Who's in the sample?"
+    assert owner.get(f"/looks/claymation/sample?brand_id={brand}").json()["hero"]["name"] == "Mia"
+    owner.post("/looks/skeleton/sample", json={"brand_id": brand})
+    job = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
+    said = job.input["input"]["prompt"]
+    assert not job.input.get("files") and "[Image1]" not in said and "Mia" not in said
+    assert prompts.look_sample("skeleton").rstrip(".") in said

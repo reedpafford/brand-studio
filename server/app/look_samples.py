@@ -31,7 +31,6 @@ log = logging.getLogger(__name__)
 STILL, CLIP = "look_sample", "look_sample_clip"
 SECONDS, ASPECT = 5, "9:16"
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
-STAND_IN = "A friendly adult in their thirties in one plain outfit in one clear colour"
 NOT_THEIRS = "That character isn't one of this brand's."
 ALREADY = "This look's sample is already being made."
 HOUSE = "House is the default look: it needs no sample."
@@ -58,37 +57,41 @@ def hero(db: Session, brand: Brand) -> LibraryItem | None:
 
 
 def _who(db: Session, brand: Brand, look_id: str, character_id: int | None):
-    """(name, words, picture ids): a picked character, the hero, or the look's own one."""
+    """(name, picture ids): a picked character or the hero; ("", []) for the look's own
+    sample person, always so for a look that brings its own (Skeleton: never the hero)."""
     if character_id is not None:
         person = next((c for c in characters(db, brand) if c.id == character_id), None)
         if person is None:
             raise HTTPException(422, NOT_THEIRS)
     else:
         person = hero(db, brand)
-    if person is None:
-        words = prompts.style(look_id)["sections"].get("sample", "").strip() or STAND_IN
-        return "the character", words, []
+    if person is None or prompts.style(look_id)["own_sample"]:
+        return "", []
     pictures = [person.sheet_file_id] if person.sheet_file_id else person.image_file_ids[:1]
-    return person.name, f"{person.name}, exactly as in [Image1]", pictures
+    return person.name, pictures
 
 
 def still_input(db: Session, brand: Brand, look_id: str, character_id: int | None) -> dict:
-    name, words, pictures = _who(db, brand, look_id, character_id)
-    look = prompts.style(look_id)["sections"]
-    pose = "a calm, friendly portrait, looking into the camera, the whole figure in frame"
-    prompt = f"{look.get('still_look', '').strip()}\n{words}: {pose}. No text on screen."
+    """The sample still (prompts.sample_still_prompt): the person's picture says who they are,
+    never how they're drawn, so a sample never copies House (Reed: "generic Pixar")."""
+    name, pictures = _who(db, brand, look_id, character_id)
+    prompt = prompts.sample_still_prompt(look_id, name, from_picture=bool(pictures))
     job = image_job_input(image_model(), prompt, ASPECT, characters=pictures)
-    return {**job, "step": STILL, "look_id": look_id, "brand_id": brand.id, "name": name}
+    return {**job, "step": STILL, "look_id": look_id, "brand_id": brand.id,
+            "name": name or "the character"}  # fmt: skip
 
 
 def clip_input(look_id: str, brand_id: int, still_id: int, name: str) -> dict:
+    """Silent: a sample shows the look, and made sound can be refused as a copyright
+    look-alike (Zack D's, 2026-10-29)."""
     style = prompts.style(look_id)["sections"].get("clip_style", "").strip()
     prompt = (f"{style}. [Image1] is the first frame: {name} turns to the camera and smiles, "
-              "a slow push-in. No one speaks; soft room sound only.")  # fmt: skip
-    return {"step": CLIP, "look_id": look_id, "brand_id": brand_id, "model": video_model().id,
-            "fit_images_to": LONG_SIDE[RESOLUTION], "files": {KEYS["image"]: [still_id]},
+              "a slow push-in. No one speaks.")  # fmt: skip
+    return {"step": CLIP, "look_id": look_id, "brand_id": brand_id, "name": name,
+            "model": video_model().id, "fit_images_to": LONG_SIDE[RESOLUTION],
+            "files": {KEYS["image"]: [still_id]},
             "input": {"prompt": prompt, "duration": SECONDS, "resolution": RESOLUTION,
-                      "aspect_ratio": ASPECT, "generate_audio": True}}  # fmt: skip
+                      "aspect_ratio": ASPECT, "generate_audio": False}}  # fmt: skip
 
 
 def price(db: Session, ws: int) -> Decimal:
@@ -128,10 +131,9 @@ def _failed_clip(db: Session, ws: int, look_id: str) -> dict | None:
     job, row = newest(db, ws, look_id), looks.switch(db, ws, look_id)
     if not (job and row and row.sample_still_id) or state(db, ws, look_id)[0] != "failed":
         return None
-    if job.input["step"] == CLIP:
-        return {k: v for k, v in job.input.items() if k not in ("clip_refused", "from_still")}
-    if job.input.get("clip_refused"):  # refused before it started: from the still's job
-        return clip_input(look_id, job.input["brand_id"], row.sample_still_id, job.input["name"])
+    if job.input["step"] == CLIP or job.input.get("clip_refused"):  # made afresh, silent
+        name = job.input.get("name", "the character")  # a clip made before it kept the name
+        return clip_input(look_id, job.input["brand_id"], row.sample_still_id, name)
     return None
 
 

@@ -21,14 +21,13 @@ function open() {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("Credit limits shows both limits with dollars, and Save limits is disabled until something changes", async () => {
+test("Credit limits shows both limits in credits only (dollars live in Usage), and Save limits is disabled until something changes", async () => {
   setViewport(1440);
   fakeServer(base());
   open();
   expect(await screen.findByLabelText("Editors' weekly allowance")).toHaveValue("145");
   expect(screen.getByLabelText("Most one video can cost")).toHaveValue("729");
-  expect(screen.getByText(/≈ \$14\.91 a week/)).toBeInTheDocument();
-  expect(screen.getByText(/≈ \$74\.94/)).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Credit limits" })).not.toHaveTextContent("$");
   expect(screen.getByRole("button", { name: "Save limits" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Save limits" })).toHaveAccessibleDescription("No changes yet");
 });

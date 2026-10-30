@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router-dom";
@@ -1615,4 +1615,15 @@ test("a storyboard total is one still's exact price times the stills, rounded on
   open("?step=storyboard");
   const bar = await screen.findByRole("region", { name: "Cost" });
   expect(await within(bar).findByRole("button", { name: "Make 9 stills · 3 credits" })).toBeInTheDocument();
+});
+
+test("a link to Clips or Downloads with no storyboard yet lands on Storyboard, not on a Cast with nothing to do (A15)", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, []], "GET /projects/9/clips": [200, []] });
+  open("?step=downloads");
+  expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
+  cleanup();
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, []], "GET /projects/9/clips": [200, []] });
+  open("?step=clips");
+  expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
 });

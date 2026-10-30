@@ -111,19 +111,64 @@ const full = (o: object = {}) => ({
   notes: "Keep it warm.", reference_replace: "", cast: [], versions: [{ slot: 0, status: "draft", title: "Bo tries salmon", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
 });
 
-test("New script asks Story or Song; Story makes an untitled draft at once and opens the Script screen, with the editor first", async () => {
+test("New script: picking Dialogue saves nothing; the first word typed saves it and opens its page with the words still being typed, not yet saved", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
-  await userEvent.dblClick(screen.getByRole("menuitem", { name: /Dialogue/ })); // a fast double tap
+  await userEvent.click(screen.getByRole("menuitem", { name: /Dialogue/ }));
+  expect(await screen.findByText("Dialogue · saved when you type the first word.")).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
+  await userEvent.type(screen.getByLabelText("Paste or write your script"), "B");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
-  expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
+  const editor = screen.getByLabelText("Paste or write your script");
+  expect(editor).toHaveFocus(); // the cursor came along, so typing goes on where it was
+  await userEvent.keyboard("o");
+  expect(editor).toHaveValue("Bo");
+  expect(screen.getByText("Not saved yet")).toBeInTheDocument();
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
   // The title is one tap away in the header.
   await userEvent.click(screen.getByRole("button", { name: "Rename Untitled script" }));
   expect(screen.getByLabelText("Title")).toHaveValue("Untitled script");
+});
+
+test("New script: the script page opens with its editor already there, so no letter falls between the two boxes", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })] });
+  // The script's own load never answers: the page must not need it to show the editor.
+  const fake = globalThis.fetch;
+  vi.stubGlobal("fetch", (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    return req.method === "GET" && new URL(req.url).pathname.endsWith("/scripts/7") ? new Promise<Response>(() => {}) : fake(input, init);
+  });
+  open("/b/1/scripts/new?kind=story");
+  await userEvent.type(await screen.findByLabelText("Paste or write your script"), "B");
+  expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
+  await userEvent.keyboard("o tries"); // straight on, into whatever has the cursor
+  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("Bo tries");
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
+});
+
+test("New script: backing out before a word is typed leaves nothing behind (flows S1 U)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts/new?kind=story");
+  await userEvent.type(await screen.findByLabelText("Paste or write your script"), "   "); // spaces aren't a word
+  await userEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("button", { name: "New script" })).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
+});
+
+test("New script: Start from what it's for saves one script, with its format, and opens About", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script", description: "" })], "GET /scripts/7": [200, full({ title: "Untitled script", description: "" })] });
+  open("/b/1/scripts/new?kind=story");
+  await userEvent.dblClick(await screen.findByRole("button", { name: "Start from what it's for" })); // a fast double tap
+  expect(await screen.findByText("About this script")).toBeInTheDocument();
+  expect(screen.getByText("About this script").closest("details")).toHaveAttribute("open");
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
+  expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", text: "" });
 });
 
 test("a draft script's page: title, a draft badge, six steps, and About this script closed but there to edit", async () => {
@@ -1529,19 +1574,46 @@ test("with the owner's plan approved, Make this version says the shots come next
   expect(await screen.findByText("Version A is yours. Next: the shots.")).toBeInTheDocument();
 });
 
-test("a version's default flavour is the row's; one the brand has since deleted shows as Auto", async () => {
+test("a version's default flavour is the row's; one the server marks gone (flavours_gone) shows as Auto", async () => {
   setViewport(1440);
-  const withDefaults = (flavours: object) => [200, script({ look: "house", language: "en", versions: [v(0, "approved", { has_breakdown: false, estimate_credits: 21, flavours })] })] as [number, unknown];
+  const withDefaults = (flavours: object, flavours_gone: string[] = []) => [200, script({ look: "house", language: "en", versions: [v(0, "approved", { has_breakdown: false, estimate_credits: 21, flavours, flavours_gone })] })] as [number, unknown];
   fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Chicken" }) }));
   open();
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   let row = await within(await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" })).findByRole("region", { name: "Video settings" });
   expect(within(row).getByRole("button", { name: /Flavour: Chicken/ })).toBeInTheDocument();
   cleanup();
-  fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Beef" }) })); // Beef was deleted from the brand
+  // The server marks a default gone (#991): Auto, even where the web might still see the flavour (one rule, the server's).
+  fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Salmon" }, ["Iron Paws"]) }));
   open();
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   row = await within(await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" })).findByRole("region", { name: "Video settings" });
   expect(within(row).getByRole("button", { name: /Flavour: Auto/ })).toBeInTheDocument();
-  expect(within(row).queryByText(/Beef/)).toBeNull();
+  expect(within(row).queryByRole("button", { name: /Flavour: Salmon/ })).toBeNull();
+});
+
+test("an editor opening someone else's published script by its title lands on Make this version for its first ready version (A12)", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [script()]], "GET /scripts/7": [200, script()], "GET /scripts/7/cast": [200, []] });
+  open();
+  const title = await screen.findByRole("link", { name: "Bo tries salmon" });
+  expect(title.getAttribute("href")).toContain("make=7.1"); // version B is the ready one
+  await userEvent.click(title);
+  expect(await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" })).toBeInTheDocument();
+});
+
+test("the owner's title link still opens the script's own steps", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts": [200, [script()]] });
+  open();
+  expect(await screen.findByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
+});
+
+test("with no version ready, an editor's title goes where their version's chip goes: their own video (QA-4 on #1018)", async () => {
+  setViewport(390);
+  const mine = script({ versions_left: 0, versions: [v(0, "in_production", { project_id: 5, editor: { id: 2, name: "Sam" } })] });
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [mine]] });
+  open();
+  const titles = await screen.findAllByRole("link", { name: "Bo tries salmon" }); // the Library row and the "you're making" row
+  for (const t of titles) expect(t).toHaveAttribute("href", "/b/1/projects/5"); // never the owner's Publish step
 });

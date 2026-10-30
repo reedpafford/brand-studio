@@ -15,7 +15,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job
 from app.models.projects import Project
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
@@ -31,7 +31,6 @@ router = APIRouter(
 shots = APIRouter(
     prefix="/projects/{project_id}/shots", tags=["breakdown"], dependencies=[Depends(video_writer)]
 )
-WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 
 
 class SongShotTime(BaseModel):

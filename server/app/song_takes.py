@@ -256,15 +256,29 @@ def _fits(db: Session, take: SongTake, draft: ScriptDraft) -> bool:
 def video_credits(db: Session, take: SongTake, seconds: float | None = None,
                   video=None) -> Decimal:  # fmt: skip
     """About what a video of this take (or its first `seconds`) costs, every step at plan:
-    the song decides the video's length (spec §1), plus a look for each role not cast yet
-    (as `estimate.version_cost`, so every screen shows one figure)."""
-    from app.models.script_library import ScriptCastSlot as Slot
-
+    the song decides the video's length (spec §1), plus up to a look (`look_price`, rule 32)
+    for each role that will need one, by the rules the video's cost bar uses
+    (`sheets.roles_without_a_look`, `roles_needing_look`), and the plan call Make this version
+    charges first (`plans.plan_first`). The take card and the version show this one figure,
+    the video's bar the rest once the plan is charged; budgets stay on "usual"."""
     length = seconds or take.trim_to or take.seconds or 0
-    script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
-    uncast = db.scalar(select(func.count()).where(Slot.script_id == script.id,
-                                                   Slot.library_item_id.is_(None)))  # fmt: skip
-    return plan_cost(db, script.workspace_id, math.ceil(length), None, roles=uncast, video=video)
+    return song_video_cost(db, db.get(ScriptDraft, take.draft_id), length, video)
+
+
+def song_video_cost(db: Session, draft: ScriptDraft, seconds: float, video=None) -> Decimal:
+    """A song video of `seconds`, every step at plan (`video_credits` above): the one sum a
+    take's card and "Make 2 more" both show (B2: 39 on a take, 41 under Make 2 more)."""
+    from app.plans import plan_first
+    from app.sheets import look_price, roles_needing_look, roles_without_a_look
+
+    script = db.get(Script, draft.script_id)
+    looks = len(roles_without_a_look(db, script, draft))
+    looks += len(roles_needing_look(db, script, video.look if video else None))
+    return (
+        plan_first(db, draft)
+        + looks * look_price(db, script.workspace_id)
+        + plan_cost(db, script.workspace_id, math.ceil(seconds), None, roles=0, video=video)
+    )
 
 
 def cap(db: Session, take: SongTake) -> int:
@@ -286,17 +300,19 @@ def fits_until(db: Session, take: SongTake) -> float | None:
 
 
 def lyrics_estimate(db: Session, draft: ScriptDraft) -> tuple[Decimal, int | None]:
-    """Before any take: about what a video of the version's lyrics costs, and if that's over
-    the per-video cap, how many sung lines to keep so it fits ("Keep the first N lines"; 0
-    when not even one does). None when it fits."""
+    """About what a video of the version's lyrics costs (its newest take of these words once
+    there's one, else the lyrics' guessed length; `song_video_cost` either way), and if that's
+    over the per-video cap, how many sung lines to keep so it fits ("Keep the first N lines";
+    0 when not even one does). None when it fits."""
     script = db.get(Script, draft.script_id)
-    ws, lines = script.workspace_id, sung_lines(draft.text)
-    limit = get_limits(db, ws).per_video_max_credits
+    lines = sung_lines(draft.text)
+    limit = get_limits(db, script.workspace_id).per_video_max_credits
 
     def cost(n: int) -> Decimal:
-        return plan_cost(db, ws, music.guessed_seconds(lines[:n]), None, roles=0)
+        return song_video_cost(db, draft, music.guessed_seconds(lines[:n]))
 
-    whole = cost(len(lines))
+    heard = [t for t in takes(db, draft) if t.seconds and not out_of_date(t, draft)]
+    whole = video_credits(db, heard[-1]) if heard else cost(len(lines))
     if whole <= limit:
         return whole, None
     return whole, max((n for n in range(len(lines)) if cost(n) <= limit), default=0)

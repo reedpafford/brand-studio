@@ -23,8 +23,9 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
   if (!models.data || !screens.data) return null;
   const flavours: Record<string, string[]> = {};
   for (const s of screens.data) if (s.product && s.variant && !(flavours[s.product] ??= []).includes(s.variant)) flavours[s.product].push(s.variant);
-  // The version's default flavours (#968), each only while the brand still has it: a deleted one is Auto, never shown as current.
-  const kept = Object.fromEntries(Object.entries(defaults).filter(([p, v]) => flavours[p]?.includes(v)));
+  // The version's default flavours (#968), without the ones the brand has deleted since (#991's flavours_gone): those read
+  // Auto, never as current. One rule, the server's, the one Make this version uses.
+  const kept = defaults;
   const variants = { ...kept, ...picks.product_variants };
   const rate = (m: (typeof models.data)[number], at: string) => m.credits_per_unit[at] ?? Object.values(m.credits_per_unit)[0] ?? 0;
   return {
