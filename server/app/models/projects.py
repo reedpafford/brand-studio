@@ -1,5 +1,6 @@
 """Projects: a brief, a budget, and (later) script, breakdown, storyboard and clips."""
 
+import math
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -91,9 +92,17 @@ class Project(Filed, Entity, Base):
     @property
     def estimate_credits(self) -> Decimal:
         """480p costs 1 credit per second: a set length wins, else the newest breakdown's,
-        else a small amount that lets the project reach its breakdown."""
-        seconds = self.planned_seconds or self.breakdown_seconds or PRE_BREAKDOWN_SECONDS
-        return Decimal(seconds)
+        else a song video's song (it decides the length, spec §1, as its quote and take card
+        say), else a small amount that lets the project reach its breakdown."""
+        seconds = self.planned_seconds or self.breakdown_seconds or self._song_seconds()
+        return Decimal(seconds or PRE_BREAKDOWN_SECONDS)
+
+    def _song_seconds(self) -> int:
+        from app.models.songs import SongTake
+
+        db = object_session(self)
+        take = db.get(SongTake, self.song_take_id) if db and self.song_take_id else None
+        return math.ceil(take.trim_to or take.seconds or 0) if take else 0
 
     @property
     def budget_credits(self) -> Decimal:

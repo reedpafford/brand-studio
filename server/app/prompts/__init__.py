@@ -80,6 +80,7 @@ def styles() -> list[dict]:
             "kind": meta["kind"],
             "order": int(meta["order"]),
             "on": meta["on"] == "yes",
+            "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero
             "image_model": meta["image_model"],
             "blurb": meta["blurb"],
             "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
@@ -102,6 +103,25 @@ def look_sample(look_id: str) -> str:
     """The person in the look's sample still when the brand has no hero (flows ST3): its
     `## sample` line, or "" when it has none (the server then uses its own default)."""
     return style(look_id)["sections"].get("sample", "").strip()
+
+
+def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False) -> str:
+    """The prompt for a look's sample still (flows ST3). With `from_picture`, [Image1] is the
+    brand's hero drawn in another look: it says who they are, never how they're drawn, so
+    the sample doesn't copy the House look (Reed, 2026-10-29: samples read as generic Pixar).
+    Without it, the look's own `## sample` person."""
+    look = style(look_id)["sections"]
+    if from_picture:
+        who = (f"{name}, the same person as in [Image1]: the same face, hair, colouring, age and "
+               "outfit, redrawn completely in this look. [Image1] is drawn in another style: "
+               "copy who they are, never how they are drawn.")  # fmt: skip
+    else:
+        who = look_sample(look_id) or "A friendly adult in their thirties in one plain outfit"
+    return (
+        f"{look['still_look'].strip()}\nThe character, drawn in this look: "
+        f"{look['sheet_look'].strip()}\n{who.rstrip('.')}.\nA calm, friendly portrait, "
+        "looking into the camera, the whole figure in frame. No text on screen."
+    )
 
 
 def look_fixes(look_id: str) -> dict[str, str]:

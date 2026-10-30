@@ -6,6 +6,7 @@ import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, Select, Skeleton } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
+import { useLanguages } from "./useLanguages";
 import { errorText as errorClass } from "../ui";
 
 type Language = components["schemas"]["LanguageOut"];
@@ -13,7 +14,7 @@ type Language = components["schemas"]["LanguageOut"];
 /** The Languages page (owner, flows VS1): every language, its sample test, and the switch that lets editors write in it. */
 export function LanguagesPage() {
   const owner = useMe().data?.role === "owner";
-  const list = useQuery({ queryKey: ["languages"], queryFn: async () => (await must(api.GET("/languages"))).data! });
+  const list = useLanguages();
   // With no brand at all the shell shows "No brands yet" instead of this page, so there's always one to test with.
   const brands = useBrands().data ?? [];
   const [picked, setPicked] = useState<number | null>(null);

@@ -59,28 +59,30 @@ def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -
 
 def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     """A version's whole price before it's started, by the rules its video will cost by
-        (QA-3: 14.73 quoted, its video's to-finish 28.06): `credits.plan_cost` with no breakdown
-        call when one is saved; with neither a saved breakdown nor a target, at least the length
-        the video plans for until its plan exists (PRE_BREAKDOWN_SECONDS); a look for every role
-        that will need one: each not cast yet, each speaker the cast hasn't got yet (it becomes a
-        role), and each cast one with no look in the video's look: `sheets.roles_without_a_look`
-    and `roles_needing_look`, the rules VS1's to-finish uses too. A Song
-        version's video is its Preferred take's (the song decides the length). `video`: the
-        video it would make, for its models and look (Make this version's settings, VS1)."""
-    from app import song_takes
+    (QA-3: 14.73 quoted, its video's to-finish 28.06): `credits.plan_cost` with no breakdown
+    call when one is saved; with neither a saved breakdown nor a target, at least the length
+    the video plans for until its plan exists (PRE_BREAKDOWN_SECONDS); and up to a look
+    (`look_price`, rule 32) for every role that will need one: each not cast yet, each speaker
+    the cast hasn't got yet (it becomes a role) and each cast one with no look in the video's
+    look (`sheets.roles_without_a_look`, `roles_needing_look`, as the video's cost bar); and
+    the plan call the press charges first (`plans.plan_first`, QA-3: 31.06 against 28.06). A Song
+    version's is its Preferred take's card (the song decides the length; the same looks).
+    `video`: the video it would make, for its models and look (Make this version's settings)."""
+    from app import plans, song_takes
     from app.models.projects import PRE_BREAKDOWN_SECONDS
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
     script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
-    each = look_price(db, script.workspace_id)  # as the look press shows and holds
-    looks_cost = len(roles_needing_look(db, script, video.look if video else None)) * each
-    if script.kind == "song" and (take := song_takes.preferred(db, draft)):  # its take card's
-        return song_takes.video_credits(db, take, video=video) + looks_cost
-    looks_cost += len(roles_without_a_look(db, script, draft)) * each  # their first look
+    if script.kind == "song" and (take := song_takes.preferred(db, draft)):
+        return song_takes.video_credits(db, take, video=video)  # its plan call included
+    plan = plans.plan_first(db, draft)  # charged at the press, before the rest
+    looks = len(roles_needing_look(db, script, video.look if video else None))
+    looks += len(roles_without_a_look(db, script, draft))
+    looks_cost = looks * look_price(db, script.workspace_id)  # as the look press shows and holds
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
     if not bd and not draft.target_seconds:
         seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
-    return looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
+    return plan + looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
                                   breakdown=not bd, video=video)  # fmt: skip
 
 
@@ -133,7 +135,12 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
         (
             "clip_prompts",
             bool(clips),
-            claude * clip_prompts.calls(db, project),
+            claude
+            * (
+                clip_prompts.calls(db, project)
+                if bd_ok  # before a plan: as the quote
+                else math.ceil(n_clips / clip_prompts.BATCH_CLIPS)
+            ),
             "a Claude call per few clips",
         ),
         (

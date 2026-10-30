@@ -19,6 +19,7 @@ LANGUAGES = {  # id -> (name, on with no switch)
     "pt": ("Portuguese", False),
     "it": ("Italian", False),
     "nl": ("Dutch", False),
+    "id": ("Indonesian", False),  # Bahasa Indonesia (Reed, 2026-10-29)
 }
 UNKNOWN = "There's no such language."
 OFF = "{} is off for editors until its sample test. Pick a language that's on."
