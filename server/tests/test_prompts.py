@@ -616,8 +616,7 @@ def test_eval_scoring_reads_clip_prompt_words_outside_the_dialogue(tmp_path):
     (tmp_path / "ex.script.txt").write_text(script_of(ex))
     (tmp_path / "ex.breakdown.json").write_text(bd.model_dump_json())
     (tmp_path / "ex.clip_prompts.json").write_text(cp.model_dump_json())
-    # Advice aside: the example still attaches fomo's trading screens as one logo (rule 14 gone)
-    assert [p for p in score(tmp_path, case) if not p.startswith(check.ADVICE)] == [
+    assert score(tmp_path, case) == [
         "clip prompts say 'beanie' outside the dialogue",
         "clip prompts never say 'brindle'",
     ]
@@ -1066,6 +1065,10 @@ def test_a_montages_trading_screens_are_the_real_ones_and_climb():
         "bigger"
     ]
     clip.prompt = clip.prompt.replace("+$300", "-$300")  # a red day is a dip, never flagged
+    falls = clip.prompt.replace(
+        "[Image6], the fomo Desktop trading screen", "[Image6], the fomo Home screen"
+    )
+    assert check._screens_climb(falls.replace("-$300", "+$100")) == []  # a home balance may fall
     assert check.clip_prompts(bd, cp, 30, 10) == []
     for step in ("clip_prompts", "storyboard", "improve"):
         assert "invented trading screen" in prompts.system(step), step
