@@ -71,6 +71,7 @@ class ProjectOut(BaseModel):
     plan_credits: int = 0  # Make the plan's price, before there's a plan to carry it
     brand_id: int
     name: str
+    kind: Literal["story", "song", "narrated"] = "story"  # its type, from its script
     song: bool = False  # made from a Song script: timed to its song (song_take_id)
     song_take_id: int | None = None
     look: str = "house"  # how its pictures are drawn (VS1)
@@ -149,25 +150,19 @@ def get_project(db: Session, user: User, project_id: int) -> Project:
     return project
 
 
-def _is_song(db: Session, project: Project) -> bool:
-    from app.models.script_library import Script, ScriptDraft
-
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    return bool(draft) and db.get(Script, draft.script_id).kind in narration.TIMED
-
-
 def _out(db: Session, project: Project, user: User, old: set[int] | None = None) -> ProjectOut:
     """`old`: the finished videos out of date (`out_of_date`), read once for a whole list."""
     from app.routes.project_clips import out_of_date
 
-    used = credits_used(db, project)
+    used, kind = credits_used(db, project), narration.video_kind(db, project)
     return ProjectOut(
         final_out_of_date=project.id in (out_of_date(db, [project]) if old is None else old),
         id=project.id,
         folder_id=project.live_folder_id,
         brand_id=project.brand_id,
         name=project.name,
-        song=_is_song(db, project),
+        kind=kind,
+        song=kind in narration.TIMED,
         song_take_id=project.song_take_id,
         look=project.look,
         look_redo_credits=looks.redo_credits(db, project),
