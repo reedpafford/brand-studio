@@ -104,7 +104,7 @@ test("Takes: Preferred in words; one being made, one still being timed (can't be
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("Preferred")).toBeInTheDocument();
   expect(screen.getAllByText("0:31 · a video of about 34 credits")).toHaveLength(4); // every take with a length says what its video would cost
-  expect(screen.getByText(/^Making…/)).toBeInTheDocument();
+  expect(screen.getByText((_, el) => el?.tagName === "P" && /^Making the song… 0:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument(); // flows S4: a timer, m:ss
   expect(screen.getAllByRole("button", { name: "Make this Preferred" })[0]).toBeDisabled();
   expect(screen.getByText("This take's file can't be read, so its timing can't be measured.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();

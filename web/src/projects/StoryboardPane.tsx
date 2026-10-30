@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
-import { GOING, useJobs } from "../clip/History";
+import { GOING, JobClock, useJobs } from "../clip/History";
 import { fileUrl } from "../api/upload";
 import { card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
@@ -269,10 +269,13 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
     </>
   );
 
+  const writingJob = (writing !== null ? jobOf(writing) : undefined) ?? mineGoing("storyboard")[0];
   if (writingNow || stillOld)
     return (
       <section className={`${card} space-y-3`} aria-label="Storyboard">
-        <p className="text-muted">Writing your frames…</p>
+        <p role="status" className="text-muted">
+          <JobClock queued={writingJob?.status === "queued"} making="Writing your frames…" since={writingJob?.created_at} />
+        </p>
         {[0, 1].map((i) => (
           <div key={i} className="h-24 rounded-md bg-surface-2" aria-hidden />
         ))}

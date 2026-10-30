@@ -67,12 +67,14 @@ test("no plan yet: Make the plan shows its price; Shots is greyed until approved
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan")).toBe(true));
 });
 
-test("making: in words with a timer, and Stop (queued or running, never charged)", async () => {
-  setViewport(1440);
-  fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [200, plan({ scenes: [], job: { id: 30, status: "queued", reason: null, started_at: new Date().toISOString() } })] });
+test('waiting: "Waiting to start · m:ss" from when it was asked, and Cancel (only before it starts, never charged)', async () => {
+  setViewport(390);
+  const asked = new Date(Date.now() - 75_000).toISOString();
+  const calls = fakeServer({ ...withPlan("none"), "GET /jobs": [200, [{ id: 30, kind: "write-claude", project_id: 9, credits: 0, status: "queued", output: null, error: "", created_at: asked, finished_at: null }]], "GET /projects/9/plan": [200, plan({ scenes: [], job: { id: 30, status: "queued", reason: null, started_at: null } })], "POST /projects/9/plan/stop": [200, {}] });
   open();
-  expect(await screen.findByText(/Waiting to start/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+  expect(await screen.findByText((_, el) => el?.tagName === "P" && /^Waiting to start · 1:1\d\. You can leave this page\.$/.test(el.textContent ?? ""))).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/stop")).toBe(true));
 });
 
 test("ready to check: structure, cast, scene cards with place, lines, actions and the ★; Approve the plan · makes the shots opens Shots", async () => {
@@ -298,12 +300,12 @@ test("a refused scene change keeps the note; a scene job in progress shows Makin
   expect(screen.getByLabelText("What should change in scene 2?")).toHaveValue("funnier");
 });
 
-test("while a scene is being changed the plan shows Making the plan… with Stop", async () => {
+test("while a scene is being changed the plan shows Making the plan… with its timer, and no Cancel once it runs", async () => {
   setViewport(1440);
-  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, change_scene_credits: 2, job: { id: 41, status: "running", reason: null, started_at: new Date().toISOString() } })] });
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, change_scene_credits: 2, job: { id: 41, status: "running", reason: null, started_at: new Date(Date.now() - 5_000).toISOString() } })] });
   open();
-  expect(await screen.findByText(/Making the plan…/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+  expect(await screen.findByText((_, el) => el?.tagName === "P" && /^Making the plan… 0:0\d\./.test(el.textContent ?? ""))).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Cancel|Stop/ })).toBeNull();
 });
 
 test("a plan whose job ended before it reads back (a 404 in between) still shows, the page keeps reading after the press", async () => {
