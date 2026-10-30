@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import advice, storyboard
-from app.credits import estimate, own_script
+from app.credits import estimate
 from app.enhance import escape
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -66,8 +66,6 @@ def start(
     )
     then = price(db, project) - estimate(db, project.workspace_id, "write-claude", Decimal(1))
     data.update(redo_frame_id=frame.id, max_tokens=8000)
-    if own_script(db, project, user):  # the still is held on the editor's week, as Change it
-        data["then_credits"] = str(then)
     job = enqueue(db, user, "write-claude", data, project=project, provider="claude", hold=then)
     frame.change = {"note": NOTE, "job_id": job.id, "status": "changing",
                     "was_file_id": frame.file_id}  # fmt: skip

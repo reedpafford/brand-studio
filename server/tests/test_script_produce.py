@@ -10,7 +10,6 @@ from app.models.accounts import User
 from app.models.clips import FinalVideo
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
-from app.models.script_library import ScriptDraft
 from app.routes.jobs import enqueue
 from tests.conftest import PASSWORD, upload
 from tests.helpers import approved_plan, with_sheet
@@ -106,45 +105,17 @@ def _second_editor(app, owner, db):
     return client, db.query(User).filter_by(email="two@example.com").one()
 
 
-def test_only_the_author_uses_their_allowance_for_a_script(app, owner, editor, db):
-    """QA #218: another editor's script runs on the video's budget, never the producer's
-    allowance (so a spent allowance doesn't decline it, and it isn't billed there)."""
+def test_producing_from_a_script_never_uses_the_week(editor, db):
+    """One allowance (Reed, 30 Oct): a video from anyone's script, the editor's own too, runs
+    on its budget. With the week spent on Quick clips it is still made, and it never counts."""
     base = _editors_script(editor)
-    two, second = _second_editor(app, owner, db)
-    enqueue(db, second, "video-480p", {}, units=145)  # Two's allowance is spent
-    made = two.post(f"{base}/drafts/0/produce")
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    enqueue(db, ed, "video-480p", {}, units=97)  # the week, all on Quick clips
+    made = editor.post(f"{base}/drafts/0/produce")
     assert made.status_code == 201, made.text
-    project = db.get(Project, made.json()["project_id"])
-    assert not credits.own_script(db, project, second)
-    ed = db.query(User).filter_by(email="ed@example.com").one()
-    assert credits.own_script(db, project, ed)  # the author's, were they producing it
-
-
-def test_a_video_says_whether_it_runs_on_the_viewers_allowance(owner, editor, db):
-    base = _editors_script(editor)
-    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
-    assert editor.get(f"/projects/{pid}").json()["own_script"] is True
-    assert owner.get(f"/projects/{pid}").json()["own_script"] is False  # unlimited, no allowance
-    theirs, _ = _published(owner, db, breakdown=BREAKDOWN)
-    other = editor.post(f"{theirs}/drafts/0/produce").json()["project_id"]
-    assert editor.get(f"/projects/{other}").json()["own_script"] is False
-
-
-def test_a_declined_breakdown_leaves_the_version_free(editor, db):
-    """QA #218: past the allowance the breakdown is declined and nothing is kept: no
-    project, no reservation, so the version can be produced later."""
-    base = _editors_script(editor)
-    ed = db.query(User).filter_by(email="ed@example.com").one()
-    enqueue(db, ed, "video-480p", {}, units=145)
-    declined = editor.post(f"{base}/drafts/0/produce")
-    assert declined.status_code == 409
-    assert declined.json()["detail"] == "You've used this week's 145 credits. It resets on Monday."
-    db.expire_all()
-    assert db.query(Project).count() == 0 and db.query(ScriptDraft).one().reserved_by_id is None
-    assert editor.get(base).json()["versions_left"] == 1
-    db.query(Job).delete()
-    db.commit()
-    assert editor.post(f"{base}/drafts/0/produce").status_code == 201
+    assert credits.quick_clip_used(db, ed) == 97  # the video's plan isn't on the week
+    pid = made.json()["project_id"]
+    assert editor.get(f"/projects/{pid}").json()["own_script"] is False  # its budget decides
 
 
 def test_a_produced_version_names_its_editor_and_the_video_its_version(owner, editor, db):
@@ -215,21 +186,6 @@ def test_a_started_version_can_be_released_and_made_again(app, owner, editor, db
     assert late.json()["detail"] == "Two started version A again, so this video can't come back."
     assert editor.post(f"/projects/{again.json()['project_id']}/release").status_code == 403
     assert owner.post(f"/projects/{again.json()['project_id']}/release").status_code == 200
-
-
-def test_releasing_never_gives_the_allowance_back(editor, db):
-    """QA #328: an editor can't release their own video to spend their week again."""
-    base = _editors_script(editor)
-    made = editor.post(f"{base}/drafts/0/produce").json()
-    pid, me = made["project_id"], db.query(User).filter_by(role="editor").one()
-    db.get(Job, made["plan_job_id"]).status = JobStatus.succeeded  # credits really spent
-    db.commit()
-    spent = credits.quick_clip_used(db, me)
-    assert spent > 0
-    editor.post(f"/projects/{pid}/release")
-    db.expire_all()
-    assert credits.quick_clip_used(db, me) == spent
-    assert credits.own_script(db, db.get(Project, pid), me)  # still on their allowance
 
 
 def test_restore_right_after_release_gives_the_version_back(owner, editor, db):

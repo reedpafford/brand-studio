@@ -53,35 +53,6 @@ def state(db: Session, script: Script) -> tuple[str, str | None]:
     return ("ready" if remaining(script) else "done"), None
 
 
-def held(db: Session, user: User) -> Decimal:
-    """Credits held for steps this person already paid for that aren't queued yet: while a
-    reel-read step runs, the steps after it; while a Write or variations job runs, the cast
-    read after it; while a Change it note is read, the still or take it pays for. A chain
-    that fails or stops holds nothing, so nothing has to be given back."""
-    running = (
-        select(Script)
-        .join(Job, Job.id == Script.reel_job_id)
-        .where(Job.created_by_id == user.id, Job.status.in_(WAITING), Job.kind != "reel_prepare")
-    )
-    total = Decimal(0)
-    for script in db.scalars(running):
-        job = db.get(Job, script.reel_job_id)
-        later = [s for s in remaining(script) if s != job.input.get("reel_step")]
-        total += price(db, user, later)
-    # Write and variations: the cast read after them, held until it's queued
-    writing = select(Job).where(
-        Job.created_by_id == user.id, Job.status.in_(WAITING), Job.kind == "write-claude"
-    )
-    jobs = list(db.scalars(writing))
-    casts = sum(1 for j in jobs if j.input.get("then_cast"))
-    # Change it's still or take, a sheet's check and redo: held until they're queued
-    waiting = select(Job).where(Job.created_by_id == user.id, Job.status.in_(WAITING))
-    changes = sum(
-        (Decimal(j.input.get("then_credits", "0")) for j in db.scalars(waiting)), Decimal(0)
-    )
-    return total + price(db, user, ["cast"]) * casts + changes
-
-
 def needs_upload(script: Script) -> bool:
     """Prepared before watch copies existed, so it can't be watched: upload it again."""
     return "watch" in remaining(script) and not (script.reel or {}).get("watch_file_id")
