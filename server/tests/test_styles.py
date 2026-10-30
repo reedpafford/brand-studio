@@ -99,6 +99,10 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
 
     said = check.look_words("A kitchen in the style of Zack D. Films, a Zack D close-up.", "zack-d")
     assert said[0] == "A kitchen, a close-up.", said[0]
+    # QA on #1009: tidying a repair never touches a quote (rule 19), nor leaves a trailing space
+    for quote in ('"Voilà : ça va ; très bien ."', '"Hello , world : ok"', '"Wait . . .  what"'):
+        line = f"Mia says {quote} in the style of Zack D. Films"
+        assert check.look_words(line, "zack-d")[0] == f"Mia says {quote}", line
     assert prompts.look_banned("claymation") == [] and prompts.look_fixes("claymation") == {}
     for step in prompts.SCHEMAS:  # data, never sent to a model
         assert "## banned" not in prompts.system(step, "zack-d"), step
