@@ -1529,21 +1529,22 @@ test("with the owner's plan approved, Make this version says the shots come next
   expect(await screen.findByText("Version A is yours. Next: the shots.")).toBeInTheDocument();
 });
 
-test("a version's default flavour is the row's; one the brand has since deleted shows as Auto", async () => {
+test("a version's default flavour is the row's; one the server marks gone (flavours_gone) shows as Auto", async () => {
   setViewport(1440);
-  const withDefaults = (flavours: object) => [200, script({ look: "house", language: "en", versions: [v(0, "approved", { has_breakdown: false, estimate_credits: 21, flavours })] })] as [number, unknown];
+  const withDefaults = (flavours: object, flavours_gone: string[] = []) => [200, script({ look: "house", language: "en", versions: [v(0, "approved", { has_breakdown: false, estimate_credits: 21, flavours, flavours_gone })] })] as [number, unknown];
   fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Chicken" }) }));
   open();
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   let row = await within(await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" })).findByRole("region", { name: "Video settings" });
   expect(within(row).getByRole("button", { name: /Flavour: Chicken/ })).toBeInTheDocument();
   cleanup();
-  fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Beef" }) })); // Beef was deleted from the brand
+  // The server marks a default gone (#991): Auto, even where the web might still see the flavour (one rule, the server's).
+  fakeServer(makeServer({ "GET /scripts/7": withDefaults({ "Iron Paws": "Salmon" }, ["Iron Paws"]) }));
   open();
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   row = await within(await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" })).findByRole("region", { name: "Video settings" });
   expect(within(row).getByRole("button", { name: /Flavour: Auto/ })).toBeInTheDocument();
-  expect(within(row).queryByText(/Beef/)).toBeNull();
+  expect(within(row).queryByRole("button", { name: /Flavour: Salmon/ })).toBeNull();
 });
 
 test("an editor opening someone else's published script by its title lands on Make this version for its first ready version (A12)", async () => {
