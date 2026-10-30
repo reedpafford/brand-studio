@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -151,6 +151,21 @@ test("on a phone there are five tabs (Videos first), no More, and Reed gets an A
   expect(within(tabs).queryByRole("button", { name: "More" })).not.toBeInTheDocument();
   expect(await screen.findByRole("link", { name: "Approvals, 1 waiting" })).toHaveAttribute("href", "/approvals");
   expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+});
+
+test("with nothing waiting, Reed sees no Approvals in the top bar or the rail, at 390 and on desktop (Reed, 30 Oct)", async () => {
+  for (const width of [390, 1440]) {
+    setViewport(width);
+    const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []] });
+    renderAt("/b/1/projects");
+    await screen.findByRole("link", { name: "Videos" });
+    if (width === 1440) await within(screen.getByRole("navigation", { name: "Main" })).findByRole("link", { name: "In production" });
+    await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /jobs")).toBe(true));
+    await new Promise((r) => setTimeout(r, 50)); // the answer is drawn
+    expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
+    cleanup();
+    vi.unstubAllGlobals();
+  }
 });
 
 test("an editor has no Approvals bell", async () => {

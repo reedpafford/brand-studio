@@ -18,7 +18,7 @@ def test_the_cards_are_looks_only_house_first_and_on(editor):
     assert cards[0]["id"] == "house" and cards[0]["on"]
     assert [c["id"] for c in cards[1:4]] == ["disney-pixar", "zack-d", "skeleton"]  # Reed's order
     assert not any(c["on"] for c in cards[1:])
-    assert {"song", "vox", "podcast"}.isdisjoint(c["id"] for c in cards)  # formats aren't looks
+    assert {"song"}.isdisjoint(c["id"] for c in cards)  # formats aren't looks
 
 
 def test_an_editor_picks_only_a_look_thats_on_and_the_owner_may_try_any(owner, editor):

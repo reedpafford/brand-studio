@@ -27,7 +27,6 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
-from app.storyboard import say_logo
 
 log = logging.getLogger(__name__)
 RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
@@ -79,7 +78,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "exact_file_ids": exact,
         "input": {
-            "prompt": _with_note(in_english(say_logo(known, clip.prompt, images, clip=True)), note),
+            "prompt": _with_note(in_english(clip.prompt), note),
             "duration": clip.seconds,
             "resolution": RESOLUTION,
             "aspect_ratio": project.aspect_ratio,
