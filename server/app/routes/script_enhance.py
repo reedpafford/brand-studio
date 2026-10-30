@@ -14,7 +14,7 @@ from app.auth import current_user
 from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.script_library import Script, ScriptDraft
 from app.models.scripts import Suggestion
 from app.routes.clips import generation_on
@@ -66,7 +66,7 @@ def enhance_version(
 ):
     """Suggest directions for this version (one paid Claude call)."""
     script, draft = _version(db, user, script_id, slot)
-    if _jobs(db, draft, JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval):
+    if _jobs(db, draft, *WAITING):
         raise HTTPException(409, "Claude is already suggesting directions for this version.")
     data = enhance.draft_job_input(db, script, draft)
     return enqueue(db, user, "write-claude", data, provider="claude")

@@ -107,3 +107,14 @@ def test_with_real_tests_on_only_the_test_goes_real_and_no_key_means_a_stand_in(
     assert db.query(Job).order_by(Job.id.desc()).first().provider == REAL_TESTS
     _work(app, db, ticks=2)
     assert owner.get("/languages/nl/sample").json()["status"] == "ready"  # a stand-in test
+
+
+def test_indonesian_is_listed_off_and_is_tested_like_the_others(app, db, owner):
+    """Reed, 2026-10-29: Bahasa Indonesia joins the list, Off until its sample test."""
+    app.state.settings.fake_providers = True
+    assert {"id": "id", "name": "Indonesian", "on": False} in owner.get("/languages").json()
+    owner.post("/languages/id/sample", json={"brand_id": first_brand(owner)})
+    _work(app, db, ticks=2)
+    job = db.query(Job).filter(Job.input["step"].as_string() == language_samples.STEP).one()
+    assert "<language>Indonesian</language>" in job.input["prompt"]
+    assert "(Indonesian)" in owner.get("/languages/id/sample").json()["text"]

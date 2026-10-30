@@ -89,6 +89,18 @@ def copy_to_video(project: Project, draft) -> None:
         project.plan = {**draft.plan, "source": "owner", "version": 1}
 
 
+def plan_first(db, draft) -> Decimal:
+    """What Make this version charges at once for the plan (flows 1b): one call, unless the
+    saved preview lands free or an owner's approved plan goes straight to the shots. The
+    quote counts it (rule 32: QA-3, 28.06 quoted while the video came to 31.06)."""
+    from app.credits import estimate
+    from app.models.script_library import Script
+
+    if (draft.breakdown and preview_follows(draft)) or (draft.plan or {}).get("approved_at"):
+        return Decimal(0)
+    return estimate(db, db.get(Script, draft.script_id).workspace_id, KIND, Decimal(1))
+
+
 def preview_follows(draft) -> bool:
     """The version's saved preview may start its video: there's no approved owner plan, or the
     preview was made from it. One made before ("Made for an older plan") is made again from the

@@ -335,9 +335,12 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
         card = owner.get(base).json()["versions"][0]["estimate_credits"]
         made = owner.post(f"{base}/drafts/0/produce", json=picks).json()["project_id"]
         video = db.get(Project, made)
+        plan = float(sum(j.credits for j in db.query(Job).filter_by(project_id=made)))
+        assert plan == 3  # Make this version charged the plan call at once
+        quote -= plan  # what's left after the press: the video's own to-finish and bar
         assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
         if not picks:  # the version card shows the same figure (in the script's own look)
-            assert card == pytest.approx(quote, abs=0.001)
+            assert card == pytest.approx(quote + plan, abs=0.001)
         added = breakdown.add_speakers(db, db.get(Script, int(base.rsplit("/", 1)[1])))
         db.commit()
         assert added == ["Nate"]  # the cast adds him: still one first look, not two
