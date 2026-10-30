@@ -206,6 +206,7 @@ def test_a_look_with_its_own_sample_person_never_draws_the_hero(app, db, owner):
     owner.patch(f"/brands/{brand}", json={"default_cast": [_mia(owner, db, brand)]})
     card = owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()
     assert (card["hero"], card["characters"]) == (None, [])  # never "of Mia", no pick (Flow-QA)
+    assert card["look"]["own_sample"]  # the card shows no "Who's in the sample?"
     assert owner.get(f"/looks/claymation/sample?brand_id={brand}").json()["hero"]["name"] == "Mia"
     owner.post("/looks/skeleton/sample", json={"brand_id": brand})
     job = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()

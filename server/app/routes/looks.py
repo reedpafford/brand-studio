@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import credits, look_samples, looks, prompts
+from app import credits, look_samples, looks
 from app.auth import current_user, owner_only
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -26,6 +26,7 @@ class LookOut(BaseModel):
     on: bool  # editors can pick it
     sample_still_id: int | None = None  # ST3: the approved sample, once made
     sample_clip_id: int | None = None
+    own_sample: bool = False  # its sample shows its own person: no hero, no "Who's in it?"
 
 
 class LookSwitchIn(BaseModel):
@@ -37,7 +38,8 @@ def _out(db: Session, ws: int, look: dict) -> LookOut:
     return LookOut(id=look["id"], name=look["name"], blurb=look["blurb"],
                    on=looks.is_on(db, ws, look["id"]),
                    sample_still_id=row.sample_still_id if row else None,
-                   sample_clip_id=row.sample_clip_id if row else None)  # fmt: skip
+                   sample_clip_id=row.sample_clip_id if row else None,
+                   own_sample=look["own_sample"])  # fmt: skip
 
 
 @router.get("", response_model=list[LookOut])
@@ -97,7 +99,7 @@ def _sample(db: Session, owner: User, look_id: str, brand_id: int, settings) -> 
     brand, look = get_brand(db, owner, brand_id), looks.get(look_id)
     status, reason = look_samples.state(db, owner.workspace_id, look_id)
     row = looks.switch(db, owner.workspace_id, look_id)
-    own = prompts.style(look_id)["own_sample"]  # its own person: no hero, no pick (ST3)
+    own = look["own_sample"]  # its own person: no hero, no pick (ST3)
     hero = None if own else look_samples.hero(db, brand)
     return SampleOut(
         status=status, reason=reason,

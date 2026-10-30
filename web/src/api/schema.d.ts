@@ -6698,6 +6698,11 @@ export interface components {
             sample_still_id?: number | null;
             /** Sample Clip Id */
             sample_clip_id?: number | null;
+            /**
+             * Own Sample
+             * @default false
+             */
+            own_sample: boolean;
         };
         /** LookSheetOut */
         LookSheetOut: {
