@@ -45,6 +45,7 @@ class JobOut(BaseModel):
     output: dict | None
     error: SaidText
     created_at: UtcTime
+    started_at: UtcTime | None = None  # while it runs: when it started ("Making… m:ss")
     finished_at: UtcTime | None
     # Safe summary of what was asked, for history lists (from the job's input).
     prompt_summary: str = ""
@@ -108,6 +109,7 @@ class JobOut(BaseModel):
             "model_id": job.input.get("model"),
             "brand_id": job.input.get("brand_id"),
             **{k: given.get(k) for k in ("duration", "aspect_ratio", "resolution")},
+            "started_at": job.started_at if job.status == JobStatus.running else None,
             "created_by_id": job.created_by_id,
             "created_by_name": user_name(db, job.created_by_id) if db else "",
             "waiting": WAITING
