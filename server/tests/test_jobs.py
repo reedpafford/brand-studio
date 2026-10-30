@@ -41,7 +41,7 @@ def test_other_workspace_cannot_see_job(owner, outsider, db):
 
 
 def test_editor_sees_no_dollars_on_finished_jobs(editor, db):
-    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 3})
+    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 3, "step": "clip_take"})
     fake = FakeProvider()
     run_once(db, {"fake": fake})
     run_once(db, {"fake": fake})
@@ -140,3 +140,26 @@ def test_history_mine_lists_only_the_callers_own_and_everyones_lists_all(owner, 
     everyone = [j["id"] for j in owner.get("/jobs").json()]
     assert everyone == [theirs.id, ours.id]  # newest first
     assert owner.get("/jobs", params={"mine": True, "q": "nothing like it"}).json() == []
+
+
+def test_another_editors_quick_clip_is_not_found_by_id_but_the_owner_still_can(
+    app, owner, editor, db
+):
+    """An editor's Quick clips are their own: another editor can't read or cancel one by its
+    id (404, so it doesn't show it exists); its maker and the owner can."""
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import PASSWORD
+
+    token = owner.post("/team/invites", json={"email": "bo@example.com"}).json()["token"]
+    with TestClient(app) as other:
+        other.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
+        ed = db.query(User).filter_by(email="ed@example.com").one()
+        clip = enqueue(db, ed, "video-480p", {})
+        shared = enqueue(db, ed, "video-480p", {"seconds": 2, "step": "clip_take"})
+        assert other.get(f"/jobs/{clip.id}").status_code == 404
+        assert other.post(f"/jobs/{clip.id}/cancel").status_code == 404
+        assert other.get(f"/jobs/{shared.id}").status_code == 200  # shared work: the team's
+        assert editor.get(f"/jobs/{clip.id}").status_code == 200
+        assert owner.get(f"/jobs/{clip.id}").status_code == 200
+        assert owner.post(f"/jobs/{clip.id}/cancel").json()["status"] == "cancelled"
