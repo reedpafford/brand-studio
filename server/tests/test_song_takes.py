@@ -500,4 +500,12 @@ def test_a_clip_over_the_video_models_longest_is_flagged_refused_and_split(app, 
     assert db.scalar(select(func.coalesce(func.sum(Job.credits), 0))) == spent  # free (QA-3)
     newest = db.scalars(select(BreakdownVersion).order_by(BreakdownVersion.id.desc())).first()
     assert max(c["seconds"] for c in newest.data["clips"]) <= 15
+    from app import clip_prompts
+
+    project = db.get(Project, made["project_id"])  # c1's shots changed: written again too
+    assert clip_prompts.to_rewrite(db, project) == [c["id"] for c in newest.data["clips"]]
+    stages = {s["stage"]: s for s in owner.get(f"{video}/estimate").json()["stages"]}
+    assert not stages["clip_prompts"]["done"] and stages["clip_prompts"]["credits"] > 0
+    assert not stages["clips"]["done"]  # both new clips' takes are still to make
+    assert f"{sum(c['seconds'] for c in newest.data['clips'])} s" in stages["clips"]["note"]
     assert not [p for p in fixed.json()["problems"] if "is outside" in p]

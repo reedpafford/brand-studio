@@ -258,11 +258,13 @@ def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
 
     old, new = Breakdown.model_validate(old_row.data), Breakdown.model_validate(new_row.data)
     swaps = _swaps(old, new)
-    clips = {c.id: c.shot_ids for c in new.clips}
+    clips, was = {c.id: c.shot_ids for c in new.clips}, {c.id: c.shot_ids for c in old.clips}
     moved = 0
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == old_row.id)):
         mine = clips.get(clip.clip_id)
-        if not mine or any(swaps.get(s, {}) is None for s in mine):
+        if not mine or mine != was.get(clip.clip_id):  # regrouped (a split): written again
+            continue
+        if any(swaps.get(s, {}) is None for s in mine):
             continue
         swap = {k: v for s in mine for k, v in (swaps.get(s) or {}).items()}
         clip.breakdown_id = new_row.id
