@@ -17,7 +17,6 @@ type Brand = components["schemas"]["BrandOut"];
 export const setupOf = (b: Brand) => ("cta_lines" in b ? (b as Required<Brand>) : null);
 
 export const OWNER_ONLY = "Only the owner changes the brand.";
-export const LANGUAGES: Record<string, string> = { en: "English" }; // more once the server lists the tested ones
 
 /** CTA lines: several, one marked Default; each change saves at once, and every delete has Undo (BR1). Read only for editors. */
 export function CtaLines({ brandId, lines, advice, owner }: { brandId: number; lines: CtaLine[]; advice: string[]; owner: boolean }) {

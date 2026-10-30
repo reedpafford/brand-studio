@@ -42,7 +42,8 @@ def test_a_sample_of_the_brands_hero_is_made_then_the_look_switched_on(app, db, 
     assert ready["status"] == "ready" and ready["still_id"] and ready["clip_id"]
     still, clip = (db.query(Job).filter(Job.input["step"].as_string() == s).one()
                    for s in (look_samples.STILL, look_samples.CLIP))  # fmt: skip
-    assert "Mia, exactly as in [Image1]" in still.input["input"]["prompt"]
+    said = still.input["input"]["prompt"]  # who Mia is, never how she's drawn (#1009)
+    assert "Mia, the same person as in [Image1]" in said and "exactly as" not in said
     assert clip.input["input"]["duration"] == 5 and clip.input["files"]
     assert clip.input["input"]["generate_audio"] is False  # no sound to be refused (Zack D)
 
@@ -193,3 +194,18 @@ def test_two_presses_before_the_first_still_is_back_never_pass_the_budget(app, d
     owner.post("/looks/zack-d/sample", json={"brand_id": brand})
     lanes = {j.input["look_id"]: j.provider for j in db.query(Job).all()}
     assert lanes == {"disney-pixar": REAL_SAMPLES, "zack-d": "replicate"}
+
+
+def test_a_look_with_its_own_sample_person_never_draws_the_hero(app, db, owner):
+    """The Director on #1009: Skeleton brings its own sample person (`own_sample: yes`), so its
+    sample sends no picture of the brand's hero and uses the look's own `## sample` person."""
+    from app import prompts
+
+    app.state.settings.fake_providers = True
+    brand = _brand(owner)
+    owner.patch(f"/brands/{brand}", json={"default_cast": [_mia(owner, db, brand)]})
+    owner.post("/looks/skeleton/sample", json={"brand_id": brand})
+    job = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
+    said = job.input["input"]["prompt"]
+    assert not job.input.get("files") and "[Image1]" not in said and "Mia" not in said
+    assert prompts.look_sample("skeleton").rstrip(".") in said
