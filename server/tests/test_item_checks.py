@@ -122,5 +122,5 @@ def test_over_budget_is_skipped_and_a_failed_check_is_free(app, db, editor, setu
 def test_a_narrators_lines_dont_make_a_clip_key(app, db, editor, setup, clip, monkeypatch):  # noqa: F811
     url = f"/projects/{setup['project']}/checks"
     assert editor.get(url).json()["check_credits_per_video"] == 1  # Mom speaks: one key take
-    monkeypatch.setattr("app.item_checks.video_format", lambda db, project: "narrated")
+    monkeypatch.setattr("app.plans.fmt", lambda db, project: "narrated")
     assert editor.get(url).json()["check_credits_per_video"] == 0  # heard over the picture

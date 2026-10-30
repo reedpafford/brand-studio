@@ -7,6 +7,8 @@ live. It runs on the free stand-ins (grey pictures, simple answers), so it never
 **Address:** the live address on port 8443, e.g. `https://srv2091584.hstgr.cloud:8443`. Live's
 Caddy answers there (it holds ports 80 and 443) and forwards to this stack over a private Docker
 network, `brand-studio-edge`. If the test site is down, only port 8443 fails; live is unaffected.
+It also answers at `https://thisisatestingenv.tech` (port 443, for cloud sessions that only reach
+443) once that name's DNS A record points at the server: the same site and accounts, signed in separately.
 
 **Deploys:** every push to `next` runs `.github/workflows/deploy-next.yml` (checks first, then
 `deploy/next/remote-deploy.sh` over SSH, with the live deploy's secrets). Safe to re-run.
