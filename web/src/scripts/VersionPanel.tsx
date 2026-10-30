@@ -109,7 +109,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
                   : "The plan is made when you start"}
             </p>
           </section>
-          {readyToMake && <MakeSettings script={s} defaults={v.flavours ?? {}} picks={picks} onPick={setPicks} />}
+          {readyToMake && <MakeSettings script={s} defaults={Object.fromEntries(Object.entries(v.flavours ?? {}).filter(([p]) => !(v.flavours_gone ?? []).includes(p)))} picks={picks} onPick={setPicks} />}
           {readyToMake && whole > 0 && (
             <p className="text-sm text-muted">
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}

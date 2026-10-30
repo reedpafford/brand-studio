@@ -55,7 +55,9 @@ export function videoHold(step: VideoStepId, now: VideoProgress): { why: string;
 /** Where a link to a locked step should land: the first earlier step that isn't finished (or is out of date), since that is what blocks it. */
 export function videoBlocker(step: VideoStepId, p: VideoProgress): VideoStepId {
   const before = VIDEO_STEPS.slice(0, VIDEO_STEPS.findIndex((s) => s.id === step));
-  return before.find((s) => !done(s.id, p) || (s.id !== "cast" && isStale(s.old, p)))?.id ?? "plan";
+  // Cast blocks only when a look isn't ready: never having opened it (its ✓ waits for that) doesn't (A15, Next-Layout's 390 walk).
+  const blocks = (id: VideoStepId) => (id === "cast" ? p.assets.ready < p.assets.total : !done(id, p) || isStale(VIDEO_STEPS.find((s) => s.id === id)!.old, p));
+  return before.find((s) => blocks(s.id))?.id ?? "plan";
 }
 
 function done(step: VideoStepId, p: VideoProgress): boolean {
