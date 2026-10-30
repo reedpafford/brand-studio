@@ -11561,6 +11561,7 @@ export interface operations {
                 q?: string;
                 removed?: boolean;
                 folder?: string | null;
+                mine?: boolean;
             };
             header?: never;
             path?: never;
