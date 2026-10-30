@@ -51,7 +51,7 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
         title="New script"
         align="right"
         trigger={(p) => (
-          <Button icon={Plus} busy={make.isPending} {...p}>
+          <Button icon={Plus} busy={make.isPending} className="shrink-0 whitespace-nowrap" {...p}>
             New script
           </Button>
         )}
@@ -72,7 +72,7 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
 /** Import a reel starts from a link or a video, not words, so it keeps its own page. */
 export function ImportReelLink({ brandId }: { brandId: number }) {
   return (
-    <Link to={`/b/${brandId}/scripts/import`} className={buttonClass("secondary")}>
+    <Link to={`/b/${brandId}/scripts/import`} className={`${buttonClass("secondary")} shrink-0 whitespace-nowrap`}>
       <FileInput size={20} strokeWidth={1.75} aria-hidden />
       Import a reel
     </Link>

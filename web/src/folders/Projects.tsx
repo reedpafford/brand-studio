@@ -184,7 +184,7 @@ export function ProjectPicker({ brandId, kind, id, folderId }: { brandId: number
     <Menu
       title="Project"
       trigger={(p) => (
-        <Button {...p} variant="ghost" dense icon={Folder} trailing={ChevronDown} busy={file.isPending}>
+        <Button {...p} variant="ghost" dense icon={Folder} trailing={ChevronDown} busy={file.isPending} className="max-w-full whitespace-nowrap">
           Project: {nameOf(folderId)}
         </Button>
       )}

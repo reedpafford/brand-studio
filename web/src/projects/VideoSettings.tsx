@@ -131,7 +131,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   const chip = (f: Field) => (
     <Button key={f.key} variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setPicking(f)}>
       <span className="text-muted">{f.label}:</span> {f.valueLabel}
-      {f.price && <span className="text-xs text-muted tabular-nums">· {f.price}</span>}
+      {f.price && <>{" "}<span className="text-xs text-muted tabular-nums">· {f.price}</span></>}
     </Button>
   );
   const language = <Badge>Language: {languageName(settings.data.language)} (from the script)</Badge>;
