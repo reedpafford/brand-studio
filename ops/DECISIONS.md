@@ -176,4 +176,5 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-28 Reed (Next): a script's language is chosen when it's written; "Make a copy in another language" makes a translated, unpublished copy for the owner to check and publish; videos follow their script's language.
 - 2026-10-28 Producer (Next, rule 12): a library character in another style gets a per-video look in that style (it stays with the video); only the owner adds a style sheet to the character in Cast & places.
 - 2026-10-29 Producer (Next): budgets = usual; figures shown before a paid press = up to, never below the charge (Current rules 32).
+- 2026-10-30 Formats: only Song for now (Reed, 30 Oct); podcast/vox/whiteboard removed, recover from git if wanted.
 - 2026-10-30 Reed (via the Producer): fomo shows its actual UI, numbers and coins editable; a provided screen is attached as itself and invented only when there is none (Current rules 14). More camera movement and commotion, edgy gags kept as written, a white flash on a time jump, payoffs varied per video; a spoken line's quote stays the script's, a name's pronunciation goes in the how-it's-said note (rule 19).

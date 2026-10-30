@@ -189,8 +189,9 @@ def system(step: str, style_id: str = "house", fmt: str = "") -> str:
              if form and step in steps and k in form["sections"]]  # fmt: skip
     if guide:
         parts.append(
-            f"## Format: {form['name']}\nThis video is a {form['name']} video, drawn in the "
-            f"{chosen['name']} style above.\n\n" + _styled("\n\n".join(guide), style_id)
+            f"## Format: {form['name']}\nThis video is a {form['name']} video in the "
+            f"{chosen['name']} look: these add to the look, never change it.\n\n"
+            + _styled("\n\n".join(guide), style_id)
         )
     return "\n\n".join(parts)
 
@@ -232,8 +233,8 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
     if needed:
         lines.append(
             "Required screens. Every shot at one of these moments shows the matching screen, "
-            "attached as a reference image: logo, colours and layout exact, numbers free; a "
-            "logo-only screen comes as the logo alone, and the screen is invented around it:"
+            "attached as a reference image: keep its UI, logo and layout; the coin, numbers "
+            "and chart are what the shot says:"
         )
         lines += [_screen(s) + f" — required at: {', '.join(s['default_for'])}" for s in needed]
         by_moment: dict[str, list[str]] = {}
@@ -263,7 +264,6 @@ def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -
 
 def _screen(s: dict) -> str:
     shows = f", shows a balance of {s['balance']}" if s.get("balance") else ""  # printed on it
-    shows += ", logo-only: the logo is attached, the screen invented" * bool(s.get("logo_only"))
     return f'- screen:{s["id"]} "{s["name"]}" ({", ".join(s.get("tags", []))}){shows}'
 
 
