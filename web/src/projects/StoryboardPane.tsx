@@ -278,7 +278,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
     return (
       <section className={`${card} space-y-3`} aria-label="Storyboard">
         <p role="status" className="text-muted">
-          <JobClock queued={writingJob?.status === "queued"} making="Writing your frames…" since={writingJob?.created_at} />
+          <JobClock queued={writingJob?.status === "queued"} making="Writing your frames…" since={writingJob?.status === "queued" ? writingJob.created_at : (writingJob?.started_at ?? writingJob?.created_at)} />
         </p>
         {[0, 1].map((i) => (
           <div key={i} className="h-24 rounded-md bg-surface-2" aria-hidden />
