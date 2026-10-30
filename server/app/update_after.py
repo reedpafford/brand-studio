@@ -97,7 +97,12 @@ def start(db: Session, user: User, project: Project, start_from: str) -> list[di
         _draw(db, user, project, _redraw(db, project), tag, hold=total - steps[0]["credits"])
     else:
         _prompts(db, user, project, tag, prepaid=False)
-    return [{**s, "status": "started" if n == 0 else "waiting"} for n, s in enumerate(steps)]
+    held = any(
+        j.input.get(RUN) == tag[RUN] and j.status == JobStatus.needs_owner_approval
+        for j in _waiting(db, project)
+    )  # past the budget: the owner's OK first
+    first = "held" if held else "started"
+    return [{**s, "status": first if n == 0 else "waiting"} for n, s in enumerate(steps)]
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:
@@ -107,14 +112,17 @@ def _waiting(db: Session, project: Project) -> list[Job]:
 
 def _draw(db, user, project, frames, tag, hold=Decimal(0), prepaid=False) -> None:
     """Each frame's still, every input made first so a refusal starts none; the first is
-    checked with `hold` too (the price of the stills and steps after it)."""
-    from app.routes.jobs import enqueue
+    checked with `hold` too (the price of the stills and steps after it). Held for the
+    owner, the rest wait with it."""
+    from app.routes.jobs import HELD, enqueue
 
     inputs = [{**storyboard.render_input(db, project, f), **tag} for f in frames]
-    later = (len(inputs) - 1) * _still(db, project)
+    later, wait = (len(inputs) - 1) * _still(db, project), ""
     for n, job_input in enumerate(inputs):
-        enqueue(db, user, "image", job_input, project=project, provider="replicate",
-                prepaid=prepaid or n > 0, hold=hold + later if n == 0 else Decimal(0))  # fmt: skip
+        job = enqueue(db, user, "image", job_input, project=project, provider="replicate",
+                      prepaid=prepaid or n > 0, hold=hold + later if n == 0 else Decimal(0),
+                      wait=wait)  # fmt: skip
+        wait = wait or job.input.get(HELD, "")
 
 
 def _prompts(db, user, project, tag, prepaid=True) -> None:

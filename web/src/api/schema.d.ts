@@ -861,6 +861,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/{job_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline Job
+         * @description Owner says no to a held job: it never runs and nothing was charged; the reason is its
+         *     error, for whoever asked.
+         */
+        post: operations["decline_job_jobs__job_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/{job_id}/cancel": {
         parameters: {
             query?: never;
@@ -3952,8 +3973,8 @@ export interface paths {
         put?: never;
         /**
          * Estimate Clip
-         * @description What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
-         *     answers 409 with the same plain words Generate would (never sent to the owner).
+         * @description What Generate would cost. Nothing is queued. Past the editor's weekly allowance,
+         *     Generate would wait for the owner: `needs_owner_approval`, and why in `reason`.
          */
         post: operations["estimate_clip_clips_estimate_post"];
         delete?: never;
@@ -5652,6 +5673,14 @@ export interface components {
             /** Default */
             default?: boolean | null;
         };
+        /** DeclineIn */
+        DeclineIn: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
         /** DeletedOut */
         DeletedOut: {
             /** Moved */
@@ -6419,6 +6448,11 @@ export interface components {
              * @default
              */
             waiting: string;
+            /**
+             * Held
+             * @default
+             */
+            held: string;
             /** Retry Of Id */
             retry_of_id?: number | null;
             /**
@@ -6507,6 +6541,11 @@ export interface components {
              * @default
              */
             waiting: string;
+            /**
+             * Held
+             * @default
+             */
+            held: string;
             /** Retry Of Id */
             retry_of_id?: number | null;
             /**
@@ -8886,7 +8925,7 @@ export interface components {
             /** Credits */
             credits: number;
             /** Status */
-            status?: ("started" | "waiting") | null;
+            status?: ("started" | "held" | "waiting") | null;
         };
         /** UploadOut */
         UploadOut: {
@@ -11721,6 +11760,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_job_jobs__job_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeclineIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

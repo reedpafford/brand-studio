@@ -24,7 +24,7 @@ class UpdateStep(BaseModel):
     step: Literal["storyboard", "stills", "clip_prompts"]
     what: str  # "Make the storyboard again (6 frames, 6 stills)"
     credits: int  # rounded up
-    status: Literal["started", "waiting"] | None = None  # after the press
+    status: Literal["started", "held", "waiting"] | None = None  # held: waits for the owner
 
 
 class UpdateOut(BaseModel):

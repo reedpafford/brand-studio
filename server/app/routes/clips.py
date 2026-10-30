@@ -262,15 +262,14 @@ def estimate_clip(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
-    answers 409 with the same plain words Generate would (never sent to the owner)."""
+    """What Generate would cost. Nothing is queued. Past the editor's weekly allowance,
+    Generate would wait for the owner: `needs_owner_approval`, and why in `reason`."""
     plan = _plan(db, user, body, request.app.state.storage)
-    if declined := over_allowance(db, user, plan.credits):
-        raise HTTPException(409, declined)
+    held = over_allowance(db, user, plan.credits)
     return EstimateOut(
         credits=plan.credits,
-        needs_owner_approval=False,  # Quick clips are never held now (Reed, 2026-10-25)
-        reason="",
+        needs_owner_approval=bool(held),  # Reed, 30 Oct: "Hold requests"
+        reason=held,
         auto_screen_ids=plan.auto_screen_ids,
         **{k: len(v) for k, v in plan.files.items()},
     )
