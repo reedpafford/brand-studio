@@ -49,6 +49,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
+| Breakdown, Split the clip (#1013) | A split renumbers the clips after it; an unchanged later clip loses its picked take and is priced again | `carry_clips` matches old to new clips by their shots, taking the new number (maybe `carry_frames` too) | #1013 at 49486fae |
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | V2 (to walk) | `song_breakdown(written=False)` by default now; walk the editor's flip/split/join route when it lands | — | #755 at 691a5eb5 |
@@ -155,4 +156,234 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #842 at 6695ab56 (KIE adapter for Suno, off) | Off unless BS_KIE_SUNO and KIE_API_KEY; no key in code; mocked network; song tests + my song walks | PASS |
 | 2026-10-29 | #831 at d510f8e5 | 18 inputs (name after a genre word, "the", lowercase bands); test_song (20) | PASS |
 | 2026-10-29 | #829 at 88bbf0ad, #818 at 58d5c209 | Song switch to 40 s then Make video (409, way on), rewrite + remake (40.07 s, current); #818 next merged only | PASS both; note: "1 of the clips were" |
+| 2026-10-29 | #851 at 8fcccdbf (S3a song-ad study, free) | Upload done; busy 409; cancel; blocked link; re-study after a done one; approved version; lyrics untouched | FAIL: a failed re-study deletes the finished study (frames dropped at start), no Undo |
+| 2026-10-29 | 05:44 check-in: #853 at cccf5fcb (narrated sound, music bed, narrator on the format); #777 at 10d7805f (next merged in) | 19 of 20 house prompts identical; narration_text, format_advice, music check; test_narrated (7) | #853 FAIL: "no vocals" / "without any singing" flagged as asking for a voice; #777 no change, no link |
+| 2026-10-29 | #857 at c4819084 (S3a screen: Study a song ad) | Code and vitest (221), tsc, eslint | PASS; notes: "couldn't open that reel" for uploads too; no Stop while running; must show a failed reason above a kept study once #851 is fixed |
+| 2026-10-29 | #857 at 05291860 | Failed wording | PASS: "We couldn't study it: …" for links and uploads |
+| 2026-10-29 | #851 at c2f558c0 | Failed re-study over a done one; good re-study; cancel over done and first; Remove/Undo; tests (12) | PASS; #857 follow-up shows `attempt` above the kept study |
+| 2026-10-29 | #862 at af72f9ce (P3 automatic fixes) | test_clip_takes (13); Make clip while retry waits; edit prompt while retry waits, then let it run | FAIL: the waiting retry runs the old prompt, charges 5, take shows current |
+| 2026-10-29 | #853 at 55c50456 | Music check on 11 phrasings; test_narrated (7) | PASS; notes: "no vocals but a choir sings" not flagged, "vocals-free" flagged |
+| 2026-10-29 | #863 at 7929c28c (P3 screen: retry line, Fixed for you + Undo) | Code and vitest (303), tsc; Undo after an edit | FAIL: auto_fix survives an edit (#862), Undo 409s and the card says "try again" forever |
+| 2026-10-29 | #858 at 237f6527 (N1 narration step 1) | test_narration (6), song regressions (73/74, my old setup), publish with old narration, editor over week, quote vs charge, double press | PASS; notes: double press makes two narrations; wording; ~0.06 shows "free" |
+| 2026-10-29 | #864 (real Suno on the test site) | Not walkable until Reed sets the key; no paid call from Flow-QA | — |
+| 2026-10-29 | #865 at 0324c487 (cost bar, part 1) | vitest 718, tsc, Playwright full at 1440 and 390 (55 passed, 1 skipped) | PASS |
+| 2026-10-29 | #863 at 3eb91b26 | Undo shows the server's reason | Half fixed; waits on #862 clearing auto_fix on an edit |
+| 2026-10-29 | #862 at b4d3ef79, #863 at 3eb91b26 | Edit (inside a Shot line) while the retry waits: retrying null, retry cancelled, 0 charged; fix then edit clears auto_fix, Undo 409 with reason | PASS both |
+| 2026-10-29 | Live finding (main and next) | Words added after the closing "Audio:" line of a clip prompt: PUT reply keeps them, the next GET drops them (clip_prompts.repair on the list) | FAIL, to the Producer for an owner |
+| 2026-10-29 | #868 at d756188d (main: words after the audio line kept) | Repro: save, 3 loads (kept once, stable), edit the moved words; clip tests (23) | PASS; note: the words move above the Keep line on the next load |
+| 2026-10-29 | 06:37 check-in: #866 at 03ddd719 (Director: scene plan P1) | 20 house prompts identical; check.plan on a sample (missing, order, twice); tests (112) | PASS; notes: narrated "sentences" vs script lines; "lines 1 are"; not wired yet |
+| 2026-10-29 | #866 at 6185531b | Narrated lines whole; "line 4 is" | PASS (nit: "lines 1, 2 are not a script line") |
+| 2026-10-29 | #871 at 15127e2e (new step order: Plan · Cast · Storyboard · Clips · Final cut) | vitest 732, tsc, Playwright full at 1440 and 390 (55 passed, 1 skipped); old links | FAIL: problems and a link still say "Approve … in Assets"; the step is Cast |
+| 2026-10-29 | #851 at b01bbc99 (next merged in, n04 after n02) | One alembic head; study, directions, final cut tests (24) | PASS |
+| 2026-10-29 | #873 at 8e86ba8a (Format and Look step 1: ST1, ST3, VS1) | test_looks (4); code read for VS1 | FAIL: a video's look change marks nothing out of date (same as VS1 Shape); "ask the owner" in the editor's message |
+| 2026-10-29 | #871 at 699c1e47 | Messages and link say Cast; server tests (15) | PASS |
+| 2026-10-29 | #873 at 2be90844 | Look change: stills and clips out of date, redo price, Make video 409, Undo restores; Off message; tests (25) | PASS; n07 must be re-pointed to next's newest migration before merge |
+| 2026-10-29 | #875 at 88a6a377 (S3a Stop and 10-minute limit) | test_song_study (12); code read | PASS; notes: #857 needs Stop while running; Stop-vs-finish race |
+| 2026-10-29 | #858 at 013e8492 (next merged in, n05 after n04) | One alembic head; narration, study, song tests (38) | PASS |
+| 2026-10-29 | #876 at 236474b9 (P1 Plan step, part 1) | Code and vitest (740), tsc; hidden without plan_status | PASS; notes: price from the route's estimate once it lands; no Stop while running |
+| 2026-10-29 | #862 at 211a8ea8 (next merged in) | test_clip_takes (14) | PASS; n06 and #858's n05 both follow n04: re-point the second |
+| 2026-10-29 | #877 at a5f19e45 (cost bar part 2: Clips) | vitest 733, tsc, Playwright full at 1440 and 390 (55 passed, 1 skipped) | PASS |
+| 2026-10-29 | 07:30 check-in: #875 at 2c4466ea (race), #877 at 567b8cac (rewrite waits for its price), #873 at fc0725a7 and #866 at 0ffd2499 (next merged in) | test_song_study (13), test_looks (5), test_plan (5) | PASS all; #873's n07 now also follows n04 |
+| 2026-10-29 | #869 at 7950de1b (Director: P4 advisory check, P3 on-screen text fix) | 21 house prompts identical; text_on_screen on 7 phrasings; tests (107) | FAIL: "No captions, no text overlays", "without any on-screen text", "No text on screen" stripped and reported as fixes |
+| 2026-10-29 | #878 at 134233b2 (main: the save puts the words where they stay) | Repro: PUT == GET, stable, once; Shot edit; tests (14) | PASS |
+| 2026-10-29 | #879 at 6b00f7be (Stop on the study card, attempt failure above a kept study, tenths, no_facts lifts) | vitest 535, tsc | PASS; merge #875 first or with it |
+| 2026-10-29 | #858 at 2055786a (next merged in) | test_narration, test_song_takes, test_kie, publish with old narration (36) | PASS |
 | 2026-10-29 | #781 at 9ad11b40 (next merged in) | Full browser suite (55 passed) + V2a walk at 1440 and 390 | PASS (the Delete interim stays until #802) |
+| 2026-10-29 | #869 at e1e94cd2 (safeguards stay) | text_on_screen on 6 phrasings; test_item_check | PASS: "No captions…", "without any on-screen text", "No text on screen" unchanged; "bold text", "title card", "captions under her" removed |
+| 2026-10-29 | #864 at bef43a05 (real Suno on the test site, test budget) | test_kie, test_song_takes (33); budget repros; deploy env | FAIL: a video put away mid-song stops counting toward the budget; "used up" note not on screen |
+| 2026-10-29 | #858 at b068ef81 (narrator reads check.narration_text) | narration_text on 8 scripts; 153 narration/song/check tests with fix | FAIL: prose + "CTA:" line → nothing to read ("Write the words first"); one "Name:" prose line drops the rest; n05 still on n04 |
+| 2026-10-29 | #883 at c998d91f (P3 retried, auto_fix.before) | test_clip_takes (14); stored auto_fix rows all carry before | PASS (screen: put "Tried again once on its own" by the newest take) |
+| 2026-10-29 | #882 at a904afb9 (V6 song on Final cut) | code walk; take removal after a switch | FAIL: removing the final's take hides "now uses take N"; non-song videos fetch /songs (409 ×4) |
+| 2026-10-29 | #882 at ca27118b (both fixes) | finalsong + videosong (13) | PASS |
+| 2026-10-29 | #881 at adb76baa (cost bar: Storyboard) | Playwright 1440 + 390: empty, Approve all, Redraw in bar; vitest projects (317) | FAIL: while Redraw is in the bar, bulk "Make N stills" is hidden (over-budget redraw leaves only per-card presses) |
+| 2026-10-29 | #885 at 3cef0f71 (S3a study link on the stand-ins) | test_song_study + test_reel_import (30); failure state on screen | PASS (walk on the test site once deployed) |
+| 2026-10-29 | #864 at 6e0a4074 (both fixes) | test_kie + 2 budget repros (13); songs + videosong web (33) | PASS |
+| 2026-10-29 | #887 at 350deb53 (narration_text: prose with a direction or "Name:" line) | 9 scripts; test_narrated (8) | PASS (edge for the Director: SCENE headings + one "Iron Paws:" line still drops prose) |
+| 2026-10-29 | #886 at 80f9ec50 (P3: on-screen text out of clip prompts) | reword on 6 prompts; 18 tests | PASS (Director: quoted drawn text "big text \"SALE\"" is kept) |
+| 2026-10-29 | #863 at 30eab39e (Undo fix, newest-take line) | autofixes + clips (34) | PASS (nit: "(busy)" raw code) |
+| 2026-10-29 | #888 at b8050325 (Videos in the menu, homes) | Playwright 390 + 1440: homes, tab, back link, old link; shell + phone e2e (11) | FAIL: old ?view=videos link stays on Scripts (params mutated in render; StrictMode) |
+| 2026-10-29 | #889 at 9e8e7e1f (Final cut banner names the song; one full stop) | finalsong + songstudy + downloads (17) | PASS |
+| 2026-10-29 | #881 at 95e50919 (Make N stills kept grey; "The plan changed"; "1 credit") | vitest projects (321); step name check | PASS (old ProjectPage EstimateNote says "Breakdown", "1 credits": owner to delete or rename) |
+| 2026-10-29 | #890 at 1914e0f0 (drawn words in quotes) | text_on_screen on 9 prompts; test_item_check (2) | FAIL: a shot that is only drawn text is emptied ("Shot 1 | 0-3 s."); on next since #869 (missed in my #869 walk) |
+| 2026-10-29 | #891 at a1928c52 (P4 advisory check, server) | checking/ok/advice/Looks fine/review/skipped/failed; test_item_checks + migrations (6) | PASS (notes: a queued check holds 0.2 credits; check cost to show in Video settings before real checks) |
+| 2026-10-29 | #888 at dca52d6a | Playwright 390 + 1440 again | still FAIL: old ?view=videos link stays on Scripts (fix not in) |
+| 2026-10-29 | #893 at b7f56c4d (P1/P2 plan, server) | E, make, Stop, 10-min limit, Advice, edits, by hand, Earlier plans, approve, old video; test_plan_route + repro (4) | FAIL: after Earlier plans the shots from a newer plan aren't "Made for an older plan" (version reused) |
+| 2026-10-29 | #890 at 6820b8f3 (no shot emptied; capital after a cut) | text_on_screen + advice on 5 prompts; test_item_check (2) | PASS (#886 must wire text_on_screen_advice on the fixed prompt) |
+| 2026-10-29 | #896 at 18afb0e (Videos: Needs you, waiting_on) | code walk; test_needs_you (2) | FAIL: unnamed steps read "A step didn't finish"; a failed advisory check (with #891) would flag the video |
+| 2026-10-29 | #888 at e2d2d666 (old-link fix) | Playwright 390 + 1440 | PASS |
+| 2026-10-29 | #897 at 0a8380e5 (S3a: study used as a guide for directions) | guide on/off/removed; copied line → one re-ask → fail; 26 tests | FAIL: copied-line failure shows the general message; say why and "Try again, or turn off Use as a guide" |
+| 2026-10-29 | #898 at c63dde4a (P1 web: edit, Stop, Earlier plans, Out of date) | code walk; plan + planEdits (17) | FAIL: "Update the plan" is a paid new plan promising kept scenes; Use this one on an approved plan has no confirm |
+| 2026-10-29 | #901 at 47d1494e (ST0 format chip, ST1 look picker, "Music style") | code walk; vitest scripts (234) | PASS (hidden until #873; server still says "style line" in 3 messages; live walk after #873) |
+| 2026-10-29 | #892 at e2a47360 (Director: breakdown films the plan; check.follows_plan) | prompt read; test_plan (6) | PASS (follows_plan not wired yet: with or after #893) |
+| 2026-10-29 | #901 + next (#873) live | Playwright 390 + 1440: chip, picker, use, toast, Undo, server look | PASS |
+| 2026-10-29 | #897 at 666b7028 (copied-line message) | test_song_directions (12) | PASS |
+| 2026-10-29 | #858 at a6002245 (next + #887 merged; n05 → n07) | 3 narration scripts via narration.job; narration + narrated + migrations (17) | PASS |
+| 2026-10-29 | #892 at 693e7cdd (plan rule in the message) | breakdown system prompts byte-identical to next; test_plan + test_prompts (115) | PASS |
+| 2026-10-29 | #891 at 5092a41f (scope key_takes, check_credits_per_video, approved_with_advice) | item_checks + approve_all + migrations (8) | PASS (notes: estimate skips prop-only key clips; V.O. counts as speaking; approved_with_advice over all picked) |
+| 2026-10-29 | #902 at 78aaa19e (P4 screens: notes chip, Review, summary) | code walk; vitest projects (328) | PASS (gaps owned: paused line, "approved with Advice") |
+| 2026-10-29 | #896 at dda65d8a (advisory skipped, steps named) | test_needs_you (3) | PASS |
+| 2026-10-29 | #898 at e9500ec3 (Make a new plan label; confirm on Use this one; toast) | plan + planEdits (18) | PASS |
+| 2026-10-29 | #891 at 86d811d8 (check skipped if it would take the room for one more take) | item_checks + approve_all (5) | PASS |
+| 2026-10-29 | #883 at c2a62e4f (merge of next) | clip_takes + looks (19) | PASS |
+| 2026-10-29 | #905 at f0642ba4 (Approve all in the bar: Cast, Clips) | code walk; vitest projects (327) | PASS |
+| 2026-10-29 | 10:16 check-in: merged #858 #881 #883 #888 #889 #890 #892 #897 #901 | — | — |
+| 2026-10-29 | #902 at 54d460d9 ("N approved with Advice") | vitest projects (333) | PASS |
+| 2026-10-29 | #896 at c27a69d0 (merge of next) | — | PASS stands |
+| 2026-10-29 | #906 at 813934e2 (M14 part 1: out of date stays viewable, paid presses wait) | code walk; vitest projects (327) | PASS (wording: "redo the out-of-date stills" is cheaper than the whole storyboard) |
+| 2026-10-29 | #907 at 07968de0 (narrated 2a: one narration at a time, ST0 switch, narrator check, narrated clip prompts) | narration + narrated + song_takes (41) | PASS |
+| 2026-10-29 | #908 at 3afac6ce (ST2 banned words per look) | look_words on 7 prompts; styles + song (40) | FAIL: safeguards rewritten ("no blood, no gore" → "no glow, no ,"; "not floating" → "not resting"; "Not photorealistic" → "Not stylised") |
+| 2026-10-29 | #906 at 03c0ad93 (archive lands on Videos with Undo) | vitest projects + videos (334) | PASS |
+| 2026-10-29 | #909 at 29596fd2 (Narrated format: S1, N1, V6n screens) | code walk; vitest scripts + finalsong (243) | FAIL: Make another live while timing (server 409s) |
+| 2026-10-29 | #910 at c70a64c (BR1 server: owner-only edits, CTA lines, defaults) | brand_setup + brands + migrations + variants (24); Look tab fields | FAIL: PATCH /brands is owner-only for all fields, so editors lose logo, colours, fonts, tone, never say, legal, end line (Look tab) |
+| 2026-10-29 | #908 at 4643ed19 (negated matches skipped; not/never) | look_words on 7 prompts; styles + item_check + song (42) | PASS (notes: add "nothing"; a removal can leave "Notably .") |
+| 2026-10-29 | #906 at 31aeab1b (merge with #905) | vitest projects + videos (336) | PASS |
+| 2026-10-29 | #910 at 48072c78 (403 only for BR1 fields) | brand_setup + brands + variants (21) | PASS (Reed: editor never say/end line write through to BR1) |
+| 2026-10-29 | #893 at 4d2b36f7 (one next version; follows_plan wired, leftovers as Advice) | version repro; plan_route + plan (10) | PASS |
+| 2026-10-29 | #886 at 624a68da (text_on_screen_advice on the fixed prompt) | reword on 2 prompts; clip_takes + item_check (18) | PASS |
+| 2026-10-29 | #909 at 04350686 (Make another waits while timing; "Wait for the narration to finish") | vitest scripts + projects (587) | PASS |
+| 2026-10-29 | #912 at 6ba27460 (narration music bed, narrated mix) | code walk; narration + needs_you (18) | FAIL: no off switch for real Stable Audio (only generation_enabled); "Nothing was charged" wrong when the prompt succeeded and the bed failed |
+| 2026-10-29 | #910 at 026f3b51 (merge of next) | brand_setup + brands + migrations (21) | PASS |
+| 2026-10-29 | #914 at 7b944b0a (retry line in words; focus after Review and Change this…; params kept) | vitest projects (341) | PASS |
+| 2026-10-29 | 11:09 check-in: merged #863 #891 #892 #896 #901 #902 #905 #906 #907 #908 #910 | — | — |
+| 2026-10-29 | #913 at 2226ccb9 (Looks fine Undo, paused, truer estimate) | item_checks (4) | PASS |
+| 2026-10-29 | #898 at 0756510f (Not yet keeps the editor; confirm names what goes out of date) | plan + planEdits (19) | PASS |
+| 2026-10-29 | #893 at dd2fbb2d (merge; "Check the scene plan" in Needs you) | plan_route + plan + needs_you + migrations (15) | PASS |
+| 2026-10-29 | #916 at 89a77563 (BR1 screens: voice, CTA lines, defaults) | code walk; vitest brand (29) | Producer: not intended; Next-Screens to give editors tone notes, never say and end line back (re-walk) |
+| 2026-10-29 | #915 at 685c295f (Videos home groups; /projects → Videos) | Playwright 390 + 1440; vitest videos + projects (349) | PASS |
+| 2026-10-29 | #917 at f9f32934 (M14 part 2 server: Update everything after this) | code walk; update_after + storyboard (11) | PASS |
+| 2026-10-29 | #893 at 657174e6 (merge of next) | plan_route + plan + needs_you + migrations (16) | PASS |
+| 2026-10-29 | #915 at 74550901 (Done label; earlier-way New video back link) | vitest videos + projects (349) | PASS (back to Scripts is right: the earlier-way list is on Scripts) |
+| 2026-10-29 | #912 at a43c4046 (music off by default with a budget; true charge message; bed-only retry) | narration + needs_you (19) | PASS |
+| 2026-10-29 | #893 at 9afd850a (★ with no product or screen: 409 with the way out) | plan_route + plan (9) | PASS |
+| 2026-10-29 | #916 at 4133068a (merge of next after #910) | KitPage editor body | FAIL: editors still lose tone notes, never say, end line (Producer asked to keep them) |
+| 2026-10-29 | #918 at 2e459e39 (ST2: look words fixed in clip prompts and stills, with Undo; look fixes offered) | look_words + clip_takes + item_checks + storyboard (30) | PASS |
+| 2026-10-29 | #919 at 6960953a (ST0 Dialogue↔Narrated with Undo; narrator check; sentence times) | code walk; vitest scripts (250) | PASS |
+| 2026-10-29 | #916 at e3af3c93 (editors keep tone notes, Don't/never say, End line) | vitest brand (29) | PASS |
+| 2026-10-29 | #920 at 7e33b1a4 (N1: nothing to read → songs_note, price 0) | narration (16) | PASS server (screen must show songs_note as the press reason, else "· 0 credits" then refused) |
+| 2026-10-29 | #898 at e5291fe2 (12:14 check-in) | PASS: a ★ with no brand product shows #893's 409 sentence once, with Add a product (Products tab, editors too); no toast, nothing saved; older-server fallback says the ★ wasn't kept. Follow-up: clear the ★ line on a non-409 error so a later refusal isn't hidden. #909, #912, #913, #915, #917 left the open list. #854 CI running |
+| 2026-10-29 | #918 at f7a1d745 (next merged in) | PASS: the merge only touched imports; look words, narration and storyboard tests 26 passed |
+| 2026-10-29 | #921 at 4af7948b; #918 at 574cb4c2 | #921 PASS for its own presses (Updating…, done, over budget, one press in the bar, Stopped at {step}); flow FAIL on #917's stop that outlives its fix (open below). #918 PASS (next merged in only) |
+| 2026-10-29 | #898 at fc86b412; #916 at c4cadde9 | #898 PASS (next with #893 merged in; plan page unchanged; the non-409 note stays open, not blocking). #916 PASS: Default cast with no characters says so, with Add one in Cast & places |
+| 2026-10-29 | #922 at 61c156c0 | PASS: a still redrawn with its own press clears the Stopped banner (Out of date → Open Clips comes back). New: a frame to fix first stops the run at Clips, not Storyboard (open above) |
+| 2026-10-29 | #919 at 3bc09e40 | Narration with no words fixed (greyed, the reason, no price): that row closed. Music states PASS. FAIL: Try the music again past the editor's week (open above) |
+| 2026-10-29 | #919 3bc09e40 + #920 7e33b1a4, merged together | PASS live at 1440 and 390: headings only → Make the narration greyed, no price, "Write the words first…"; Next: Cast says why, Back leads to the words; with words the narration and its music are made on the stand-ins |
+| 2026-10-29 | #923 at 61aaf2c6; #924 at 711029ea | #923 FAIL: the earlier way's breakdown is refused with no Plan step (open above); new videos and old ones with a breakdown PASS. #924 PASS: every look's sample person passes its own word check |
+| 2026-10-29 | #925 at 837642ba (VS1 server) | Prices, preview, Out of date and back, Sung ↔ B-roll, 403 for others' videos, Make video's refusal: PASS. FAIL: Undo refused over the cap (open above) |
+| 2026-10-29 | #926 at 40919a9b (VS1 screen) | FAIL: its API shape isn't #925's (open above). Full walk once they agree |
+| 2026-10-29 | #927 at ac0b65b6 (ST3 server) | Owner only, hero / pick / the look's own person, one price, second press refused, Switch on needs the clip: PASS. FAIL: Try again after a failed clip remakes the still (open above) |
+| 2026-10-29 | #922 at e7aef548 | PASS: a frame to fix stops the run at the stills, "Fix shot 1.1 on Storyboard and draw it…" (Open Storyboard); drawing it clears the stop. The open row for it is closed |
+| 2026-10-29 | #928 at 0acd4228 (P1 Change this scene, Update the plan) | PASS for both presses, their refusals and Earlier plans. FAIL: an edit during a scene change drops the paid result silently (open above) |
+| 2026-10-29 | 13:17 check-in; #919 at 542db621 | #919 PASS: a format switch without the current step lands on Script. #898, #914, #918 merged. Open PRs into next: #916 #919 #920 #921 #922 #923 #924 #925 #926 #927 #928; none into main. Holding #923, #925, #926, #927, #928 (open above) |
+| 2026-10-29 | #929 at 2d58eaa5 (ST2 screens, #898 follow-ups, #923's way on) | PASS: Undo only before the still is drawn; look tips; the #898 notes closed; Open the plan from the old page. FAIL: two one-line fixes (open above) |
+| 2026-10-29 | #927 at 6733ab92 | PASS: after a failed clip, Make a sample makes only the clip from the kept still at the clip's price (5); ready, then Switch on works. Open row closed |
+| 2026-10-29 | #922 at 2b352389; #930 at 6e35749e | #922 PASS: a stop waits on each still it named. #930 server PASS (sheets per look, Make a {look} look priced); FAIL with the screens: made work locked out (open above) |
+| 2026-10-29 | #919 b798db49; #925 51f8258e; #926 91576f5a; #929 c825f460 | #919 PASS (paid retries wait past the week): row closed. #925 PASS (Undo never refused with undo:true): row closed. #926 shapes match #925; Undo flag still missing. #929 link dropped (fix 1 closed); fix 2 open |
+| 2026-10-29 | #923 at 91e56824 | PASS: only a video made from a script waits for its approved plan; the earlier way makes its breakdown as before. Open row closed |
+| 2026-10-29 | #932 at 7bc1f85a (BR1 product line and claim) | The prop page PASS (owner edits, editor read only with the reason, Advice). FAIL: no way there from the Brand page (open above) |
+| 2026-10-29 | #927 at 5ae09626 | PASS: a still with no picture reads failed with the way on, never "making" for ever. Note: that job stays succeeded, so it's charged; fail it uncharged if the worker allows |
+| 2026-10-29 | #928 at 750f4ecc | PASS: an edit while a scene change runs is refused with the reason; the paid scene lands, then the edit saves. Open row closed |
+| 2026-10-29 | #929 at 7ae54fdb | PASS: Fixed for the look shows only while the prompt is the fixed one, so it goes after Undo. Open row closed |
+| 2026-10-29 | #933 at 3cfb6d5c (P1 Change this scene, Update the plan screens) | Press, price, ask first, Update the plan: PASS. FAIL: the typed note is lost on Not yet or a refusal (open above) |
+| 2026-10-29 | #934 at 116f2fd2 (S6, the owner's plan on a version) | Make, by hand, edit, stop, approve, read only once published, preview after approval: PASS. FAIL: a preview older than the plan is carried into the video (open above) |
+| 2026-10-29 | #932 at 686cf621 | PASS: the Products tab links to the props in Cast & places, where each product's line and claim live. Open row closed |
+| 2026-10-29 | 14:21 check-in; #925 51f8258e + #926 68522998 live | VS1 PASS at 1440 and 390: the row with prices, the confirm "To finish: about 22 credits (was 30)", Switch, Undo; over the cap 2.5 greyed, 2.0 fits, Undo back to Auto with no refusal; the phone sheet. Open row closed. Merged since 13:17: #916 #919 #920 #921 #922 #924 #927 #929. Holding #930, #933, #934 |
+| 2026-10-29 | #933 at 7bb57251 | PASS: the scene note stays through Not yet or a refusal; a scene job shows Making the plan… with Stop. Open row closed |
+| 2026-10-29 | #935 at c5de5658 (ST3 Looks page) | Owner only, House always on, make → making → ready → Switch on, failed → Try again, Switch off with Undo: PASS. FAIL: loading for ever with no brand (open above) |
+| 2026-10-29 | #926 at 783f3554 (next merged in) + #925 | VS1 live walk again at 1440 and 390: switch, Undo, over the cap, the phone sheet: PASS |
+| 2026-10-29 | #935 at a7891301 | PASS. My no-brand FAIL withdrawn: with zero brands the shell shows "No brands yet" in place of /looks, so it can't be reached; Make another sample keeps the picked character. Open row closed |
+| 2026-10-29 | #936 at eb32ed12 with #930 at 724e0a9d | PASS: made work in another look stays open; its paid presses wait with "Waiting on the cast" and Open Cast. Open row closed. Follow-up (not blocking): hold #921's Update everything after this on the same cast line |
+| 2026-10-29 | #937 at d997cb0b (languages list, VS1/BR1) | PASS: English on, others off; an editor's off language refused with the way on, the owner's allowed; unknown 422; brand default off → an editor's script starts in English; the check only on create |
+| 2026-10-29 | #926 at 0cf5d8af (next with #925 merged in) | PASS: settings code unchanged; its videosettings.e2e 6 passed; over the cap, switch to fit and Undo back to Auto at 1440 and 390 |
+| 2026-10-29 | #934 at 90b344d5 | The older preview no longer lands; the breakdown films the owner's plan. FAIL: its price goes unsaid ("Starting is free") (open above) |
+| 2026-10-29 | #938 at 2d2f6b69; #939 at b9f5f06f | #938 PASS (test only, 3 runs green). #939 PASS: a refused Update everything after this says why and stays pressable for a retry after a fix elsewhere; note: clear the old reason when the price changes |
+| 2026-10-29 | 15:40 check-in | Every open head already walked. Merged since 14:21: #923 #925 #926 #928 #932 #933 #937 #938. Open into next: #930 + #936 (PASS, merge together), #935 PASS, #939 PASS (cast-line follow-up coming), #934 held ("Starting is free" while charged). None into main. #854 green |
+| 2026-10-29 | #941 at 2dd9a08b (Make this version makes the plan first) | PASS: plan first at the quoted price, declined call undoes the project, failed plan's way on, song.e2e live. FAIL (words): "(the breakdown)" on the panel (open above) |
+| 2026-10-29 | #942 at 0efd0f47 (web side of #941) | PASS: the panel says the plan is made first; the toast says plan or shots. #941's words row closed. Note: the price line says "(the plan)" for an owner-plan version too |
+| 2026-10-29 | #941 at 6deca1bb + #942 0efd0f47 | PASS together: #941's own wording backed out, #942 carries it; they merge cleanly |
+| 2026-10-29 | #943 at 1e5df668 (ST1 look change confirm; VS1 counts the looks) | PASS: roles needing a look, to finish (was), an off look refused, the editor's week (probe), published refused, VS1 preview includes the looks. Note: the PATCH doesn't hold over the week (free); the screen must |
+| 2026-10-29 | #939 at 60ac28b5 | PASS: Update everything after this waits on the cast line with the same reason; #936 follow-up closed |
+| 2026-10-29 | #934 24101532; #941 3381e073 + #942; #944 7f8e8387 | #934 PASS (Make this version priced when the preview predates the plan; its row closed). #941+#942 PASS: song and narrated e2e live (9). #944 FAIL: a failed copy has no Try again (open above) |
+| 2026-10-29 | #946 at fa40fad6 (OR1 projects, server) | PASS: make (dup 409), file (editor own yes, others' 403, owner any, other brand 409), rename/delete rights, delete moves to No project, Undo restores |
+| 2026-10-29 | #947 at ce656821 | PASS: the cast-line hold on Update everything after this (same as walked at 60ac28b5; #939 merged without it) |
+| 2026-10-29 | #948 at 143d197d (ST1 look change confirm, web) | PASS with #943: roles and To finish (was), Change greyed over the week, Not yet keeps the picker for a cheaper look, Undo free; safe before #943 (404 → as before) |
+| 2026-10-29 | #944 at 56234904 | PASS: a failed copy says so with a priced Try again; Redo beside Approve this look. Open row closed |
+| 2026-10-29 | 16:35 check-in; #945 87aaad37; #949 ac39f43d | #949 PASS (test setup only). #945 alone is right, but FAIL merged with #934 (open above). Clear to merge: #934, #941+#942, #943, #944, #946, #947, #948, #949. None into main |
+| 2026-10-29 | #945 at b7c66d4d | PASS: the guard keeps #934's owner plan working; merged with #934, 26 tests pass. Open row closed |
+| 2026-10-29 | #946 at eee71958 | PASS: an editor's video count is their own; OR1 rights, delete and Undo re-probed. Note: an editor's delete confirm counts only their items |
+| 2026-10-29 | #952 at 88cc3834 | PASS: VS1's look switch confirm names the roles needing a new look (ST1) |
+| 2026-10-29 | #945 a0752c67; #941 58b94d73 (both with #934 in) | #945 PASS (read_again covers the version's stand-in). #941 PASS: all four produce paths priced right (no plan → plan job; preview → free; owner plan → shots; older preview → fresh shots) |
+| 2026-10-29 | #954 at 60cabd90 (OR2 Media, server) | PASS: empty list, items with Open in {step} and Download, editor sees only what they can already open, deleted video flagged, filters. Note: sheets have no made_by |
+| 2026-10-29 | 17:27 check-in; #950 at 0fab818b (OR1 screens) | Projects list, New/Rename/Delete with Undo, filters, phone sheet, pickers on videos and clips: PASS. FAIL: the script picker for editors (open above). Clear to merge: #944 #945 #947 #948 #952 #954. None into main |
+| 2026-10-29 | #955 at b4337442 (S6 screens) | PASS: a version's Scenes (optional, free Approve) then Shots; "Made for an older plan." with Make the preview again; video-only parts hidden; published read only. scripts.e2e live 9 |
+| 2026-10-29 | #950 at 29874519 | Owner walk PASS live (projects-or1.e2e 1440 and 390); the script-page picker guard still open |
+| 2026-10-29 | #956 at e30fc287 (VS1 settings at Make this version) | PASS: settings land on the new video; an off look (409) or bad model (422) makes nothing and leaves the version free; song version Sung → B-roll on 2.0 |
+| 2026-10-29 | #958 at c37a062f (OR4 cost log, server) | PASS: owner per-project and per-video in dollars, spend follows filing, editors 404 there and credits-only on their own videos and quick clips |
+| 2026-10-29 | #959 at e7c74e22 | PASS: a long menu scrolls inside itself; New brand reachable with 25 brands (zzmenu.e2e live) |
+| 2026-10-29 | #960 at 9f0d2ae0 | PASS: with the owner's plan approved, the version panel says "(the shots)"; closes the #942 note. scripts.test 94 |
+| 2026-10-29 | #950 Projects screens (OR1) | ff138cc6 | PASS: the script page's project picker shows only to the owner or the script's maker; projects, scripts and folders tests 648/648 |
+| 2026-10-29 | #957 Preferred and going back (OR3, server) | 5dd5236a | FAIL: Go back (breakdown) during a running storyboard. Role guards, Undo and test_preferred pass |
+| 2026-10-29 | #962 Video settings re-reads the cast after a switch | 6a9529d2 | PASS: the redraw holds on "A look in the cast isn't ready." after House to Disney Pixar; Undo lifts it; video and storyboard tests 152/152 |
+| 2026-10-29 | #965 Make this version's price line (VS1) | f029a977 | FAIL: the Look pick isn't priced. Models, cap, 409/422, nothing made, lip_sync pass |
+| 2026-10-29 | #944 Per-look sheets (web, ST2) | ea705c65 | PASS: a first sheet reads Drawing… with one POST; a failed one says nothing was charged, with Try again. Note: after a reload Make shows again and gets 409 (server should list a waiting look as drawing) |
+| 2026-10-29 | #957 Preferred and going back (OR3, server) | cfd1bc9d | PASS: Go back (breakdown) waits (409 with the reason) while a storyboard, still, clip prompts or update run is being made; role guards and Undo pass |
+| 2026-10-29 | #967 A cast character with no picture in the video's look holds the still (server) | 8aaa2b92 | PASS: redraw refused 422 before any charge; storyboard, update and redo too; 41/41. Note: a role's own House look still draws after a switch |
+| 2026-10-29 | #964 Owner-or-maker check on every video write (server) | 4eaf08ea | FAIL until the screens follow: maker flows pass (61/61); a second editor sees live presses that all get 403 |
+| 2026-10-29 | #965 Make this version's price line (VS1) | 4006096e | PASS: a Disney Pixar pick adds the look Mia needs (14.73, as VS1); {} equals the card |
+| 2026-10-29 | #967 (re-check) | eba5d522 | PASS: a test case only |
+| 2026-10-29 | #966 Media (web, OR2) | 8076c329 | PASS: rail and phone entry, Open in {step} lands on real steps, filters, empty and no-match states, editors see only their own; e2e 8/8 at 1440 and 390. Note: the maker of a deleted video gets no Restore on its tile (the server would allow it) |
+| 2026-10-29 | #963 Preferred and going back (web, OR3) | 02783aeb | FAIL: two missing holds (breakdown and clip prompt Go back). Undo targets, storyboard hold, owner-only sheets and the maker guard pass; 50/50 |
+| 2026-10-29 | #971 Import from website (server, BR2) | 3611e6ff | FAIL: Undo overwrites later edits. Owner only, free fetch then a 3-credit read only when there's something, fail/empty/nologo words, Save 409 pass; 18/18 |
+| 2026-10-29 | #963 Preferred and going back (web, OR3) | 51631ffd | PASS: breakdown and clip prompt Go back wait with the server's reason while later work is being made; 81/81. Merge after #957 |
+| 2026-10-29 | #969 Look change: the typed call | 0c22968e | PASS: "up to" wording, refusals show; scripts 262/262 |
+| 2026-10-29 | #968 Flavour from the script (n03) | 83c31b43 | PASS: defaults per version, a deleted flavour starts on Auto, Auto via Video settings; 34/34 |
+| 2026-10-29 | #970 Real look samples on the test site | b16138c0 | FAIL (QA-4; my PASS corrected): switch on with no key says "real" and sends the job to a lane with no provider |
+| 2026-10-29 | #972 Language tests switch a language on (n14) | 2b25bb54 | FAIL: Undo of Reject leaves the language off. Price shown, owner only, editors limited to On languages; 6/6 |
+| 2026-10-29 | #974 A role's own look drawn in another look holds the still | 4bf38f35 | PASS: refused before any charge; Cast offers Make a look in the video's look; House again without a new look is usable; 33/33. Next: n12 (free switch back after a new look) |
+| 2026-10-29 | #963 (re-check) | aa7e101f | PASS: next merged (with #957), the typed api; holds and Undo unchanged; 80/80 |
+| 2026-10-29 | #972 Language tests (re-walk) | 16a968f8 | PASS: Undo of Reject puts On back; no key makes a stand-in test, never a failure; 9/9 |
+| 2026-10-29 | #970 Real look samples (re-walk) | 05dc97a5 | PASS: no key makes a stand-in sample, never a failed job; the deploy writes the switch only with the key; 11/11 |
+| 2026-10-29 | #977 Read-only video for a second editor | 3d3ee0d5 (+#964) | FAIL: the Plan tabs and other show-only presses are greyed. Banner, greyed presses, cost bar reason, live steps and players pass; e2e 6/6 at 1440 and 390 |
+| 2026-10-29 | #978 Media: Restore for the video's maker | d2b8fdc7 | PASS; 11/11 |
+| 2026-10-29 | #971 Import from website (re-walk) | 682c3cb4 | PASS: Undo takes out only what Save added; later edits stay; 28/28 |
+| 2026-10-29 | #979 Own looks per look (n12) | 421137dc | PASS: switching back (or Undo) re-casts a role to its look in that look, free; the confirm counts no role; 34/34. Merge with or after #974 |
+| 2026-10-29 | #976 A first sheet in a look lists as drawing | a698ab3e | PASS: after a reload the look reads drawing (no Make); a second press still 409; 6/6 |
+| 2026-10-29 | #975 Cost log: an editor's script writing | 7aed75cb | PASS: their own calls only, never a video's twice; 3/3 |
+| 2026-10-29 | Re-checks after next merges | #963 6179c7cf, #964 09520d86, #970 45e0d907, #972 dc40fb1b | Unchanged verdicts: merges of next, and #970's test now stubs the real provider (never built in tests). #964's write tests 18/18 with #957 and #974 in |
+| 2026-10-29 | #977 (re-walk, with #964) | 9cde7ea2 | FAIL: VideoPage passes (Plan tabs and show-only presses live; 183/183; e2e 6/6); ProjectPage for older videos has no view-only |
+| 2026-10-29 | #980 Import from website screens (BR2) | 2e4ddf1f | FAIL: a paid read is lost on reload or leaving. Price first, fail/empty, review ticks, Save/Undo pass; 40/40, e2e 6/6 |
+| 2026-10-29 | #986 Make this version's quote by the video's rules | 5654894d (+ next) | PASS: quote = card; equals the video's cost incl. Nate's look (House and Disney Pixar, owner and editor); switching back free. Found: the video's to-finish misses uncast roles' looks |
+| 2026-10-29 | #977 (re-walk, with #964 and next) | 525a73b6 | PASS: the older-video page too: banner, no Rename, every changing press off, steps/Next/Show script/Versions/Open live; 184/184, e2e 6/6, #964 writes 2/2. Merge #964 and #977 together |
+| 2026-10-29 | #985 Make this version's settings row (web, VS1 + V1) | f8c1088f (+ next) | PASS: picks move the price line and go with the press; over the limit held with the reason; flavours and Auto as the server; 277/277, e2e 19/19 |
+| 2026-10-29 | #983 Cost log: an editor's week adds up to its allowance | 641c3d42 (+ next) | PASS; 30/30 |
+| 2026-10-29 | #970 (re-check) | 0556c9d3 | PASS: next merged only |
+| 2026-10-29 | #972 (re-check) | 0f6d29dd (+ next) | PASS: next merged, n14 after n12; language, language-sample and migration tests 14/14 |
+| 2026-10-29 | #980 Import from website screens (re-walk) | 1bdf8c19 (+ next) | PASS: a reload comes back to the read (reading or review); Save, Cancel, fail/empty or a gone read clear it; Cancel says it drops a paid read; the logo isn't loaded from the site; 42/42, e2e 6/6 |
+| 2026-10-29 | #970 (QA-3; my PASS corrected) | 0556c9d3 | FAIL: the real-sample budget counts each still but not its held clip, so two quick presses commit past it ($1.10 on $1). Switch-On has the fix; re-walk |
+| 2026-10-29 | #987 A video's to-finish counts first looks (VS1) | cbddf5ab (+ next) | FAIL: "Not now" drops a still-needed look from the bar. Quote = bar before and after Cast (26.36); Nate's look charged 1.70 = the bar's drop; look switch and back; 44/44 |
+| 2026-10-29 | #970 (re-walk) | ffdf755c (+ next) | PASS: a still counts with its held clip; on a $1 budget the 2nd and 3rd quick presses say stand-in before the press and go stand-in; 16/16 |
+| 2026-10-29 | #992 Languages page (owner, LG1) | ec4f03e3 (+ next) | PASS at 1440 and 390: Test · 3 credits (charge capped at it), making, the words, Reject + Undo, Switch on, Switch off + Undo, Try again, editors no page; 30/30. Note: say "up to" on Test (a Claude call can cost less) |
+| 2026-10-29 | #987 (re-walk) | 85d4aa10 (+ next) | FAIL: to_finish right (quote = card = to_finish 28.06; charge 1.70 ≤ 3.40; Not now kept); the visible cost bar (/estimate) still 24.66 |
+| 2026-10-29 | #991 A version marks a deleted default flavour | 378f93aa (+ next) | PASS: flavours_gone lists it, so the screens show Auto; 3/3 |
+| 2026-10-29 | #996 Shown price = charge on the story steps | c1f42db0 | PASS at its head (key guard in): Make the shots shows its clip prompts' rewrite; N stills rounded once (3, not 9); 16/16. Conflicts with next in storyboard.py: needs a merge |
+| 2026-10-29 | #997 Media: a deleted video's maker restores it | 12b8af07 (+ next) | PASS: the badge names the video's maker; Restore for them or the owner (the video's maker, not the item's); 2/2 + 11/11 |
+| 2026-10-29 | #987 (re-walk) | 23e999fd (+ next) | PASS: quote = card = cost bar = to-finish at every step (28.06; 24.66 after Nate's look, charged 1.70 ≤ 3.40; Pixar 31.46; Not now kept); 45/45, 112/112 |
+| 2026-10-29 | #987 (re-check) | c1c14d0e | PASS: next merged; same figures (28.06 → 24.66 after Nate's look charged 1.70; Pixar 31.46), bar = to-finish |
+| 2026-10-29 | #996 (merged head) | 9ad919aa | PASS: conflict resolved; 16/16 |
+| 2026-10-29 | #998 Languages: a test that couldn't load says why | be93b2c6 (+ next) | PASS; 7/7 |
+| 2026-10-29 | #999 Paid buttons say "up to" when the charge can be lower (rule 32) | efda27c5 (+ next) | PASS: every priced press declares estimate/fixed; 750/750. Note: Approve all could be "up to" |
+| 2026-10-29 | #1000 Web deletion pass | add5eb56 (+ next) | PASS: vitest 941/941, Playwright 68 (1 skipped) |
+| 2026-10-29 | #1001 Server delete pass | 687414da (+ next) | PASS: full suite 1049 |
+| 2026-10-29 | #1002 Restore has Undo | df16d884 (+ next) | PASS: release → restore → Undo releases again (version back to Ready to make); 18/18 |
+| 2026-10-29 | #1008 Prices as charged (web) | 6f9a015b (+ next) | FAIL: one figure rounds two ways (29 vs 28.1). "Up to" in the four places, Make the shots from /breakdown/price, stills totals rounded once; 674/674 |
+| 2026-10-29 | #1009 Look rewrite (prompt text, read only) | bbb4b1fb | Text passes (no names but Disney Pixar, no "exactly", Skeleton own sample, Zack D its own style); but sample_still_prompt/own_sample aren't wired: look_samples.py:72 still sends "exactly as in [Image1]" with the hero, Skeleton too |
+| 2026-10-29 | #1008 (re-walk) | 27f5226a (+ next) | PASS: "up to 29" in all four places for 28.06; 675/675 |
+| 2026-10-30 | #1015 Skeleton own sample (server) | aabf7014 (+ next) | FAIL: the still prompt is right, but `routes/looks._sample` still returns the hero and characters for Skeleton, so the card promises "of Mia, the brand's hero" or offers a pick that's ignored. Fix: when `own_sample`, return no hero and no characters |
+| 2026-10-30 | #1013 Song timing for shots (server) | 31a0f9d8 | PASS at its own head (guard in; 34/34), but it conflicts with next in `song_breakdown.py`: re-walk once merged |
+| 2026-10-30 | #1012 Script starts at first word (web) | 2bd657ce (+ next) | PASS: 307/307, e2e 17/17. Note: typing then leaving keeps an empty Untitled script |
+| 2026-10-30 | #1017 My credits page (web) | 624baa25 (+ next) | PASS: 42/42, e2e 6/6 |
+| 2026-10-30 | #1016 Cast blocks only while sheets are unfinished (web) | ef758953 (+ next) | PASS: 119/119 |
+| 2026-10-30 | #1014 Kit languages (web) | 9b90966a (+ next) | PASS: 51/51. Note: the Language field hides while loading or on error |
+| 2026-10-30 | #1011 Make settings, gone flavours (web) | 454b56ba (+ next) | PASS: 99/99 |
+| 2026-10-30 | #1013 (re-walk, + over-limit Split) | 7b5b8f4d (+ next) | FAIL: after Split the clip, the old 25 s clip's prompt moves onto the new 14 s c1 (same id), not stale, and Make a take charges 8.12 for it. Fix: `carry_clips` carries only clips whose shots are unchanged. Note: Split is offered for a single over-long shot, then answers 409 |
+| 2026-10-30 | #1013 (re-walk 2) | 49486fae (+ next) | FAIL: old clip no longer carried (Make a take says Rewrite first, nothing charged), the bar counts the split clips, no Split on a one-shot clip. New: a split renumbers later clips (c2 to c3), so an unchanged clip loses its picked take and the bar asks to pay again (14.5 vs 12.18). Fix: `carry_clips` matches by shots and takes the new number |
+| 2026-10-30 | #1030 Skeleton card, no hero (fixes #1015) | 9c63b376 (+ next) | PASS: no hero, no "Who's in the sample?", says the look's own sample character; Claymation still names Mia; 13/13, vitest 10/10 |
