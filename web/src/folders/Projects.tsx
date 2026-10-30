@@ -174,15 +174,25 @@ export function ProjectPicker({ brandId, kind, id, folderId }: { brandId: number
   // New project… here makes the project and files this item into it, so nobody has to leave the page for the Projects list.
   const make = useMutation({
     mutationFn: (name: string) => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name } })).then((r) => r.data!),
-    onSuccess: (made) => { setNaming(null); move(made.id, made.name); },
+    onSuccess: (made) => { setNaming(null); move(made.id, made); },
   });
   if (!folders.data) return null;
   const nameOf = (fid: number | null | undefined) => (fid == null ? "none" : (folders.data!.find((f) => f.id === fid)?.name ?? "none")); // a deleted project reads as none
-  const move = (to: number | null, name = nameOf(to)) =>
+  // `made`: the project New project just made for this item. Undo then deletes it again, unless something else was filed there since.
+  const move = (to: number | null, made?: { id: number; name: string }) =>
     file.mutate(to, {
       onSuccess: async ({ was_folder_id }) => {
         await refresh();
-        toast(to === null ? "Moved to No project." : `Moved to ${name}.`, () => file.mutate(was_folder_id, { onSuccess: () => void refresh(), onError: (e) => toast(e.message, undefined, "error") }));
+        const undo = async () => {
+          await file.mutateAsync(was_folder_id);
+          if (made) {
+            const now = (await api.GET("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } } })).data?.find((f) => f.id === made.id);
+            if (now && count(now) === 0) await must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: made.id } } }));
+          }
+          await refresh();
+        };
+        const said = made ? `Made ${made.name} and moved this there.` : to === null ? "Moved to No project." : `Moved to ${nameOf(to)}.`;
+        toast(said, () => void undo().catch((e: Error) => toast(e.message, undefined, "error")));
       },
       onError: (e) => toast(e.message, undefined, "error"),
     });
