@@ -49,7 +49,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
-| Breakdown, Split the clip (#1013) | After a split, the clip written before moves onto the new shorter clip with the same id, with its old prompt, not stale; Make a take charges for it | `carry_clips` carries a clip only when its shots are unchanged | #1013 at 7b5b8f4d |
+| Breakdown, Split the clip (#1013) | A split renumbers the clips after it; an unchanged later clip loses its picked take and is priced again | `carry_clips` matches old to new clips by their shots, taking the new number (maybe `carry_frames` too) | #1013 at 49486fae |
 | Looks, Skeleton sample card (#1015) | The card says "of Mia, the brand's hero" or offers a character pick, but Skeleton makes its own sample and ignores both | `_sample` returns no hero and no characters when the look makes its own sample | #1015 at aabf7014 |
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
@@ -386,3 +386,4 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-30 | #1014 Kit languages (web) | 9b90966a (+ next) | PASS: 51/51. Note: the Language field hides while loading or on error |
 | 2026-10-30 | #1011 Make settings, gone flavours (web) | 454b56ba (+ next) | PASS: 99/99 |
 | 2026-10-30 | #1013 (re-walk, + over-limit Split) | 7b5b8f4d (+ next) | FAIL: after Split the clip, the old 25 s clip's prompt moves onto the new 14 s c1 (same id), not stale, and Make a take charges 8.12 for it. Fix: `carry_clips` carries only clips whose shots are unchanged. Note: Split is offered for a single over-long shot, then answers 409 |
+| 2026-10-30 | #1013 (re-walk 2) | 49486fae (+ next) | FAIL: old clip no longer carried (Make a take says Rewrite first, nothing charged), the bar counts the split clips, no Split on a one-shot clip. New: a split renumbers later clips (c2 to c3), so an unchanged clip loses its picked take and the bar asks to pay again (14.5 vs 12.18). Fix: `carry_clips` matches by shots and takes the new number |
