@@ -179,8 +179,8 @@ def system(step: str, style_id: str = "house") -> str:
     if guide:
         parts.append(
             f"## Style: {chosen['name']}\nThis video is in the {chosen['name']} style. Where "
-            "this section and anything above (the worked example included, which is in the "
-            "House style) differ, this section wins.\n\n" + "\n\n".join(guide)
+            "this section and anything above (the worked example included) differ, this "
+            "section wins.\n\n" + "\n\n".join(guide)
         )
     return "\n\n".join(parts)
 
