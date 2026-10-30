@@ -94,7 +94,7 @@ def fits_model(project: Project, clip: ProjectClip) -> None:
     never sent cut short: the breakdown's Split fix makes it into clips it can."""
     m = video_model(project)
     if clip.seconds > m.duration.max:
-        raise HTTPException(409, f"Clip {clip.clip_id.lstrip('c')} is {clip.seconds} s, but "
+        raise HTTPException(409, f"This clip is {clip.seconds} s, but "
                             f"{m.name} makes at most {m.duration.max} s a clip. Split it in "
                             "the breakdown (free), then make it. Nothing was charged.")  # fmt: skip
 
