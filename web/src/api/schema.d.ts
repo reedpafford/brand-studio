@@ -7500,6 +7500,12 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Kind
+             * @default story
+             * @enum {string}
+             */
+            kind: "story" | "song" | "narrated";
+            /**
              * Song
              * @default false
              */

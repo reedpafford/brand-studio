@@ -148,12 +148,11 @@ def require_approved(db: Session, project: Project) -> None:
         raise HTTPException(409, PLAN_FIRST)
 
 
-def _fmt(db: Session, project: Project) -> str:
-    from app.models.script_library import Script, ScriptDraft
+def fmt(db: Session, project: Project) -> str:
+    """The video's format from its script's kind: dialogue, song or narrated."""
+    from app.narration import video_kind
 
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    kind = db.get(Script, draft.script_id).kind if draft else "story"
-    return {"song": "song", "narrated": "narrated"}.get(kind, "dialogue")
+    return {"song": "song", "narrated": "narrated"}.get(video_kind(db, project), "dialogue")
 
 
 def _tag(message: str, name: str) -> str:
@@ -184,14 +183,14 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
     if project.reference_breakdown:
         reference = prompts.reference_block(project.reference_breakdown, project.reference_replace)
     message = prompts.plan_input(
-        _tag(context, "brief"), cast, escape(version.text), _fmt(db, project),
+        _tag(context, "brief"), cast, escape(version.text), fmt(db, project),
         f"{model.name}: up to {model.duration.max} s a clip",
         places=[x for x in escape(_places(db, project)).splitlines() if x],
         reference=escape_block(reference) if reference else "", note=escape(note),
     )  # fmt: skip
     return {"step": STEP, "project_id": project.id, "script_version": version.version,
             "system": system, "prompt": message, "max_tokens": 16000,
-            "script": version.text, "fmt": _fmt(db, project),
+            "script": version.text, "fmt": fmt(db, project),
             "cast_ids": re.findall(r"^((?:char|slot):\d+)", "\n".join(cast), re.M),
             "stars": _stars(db, project), "max_seconds": model.duration.max}  # fmt: skip
 

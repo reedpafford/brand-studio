@@ -170,6 +170,34 @@ def test_n12_keeps_each_roles_own_look_under_the_look_it_was_drawn_in(tmp_path):
     command.downgrade(cfg, "n03")
 
 
+def test_n15_moves_what_was_on_the_song_look_to_its_brands_look(tmp_path):
+    """Song in any look: Song is a type, never a look. Kind stays."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n14")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "brands", id=1, slug="a", default_look="claymation")
+        _row(conn, "brands", id=2, slug="b", default_look="song")
+        _row(conn, "projects", id=1, brand_id=1, look="song")
+        _row(conn, "projects", id=2, brand_id=2, look="song")
+        _row(conn, "projects", id=3, brand_id=1, look="paper")  # never Song: kept
+        _row(conn, "scripts", id=1, brand_id=1, look="song", kind="song")
+        _row(conn, "look_switches", id=1, workspace_id=1, look_id="song", on=True)
+        _row(conn, "look_switches", id=2, workspace_id=1, look_id="paper", on=True)
+    command.upgrade(cfg, "n15")
+    with engine.connect() as conn:
+
+        def got(sql):
+            return [tuple(r) for r in conn.execute(text(sql))]
+
+        assert got("SELECT default_look FROM brands") == [("claymation",), ("house",)]
+        assert got("SELECT look FROM projects") == [("claymation",), ("house",), ("paper",)]
+        assert got("SELECT look, kind FROM scripts") == [("claymation", "song")]
+        assert got("SELECT look_id FROM look_switches") == [("paper",)]
+
+
 def test_a_migration_run_leaves_the_app_loggers_on(tmp_path):
     """fileConfig in env.py must not switch off loggers made before it. It did by default, so
     test_clip_prompts_finish's log check failed whenever it ran after this file."""

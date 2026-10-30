@@ -401,3 +401,25 @@ def test_a_song_videos_quote_card_and_bar_are_one_figure(app, db, owner, song):
     assert quote == pytest.approx(card)  # the card and the quote: one figure
     assert quote == pytest.approx(plan + bar, abs=0.01)  # what the press and the rest cost
     assert to_finish == pytest.approx(bar, abs=0.01)
+
+
+def test_a_song_video_keeps_its_type_in_any_look_and_song_is_never_a_look(
+    app, db, owner, editor, song
+):
+    """Song in any look: a video's type is its script's kind, its look a setting apart."""
+    script = song.rsplit("/drafts", 1)[0]
+    assert owner.patch(script, json={"look": "claymation"}).status_code == 200
+    assert owner.patch(script, json={"look": "song"}).status_code == 422  # a type, not a look
+    video = editor.get(_video(app, db, owner, editor, song)).json()
+    assert (video["kind"], video["song"], video["look"]) == ("song", True, "claymation")
+    from app import prompts
+    from app.enhance import project_context
+    from app.models.projects import Project
+
+    system, _ = project_context(db, db.get(Project, video["id"]), "clip_prompts")
+    assert prompts.style("song")["sections"]["clip"] in system[0]  # song's guides, any look
+    assert system[0].startswith(prompts.system("clip_prompts", "claymation"))
+    assert editor.patch(f"/projects/{video['id']}", json={"look": "song"}).status_code == 422
+    assert "song" not in [x["id"] for x in owner.get("/looks").json()]
+    story = editor.post("/projects", json={"brand_id": video["brand_id"], "name": "Dip"}).json()
+    assert (story["kind"], story["song"]) == ("story", False)  # no script: a story

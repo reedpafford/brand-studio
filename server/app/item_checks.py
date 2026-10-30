@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import prompts
+from app import plans, prompts
 from app.credits import estimate, fits
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -67,21 +67,12 @@ def _products(db: Session, project: Project) -> set[str]:
             or "product" in (s.tags or [])}  # fmt: skip
 
 
-def video_format(db: Session, project: Project) -> str:
-    """The video's format from its script: dialogue, song or narrated."""
-    from app.models.script_library import Script, ScriptDraft
-
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    kind = db.get(Script, draft.script_id).kind if draft else "story"
-    return {"song": "song", "narrated": "narrated"}.get(kind, "dialogue")
-
-
 def key(db: Session, project: Project, shots: list[dict], refs: list[str]) -> bool:
     """A ★-product or speaking item: the ones checked by default (key_takes). A narrated
     video's lines are the narrator's, heard over the picture: they don't make a clip key."""
     products = _products(db, project)
     shown = {x for s in shots for x in s.get("screen_ids", [])} | set(refs)
-    speaking = video_format(db, project) != "narrated" and any(s.get("line") for s in shots)
+    speaking = plans.fmt(db, project) != "narrated" and any(s.get("line") for s in shots)
     return speaking or bool(shown & products) or any(r.startswith("prop:") for r in refs)
 
 
