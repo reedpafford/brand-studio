@@ -220,7 +220,7 @@ function BrandSwitcher({ brands, brand, current }: { brands: Brand[]; brand?: Br
                 {b.id === current && <Check size={20} strokeWidth={1.75} aria-hidden />}
               </MenuItem>
             ))}
-            {owner ? (
+            {owner && (
               <div className="mt-1 border-t border-border pt-1">
                 <MenuItem
                   onClick={() => {
@@ -232,8 +232,6 @@ function BrandSwitcher({ brands, brand, current }: { brands: Brand[]; brand?: Br
                   New brand
                 </MenuItem>
               </div>
-            ) : (
-              <p className="px-3 pb-2 pt-3 text-sm text-muted">Brands are set up by the owner.</p>
             )}
           </>
         )}
