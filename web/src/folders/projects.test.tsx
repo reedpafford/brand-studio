@@ -116,6 +116,32 @@ test("Project: none ▾ on a video moves it, with Undo back to where it was", as
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /folders/file").map((c) => c.body)).toContainEqual({ kind: "video", id: 9, folder_id: null }));
 });
 
+test("with no projects yet, Project: none ▾ says everything works without one, and New project makes one and moves the video into it (Flow-QA walk A29)", async () => {
+  setViewport(390);
+  const calls = fakeServer(base(owner, [], {
+    "GET /projects/9": [200, video],
+    "GET /projects/9/script": [200, { version: 1, source: "paste", words: 2, created_by_id: 1, created_at: "2026-10-23T10:00:00Z", text: "Bo." }],
+    "GET /projects/9/breakdown": [404, { detail: "none" }],
+    "GET /projects/9/storyboard": [200, []],
+    "GET /projects/9/clips": [200, []],
+    "GET /projects/9/video": [404, { detail: "none" }],
+    "GET /projects/9/assets": [200, []],
+    "POST /brands/1/folders": [201, { ...november, items: { scripts: 0, videos: 0, clips: 0 } }],
+    "POST /folders/file": [200, { folder_id: 4, was_folder_id: null }],
+  }));
+  open("/b/1/videos/9");
+  await userEvent.click(await screen.findByRole("button", { name: "Project: none" }));
+  expect(await screen.findByText("No projects yet. Everything works without one.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("menuitem", { name: "New project" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "New project" });
+  await userEvent.type(within(dialog).getByLabelText("Name"), "November launch");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make it and move this there" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/folders")?.body).toEqual({ name: "November launch" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toEqual({ kind: "video", id: 9, folder_id: 4 }));
+  expect(await screen.findByText("Moved to November launch.")).toBeInTheDocument();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
 test("on a phone the list opens from Project: All ▾ in a sheet", async () => {
   setViewport(390);
   fakeServer(base(owner, [november]));
