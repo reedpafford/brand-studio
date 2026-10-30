@@ -34,11 +34,11 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 | QA / QA-2 | Review PRs into `next` as they do for `main` |
 
 ## Queued (Next-Lead keeps this list)
-Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or QA-3; QA-4, Flow-QA and Switch-On retired 30 Oct to save credits) with the lighter queue. As of 30 Oct, 04:30 (merge freeze until Reed finishes the language tests):
+Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or QA-3; QA-4, Flow-QA and Switch-On retired 30 Oct to save credits) with the lighter queue. As of 30 Oct, 04:40:
 - **Gate for Reed's look re-samples:** #1020 (Director: look-neutral clip examples) and #1030 (Next-Server: a look's own sample character, no picker), both merged and deployed.
 - **QA:** #1028, #1033, #1026. **QA-3:** #1013, #1022 re-check, #1031 (Song in any look, n15). #1030: QA-4's last verdict.
 - **Passed, in the 04:45 batch:** #1020, #1021, #1023, #1024 with #1025 (together), #1017, #1018, #1027, #1008, #1012, #1029. #1023 merges first, so #1031 takes Next-Server's one-line `_fmt` → `fmt` rename, then a re-pass.
-- **Builder-Server-8:** the song take's start time in its output; then **Next-Screens** switches the song-take timer to it.
+- **Next-Screens:** switch the song-take timer to `started_at` (#1033, Builder-Server-8).
 - **Director:** after #1031, song.md keeps only its still and clip guides; delete the podcast, vox and whiteboard style files and their test lines.
 - **Next-Layout:** re-walk once the fixes above are on the test site.
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
