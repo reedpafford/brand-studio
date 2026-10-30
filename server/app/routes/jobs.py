@@ -20,6 +20,7 @@ from app.credits import (
     lock,
     needs_approval,
     over_allowance,
+    someone_elses_quick_clip,
 )
 from app.db import get_db, utcnow
 from app.job_brand import brand_for
@@ -205,6 +206,15 @@ def _get_job(db: Session, user: User, job_id: int) -> Job:
     return job
 
 
+def _seen_job(db: Session, user: User, job_id: int) -> Job:
+    """A job the caller may see: another editor's Quick clip is theirs alone (Reed), so it's
+    "no such job" as if it weren't there; a video's or script's steps are the team's."""
+    job = _get_job(db, user, job_id)
+    if someone_elses_quick_clip(user, job):
+        raise HTTPException(404, "No such job.")
+    return job
+
+
 @router.get("/jobs", response_model=list[JobOut])
 def list_jobs(
     status: JobStatus | None = None,
@@ -247,7 +257,7 @@ def _prompt(job: Job) -> str:
 def _quick_clip(db: Session, user: User, job_id: int, removed: bool) -> Job:
     """A finished Quick clip of the caller's (the owner: anyone's). Video steps and paid work
     still going can't be taken off the history."""
-    job = _get_job(db, user, job_id)
+    job = _seen_job(db, user, job_id)
     if (job.removed_at is not None) != removed:
         raise HTTPException(404, "No such clip in the history.")
     if not (user.is_owner or job.created_by_id == user.id):
@@ -281,7 +291,7 @@ def restore_to_history(
 
 @router.get("/jobs/{job_id}", response_model=JobOut)
 def read_job(job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return _get_job(db, user, job_id)
+    return _seen_job(db, user, job_id)
 
 
 @router.get("/jobs/{job_id}/detail", response_model=JobDetailOut)
@@ -313,8 +323,8 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
 def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
     team may cancel any of them, except a video's: whoever made the video, whoever asked for
-    the job, or the owner (as every change to a video)."""
-    job = _get_job(db, user, job_id)
+    the job, or the owner (as every change to a video). A Quick clip: its maker or the owner."""
+    job = _seen_job(db, user, job_id)
     project = db.get(Project, job.project_id) if job.project_id else None
     if project and not (user.is_owner or user.id in (job.created_by_id, project.created_by_id)):
         raise HTTPException(403, "Only whoever made this video, or the owner, can do that.")

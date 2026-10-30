@@ -194,6 +194,13 @@ def is_quick_clip(kind: str, input: dict, project) -> bool:
     return project is None and kind.startswith(("video", "image")) and "step" not in input
 
 
+def someone_elses_quick_clip(user: User, job: Job) -> bool:
+    """Another editor's Quick clip: theirs alone (Reed's item 4), so to this user it reads as
+    not there at all. The owner sees everyone's; a video's or script's steps are the team's."""
+    mine = user.is_owner or job.created_by_id == user.id
+    return not mine and is_quick_clip(job.kind, job.input, job.project_id)
+
+
 def week_jobs(user: User) -> tuple:
     """This person's Quick clips this week (Mon-Sun, UTC), as `is_quick_clip` says. The
     allowance and the cost log's week both read through this, so they never drift."""

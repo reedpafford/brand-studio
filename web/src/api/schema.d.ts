@@ -874,7 +874,7 @@ export interface paths {
          * Cancel Job
          * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
          *     team may cancel any of them, except a video's: whoever made the video, whoever asked for
-         *     the job, or the owner (as every change to a video).
+         *     the job, or the owner (as every change to a video). A Quick clip: its maker or the owner.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
         delete?: never;
@@ -3989,7 +3989,7 @@ export interface paths {
         /**
          * Clip Request
          * @description The full request a clip was made from (prompt, settings, brand pieces), for "Try again"
-         *     and "Reuse prompt". Same visibility as the job itself: the caller's workspace.
+         *     and "Reuse prompt". Same visibility as the job itself: another editor's isn't there.
          */
         get: operations["clip_request_clips__job_id__request_get"];
         put?: never;

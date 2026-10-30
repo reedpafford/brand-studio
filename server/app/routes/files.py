@@ -10,10 +10,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth import current_user
+from app.credits import someone_elses_quick_clip
 from app.db import get_db
 from app.filetypes import ALLOWED_TYPES, matches
 from app.models.accounts import User
 from app.models.files import StoredFile
+from app.models.jobs import Job
 from app.references import too_many_pixels
 from app.schemas import UtcTime
 
@@ -27,6 +29,9 @@ class FileOut(BaseModel):
     content_type: str
     size: int
     created_at: UtcTime
+
+
+OUTPUT = re.compile(r"job-(\d+)-\d+")  # what the worker names a job's files
 
 
 def get_file(
@@ -89,6 +94,10 @@ def download(
     db: Session = Depends(get_db),
 ) -> Response:
     stored = get_file(db, user, file_id)
+    made = OUTPUT.match(stored.filename) if stored.uploaded_by_id is None else None
+    job = made and db.get(Job, int(made[1]))  # a job's output, named for it by the worker
+    if job and job.workspace_id == user.workspace_id and someone_elses_quick_clip(user, job):
+        raise HTTPException(404, f"No such file: {file_id}.")
     try:
         data = request.app.state.storage.get(stored.key)
     except FileNotFoundError:

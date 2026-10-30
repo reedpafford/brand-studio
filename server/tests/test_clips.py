@@ -299,3 +299,37 @@ def test_a_quick_clip_is_removed_from_the_history_and_brought_back(owner, editor
     assert editor.post(f"/jobs/{cat}/restore").json()["id"] == cat  # Undo
     assert editor.post(f"/jobs/{cat}/restore").status_code == 404  # not removed
     assert {j["id"] for j in editor.get("/jobs").json()} == {cat, dog}
+
+
+def test_another_editors_quick_clip_request_video_and_remove_are_not_found(
+    app, owner, editor, fomo, db
+):
+    """Its request, its video and Remove all answer another editor as if it weren't there
+    (404); its maker and the owner still get them."""
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import PASSWORD
+
+    made = editor.post("/clips", json=_clip(fomo)).json()["id"]
+    _work(app, db)
+    video = db.get(Job, made).output["file_ids"][0]
+    token = owner.post("/team/invites", json={"email": "bo@example.com"}).json()["token"]
+    with TestClient(app) as other:
+        other.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
+        for url in (f"/clips/{made}/request", f"/files/{video}"):
+            assert other.get(url).status_code == 404, url
+            assert editor.get(url).status_code == owner.get(url).status_code == 200, url
+        assert other.delete(f"/jobs/{made}").status_code == 404
+        assert other.get(f"/files/{fomo['sheet']}").status_code == 200  # the team's files
+    assert owner.delete(f"/jobs/{made}").status_code == 204
+
+
+def _work(app, db) -> None:
+    """Run the worker until the clip is made (the fake is done on its first check)."""
+    client = httpx.Client(transport=httpx.MockTransport(FakeReplicate()))
+    for _ in range(3):
+        run_once(
+            db,
+            {"replicate": ReplicateProvider(BASE, client, token="test-token")},
+            app.state.storage,
+        )
