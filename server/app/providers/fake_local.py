@@ -539,7 +539,8 @@ class FakeWriter:
 
     def _song_breakdown(self, prompt):
         """The story stand-in's plan, its shots back to back over the song's beats, all
-        B-roll (no [Lip-sync] asked)."""
+        B-roll (no [Lip-sync] asked), its clips cut at the video model's longest by the song's
+        own times (a 0:24 song on a 15 s model is two clips, never one it can't make)."""
         plan = self._breakdown(prompt)
         seconds = float(re.search(r'<song seconds="([\d.]+)"', prompt).group(1))
         beats = [float(b) for b in re.search(r"Beats: ([\d. ]*)", prompt).group(1).split()]
@@ -547,7 +548,20 @@ class FakeWriter:
         beats = beats or [seconds * k / len(shots) for k in range(len(shots))]  # a narration
         edges = [0.0, *(beats[len(beats) * k // len(shots)] for k in range(1, len(shots)))]
         for shot, a, b in zip(shots, edges, [*edges[1:], seconds], strict=True):
-            shot.update(song_start=a, song_end=b, sung=False)
+            shot.update(song_start=a, song_end=b, sung=False, seconds=round(b - a, 2))
+        limits = re.search(r"(\d+)–(\d+) s per clip", prompt)
+        high = int(limits.group(2)) if limits else 15
+        groups: list[list[dict]] = []
+        for shot in shots:  # clips fill up to the model's longest, by the song's clock
+            if not groups or shot["song_end"] - groups[-1][0]["song_start"] > high:
+                groups.append([])
+            groups[-1].append(shot)
+        plan["clips"] = [
+            {"id": f"c{k}", "shot_ids": [s["id"] for s in group],
+             "seconds": math.ceil(group[-1]["song_end"] - group[0]["song_start"] - 0.01),
+             "seam": "end" if k == len(groups) else "model length limit"}
+            for k, group in enumerate(groups, 1)
+        ]  # fmt: skip
         return plan
 
     _narrated_breakdown = _song_breakdown  # the narration's sentences are the clock

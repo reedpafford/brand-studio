@@ -39,6 +39,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
     which), the project's aspect ratio, and its references by file id in the clip's order."""
     from app.breakdown import would_show
 
+    fits_model(db, project, clip)
     known = assets(db, project)
     breakdown = db.get(BreakdownVersion, clip.breakdown_id).data
     shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
@@ -86,6 +87,23 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         },
         "files": {k: v for k, v in files.items() if v},
     }
+
+
+def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
+    """A clip longer than the video model makes is refused before any charge (QA #1013),
+    never sent cut short: the breakdown's Split fix makes it into clips it can. One shot
+    can't be split: it's made shorter, or the video's model one that makes longer clips."""
+    m = video_model(project)
+    if clip.seconds <= m.duration.max:
+        return
+    bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
+    shots = next((c["shot_ids"] for c in (bd.data if bd else {}).get("clips", [])
+                  if c["id"] == clip.clip_id), [])  # fmt: skip
+    then = ("Split it in the breakdown (free), then make it" if len(shots) > 1 else
+            "Make its shot shorter in the breakdown, or switch the video model in Settings to "
+            "one that makes longer clips (free)")  # fmt: skip
+    raise HTTPException(409, f"This clip is {clip.seconds} s, but {m.name} makes at most "
+                        f"{m.duration.max} s a clip. {then}. Nothing was charged.")  # fmt: skip
 
 
 ENGLISH = "Use English: every spoken line is in English, and any text on screen is in English."

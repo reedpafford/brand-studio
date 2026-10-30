@@ -8,6 +8,7 @@ video's take changes, the times move to the new take for free (reflow), and the 
 their lines and Sung marks."""
 
 import bisect
+import math
 
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
@@ -38,10 +39,35 @@ def timing_used(take: SongTake) -> dict:
 
 
 def split(bd: SongBreakdown, take_id: int) -> tuple[Breakdown, dict]:
-    """The AI's song breakdown as the plan every step reads, plus its song part."""
+    """The AI's song breakdown as the plan every step reads, plus its song part, the shots'
+    and clips' lengths taken from the song (`fit`)."""
     shots = {s.id: {"start": s.song_start, "end": s.song_end, "sung": s.sung}
              for scene in bd.scenes for s in scene.shots}  # fmt: skip
-    return Breakdown.model_validate(bd.model_dump()), {"take_id": take_id, "shots": shots}
+    song = {"take_id": take_id, "shots": shots}
+    return Breakdown.model_validate(fit({**bd.model_dump(), "song": song})), song
+
+
+def fit(data: dict) -> dict:
+    """The song is the clock (V2, V6): each shot lasts its time in the song and each clip its
+    shots' span, rounded up to whole seconds, whatever the plan said (the stand-in counted
+    spoken words: a 0:24 song read "1 clip · 14 s"). A clip over the video model's limit
+    keeps it: the breakdown check names it, never cut to fit. `data` is a plan with its
+    song part; shots the song part doesn't know keep their own."""
+    timed = (data.get("song") or {}).get("shots") or {}
+    if not timed:
+        return data
+    scenes = [{**sc, "shots": [{**sh, "seconds": round(timed[sh["id"]]["end"]
+                                                      - timed[sh["id"]]["start"], 2)}
+                               if sh["id"] in timed else sh for sh in sc["shots"]]}
+              for sc in data.get("scenes", [])]  # fmt: skip
+    clips = []
+    for clip in data.get("clips", []):
+        known = [timed[s] for s in clip.get("shot_ids", []) if s in timed]
+        if known:
+            span = max(t["end"] for t in known) - min(t["start"] for t in known)
+            clip = {**clip, "seconds": max(1, math.ceil(span - 0.01))}
+        clips.append(clip)
+    return {**data, "scenes": scenes, "clips": clips}
 
 
 def joined(bd: Breakdown, song: dict) -> SongBreakdown:
@@ -63,13 +89,14 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
     shots packed back to back over the same song, free (rule 22: an edit never leaves a gap
     to fix by hand): see `repack`. A shot an edit brings back (Undo) gets its earlier times
     from the rows before, so an Undo is exact."""
-    if "song" in row.data:
-        return
-    order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
-    with Session(bind=connection) as db:
-        song = carried(db, row.project_id, order)
-    if song:
-        row.data = {**row.data, "song": song}
+    if "song" not in row.data:
+        order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
+        with Session(bind=connection) as db:
+            song = carried(db, row.project_id, order)
+        if song:
+            row.data = {**row.data, "song": song}
+    if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
+        row.data = fit(row.data)
 
 
 def slice_of(data: dict, clip_id: str) -> dict | None:
