@@ -12,7 +12,7 @@ Style: <{{clip_style}}; plus a few words for the direction>.
 Setting: <the look: palette, visible light, depth, background people>.
 Shots (hard cuts):
 Shot 1 | 0-2 s. <size, angle, one camera move>. <what happens, big and readable>. <Name (in English, how it's said): "words">
-Shot 2 | 2-3 s. <or "Two quick cuts: …; then …" for beats shorter than a second> No one speaks.
+Shot 2 | 2-3 s. <size, angle, one camera move>. <one image: what happens>. No one speaks.
 Keep: <each character's identity and clothing stable in every shot, as in their [ImageN], one of each; each screen's logo and layout (or the logo, for an invented screen), and each product, as its [ImageN]>.
 Audio: <the same line as the first>
 ```

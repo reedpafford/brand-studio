@@ -148,6 +148,16 @@ class CastSlots(BaseModel):
 # --- Breakdown: scenes → shots → clips ---
 
 
+class ScreenFigure(BaseModel):
+    balance: str | None = Field(
+        description="The total the screen shows, as it should read on screen, e.g. '$12,900'; "
+        "or null."
+    )
+    change: str | None = Field(
+        description="The gain or loss it shows, signed, e.g. '+$1,222' or '-$380'; or null."
+    )
+
+
 class Shot(BaseModel):
     id: str = Field(description="'<scene>.<shot>', e.g. '1.1', '1.2', '2.1'.")
     script_lines: list[int] = Field(description="Numbered script lines this shot covers.")
@@ -156,10 +166,14 @@ class Shot(BaseModel):
         description="The exact spoken words from the script, unchanged; null if nobody speaks. "
         "One speaker's line per shot."
     )
-    action: str = Field(description="What we see happen, concretely, in one sentence.")
+    action: str = Field(
+        description="What we see happen, concretely, in one sentence. In a shot nobody speaks "
+        "in, what the body does ('types back', 'nods'), never says, tells, replies or answers."
+    )
     reaction: str | None = Field(
         description="Who reacts, the feeling and its reason, then how it shows at phone size, "
-        "e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; or null."
+        "e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; never words a "
+        "character could say. Or null."
     )
     camera: str = Field(
         description="Size, angle and move, e.g. 'Low-angle close-up, fast push-in' or "
@@ -178,6 +192,12 @@ class Shot(BaseModel):
     screen_ids: list[str] = Field(
         description="Brand screens (screen:N) and the project's product (product:N) shown in "
         "this shot. Required whenever `moment` is one the brand block lists them for."
+    )
+    screen_figure: ScreenFigure | None = Field(
+        default=None,
+        description="Only when this shot shows a brand screen with a figure on it: the figure, "
+        "for the first screen in screen_ids; the server draws it onto that screen. Each winning "
+        "beat's figure is bigger than the last; a loss is signed '-'. Null otherwise.",
     )
 
 
