@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Card, Select, Skeleton } from "../components";
+import { Badge, Banner, Button, Card, Panel, Select, Skeleton } from "../components";
 import { useLooks, type Look } from "../scripts/Looks";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
@@ -72,19 +72,14 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
       toast(on ? `${l.name} is on for editors.` : `${l.name} is off for editors. Videos using it keep it.`, () => void setOn(!on).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
     },
   });
+  const [viewing, setViewing] = useState(false);
   const s = sample.data;
   const still = s?.still_id ?? l.sample_still_id;
+  const clip = s?.clip_id ?? l.sample_clip_id;
+  const clipComing = s?.status === "making" && !!s.still_id; // the still is in, the 5 s clip is still being made
   const refused = [make, turn].find((m) => m.isError)?.error?.message;
-  return (
-    <Card className="space-y-3">
-      <div className="grid aspect-video place-items-center overflow-hidden rounded-md bg-surface-2">
-        {still ? <img src={fileUrl(still)} alt={`${l.name} sample`} className="h-full w-full object-cover" /> : <span className="text-sm text-muted">No sample yet</span>}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="type-card">{l.name}</h2>
-        {l.on ? <Badge tone="success">On · editors can pick it</Badge> : <Badge>Off for editors</Badge>}
-      </div>
-      <p className="text-sm text-muted">{l.blurb}</p>
+  const actions = (
+    <>
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
       {house ? (
         <p className="text-sm text-muted">The house look is always on.</p>
@@ -93,10 +88,9 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
       ) : brandId === null ? null : !s ? (
         sample.isError ? <p className="text-sm text-muted">{sample.error.message}</p> : <Skeleton className="h-control w-48" />
       ) : s.status === "making" ? (
-        <p role="status" className="text-sm text-muted">Making the sample: one still, then a 5 s clip…</p>
+        <p role="status" className="text-sm text-muted">{clipComing ? "The still is in. Clip coming…" : "Making the sample: one still, then a 5 s clip…"}</p>
       ) : s.status === "ready" ? (
         <div className="space-y-2">
-          {s.clip_id && <video controls muted src={fileUrl(s.clip_id)} className="w-full rounded-md" aria-label={`${l.name} sample clip`} />}
           <div className="flex flex-wrap gap-2">
             <Button busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
             <Button variant="ghost" busy={make.isPending} charge="estimate" price={s.credits} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>Make another sample</Button>
@@ -120,6 +114,40 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
             {s.status === "failed" ? "Try again" : "Make a sample"}
           </Button>
         </div>
+      )}
+    </>
+  );
+  return (
+    <Card className="space-y-3">
+      {/* The sample is portrait (9:16): shown whole, never cropped. Tapping it opens the full still and the clip. */}
+      {still ? (
+        <button type="button" onClick={() => setViewing(true)} aria-label={`Open the ${l.name} sample`} className="relative block h-64 w-full overflow-hidden rounded-md bg-surface-2">
+          <img src={fileUrl(still)} alt={`${l.name} sample`} className="absolute inset-0 h-full w-full object-contain" />
+          {(clip || clipComing) && <span className="absolute bottom-2 left-2"><Badge>{clip ? "▶ 5 s clip" : "Clip coming…"}</Badge></span>}
+        </button>
+      ) : (
+        <div className="grid h-64 place-items-center rounded-md bg-surface-2">
+          <span className="text-sm text-muted">No sample yet</span>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="type-card">{l.name}</h2>
+        {l.on ? <Badge tone="success">On · editors can pick it</Badge> : <Badge>Off for editors</Badge>}
+      </div>
+      <p className="text-sm text-muted">{l.blurb}</p>
+      {actions}
+      {viewing && still && (
+        <Panel title={`${l.name} sample`} onClose={() => setViewing(false)}>
+          <div className="space-y-3">
+            <img src={fileUrl(still)} alt={`${l.name} sample, full size`} className="mx-auto max-h-[70dvh] w-auto max-w-full rounded-md object-contain" />
+            {clip ? (
+              <video controls autoPlay muted loop playsInline src={fileUrl(clip)} className="mx-auto max-h-[70dvh] w-auto max-w-full rounded-md" aria-label={`${l.name} sample clip`} />
+            ) : clipComing ? (
+              <p role="status" className="text-sm text-muted">Clip coming… It shows here when it's ready.</p>
+            ) : null}
+            {actions}
+          </div>
+        </Panel>
       )}
     </Card>
   );
