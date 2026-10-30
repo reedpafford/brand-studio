@@ -3,14 +3,14 @@ never drawn on), set for fomo's three money screens as measured on their picture
 assets/brands/fomo/screens (a new workspace gets them from screens.json when it's seeded).
 
 Revision ID: n17
-Revises: n15
+Revises: n16
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n17"
-down_revision = "n15"  # tracks next's head for CI; re-pointed to the head just before merge
+down_revision = "n16"  # tracks next's head for CI; re-pointed to the head just before merge
 branch_labels = None
 depends_on = None
 
