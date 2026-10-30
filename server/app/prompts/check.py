@@ -254,12 +254,19 @@ def _money_climbs(shots: list) -> list[str]:
     return problems
 
 
+TRADING_SCREEN = re.compile(r"\b(trading|chart)\b[^.;]*$", re.I)  # the name before " screen"
+
+
 def _screens_climb(prompt: str) -> list[str]:
     """Reed (#650, rule 14): each trading screen in a clip's shots, real ("the fomo Token chart
-    up screen, … +$420") or invented, reads bigger than the last; a red day is exempt. Advice."""
+    up screen, … +$420") or invented, reads bigger than the last; a red day is exempt. Only a
+    screen named for trading or a chart counts: a home balance may fall (QA on #1045). Advice."""
     problems, last = [], {}
     for n, text in SHOT_ANY.findall(prompt):
-        for part in text.split(" screen")[1:]:
+        parts = text.split(" screen")
+        for name, part in zip(parts, parts[1:], strict=False):
+            if not TRADING_SCREEN.search(name[-40:]):
+                continue
             if not (fig := _figure(part)) or fig[1] < 0:
                 continue
             kind, value, found = fig
