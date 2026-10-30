@@ -8,6 +8,7 @@ import { ProjectPage } from "./projects/ProjectPage";
 import { VideoPage } from "./projects/VideoPage";
 import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
+import { NewScriptPage } from "./scripts/NewScriptButton";
 import { ScriptsRoute } from "./videos/ScriptsRoute";
 import { VideosPage } from "./videos/VideosPage";
 import { MediaPage } from "./media/MediaPage";
@@ -21,6 +22,7 @@ import { TeamPage } from "./team/TeamPage";
 import { LanguagesPage } from "./languages/LanguagesPage";
 import { LooksPage } from "./looks/LooksPage";
 import { UsageBrandPage } from "./usage/UsageBrandPage";
+import { MinePage } from "./usage/MinePage";
 import { UsagePage } from "./usage/UsagePage";
 import { ReelReviewPage } from "./scripts/ReelReviewPage";
 
@@ -37,7 +39,7 @@ export function App() {
           <Route path="b/:brandId" element={<BrandHome />} />
           <Route path="b/:brandId/scripts" element={<ScriptsRoute />} />
           <Route path="b/:brandId/scripts/import" element={<ImportReelPage />} />
-          <Route path="b/:brandId/scripts/new" element={<Navigate to=".." relative="path" replace />} />
+          <Route path="b/:brandId/scripts/new" element={<NewScriptPage />} />
           <Route path="b/:brandId/scripts/:scriptId" element={<ScriptFlowPage />} />
           <Route path="b/:brandId/scripts/:scriptId/reel" element={<ReelReviewPage />} />
           <Route path="b/:brandId/projects" element={<Navigate to="../videos" relative="path" replace />} />
@@ -59,6 +61,7 @@ export function App() {
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="production" element={<ProductionPage />} />
           <Route path="usage" element={<UsagePage />} />
+          <Route path="usage/mine" element={<MinePage />} />
           <Route path="usage/brands/:brandId" element={<UsageBrandPage />} />
         </Route>
       </Route>

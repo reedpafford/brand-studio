@@ -314,7 +314,7 @@ export function ScriptsPage() {
     <Card className="p-0 sm:p-0">
       <ul className="divide-y divide-border">
         {items.map((r) => (
-          <ScriptItem key={r.id} mayOpen={!removed && (r.published || owner || r.created_by_id === me?.id)} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} onDelete={!removed && mayDelete(r) ? () => del.ask(toTarget(r)) : undefined} removed={removed} onRestore={() => void restore(r)} restoring={restoring === r.id} />
+          <ScriptItem key={r.id} mayOpen={!removed && (r.published || owner || r.created_by_id === me?.id)} ownScript={owner || r.created_by_id === me?.id} row={r} brandName={all ? brands?.find((b) => b.id === r.brand_id)?.name : undefined} refName={r.reference_name ?? refName(r.reference_id)} refThumb={!!r.reference_id && !!refs.data?.find((x) => x.id === r.reference_id)?.has_thumbnail} narrow={!rail} panelTo={panelTo} ownVideo={ownVideo} meId={me?.id} onDelete={!removed && mayDelete(r) ? () => del.ask(toTarget(r)) : undefined} removed={removed} onRestore={() => void restore(r)} restoring={restoring === r.id} />
         ))}
       </ul>
     </Card>
@@ -420,11 +420,18 @@ export function ScriptsPage() {
   );
 }
 
-function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, panelTo, ownVideo, meId, onDelete, removed, onRestore, restoring }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number; onDelete?: () => void; removed?: boolean; onRestore?: () => void; restoring?: boolean }) {
+function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, ownScript, panelTo, ownVideo, meId, onDelete, removed, onRestore, restoring }: { row: Row; brandName?: string; refName?: string; refThumb?: boolean; narrow: boolean; mayOpen: boolean; ownScript?: boolean; panelTo: (id: number, slot: number) => string; ownVideo: (v: Version) => boolean; meId?: number; onDelete?: () => void; removed?: boolean; onRestore?: () => void; restoring?: boolean }) {
   const brandId = r.brand_id;
   // A script archived because a video was made from it keeps its videos and is never removed for good.
   const kept = r.removed ? r.removed === "archived" : r.versions.some((v) => !!v.project_id);
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
+  // An editor opening someone else's published script by its title lands where Make this version is (A12), on its first
+  // version ready to make; the owner's read-only steps are for the owner and the author.
+  // Where a version's chip goes: its panel (to make it, or to see who's making it), the video made from it, or its draft.
+  const chipTo = (v: Version) => (removed ? null : beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null);
+  // With none ready, it goes where that version's chip does: the editor's own video, say (QA-4 on #1018).
+  const ready = !ownScript && r.published ? (r.versions.find((v) => v.status === "approved") ?? r.versions.find((v) => chipTo(v) !== null)) : undefined;
+  const titleTo = (ready && chipTo(ready)) || `/b/${brandId}/scripts/${r.id}${r.published ? "?step=publish" : ""}`;
   return (
     <li className="flex gap-3 p-4 sm:p-5">
       <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-muted sm:h-[100px] sm:w-16">
@@ -433,7 +440,7 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
       <div className="min-w-0 flex-1 space-y-1">
         <h3 className="font-display text-md font-bold">
           {mayOpen ? (
-            <Link to={`/b/${brandId}/scripts/${r.id}${r.published ? "?step=publish" : ""}`} className="hover:underline">
+            <Link to={titleTo} className="hover:underline">
               {r.title}
             </Link>
           ) : (
@@ -470,7 +477,7 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, pan
             const by = beingMade(v.status) && v.editor ? (v.editor.id === meId ? "you" : v.editor.name) : null;
             const label = `${letter} · ${s.label}${by ? ` · ${by}` : ""}`;
             // Ready opens the version panel; so does a version someone else is making. Your own video, and any video for Reed, opens the video; a draft opens its writing flow.
-            const to = removed ? null : beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
+            const to = chipTo(v);
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}

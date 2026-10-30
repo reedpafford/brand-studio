@@ -24,12 +24,12 @@ def _slots(db: Session, script: Script) -> list[ScriptCastSlot]:
 
 
 def _versions(db: Session, script: Script) -> dict[int, str]:
-    rows = db.scalars(
-        select(ScriptDraft).where(
-            ScriptDraft.script_id == script.id, ScriptDraft.status == "approved"
-        )
-    )
-    return {d.slot: d.text for d in rows}
+    """The approved versions; a song's written ones, approved or not (flows S5: its cast is
+    read from the lyrics before Approve)."""
+    rows = select(ScriptDraft).where(ScriptDraft.script_id == script.id)
+    if script.kind != "song":
+        rows = rows.where(ScriptDraft.status == "approved")
+    return {d.slot: d.text for d in db.scalars(rows) if d.text.strip()}
 
 
 def _cast(db: Session, script: Script) -> list[tuple[str, str]]:
@@ -41,8 +41,12 @@ def _cast(db: Session, script: Script) -> list[tuple[str, str]]:
     return out
 
 
-def ready(db: Session, script: Script) -> bool:
-    return 0 in _versions(db, script)
+def stop(db: Session, script: Script) -> str | None:
+    """Why Find roles can't run yet: a song needs lyrics in version A, anything else its
+    original approved."""
+    if 0 in _versions(db, script):
+        return None
+    return "Write the lyrics first." if script.kind == "song" else "Approve the original first."
 
 
 def job_input(

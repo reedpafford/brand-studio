@@ -12,6 +12,7 @@ import { ClaimsNote, SongDirections, directionsOf } from "./SongDirections";
 import { SongStudy } from "./SongStudy";
 import { clock } from "./TakePlayer";
 import { useSongs } from "./useSongs";
+import { LYRICS_BOX, useTypingOn } from "./NewScriptButton";
 
 export const MAX_LYRICS = 4960; // Suno's limits less the pacing words the server adds (app/music.py)
 const MAX_STYLE = 893;
@@ -151,15 +152,18 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
   // "Edit lyrics or style" from a refused take opens the boxes at once (no lock, no confirm: it already knows).
   const [params, setParams] = useSearchParams();
   const asked = params.get("edit") === "1" && !s.published;
-  const [draft, setDraftNow] = useState<{ text: string; style: string } | null>(() => {
+  const remembered = (): { text: string; style: string } | null => {
     try {
-      const kept = sessionStorage.getItem(memory);
-      if (kept) return JSON.parse(kept);
+      const words = sessionStorage.getItem(memory);
+      if (words) return JSON.parse(words);
     } catch {
       /* private window */
     }
     return (saved.text.trim() || s.published) && !asked ? null : { text: saved.text, style: saved.style_line };
-  });
+  };
+  const [draft, setDraftNow] = useState(remembered);
+  const typingOn = useTypingOn(() => setDraftNow(remembered()));
+
   const setDraft = (d: { text: string; style: string } | null) => {
     setDraftNow(d);
     try {
@@ -238,9 +242,8 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
     <div className="space-y-4">
       <Card className="max-w-[680px] space-y-3">
         <TextArea
-          label="Lyrics"
-          rows={12}
-          placeholder={"[Verse]\nPaste or write the lyrics here"}
+          {...LYRICS_BOX}
+          {...typingOn}
           value={draft.text}
           onChange={(e) => setDraft({ ...draft, text: e.target.value })}
           counter={over > 0 ? `Cut ${n(over)} characters` : `${n(draft.text.length)} / ${n(MAX_LYRICS)}`}

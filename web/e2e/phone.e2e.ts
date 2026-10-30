@@ -71,3 +71,19 @@ test("on a phone, Escape closes the account menu and Sign out ends the session",
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test("on a phone, New script → Dialogue opens with the box focused and no sideways scroll; backing out saves nothing", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Scripts", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
+  const untitled = await page.getByRole("link", { name: "Untitled script" }).count();
+  await page.getByRole("button", { name: "New script" }).first().click();
+  await page.getByRole("menuitem", { name: /Dialogue/ }).click();
+  await expect(page.getByLabel("Paste or write your script")).toBeFocused();
+  const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
+  expect(widths.scroll).toBeLessThanOrEqual(widths.window);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Untitled script" })).toHaveCount(untitled);
+});

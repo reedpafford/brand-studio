@@ -43,6 +43,7 @@ class SongTakeOut(BaseModel):
     file_id: int | None
     seconds: float | None
     made_at: UtcTime | None
+    started_at: UtcTime | None  # making or timing: when that job started ("Making… m:ss")
     preferred: bool
     in_video: bool  # made in this video (not one of its version's takes)
     out_of_date: bool  # "Sings older words": other lyrics or style line than the version's now
@@ -121,6 +122,11 @@ def _refused_for(reason: str | None) -> str | None:
     return "words" if reason in (music.REFUSED, music.REFUSED_IN_VIDEO) else None
 
 
+def _started(db: Session, take: SongTake, status: str):
+    job = {"making": take.job_id, "timing": take.timing_job_id}.get(status)
+    return db.get(Job, job).started_at if job else None
+
+
 def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
     status, reason, helps = song_takes.state(db, take)
     over = song_takes.over_cap(db, take)
@@ -134,6 +140,7 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         file_id=take.file_id,
         seconds=take.seconds,
         made_at=db.get(Job, take.job_id).finished_at if take.file_id else None,
+        started_at=_started(db, take, status),
         preferred=take.preferred,
         in_video=take.project_id is not None,
         out_of_date=song_takes.out_of_date(take, draft),

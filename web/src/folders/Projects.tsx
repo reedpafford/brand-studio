@@ -170,39 +170,66 @@ export function ProjectPicker({ brandId, kind, id, folderId }: { brandId: number
   const toast = useToast();
   const refresh = useRefresh(brandId);
   const file = useMutation({ mutationFn: (to: number | null) => must(api.POST("/folders/file", { body: { kind, id, folder_id: to } })).then((r) => r.data!) });
+  const [naming, setNaming] = useState<string | null>(null);
+  // New project… here makes the project and files this item into it, so nobody has to leave the page for the Projects list.
+  const make = useMutation({
+    mutationFn: (name: string) => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name } })).then((r) => r.data!),
+    onSuccess: (made) => { setNaming(null); move(made.id, made); },
+  });
   if (!folders.data) return null;
   const nameOf = (fid: number | null | undefined) => (fid == null ? "none" : (folders.data!.find((f) => f.id === fid)?.name ?? "none")); // a deleted project reads as none
-  const move = (to: number | null) =>
+  // `made`: the project New project just made for this item. Undo then deletes it again, unless something else was filed there since.
+  const move = (to: number | null, made?: { id: number; name: string }) =>
     file.mutate(to, {
       onSuccess: async ({ was_folder_id }) => {
         await refresh();
-        toast(to === null ? "Moved to No project." : `Moved to ${nameOf(to)}.`, () => file.mutate(was_folder_id, { onSuccess: () => void refresh(), onError: (e) => toast(e.message, undefined, "error") }));
+        const undo = async () => {
+          await file.mutateAsync(was_folder_id);
+          if (made) {
+            const now = (await api.GET("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } } })).data?.find((f) => f.id === made.id);
+            if (now && count(now) === 0) await must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: made.id } } }));
+          }
+          await refresh();
+        };
+        const said = made ? `Made ${made.name} and moved this there.` : to === null ? "Moved to No project." : `Moved to ${nameOf(to)}.`;
+        toast(said, () => void undo().catch((e: Error) => toast(e.message, undefined, "error")));
       },
       onError: (e) => toast(e.message, undefined, "error"),
     });
   return (
-    <Menu
-      title="Project"
-      trigger={(p) => (
-        <Button {...p} variant="ghost" dense icon={Folder} trailing={ChevronDown} busy={file.isPending}>
-          Project: {nameOf(folderId)}
-        </Button>
-      )}
-    >
-      {(close) => (
-        <>
-          {folders.data!.map((f) => (
-            <MenuItem key={f.id} checked={f.id === folderId} onClick={() => { close(); if (f.id !== folderId) move(f.id); }}>
-              {f.name}
+    <>
+      <Menu
+        title="Project"
+        trigger={(p) => (
+          <Button {...p} variant="ghost" dense icon={Folder} trailing={ChevronDown} busy={file.isPending}>
+            Project: {nameOf(folderId)}
+          </Button>
+        )}
+      >
+        {(close) => (
+          <>
+            {folders.data!.map((f) => (
+              <MenuItem key={f.id} checked={f.id === folderId} onClick={() => { close(); if (f.id !== folderId) move(f.id); }}>
+                {f.name}
+              </MenuItem>
+            ))}
+            <MenuItem checked={folderId == null} onClick={() => { close(); if (folderId != null) move(null); }}>
+              No project
             </MenuItem>
-          ))}
-          <MenuItem checked={folderId == null} onClick={() => { close(); if (folderId != null) move(null); }}>
-            No project
-          </MenuItem>
-          {folders.data!.length === 0 && <p className="px-3 py-2 text-sm text-muted">No projects yet. Make one in the Projects list.</p>}
-          {file.isError && <p role="alert" className={`px-3 py-2 ${errorClass}`}>{file.error.message}</p>}
-        </>
+            {folders.data!.length === 0 && <p className="px-3 py-2 text-sm text-muted">No projects yet. Everything works without one.</p>}
+            <MenuItem onClick={() => { close(); setNaming(""); }}>
+              <Plus size={20} strokeWidth={1.75} aria-hidden />
+              New project
+            </MenuItem>
+            {file.isError && <p role="alert" className={`px-3 py-2 ${errorClass}`}>{file.error.message}</p>}
+          </>
+        )}
+      </Menu>
+      {naming !== null && (
+        <Dialog title="New project" cancelLabel="Not now" actionLabel="Make it and move this there" busy={make.isPending || file.isPending} holdReason={!naming.trim() ? "Give it a name" : make.isError ? make.error.message : null} onCancel={() => { setNaming(null); make.reset(); }} onConfirm={() => make.mutate(naming.trim())}>
+          <Field label="Name" value={naming} maxLength={80} placeholder="November launch" onChange={(e) => { setNaming(e.target.value); make.reset(); }} />
+        </Dialog>
       )}
-    </Menu>
+    </>
   );
 }
