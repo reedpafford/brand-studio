@@ -257,23 +257,28 @@ def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
     from app.prompts.schemas import Breakdown
 
     old, new = Breakdown.model_validate(old_row.data), Breakdown.model_validate(new_row.data)
-    swaps = _swaps(old, new)
-    clips, was = {c.id: c.shot_ids for c in new.clips}, {c.id: c.shot_ids for c in old.clips}
+    swaps, renamed = _swaps(old, new), _renamed(old, new)
+    clips = {c.id: c.shot_ids for c in new.clips}
     moved = 0
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == old_row.id)):
-        mine = clips.get(clip.clip_id)
-        if not mine or mine != was.get(clip.clip_id):  # regrouped (a split): written again
+        to = renamed.get(clip.clip_id)  # regrouped (a split): written again
+        if to is None or any(swaps.get(s, {}) is None for s in clips[to]):
             continue
-        if any(swaps.get(s, {}) is None for s in mine):
-            continue
-        swap = {k: v for s in mine for k, v in (swaps.get(s) or {}).items()}
-        clip.breakdown_id = new_row.id
+        swap = {k: v for s in clips[to] for k, v in (swaps.get(s) or {}).items()}
+        clip.breakdown_id, clip.clip_id = new_row.id, to
         moved += 1
         if swap:
             clip.references = [{**r, "id": swap.get(r["id"], r["id"])} for r in clip.references]
             clip.prompt = _recast(db, clip.prompt, swap)
             clip.approved = clip.prompt_ok = False
     return moved
+
+
+def _renamed(old, new) -> dict[str, str]:
+    """Old clip id -> new, for each clip whose shots are the same (a split renumbers the
+    clips after it: c2 becomes c3)."""
+    now = {tuple(c.shot_ids): c.id for c in new.clips}
+    return {c.id: now[k] for c in old.clips if (k := tuple(c.shot_ids)) in now}
 
 
 def carry_frames(db: Session, project: Project, old_row, new_row, same_look=False) -> list:
@@ -288,15 +293,20 @@ def carry_frames(db: Session, project: Project, old_row, new_row, same_look=Fals
     old, new = Breakdown.model_validate(old_row.data), Breakdown.model_validate(new_row.data)
     swaps = _swaps(old, new)
     shots = {s.id for scene in new.scenes for s in scene.shots}
-    clips = {c.id: c.shot_ids for c in new.clips}
+    clips, renamed = {c.id: c.shot_ids for c in new.clips}, _renamed(old, new)
+    of_shot = {s: c.id for c in new.clips for s in c.shot_ids}
     outdated = []
     frames = db.scalars(select(StoryboardFrame).where(StoryboardFrame.breakdown_id == old_row.id))
     for frame in frames:
-        mine = [frame.shot_id] if frame.shot_id in shots else clips.get(frame.clip_id, [])
+        if frame.shot_id in shots:  # a shot's frame goes with its shot, to its clip now
+            mine, to = [frame.shot_id], of_shot.get(frame.shot_id, frame.clip_id)
+        else:  # a clip's: only to the same clip, under its new number
+            to = renamed.get(frame.clip_id)
+            mine = clips.get(to, [])
         if not mine or any(swaps.get(s, {}) is None for s in mine):
             continue  # its shots changed beyond a recast: write the storyboard again
         swap = {k: v for s in mine for k, v in (swaps.get(s) or {}).items()}
-        frame.breakdown_id = new_row.id
+        frame.breakdown_id, frame.clip_id = new_row.id, to
         if not swap:
             continue
         frame.reference_ids = [swap.get(r, r) for r in frame.reference_ids]

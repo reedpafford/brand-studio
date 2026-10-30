@@ -520,3 +520,53 @@ def test_split_is_offered_only_for_a_clip_of_more_than_one_shot():
     one = {"clips": [{"id": "c1", "shot_ids": ["1.1"]}]}
     assert [f["kind"] for f in breakdown_fix.fixes([said], two)] == ["split_clip"]
     assert breakdown_fix.fixes([said], one) == []
+
+
+def test_a_split_keeps_the_clips_after_it_with_their_takes(app, db, owner, song):
+    """Flow-QA #1013: splitting c1 renumbers the clip after it (c2 becomes c3). That clip's
+    shots are the same, so it keeps its prompt and picked take under its new number, and the
+    bar asks only for the split clips."""
+    from sqlalchemy import select
+
+    from app import breakdown_fix
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+    from app.prompts.schemas import Breakdown
+    from app.routes.breakdown import new_version
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.post(f"{song}/approve")
+    owner.post(f"{song.rsplit('/drafts', 1)[0]}/publish")
+    made = owner.post(f"{song}/produce", json={"video_model": "seedance-2.0"}).json()
+    video = f"/projects/{made['project_id']}"
+    _work(app, db)
+    _approve_plan(app, db, owner, video)
+    owner.post(f"{video}/clips/prompts")
+    _work(app, db)
+    for c in owner.get(f"{video}/clips").json():
+        assert owner.post(f"{video}/clips/{c['id']}/generate").status_code == 201
+    _work(app, db)
+    row = db.scalars(select(BreakdownVersion).order_by(BreakdownVersion.id.desc())).first()
+    bd = Breakdown.model_validate(row.data)
+    first, (was_id, its_shots) = bd.clips[0], (bd.clips[1].id, list(bd.clips[1].shot_ids))
+    assert len(first.shot_ids) >= 2
+    later = db.scalars(select(ProjectClip).where(ProjectClip.clip_id == was_id)).one()
+    picked, prompt = later.picked_take_id, later.prompt
+    assert picked
+    shots = [s for scene in bd.scenes for s in scene.shots]
+    assert breakdown_fix._split(bd, shots, first.id, 4, max(1, first.seconds - 1))
+    from app.models.accounts import User
+
+    project = db.get(Project, made["project_id"])
+    user = db.get(User, project.created_by_id)
+    new = new_version(db, user, project, row, "", bd, follow=False)
+    db.refresh(later)
+    moved = next(c.id for c in bd.clips if c.shot_ids == its_shots)
+    assert moved != was_id  # renumbered by the split
+    assert (later.breakdown_id, later.clip_id) == (new.id, moved)
+    assert (later.picked_take_id, later.prompt) == (picked, prompt)
+    stages = {s["stage"]: s for s in owner.get(f"{video}/estimate").json()["stages"]}
+    split = sum(c["seconds"] for c in new.data["clips"] if c["id"] != moved)  # as fitted
+    assert f"{split} s of video" in stages["clips"]["note"]  # not the kept clip again
