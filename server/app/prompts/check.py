@@ -255,11 +255,11 @@ def _money_climbs(shots: list) -> list[str]:
 
 
 def _screens_climb(prompt: str) -> list[str]:
-    """Reed (#650, rule 14): each invented trading screen in a clip's shots reads bigger than
-    the last; a red day (a loss) is exempt. Advice."""
+    """Reed (#650, rule 14): each trading screen in a clip's shots, real ("the fomo Token chart
+    up screen, … +$420") or invented, reads bigger than the last; a red day is exempt. Advice."""
     problems, last = [], {}
     for n, text in SHOT_ANY.findall(prompt):
-        for part in text.split("trading screen")[1:]:
+        for part in text.split(" screen")[1:]:
             if not (fig := _figure(part)) or fig[1] < 0:
                 continue
             kind, value, found = fig

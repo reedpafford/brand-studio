@@ -181,8 +181,8 @@ def system(step: str, style_id: str = "house", fmt: str = "") -> str:
     if guide:
         parts.append(
             f"## Style: {chosen['name']}\nThis video is in the {chosen['name']} style. Where "
-            "this section and anything above (the worked example included, which is in the "
-            "House style) differ, this section wins.\n\n" + "\n\n".join(guide)
+            "this section and anything above (the worked example included) differ, this "
+            "section wins.\n\n" + "\n\n".join(guide)
         )
     form = next((s for s in styles() if s["id"] == fmt and s["kind"] == "format"), None)
     guide = [form["sections"][k] for k, steps in GUIDES.items()
