@@ -430,3 +430,30 @@ def test_a_song_on_a_short_model_is_split_into_clips_it_can_make(app, db, owner,
     end = max(t["end"] for t in row.data["song"]["shots"].values())
     assert len(seconds) >= 2 and max(seconds) <= 15 and sum(seconds) >= end
     assert not [p for p in row.problems if "is outside" in p]  # no clip over the limit
+
+
+def test_a_song_videos_quote_card_and_bar_are_one_figure(app, db, owner, song):
+    """Rule 32 (up to a look per role that will need one, and the plan call the press charges)
+    and the song's own length: Make this version's quote and the take card are one figure,
+    the plan's charge plus the made video's cost bar, on a song video with a role not cast
+    yet."""
+    from app import video_settings as vs
+    from app.models.projects import Project
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    base = song.rsplit("/drafts", 1)[0]
+    owner.post(f"{base}/cast", json={"role": "Singer"})  # not cast yet: needs a look
+    owner.post(f"{song}/approve")
+    owner.post(f"{base}/publish")
+    quote = owner.post(f"{song}/estimate").json()["credits"]
+    card = owner.get(f"{song}/songs").json()["takes"][0]["video_credits"]
+    made = owner.post(f"{song}/produce").json()["project_id"]
+    plan = float(sum(j.credits for j in db.query(Job).filter_by(project_id=made)))
+    assert plan == 3  # Make this version charged the plan call at once
+    bar = owner.get(f"/projects/{made}/estimate").json()["remaining_credits"]
+    to_finish = float(vs.to_finish(db, db.get(Project, made)))
+    assert quote == pytest.approx(card)  # the card and the quote: one figure
+    assert quote == pytest.approx(plan + bar, abs=0.01)  # what the press and the rest cost
+    assert to_finish == pytest.approx(bar, abs=0.01)

@@ -28,7 +28,6 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 
-FIELDS = ("look", "video_model", "image_model", "aspect_ratio", "product_variants")
 SHAPES = ("9:16", "1:1", "16:9", "4:3", "3:4", "21:9")
 OVER_BUDGET = "That's more than this video's budget."
 OVER_CAP = "Over the video limit ({} credits)."

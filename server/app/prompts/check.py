@@ -1462,7 +1462,10 @@ def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
                     changed.append(f"{word} → {new}" if new else f"{word} → (taken out)")
             if any(found.search(q) for q in quotes):
                 advice.append(f"{ADVICE}“{word}” is in a quoted line; the look avoids it")
-        out.append(re.sub(r" {2,}", " ", "".join(parts)))
+        line = re.sub(r" {2,}", " ", "".join(parts))
+        out.append(
+            re.sub(r" +([,.;:])", r"\1", line) if changed else line
+        )  # "kitchen , a" → "kitchen, a"
     return "\n".join(out), list(dict.fromkeys(changed)), list(dict.fromkeys(advice))
 
 

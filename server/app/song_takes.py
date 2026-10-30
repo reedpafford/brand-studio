@@ -256,15 +256,24 @@ def _fits(db: Session, take: SongTake, draft: ScriptDraft) -> bool:
 def video_credits(db: Session, take: SongTake, seconds: float | None = None,
                   video=None) -> Decimal:  # fmt: skip
     """About what a video of this take (or its first `seconds`) costs, every step at plan:
-    the song decides the video's length (spec §1), plus a look for each role not cast yet
-    (as `estimate.version_cost`, so every screen shows one figure)."""
-    from app.models.script_library import ScriptCastSlot as Slot
+    the song decides the video's length (spec §1), plus up to a look (`look_price`, rule 32)
+    for each role that will need one, by the rules the video's cost bar uses
+    (`sheets.roles_without_a_look`, `roles_needing_look`), and the plan call Make this version
+    charges first (`plans.plan_first`). The take card and the version show this one figure,
+    the video's bar the rest once the plan is charged; budgets stay on "usual"."""
+    from app.plans import plan_first
+    from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
     length = seconds or take.trim_to or take.seconds or 0
-    script = db.get(Script, db.get(ScriptDraft, take.draft_id).script_id)
-    uncast = db.scalar(select(func.count()).where(Slot.script_id == script.id,
-                                                   Slot.library_item_id.is_(None)))  # fmt: skip
-    return plan_cost(db, script.workspace_id, math.ceil(length), None, roles=uncast, video=video)
+    draft = db.get(ScriptDraft, take.draft_id)
+    script = db.get(Script, draft.script_id)
+    looks = len(roles_without_a_look(db, script, draft))
+    looks += len(roles_needing_look(db, script, video.look if video else None))
+    return (
+        plan_first(db, draft)
+        + looks * look_price(db, script.workspace_id)
+        + plan_cost(db, script.workspace_id, math.ceil(length), None, roles=0, video=video)
+    )
 
 
 def cap(db: Session, take: SongTake) -> int:
