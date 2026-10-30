@@ -65,7 +65,7 @@ def _out(db: Session, draft) -> PreviewOut:
         running=_running(db, draft.id),
         kept=draft.breakdown_kept,
         stale=bool(bd and draft.breakdown_text is not None and draft.breakdown_text != draft.text),
-        fixes=breakdown_fix.fixes(draft.breakdown_problems or []),
+        fixes=breakdown_fix.fixes(draft.breakdown_problems or [], draft.breakdown),
         unknown_names=_unknown(db, draft, bd) if bd else {},
     )
 
@@ -227,7 +227,9 @@ def fix_plan(
         raise HTTPException(404, "This version has no plan yet.")
     text = draft.breakdown_text if draft.breakdown_text is not None else draft.text
     project = script_preview.stand_in_project(db, script, draft)
-    every = [f["problem"] for f in breakdown_fix.fixes(draft.breakdown_problems or [])]
+    every = [
+        f["problem"] for f in breakdown_fix.fixes(draft.breakdown_problems or [], draft.breakdown)
+    ]
     m = breakdown.video_model()
     fixed, done = breakdown_fix.repair(
         text, Breakdown.model_validate(draft.breakdown), (body.problems if body else []) or every,

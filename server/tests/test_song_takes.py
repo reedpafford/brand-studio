@@ -509,3 +509,14 @@ def test_a_clip_over_the_video_models_longest_is_flagged_refused_and_split(app, 
     assert not stages["clips"]["done"]  # both new clips' takes are still to make
     assert f"{sum(c['seconds'] for c in newest.data['clips'])} s" in stages["clips"]["note"]
     assert not [p for p in fixed.json()["problems"] if "is outside" in p]
+
+
+def test_split_is_offered_only_for_a_clip_of_more_than_one_shot():
+    """Flow-QA #1013: one over-long shot can't be split between shots, so no Split button."""
+    from app import breakdown_fix
+
+    said = "clip c1: 20 s is outside 4–15 s"
+    two = {"clips": [{"id": "c1", "shot_ids": ["1.1", "1.2"]}]}
+    one = {"clips": [{"id": "c1", "shot_ids": ["1.1"]}]}
+    assert [f["kind"] for f in breakdown_fix.fixes([said], two)] == ["split_clip"]
+    assert breakdown_fix.fixes([said], one) == []

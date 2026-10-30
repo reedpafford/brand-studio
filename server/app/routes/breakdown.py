@@ -112,7 +112,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         kept=row.kept or [],
         stale=row.script_version != working,
         song=_song(db, row),
-        fixes=breakdown_fix.fixes(row.problems or []),
+        fixes=breakdown_fix.fixes(row.problems or [], row.data),
         older_plan=plans.older(db, project, row),
     )
 
@@ -379,7 +379,7 @@ def fix(
     fitted to the shots. Undo saves the old breakdown back with PUT."""
     project, version = _working(db, user, project_id)
     row = _newest(db, project)
-    every = [f["problem"] for f in breakdown_fix.fixes(row.problems)]
+    every = [f["problem"] for f in breakdown_fix.fixes(row.problems, row.data)]
     asked = (body.problems if body else []) or every
     m = breakdown.video_model(project)
     from app.cast_roles import fix as cast

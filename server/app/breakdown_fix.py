@@ -35,9 +35,16 @@ def kind(problem: str) -> str | None:
     return k
 
 
-def fixes(problems: list[str]) -> list[dict]:
-    """The fix each problem has, for its button: [{problem, kind, label}]."""
-    return [{"problem": p, "kind": k, "label": LABELS[k]} for p in problems if (k := kind(p))]
+def fixes(problems: list[str], data: dict | None = None) -> list[dict]:
+    """The fix each problem has, for its button: [{problem, kind, label}]. With the
+    breakdown (`data`), a clip of one shot isn't offered Split (Flow-QA #1013: it can't be)."""
+    one = {c["id"] for c in (data or {}).get("clips", []) if len(c["shot_ids"]) < 2}
+
+    def split_one(p: str, k: str) -> bool:
+        return k == "split_clip" and KINDS[k].match(p)[1] in one
+
+    return [{"problem": p, "kind": k, "label": LABELS[k]}
+            for p in problems if (k := kind(p)) and not split_one(p, k)]  # fmt: skip
 
 
 def _said(text: str) -> str:
