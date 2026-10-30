@@ -1,7 +1,7 @@
 """Brand setup (flows BR1): voice and tone, CTA lines with one Default (Undo), the default
 cast, music style, language and look, and a product's description and claim. Editors change a
-brand's setup too (Reed's item 1); nothing already made changes. main's `never_say` and `end_line` are kept in
-step (data.md n08)."""
+brand's setup too (Reed's item 1); nothing already made changes. main's `never_say` and
+`end_line` are kept in step (data.md n08)."""
 
 from app import brand_setup
 from app.routes.library import NO_CLAIM
