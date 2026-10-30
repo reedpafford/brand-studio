@@ -7993,6 +7993,19 @@ export interface components {
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
+        /** ScreenFigure */
+        ScreenFigure: {
+            /**
+             * Balance
+             * @description The total the screen shows, as it should read on screen, e.g. '$12,900'; or null.
+             */
+            balance: string | null;
+            /**
+             * Change
+             * @description The gain or loss it shows, signed, e.g. '+$1,222' or '-$380'; or null.
+             */
+            change: string | null;
+        };
         /** ScreenIn */
         ScreenIn: {
             /** Name */
@@ -8284,12 +8297,12 @@ export interface components {
             line: string | null;
             /**
              * Action
-             * @description What we see happen, concretely, in one sentence.
+             * @description What we see happen, concretely, in one sentence. In a shot nobody speaks in, what the body does ('types back', 'nods'), never says, tells, replies or answers.
              */
             action: string;
             /**
              * Reaction
-             * @description Who reacts, the feeling and its reason, then how it shows at phone size, e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; or null.
+             * @description Who reacts, the feeling and its reason, then how it shows at phone size, e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; never words a character could say. Or null.
              */
             reaction: string | null;
             /**
@@ -8322,6 +8335,8 @@ export interface components {
              * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
+            /** @description Only when this shot shows a brand screen with a figure on it: the figure, for the first screen in screen_ids; the server draws it onto that screen. Each winning beat's figure is bigger than the last; a loss is signed '-'. Null otherwise. */
+            screen_figure?: components["schemas"]["ScreenFigure"] | null;
         };
         /** ShotRow */
         ShotRow: {
