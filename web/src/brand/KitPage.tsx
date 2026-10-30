@@ -13,7 +13,8 @@ import { ChipList } from "./ChipList";
 import { ImagePicker } from "./ImagePicker";
 import { useMe } from "../auth/useMe";
 import { useLooks } from "../scripts/Looks";
-import { CtaLines, DefaultCast, LANGUAGES, OWNER_ONLY, setupOf } from "./BrandSetup";
+import { useLanguages } from "../languages/useLanguages";
+import { CtaLines, DefaultCast, OWNER_ONLY, setupOf } from "./BrandSetup";
 import { SiteImport } from "./SiteImport";
 
 type Brand = components["schemas"]["BrandOut"];
@@ -48,6 +49,7 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
   const setup = setupOf(brand); // BR1, once the server has it
   const owner = useMe().data?.role === "owner";
   const looks = useLooks().data;
+  const languages = useLanguages().data;
   // With BR1 the new sections are the owner's (an editor's save leaves them out), and never_say and end_line are the
   // server's to keep in step with the Don't list and the Default CTA line, so they are never sent.
   const extra = setup
@@ -189,11 +191,14 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
                 ))}
               </Select>
             )}
-            <Select label="Language" disabled={!owner} value={kit.default_language} onChange={(e) => set("default_language", e.target.value)}>
-              {Object.entries({ ...LANGUAGES, ...(kit.default_language && !LANGUAGES[kit.default_language] ? { [kit.default_language]: kit.default_language } : {}) }).map(([id, name]) => (
-                <option key={id} value={id}>{name}</option>
-              ))}
-            </Select>
+            {languages && (
+              // Every language, as the Look picker: an Off one is marked, and editors start in English.
+              <Select label="Language" disabled={!owner} value={kit.default_language} onChange={(e) => set("default_language", e.target.value)} hint={languages.some((l) => l.id === kit.default_language && !l.on) ? "New scripts by editors start in English." : undefined}>
+                {languages.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}{l.on ? "" : " (off for editors)"}</option>
+                ))}
+              </Select>
+            )}
             <DefaultCast brandId={brand.id} value={kit.default_cast ?? []} picks={setup.cast} readOnly={!owner} onChange={(v) => set("default_cast", v)} />
           </Card>
           {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
