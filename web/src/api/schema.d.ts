@@ -1690,8 +1690,8 @@ export interface paths {
         /**
          * Read Again
          * @description Read it again (reel-import.md §5): the breakdown and the script steps run again with
-         *     the note; the download and transcript are kept. Priced first; past an editor's week it's
-         *     refused, never held. A note that changes the reel's words is refused before any charge.
+         *     the note; the download and transcript are kept. A note that changes the reel's words is
+         *     refused before any charge.
          */
         post: operations["read_again_scripts__script_id__import_read_again_post"];
         delete?: never;
