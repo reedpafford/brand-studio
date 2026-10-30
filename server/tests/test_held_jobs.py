@@ -1,7 +1,8 @@
-"""Reed, 2026-10-26: past a limit an editor is refused with the reason, and nothing ever waits
-for Reed's OK. Every paid route is walked as an editor past the limit: a library version past
-its budget, and the editor's own work past their week."""
+"""Reed, 30 Oct ("Hold requests"): past a limit an editor's press waits for the owner, charged
+nothing until approved, and says why (never "ask Reed"). Every paid route is walked as an
+editor past the limit: a video past its budget, and the editor's Quick clips past their week."""
 
+from app.credits import credits_used
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
@@ -21,12 +22,7 @@ def _spent(db, project, credits):
     db.commit()
 
 
-def _posts(client, calls):
-    """POST each (url, body); the answers keyed by url."""
-    return {url: client.post(url, json=body) for url, body in calls}
-
-
-def test_every_paid_video_route_refuses_an_editor_past_the_budget(owner, editor, db):
+def test_every_paid_video_route_holds_an_editors_press_past_the_budget(owner, editor, db):
     pid, mia, kid = _video(owner, editor, db)
     with_sheet(db, kid)
     project = db.get(Project, pid)
@@ -47,7 +43,7 @@ def test_every_paid_video_route_refuses_an_editor_past_the_budget(owner, editor,
     jobs = db.query(Job).count()
     slot = next(r for r in editor.get(f"/projects/{pid}/assets").json() if r["role"] == "Nate")
     v = f"/projects/{pid}"
-    answers = _posts(editor, [
+    calls = [
         (f"{v}/breakdown", {}),
         (f"{v}/storyboard", {}),
         (f"{v}/storyboard/frames/{frame.id}/render", {}),
@@ -56,35 +52,39 @@ def test_every_paid_video_route_refuses_an_editor_past_the_budget(owner, editor,
         (f"{v}/clips/{clip.id}/generate", {}),
         (f"{v}/clips/{clip.id}/change", {"note": "Slower push in."}),
         (f"{v}/assets/slots/{slot['slot_id']}/make-look", {}),
-    ])  # fmt: skip
-    for url, r in answers.items():
-        assert r.status_code in (409, 422), (url, r.status_code, r.text)
-    assert {u: r.json()["detail"] for u, r in answers.items()} == dict.fromkeys(answers, BUDGET)
-    assert not any("Reed" in str(r.json()["detail"]) for r in answers.values())
-    assert db.query(Job).count() == jobs  # nothing queued, nothing held
-    assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
+    ]  # fmt: skip
+    for url, body in calls:
+        r = editor.post(url, json=body)
+        assert r.status_code in (200, 201) and "Reed" not in r.text, (url, r.status_code, r.text)
+        (held,) = db.query(Job).filter_by(status=JobStatus.needs_owner_approval).all()
+        assert held.input["held"] == BUDGET  # why, as the editor sees it
+        assert editor.get(f"/jobs/{held.id}").json()["held"] == BUDGET
+        assert credits_used(db, project) == project.budget_credits  # nothing charged
+        withdrawn = editor.post(f"/jobs/{held.id}/cancel").json()
+        assert (withdrawn["status"], withdrawn["declined"]) == ("cancelled", False)
+        db.expire_all()
+    assert db.query(Job).count() == jobs + len(calls)  # one held request per press
 
 
-def test_past_the_week_only_a_quick_clip_is_refused_and_nothing_is_held(owner, editor, db):
+def test_past_the_week_only_a_quick_clip_waits_for_the_owner(owner, editor, db):
     """One allowance (Reed, 30 Oct): the week counts Quick clips only. Script work, looks and
-    Improve are a brand's work, never refused for the week; a Quick clip past it is declined,
-    never held for the owner."""
+    Improve are a brand's work, never held for the week; a Quick clip past it waits."""
     limits = owner.get("/credits/limits").json()
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 0})
     fomo = editor.get("/brands").json()[0]["id"]
     sid = _make(editor, text=SCRIPT)["id"]
     s = f"/scripts/{sid}"
     look = editor.post("/library/character", json={"name": "Bo", "notes": "a pug"}).json()["id"]
-    answers = _posts(editor, [
+    answers = {url: editor.post(url, json=body) for url, body in [
         (f"{s}/write", {}),
         (f"{s}/drafts/0/enhance", {}),
         (f"{s}/drafts/0/breakdown", {}),
         ("/clips/improve", {"brand_id": fomo, "prompt": "A dog eats.", "duration": 5}),
         (f"/library/character/{look}/sheet", {}),
-    ])  # fmt: skip
+    ]}  # fmt: skip
     for url, r in answers.items():
         assert "this week" not in r.text, (url, r.text)
-    clip = editor.post("/clips", json={"brand_id": fomo, "prompt": "A dog eats.", "duration": 5})
-    assert (clip.status_code, clip.json()["detail"]) == (
-        409, "You've used this week's 0 credits. It resets on Monday.")  # fmt: skip
     assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
+    clip = editor.post("/clips", json={"brand_id": fomo, "prompt": "A dog eats.", "duration": 5})
+    assert clip.status_code == 201 and clip.json()["status"] == "needs_owner_approval"
+    assert clip.json()["held"] == "You've used this week's 0 credits. It resets on Monday."
