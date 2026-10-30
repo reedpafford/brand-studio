@@ -4,12 +4,11 @@ import { ChevronDown, Download, Music, RotateCcw, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
-import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, Dialog, Panel, Skeleton, buttonClass } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
-import { weekStop } from "./useScript";
+import { useBudgetStop } from "../projects/useBudgetStop";
 import { videoCost } from "./TakesStep";
 import type { SongTake } from "./useSongs";
 
@@ -31,13 +30,9 @@ function useVideoSongs(projectId: number, enabled = true) {
   });
 }
 
-/** Why "Make 2 more" can't be pressed by this person, or null: an editor's own script is billed to the week, anyone else's to the video's budget; Reed is never limited. */
+/** Why "Make 2 more" can't be pressed by this person, or null: it runs on the video's budget; the owner is never limited. */
 function useMakeStop(p: Project, price: number | undefined): string | null {
-  const { data: me } = useMe();
-  const week = useQuery({ enabled: !!p.own_script && me?.role === "editor", queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
-  if (price === undefined || me?.role !== "editor") return null;
-  if (p.own_script) return week.data ? weekStop(week.data, price) : null;
-  return p.credits_used + price > p.budget_credits ? "That's more than this video's budget." : null;
+  return useBudgetStop({ used: p.credits_used, budget: p.budget_credits })(price);
 }
 
 /** A narrated video's narrations are song takes of kind "narration" (Next-Server #858): the same panel, its own words (flows V6n). */
@@ -175,7 +170,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
               {W.more}
             </Button>
           )}
-          <p className="text-sm text-muted">{W.same} {p.own_script ? "Counted in your week." : "Counted in this video's budget."}</p>
+          <p className="text-sm text-muted">{W.same} Counted in this video's budget.</p>
         </div>
       )}
       {asking && (

@@ -10,7 +10,7 @@ import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
 import { SongRow, useSongLength } from "./SongParts";
 import { beingMade } from "./ScriptsPage";
-import { useAllowanceStop, useScript, useWeek } from "./useScript";
+import { useScript } from "./useScript";
 import { MakeSettings, useMakeEstimate, type Picks } from "./MakeSettings";
 
 const LETTER = ["A", "B", "C"];
@@ -58,15 +58,13 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   // With no saved preview, starting makes the plan, or the shots from an approved owner's plan (one paid call each, #941);
   // with one saved, making the version is free.
   const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
-  const stop = useAllowanceStop(s, cost);
-  const week = useWeek(s); // an editor making their own script sees how much of the week is used
   const songLength = useSongLength(scriptId, s?.kind === "song");
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
   // The whole video's price follows the picks (#956's estimate); over the video limit, the press says why.
   const estimate = useMakeEstimate(scriptId, slot, picks, readyToMake);
   const whole = estimate.data?.credits ?? v?.estimate_credits ?? 0;
-  const held = stop ?? (estimate.data?.over_cap ? estimate.data.reason || "Over the video limit." : null);
+  const held = (estimate.data?.over_cap ? estimate.data.reason || "Over the video limit." : null);
   return (
     <Panel title={s ? `${s.title} · Version ${letter}` : "Version"} onClose={onClose}>
       {!s || !v ? (
@@ -115,7 +113,6 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}
               {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (${planned ? "the shots" : "the plan"}) · the whole video up to ${wholeCredits(whole)} credits` : `Starting is free · the whole video up to ${wholeCredits(whole)} credits`}
               {songLength && ` · ${songLength} song`}
-              {week && ` · This week: ${Math.round(week.used)} of ${Math.round(week.allowed)}`}
             </p>
           )}
           {estimate.isError && <p role="alert" className={errorClass}>{estimate.error.message}</p>}

@@ -5,18 +5,17 @@ import { api, errorText } from "../api/client";
 import { Button, Card, Dialog, Skeleton, useToast } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useFindRoles } from "./useCast";
-import { useAllowanceStop, type Script } from "./useScript";
+import type { Script } from "./useScript";
 
 /** "Claude can find the roles in your script." when there are none; "Find roles again" (after a confirm) when there are. */
 export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: boolean }) {
   const scriptId = script.id;
   const find = useFindRoles(scriptId);
-  const stop = useAllowanceStop(script, find.price);
   const first = script.versions.find((v) => v.slot === 0);
   const approved = first?.status === "approved";
   // A song's roles are read from its lyrics as they are: no Approve first (the Producer's row 4 decision).
   const song = script.kind === "song";
-  const reason = song ? (!first?.text.trim() ? "Write the lyrics first" : stop) : !approved ? "Approve the words first" : stop;
+  const reason = song ? (!first?.text.trim() ? "Write the lyrics first" : null) : !approved ? "Approve the words first" : null;
   // The roles are read from the approved words. A script with no variations is approved here: it is the only version.
   const queryClient = useQueryClient();
   const toast = useToast();

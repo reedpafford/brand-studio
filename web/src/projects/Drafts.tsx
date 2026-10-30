@@ -5,7 +5,7 @@ import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Sparkles } from "lucide-react";
 import { Badge, Banner, Button, Card, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
-import { useOwnScriptStop } from "./useOwnScriptStop";
+import { useBudgetStop } from "./useBudgetStop";
 
 
 /** No script yet: Claude writes a few drafts from the brief, and you pick one to start from. */
@@ -45,7 +45,7 @@ export function DraftsPanel({
   const cost = rates.data?.find(
     (r) => r.kind === "write-claude",
   )?.credits_per_unit;
-  const stop = useOwnScriptStop(false, { used, budget })(cost);
+  const stop = useBudgetStop({ used, budget })(cost);
 
   const write = useMutation({
     mutationFn: async () => {

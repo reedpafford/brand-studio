@@ -1,12 +1,8 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
-import { weekStop } from "./useScript";
 import { renderApp } from "../test/render";
 import { owner } from "../test/people";
 
@@ -576,38 +572,6 @@ test("Make this version is free when a breakdown is already saved", async () => 
   expect(button).not.toHaveTextContent(/credit/);
 });
 
-test("an editor past the week's allowance on their own script can't make it, and is told when it resets; on Reed's script the button just shows the price", async () => {
-  setViewport(1440);
-  const answers = (createdBy: number) => ({
-    ...base,
-    "GET /auth/me": [200, editor] as [number, unknown],
-    "GET /scripts": [200, []] as [number, unknown],
-    "GET /scripts/7": [200, script({ created_by_id: createdBy, versions: [v(0, "approved", { text: "Hi", has_breakdown: false })] })] as [number, unknown],
-    "GET /scripts/7/cast": [200, []] as [number, unknown],
-    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]] as [number, unknown],
-    "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }] as [number, unknown],
-  });
-  fakeServer(answers(2));
-  const { unmount } = render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/scripts?make=7.0"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
-  const own = await within(panel).findByRole("button", { name: /Make this version.*3 credits/ });
-  await vi.waitFor(() => expect(own).toBeDisabled());
-  expect(within(panel).getByText("That's more than this week's 145 credits (144 used). It resets on Monday.")).toBeInTheDocument();
-  expect(document.body.textContent).not.toMatch(/Ask Reed/);
-  unmount();
-
-  fakeServer(answers(1));
-  open("/b/1/scripts?make=7.0");
-  const other = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
-  expect(await within(other).findByRole("button", { name: /Make this version.*3 credits/ })).toBeEnabled();
-});
-
 test("Variations: picking 1 or 2 shows Write and says A's words become final; Next to Cast stays", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, approvedOriginal()], "GET /scripts/7/variations/estimate": [200, { credits: 6 }] });
@@ -649,22 +613,6 @@ test("Variations: Regenerate keeps every column's words and only that column is 
   expect(within(screen.getByLabelText("Version B")).getByText("B words")).toBeInTheDocument();
   expect(within(c).getByRole("button", { name: /Regenerate/ })).toBeDisabled();
   sessionStorage.clear();
-});
-
-test("Variations: an editor on their own script past the week's allowance can't Write, and is told when it resets", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /auth/me": [200, editor],
-    "GET /scripts/7": [200, { ...approvedOriginal(), created_by_id: 2 }],
-    "GET /scripts/7/variations/estimate": [200, { credits: 6 }],
-    "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }],
-  });
-  open("/b/1/scripts/7?step=variations");
-  await userEvent.click(await screen.findByRole("radio", { name: "1" }));
-  const write = await screen.findByRole("button", { name: /Write 1 variation/ });
-  await vi.waitFor(() => expect(write).toBeDisabled());
-  expect(write).toHaveAccessibleDescription("That's more than this week's 145 credits (144 used). It resets on Monday.");
 });
 
 test("the version panel says what it is a variation of, who planned the breakdown, how many clips, and about what it costs", async () => {
@@ -898,30 +846,6 @@ test("Bulk create: pasted lines become rows, every row needs a title and what it
   expect(await screen.findByText("Writing 2 scripts. They'll show as drafts when they're ready.")).toBeInTheDocument();
 });
 
-test("Bulk create for an editor: past the week's allowance Write all is disabled with when it resets, and there is no Ask Reed", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /auth/me": [200, editor],
-    "GET /scripts": [200, []],
-    "GET /credits/me": [200, { quick_clip_credits_used: 140, quick_clip_credits_allowed: 145 }],
-    "POST /scripts/bulk": [201, [{ id: 11, title: "Salmon night" }, { id: 12, title: "Gym day" }]],
-    "POST /scripts/write/estimate": [200, { count: 2, credits: 12, credits_left: 5 }],
-  });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Bulk create" }));
-  const dialog = await screen.findByRole("dialog", { name: "Bulk create" });
-  await userEvent.click(within(dialog).getByRole("button", { name: "Paste a list" }));
-  await userEvent.type(within(dialog).getByLabelText("One script per line: Title — what it's for"), "Salmon night — Bo meets salmon{Enter}Gym day — Bo lifts");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Add these rows" }));
-  await userEvent.click(within(dialog).getByRole("button", { name: "Make 2 drafts" }));
-  const done = await screen.findByRole("dialog", { name: "Drafts made" });
-  const write = await within(done).findByRole("button", { name: /Write all scripts.*12 credits/ });
-  await vi.waitFor(() => expect(write).toBeDisabled());
-  expect(write).toHaveAccessibleDescription("That's more than this week's 145 credits (140 used). It resets on Monday.");
-  expect(document.body.textContent).not.toMatch(/Ask Reed/);
-});
-
 test("a pasted list: a line without a dash takes its first 6 words as the title and leaves the purpose to fill in", async () => {
   const { parseList } = await import("./BulkCreate");
   expect(parseList("Salmon night — Bo meets salmon\nBo walks to the park every single morning at dawn")).toEqual([
@@ -1072,22 +996,6 @@ test("a failed step says which, that the credits were returned, offers Try again
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/import/read")).toBe(true));
 });
 
-test("an editor who can't cover the read can't press it, and there is no Ask Reed", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /auth/me": [200, editor],
-    "GET /scripts/7": [200, full({ created_by_id: 2 })],
-    "GET /scripts/7/import": [200, reelOut({ estimate: est(7, 3) })],
-    "GET /credits/me": [200, { quick_clip_credits_used: 142, quick_clip_credits_allowed: 145 }],
-  });
-  open("/b/1/scripts/7");
-  const button = await screen.findByRole("button", { name: /Read this reel.*7 credits/ });
-  await vi.waitFor(() => expect(button).toBeDisabled());
-  expect(button).toHaveAccessibleDescription("That's more than this week's 145 credits (142 used). It resets on Monday.");
-  expect(document.body.textContent).not.toMatch(/Ask Reed/);
-});
-
 test("a read reel shows the done card", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
@@ -1102,13 +1010,6 @@ test("Next waits until the reel is read, so Read this reel is the one amber butt
   open("/b/1/scripts/7");
   await screen.findByRole("button", { name: /Read this reel/ });
   expect(screen.queryByRole("button", { name: /^Next/ })).not.toBeInTheDocument();
-});
-
-test("when the whole week is used the stop says so; when only this price doesn't fit it says how much is used", async () => {
-  const { weekStop } = await import("./useScript");
-  expect(weekStop({ quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }, 3)).toBe("You've used this week's 145 credits. It resets on Monday.");
-  expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 7)).toBe("That's more than this week's 10 credits (7 used). It resets on Monday.");
-  expect(weekStop({ quick_clip_credits_used: 7, quick_clip_credits_allowed: 10 }, 3)).toBeNull();
 });
 
 test("on a phone Read this reel takes the action bar, and is not in the card", async () => {
@@ -1410,27 +1311,6 @@ test("the library chip says how long the reel is, that it is being read, or that
   expect((await inRow("Reading one")).getByText("Reading the reel…")).toBeInTheDocument();
   const failed = (await inRow("Failed one")).getByText("Couldn't get the reel");
   expect(failed.closest("[title]")).toHaveAttribute("title", "That reel is private or was removed.");
-});
-
-test("Read it again is disabled past an editor's week, with the plain reason, and sends nothing", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /auth/me": [200, { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 }],
-    "GET /credits/me": [200, { quick_clip_credits_used: 140, quick_clip_credits_allowed: 145 }],
-    "GET /scripts/7": [200, full({ created_by_id: 2 })],
-    "GET /scripts/7/import": [200, doneReel()],
-  });
-  open("/b/1/scripts/7");
-  await userEvent.click(await screen.findByRole("button", { name: "Read it again" }));
-  const go = await within(await screen.findByRole("dialog", { name: "Read it again" })).findByRole("button", { name: /Read it again · / });
-  await vi.waitFor(() => expect(go).toBeDisabled());
-  expect(go).toHaveAccessibleDescription(/145 credits.*resets on Monday/);
-  expect(calls.some((c) => c.key === "POST /scripts/7/import/read-again")).toBe(false);
-});
-
-test("a week with one credit says so in the singular, as the server does", () => {
-  expect(weekStop({ quick_clip_credits_used: 0.4, quick_clip_credits_allowed: 1 }, 2)).toBe("That's more than this week's 1 credit (0 used). It resets on Monday.");
 });
 
 test("approved words can't be edited, so the Script step shows Words final with Undo approval to edit (never a dead Edit)", async () => {

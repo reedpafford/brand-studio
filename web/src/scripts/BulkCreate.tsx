@@ -3,11 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardPaste, Plus, X } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
-import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
 import { Badge, Banner, Button, Dialog, Field, Panel, Select, TextArea, wholeCredits } from "../components";
 import { useToast } from "../toast";
-import { weekStop } from "./useScript";
 import { LINK, ReelChip } from "./ReelImport";
 import { errorText as errorClass } from "../ui";
 import { BulkFiles } from "./BulkFiles";
@@ -80,9 +78,6 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
   const holdReason =
     mode !== "links" ? null : reelCount === 0 && linkList.length === 0 && files.rows.length === 0 ? "Add a reel link or a video first" : files.uploading > 0 ? `Wait for the uploads to finish (${files.uploading} left)` : badLinks.length > 0 ? "Fix the lines that aren't reel links" : tooMany ? `Up to ${MAX} reels at once: remove ${reelsTotal - MAX}` : reelCount === 0 ? "Add a reel link or a video first" : null;
   const refs = useReferences();
-  const { data: me } = useMe();
-  const editor = me?.role !== undefined && me.role !== "owner";
-  const week = useQuery({ enabled: editor, queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
   const toast = useToast();
   const queryClient = useQueryClient();
   const set = (i: number, patch: Partial<Row>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -119,8 +114,6 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
     queryKey: ["write-estimate", ids],
     queryFn: async () => (await api.POST("/scripts/write/estimate", { body: { script_ids: ids } })).data ?? null,
   });
-  // An editor is billed to their weekly allowance and is declined past it. There is no Ask Reed.
-  const stopped = editor && !!estimate.data && estimate.data.credits_left !== null && estimate.data.credits > estimate.data.credits_left;
   const writeAll = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/scripts/write", { body: { script_ids: ids } });
@@ -163,7 +156,7 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
             )}
           </div>
           {writeAll.isError && <Banner title={writeAll.error.message}>Nothing was charged.</Banner>}
-          <Button charge="estimate" price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data || stopped} reason={stopped && week.data && estimate.data ? weekStop(week.data, estimate.data.credits) : stopped ? "That's more than the credits you have left this week. It resets on Monday." : undefined} onClick={() => writeAll.mutate()} className="w-full">
+          <Button charge="estimate" price={estimate.data?.credits} busy={writeAll.isPending} disabled={!estimate.data} onClick={() => writeAll.mutate()} className="w-full">
             Write all scripts
           </Button>
           <Button variant="ghost" onClick={onClose} className="w-full">

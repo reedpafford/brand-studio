@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, FileText } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import { useMe } from "../auth/useMe";
 import { Banner, Button, Skeleton, StepPicker, ViewOnly } from "../components";
 import { useRail } from "../useMedia";
 import { useFreshProject } from "./useFreshProject";
@@ -23,7 +22,7 @@ import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
-import { useOwnScriptStop } from "./useOwnScriptStop";
+import { useBudgetStop } from "./useBudgetStop";
 import { ProjectPicker } from "../folders/Projects";
 import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
@@ -53,14 +52,10 @@ export function VideoPage() {
   const { progress, loading, script, media } = useProgress(id);
   const assets = useAssets(id);
   const p = project.data;
-  const { data: me } = useMe();
-  const allowance = useQuery({ enabled: !!p?.own_script && me?.role === "editor", queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
-  // An editor on their own script is billed to the week, not to a budget.
-  const week = p?.own_script && allowance.data ? { used: allowance.data.quick_clip_credits_used, allowed: allowance.data.quick_clip_credits_allowed } : null;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
   const settings = useVideoSettings(id); // the row has Shape once the server offers settings
   // The storyboard is out of date and the shots are current: one press brings it and the clip prompts up to date (audit M14 part 2).
-  const stopFor = useOwnScriptStop(p?.own_script, p ? { used: p.credits_used, budget: p.budget_credits } : undefined);
+  const stopFor = useBudgetStop(p ? { used: p.credits_used, budget: p.budget_credits } : undefined);
   const updating = (step === "storyboard" || step === "clips") && !progress.shots.stale && (progress.frames.stale || progress.clips.stale);
   const update = useUpdateAfter(id, updating, stopFor, (to) => setParams({ step: to }));
   // When this step was opened, the Assets list as it was then: a read since then is this step's own.
@@ -126,8 +121,8 @@ export function VideoPage() {
     step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : step === "clips" && all.clips.total > 0 ? count(all.clips.total, "clip", all.clips.approved) : null;
 
   return (
-    // One cost bar at the bottom: the budget (or the editor's week), what finishing costs, and the step's press (audit M1).
-    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} week={week} lookOnly={lookOnly} fallback={waiting ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
+    // One cost bar at the bottom: the budget, what finishing costs, and the step's press (audit M1).
+    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} lookOnly={lookOnly} fallback={waiting ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
@@ -191,14 +186,14 @@ export function VideoPage() {
             <div className="space-y-4">
               <ShapeRow shape={!settings.data} projectId={id} aspect={p.aspect_ratio} platform={p.platform} />
               {p.song && <SongStrip project={p} hasShots={all.shots.made} hasClips={all.clips.total > 0} />}
-              <BreakdownPane ownScript={p.own_script} projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
+              <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />
             </div>
           }
         />
       )}
-      {step === "cast" && <AssetsPane bar projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} ownScript={p.own_script} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "storyboard" && <StoryboardPane barTaken={!!update.action} hold={hold} castRedraw={p.cast_redraw} ownScript={p.own_script} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} ownScript={p.own_script} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "cast" && <AssetsPane bar projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "storyboard" && <StoryboardPane barTaken={!!update.action} hold={hold} castRedraw={p.cast_redraw} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       </ViewOnly>
       {panel && (

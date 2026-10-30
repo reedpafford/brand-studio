@@ -9,7 +9,6 @@ import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
-import { useAllowanceStop } from "./useScript";
 
 export const LINK = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\/[\w-]+/i;
 const MAX_MB = 100;
@@ -139,15 +138,11 @@ const ROWS: { id: "got" | "heard" | "watch" | "write" | "cast"; label: string }[
   { id: "cast", label: "Filling in the cast" },
 ];
 
-/** What the server says is left this week, if it says the read doesn't fit. The usual wording comes from the allowance itself. */
-const notEnough = (e?: { credits: number; credits_left: number | null } | null) => (e && e.credits_left !== null && e.credits > e.credits_left ? "That's more than the credits you have left this week. It resets on Monday." : null);
-
 /** Read this reel · N credits (or Try again after a failed step): the one amber button of a prepared reel. On a phone it sits in the action bar, on desktop in the card. */
-export function ReadReelButton({ scriptId, createdById, className }: { scriptId: number; createdById: number | null; className?: string }) {
+export function ReadReelButton({ scriptId, className }: { scriptId: number; className?: string }) {
   const reel = useReelImport(scriptId);
   const queryClient = useQueryClient();
   const r = reel.data;
-  const allowanceStop = useAllowanceStop({ created_by_id: createdById }, r?.estimate?.credits);
   const read = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/scripts/{script_id}/import/read", { params: { path: { script_id: scriptId } } });
@@ -157,10 +152,9 @@ export function ReadReelButton({ scriptId, createdById, className }: { scriptId:
     onSuccess: (d) => queryClient.setQueryData(["script-import", scriptId], d),
   });
   if (!r || (r.status !== "ready" && r.status !== "failed") || r.failed_step === "prepare") return null;
-  const stop = allowanceStop ?? notEnough(r.estimate);
   return (
     <div className="space-y-2">
-      <Button className={className} busy={read.isPending} disabled={!r.estimate || stop !== null} reason={stop} charge="estimate" price={r.estimate?.credits} onClick={() => read.mutate()}>
+      <Button className={className} busy={read.isPending} disabled={!r.estimate} charge="estimate" price={r.estimate?.credits} onClick={() => read.mutate()}>
         {r.status === "failed" ? "Try again" : "Read this reel"}
       </Button>
       {read.isError && <p role="alert" className={errorClass}>{read.error.message}</p>}
@@ -182,10 +176,8 @@ export function ReelChip({ reel }: { reel?: ReelRow | null }) {
 }
 
 /** Read it again (reel-import.md §5): what did it get wrong? The note can fix who speaks, the shots and the camera, never the words said. */
-function ReadAgain({ scriptId, createdById, credits, onClose }: { scriptId: number; createdById: number | null; credits?: number | null; onClose: () => void }) {
+function ReadAgain({ scriptId, credits, onClose }: { scriptId: number; credits?: number | null; onClose: () => void }) {
   const queryClient = useQueryClient();
-  // Past an editor's week it can't be pressed; the reason says so and when it resets.
-  const stop = useAllowanceStop({ created_by_id: createdById }, credits ?? undefined);
   const [note, setNote] = useState("");
   const again = useMutation({
     mutationFn: async () => {
@@ -204,7 +196,7 @@ function ReadAgain({ scriptId, createdById, credits, onClose }: { scriptId: numb
         <TextArea label="What did it get wrong? (optional)" rows={4} maxLength={500} placeholder="e.g. shot 3 is the groom, not the priest; the montage starts at 0:17" value={note} onChange={(e) => { setNote(e.target.value); again.reset(); }} />
         <p className="text-sm text-muted">The download and the dialogue are kept. Only the breakdown and the script are made again.</p>
         {again.isError && <p role="alert" className={errorClass}>{again.error.message}</p>}
-        <Button busy={again.isPending} charge="estimate" price={credits ?? undefined} icon={RotateCcw} disabled={stop !== null} reason={stop} onClick={() => again.mutate()} className="w-full">
+        <Button busy={again.isPending} charge="estimate" price={credits ?? undefined} icon={RotateCcw} onClick={() => again.mutate()} className="w-full">
           Read it again
         </Button>
       </div>
@@ -250,7 +242,7 @@ function FillAgain({ scriptId }: { scriptId: number }) {
 }
 
 /** On the Script step: getting the reel, the price to read it, the read's progress, and what came of it. */
-export function ReelBlock({ scriptId, published, createdById }: { scriptId: number; published: boolean; createdById: number | null }) {
+export function ReelBlock({ scriptId, published }: { scriptId: number; published: boolean }) {
   const reel = useReelImport(scriptId);
   const file = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -356,7 +348,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
             {failedText}
           </p>
         )}
-        {!published && rail && <ReadReelButton scriptId={scriptId} createdById={createdById} />}
+        {!published && rail && <ReadReelButton scriptId={scriptId} />}
       </Card>
     );
   }
@@ -403,7 +395,7 @@ export function ReelBlock({ scriptId, published, createdById }: { scriptId: numb
           </div>
         </div>
       </Card>
-      {reading && <ReadAgain scriptId={scriptId} createdById={createdById} credits={r.read_again_credits} onClose={() => setReading(false)} />}
+      {reading && <ReadAgain scriptId={scriptId} credits={r.read_again_credits} onClose={() => setReading(false)} />}
     </div>
   );
 }
