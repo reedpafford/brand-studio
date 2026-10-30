@@ -6625,6 +6625,11 @@ export interface components {
             n: number;
             /** Text */
             text: string;
+            /**
+             * Section
+             * @default
+             */
+            section: string;
             /** Action */
             action: string;
             /** Star */
