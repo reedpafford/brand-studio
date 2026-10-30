@@ -625,7 +625,8 @@ def test_eval_scoring_reads_clip_prompt_words_outside_the_dialogue(tmp_path):
     (tmp_path / "ex.script.txt").write_text(script_of(ex))
     (tmp_path / "ex.breakdown.json").write_text(bd.model_dump_json())
     (tmp_path / "ex.clip_prompts.json").write_text(cp.model_dump_json())
-    assert score(tmp_path, case) == [
+    # Advice aside: the example still attaches fomo's trading screens as one logo (rule 14 gone)
+    assert [p for p in score(tmp_path, case) if not p.startswith(check.ADVICE)] == [
         "clip prompts say 'beanie' outside the dialogue",
         "clip prompts never say 'brindle'",
     ]
