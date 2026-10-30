@@ -1,12 +1,15 @@
 """Song takes on a song script's version: make 2, their states, Try again, Preferred and
 remove, all on the free stand-ins (no paid calls)."""
 
+from datetime import UTC, datetime
+
 import pytest
 
 from app import music, song_takes
-from app.models.jobs import Job
+from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
+from app.models.songs import SongTake
 from app.providers import get_providers
 from app.worker import run_once
 from tests.helpers import assert_no_dollars
@@ -58,6 +61,24 @@ def test_two_takes_are_made_timed_and_one_is_preferred(app, db, owner, song):
     assert all(t["out_of_date"] for t in owner.get(f"{song}/songs").json()["takes"])
     r = owner.post(f"/songs/{takes[1]['id']}/preferred")
     assert (r.status_code, r.json()["detail"]) == (409, song_takes.OLDER_WORDS)
+
+
+def test_a_take_being_made_says_when_its_job_started_so_the_clock_survives_a_reload(
+    app, db, owner, song
+):
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    takes = owner.get(f"{song}/songs").json()["takes"]
+    assert [t["started_at"] for t in takes] == [None, None]  # queued: not started yet
+    job = db.get(Job, db.get(SongTake, takes[0]["id"]).job_id)
+    job.status, job.started_at = JobStatus.running, datetime(2026, 10, 30, 9, 15, tzinfo=UTC)
+    db.commit()
+    first = owner.get(f"{song}/songs").json()["takes"][0]
+    assert first["status"] == "making" and first["started_at"].startswith("2026-10-30T09:15:00")
+    job.status = JobStatus.queued
+    db.commit()
+    _work(app, db)
+    assert [t["started_at"] for t in owner.get(f"{song}/songs").json()["takes"]] == [None, None]
 
 
 def test_a_skipped_or_repeated_line_is_advice_never_a_block(app, db, owner, song):
