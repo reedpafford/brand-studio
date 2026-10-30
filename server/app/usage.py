@@ -86,8 +86,10 @@ def figures(db: Session, workspace_id: int, when: Period) -> Figures:
     spend, estimated = {}, {}
     for brand_id, total, guessed in db.execute(charged).all():
         spend[brand_id], estimated[brand_id] = Decimal(total or 0), bool(guessed)
-    done = select(Project.id).where(
-        Project.workspace_id == workspace_id, *when.has(Project.finished_at)
+    done = select(Project.id).where(  # all time has no dates: finished_at must still be set
+        Project.workspace_id == workspace_id,
+        Project.finished_at.is_not(None),
+        *when.has(Project.finished_at),
     )
     finished = _grouped(
         db,

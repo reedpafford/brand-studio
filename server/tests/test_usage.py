@@ -180,3 +180,22 @@ def test_a_brand_row_carries_its_first_kit_colour(owner):
     assert owner.get(f"/usage/brands/{fomo}").json()["colour"] == "#1E90FF"
     owl = owner.post("/brands", json={"name": "Night Owl"}).json()["id"]
     assert owner.get(f"/usage/brands/{owl}").json()["colour"] is None  # no colours in its kit
+
+
+def test_all_time_counts_only_finished_videos(owner, db):
+    """Producer, 30 Oct: all time showed fomo "finished: 38", every video, not the 19 done."""
+    me, fomo, done = _setup(owner, db)
+    open_one = db.get(
+        Project, owner.post("/projects", json={"brand_id": fomo, "name": "WIP"}).json()["id"]
+    )
+    _charge(db, enqueue(db, me, "video-480p", {}, project=done), "3.00")
+    _charge(db, enqueue(db, me, "video-480p", {}, project=open_one), "5.00")
+    done.finished_at = utcnow() - timedelta(days=400)  # long ago: all time only
+    db.commit()
+
+    every = owner.get("/usage/summary", params={"period": "all"}).json()
+    assert (every["finished"], every["cost_per_finished_usd"], every["in_progress"]) == (1, 3.0, 1)
+    row = next(b for b in owner.get("/usage/brands", params={"period": "all"}).json()["items"]
+               if b["brand_id"] == fomo)  # fmt: skip
+    assert (row["finished"], row["cost_per_finished_usd"]) == (1, 3.0)
+    assert owner.get("/usage/summary").json()["finished"] == 0  # this week: none
