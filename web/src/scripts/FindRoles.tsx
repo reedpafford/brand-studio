@@ -16,7 +16,7 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
   const approved = first?.status === "approved";
   // A song's roles are read from its lyrics as they are: no Approve first (the Producer's row 4 decision).
   const song = script.kind === "song";
-  const reason = song ? (!first?.text.trim() ? "Write the lyrics first" : stop) : !approved ? "Approve the script first" : stop;
+  const reason = song ? (!first?.text.trim() ? "Write the lyrics first" : stop) : !approved ? "Approve the words first" : stop;
   // The roles are read from the approved words. A script with no variations is approved here: it is the only version.
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -30,14 +30,14 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
     onSuccess: (data, yes) => {
       queryClient.setQueryData(["script-lib", scriptId], data);
       void queryClient.invalidateQueries({ queryKey: ["scripts"] });
-      if (yes) toast("Script approved. Its words are final.", () => setApproval.mutate(false));
+      if (yes) toast("Words approved. They're final.", () => setApproval.mutate(false));
     },
   });
   const approveIt = !approved && !song && (
     <div className="space-y-1">
       <p className="text-sm text-muted">Claude reads the roles from the approved words. Approving makes them final; you can undo it.</p>
       <Button variant="secondary" icon={Check} busy={setApproval.isPending} onClick={() => setApproval.mutate(true)}>
-        Approve the script
+        Approve the words
       </Button>
       {setApproval.isError && <p role="alert" className={errorClass}>{setApproval.error.message}</p>}
     </div>

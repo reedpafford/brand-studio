@@ -182,3 +182,17 @@ test("on a phone the filters open in a sheet, the tabs stay five, and Media open
   const sheet = await screen.findByRole("dialog", { name: "Filters" });
   expect(within(sheet).getByLabelText("Kind")).toBeInTheDocument();
 });
+
+test("a song tile says which script or video it's from (Next-Layout's 390 walk)", async () => {
+  setViewport(390);
+  fakeServer(base(owner, page([
+    item({ key: "song:6", kind: "song", file_id: 60, content_type: "audio/mpeg", poster_file_id: null, project_id: null, video_name: null, script_id: 7, open_step: "song" }),
+    item({ key: "song:9", kind: "song", file_id: 61, content_type: "audio/mpeg", poster_file_id: null, video_name: "Bo tries salmon", open_step: "final" }),
+  ]), { "GET /scripts/7": [200, { id: 7, title: "Bowl song", versions: [] }] }));
+  open();
+  const tiles = within(await screen.findByRole("list", { name: "Media" })).getAllByRole("listitem");
+  expect(await within(tiles[0]).findByText("Bowl song")).toBeInTheDocument();
+  expect(tiles[0]).toHaveTextContent(/Song from the script/);
+  expect(tiles[1]).toHaveTextContent("Bo tries salmon");
+  expect(tiles[1]).toHaveTextContent(/Song from the video/);
+});

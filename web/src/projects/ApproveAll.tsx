@@ -72,7 +72,7 @@ export function useApproveAllWith(opts: {
   const left = result?.skipped ?? [];
   const line = run.isError ? (
     <p role="alert" className="text-sm text-danger">{run.error.message}</p>
-  ) : result && result.approved.length + left.length > 0 ? (
+  ) : result && (left.length > 0 || !!result.approved_with_advice) ? ( // "Approved N" alone is the toast's (with Undo): one message, not two
     <p className="text-sm text-muted" role="status" data-approve-line>
       Approved {result.approved.length}.
       {/* P4: the check's Advice never stops Approve all; the items stay in the Review list ("N items with Advice"). */}

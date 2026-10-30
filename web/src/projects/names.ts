@@ -18,7 +18,7 @@ export function refName(id: string, pieces: Piece[], roles: Map<string, string>)
   if (id === "previous") return "previous frame";
   const [kind, n] = id.split(":");
   if (kind === "frame") return "First frame";
-  if (kind === "slot") return `${roles.get(id) || "A role"} · cast at Assets`;
+  if (kind === "slot") return `${roles.get(id) || "A role"} · cast in Cast`;
   return pieces.find((p) => p.key === `${kind === "char" ? "character" : kind}-${n}`)?.name ?? (kind === "char" ? roles.get(id) : undefined) ?? KIND[kind] ?? "Picture";
 }
 
@@ -28,8 +28,8 @@ const REF = /\b(?:char|place|prop|screen|slot|frame):\w+/g;
 export function plainWords(text: string, nameOf: (id: string) => string): string {
   return text
     .replace(/^(c\d+): /, "Clip $1: ")
-    .replace(REF, (id) => (id.startsWith("frame:") ? "the first frame" : nameOf(id).replace(" · cast at Assets", "")));
+    .replace(REF, (id) => (id.startsWith("frame:") ? "the first frame" : nameOf(id).replace(" · cast in Cast", "")));
 }
 
-/** A problem about a character with no approved look: the fix is on Assets. */
+/** A problem about a character with no approved look: the fix is in Cast. */
 export const aboutMissingLook = (text: string) => /sheet isn't attached|no approved (sheet|look)|needs an approved (sheet|look)|has no look/i.test(text);

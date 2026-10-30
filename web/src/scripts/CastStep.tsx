@@ -15,7 +15,7 @@ import { RoleFacts } from "../projects/RoleFacts";
 import { useSheetPrice } from "../library/SheetPanel";
 import { wholeCredits } from "../components/credits";
 
-/** Step 5: the roles of the script, each with one locked look or none (made at Assets). Every role is optional. */
+/** Step 5: the roles of the script, each with one locked look or none (made in the video's Cast). Every role is optional. */
 export function CastStep({ script, brandId, readOnly }: { script: Script; brandId: number; readOnly: boolean }) {
   const scriptId = script.id;
   const cast = useCast(scriptId);
@@ -66,7 +66,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
       {cast.data && !readOnly && <FindRoles script={script} hasRoles={slots.length > 0} />}
       {cast.data && slots.length === 0 && (
         <EmptyState icon={Users} title="No roles yet." action={!readOnly ? <Button variant="secondary" onClick={() => setAdding(true)}>Add a role</Button> : undefined}>
-          Everyone will be made at Assets. Add a role to lock one look for it in every version.
+          Everyone will be made in the video's Cast. Add a role to lock one look for it in every version.
         </EmptyState>
       )}
       {slots.length > 0 && (
@@ -197,7 +197,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
       )}
       {removing && (
         <Dialog title={`Remove ${removing.role} from the cast?`} cancelLabel="Keep" actionLabel="Remove" danger busy={act.remove.isPending} onCancel={() => setRemoving(null)} onConfirm={() => act.remove.mutate(removing.id, { onSuccess: () => setRemoving(null) })}>
-          They'll be made at Assets like a background person.
+          They'll be made in the video's Cast like a background person.
         </Dialog>
       )}
       {locking && (
