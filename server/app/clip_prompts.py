@@ -550,7 +550,7 @@ def repair(db: Session, project: Project) -> int:
             row.auto_fix = {"before": was.prompt, "after": words[0], "fixed": words[1],
                             "undone": False}  # fmt: skip
             now = now.model_copy(update={"prompt": words[0]})
-        cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}  # none on a logo-only screen
+        cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}
         if cleared := bool((row.real_images or {}).keys() - cuts):
             row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
         problems = (
