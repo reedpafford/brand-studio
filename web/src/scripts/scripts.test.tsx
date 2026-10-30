@@ -1562,3 +1562,12 @@ test("the owner's title link still opens the script's own steps", async () => {
   open();
   expect(await screen.findByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
 });
+
+test("with no version ready, an editor's title goes where their version's chip goes: their own video (QA-4 on #1018)", async () => {
+  setViewport(390);
+  const mine = script({ versions_left: 0, versions: [v(0, "in_production", { project_id: 5, editor: { id: 2, name: "Sam" } })] });
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [mine]] });
+  open();
+  const titles = await screen.findAllByRole("link", { name: "Bo tries salmon" }); // the Library row and the "you're making" row
+  for (const t of titles) expect(t).toHaveAttribute("href", "/b/1/projects/5"); // never the owner's Publish step
+});

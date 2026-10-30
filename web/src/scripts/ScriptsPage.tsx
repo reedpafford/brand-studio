@@ -427,8 +427,11 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, own
   const meta = [brandName, r.created_by_name && `${r.created_by_name} · ${age(r.created_at)}`, refName && `Ref: ${refName}`, lengthText(r.versions), r.published && r.versions_left > 0 && `${r.versions_left} version${r.versions_left === 1 ? "" : "s"} left to make`].filter(Boolean).join(" · ");
   // An editor opening someone else's published script by its title lands where Make this version is (A12), on its first
   // version ready to make; the owner's read-only steps are for the owner and the author.
-  const ready = !ownScript && r.published ? r.versions.find((v) => v.status === "approved") : undefined;
-  const titleTo = ready ? panelTo(r.id, ready.slot) : `/b/${brandId}/scripts/${r.id}${r.published ? "?step=publish" : ""}`;
+  // Where a version's chip goes: its panel (to make it, or to see who's making it), the video made from it, or its draft.
+  const chipTo = (v: Version) => (removed ? null : beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null);
+  // With none ready, it goes where that version's chip does: the editor's own video, say (QA-4 on #1018).
+  const ready = !ownScript && r.published ? (r.versions.find((v) => v.status === "approved") ?? r.versions.find((v) => chipTo(v) !== null)) : undefined;
+  const titleTo = (ready && chipTo(ready)) || `/b/${brandId}/scripts/${r.id}${r.published ? "?step=publish" : ""}`;
   return (
     <li className="flex gap-3 p-4 sm:p-5">
       <span aria-hidden className="grid h-[88px] w-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-muted sm:h-[100px] sm:w-16">
@@ -474,7 +477,7 @@ function ScriptItem({ row: r, brandName, refName, refThumb, narrow, mayOpen, own
             const by = beingMade(v.status) && v.editor ? (v.editor.id === meId ? "you" : v.editor.name) : null;
             const label = `${letter} · ${s.label}${by ? ` · ${by}` : ""}`;
             // Ready opens the version panel; so does a version someone else is making. Your own video, and any video for Reed, opens the video; a draft opens its writing flow.
-            const to = removed ? null : beingMade(v.status) && !ownVideo(v) ? panelTo(r.id, v.slot) : v.status === "approved" ? panelTo(r.id, v.slot) : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" && mayOpen ? `/b/${brandId}/scripts/${r.id}` : null;
+            const to = chipTo(v);
             const chip = (
               <Badge tone={s.tone} icon={s.icon}>
                 {label}
