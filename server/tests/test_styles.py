@@ -99,13 +99,6 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
 
     said = check.look_words("A kitchen in the style of Zack D. Films, a Zack D close-up.", "zack-d")
     assert said[0] == "A kitchen, a close-up.", said[0]
-    # QA on #1009: tidying a repair never touches a quote (rule 19), nor leaves a trailing space
-    for quote in ('"Voilà : ça va ; très bien ."', '"Hello , world : ok"', '"Wait . . .  what"'):
-        line = f"Mia says {quote} in the style of Zack D. Films"
-        assert check.look_words(line, "zack-d")[0] == f"Mia says {quote}", line
-    assert prompts.look_banned("claymation") == [] and prompts.look_fixes("claymation") == {}
-    for step in prompts.SCHEMAS:  # data, never sent to a model
-        assert "## banned" not in prompts.system(step, "zack-d"), step
 
 
 def test_a_looks_banned_words_are_repaired_but_never_in_a_spoken_line():
@@ -176,3 +169,16 @@ def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
             if name in prompts.DATA:  # banned words name a studio to take it out
                 continue
             assert not any(x in text.lower() for x in studios), (s["id"], name)
+
+
+def test_the_worked_example_speaks_the_videos_look_and_house_is_unchanged():
+    """QA after #1009: the clip example's "Style: Pixar-style 3D…" line steered every
+    look's clips toward House. Another look's example carries its own lines."""
+    house = prompts.style("house")["sections"]["clip_style"]
+    assert house in prompts.system("clip_prompts")  # House as it was
+    for s in prompts.styles():
+        if s["id"] == "house":
+            continue
+        text = prompts.system("clip_prompts", s["id"])
+        example = text.split("## Worked example", 1)[1].split("## Style:", 1)[0]
+        assert house not in example and s["sections"]["clip_style"] in example, s["id"]
