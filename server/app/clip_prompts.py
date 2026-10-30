@@ -642,6 +642,8 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             row.real_images = cut_in.still_shown(was.data if was else {}, bd_row.data,
                                                  row.real_images)  # fmt: skip
         before_change(db, row)
+        if row.picked_take_id and _regrouped(db, row, bd):  # QA-3 #1013: made for other
+            row.picked_take_id = None  # shots (a split), it stays only as an earlier take
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, c.seconds
         row.prompt, row.references = c.prompt, [r.model_dump() for r in c.references]
         row.problems, row.kept = problems, []
@@ -844,6 +846,14 @@ def newest(db: Session, project: Project) -> BreakdownVersion | None:
         .order_by(BreakdownVersion.id.desc())
         .limit(1)
     )
+
+
+def _regrouped(db: Session, row: ProjectClip, bd: Breakdown) -> bool:
+    """The clip holds other shots than when its prompt (and takes) were made: a split."""
+    was = db.get(BreakdownVersion, row.breakdown_id or 0)
+    then = next((c["shot_ids"] for c in (was.data if was else {}).get("clips", [])
+                 if c["id"] == row.clip_id), None)  # fmt: skip
+    return then != next((c.shot_ids for c in bd.clips if c.id == row.clip_id), None)
 
 
 def is_stale(db: Session, row: ProjectClip, latest_bd: BreakdownVersion | None) -> bool:

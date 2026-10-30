@@ -550,6 +550,23 @@ test("removing a place or a screen the video doesn't have says how to use it aga
   expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
 });
 
+test("Split the clip is free and the cost bar asks again for what's left (QA-3 #1013)", async () => {
+  const long = "clip c1: 25 s is outside 4–15 s";
+  const calls = fakeServer({
+    ...base,
+    "GET /projects/9/estimate": [200, { stages: [], remaining_credits: 4, used_credits: 0, budget_credits: 60 }],
+    "GET /projects/9/breakdown": [200, breakdown({ problems: [long], fixes: [{ problem: long, kind: "split_clip", label: "Split the clip" }] })],
+    "POST /projects/9/breakdown/fix": [200, { ...breakdown(), fixed: ["Split clip 1 so the video model can make it."] }],
+  });
+  open();
+  const box = await screen.findByLabelText("Problems");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /projects/9/estimate")).toBe(true));
+  const before = calls.filter((c) => c.key === "GET /projects/9/estimate").length;
+  await userEvent.click(within(box).getByRole("button", { name: `Split the clip: ${long}` }));
+  expect(await screen.findByText("Split clip 1 so the video model can make it.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/9/estimate").length).toBeGreaterThan(before));
+});
+
 test("Make the breakdown shows the server's price for it (the clip prompts' rewrite included), not the writing rate", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "GET /projects/9/breakdown/price": [200, { credits: 12 }] });
   open();

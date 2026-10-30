@@ -117,11 +117,15 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
 
     stills_left = (len([f for f in frames if not f.file_id]) if frames else n_clips) * still
     storyboard_done = bool(frames) and all(f.file_id for f in frames)
-    if clips:
-        seconds_left = sum(c.seconds for c in clips if not c.picked_take_id)
+    if clips:  # and a planned clip with no prompt yet (QA-3 #1013: c2 after a split)
+        have = {c.clip_id for c in clips}
+        seconds_left = sum(c.seconds for c in clips if not c.picked_take_id) + sum(
+            c["seconds"] for c in planned if c["id"] not in have
+        )
     else:
         seconds_left = sum(c["seconds"] for c in planned) or int(project.estimate_credits)
-    clips_done = bool(clips) and all(c.picked_take_id for c in clips)
+    clips_done = bool(clips) and not seconds_left
+    rewrite = clip_prompts.to_rewrite(db, project) if clips else []
     rows = [
         ("script", script is not None, claude, "one Claude call to draft it"),
         ("breakdown", bd_ok, claude, "one Claude call"),
@@ -134,10 +138,10 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
         ),
         (
             "clip_prompts",
-            bool(clips),
+            bool(clips) and not rewrite,
             claude
             * (
-                clip_prompts.calls(db, project)
+                clip_prompts.calls(db, project, rewrite or None)
                 if bd_ok  # before a plan: as the quote
                 else math.ceil(n_clips / clip_prompts.BATCH_CLIPS)
             ),

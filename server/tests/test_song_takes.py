@@ -397,6 +397,62 @@ def test_take_cards_and_the_version_show_one_price(app, db, owner, song):
     assert version["estimate_credits"] == pytest.approx(take["video_credits"])
 
 
+def test_a_song_videos_shots_and_clips_last_as_long_as_the_song(app, db, owner, editor, song):
+    """V2, V6: the song is the clock. Next-Layout saw "1 clip · 14 s" for a 0:24 song (the
+    plan counted spoken words). Each shot now lasts its time in the song, each clip its
+    shots' span rounded up, the clips cover the whole song, and the bar prices those."""
+    import math
+
+    from sqlalchemy import select
+
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.projects import Project
+
+    video = _video(app, db, owner, editor, song)
+    pid = int(video.rsplit("/", 1)[1])
+    row = db.scalars(select(BreakdownVersion).where(BreakdownVersion.project_id == pid)
+                     .order_by(BreakdownVersion.id.desc())).first()  # fmt: skip
+    times, end = row.data["song"]["shots"], 0.0
+    for shot in (s for sc in row.data["scenes"] for s in sc["shots"]):
+        t = times[shot["id"]]
+        assert shot["seconds"] == pytest.approx(t["end"] - t["start"], abs=0.01)
+        end = max(end, t["end"])
+    spans = []
+    for clip in row.data["clips"]:
+        mine = [times[s] for s in clip["shot_ids"]]
+        span = max(t["end"] for t in mine) - min(t["start"] for t in mine)
+        assert clip["seconds"] == math.ceil(span - 0.01)  # rounded up, never short
+        spans.append(clip["seconds"])
+    assert sum(spans) >= end and db.get(Project, pid).breakdown_seconds == sum(spans)
+    stages = {s["stage"]: s for s in editor.get(f"{video}/estimate").json()["stages"]}
+    assert stages["clips"]["credits"] == pytest.approx(sum(spans))  # 1 credit a second
+
+
+def test_a_song_on_a_short_model_is_split_into_clips_it_can_make(app, db, owner, song):
+    """The stand-in cuts a song's clips at the video model's longest by the song's own
+    times, so a 0:24 song on Seedance 2.0 (15 s a clip) is never one clip it can't make."""
+    from sqlalchemy import select
+
+    from app.models.breakdowns import BreakdownVersion
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.post(f"{song}/approve")
+    owner.post(f"{song.rsplit('/drafts', 1)[0]}/publish")
+    made = owner.post(f"{song}/produce", json={"video_model": "seedance-2.0"}).json()
+    _work(app, db)  # the plan
+    _approve_plan(app, db, owner, f"/projects/{made['project_id']}")
+    mine = BreakdownVersion.project_id == made["project_id"]
+    row = db.scalars(
+        select(BreakdownVersion).where(mine).order_by(BreakdownVersion.id.desc())
+    ).first()
+    seconds = [c["seconds"] for c in row.data["clips"]]
+    end = max(t["end"] for t in row.data["song"]["shots"].values())
+    assert len(seconds) >= 2 and max(seconds) <= 15 and sum(seconds) >= end
+    assert not [p for p in row.problems if "is outside" in p]  # no clip over the limit
+
+
 def test_a_song_videos_quote_card_and_bar_are_one_figure(app, db, owner, song):
     """Rule 32 (up to a look per role that will need one, and the plan call the press charges)
     and the song's own length: Make this version's quote and the take card are one figure,
@@ -422,6 +478,130 @@ def test_a_song_videos_quote_card_and_bar_are_one_figure(app, db, owner, song):
     assert quote == pytest.approx(card)  # the card and the quote: one figure
     assert quote == pytest.approx(plan + bar, abs=0.01)  # what the press and the rest cost
     assert to_finish == pytest.approx(bar, abs=0.01)
+
+
+def test_a_clip_over_the_video_models_longest_is_flagged_refused_and_split(app, db, owner, song):
+    """QA #1013: the 0:24 song is one 25 s clip on Seedance 2.5 (30 s), fine; switched to 2.0
+    (15 s) the plan says so with its Split fix, a take is refused before any charge, and
+    Split the clip makes clips 2.0 can make."""
+    from sqlalchemy import func, select
+
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.post(f"{song}/approve")
+    owner.post(f"{song.rsplit('/drafts', 1)[0]}/publish")
+    made = owner.post(f"{song}/produce", json={"video_model": "seedance-2.5"}).json()
+    video = f"/projects/{made['project_id']}"
+    _work(app, db)
+    _approve_plan(app, db, owner, video)
+    long = [c for c in owner.get(f"{video}/breakdown").json()["breakdown"]["clips"]
+            if c["seconds"] > 15]  # fmt: skip
+    assert long and not [p for p in owner.get(f"{video}/breakdown").json()["problems"]
+                         if "is outside" in p]  # fmt: skip
+    owner.post(f"{video}/clips/prompts")
+    _work(app, db)
+    whole = db.scalars(select(ProjectClip).where(ProjectClip.seconds > 15)).first()
+    assert owner.post(f"{video}/clips/{whole.id}/generate").status_code == 201
+    _work(app, db)  # a take of the whole 25 s clip, on 2.5
+    db.refresh(whole)
+    assert whole.picked_take_id
+    switched = owner.post(f"{video}/settings", json={"video_model": "seedance-2.0"})
+    assert switched.status_code == 200, switched.text
+    plan = owner.get(f"{video}/breakdown").json()
+    said = f"clip {long[0]['id']}: {long[0]['seconds']} s is outside 4–15 s"
+    assert said in plan["problems"]
+    assert {"problem": said, "kind": "split_clip", "label": "Split the clip"} in plan["fixes"]
+    row = db.scalars(select(ProjectClip).where(ProjectClip.seconds > 15)).first()
+    spent = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)))
+    refused = owner.post(f"{video}/clips/{row.id}/generate")
+    assert refused.status_code == 409 and "at most 15 s" in refused.json()["detail"]
+    assert db.scalar(select(func.coalesce(func.sum(Job.credits), 0))) == spent  # no charge
+    fixed = owner.post(f"{video}/breakdown/fix", json={"problems": [said]})
+    assert fixed.status_code == 200, fixed.text
+    _work(app, db)
+    assert db.scalar(select(func.coalesce(func.sum(Job.credits), 0))) == spent  # free (QA-3)
+    newest = db.scalars(select(BreakdownVersion).order_by(BreakdownVersion.id.desc())).first()
+    assert max(c["seconds"] for c in newest.data["clips"]) <= 15
+    from app import clip_prompts
+
+    project = db.get(Project, made["project_id"])  # c1's shots changed: written again too
+    assert clip_prompts.to_rewrite(db, project) == [c["id"] for c in newest.data["clips"]]
+    stages = {s["stage"]: s for s in owner.get(f"{video}/estimate").json()["stages"]}
+    assert not stages["clip_prompts"]["done"] and stages["clip_prompts"]["credits"] > 0
+    assert not stages["clips"]["done"]  # both new clips' takes are still to make
+    assert f"{sum(c['seconds'] for c in newest.data['clips'])} s" in stages["clips"]["note"]
+    assert owner.post(f"{video}/clips/prompts").status_code == 201  # Clips' priced Rewrite
+    _work(app, db)
+    db.refresh(whole)  # QA-3: the take made for all its shots is only an earlier take now
+    assert whole.clip_id == "c1" and whole.picked_take_id is None
+    stages = {s["stage"]: s for s in owner.get(f"{video}/estimate").json()["stages"]}
+    assert f"{sum(c['seconds'] for c in newest.data['clips'])} s" in stages["clips"]["note"]
+    assert not [p for p in fixed.json()["problems"] if "is outside" in p]
+
+
+def test_split_is_offered_only_for_a_clip_of_more_than_one_shot():
+    """Flow-QA #1013: one over-long shot can't be split between shots, so no Split button."""
+    from app import breakdown_fix
+
+    said = "clip c1: 20 s is outside 4–15 s"
+    two = {"clips": [{"id": "c1", "shot_ids": ["1.1", "1.2"]}]}
+    one = {"clips": [{"id": "c1", "shot_ids": ["1.1"]}]}
+    assert [f["kind"] for f in breakdown_fix.fixes([said], two)] == ["split_clip"]
+    assert breakdown_fix.fixes([said], one) == []
+
+
+def test_a_split_keeps_the_clips_after_it_with_their_takes(app, db, owner, song):
+    """Flow-QA #1013: splitting c1 renumbers the clip after it (c2 becomes c3). That clip's
+    shots are the same, so it keeps its prompt and picked take under its new number, and the
+    bar asks only for the split clips."""
+    from sqlalchemy import select
+
+    from app import breakdown_fix
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+    from app.prompts.schemas import Breakdown
+    from app.routes.breakdown import new_version
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.post(f"{song}/approve")
+    owner.post(f"{song.rsplit('/drafts', 1)[0]}/publish")
+    made = owner.post(f"{song}/produce", json={"video_model": "seedance-2.0"}).json()
+    video = f"/projects/{made['project_id']}"
+    _work(app, db)
+    _approve_plan(app, db, owner, video)
+    owner.post(f"{video}/clips/prompts")
+    _work(app, db)
+    for c in owner.get(f"{video}/clips").json():
+        assert owner.post(f"{video}/clips/{c['id']}/generate").status_code == 201
+    _work(app, db)
+    row = db.scalars(select(BreakdownVersion).order_by(BreakdownVersion.id.desc())).first()
+    bd = Breakdown.model_validate(row.data)
+    first, (was_id, its_shots) = bd.clips[0], (bd.clips[1].id, list(bd.clips[1].shot_ids))
+    assert len(first.shot_ids) >= 2
+    later = db.scalars(select(ProjectClip).where(ProjectClip.clip_id == was_id)).one()
+    picked, prompt = later.picked_take_id, later.prompt
+    assert picked
+    shots = [s for scene in bd.scenes for s in scene.shots]
+    assert breakdown_fix._split(bd, shots, first.id, 4, max(1, first.seconds - 1))
+    from app.models.accounts import User
+
+    project = db.get(Project, made["project_id"])
+    user = db.get(User, project.created_by_id)
+    new = new_version(db, user, project, row, "", bd, follow=False)
+    db.refresh(later)
+    moved = next(c.id for c in bd.clips if c.shot_ids == its_shots)
+    assert moved != was_id  # renumbered by the split
+    assert (later.breakdown_id, later.clip_id) == (new.id, moved)
+    assert (later.picked_take_id, later.prompt) == (picked, prompt)
+    stages = {s["stage"]: s for s in owner.get(f"{video}/estimate").json()["stages"]}
+    split = sum(c["seconds"] for c in new.data["clips"] if c["id"] != moved)  # as fitted
+    assert f"{split} s of video" in stages["clips"]["note"]  # not the kept clip again
 
 
 def test_one_song_video_price_on_its_takes_and_under_make_2_more(app, db, owner, song):

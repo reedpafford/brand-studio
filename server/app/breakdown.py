@@ -545,6 +545,22 @@ def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> d
             if r and r not in known}  # fmt: skip
 
 
+def follow_model(db: Session, project: Project) -> None:
+    """A video-model switch checks the newest breakdown's clip lengths again for the new
+    model (QA #1013: a 25 s clip is fine on a 30 s model, not on a 15 s one)."""
+    row = db.scalar(
+        select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
+        .order_by(BreakdownVersion.id.desc()).limit(1)
+    )  # fmt: skip
+    if row is None:
+        return
+    m = video_model(project)
+    length = re.compile(r"(?i)^clip c\d+: \d+ s is outside \d+–\d+ s$")
+    row.problems = [p for p in row.problems or [] if not length.match(p)] + check.clip_lengths(
+        Breakdown.model_validate(row.data), m.duration.min, m.duration.max
+    )
+
+
 def record_length(project: Project, bd: Breakdown) -> None:
     """The newest breakdown sets the length when none was set (its clips added up)."""
     project.breakdown_seconds = sum(clip.seconds for clip in bd.clips) or None
