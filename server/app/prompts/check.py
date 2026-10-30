@@ -7,7 +7,7 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 import re
 from itertools import zip_longest
 
-from app.prompts import SUNG_RATE, plan_lines, spoken_words
+from app.prompts import SECTION, SUNG_RATE, plan_lines, spoken_words
 from app.prompts.schemas import (
     Breakdown,
     CastSlots,
@@ -879,7 +879,6 @@ def reel_note(note: str, said: list[str]) -> str:
 
 # --- Song ads (Reed, 2026-10-28): the lyrics are the script, the measured song is the clock ---
 
-SECTION = re.compile(r"^\s*(\[[^\]]+\]\s*)+$")  # "[Chorus]", "[Chorus] [Lip-sync]"
 LIP_SYNC = re.compile(r"\[lip[- ]?sync\]", re.I)
 
 
@@ -1216,7 +1215,7 @@ def plan(
     missing or reordered line is ever shown (Next-Lead on #866, as with song directions)."""
     problems, words = [], dict(enumerate(script.splitlines(), 1))
     used = [x.line for sc in result.scenes for x in sc.lines]
-    want = plan_lines(script)
+    want = plan_lines(script, fmt == "song")
     labelled = any(LABEL.match(words[n].strip()) for n in want)
     if missing := [n for n in want if n not in used]:
         problems.append(f"{_lines(missing)} in no scene")

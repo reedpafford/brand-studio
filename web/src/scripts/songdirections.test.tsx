@@ -91,6 +91,7 @@ test("nothing to go on: the press says why and links to the brand page", async (
   expect(await screen.findByRole("button", { name: /Write 2 song directions for me/ })).toBeDisabled();
   expect(screen.getByText("Add what the brand sells on the brand page, or paste a script to adapt.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Open the brand page" })).toHaveAttribute("href", "/b/1/brand");
+  expect(screen.getByRole("link", { name: "Open the brand page" })).toHaveClass("min-h-control"); // a 44 px press, not a text link (walk D1)
   // A pasted script is something to go on: the press runs.
   await userEvent.type(screen.getByLabelText("From a script (optional)"), "Bo hated his bowl.");
   expect(screen.getByRole("button", { name: /Write 2 song directions for me/ })).toBeEnabled();

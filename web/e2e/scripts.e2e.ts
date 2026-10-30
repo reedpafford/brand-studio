@@ -12,6 +12,11 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   await page.getByRole("button", { name: "New script" }).first().click();
   await page.getByRole("menuitem", { name: /Dialogue/ }).click();
+  // Nothing is saved until the first word (flows S1 U).
+  await expect(page.getByText("Dialogue · saved when you type the first word.")).toBeVisible();
+  await page.getByLabel("Paste or write your script").fill("BO: Salmon? Again?\nMIA: Try it.");
+  await page.getByRole("button", { name: "Save script" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
   await page.getByRole("button", { name: "Rename Untitled script" }).click();
   await page.getByRole("textbox", { name: "Title" }).fill("Bo tries salmon");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -23,9 +28,6 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   await expect(page.getByRole("heading", { name: "Script", exact: true, level: 2 })).toBeVisible();
   await expect(page.getByText("Draft · only you can see it")).toBeVisible();
-  await page.getByLabel("Paste or write your script").fill("BO: Salmon? Again?\nMIA: Try it.");
-  await page.getByRole("button", { name: "Save script" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Next: Directions" })).toBeEnabled();
 
   // Back in the library it is listed as Writing.
@@ -166,4 +168,16 @@ test("Directions: Claude suggests lines for a written script, one is accepted an
   }
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Hell no!");
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("BO: Salmon? Again?");
+});
+
+test("a new script keeps every letter typed through its first save, at typing speed, Dialogue and Song", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brand = await emptyBrand(page, "Typing Speed Co");
+  for (const [kind, label, words] of [["story", "Paste or write your script", "BO: Salmon?"], ["song", "Lyrics", "[Verse] Salmon"]] as const) {
+    await page.goto(`/b/${brand}/scripts/new?kind=${kind}`);
+    await page.getByLabel(label).pressSequentially(words, { delay: 60 });
+    await expect(page.getByRole("list", { name: "Steps" })).toBeVisible(); // it swapped to the script's own page
+    await expect(page.getByLabel(label)).toHaveValue(words);
+  }
 });

@@ -176,3 +176,16 @@ def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
             if name in prompts.DATA:  # banned words name a studio to take it out
                 continue
             assert not any(x in text.lower() for x in studios), (s["id"], name)
+
+
+def test_the_worked_example_speaks_the_videos_look_and_house_is_unchanged():
+    """QA after #1009: the clip example's "Style: Pixar-style 3D…" line steered every
+    look's clips toward House. Another look's example carries its own lines."""
+    house = prompts.style("house")["sections"]["clip_style"]
+    assert house in prompts.system("clip_prompts")  # House as it was
+    for s in prompts.styles():
+        if s["id"] == "house":
+            continue
+        text = prompts.system("clip_prompts", s["id"])
+        example = text.split("## Worked example", 1)[1].split("## Style:", 1)[0]
+        assert house not in example and s["sections"]["clip_style"] in example, s["id"]

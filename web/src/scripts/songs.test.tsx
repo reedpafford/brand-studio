@@ -27,20 +27,52 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-test("New script → Song makes a song draft that opens on its Song step: five steps, Next waits for lyrics", async () => {
+test("New script → Song waits for a word, or for Start from what it's for, then opens on its Song step: five steps, Next waits for lyrics", async () => {
   setViewport(1440);
   const empty = song({ title: "Untitled script" }, { text: "", style_line: "" });
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Song/ }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song" }));
+  expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", { name: "Start from what it's for" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song", text: "" }));
+  expect(await screen.findByRole("list", { name: "Steps" })).toBeInTheDocument();
   expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
   const steps = screen.getByRole("list", { name: "Steps" });
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Song", "Takes", "Cast", "Plan", "Publish"]);
   expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write or pick the lyrics first");
   expect(screen.getByRole("button", { name: "Next: Takes" })).toBeDisabled();
   expect(screen.getByLabelText("Music style")).toHaveAttribute("placeholder", "pop, female lead, 120 BPM, upbeat, modern polished");
+});
+
+test("New script → Song: letters typed while its takes load all reach the Lyrics box", async () => {
+  setViewport(1440);
+  const empty = song({ title: "Untitled script" }, { text: "", style_line: "" });
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7/drafts/0/songs": [200, songs()] });
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  const fake = globalThis.fetch;
+  let loading = false;
+  vi.stubGlobal("fetch", async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    if (new URL(req.url).pathname.endsWith("/songs")) {
+      loading = true;
+      await held;
+    }
+    return fake(input, init);
+  });
+  open("/b/1/scripts/new?kind=song");
+  const box = await screen.findByLabelText("Lyrics");
+  await userEvent.type(box, "[[");
+  await vi.waitFor(() => expect(loading).toBe(true));
+  await userEvent.type(box, "Verse]"); // the takes are still loading: this box still has them
+  release();
+  await screen.findByRole("list", { name: "Steps" });
+  expect(screen.getByLabelText("Lyrics")).toHaveValue("[Verse]");
+  expect(screen.getByLabelText("Lyrics")).toHaveFocus();
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
 });
 
 test("lyrics: the sung length counts words not tags; over 4,960 characters says how many to cut and keeps the words; Save sends lyrics and style", async () => {

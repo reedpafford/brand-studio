@@ -8,15 +8,20 @@ export type SongTake = components["schemas"]["SongTakeOut"];
 const BUSY: SongTake["status"][] = ["making", "timing"];
 
 /** A song script version's takes (song ads, flows S4; one request makes 2), asked again every 3 s while one is being made or timed. */
+/** A script's takes, also loaded ahead by a new script so its page opens with the editor already there. */
+export const songsQuery = (scriptId: number) => ({
+  queryKey: ["songs", scriptId],
+  queryFn: async () => {
+    const { data, error } = await api.GET("/scripts/{script_id}/drafts/{slot}/songs", { params: { path: { script_id: scriptId, slot: 0 } } });
+    if (!data) throw new Error(errorText(error));
+    return data;
+  },
+});
+
 export function useSongs(scriptId: number, enabled = true) {
   return useQuery({
     enabled,
-    queryKey: ["songs", scriptId],
-    queryFn: async () => {
-      const { data, error } = await api.GET("/scripts/{script_id}/drafts/{slot}/songs", { params: { path: { script_id: scriptId, slot: 0 } } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
+    ...songsQuery(scriptId),
     refetchInterval: (q) => (q.state.data?.takes.some((t) => BUSY.includes(t.status) || t.music_status === "making") ? 3000 : false),
   });
 }

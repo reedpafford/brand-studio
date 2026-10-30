@@ -160,3 +160,14 @@ test("an unlocked role says each video makes its own look, and about what it cos
   open();
   expect(await screen.findByText("Not locked: each video makes its own look (about 3 credits each).")).toBeInTheDocument();
 });
+
+test("on a song, Find roles reads the lyrics as they are: no Approve step first (the Producer's row 4)", async () => {
+  setViewport(390);
+  const song = { ...script, kind: "song", versions: [{ ...script.versions[0], status: "draft", text: "[Verse]\nMia sings to Bo" }] };
+  const take = { id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null };
+  fakeServer(base({ "GET /scripts/7": [200, song], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, takes: [take] }] }));
+  open();
+  const find = await screen.findByRole("button", { name: /^Find roles in the script · up to/ });
+  await vi.waitFor(() => expect(find).toBeEnabled());
+  expect(screen.queryByRole("button", { name: /^Approve the (script|words)/ })).toBeNull();
+});

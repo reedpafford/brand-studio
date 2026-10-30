@@ -151,3 +151,24 @@ def test_a_read_after_variations_is_checked_against_the_versions_it_read(db, own
     ]})  # fmt: skip
     found = problems(db, script, job)
     assert not [p for p in found if "doesn't exist" in p or "called The" in p], found
+
+
+def test_a_songs_cast_is_read_from_its_lyrics_before_approve(app, db, owner):
+    """flows S5 (Producer on Next-Layout's walk, row 4): no lyrics, no read, with its reason;
+    with lyrics in version A, Find roles runs before Approve, charged up to its estimate."""
+    from decimal import Decimal
+
+    from app.credits import estimate
+
+    brand = owner.get("/brands").json()[0]["id"]
+    song = owner.post("/scripts", json={"brand_id": brand, "title": "Paws", "kind": "song",
+                                        "text": ""}).json()  # fmt: skip
+    url = f"/scripts/{song['id']}/cast/read"
+    assert owner.post(url).json()["detail"] == "Write the lyrics first."
+    owner.put(f"/scripts/{song['id']}/drafts/0", json={"text": "[Chorus]\nMia sings it loud"})
+    job = owner.post(url)
+    assert job.status_code == 201, job.text
+    made = db.get(Job, job.json()["id"])
+    ws = owner.get("/auth/me").json()["workspace_id"]
+    assert made.credits <= estimate(db, ws, "write-claude", Decimal(1), {})
+    assert "Mia sings it loud" in made.input["prompt"]  # the lyrics, not yet approved
