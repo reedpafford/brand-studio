@@ -25,7 +25,8 @@ def test_reeds_order_and_only_house_starts_on():
     assert [s["id"] for s in prompts.styles() if s["on"]] == ["house"]
     for s in prompts.styles():
         assert s["kind"] in ("look", "format") and s["blurb"], s["id"]
-        assert set(TOKENS) <= set(s["sections"]), s["id"]
+        if s["kind"] == "look":  # a format (Song) has no look of its own: it takes the video's
+            assert set(TOKENS) <= set(s["sections"]), s["id"]
         assert set(s["sections"]) <= set(TOKENS) | set(prompts.GUIDES) | prompts.DATA, s["id"]
 
 
@@ -45,7 +46,7 @@ def test_house_is_the_step_files_as_they_were():
         assert "{{" in (HERE / f"{name}.md").read_text(), name  # the look lives in styles/
 
 
-@pytest.mark.parametrize("style_id", [s["id"] for s in prompts.styles()])
+@pytest.mark.parametrize("style_id", [s["id"] for s in prompts.styles() if s["kind"] == "look"])
 def test_each_style_fills_every_step_and_adds_its_guidance_where_it_belongs(style_id):
     chosen = prompts.style(style_id)
     for step in prompts.SCHEMAS:
@@ -166,11 +167,12 @@ def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
 
 
 def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
-    """The Producer, 2026-10-29: only Disney Pixar (and House and Song, which are built on it)
-    may name a studio; every other look describes what it looks like."""
+    """The Producer, 2026-10-29: only Disney Pixar (and House, which is built on it) may name a
+    studio; every other look describes what it looks like. Song is a type in any look, with no
+    look of its own (Song in any look)."""
     studios = ("pixar", "disney", "ghibli", "aardman", "laika")
     for s in prompts.styles():
-        if s["id"] in ("house", "disney-pixar", "song"):
+        if s["id"] in ("house", "disney-pixar"):
             continue
         for name, text in s["sections"].items():
             if name in prompts.DATA:  # banned words name a studio to take it out
@@ -184,7 +186,7 @@ def test_the_worked_example_speaks_the_videos_look_and_house_is_unchanged():
     house = prompts.style("house")["sections"]["clip_style"]
     assert house in prompts.system("clip_prompts")  # House as it was
     for s in prompts.styles():
-        if s["id"] == "house":
+        if s["id"] == "house" or s["kind"] != "look":
             continue
         text = prompts.system("clip_prompts", s["id"])
         example = text.split("## Worked example", 1)[1].split("## Style:", 1)[0]
@@ -200,3 +202,14 @@ def test_the_reel_watch_example_names_no_studio():
 
     assert "pixar" not in prompts.system("reel_watch").lower()
     assert "pixar" not in json.dumps(schemas.ReelWatch.model_json_schema()).lower()
+
+
+def test_song_has_only_its_guides_and_takes_its_look_from_the_video():
+    """Song in any look: song.md carries no look of its own, so nothing pulls a Clay song
+    toward Pixar; a story's prompts are as before."""
+    song = prompts.style("song")["sections"]
+    assert set(song) == {"still", "clip"}
+    for step in ("clip_prompts", "storyboard"):
+        made = prompts.system(step, "claymation", "song")
+        assert "Pixar musical" not in made and "Pixar animated feature" not in made, step
+        assert "## Format: Song\nThis video is a Song video in the Claymation look" in made

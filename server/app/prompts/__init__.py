@@ -189,8 +189,9 @@ def system(step: str, style_id: str = "house", fmt: str = "") -> str:
              if form and step in steps and k in form["sections"]]  # fmt: skip
     if guide:
         parts.append(
-            f"## Format: {form['name']}\nThis video is a {form['name']} video, drawn in the "
-            f"{chosen['name']} style above.\n\n" + _styled("\n\n".join(guide), style_id)
+            f"## Format: {form['name']}\nThis video is a {form['name']} video in the "
+            f"{chosen['name']} look: these add to the look, never change it.\n\n"
+            + _styled("\n\n".join(guide), style_id)
         )
     return "\n\n".join(parts)
 
