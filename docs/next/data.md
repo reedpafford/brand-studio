@@ -31,6 +31,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n14 | Languages (LG1): new `language_switches` {workspace_id, language_id, on, sample, switched_by_id, switched_at}, one per workspace and language | Switch-On | #972 |
 | n15 | Song in any look: no new column. Rows on look `song` (`scripts`, `projects`, `brands.default_look`) move to their brand's default look, else `house`; `look_switches` rows for `song` are deleted. Song is the script's `kind` (its Format), never a look. Downgrade is a no-op (which rows were on Song isn't kept) | Next-Server | #1031 |
 | n16 | One editor allowance (Reed, 30 Oct; DECISIONS rule 5): no new column. Workspace limits still on the old default (145 or 150 credits) move to 97 ($10); a custom figure stays. The allowance counts Quick clips only (a video or image job outside any video, with no step) | Next-Server | #1053 |
+| n17 | Screen figures (#1057's `Shot.screen_figure`): `brand_screens.figure_spot` JSON, nullable, no default (null = the screen is never drawn on): `{box [x0,y0,x1,y1], at [x,y], size px, chart [x0,y0,x1,y1] optional}`. Sets the spots for fomo's Home (rich), Token chart up and Token chart down | Next-Server | #1059 |
 
 ## Merge order (the chain on `next`)
 
@@ -53,7 +54,8 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 12 | n12 | #979 | n03 | On `next` (d76cdfd6) |
 | 13 | n14 | #972 | n12 | On `next` (dfc43b33) |
 | 14 | n15 | #1031 | n14 | On `next` (9f72273b) |
-| 15 | n16 | #1053 | n15 | Open, testing (QA-3) |
+| 15 | n16 | #1053 | n15 | On `next` |
+| 16 | n17 | #1059 | n16 | Open, testing (QA) |
 
 ## 1. Song ads
 
