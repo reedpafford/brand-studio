@@ -496,6 +496,8 @@ def test_a_clip_over_the_video_models_longest_is_flagged_refused_and_split(app, 
     assert db.scalar(select(func.coalesce(func.sum(Job.credits), 0))) == spent  # no charge
     fixed = owner.post(f"{video}/breakdown/fix", json={"problems": [said]})
     assert fixed.status_code == 200, fixed.text
+    _work(app, db)
+    assert db.scalar(select(func.coalesce(func.sum(Job.credits), 0))) == spent  # free (QA-3)
     newest = db.scalars(select(BreakdownVersion).order_by(BreakdownVersion.id.desc())).first()
     assert max(c["seconds"] for c in newest.data["clips"]) <= 15
     assert not [p for p in fixed.json()["problems"] if "is outside" in p]

@@ -341,9 +341,11 @@ class FixIn(BaseModel):
     problems: list[str] = []  # the problems as shown; empty: every one with a fix
 
 
-def new_version(db: Session, user: User, project, row: BreakdownVersion, text: str, bd):
+def new_version(db: Session, user: User, project, row: BreakdownVersion, text: str, bd,
+                follow: bool = True):  # fmt: skip
     """A fixed breakdown, saved as a new version (stills and clips are carried, as for
-    fix-cast); free, no model call."""
+    fix-cast); free, no model call. `follow`: stale clip prompts are rewritten by themselves
+    (paid, clip_prompts.follow); off, Clips keeps its priced Rewrite."""
     from app import cast_roles
 
     bd, landed = breakdown.land(db, project, bd)
@@ -360,7 +362,8 @@ def new_version(db: Session, user: User, project, row: BreakdownVersion, text: s
     cast_roles.carry_frames(db, project, row, new)
     cast_roles.carry_clips(db, project, row, new)
     db.commit()
-    clip_prompts.follow(db, project, user)
+    if follow:
+        clip_prompts.follow(db, project, user)
     return new
 
 
@@ -387,7 +390,10 @@ def fix(
     )  # fmt: skip
     if not done:
         raise HTTPException(409, "Nothing here can be fixed for you. Edit the shot instead.")
-    out = _out(new_version(db, user, project, row, version.text, fixed), version.version)
+    # Split the clip is free (QA-3 #1013): the new clips' prompts wait for Clips' priced Rewrite
+    split = any(breakdown_fix.kind(p) == "split_clip" for p in asked)
+    out = _out(new_version(db, user, project, row, version.text, fixed, follow=not split),
+               version.version)  # fmt: skip
     out.fixed = done
     return out
 
