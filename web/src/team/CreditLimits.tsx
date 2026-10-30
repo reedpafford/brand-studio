@@ -4,14 +4,10 @@ import { api, errorText } from "../api/client";
 import { Button, Card, Dialog, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
-import { money } from "../usage/parts";
 
-/** 1 credit = $0.1028 (ops/DECISIONS). Only Reed ever sees these dollars. */
-const CREDIT_USD = 0.1028;
 type Limits = { weekly_quick_clip_credits: number; per_video_max_credits: number };
 
 const whole = (s: string) => /^\d+$/.test(s.trim());
-const dollars = (s: string) => (whole(s) ? `≈ ${money(Number(s) * CREDIT_USD)}` : "");
 
 /** Reed's two limits: each editor's weekly free allowance, and the most one video can cost. */
 export function CreditLimits() {
@@ -60,7 +56,7 @@ export function CreditLimits() {
 
   if (limits.isPending) return <Skeleton className="h-40" />;
   if (!saved) return null;
-  const field = (id: string, label: string, value: string, set: (v: string) => void, error: string | null, help: string, usd: string) => (
+  const field = (id: string, label: string, value: string, set: (v: string) => void, error: string | null, help: string) => (
     <div className="space-y-1">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
         <label htmlFor={id} className="min-w-0 font-medium sm:flex-1">{label}</label>
@@ -69,7 +65,7 @@ export function CreditLimits() {
           <span className="text-sm text-muted">credits</span>
         </span>
       </div>
-      <p id={`${id}-help`} className="text-sm text-muted">{usd && <span className="tabular-nums">{usd}. </span>}{help}</p>
+      <p id={`${id}-help`} className="text-sm text-muted">{help}</p>
       {error && <p role="alert" className={errorClass}>{error}</p>}
     </div>
   );
@@ -78,8 +74,8 @@ export function CreditLimits() {
     <section aria-label="Credit limits" className="space-y-3">
       <h2 className="type-section">Credit limits</h2>
       <Card className="space-y-4">
-        {field("weekly-limit", "Editors' weekly allowance", weekly, (v) => setEdit({ weekly: v, cap }), weeklyError, "Free generation for each editor's own scripts and quick clips. Resets on Monday.", dollars(weekly) && `${dollars(weekly)} a week`)}
-        {field("video-cap", "Most one video can cost", cap, (v) => setEdit({ weekly, cap: v }), capError, "For everyone, the owner too. A video's budget is twice its estimate, up to this.", dollars(cap))}
+        {field("weekly-limit", "Editors' weekly allowance", weekly, (v) => setEdit({ weekly: v, cap }), weeklyError, "Free generation for each editor's own scripts and quick clips. Resets on Monday.")}
+        {field("video-cap", "Most one video can cost", cap, (v) => setEdit({ weekly, cap: v }), capError, "For everyone, the owner too. A video's budget is twice its estimate, up to this.")}
         {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
         <div className="sm:flex sm:justify-end">
           <Button variant="secondary" busy={put.isPending} disabled={reason !== null} reason={reason} onClick={press} className="w-full sm:w-auto">

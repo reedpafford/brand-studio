@@ -30,12 +30,13 @@ const WORDS = "Bo hated his bowl. Then he found Iron Paws.";
 const narrated = (v: object = {}, o: object = {}) => song({ kind: "narrated", ...o }, { text: WORDS, style_line: "", ...v });
 const narration = (o: object = {}) => take({ kind: "narration", voice: "Sarah", untrimmed_seconds: null, ...o });
 
-test("New script → Narrated makes a narrated draft", async () => {
+test("New script → Narrated makes a narrated draft on its first word", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, narrated({ text: "" })], "GET /scripts/7": [200, narrated({ text: "" })], "GET /scripts/7/drafts/0/songs": [200, songs()] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Narrated/ }));
+  await userEvent.type(await screen.findByLabelText("Paste or write your script"), "H");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "narrated" }));
 });
 
