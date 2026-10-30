@@ -8,7 +8,7 @@ import { card, errorText as errorClass } from "../ui";
 import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
 import { blocking } from "./problems";
-import { useOwnScriptStop } from "./useOwnScriptStop";
+import { useBudgetStop } from "./useBudgetStop";
 import { usePressed } from "./usePressed";
 import { useProblemWords } from "./ProblemText";
 import { type ChangeState } from "./ChangeBox";
@@ -20,7 +20,7 @@ import { useCostBarAction } from "./CostBar";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 
-export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; ownScript?: boolean; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
+export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
   const { projectId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -49,7 +49,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; own
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
   });
-  const limit = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget });
+  const limit = useBudgetStop({ used: props.used, budget: props.budget });
   // While an earlier step is out of date every paid press waits, with why (audit M14); free ones (Approve, Prompt OK) stay.
   const stopFor = (cost: number | undefined) => props.hold ?? limit(cost);
   const { words, fix } = useProblemWords(projectId, props.brandId);

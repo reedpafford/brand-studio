@@ -286,13 +286,6 @@ test("a sheet held from before the limits changed says Not started, not Drawing,
   expect(screen.queryByRole("button", { name: /Make house-style sheet|Approve|Redo/ })).not.toBeInTheDocument();
 });
 
-test("past an editor's weekly allowance the sheet button is off and says why", async () => {
-  fakeServer({ ...sheetBase, "GET /credits/me": [200, { quick_clip_credits_used: 144, quick_clip_credits_allowed: 145 }], "GET /library/character/5": [200, sheetItem] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("You've used this week's 145 credits. It resets on Monday.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make house-style sheet · 2 credits" })).toBeDisabled();
-});
-
 test("a character's photo at creation is the source photo for its sheet, not a loose image", async () => {
   const calls = fakeServer({
     "GET /auth/me": [200, editor],

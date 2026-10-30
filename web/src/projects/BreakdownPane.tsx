@@ -6,7 +6,7 @@ import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Clapperboard, RotateCcw } from "lucide-react";
 import { Banner, Button, EmptyState, Skeleton } from "../components";
 import { WaitingBadge } from "./Meter";
-import { useOwnScriptStop } from "./useOwnScriptStop";
+import { useBudgetStop } from "./useBudgetStop";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
@@ -27,14 +27,14 @@ export function useBreakdown(projectId: number, scriptVersion: number) {
   });
 }
 
-export function BreakdownPane(props: { ownScript?: boolean; projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onDirty?: (dirty: boolean) => void }) {
+export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onDirty?: (dirty: boolean) => void }) {
   const { projectId, brandId, scriptVersion } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
   const { pieces } = useBrandPieces(brandId);
   const [startedJob, setStartedJob] = useState<number | null>(null);
   const [asked, setAsked] = useState(false);
-  const stopFor = useOwnScriptStop(props.ownScript, { used: props.used, budget: props.budget });
+  const stopFor = useBudgetStop({ used: props.used, budget: props.budget });
 
   const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();

@@ -1,11 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { useMe } from "../auth/useMe";
 import { Button, Panel, Skeleton, creditsLabel } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useBrandCharacters, type Slot } from "./useCast";
-import { weekStop } from "./useScript";
 
 type Character = NonNullable<ReturnType<typeof useBrandCharacters>["data"]>[number];
 const MODEL = "nano-banana-pro";
@@ -15,11 +13,8 @@ const RESOLUTION = "2K";
 export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: Slot; brandId: number; locking: boolean; onLock: (itemId: number) => void; onClose: () => void }) {
   const chars = useBrandCharacters(brandId);
   const queryClient = useQueryClient();
-  const { data: me } = useMe();
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
-  const allowance = useQuery({ enabled: me?.role === "editor", queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
   const price = models.data?.find((m) => m.id === MODEL)?.credits_per_unit?.[RESOLUTION];
-  const stop = me?.role === "editor" && price !== undefined && allowance.data ? weekStop(allowance.data, price) : null;
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", "character"] });
   const path = (c: Character) => ({ kind: "character" as const, item_id: c.id });
   const make = useMutation({
@@ -66,7 +61,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
                 {status === "none" && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted">No approved sheet yet</p>
-                    <Button variant="secondary" dense className="w-full" charge="estimate" price={cost} busy={make.isPending && make.variables?.id === c.id} disabled={stop !== null || make.isPending} reason={stop} onClick={() => make.mutate(c)}>
+                    <Button variant="secondary" dense className="w-full" charge="estimate" price={cost} busy={make.isPending && make.variables?.id === c.id} disabled={make.isPending} onClick={() => make.mutate(c)}>
                       Make sheet
                     </Button>
                   </div>
@@ -80,7 +75,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
                       <Button dense className="w-full" aria-label={`Approve ${c.name}'s sheet`} busy={approve.isPending && approve.variables?.id === c.id} disabled={locking} onClick={() => approve.mutate(c)}>
                         Approve
                       </Button>
-                      <Button variant="secondary" dense className="w-full" aria-label={`Redo ${c.name}'s sheet`} disabled={stop !== null || make.isPending} onClick={() => make.mutate(c)}>
+                      <Button variant="secondary" dense className="w-full" aria-label={`Redo ${c.name}'s sheet`} disabled={make.isPending} onClick={() => make.mutate(c)}>
                         Redo{price !== undefined ? ` · ${creditsLabel(price)}` : ""}
                       </Button>
                     </div>

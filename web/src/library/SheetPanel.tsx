@@ -4,7 +4,6 @@ import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { Elapsed, useJobs } from "../clip/History";
-import { useMe } from "../auth/useMe";
 import { creditsLabel, wholeCredits } from "../components";
 import { Sheet } from "../projects/Sheet";
 import { useMedia } from "../useMedia";
@@ -40,7 +39,6 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const [redoing, setRedoing] = useState<string | null>(null);
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const price = models.data?.find((m) => m.id === MODEL)?.credits_per_unit?.[RESOLUTION];
-  const allowance = useQuery({ queryKey: ["allowance"], queryFn: async () => (await api.GET("/credits/me")).data ?? null });
   const jobs = useJobs();
   const last = (jobs.data ?? []).filter((j) => j.step === "sheet" && j.library_item_id === item.id).sort((a, b) => b.id - a.id)[0];
   const status = item.sheet_status;
@@ -56,11 +54,6 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
   const cost = costOf(upTo ?? price, upTo !== undefined);
   const redoCost = costOf(upToNote ?? price, upToNote !== undefined);
   const usual = (upTo !== undefined || upToNote !== undefined) && price !== undefined ? <p className="text-sm text-muted">{`Usually ${wholeCredits(item.sheet_usual_credits > 0 ? item.sheet_usual_credits : price)}. Anything not used comes back.`}</p> : null;
-  // Past an editor's weekly allowance the server declines a new sheet, so don't offer one.
-  const { data: me } = useMe();
-  const a = allowance.data;
-  const over = me?.role === "editor" && price !== undefined && !!a && a.quick_clip_credits_used + price > a.quick_clip_credits_allowed;
-  const declined = over && a ? `You've used this week's ${Math.round(a.quick_clip_credits_allowed)} credits. It resets on Monday.` : null;
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -106,7 +99,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
         <textarea className={input} rows={3} maxLength={500} value={redoing ?? ""} onChange={(e) => setRedoing(e.target.value)} />
       </label>
       <div className="flex flex-wrap gap-2">
-        <button className={`${btnPrimary} ${btn}`} disabled={make.isPending || !!declined} onClick={() => make.mutate((redoing ?? "").trim())}>
+        <button className={`${btnPrimary} ${btn}`} disabled={make.isPending} onClick={() => make.mutate((redoing ?? "").trim())}>
           Redo
           {(redoing ?? "").trim() ? redoCost : cost}
         </button>
@@ -155,20 +148,19 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
             <div className="space-y-1 rounded-md bg-warning-soft p-2" role="note" aria-label="Look check">
               <p>{lookFitNote(item.look_fit)}</p>
               {(status === "needs_approval" || status === "approved") && redoing === null && (
-                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={!!declined} onClick={() => setRedoing(item.look_fit!.problem)}>
+                <button className={`${btnSecondary} min-h-11 sm:min-h-9`} onClick={() => setRedoing(item.look_fit!.problem)}>
                   Fix it with a note
                 </button>
               )}
             </div>
           )}
           {drawing && <p className="text-muted">A sheet is being made.</p>}
-          {declined && !drawing && !held && <p className="text-warning">{declined}</p>}
         </div>
       </div>
       {!drawing && !held && status === "none" && (photo || kind === "place" || notes) && (
         <div className="space-y-2">
           <p>{photo ? "Turn this photo into a house-style sheet?" : "Make a sheet from the notes?"}</p>
-          <button className={`${btnPrimary} ${btn}`} disabled={make.isPending || !!declined} onClick={() => make.mutate("")}>
+          <button className={`${btnPrimary} ${btn}`} disabled={make.isPending} onClick={() => make.mutate("")}>
             {failed ? "Try again" : "Make house-style sheet"}
             {cost}
           </button>
@@ -189,7 +181,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
             </button>
           )}
           {redoing === null && (
-            <button className={`${btnSecondary} ${btn}`} disabled={!!declined} onClick={() => setRedoing("")}>
+            <button className={`${btnSecondary} ${btn}`} onClick={() => setRedoing("")}>
               Redo
               {cost}
             </button>

@@ -22,12 +22,11 @@ const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { da
 // A finished video whose clips changed since opens at Clips, where the changes wait (#749 LW2).
 const to = (p: Project) => (p.script_draft_id ? `/b/${p.brand_id}/videos/${p.id}${p.final_out_of_date ? "?step=clips" : p.finished_at ? "?step=downloads" : ""}` : `/b/${p.brand_id}/projects/${p.id}`);
 
-function Row({ p, mineView }: { p: Project; mineView: boolean }) {
+function Row({ p }: { p: Project }) {
   const done = !!p.finished_at;
   const meta = [
     p.created_by_name || "Someone",
     done ? `Finished · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
-    p.own_script && mineView ? "On your week" : null,
     p.script_draft_id ? null : "(earlier way)",
   ]
     .filter(Boolean)
@@ -221,7 +220,7 @@ export function VideosPage() {
                 <Card className="p-0 sm:p-0">
                   <ul className="divide-y divide-border">
                     {ps.map((p) => (
-                      <Row key={p.id} p={p} mineView={mine} />
+                      <Row key={p.id} p={p} />
                     ))}
                   </ul>
                 </Card>

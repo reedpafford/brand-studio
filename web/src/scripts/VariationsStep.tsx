@@ -9,7 +9,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { useApproveAllWith, type ApproveAllResult } from "../projects/ApproveAll";
-import { useAllowanceStop, type Script } from "./useScript";
+import type { Script } from "./useScript";
 import { serverTime } from "../time";
 
 const LETTER = ["A", "B", "C"];
@@ -151,7 +151,6 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
   const original = s.versions.find((v) => v.slot === 0)?.text ?? "";
   const price = useQuery({ queryKey: ["variations-estimate", s.id], queryFn: async () => (await api.GET("/scripts/{script_id}/variations/estimate", { params: { path: { script_id: s.id } } })).data?.credits });
   const [count, setCount] = useState<0 | 1 | 2>(0);
-  const stop = useAllowanceStop(s, price.data);
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(1);
   const [changesOnly, setChangesOnly] = useState(false);
@@ -212,7 +211,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
             <TextArea label="Direction (optional)" rows={2} maxLength={2000} placeholder="e.g. swap the altar for a car showroom; keep the payoff about money" value={note} onChange={(e) => setNote(e.target.value)} />
             {error && <p role="alert" className={errorClass}>{error.message}</p>}
             <p className="text-sm text-muted">Writing variations makes A's words final.</p>
-            <Button busy={act.write.isPending} charge="estimate" price={price.data} disabled={stop !== null} reason={stop} onClick={() => act.write.mutate({ slots: count === 1 ? [1] : [1, 2], note })}>
+            <Button busy={act.write.isPending} charge="estimate" price={price.data} onClick={() => act.write.mutate({ slots: count === 1 ? [1] : [1, 2], note })}>
               Write {count} variation{count === 1 ? "" : "s"}
             </Button>
           </>
@@ -240,7 +239,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
       <ul className={`grid gap-4 ${rail ? (all.length === 3 ? "grid-cols-3" : "grid-cols-2") : ""}`}>
         {visible.map((v) => (
           <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`} className="min-w-0">
-            <Column version={v} mayReadEarlier={mayReadEarlier} scriptId={s.id} published={s.published} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} stop={stop} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
+            <Column version={v} mayReadEarlier={mayReadEarlier} scriptId={s.id} published={s.published} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
           </li>
         ))}
       </ul>
@@ -248,7 +247,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
   );
 }
 
-function Column({ version: v, mayReadEarlier, scriptId, published, original, changesOnly, act, writing, stop, regenerate, price }: { version: Version; mayReadEarlier: boolean; scriptId: number; published: boolean; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; stop: string | null; regenerate: (note: string) => void; price?: number }) {
+function Column({ version: v, mayReadEarlier, scriptId, published, original, changesOnly, act, writing, regenerate, price }: { version: Version; mayReadEarlier: boolean; scriptId: number; published: boolean; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; regenerate: (note: string) => void; price?: number }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -387,7 +386,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
               </Menu>
             )}
             {asking === null && (
-              <Button variant="ghost" icon={RotateCcw} charge="estimate" price={price} busy={writing} disabled={act.writing || stop !== null} reason={stop} onClick={() => setAsking("")}>
+              <Button variant="ghost" icon={RotateCcw} charge="estimate" price={price} busy={writing} disabled={act.writing} onClick={() => setAsking("")}>
                 Regenerate
               </Button>
             )}
@@ -396,7 +395,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
             <div className="space-y-2">
               <TextArea label="What should change? (optional)" rows={2} maxLength={2000} value={asking} onChange={(e) => setAsking(e.target.value)} />
               <div className="flex gap-2">
-                <Button icon={RotateCcw} busy={act.write.isPending || writing} disabled={act.writing || stop !== null} reason={stop} charge="estimate" price={price} onClick={() => regenerate(asking)}>
+                <Button icon={RotateCcw} busy={act.write.isPending || writing} disabled={act.writing} charge="estimate" price={price} onClick={() => regenerate(asking)}>
                   Regenerate
                 </Button>
                 <Button variant="ghost" onClick={() => setAsking(null)}>

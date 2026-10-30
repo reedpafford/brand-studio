@@ -4,7 +4,7 @@ import type { components } from "../api/schema";
 import { Card, EmptyState, Skeleton } from "../components";
 import { fileUrl } from "../api/upload";
 import { errorText as errorClass } from "../ui";
-import { useOwnScriptStop } from "./useOwnScriptStop";
+import { useBudgetStop } from "./useBudgetStop";
 import { useApproveAllWith, type ApproveAllResult } from "./ApproveAll";
 import { AutoLooks } from "./AutoLooks";
 import { useAssetMerge } from "./AssetMerge";
@@ -53,7 +53,6 @@ export function AssetsPane({
   projectId,
   brandId,
   variants,
-  ownScript,
   used,
   budget,
   bar,
@@ -63,12 +62,11 @@ export function AssetsPane({
   projectId: number;
   brandId: number;
   variants: Record<string, string>;
-  ownScript?: boolean;
   used: number;
   budget: number;
 }) {
   const assets = useAssets(projectId);
-  const stopFor = useOwnScriptStop(ownScript, { used, budget });
+  const stopFor = useBudgetStop({ used, budget });
   const queryClient = useQueryClient();
   const picks = useBriefChoices(brandId, variants);
   const merge = useAssetMerge(projectId, (assets.data ?? []).filter((a) => a.kind === "character"));

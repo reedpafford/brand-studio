@@ -9,7 +9,6 @@ import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 import { owner } from "../test/people";
 
-const editor = { ...owner, id: 2, name: "Sam", role: "editor" };
 const script = (o: object = {}) => ({
   id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, reel_imported: false, new_lines: false, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [{ slot: 0, status: "draft", title: "Bo tries salmon", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
@@ -56,16 +55,6 @@ test("a script with a reference reel keeps the same-style switch, saved before w
   await userEvent.click(screen.getByRole("switch", { name: "Write new lines in the same style" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ new_lines: true }));
   expect(await screen.findByText("Writes new lines in the reel's voice and pacing. The shots and beats still follow the reel.")).toBeInTheDocument();
-});
-
-test("an editor past this week's allowance gets a disabled button and the reason, never Ask Reed", async () => {
-  setViewport(1440);
-  fakeServer(base({ "GET /auth/me": [200, editor], "GET /scripts/7": [200, script({ created_by_id: 2 })], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
-  open();
-  const write = await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" });
-  await vi.waitFor(() => expect(write).toBeDisabled());
-  expect(write).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday.");
-  expect(screen.queryByText(/Ask Reed/)).toBeNull();
 });
 
 test("a write that didn't finish says so, says credits came back, and offers Try again; the editor is still there", async () => {
