@@ -10,7 +10,7 @@ import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkTex
 import { KINDS, isKindSlug } from "./kinds";
 
 const tab = ({ isActive }: { isActive: boolean }) =>
-  `rounded-sm px-3 py-2 ${isActive ? "bg-accent-soft font-medium text-accent-text" : "text-muted"}`;
+  `inline-flex min-h-control items-center rounded-sm px-3 ${isActive ? "bg-accent-soft font-medium text-accent-text" : "text-muted"}`;
 
 export function LibraryPage() {
   const { brandId, kindSlug } = useParams();
@@ -172,7 +172,7 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
   };
   if (!open)
     return (
-      <button className={btnPrimary} onClick={() => setOpen(true)}>
+      <button className={`${btnPrimary} min-h-control`} onClick={() => setOpen(true)}>
         New {props.one}
       </button>
     );
@@ -188,7 +188,7 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
       </label>
       {create.isError && <p role="alert" className={errorClass}>{create.error.message}</p>}
       <div className="flex gap-2">
-        <button className={btnPrimary} disabled={create.isPending}>
+        <button className={`${btnPrimary} min-h-control`} disabled={create.isPending}>
           Create {props.one}
         </button>
         <button type="button" className={btnSecondary} onClick={() => setOpen(false)}>

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Check, Sparkles, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
-import { Badge, Button, Card, Dialog, Field, TextArea } from "../components";
+import { Badge, Button, Card, Dialog, Field, TextArea, buttonClass } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { Stopwatch } from "../clip/History";
@@ -130,7 +130,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
               <Button variant="secondary" icon={Sparkles} charge="estimate" price={d.directions_estimate_credits} disabled={stop !== null} reason={stop} busy={write.isPending} onClick={() => write.mutate()}>
                 {job?.status === "failed" ? "Try again" : any ? "Write 2 more" : "Write 2 song directions for me"}
               </Button>
-              {d.directions_stop_kind === "no_facts" && stop === d.directions_stop && <Link to={`/b/${brandId}/brand`} className="text-sm underline">Open the brand page</Link>}
+              {d.directions_stop_kind === "no_facts" && stop === d.directions_stop && <Link to={`/b/${brandId}/brand`} className={buttonClass("secondary")}>Open the brand page</Link>}
             </div>
           </>
         )}
