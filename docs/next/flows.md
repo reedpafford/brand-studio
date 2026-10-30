@@ -214,7 +214,7 @@ As today's Cast step, with one addition: **the Singer**.
 | State | What they see | The one press |
 |---|---|---|
 | Locked | "Make the song first" (no preferred take yet). | Goes to Takes. |
-| E / reading | The cast read runs on the lyrics and the visual concept (free reading as today). Roles named in the lyrics or concept appear. | — |
+| E / reading | The cast read runs on the lyrics and the visual concept. Cast read — songs: up to 3 credits, any time lyrics exist (scripts: free after Write, as before). Roles named in the lyrics or concept appear. | — |
 | Singer | A card on top: "Who sings on camera?" with the roles, the brand's default cast, or **Nobody on camera** (all shots B-roll). The Singer is always a cast role. Pre-picked: the hero from the visual concept, else the brand's default cast's first character. When the lyrics and concept name nobody, the cast read adds a role named **Singer** automatically (its look is made per video at Assets, rule 7). | Pick, then **Next**. |
 | Nobody on camera | Advice: "No shot will lip-sync. The song plays over B-roll only." | — |
 | Rest | Exactly as today's Cast (lock to a library look, or "made at Assets"). | — |
