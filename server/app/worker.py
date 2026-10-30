@@ -23,7 +23,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import music
+from app import music, screen_figures
 from app.clip_takes import still_wanted
 from app.credits import USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -313,6 +313,8 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
         for file_id in ids:
             stored = _stored(db, storage, job, file_id)
             data, content_type = storage.get(stored.key), stored.content_type
+            if figure := (job.input.get("screen_figures") or {}).get(str(file_id)):
+                data, content_type = screen_figures.draw(data, figure), "image/png"
             if max_side and key == "reference_images":
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")

@@ -206,3 +206,23 @@ def test_a_migration_run_leaves_the_app_loggers_on(tmp_path):
     cfg.set_main_option("sqlalchemy.url", f"sqlite:///{tmp_path}/m.db")
     command.upgrade(cfg, "head")
     assert not log.disabled
+
+
+def test_n17_gives_fomos_money_screens_their_figure_spot(tmp_path):
+    """Screen figures: fomo's three money screens get where their figure goes; others none."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n15")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "brands", id=1, slug="fomo")
+        _row(conn, "brands", id=2, slug="ironpaws")
+        _row(conn, "files", id=1)
+        _row(conn, "brand_screens", id=1, brand_id=1, name="Token chart up", file_id=1)
+        _row(conn, "brand_screens", id=2, brand_id=1, name="Desktop trading", file_id=1)
+        _row(conn, "brand_screens", id=3, brand_id=2, name="Token chart up", file_id=1)
+    command.upgrade(cfg, "n17")
+    with engine.connect() as conn:
+        spots = [r[0] for r in conn.execute(text("SELECT figure_spot FROM brand_screens"))]
+    assert json.loads(spots[0])["at"] == [24, 104] and spots[1:] == [None, None]

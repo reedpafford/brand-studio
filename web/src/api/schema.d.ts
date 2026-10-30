@@ -5797,6 +5797,20 @@ export interface components {
             /** Inferred */
             inferred: boolean;
         };
+        /**
+         * FigureSpot
+         * @description Where a shot's figure is written on this screen (screen_figures.py), in pixels.
+         */
+        FigureSpot: {
+            /** Box */
+            box: number[];
+            /** At */
+            at: number[];
+            /** Size */
+            size: number;
+            /** Chart */
+            chart?: number[] | null;
+        };
         /** FileIn */
         FileIn: {
             /**
@@ -8052,6 +8066,7 @@ export interface components {
             brand_id: number;
             /** Balance */
             balance: string;
+            figure_spot: components["schemas"]["FigureSpot"] | null;
         };
         /** ScreenPatch */
         ScreenPatch: {
@@ -8069,6 +8084,7 @@ export interface components {
             variant?: string | null;
             /** Balance */
             balance?: string | null;
+            figure_spot?: components["schemas"]["FigureSpot"] | null;
         };
         /** ScriptPatch */
         ScriptPatch: {
