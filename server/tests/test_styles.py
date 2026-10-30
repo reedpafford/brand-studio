@@ -189,3 +189,14 @@ def test_the_worked_example_speaks_the_videos_look_and_house_is_unchanged():
         text = prompts.system("clip_prompts", s["id"])
         example = text.split("## Worked example", 1)[1].split("## Style:", 1)[0]
         assert house not in example and s["sections"]["clip_style"] in example, s["id"]
+
+
+def test_the_reel_watch_example_names_no_studio():
+    """QA-3: a watched reel's look is told in plain words, never 'Pixar-style'. It is carried
+    into a video's reference shots, whatever that video's look."""
+    import json
+
+    from app.prompts import schemas
+
+    assert "pixar" not in prompts.system("reel_watch").lower()
+    assert "pixar" not in json.dumps(schemas.ReelWatch.model_json_schema()).lower()
