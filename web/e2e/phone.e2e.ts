@@ -28,10 +28,14 @@ test("on a phone, the five bottom tabs reach every brand section and there is no
   expect(widths.scroll).toBeLessThanOrEqual(widths.window);
 });
 
-test("on a phone, Reed reaches Approvals from the bell and Team from the account menu", async ({ page }) => {
+test("on a phone, with nothing waiting Reed sees no Approvals bell (the page still opens), and reaches Team from the account menu", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("link", { name: /^Approvals/ }).click();
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const waiting = (await (await page.request.get("/api/jobs?status=needs_owner_approval")).json()).length;
+  if (waiting === 0) await expect(page.getByRole("link", { name: /^Approvals/ })).toHaveCount(0);
+  else await expect(page.getByRole("link", { name: /^Approvals/ })).toBeVisible();
+  await page.goto("/approvals");
   await expect(page.getByRole("heading", { name: /^Approvals/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Account menu" }).click();
