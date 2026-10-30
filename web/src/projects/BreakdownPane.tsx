@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, errorText } from "../api/client";
+import { api, errorText, must } from "../api/client";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Clapperboard, RotateCcw } from "lucide-react";
@@ -38,8 +38,12 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
 
   const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();
-  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
-  const cost = rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
+  // What Make the shots charges (#996): the writing call, plus the clip prompts' rewrite once the video has them.
+  const price = useQuery({
+    queryKey: ["breakdown-price", projectId],
+    queryFn: async () => (await must(api.GET("/projects/{project_id}/breakdown/price", { params: { path: { project_id: projectId } } }))).data!.credits,
+  });
+  const cost = price.data ?? null; // null: not known yet, the press waits
 
   // Our own run: the job we started, or any job the server says is a breakdown (a song or narrated
   // video's is song_breakdown / narrated_breakdown; Approve the plan starts it from another step).
@@ -77,7 +81,7 @@ export function BreakdownPane(props: { ownScript?: boolean; projectId: number; b
   const row = current.data;
 
   // Past a limit an editor's paid button is disabled with the reason; nobody is asked to approve.
-  const stop = stopFor(cost);
+  const stop = stopFor(cost ?? undefined);
   const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
     <Button
       variant={opts.primary ? "primary" : "secondary"}

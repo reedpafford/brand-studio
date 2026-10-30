@@ -166,6 +166,18 @@ test("a take that has waited a while to start says why, in plain words", async (
   expect(await within(await screen.findByLabelText("Clip c2")).findByText(/isn't taking work right now/)).toBeInTheDocument();
 });
 
+test('at 390 a waiting take says "Waiting to start · m:ss" from when it was asked', async () => {
+  setViewport(390);
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ id: 2, clip_id: "c2" })]],
+    "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "queued", credits: 24, project_id: 9, project_clip_id: 2, created_at: new Date(Date.now() - 125_000).toISOString() }]],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c2");
+  expect(await within(card).findByText((_, el) => el?.tagName === "SPAN" && /^Waiting to start · 2:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument();
+});
+
 test("takes can be picked, and Approve take approves the picked one", async () => {
   const calls = fakeServer({
     ...base,

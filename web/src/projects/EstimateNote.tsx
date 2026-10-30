@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { roundUp } from "../components";
+import { creditsLabel, roundUp } from "../components";
 
 const NAMES: Record<string, string> = {
   script: "Script",
@@ -42,7 +42,7 @@ export function EstimateNote({
       <summary className="min-h-11 cursor-pointer py-2 sm:min-h-0 sm:py-0">
         {e.remaining_credits === 0
           ? "Nothing left to spend."
-          : `To finish: about ${credits(e.remaining_credits)}`}{" "}
+          : `To finish: up to ${creditsLabel(e.remaining_credits)}` /* whole credits, as Make this version and Video settings read the same figure */}{" "}
         · {credits(left)} left in the budget
       </summary>
       {/* From sm up the list floats under the meter, so opening it doesn't push the workspace down. */}

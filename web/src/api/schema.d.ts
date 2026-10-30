@@ -6376,6 +6376,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Started At */
+            started_at?: string | null;
             /** Finished At */
             finished_at: string | null;
             /**
@@ -6462,6 +6464,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Started At */
+            started_at?: string | null;
             /** Finished At */
             finished_at: string | null;
             /**
@@ -7509,6 +7513,12 @@ export interface components {
             brand_id: number;
             /** Name */
             name: string;
+            /**
+             * Kind
+             * @default story
+             * @enum {string}
+             */
+            kind: "story" | "song" | "narrated";
             /**
              * Song
              * @default false

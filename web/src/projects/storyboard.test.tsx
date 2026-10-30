@@ -576,3 +576,16 @@ test("Make the storyboard again says one still is dropped, in the singular", asy
   await userEvent.click(await screen.findByRole("button", { name: /^Make the storyboard again/ }));
   expect(screen.getByRole("alertdialog")).toHaveTextContent("the 1 still you've made is dropped");
 });
+
+test('at 390, frames waiting to be written say "Waiting to start · m:ss", then "Writing your frames… m:ss" once they run', async () => {
+  setViewport(390);
+  const asked = new Date(Date.now() - 65_000).toISOString();
+  const job = { id: 5, kind: "write-claude", step: "storyboard", status: "queued", credits: 6, project_id: 9, created_at: asked };
+  const routes = { ...base, "GET /projects/9/storyboard": [200, []] as [number, unknown], "GET /jobs": [200, [job]] as [number, unknown] };
+  fakeServer(routes);
+  open();
+  const line = (re: RegExp) => screen.findByText((_, el) => el?.tagName === "P" && re.test(el.textContent ?? ""), {}, { timeout: 5000 }); // the job list is read every 3 s
+  expect(await line(/^Waiting to start · 1:0\d$/)).toBeInTheDocument();
+  routes["GET /jobs"] = [200, [{ ...job, status: "running" }]];
+  expect(await line(/^Writing your frames… 1:\d\d$/)).toBeInTheDocument();
+});

@@ -109,7 +109,7 @@ test("picking previews the switch: Sung to B-roll, what goes out of date and the
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Seedance 2.0?" });
   expect(await within(ask).findByText("Seedance 2.0 can't lip-sync. Your 3 Sung shots become B-roll (picture only).")).toBeInTheDocument();
   expect(within(ask).getByText(/2 clips already made stay as they are and show Out of date/)).toBeInTheDocument();
-  expect(within(ask).getByText("To finish: about 30 credits (was 24).")).toBeInTheDocument();
+  expect(within(ask).getByText("To finish: up to 30 credits (was 24).")).toBeInTheDocument();
   expect(calls.find((c) => c.key === "POST /projects/9/settings/preview")?.body).toEqual({ video_model: "seedance-2.0" });
   await userEvent.click(within(ask).getByRole("button", { name: "Switch" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings")?.body).toEqual({ video_model: "seedance-2.0" }));
@@ -159,7 +159,7 @@ test("one credit to finish says credit", async () => {
   open();
   await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
   await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
-  expect(await screen.findByText("To finish: about 1 credit (was 24).")).toBeInTheDocument();
+  expect(await screen.findByText("To finish: up to 1 credit (was 24).")).toBeInTheDocument();
 });
 
 test("a look switch names the roles that need a new look in it (ST1)", async () => {
