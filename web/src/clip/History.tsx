@@ -76,12 +76,13 @@ export function JobClock({ queued, making, since }: { queued: boolean; making: s
   );
 }
 
-/** The clips list, with what was typed in Search and, for Removed, the clips taken off the history. */
-function useHistoryJobs(q: string, removed: boolean) {
+/** The clips list, with what was typed in Search and, for Removed, the clips taken off the history. `mine`: only the
+ *  person's own (#1051); editors always, the owner unless they switch to Everyone's. */
+function useHistoryJobs(q: string, removed: boolean, mine: boolean) {
   const folder = useFolderFilter(); // a project picked in the Projects list (flows OR1)
   return useQuery({
-    queryKey: ["jobs", "history", { q, removed, folder }],
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { ...folderQuery(folder), ...(q ? { q } : {}), ...(removed ? { removed: true } : {}) } } })).data ?? [],
+    queryKey: ["jobs", "history", { q, removed, folder, mine }],
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { ...folderQuery(folder), ...(q ? { q } : {}), ...(removed ? { removed: true } : {}), ...(mine ? { mine: true } : {}) } } })).data ?? [],
     refetchInterval: (query) => (query.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }
@@ -106,7 +107,10 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
   }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
   const rail = useMedia("(min-width: 1024px)");
   const [filter, setFilter] = useState<Filter>("all");
-  const jobs = useHistoryJobs(q, filter === "removed");
+  const owner = me?.role === "owner";
+  const [everyone, setEveryone] = useState(false); // the owner's Mine / Everyone's (Reed's item 4); editors see only their own
+  const jobs = useHistoryJobs(q, filter === "removed", !(owner && everyone));
+  const maker = (j: Job) => (everyone && j.created_by_id !== me?.id ? j.created_by_name : undefined);
   const [gone, setGone] = useState<number[]>([]); // taken off at once, before the list has caught up
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["jobs"] });
   const restore = async (j: Job, message: string) => {
@@ -151,7 +155,7 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
         ))}
       </div>
     );
-  if (clips.length === 0 && !q && filter !== "removed")
+  if (clips.length === 0 && !q && filter !== "removed" && !everyone)
     return (
       <EmptyState icon={Zap} title={`Your first ${brandName} clip starts here.`} action={onStart && <Button variant="ghost" onClick={onStart}>Start describing</Button>}>
         Describe a moment, add a brand piece, press Generate.
@@ -160,7 +164,7 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
 
   const card = (j: Job) => {
     const fileId = fileOf(j);
-    const detail = [j.duration && `${j.duration} s`, j.aspect_ratio, j.resolution].filter(Boolean).join(" · ");
+    const detail = [maker(j) && `by ${maker(j)}`, j.duration && `${j.duration} s`, j.aspect_ratio, j.resolution].filter(Boolean).join(" · ");
     const active = j.status === "queued" || j.status === "running";
     const badge = (
       <Badge tone={TONES[j.status]}>
@@ -266,16 +270,27 @@ export function History({ brandName, onTryAgain, onStart }: { brandName: string;
         <Search size={20} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <input type="search" role="searchbox" placeholder="Search your clips" value={text} onChange={(e) => setText(e.target.value)} className="min-h-control w-full rounded-md border border-border bg-surface pl-10 pr-3 lg:min-h-control-dense" />
       </label>
-      <label className="flex items-center gap-2 text-sm">
-        <span className="text-muted">Show</span>
-        <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} className="min-h-control rounded-md border border-border bg-surface-2 px-3 lg:min-h-control-dense">
-          {Object.entries(FILTERS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        {owner && (
+          <div role="group" aria-label="Whose clips" className="inline-flex rounded-md border border-border bg-surface-2 p-0.5">
+            {([[false, "Mine"], [true, "Everyone's"]] as const).map(([v, label]) => (
+              <button key={label} type="button" aria-pressed={everyone === v} onClick={() => setEveryone(v)} className={`min-h-control rounded-sm px-3 text-sm lg:min-h-control-dense ${everyone === v ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-text"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted">Show</span>
+          <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} className="min-h-control rounded-md border border-border bg-surface-2 px-3 lg:min-h-control-dense">
+            {Object.entries(FILTERS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {shown.length === 0 &&
         (q ? (
           <div className="flex items-center gap-3">
