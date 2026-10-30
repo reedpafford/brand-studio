@@ -34,14 +34,12 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 | QA / QA-2 | Review PRs into `next` as they do for `main` |
 
 ## Queued (Next-Lead keeps this list)
-Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or QA-3; QA-4, Flow-QA and Switch-On retired 30 Oct to save credits) with the lighter queue. As of 30 Oct, 04:55:
-- **Merged in the 04:45 batch:** #1020, #1021, #1023, #1024, #1025, #1017, #1018, #1027, #1012, #1029, #1030, #1033. With #1020 and #1030 deployed, Reed can redo the look samples.
-- **Passed, not merged yet:** #1008, #1028.
-- **QA:** #1026 (timers). **QA-3:** #1013 (Split; merging next), #1022 re-check (after #1008 lands, CostBar conflict), #1031 (Song in any look, n15; merging next with the `fmt` rename).
-- **Builder-Server-8:** `started_at` on JobOut (GET /jobs).
-- **Next-Screens:** after #1026 and that, one PR: the song, clip and storyboard "Making…" clocks count from `started_at`.
+Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or QA-3; QA-4, Flow-QA and Switch-On retired 30 Oct to save credits) with the lighter queue. As of 30 Oct, 05:15 (merge freeze until 06:00 UTC while Reed redoes the look samples; credit cuts: builders finish open fixes only, no new work without the Producer):
+- **Merged in the 04:45 batch:** #1020, #1021, #1023, #1024, #1025, #1017, #1018, #1027, #1012, #1029, #1030, #1033. Deployed (run 188, df2afe25); Reed can redo the look samples.
+- **Passed, need next merged in, then a re-pass:** #1008, #1028 (Next-Screens). **Passed, held:** #1026.
+- **QA:** #1036 (`started_at` on jobs). **QA-3:** #1013 (Split; last attempt, parked if it fails again), #1022 re-check (after #1008 lands, CostBar conflict), #1031 (Song in any look, n15; merging next with the `fmt` rename).
+- **Next-Screens:** after #1026 and #1036, one PR: the song, clip and storyboard "Making…" clocks count from `started_at`.
 - **Director:** after #1031, song.md keeps only its still and clip guides; delete the podcast, vox and whiteboard style files and their test lines.
-- **Next-Layout:** re-walk now that its fixes are on the test site.
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
 - **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song is a format in any look (30 Oct, #1031).
 
