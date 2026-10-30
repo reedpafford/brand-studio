@@ -247,7 +247,8 @@ function videoHead(cur, extra) {
     ${S.view === "phone" ? "" : crumbs(`fomo › November launch › From: <a href="#" data-go="${song ? "song" : "write"}">${song ? "Pitbull song" : "The altar reel"}</a> · version ${song ? "A" : "B"}`, ["videos", "Videos"])}
     ${S.view === "phone" ? "" : `<div class="hrow"><h1>${title}</h1>${badge(song ? "Song" : "Dialogue")}${more(title)}<span class="spacer"></span>${settingsRow(song)}</div>`}
     ${S.view === "phone" ? settingsRow(song) : ""}
-    ${stepper(vsteps(), S.p51 === "yes" && ["v-storyboard", "v-clips", "v-start"].includes(cur) ? "v-make" : cur, extra)}
+    <div class="seg" role="tablist" aria-label="View" style="align-self:flex-start"><button role="tab" aria-pressed="${cur === "v-director"}" data-go="v-director">Director</button><button role="tab" aria-pressed="${cur !== "v-director"}" data-go="v-plan">Look inside</button></div>
+    ${cur === "v-director" ? "" : stepper(vsteps(), S.p51 === "yes" && ["v-storyboard", "v-clips", "v-start"].includes(cur) ? "v-make" : cur, extra)}
   </div>`;
 }
 
@@ -258,19 +259,23 @@ function cardState(kind, price) {
     case "fail": return { badge: badge("Didn't finish", "bad"), lines: `<p class="line bad">Didn't finish · nothing charged. The video service was busy.</p>`, press: btn("Try again", { price, dense: true, toast: "Try again: queued. The failure line clears now." }) };
     case "refused": return { badge: badge("Refused", "bad"), lines: `<p class="line bad">The video model wouldn't make this: it read shot 1.2 as too close to someone else's character. Nothing was charged.</p>`, press: btn("Reword it", { price: "free", dense: true, toast: "Reworded (story and spoken lines kept). Before/after shown, with Undo." }) + " " + btn(kind === "still" ? "Make another" : "Make another take", { price, dense: true, toast: "Queued." }) };
     case "stale": return { badge: badge("Out of date", "warn"), lines: `<p class="line warn">Made for an older breakdown. ${kind === "still" ? "The earlier still is kept." : "Earlier takes are kept."}</p>`, press: btn(kind === "still" ? "Redo this frame" : "Rewrite this clip's prompt", { price: kind === "still" ? "1 credit" : "1 credit", dense: true, toast: "Queued. The earlier one is kept, with Undo." }) };
-    case "over": return { badge: badge("Check this", "check"), lines: "", press: btn(kind === "still" ? "Make another" : "Make another take", { price, dense: true, disabled: true, why: S.who === "owner" ? "" : "That's more than this video's budget." }) };
+    case "over": return S.who === "owner"
+      ? { badge: badge("Waiting for your OK"), lines: `<p class="line meta">Kel asked for another take · ${price} · takes the video to 108% of its budget. Nothing is charged until you say yes.</p>`, press: btn("Approve", { price, dense: true, toast: "Approved: the take is being made." }) + " " + btn("Decline", { dense: true, ghost: true, toast: "Declined. Nothing was charged. Kel sees why." }) }
+      : { badge: badge("Waiting for the owner's OK"), lines: `<p class="line meta">Asked 2 min ago · ${price} · goes past the video's budget. Nothing is charged until the owner says yes.</p>`, press: btn("Withdraw", { dense: true, ghost: true, toast: "Withdrawn. Nothing was charged. Undo." }) };
     default: return null;
   }
 }
 function costbar({ used = 412, budget = 660, finish = "about 140", press = "", amber = "", go = "", disabled = false, why = "", toast = "", meter = true, flag = "" }) {
   if (!amber && !press) return "";
   const pct = Math.round((used / budget) * 100);
-  const week = S.who === "editor" && S.screen.match(/^(write|cast|plan|publish|song|songtakes)$/);
+  const week = false; // the week counts Quick clips only (rule 5); scripts and videos show their budget
   const left = !meter ? "" : week ? `<div class="meter"><div class="meta">This week: 40 of 145 credits</div><div class="bar"><i style="width:28%"></i></div></div>`
     : `<div class="meter"><div class="meta price">${used} / ${budget} credits · ${pct}%</div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div></div>`;
   const over = S.st === "over" && S.who === "editor" && /^v-/.test(S.screen);
-  const dis = disabled || (over && /·/.test(amber));
-  const w = over && /·/.test(amber) ? "That's more than this video's budget. The free presses above still work." : why;
+  const dis = disabled;
+  // Rule 4 (Reed, 30 Oct): past a budget the press is held for the owner, not refused. The $75 cap stays a refusal.
+  if (over && /·/.test(amber)) amber = "Ask the owner · " + amber.split("·").pop().trim();
+  const w = over && /^Ask the owner/.test(amber) ? "Goes past the video's budget. Nothing is charged until the owner says yes." : why;
   return `<div class="costbar" role="region" aria-label="Cost bar">${left}
     ${S.view === "phone" ? "" : `<div class="what">${finish ? `To finish: ${finish} ▾` : ""}${press ? ` · This press: ${press}` : ""}</div>`}
     <div class="go">${amber ? `<button class="btn amber ${S.view === "phone" ? "full" : ""}"${go ? ` data-go="${go}"` : ""}${flag ? ` data-flag="${flag}"` : ""}${toast ? ` data-toast="${esc(toast)}"` : ""}${dis ? " disabled" : ""}>${amber}</button>` : ""}${w ? `<span class="why">${w}</span>` : ""}</div></div>`;
@@ -323,13 +328,15 @@ def("clip", "Quick clip + History", () => {
     main: `<div class="stack-lg"><div class="hrow"><h1>Quick clip</h1></div>
       <div class="card stack"><p class="meta">Model: Seedance 2.5 · 480p</p><div class="box tall">A pitbull licks the bowl clean, close-up, slow push in.</div>
         <div class="hrow"><span class="chip">9:16</span><span class="chip">8 s</span><span class="chip">480p</span>${btn("Improve prompt", { dense: true, ghost: true, price: "1 credit", toast: "Improved, with before/after and Undo." })}</div></div>
-      <div class="hrow"><h2>History</h2><span class="spacer"></span>${owner ? '<span class="seg"><button aria-pressed="true">Mine</button><button>Everyone\'s</button></span>' : ""}<button class="btn dense" data-toast="Show: Ready · Making · Didn't finish · Removed">Show</button></div>
+      <div class="hrow"><h2>History</h2><span class="spacer"></span>${owner ? '<span class="seg"><button aria-pressed="true">Mine</button><button>Everyone\'s</button></span>' : ""}<button class="btn dense" data-toast="Show: Ready · Making · Didn't finish · Removed. Brand: All · fomo · Iron Paws · No brand (after 1 Nov).">Show</button></div>
       ${S.st === "wait" ? row("Making… 0:42", "", "A pitbull chases a ball across the dog park.", "Iron Paws · you · just now · 5 s") : ""}
+      ${S.st === "over" && !owner ? row("Waiting for the owner's OK", "", "A pitbull chases a ball across the dog park.", "Iron Paws · you · just now · 8 credits · past this week's 97. Nothing is charged until the owner says yes.", `<div class="hrow">${btn("Withdraw", { dense: true, ghost: true, toast: "Withdrawn. Nothing was charged." })}</div>`) : ""}
       ${row("Ready", "ok", "Pitbull drops the ball at the owner's feet, wide shot.", "Iron Paws · you · today 14:02 · 5 s · 5 credits", `<div class="hrow">${btn("Download", { dense: true })}</div>`)}
+      ${row("Ready", "ok", "A trader celebrates as the chart climbs, neon office.", "fomo · you · yesterday · 5 s · 5 credits", `<div class="hrow">${btn("Download", { dense: true })}</div>`)}
       ${row("Didn't finish", "bad", "The dog jumps into a bubble bath.", "Iron Paws · you · today 13:40 · nothing charged", `<div class="hrow">${btn("Try again", { dense: true, price: "5 credits" })}</div>`)}
       ${row("Cancelled", "", "Close-up of the bag on the kitchen counter.", "Iron Paws · you · yesterday · nothing charged")}
-      <p class="meta">Only your clips in Iron Paws.${owner ? " Switch to Everyone's to see the team's." : ""}</p></div>`,
-    bar: (() => { const over = S.st === "over" && !owner; return `<div class="costbar"><div class="meter"><div class="meta">This week: ${over ? "145" : "27"} of 145 credits</div><div class="bar"><i style="width:${over ? 100 : 19}%"></i></div></div><div class="go"><button class="btn amber ${S.view === "phone" ? "full" : ""}" ${over ? "disabled" : ""} data-toast="Clip queued. It shows in History.">Generate · 8 credits</button>${over ? '<span class="why">You\'ve used this week\'s 145 credits. It resets on Monday.</span>' : ""}</div></div>`; })(),
+      <p class="meta">${owner ? "Mine shows yours; Everyone's shows every editor's." : "Your Quick clips, every brand. Quick clips are yours: they don't count against any video."}</p></div>`,
+    bar: (() => { const over = S.st === "over" && !owner; return `<div class="costbar"><div class="meter"><div class="meta">${owner ? "Quick clips: no weekly limit for the owner" : `This week: ${over ? "97" : "27"} of 97 credits · resets Monday`}</div>${owner ? "" : `<div class="bar"><i style="width:${over ? 100 : 28}%"></i></div>`}</div><div class="go"><button class="btn amber ${S.view === "phone" ? "full" : ""}" data-toast="${over ? "Sent to the owner. Nothing is charged until they say yes; it shows in History as Waiting." : "Clip queued. It shows in History."}">${over ? "Ask the owner · 8 credits" : "Generate · 8 credits"}</button>${over ? '<span class="why">Past this week\'s 97 credits. The owner decides; nothing is charged until then.</span>' : ""}</div></div>`; })(),
   };
 });
 
@@ -375,11 +382,17 @@ def("usage", "Usage (owner)", () => ({
     <div class="list">${[["fomo", "430 credits · $44.20 · 2 finished · 1 in progress"], ["Iron Paws", "82 credits · $8.43 · 1 finished · 2 in progress"], ["Night Owl Coffee", "Nothing yet · set up 3 of 7"]].map(([a, b]) => `<div class="card hrow"><span class="dot"></span><b>${a}</b><span class="meta" style="flex:1">${b}</span><span class="meta">▸</span></div>`).join("")}</div></div>`,
   bar: costbar({ finish: "", amber: "" }),
 }));
+def("approvals", "Approvals (owner, when something waits)", () => ({
+  main: `<div class="stack-lg"><div class="hrow"><h1>Approvals</h1></div>
+    ${S.st === "over" ? `<p class="meta">2 requests · nothing is charged until you say yes</p><div class="list">${[["Kel", "Another take of clip 3", "The altar reel · B", "6 credits ($0.62) · takes the video to 108% of its budget"], ["Maya", "A Quick clip", "Iron Paws", "8 credits ($0.82) · past her week (97 of 97)"]].map(([w, what, where, c]) => `<div class="card stack"><div class="hrow"><b>${what}</b><span class="meta">${where} · asked by ${w}, 2 min ago</span></div><p class="meta">${c}</p><div class="hrow">${btn("Approve", { dense: true, price: c.split(" (")[0], toast: "Approved: it's being made. " + w + " sees it start." })}${btn("Decline", { dense: true, ghost: true, toast: "Declined. Nothing was charged. " + w + " sees why." })}</div></div>`).join("")}</div>`
+      : `<p class="meta">Nothing waiting. When an editor's press goes past a video's budget or their week, it waits here for you. This page leaves the menu when it's empty.</p>`}</div>`,
+  bar: costbar({ meter: false, finish: "", amber: S.st === "over" ? "Approve all (2) · 14 credits" : "", toast: "Approved 2 requests. Undo." }),
+}));
 def("team", "Team (owner)", () => ({
   main: `<div class="stack-lg"><div class="hrow"><h1>Team</h1></div>
-    <section class="stack"><h2>People</h2><div class="list">${[["Reed", "Owner", ""], ["Maya", "Editor", "This week: 27 of 145 credits"], ["Sam", "Editor", "This week: 145 of 145 · stopped until Monday"]].map(([n, r, w]) => `<div class="card hrow"><span class="avatar">${n[0]}</span><b>${n}</b>${badge(r)}<span class="meta" style="flex:1">${w}</span>${more(n)}</div>`).join("")}</div></section>
+    <section class="stack"><h2>People</h2><div class="list">${[["Reed", "Owner", ""], ["Maya", "Editor", "Quick clips this week: 27 of 97 credits"], ["Sam", "Editor", "Quick clips this week: 97 of 97 · next ones wait for your OK"]].map(([n, r, w]) => `<div class="card hrow"><span class="avatar">${n[0]}</span><b>${n}</b>${badge(r)}<span class="meta" style="flex:1">${w}</span>${more(n)}</div>`).join("")}</div></section>
     <section class="stack"><h2>Waiting invites</h2><div class="card hrow"><b>jo@example.com</b><span class="meta" style="flex:1">Editor · expires Nov 5</span>${btn("Copy a new link", { dense: true })}${btn("Cancel invite", { dense: true, ghost: true })}</div></section>
-    <section class="stack"><h2>Credit limits</h2><div class="card stack"><p><b>Weekly allowance per editor</b> · 145 credits (≈ $14.91)</p><p class="meta">Credits each editor can spend on their own scripts and quick clips each week. Resets on Monday.</p><p><b>Most one video can cost</b> · 729 credits (≈ $74.94), for everyone</p></div></section></div>`,
+    <section class="stack"><h2>Credit limits</h2><div class="card stack"><p><b>Weekly allowance per editor</b> · 97 credits (≈ $10)</p><p class="meta">Each editor's Quick clips only; scripts and videos run on their budgets. Past it, a press waits for your OK. Resets on Monday, no rollover.</p><p><b>Most one video can cost</b> · 729 credits (≈ $74.94), for everyone</p></div></section></div>`,
   bar: costbar({ meter: false, finish: "", amber: "Invite someone", toast: "Invite: email and role. An editor makes videos from published scripts and their own." }),
 }));
 
@@ -494,6 +507,27 @@ def("publish", "Publish", () => ({
   bar: costbar({ finish: "", amber: "Publish 2 versions", go: "scripts", toast: "Published. 2 versions are ready to make." }),
 }));
 
+/* Video: the director's view (Part 8.5; the director is planned, not built) */
+def("v-director", "Video · Director view (planned)", () => {
+  const editor = S.who === "editor";
+  const locks = ["Cast and looks", "Look: House", "Length: about 45 s", "Screens", "End line"];
+  const msgs = [["you", editor ? "Make the boss angrier when he fires her, and slow the ring throw." : "Make the boss angrier when he fires her, and slow the ring throw."],
+    ["director", "Done: clip 2 redone with an angrier boss, and the ring throw now holds for a beat. 2 clips remade · 13 credits. The new cut is above."],
+    ...(editor ? [["you", "Change her line to \"No way.\""], ["director", "The words are set for this script, so I can't change the line. I can change how she says it, what we see, or the pacing. Want her to say it laughing?"]] : [])];
+  const chat = `<div class="stack"><p class="eyebrow">Chat with the director</p>${msgs.map(([w, t]) => `<div class="card" style="padding:10px;${w === "you" ? "background:var(--surface-2)" : ""}"><p class="meta">${w === "you" ? "You" : "Director"}</p><p class="line">${t}</p></div>`).join("")}
+    ${S.st === "over" ? `<div class="card stack" style="padding:10px"><p class="line">Waiting for the owner's OK to remake clip 6: 6 credits past the video's budget.</p>${editor ? btn("Withdraw", { dense: true, ghost: true }) : btn("Approve · 6 credits", { dense: true, toast: "Approved: the director carries on." })}</div>` : ""}
+    <div class="box">Say what you'd change…</div></div>`;
+  const delivery = `<div class="card stack">${media(S.st === "wait" ? "Working… clips 6 of 9" : "▶ the cut, v2", "r169")}<div class="hrow"><b>Cut v2</b>${S.st === "wait" ? badge("Working… 4:10") : badge("Delivered", "ok")}<span class="spacer"></span>${btn("⤓ Download MP4", { dense: true })}</div>
+    <p class="meta">${S.st === "wait" ? "Making clips: 6 of 9 · up to 42 credits so far · you can leave this page" : "54 s · 71 credits for the video · director 0.9 credits"}</p>
+    ${S.st === "wait" ? "" : `<details class="stack"><summary class="meta" style="cursor:pointer">What it decided (3) · 1 note left for you</summary><p class="line">Took take 4 for clip 1: takes 1–2 drifted from Lexi's sheet (kept under Other takes).</p><p class="line">Muted an unscripted "uh" at 0:21 in the cut (free).</p><p class="line">Left 1 note: the bag label may be hard to read in clip 6 · <a href="#" data-review>Review</a></p></details>`}</div>`;
+  const lockRow = `<div class="hrow">${locks.map((l, k) => `<span class="chip">${k < 2 ? "🔒 " : ""}${l}</span>`).join("")}${btn("Locks", { dense: true, ghost: true, toast: "Lock a choice and the director builds around it: cast and looks, look, length, song, screens, end line." })}</div>`;
+  return {
+    main: `<div class="stack-lg">${videoHead("v-director", {})}${lockRow}${S.view === "phone" ? delivery + chat : delivery}</div>`,
+    side: S.view === "phone" ? null : chat,
+    bar: costbar({ used: 412, budget: 660, finish: S.st === "wait" ? "up to 42 more" : "", press: S.st === "wait" ? "the director is working" : "", amber: S.st === "wait" ? "" : "Send", toast: "Sent. The director makes the change and delivers again." }),
+  };
+});
+
 /* Video: Plan */
 def("v-plan", "Video · Plan", () => ({
   main: `<div class="stack-lg">${videoHead("v-plan", {})}${planView(false)}</div>`,
@@ -562,9 +596,11 @@ function workView(kind) {
     const status = c ? c.badge : flagged ? badge("Check this", "check") + " " + notesChip(i) : yes ? badge("Approved ✓ checked", "ok") : badge("✓ checked", "");
     const auto = i === 0 && kind === "clip" ? `<p class="line meta">Tried again once on its own (the service was busy) · nothing extra charged</p>` : "";
     const fixed = i === 1 && kind === "clip" ? `<p class="line meta">Fixed for you: removed 'logo text' · <a href="#" data-toast="Before/after of the one changed phrase, with Undo.">See the change</a></p>` : "";
+    const others = kind === "clip" && i === 0 && !c ? `<details open class="card stack" style="background:var(--surface-2);padding:10px"><summary class="meta" style="cursor:pointer;min-height:32px">Other takes (3) · the check picked take 4</summary>
+      ${[["Take 1", "AI: Lexi's hair looks shorter than her sheet (0:02)", true], ["Take 2", "AI: the ring is missing in her hand (0:04)", true], ["Take 3", "Refused: read as too close to someone else's character · nothing charged", false]].map(([t, why, file]) => `<div class="stack" style="border-top:1px solid var(--border);padding-top:8px"><div class="hrow"><b>${t}</b><span class="line meta" style="flex:1;min-width:160px">${why}</span></div>${file ? `<div class="hrow">${btn("▶ Play", { dense: true, ghost: true, toast: "Plays " + t + "." })}${btn("Use this take", { dense: true, toast: t + " is in the cut now. Undo." })}${btn("⤓ Download", { dense: true, ghost: true, toast: "Downloading " + t + "." })}</div>` : ""}</div>`).join("")}</details>` : "";
     const approve = !yes && !c ? `<div class="hrow">${btn(kind === "still" ? "Approve" : "Approve take", { dense: true, toast: "Approved. Undo." })}</div>` : flagged ? `<div class="hrow">${btn(kind === "still" ? "Approve" : "Approve take", { dense: true, toast: "Approved with Advice. Undo." })}</div>` : "";
     return `<div class="card stack">${media(c && S.st === "wait" ? "Making… 0:42" : kind === "still" ? "still " + (i + 1) : "▶ take")}<div class="hrow"><b>${kind === "still" ? "Still" : "Clip"} ${i + 1}</b>${status}<span class="spacer"></span>${more("item " + (i + 1))}</div>
-      <p class="script">${lines[i]}</p><p class="meta">${song ? "Bo · Kitchen" : "Lexi, Nate · Altar"}</p>${auto}${fixed}${c ? c.lines + `<div class="hrow">${c.press}</div>` : ""}${approve}${flagged ? panel(i) : ""}
+      <p class="script">${lines[i]}</p><p class="meta">${song ? "Bo · Kitchen" : "Lexi, Nate · Altar"}</p>${auto}${fixed}${c ? c.lines + `<div class="hrow">${c.press}</div>` : ""}${approve}${flagged ? panel(i) : ""}${others}
       ${c ? "" : `<div class="box">Change this…</div>`}</div>`;
   };
   const progress = S.st === "wait" ? (kind === "still" ? "Drawing stills: 6 of 9 · You can leave this page." : "Making takes: 6 of 9 made · 3 making · You can leave this page.") : kind === "still" ? (yes ? "9 stills · 8 approved on their own · 1 waits for you" : "9 stills · 1 approved") : yes ? "9 takes · 8 approved on their own · 1 waits for you" : "9 takes · 1 approved";
@@ -634,17 +670,17 @@ function render() {
   const brandRow = (c, n, w) => `<button class="nav" style="color:var(--text)" data-close><span class="dot" style="background:${c}"></span><b style="flex:1">${n}</b><span class="meta">${w}</span></button>`;
   const menu = S.menu === "brands" ? `<div class="toast" style="top:${S.view === "phone" ? 60 : 60}px;bottom:auto;left:${S.view === "phone" ? "50%" : "16px"};transform:${S.view === "phone" ? "translateX(-50%)" : "none"};flex-direction:column;align-items:stretch;min-width:300px;gap:2px" role="dialog" aria-label="Brands">
       <p class="eyebrow" style="padding:4px 10px">Brands</p>${brandRow("#f4a940", "fomo ✓", S.who === "owner" ? "2 need you · 3 being made" : "1 needs you")}${brandRow("#5bd08a", "Iron Paws", S.who === "owner" ? "1 needs you" : "—")}${brandRow("#8ab4ff", "Night Owl Coffee", "set up 3 of 7")}
-      ${S.who === "owner" ? '<button class="nav" data-close data-go="brand">+ New brand</button>' : '<p class="meta" style="padding:6px 10px">Brands are added by the owner.</p>'}</div>` : "";
+      ${S.who === "owner" ? '<button class="nav" data-close data-go="brand">+ New brand</button>' : ""}</div>` : "";
   const sheet = S.lineSheet ? `<div class="toast" style="bottom:${S.view === "phone" ? 70 : 100}px;flex-direction:column;align-items:stretch;min-width:300px;gap:2px" role="dialog" aria-label="This line"><p class="eyebrow" style="padding:4px 10px">Line in scene ${esc(S.lineSheet)}</p>${["Move to the previous scene", "Move to the next scene", "Start a new scene here", "★ Show the product here"].map((l) => `<button class="nav" style="color:var(--text)" data-close data-toast="${l}: done, free. Undo.">${l}</button>`).join("")}<button class="nav" data-close>Cancel</button></div>` : "";
   const toast = (S.toast ? `<div class="toast" role="status"><span>${esc(S.toast)}</span><button class="btn ghost dense" data-close>OK</button></div>` : "") + menu + sheet;
   if (S.view === "desk") {
     const rail = `<nav class="rail ${inVideo ? "slim" : ""}" aria-label="Main">${inVideo ? "" : '<p class="eyebrow">fomo</p>'}${NAV.map(([id, l]) => `<button class="nav" ${sec === id ? 'aria-current="page"' : ""} data-go="${id}" title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}
-      ${S.who === "owner" ? `<p class="eyebrow">${inVideo ? "" : "Studio"}</p>${STUDIO.map(([id, l]) => `<button class="nav" ${S.screen === id ? 'aria-current="page"' : ""} data-go="${id}" title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}${inVideo ? "" : '<p class="meta" style="padding:6px 10px">Approvals is hidden while nothing waits.</p>'}` : ""}</nav>`;
-    app.innerHTML = `<header class="topbar"><button class="switch" data-menu="brands"><span class="dot"></span>${["production", "usage", "team"].includes(S.screen) ? "All brands" : "fomo"} ▾</button><span class="spacer"></span><span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span></header>
+      ${S.who === "owner" ? `<p class="eyebrow">${inVideo ? "" : "Studio"}</p>${STUDIO.map(([id, l]) => `<button class="nav" ${S.screen === id ? 'aria-current="page"' : ""} data-go="${id}" title="${l}"><span class="ico"></span>${inVideo ? "" : l}</button>`).join("")}${S.st === "over" ? `<button class="nav" ${S.screen === "approvals" ? 'aria-current="page"' : ""} data-go="approvals" title="Approvals"><span class="ico"></span>${inVideo ? "" : "Approvals"}<span class="count">2</span></button>` : inVideo ? "" : '<p class="meta" style="padding:6px 10px">Approvals appears here when something waits (set Card state to Over budget).</p>'}` : ""}</nav>`;
+    app.innerHTML = `<header class="topbar"><button class="switch" data-menu="brands"><span class="dot"></span>${["production", "usage", "team"].includes(S.screen) ? "All brands" : "fomo"} ▾</button><span class="spacer"></span>${S.who === "owner" && S.st === "over" ? '<button class="btn dense" data-go="approvals">Approvals <span class="count" style="margin-left:6px">2</span></button>' : ""}<span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span></header>
       <div class="row">${rail}<div class="main"><div class="row" style="min-height:0"><main class="work">${scr.main}</main>${scr.side ? `<aside class="side" aria-label="Script and media"><div class="body">${scr.side}</div></aside>` : ""}</div>${scr.bar}</div></div>${toast}`;
   } else {
     const back = inVideo ? `<button class="btn ghost dense" data-go="videos">‹ Videos</button><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${S.kind === "song" ? "Pitbull song · A" : "The altar reel · B"}</b>${more("video")}`
-      : `<button class="switch" style="flex:1" data-menu="brands"><span class="dot"></span>${["production", "usage", "team"].includes(S.screen) ? "All brands" : "fomo"} ▾</button><span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span>`;
+      : `<button class="switch" style="flex:1" data-menu="brands"><span class="dot"></span>${["production", "usage", "team"].includes(S.screen) ? "All brands" : "fomo"} ▾</button>${S.who === "owner" && S.st === "over" ? '<button class="more" aria-label="Approvals, 2 waiting" data-go="approvals">🔔</button>' : ""}<span class="avatar">${S.who === "owner" ? "RP" : "KE"}</span>`;
     app.innerHTML = `<div class="phead">${back}</div><main class="work">${scr.main}</main>${scr.bar}
       <nav class="ptabs" aria-label="Tabs">${NAV.map(([id, l]) => `<button class="ptab" ${sec === id ? 'aria-current="page"' : ""} data-go="${id}"><span class="ico"></span>${l === "Cast & places" ? "Cast" : l === "Quick clip" ? "Quick" : l}</button>`).join("")}</nav>${toast}`;
   }
