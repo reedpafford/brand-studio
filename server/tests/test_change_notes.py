@@ -157,12 +157,18 @@ def test_the_owner_refunds_one_charge_once(owner, editor, db):
     assert all(c["refunded"] is None for c in others)
 
 
-def test_an_editors_change_holds_its_whole_price_on_their_week(app, db, owner, editor, setup):  # noqa: F811
-    """Producer: on an editor's own script, the rewrite and the still it pays for are checked
-    and held together, so nothing started meanwhile can take the week past its allowance."""
+def test_a_change_checks_its_whole_price_against_the_videos_budget(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+    monkeypatch,
+):
+    """Producer: the rewrite and the still it pays for are checked together, so nothing started
+    meanwhile can take the video past its budget. On the editor's own script too: since one
+    allowance (Reed, 30 Oct) every video runs on its budget, never the week."""
     from app.change import credits as price
-    from app.credits import credits_left
-    from app.models.accounts import User
+    from app.credits import credits_used
     from app.models.script_library import ScriptDraft
 
     url, frame = _frame(app, db, editor, setup)
@@ -170,21 +176,17 @@ def test_an_editors_change_holds_its_whole_price_on_their_week(app, db, owner, e
     script = editor.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
     project = db.get(Project, setup["project"])
     draft = db.query(ScriptDraft).filter_by(script_id=script.json()["id"]).one()
-    project.script_draft_id = draft.id  # the editor's own script: their week pays
+    project.script_draft_id = draft.id  # the editor's own script
     db.commit()
-    ed = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
     whole = price(db, project, frame)
-    limits = owner.get("/credits/limits").json()
-    used = float(145 - credits_left(db, ed))
-    tight = used + float(whole) - 0.01  # the rewrite fits; the rewrite and the still don't
-    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": tight})
+    room = credits_used(db, project) + whole
+    monkeypatch.setattr("app.credits.budget", lambda db, p: room - Decimal("0.01"))  # rewrite fits
     refused = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
-    assert refused.status_code == 409 and "It resets on Monday" in refused.json()["detail"]
-    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 145})
-    before = credits_left(db, ed)
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409, "That's more than this video's budget.")  # fmt: skip
+    monkeypatch.setattr("app.credits.budget", lambda db, p: room)
     sent = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
     assert sent.status_code == 201
-    assert before - credits_left(db, ed) == whole  # the still is held while the note is read
 
 
 def test_undo_goes_back_to_the_take_picked_before_the_change(app, db, editor, setup, clip):  # noqa: F811

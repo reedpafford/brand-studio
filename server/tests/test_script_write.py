@@ -46,17 +46,15 @@ def test_write_all_after_bulk_create_with_its_estimate(app, db, owner):
     assert again.status_code == 201  # not approved yet: can be written again
 
 
-def test_write_all_is_declined_past_an_editors_allowance_and_queues_nothing(owner, editor, db):
+def test_write_all_is_never_refused_for_the_week(owner, editor, db):
+    """One allowance (Reed, 30 Oct): writing scripts is a brand's work, never the week's."""
     owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 11, "per_video_max_credits": 729}
+        "/credits/limits", json={"weekly_quick_clip_credits": 0, "per_video_max_credits": 729}
     )
     ids = _bulk(editor, 2)
     est = editor.post("/scripts/write/estimate", json={"script_ids": ids}).json()
-    assert (est["credits"], est["credits_left"]) == (12, 11)
-    declined = editor.post("/scripts/write", json={"script_ids": ids})
-    assert declined.status_code == 409 and "12 credits" in declined.json()["detail"]
-    assert db.query(Job).count() == 0  # all or none
-    assert editor.post("/scripts/write", json={"script_ids": ids[:1]}).status_code == 201
+    assert (est["credits"], est["credits_left"]) == (12, None)
+    assert editor.post("/scripts/write", json={"script_ids": ids}).status_code == 201
 
 
 def test_a_reference_block_still_closes_when_its_text_tries_to():
@@ -74,14 +72,9 @@ def _steps(db) -> list[str]:
 
 def test_writing_reads_the_cast_next_at_one_price(app, db, owner, editor):
     """Designer #322: the cast read follows Write, already paid for with it."""
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 6, "per_video_max_credits": 729}
-    )
-    sid = _bulk(editor, 2)
+    sid = _bulk(editor, 1)
     write = editor.post(f"/scripts/{sid[0]}/write")
     assert write.status_code == 201 and _steps(db) == ["script_draft"]
-    held = editor.post(f"/scripts/{sid[1]}/write")  # 6 of 6: the cast read is held
-    assert held.status_code == 409 and "6 credits" in held.json()["detail"]
     _work(app, db)
     assert _steps(db) == ["script_draft", "cast_slots"]
     cast = db.query(Job).filter(Job.input["step"].as_string() == "cast_slots").one()

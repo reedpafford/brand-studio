@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import advice, clip_prompts, clip_takes, prompts, storyboard
-from app.credits import estimate, own_script
+from app.credits import estimate
 from app.enhance import escape
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -90,9 +90,7 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
         ),
         "max_tokens": 16000,  # the whole prompt comes back: a 24 s clip ran out of room at 4000
     }
-    if own_script(db, project, user):  # the still or take is held on the editor's week until
-        data["then_credits"] = str(then)  # it's queued (reel_read.held), so nothing overshoots
-    # The whole price is checked in one locked step, against the week or the video's budget.
+    # The whole price is checked in one locked step, against the video's budget.
     job = enqueue(db, user, "write-claude", data, project=project, provider="claude", hold=then)
     was = {"was_take_id": row.picked_take_id} if target == "clip" else {"was_file_id": row.file_id}
     row.change = {"note": note, "job_id": job.id, "status": "changing", **was}

@@ -86,31 +86,19 @@ def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, 
     assert all(owner.get(f"/scripts/{i}").json()["versions"][0]["text"] for i in (ids[0], ids[2]))
 
 
-def test_write_all_is_all_or_none_over_reading_too(app, owner, editor, db, clip):
+def test_write_all_is_never_refused_for_the_week(app, owner, editor, db, clip):
+    """One allowance (Reed, 30 Oct): reading reels and writing scripts are a brand's work,
+    never the week's, so Write all runs every reel's read even with nothing left."""
     owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 12, "per_video_max_credits": 729}
-    )
-    ids = [
-        s["id"] for s in bulk_scripts(editor, [{"reel_url": LINKS[0]}, {"title": "Plain"}]).json()
-    ]
-    _drain(app, db, clip)
-    declined = editor.post("/scripts/write", json={"script_ids": ids})
-    assert declined.status_code == 409 and "13 credits" in declined.json()["detail"]
-    assert db.query(Job).filter(Job.kind != "reel_prepare").count() == 0
-
-
-def test_write_all_holds_every_reels_read(app, owner, editor, db, clip):
-    """QA on #292: each reel's later steps are held from the press, so nothing else spends
-    them first."""
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 14, "per_video_max_credits": 729}
+        "/credits/limits", json={"weekly_quick_clip_credits": 0, "per_video_max_credits": 729}
     )
     ids = [s["id"] for s in bulk_scripts(editor, [{"reel_url": u} for u in LINKS[:2]]).json()]
     plain = bulk_scripts(editor, [{"title": "Plain"}]).json()[0]["id"]
     _drain(app, db, clip)
+    estimate = editor.post("/scripts/write/estimate", json={"script_ids": ids}).json()
+    assert estimate["credits_left"] is None  # nothing on the week to show
     assert editor.post("/scripts/write", json={"script_ids": ids}).status_code == 201
-    over = editor.post(f"/scripts/{plain}/write")  # 2 x 7 held, though only 2 watches queued
-    assert over.status_code == 409 and "credits" in over.json()["detail"]
+    assert editor.post(f"/scripts/{plain}/write").status_code == 201
     _drain(app, db, clip)
     assert all(editor.get(f"/scripts/{i}/import").json()["status"] == "done" for i in ids)
 
