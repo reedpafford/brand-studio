@@ -40,6 +40,7 @@ Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or
 - **QA:** #1036 (`started_at` on jobs). **QA-3:** #1013 (Split; last attempt, parked if it fails again), #1022 re-check (after #1008 lands, CostBar conflict), #1031 (Song in any look, n15; merging next with the `fmt` rename).
 - **Next-Screens:** after #1026 and #1036, one PR: the song, clip and storyboard "Making…" clocks count from `started_at`.
 - **Director:** after #1031, song.md keeps only its still and clip guides; delete the podcast, vox and whiteboard style files and their test lines.
+- **After the 1 Nov reset (no builder work before):** the advisory AI check on takes, part of the four-step flow (DECISIONS rule 21), takes its spec from docs/next/take-review-checklist.md. It should cover: the transcript against the script (extra, missing or wrong-speaker lines), brand-name pronunciation (FOMO said FOH-moh), glowing or red eyes, screens (real UI, wins only, figures that match the beat), cast and continuity, and the end line. Advice only, with a ready "Change this…" note, never a block (rule 11).
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
 - **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song is a format in any look (30 Oct, #1031).
 
