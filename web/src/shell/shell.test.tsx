@@ -279,12 +279,13 @@ test("if the clipboard says no, the fresh link is shown in a read-only field to 
   expect(field).toHaveAttribute("readonly");
 });
 
-test("an editor's brand menu says brands are set up by the owner and has no New brand", async () => {
+test("an editor's brand menu lists the brands, with no New brand and no owner-only note", async () => {
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/");
   await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
-  expect(screen.getByText("Brands are set up by the owner.")).toBeInTheDocument();
+  expect(await within(screen.getByRole("menu")).findByText("Iron Paws")).toBeInTheDocument();
+  expect(screen.queryByText("Brands are set up by the owner.")).toBeNull();
   expect(screen.queryByRole("menuitem", { name: "New brand" })).toBeNull();
 });
 
