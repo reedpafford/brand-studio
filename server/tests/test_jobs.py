@@ -20,6 +20,19 @@ def test_started_job_cannot_be_cancelled(owner, db):
     assert owner.post(f"/jobs/{job.id}/cancel").status_code == 409
 
 
+def test_a_running_job_says_when_it_started_so_making_counts_from_then(owner, db):
+    job = enqueue(db, db.query(User).one(), "video-480p", {})
+    assert owner.get(f"/jobs/{job.id}").json()["started_at"] is None  # queued: not started yet
+    run_once(db, {"fake": FakeProvider()})
+    db.refresh(job)
+    listed = next(j for j in owner.get("/jobs").json() if j["id"] == job.id)
+    assert listed["status"] == JobStatus.running and listed["started_at"].endswith("Z")
+    assert listed["started_at"].startswith(job.started_at.isoformat()[:19])
+    job.status = JobStatus.succeeded
+    db.commit()
+    assert owner.get(f"/jobs/{job.id}").json()["started_at"] is None  # done: no clock to show
+
+
 def test_other_workspace_cannot_see_job(owner, outsider, db):
     job = enqueue(db, db.query(User).first(), "video-480p", {})
     assert_hidden(outsider, [("GET", f"/jobs/{job.id}"), ("POST", f"/jobs/{job.id}/cancel")])

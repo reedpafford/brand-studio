@@ -91,7 +91,7 @@ function confirmText(field: Field, choice: Choice, p: PreviewOut, finished: bool
   if (roles.length > 0) lines.push(`${roles.length > 2 ? `${roles.length} roles` : roles.join(" and ")} need${roles.length === 1 ? "s" : ""} a new look, made in Cast.`);
   if (p.sung_to_broll > 0) lines.push(`${choice.label} can't lip-sync. Your ${n(p.sung_to_broll, "Sung shot")} become${p.sung_to_broll === 1 ? "s" : ""} B-roll (picture only).`);
   if (later && !finished) lines.push(`${cap(later)} already made stay as they are and show Out of date.`);
-  lines.push(`To finish: about ${credits(wholeCredits(p.to_finish_credits))} (was ${wholeCredits(p.was_credits)}).`);
+  lines.push(`To finish: up to ${credits(wholeCredits(p.to_finish_credits))} (was ${wholeCredits(p.was_credits)}).`);
   return lines;
 }
 
@@ -131,7 +131,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   const chip = (f: Field) => (
     <Button key={f.key} variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setPicking(f)}>
       <span className="text-muted">{f.label}:</span> {f.valueLabel}
-      {f.price && <span className="text-xs text-muted tabular-nums">· {f.price}</span>}
+      {f.price && <>{" "}<span className="text-xs text-muted tabular-nums">· {f.price}</span></>}
     </Button>
   );
   const language = <Badge>Language: {languageName(settings.data.language)} (from the script)</Badge>;

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useBrandPieces } from "../clip/BrandPieces";
-import { GOING, useJobs } from "../clip/History";
+import { GOING, JobClock, useJobs } from "../clip/History";
 import { fileUrl } from "../api/upload";
 import { card, errorText as errorClass } from "../ui";
 import { Sheet } from "./Sheet";
@@ -82,6 +82,10 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const stillModel = models.data?.find((m) => m.kind === "image" && m.default)?.id;
   const imageCost = frames.data?.[0]?.still_credits ?? (stillModel ? rate(`image-${stillModel}`) : undefined);
+  // A total for several stills is one still's exact price times N, rounded once (Next-Server's price sweep): 9 stills at
+  // 0.33 read 3, as charged, not 9. One still's own button keeps its rounded-up price.
+  const exact = frames.data?.[0]?.still_exact_credits ?? (stillModel ? rate(`image-${stillModel}`) : undefined); // before frames, the rate is exact
+  const stills = (n: number) => (exact === undefined ? undefined : Math.ceil(exact * n));
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["storyboard", projectId] });
 
   const roles = useRoleNames(projectId);
@@ -200,7 +204,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const outOfDate = list.filter((f) => f.still_stale && !f.drawing && !drawingNow[f.id]); // ones already being redrawn (the server queues them after a cast change) are not asked for again
   const redrawn = list.filter((f) => f.redrawn && !f.approved);
   const cast = props.castRedraw as { redrawn_for_cast?: { count: number; credits: number }; redraw_refused?: { count: number; credits: number; reason: string } } | null | undefined;
-  const redrawCost = imageCost === undefined ? undefined : imageCost * outOfDate.length;
+  const redrawCost = stills(outOfDate.length);
   const castNote =
     cast?.redraw_refused && outOfDate.length > 0 ? (
       <Banner tone="warning" title={cast.redraw_refused.reason} />
@@ -213,9 +217,9 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const waitingForSheet = list.filter((f) => f.file_id === null && blocks.forShot(f.shot_id).length > 0);
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
   // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
-  const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
+  const makeTotal = props.oneStep && props.clips && exact !== undefined && writeCost !== undefined ? Math.ceil(writeCost + exact * props.clips) : writeCost;
   const makeLabel = list.length ? "Redo storyboard" : "Make the storyboard";
-  const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
+  const allCost = stills(missing.length);
   const err = make.error ?? approve.error;
   // A still or a saved prompt that was refused says why on its own frame, where it was pressed.
   const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || null;
@@ -269,10 +273,13 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
     </>
   );
 
+  const writingJob = (writing !== null ? jobOf(writing) : undefined) ?? mineGoing("storyboard")[0];
   if (writingNow || stillOld)
     return (
       <section className={`${card} space-y-3`} aria-label="Storyboard">
-        <p className="text-muted">Writing your frames…</p>
+        <p role="status" className="text-muted">
+          <JobClock queued={writingJob?.status === "queued"} making="Writing your frames…" since={writingJob?.created_at} />
+        </p>
         {[0, 1].map((i) => (
           <div key={i} className="h-24 rounded-md bg-surface-2" aria-hidden />
         ))}

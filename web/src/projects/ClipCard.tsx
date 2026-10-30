@@ -4,7 +4,7 @@ import { Check, TriangleAlert } from "lucide-react";
 import { Badge, Button, useViewOnly } from "../components";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
-import { Elapsed } from "../clip/History";
+import { JobClock } from "../clip/History";
 import { btnPrimary, btnSecondary, input, linkText } from "../ui";
 import { blockerNames, SheetWarning, type Blocker } from "./sheetBlocks";
 import { blocking } from "./problems";
@@ -126,8 +126,7 @@ export function ClipCard(props: {
           {status && `${status}${checkedMark(check)}`}
           {!status && (
             <>
-              {props.job?.status === "queued" ? "Waiting " : "Making… "}
-              {props.job && <Elapsed since={props.job.created_at} />}
+              <JobClock queued={props.job?.status === "queued"} making="Making…" since={props.job?.created_at} />
             </>
           )}
         </span>
