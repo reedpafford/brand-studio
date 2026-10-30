@@ -140,7 +140,7 @@ test("shot chips never show a raw id: an uncast slot shows its role with a hint"
     "GET /projects/9/storyboard": [200, [{ ...frames[0], reference_ids: ["slot:28", "frame:c1", "char:99"] }, frames[1]]],
   });
   open("?stage=storyboard");
-  expect(await screen.findByText("Nate · cast at Assets")).toBeInTheDocument();
+  expect(await screen.findByText("Nate · cast in Cast")).toBeInTheDocument();
   expect(screen.getByText("First frame")).toBeInTheDocument();
   expect(screen.queryByText(/slot:|frame:|char:/)).toBeNull();
 });
