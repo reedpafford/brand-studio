@@ -1023,7 +1023,7 @@ test("Storyboard's one amber is in the cost bar: Make 1 still, then Approve 1 on
   setViewport(1440);
   const calls = fakeServer({
     ...toClips,
-    "GET /projects/9/storyboard": [200, [waiting(1, { still_credits: 4 }), waiting(2, { file_id: null, still_credits: 4 })]],
+    "GET /projects/9/storyboard": [200, [waiting(1, { still_credits: 4, still_exact_credits: 4 }), waiting(2, { file_id: null, still_credits: 4, still_exact_credits: 4 })]],
     "POST /projects/9/storyboard/frames/2/render": [201, { id: 31, kind: "image", status: "queued", credits: 4, project_id: 9 }],
   });
   open("?step=storyboard");
@@ -1039,7 +1039,7 @@ test("Storyboard's one amber is in the cost bar: Make 1 still, then Approve 1 on
 
 test("with Redraw in the bar, the missing stills can still be made in one grey press in the step", async () => {
   setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1, { still_stale: true, still_credits: 4 }), waiting(2, { file_id: null, still_credits: 4 })]] });
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1, { still_stale: true, still_credits: 4, still_exact_credits: 4 }), waiting(2, { file_id: null, still_credits: 4, still_exact_credits: 4 })]] });
   open("?step=storyboard");
   const bar = await screen.findByRole("region", { name: "Cost" });
   expect(await within(bar).findByRole("button", { name: "Redraw 1 out-of-date still · 4 credits" })).toBeInTheDocument();
@@ -1606,6 +1606,15 @@ test("switching the look re-reads the cast, so a role with no sheet in the new l
   routes["GET /projects/9/assets"] = [200, [asset({ locked: true })]]; // Bo has no sheet in Disney Pixar yet
   await userEvent.click(await within(ask).findByRole("button", { name: "Switch" }));
   expect(await screen.findByText("Waiting on the cast")).toBeInTheDocument();
+});
+
+test("a storyboard total is one still's exact price times the stills, rounded once: 9 at 0.33 read 3, as charged", async () => {
+  setViewport(1440);
+  const nine = Array.from({ length: 9 }, (_, i) => waiting(i + 1, { file_id: null, still_credits: 1, still_exact_credits: 0.33 }));
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, nine] });
+  open("?step=storyboard");
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(await within(bar).findByRole("button", { name: "Make 9 stills · 3 credits" })).toBeInTheDocument();
 });
 
 test("a link to Clips or Downloads with no storyboard yet lands on Storyboard, not on a Cast with nothing to do (A15)", async () => {

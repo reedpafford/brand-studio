@@ -427,7 +427,10 @@ class WatchSpeaker(BaseModel):
 
 class ReelWatch(BaseModel):
     logline: str = Field(description="One sentence: who, the turn, the payoff.")
-    style: str = Field(description="The look, e.g. '3D animated (Pixar-style CG)'.")
+    style: str = Field(
+        description="The look as seen, in plain words and never a studio's or artist's name, "
+        "e.g. '3D animated CG: rounded big-eyed characters, warm cinematic light'."
+    )
     hook: WatchHook
     beats: list[WatchBeat] = Field(description="5–10 story beats in order, covering the reel.")
     montage: WatchMontage | None = Field(description="The run of quick wordless shots, or null.")

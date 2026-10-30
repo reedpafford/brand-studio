@@ -7,7 +7,7 @@ import { Badge, Banner, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem,
 import { useToast } from "../toast";
 import { editScene, joinNext, moveLine, splitAt, toPut, toggleStar, type PlanLine, type PlanScene } from "./planEdits";
 import { serverTime } from "../time";
-import { Stopwatch } from "../clip/History";
+import { JobClock, useJobs } from "../clip/History";
 import { errorText as errorClass } from "../ui";
 
 /** The video's scene plan (flows P1; Builder-Server-8's #893, to #876's names): the script's words grouped into scenes. The words never change (rule 19). */
@@ -215,8 +215,9 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
   const [asking, setAsking] = useState<{ next: Scene[]; said: string; done?: () => void } | { earlier: number } | { run: () => void } | null>(null);
   const refresh = () => Promise.all([home.key, ...home.refresh].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
   const make = useMutation({ mutationFn: () => call("POST", base, note.trim() ? { note: note.trim() } : {}), onSuccess: () => { setNote(""); setPressed(Date.now()); return refresh(); } });
-  // Stop works queued or running and is never charged (#893).
+  // Cancel, never charged (#893); the server takes it running too, but flows offers it only before the run starts.
   const stopMaking = useMutation({ mutationFn: () => call("POST", `${base}/stop`), onSettled: refresh });
+  const jobs = useJobs(); // the plan's run, for how long it has waited
   const byHand = useMutation({ mutationFn: () => call("POST", `${base}/by-hand`), onSuccess: refresh });
   const useEarlier = useMutation({ mutationFn: (i: number) => call("POST", `${base}/earlier/${i}/use`), onSuccess: refresh });
   const save = useMutation({ mutationFn: (scenes: Scene[]) => call<Plan>("PUT", base, toPut(scenes)), onSuccess: refresh });
@@ -254,10 +255,9 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
     return (
       <div role="status" className="space-y-3">
         <p className="text-sm">
-          {job.status === "queued" ? "Waiting to start" : "Making the plan…"}
-          {job.started_at && <> <Stopwatch since={job.started_at} />.</>} You can leave this page.
+          <JobClock queued={job.status === "queued"} making="Making the plan…" since={job.status === "queued" ? jobs.data?.find((j) => j.id === job.id)?.created_at : job.started_at} />. You can leave this page.
         </p>
-        <Button variant="ghost" busy={stopMaking.isPending} onClick={() => stopMaking.mutate()}>Stop</Button>
+        {job.status === "queued" && <Button variant="ghost" busy={stopMaking.isPending} onClick={() => stopMaking.mutate()}>Cancel</Button>}
         <Skeleton className="h-40" />
       </div>
     );

@@ -618,3 +618,25 @@ def test_one_song_video_price_on_its_takes_and_under_make_2_more(app, db, owner,
     newest = shown["takes"][-1]
     assert shown["video_estimate_credits"] == newest["video_credits"] > 0  # one figure
     assert guess > 0
+
+
+def test_a_song_video_keeps_its_type_in_any_look_and_song_is_never_a_look(
+    app, db, owner, editor, song
+):
+    """Song in any look: a video's type is its script's kind, its look a setting apart."""
+    script = song.rsplit("/drafts", 1)[0]
+    assert owner.patch(script, json={"look": "claymation"}).status_code == 200
+    assert owner.patch(script, json={"look": "song"}).status_code == 422  # a type, not a look
+    video = editor.get(_video(app, db, owner, editor, song)).json()
+    assert (video["kind"], video["song"], video["look"]) == ("song", True, "claymation")
+    from app import prompts
+    from app.enhance import project_context
+    from app.models.projects import Project
+
+    system, _ = project_context(db, db.get(Project, video["id"]), "clip_prompts")
+    assert prompts.style("song")["sections"]["clip"] in system[0]  # song's guides, any look
+    assert system[0].startswith(prompts.system("clip_prompts", "claymation"))
+    assert editor.patch(f"/projects/{video['id']}", json={"look": "song"}).status_code == 422
+    assert "song" not in [x["id"] for x in owner.get("/looks").json()]
+    story = editor.post("/projects", json={"brand_id": video["brand_id"], "name": "Dip"}).json()
+    assert (story["kind"], story["song"]) == ("story", False)  # no script: a story

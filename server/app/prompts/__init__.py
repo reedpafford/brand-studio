@@ -161,7 +161,9 @@ def _in_look(value, style_id: str):
 
 
 @cache
-def system(step: str, style_id: str = "house") -> str:
+def system(step: str, style_id: str = "house", fmt: str = "") -> str:
+    """`style_id` is the video's look; `fmt` its type when it has a format of its own ("song":
+    its still and clip guides), whatever the look (Song in any look)."""
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
     for name in filter(None, [EXTENDS.get(step), step]):
         parts.append(_styled((HERE / f"{name}.md").read_text(), style_id))
@@ -181,6 +183,14 @@ def system(step: str, style_id: str = "house") -> str:
             f"## Style: {chosen['name']}\nThis video is in the {chosen['name']} style. Where "
             "this section and anything above (the worked example included, which is in the "
             "House style) differ, this section wins.\n\n" + "\n\n".join(guide)
+        )
+    form = next((s for s in styles() if s["id"] == fmt and s["kind"] == "format"), None)
+    guide = [form["sections"][k] for k, steps in GUIDES.items()
+             if form and step in steps and k in form["sections"]]  # fmt: skip
+    if guide:
+        parts.append(
+            f"## Format: {form['name']}\nThis video is a {form['name']} video, drawn in the "
+            f"{chosen['name']} style above.\n\n" + _styled("\n\n".join(guide), style_id)
         )
     return "\n\n".join(parts)
 

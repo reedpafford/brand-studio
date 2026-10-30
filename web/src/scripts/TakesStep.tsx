@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Ellipsis, Music, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge, Banner, Button, Card, Dialog, EmptyState, Menu, MenuItem, Skeleton, buttonClass, wholeCredits } from "../components";
 import { serverTime } from "../time";
+import { JobClock } from "../clip/History";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
 import { useAllowanceStop, type Script } from "./useScript";
@@ -11,22 +12,15 @@ import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
-/** Seconds since this was first shown, for "Making the song… 12 s". */
-function useCount() {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setN((x) => x + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return n;
-}
-
+/** "Making the song… 0:12" (flows S4). A take carries no start time, so the clock counts from when it was first shown. */
 function Making() {
-  const n = useCount();
+  const [since] = useState(() => new Date().toISOString());
   return (
     <div role="status" className="space-y-2">
       <Skeleton className="h-11" />
-      <p className="text-sm text-muted">Making…{n > 0 ? ` ${n} s` : ""}</p>
+      <p className="text-sm text-muted">
+        <JobClock queued={false} making="Making the song…" since={since} />
+      </p>
     </div>
   );
 }

@@ -32,6 +32,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/script/suggestions": [200, []],
   "GET /projects/9/script/notes": [200, []],
   "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 6 }]],
+  "GET /projects/9/breakdown/price": [200, { credits: 6 }], // #996: what Make the shots charges
   "GET /jobs": [200, []],
   "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [] }]],
   "GET /library/place": [200, [{ id: 2, name: "Kitchen", image_file_ids: [] }]],
@@ -49,7 +50,7 @@ test("with no breakdown it offers to make one and shows the cost", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
   open();
   expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Make the breakdown · up to 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Make the breakdown · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
   expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
 });
@@ -564,4 +565,10 @@ test("Split the clip is free and the cost bar asks again for what's left (QA-3 #
   await userEvent.click(within(box).getByRole("button", { name: `Split the clip: ${long}` }));
   expect(await screen.findByText("Split clip 1 so the video model can make it.")).toBeInTheDocument();
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/9/estimate").length).toBeGreaterThan(before));
+});
+
+test("Make the breakdown shows the server's price for it (the clip prompts' rewrite included), not the writing rate", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "GET /projects/9/breakdown/price": [200, { credits: 12 }] });
+  open();
+  expect(await screen.findByRole("button", { name: /Make the breakdown · (up to )?12 credits/ })).toBeInTheDocument();
 });
