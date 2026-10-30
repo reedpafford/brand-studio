@@ -176,3 +176,4 @@ Every agent reads **Current rules** first, before each task. A newer decision al
 - 2026-10-28 Reed (Next): a script's language is chosen when it's written; "Make a copy in another language" makes a translated, unpublished copy for the owner to check and publish; videos follow their script's language.
 - 2026-10-28 Producer (Next, rule 12): a library character in another style gets a per-video look in that style (it stays with the video); only the owner adds a style sheet to the character in Cast & places.
 - 2026-10-29 Producer (Next): budgets = usual; figures shown before a paid press = up to, never below the charge (Current rules 32).
+- 2026-10-30 Formats: only Song for now (Reed, 30 Oct); podcast/vox/whiteboard removed, recover from git if wanted.
