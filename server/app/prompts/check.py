@@ -1449,7 +1449,7 @@ def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
             out.append(line)
             continue
         parts = re.split(r'(["“][^"”]*["”])', line)  # outside, “a quote”, outside, …
-        quotes = parts[1::2]
+        quotes, touched = parts[1::2], set()
         for word, new in sorted(look_banned(look_id), key=lambda x: -len(x[0])):  # phrases first
             found = re.compile(rf"\b{re.escape(word)}\b\s?", re.I)
             for i in range(0, len(parts), 2):
@@ -1458,13 +1458,15 @@ def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
                     for m in reversed(hits):
                         a, b = m.span()
                         parts[i] = parts[i][:a] + _same_case(m.group(0), new) + parts[i][b:]
+                    touched.add(i)
                     changed.append(f"{word} → {new}" if new else f"{word} → (taken out)")
             if any(found.search(q) for q in quotes):
                 advice.append(f"{ADVICE}“{word}” is in a quoted line; the look avoids it")
-        line = re.sub(r" {2,}", " ", "".join(parts))
-        out.append(
-            re.sub(r" +([,.;:])", r"\1", line) if changed else line
-        )  # "kitchen , a" → "kitchen, a"
+        for i in touched:  # tidy only what was changed, never a quote (rule 19)
+            parts[i] = re.sub(r" +([,.;:])", r"\1", re.sub(r" {2,}", " ", parts[i]))
+        if len(parts) - 1 in touched:
+            parts[-1] = parts[-1].rstrip()
+        out.append("".join(parts))
     return "\n".join(out), list(dict.fromkeys(changed)), list(dict.fromkeys(advice))
 
 
