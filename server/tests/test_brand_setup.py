@@ -1,10 +1,9 @@
 """Brand setup (flows BR1): voice and tone, CTA lines with one Default (Undo), the default
-cast, music style, language and look, and a product's description and claim. Only the owner
-changes a brand; nothing already made changes. main's `never_say` and `end_line` are kept in
+cast, music style, language and look, and a product's description and claim. Editors change a
+brand's setup too (Reed's item 1); nothing already made changes. main's `never_say` and `end_line` are kept in
 step (data.md n08)."""
 
 from app import brand_setup
-from app.routes.brands import OWNER_ONLY
 from app.routes.library import NO_CLAIM
 from tests.conftest import upload
 
@@ -13,15 +12,12 @@ def _brand(owner):
     return owner.get("/brands").json()[0]
 
 
-def test_only_the_owner_changes_brand_setup_and_editors_read_it(owner, editor):
+def test_editors_change_brand_setup_too_and_read_it(owner, editor):
     brand = _brand(owner)
     url = f"/brands/{brand['id']}"
     body = {"audience": "Dog owners over 40", "do_list": ["Warm", "Plain words", "Warm"],
             "dont_list": ["guaranteed"], "music_style": "breezy pop, 100 BPM",
             "default_language": "es"}  # fmt: skip
-    no = editor.patch(url, json={"audience": "x", "colours": ["#000000"]})
-    assert (no.status_code, no.json()["detail"]) == (403, OWNER_ONLY)
-    assert editor.post(f"{url}/cta-lines", json={"text": "x"}).status_code == 403
     assert editor.patch(url, json={"colours": ["#112233"]}).status_code == 200  # as before BR1
     saved = owner.patch(url, json=body).json()
     assert saved["audience"] == "Dog owners over 40" and saved["do_list"] == ["Warm", "Plain words"]
@@ -110,9 +106,9 @@ def test_a_products_description_and_claim(owner, editor):
     bag = owner.post("/library/prop", json={"name": "Iron Paws bag"}).json()
     assert bag["advice"] == [NO_CLAIM]
     url = f"/library/prop/{bag['id']}"
-    no = editor.patch(url, json={"main_claim": "Gut health in 14 days"})
-    assert (no.status_code, no.json()["detail"]) == (403, OWNER_ONLY)
-    assert editor.patch(url, json={"notes": "chicken"}).status_code == 200  # other edits: as before
+    mine = editor.patch(url, json={"main_claim": "Gut health in 14 days"})  # editors too (item 1)
+    assert mine.status_code == 200 and mine.json()["main_claim"] == "Gut health in 14 days"
+    assert editor.patch(url, json={"notes": "chicken"}).status_code == 200
     got = owner.patch(url, json={"short_description": "Daily gut scoop",
                                  "main_claim": "Gut health in 14 days"}).json()  # fmt: skip
     assert got["main_claim"] == "Gut health in 14 days" and got["advice"] == []
@@ -137,3 +133,33 @@ def test_an_editor_editing_never_say_or_end_line_changes_dont_and_the_default(ow
     got = got.json()
     assert got["dont_list"] == ["cure"]
     assert [x["text"] for x in got["cta_lines"] if x["default"]] == ["Find us, link in bio"]
+
+
+def test_an_editor_saves_every_setup_field_and_the_cta_lines(owner, editor, db):
+    """Reed's item 1: editors fill in the Brand page. Creating, archiving and restoring a brand
+    and the paid site read stay the owner's."""
+    from app.models.brands import Brand
+    from app.models.library import LibraryItem
+
+    brand = _brand(owner)
+    url = f"/brands/{brand['id']}"
+    mia = owner.post("/library/character", json={"name": "Mia"}).json()["id"]
+    db.get(LibraryItem, mia).brands = [db.get(Brand, brand["id"])]
+    db.commit()
+    body = {"audience": "Dog owners", "do_list": ["Warm"], "dont_list": ["cure"],
+            "music_style": "breezy pop", "default_language": "es", "default_look": "house",
+            "default_cast": [mia]}  # fmt: skip
+    saved = editor.patch(url, json=body)
+    assert saved.status_code == 200, saved.text
+    assert {k: saved.json()[k] for k in body if k != "default_cast"} == {
+        k: v for k, v in body.items() if k != "default_cast"}  # fmt: skip
+    added = editor.post(f"{url}/cta-lines", json={"text": "Link in bio"})
+    assert added.status_code == 201
+    line = next(x for x in added.json()["cta_lines"] if x["text"] == "Link in bio")["id"]
+    assert editor.patch(f"{url}/cta-lines/{line}", json={"text": "Tap the link"}).status_code == 200
+    assert editor.delete(f"{url}/cta-lines/{line}").status_code == 200
+    assert editor.post(f"{url}/cta-lines/{line}/restore").status_code == 200
+    assert (
+        editor.post("/brands", json={"name": "Night Owl"}).status_code == 403
+    )  # still the owner's
+    assert editor.delete(url).status_code == 403
