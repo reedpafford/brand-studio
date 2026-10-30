@@ -319,3 +319,18 @@ def test_a_name_after_a_genre_word_goes_and_leaves_no_like_the():
         "rock, 1965", ["beatles"])  # fmt: skip
     assert check.strip_names("rock like the Beatles, 1965", "The Beatles")[0] == "rock, 1965"
     assert check.strip_names("Beatles-style rock", "the beatles")[0] == "rock"
+
+
+def test_a_song_in_any_look_gets_its_looks_tokens_and_songs_guides():
+    """Song in any look: the look fills the tokens; song.md's still and clip guides come
+    after it. A story's (or narrated) prompts are byte for byte as before."""
+    song, clay = prompts.style("song")["sections"], prompts.style("claymation")["sections"]
+    for step, guide in (("clip_prompts", "clip"), ("storyboard", "still")):
+        made = prompts.system(step, "claymation", "song")
+        assert made.startswith(prompts.system(step, "claymation"))  # the look's own, unchanged
+        assert song[guide] in made and "## Format: Song" in made
+        assert clay["clip_style"] in made or clay["still_look"] in made
+        for kind in ("", "story", "narrated"):
+            assert song[guide] not in prompts.system(step, "house", kind)
+            assert prompts.system(step, "house", kind) == prompts.system(step, "house")
+    assert prompts.system("plan", "claymation", "song") == prompts.system("plan", "claymation")
