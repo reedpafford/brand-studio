@@ -63,8 +63,17 @@ export function Elapsed({ since }: { since: string }) {
 
 /** How long a job has been going, as "1:05". */
 export function Stopwatch({ since }: { since: string }) {
-  const s = Math.max(0, Math.round((useNow() - Date.parse(since)) / 1000));
+  const s = Math.max(0, Math.round((useNow() - serverTime(since).getTime()) / 1000));
   return <span className="tabular-nums">{Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</span>;
+}
+/** A job's line while it waits or runs (flows, Waiting): "Waiting to start · 0:12", then "Making… 1:05". */
+export function JobClock({ queued, making, since }: { queued: boolean; making: string; since: string | null | undefined }) {
+  return (
+    <>
+      {queued ? "Waiting to start" : making}
+      {since && <>{queued ? " · " : " "}<Stopwatch since={since} /></>}
+    </>
+  );
 }
 
 /** The clips list, with what was typed in Search and, for Removed, the clips taken off the history. */
