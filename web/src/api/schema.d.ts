@@ -6453,6 +6453,11 @@ export interface components {
              * @default
              */
             held: string;
+            /**
+             * Declined
+             * @default false
+             */
+            declined: boolean;
             /** Retry Of Id */
             retry_of_id?: number | null;
             /**
@@ -6546,6 +6551,11 @@ export interface components {
              * @default
              */
             held: string;
+            /**
+             * Declined
+             * @default false
+             */
+            declined: boolean;
             /** Retry Of Id */
             retry_of_id?: number | null;
             /**
