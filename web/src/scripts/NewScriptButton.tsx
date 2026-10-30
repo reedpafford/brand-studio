@@ -1,10 +1,11 @@
-import { useRef, type FocusEvent } from "react";
+import { useLayoutEffect, useRef, type FocusEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, FileInput, FileText, Mic, Music, Plus } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Button, Card, Menu, MenuItem, TextArea, buttonClass } from "../components";
 import { errorText as errorClass } from "../ui";
+import { songsQuery } from "./useSongs";
 
 export const UNTITLED = "Untitled script";
 type Kind = "story" | "song" | "narrated";
@@ -64,9 +65,13 @@ const keeps = () => {
   }
 };
 
-/** Arriving from NewScriptPage mid-word: the editor takes the cursor, at the end of what was typed. */
-export function useTypingOn() {
+/** Arriving from NewScriptPage mid-word: the editor takes the cursor, at the end of what was typed. The new page is drawn while
+ *  the old box still takes keys, so on arrival the editor reads its tab memory once more (`catchUp`) for the last of them. */
+export function useTypingOn(catchUp: () => void) {
   const typing = !!(useLocation().state as { typing?: boolean } | null)?.typing;
+  useLayoutEffect(() => {
+    if (typing) catchUp();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return typing ? { autoFocus: true, onFocus: (e: FocusEvent<HTMLTextAreaElement>) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length) } : {};
 }
 
@@ -79,6 +84,14 @@ export function NewScriptPage() {
   const queryClient = useQueryClient();
   const latest = useRef(""); // the box keeps its own words; what's typed while the save is on its way goes along too
   const started = useRef(false); // set at once, before a re-render, so a fast double tap or two quick letters make one script
+  const saved = useRef<number | null>(null); // the script, once made: from then on every key goes on to its editor's tab memory
+  const hand = (id: number, words: string) => {
+    try {
+      if (words) sessionStorage.setItem(memory(kind, id), kind === "song" ? JSON.stringify({ text: words, style: "" }) : words);
+    } catch {
+      /* a private window: saved with it */
+    }
+  };
   const make = useMutation({
     mutationFn: async (typed: string) => {
       const text = keeps() ? "" : typed;
@@ -91,13 +104,14 @@ export function NewScriptPage() {
       started.current = false;
     },
     onSuccess: async (made) => {
-      await queryClient.invalidateQueries({ queryKey: ["scripts"] });
+      // The script page opens with its editor already there (no loading screen for keys to fall into): the save returned the
+      // script, and a voiced one's takes are loaded first. Typing meanwhile still lands in this box.
+      queryClient.setQueryData(["script-lib", made.id], made);
+      if (kind !== "story") await queryClient.ensureQueryData(songsQuery(made.id)).catch(() => undefined);
+      void queryClient.invalidateQueries({ queryKey: ["scripts"] });
       const words = latest.current; // read last, just before the swap, so nothing typed while saving is lost
-      try {
-        if (words) sessionStorage.setItem(memory(kind, made.id), kind === "song" ? JSON.stringify({ text: words, style: "" }) : words);
-      } catch {
-        /* a private window: saved with it */
-      }
+      saved.current = made.id;
+      hand(made.id, words);
       navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : { about: true } });
     },
   });
@@ -109,6 +123,7 @@ export function NewScriptPage() {
   };
   const type = (text: string) => {
     latest.current = text;
+    if (saved.current !== null) hand(saved.current, text);
     if (text.trim()) start(text);
   };
   return (

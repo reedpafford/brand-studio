@@ -152,16 +152,18 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
   // "Edit lyrics or style" from a refused take opens the boxes at once (no lock, no confirm: it already knows).
   const [params, setParams] = useSearchParams();
   const asked = params.get("edit") === "1" && !s.published;
-  const typingOn = useTypingOn();
-  const [draft, setDraftNow] = useState<{ text: string; style: string } | null>(() => {
+  const remembered = (): { text: string; style: string } | null => {
     try {
-      const kept = sessionStorage.getItem(memory);
-      if (kept) return JSON.parse(kept);
+      const words = sessionStorage.getItem(memory);
+      if (words) return JSON.parse(words);
     } catch {
       /* private window */
     }
     return (saved.text.trim() || s.published) && !asked ? null : { text: saved.text, style: saved.style_line };
-  });
+  };
+  const [draft, setDraftNow] = useState(remembered);
+  const typingOn = useTypingOn(() => setDraftNow(remembered()));
+
   const setDraft = (d: { text: string; style: string } | null) => {
     setDraftNow(d);
     try {

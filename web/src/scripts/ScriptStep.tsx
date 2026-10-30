@@ -171,15 +171,17 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
   const approved = original?.status === "approved";
   // The editor's words once changed; null follows the saved ones. Kept for this tab, so no way out of the page (a tab, the brand menu, a reload) loses them.
   const memory = `script-words-${s.id}`;
-  const typingOn = useTypingOn();
-  const [draft, setDraftNow] = useState<string | null>(() => {
+  const remembered = () => {
     try {
-      const kept = sessionStorage.getItem(memory);
-      return kept !== null && kept !== text ? kept : null;
+      const words = sessionStorage.getItem(memory);
+      return words !== null && words !== text ? words : null;
     } catch {
       return null;
     }
-  });
+  };
+  const [draft, setDraftNow] = useState<string | null>(remembered);
+  const typingOn = useTypingOn(() => setDraftNow(remembered()));
+
   const setDraft = (words: string | null) => {
     setDraftNow(words);
     try {

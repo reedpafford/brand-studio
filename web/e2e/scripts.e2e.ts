@@ -169,3 +169,15 @@ test("Directions: Claude suggests lines for a written script, one is accepted an
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Hell no!");
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("BO: Salmon? Again?");
 });
+
+test("a new script keeps every letter typed through its first save, at typing speed, Dialogue and Song", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brand = await emptyBrand(page, "Typing Speed Co");
+  for (const [kind, label, words] of [["story", "Paste or write your script", "BO: Salmon?"], ["song", "Lyrics", "[Verse] Salmon"]] as const) {
+    await page.goto(`/b/${brand}/scripts/new?kind=${kind}`);
+    await page.getByLabel(label).pressSequentially(words, { delay: 60 });
+    await expect(page.getByRole("list", { name: "Steps" })).toBeVisible(); // it swapped to the script's own page
+    await expect(page.getByLabel(label)).toHaveValue(words);
+  }
+});

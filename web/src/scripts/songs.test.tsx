@@ -47,6 +47,34 @@ test("New script → Song waits for a word, or for Start from what it's for, the
   expect(screen.getByLabelText("Music style")).toHaveAttribute("placeholder", "pop, female lead, 120 BPM, upbeat, modern polished");
 });
 
+test("New script → Song: letters typed while its takes load all reach the Lyrics box", async () => {
+  setViewport(1440);
+  const empty = song({ title: "Untitled script" }, { text: "", style_line: "" });
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7/drafts/0/songs": [200, songs()] });
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  const fake = globalThis.fetch;
+  let loading = false;
+  vi.stubGlobal("fetch", async (input: Request | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
+    if (new URL(req.url).pathname.endsWith("/songs")) {
+      loading = true;
+      await held;
+    }
+    return fake(input, init);
+  });
+  open("/b/1/scripts/new?kind=song");
+  const box = await screen.findByLabelText("Lyrics");
+  await userEvent.type(box, "[[");
+  await vi.waitFor(() => expect(loading).toBe(true));
+  await userEvent.type(box, "Verse]"); // the takes are still loading: this box still has them
+  release();
+  await screen.findByRole("list", { name: "Steps" });
+  expect(screen.getByLabelText("Lyrics")).toHaveValue("[Verse]");
+  expect(screen.getByLabelText("Lyrics")).toHaveFocus();
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
+});
+
 test("lyrics: the sung length counts words not tags; over 4,960 characters says how many to cut and keeps the words; Save sends lyrics and style", async () => {
   setViewport(1440);
   const empty = song({}, { text: "", style_line: "" });
