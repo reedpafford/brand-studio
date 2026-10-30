@@ -91,13 +91,13 @@ export function NewScriptPage() {
       started.current = false;
     },
     onSuccess: async (made) => {
-      const words = latest.current;
+      await queryClient.invalidateQueries({ queryKey: ["scripts"] });
+      const words = latest.current; // read last, just before the swap, so nothing typed while saving is lost
       try {
         if (words) sessionStorage.setItem(memory(kind, made.id), kind === "song" ? JSON.stringify({ text: words, style: "" }) : words);
       } catch {
         /* a private window: saved with it */
       }
-      await queryClient.invalidateQueries({ queryKey: ["scripts"] });
       navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : { about: true } });
     },
   });

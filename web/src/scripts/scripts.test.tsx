@@ -133,6 +133,31 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   expect(screen.getByLabelText("Title")).toHaveValue("Untitled script");
 });
 
+test("New script: letters typed while the save is on its way all reach the editor", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })] });
+  // Hold the step after the save (refreshing the script lists) until more has been typed.
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  const refresh = QueryClient.prototype.invalidateQueries;
+  const hold = vi.spyOn(QueryClient.prototype, "invalidateQueries").mockImplementation(async function (this: QueryClient, ...args) {
+    if (calls.some((c) => c.key === "POST /scripts")) await held;
+    return refresh.apply(this, args);
+  });
+  open("/b/1/scripts");
+  await userEvent.click(await screen.findByRole("button", { name: "New script" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /Dialogue/ }));
+  const box = await screen.findByLabelText("Paste or write your script");
+  await userEvent.type(box, "B");
+  await vi.waitFor(() => expect(hold).toHaveBeenCalled());
+  await userEvent.type(box, "o tries"); // still on the new-script page: the save hasn't finished
+  release();
+  expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
+  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("Bo tries");
+  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
+  hold.mockRestore();
+});
+
 test("New script: backing out before a word is typed leaves nothing behind (flows S1 U)", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []] });
