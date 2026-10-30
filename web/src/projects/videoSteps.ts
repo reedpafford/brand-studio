@@ -45,7 +45,7 @@ export function videoHold(step: VideoStepId, now: VideoProgress): { why: string;
   const made = (step === "storyboard" && now.frames.total > 0) || (step === "clips" && now.clips.total > 0);
   if (!made) return null;
   if (now.shots.stale) return { why: "The plan changed after these were made. Make new shots in Plan first.", at: "plan" };
-  if (step === "clips" && now.frames.stale) return { why: "The plan changed after these were made. Make the storyboard again first.", at: "storyboard" };
+  if (step === "clips" && now.frames.stale) return { why: "The plan changed after these were made. Redo storyboard first.", at: "storyboard" };
   // A look the cast needs isn't ready (one added, or the video's look changed and a sheet isn't made in it yet).
   const left = now.assets.total - now.assets.ready;
   if (left > 0) return { why: `${left === 1 ? "A look in the cast isn't" : `${left} looks in the cast aren't`} ready. Make or approve ${left === 1 ? "it" : "them"} in Cast first.`, at: "cast" };

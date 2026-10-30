@@ -70,7 +70,7 @@ test("each version has its own tab; a planned one shows its plan, with advice cl
   expect(await screen.findByText("Planned · 4 s · 1 clip · about 56 credits to make")).toBeInTheDocument(); // credits round up
   expect(screen.getByText("Advice (1)")).toBeInTheDocument();
   expect(screen.queryByText("Where will it be posted?")).toBeNull();
-  expect(screen.getByText("Mia · cast at Assets")).toBeInTheDocument();
+  expect(screen.getByText("Mia · cast in Cast")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it again · up to 6 credits" }));
   expect(await screen.findByRole("alertdialog", { name: "Make the breakdown again?" })).toBeInTheDocument();
 });

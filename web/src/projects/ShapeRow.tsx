@@ -59,7 +59,7 @@ export function ShapeRow({ projectId, aspect, platform, shape: withShape = true 
             setAsking(null);
           }}
         >
-          {`The ${stills.length} still${stills.length === 1 ? " was" : "s were"} drawn for ${aspect} and stay${stills.length === 1 ? "s" : ""} that way. New stills and takes are made in ${asking}. To redraw the old ones, use Make the storyboard again on Storyboard.`}
+          {`The ${stills.length} still${stills.length === 1 ? " was" : "s were"} drawn for ${aspect} and stay${stills.length === 1 ? "s" : ""} that way. New stills and takes are made in ${asking}. To redraw the old ones, use Redo storyboard on Storyboard.`}
         </Dialog>
       )}
     </div>

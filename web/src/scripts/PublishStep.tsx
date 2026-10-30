@@ -103,12 +103,12 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
                 <div>
                   <dt className="font-medium text-muted">Cast</dt>
                   <dd className="flex flex-wrap gap-2">
-                    {slots.length === 0 && <span className="text-muted">Everyone is made at Assets</span>}
+                    {slots.length === 0 && <span className="text-muted">Everyone is made in Cast</span>}
                     {slots.map((c) => (
                       <Badge key={c.id} icon={c.locked ? Lock : undefined}>
                         {c.sheet_file_id && c.locked && <img src={fileUrl(c.sheet_file_id)} alt="" className="size-4 rounded-sm object-cover" />}
                         {c.role}
-                        {!c.locked && " · made at Assets"}
+                        {!c.locked && " · made in Cast"}
                       </Badge>
                     ))}
                   </dd>
