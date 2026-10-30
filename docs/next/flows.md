@@ -28,6 +28,16 @@ Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (
 - **Edit shot from a card** (audit M15): a frame or clip card has **Edit shot**, opening the breakdown's shot editor in a panel on the same screen. Saving changes this video's breakdown with the usual effects (that shot's still and clip go out of date, kept, Undo). Split and join on a song video stay in Breakdown.
 - **Flavour from the script** (audit M12, N5): at Publish, or later on the version, the owner picks a flavour per product for each version ("Pitbull 1 · Peanut butter"). It's each new video's default flavour and still changeable per video in the Video settings row (VS1 Flavour). A video reads its script's notes live (the owner can still edit notes after publishing, rule 31).
 
+## Reed's answers, 30 Oct (decided, not built yet; ops/DECISIONS.md rules 4, 5, 21)
+
+Nothing here is built until Reed picks the order (credit cuts). When one is built, its flows below are rewritten in the same PR.
+
+- **Four editor steps:** Plan → Cast → **Make** (Stills and Clips tabs) → Final cut, replacing Storyboard and Clips. Stills and takes the AI check finds clean approve themselves. Every earlier and AI-flagged take stays in the takes list and the Earlier strip: pickable, playable, with **Download** on each, and a flagged take keeps its reason visible, even after "Looks fine". Clip prompts can still be read and changed before their takes; *Check prompts before takes* pauses for a per-prompt OK (audit §7.2).
+- **Quick clips are the editor's own** and may have no brand. History shows each editor their own clips (any brand, or none); the owner gets **Mine / Everyone's**.
+- **Editors may edit brands and Cast & places characters.** This replaces "Only the owner changes the brand." (Brand setup, Editor row) and "Only the owner adds a sheet in another look" (V3 Assets, Cast & places).
+- **Approvals is hidden until something waits.**
+- **One allowance:** $10 (about 97 credits) per editor a week, no rollover, for Quick clips and side videos only; library work isn't counted. Past it, the usual decline with the reason. Open for Reed: do an editor's own scripts count?
+
 ## How to read a step
 
 Each step has a table of states. Every state says **what the person sees** and **the one press that moves them on** (rule 22: never a dead end; editing a raw prompt is never the only way out). The states every step is checked for:
