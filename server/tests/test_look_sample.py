@@ -61,12 +61,12 @@ def test_with_no_hero_the_owner_picks_one_or_the_look_brings_its_own(app, db, ow
     job = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
     assert "[Image1]" not in job.input["input"]["prompt"] and not job.input.get("files")
     mia = _mia(owner, db, brand)
-    assert owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()["characters"] == [
+    assert owner.get(f"/looks/claymation/sample?brand_id={brand}").json()["characters"] == [
         {"id": mia, "name": "Mia"}
     ]
-    stranger = owner.post("/looks/skeleton/sample", json={"brand_id": brand, "character_id": 999})
+    stranger = owner.post("/looks/claymation/sample", json={"brand_id": brand, "character_id": 999})
     assert (stranger.status_code, stranger.json()["detail"]) == (422, look_samples.NOT_THEIRS)
-    picked = owner.post("/looks/skeleton/sample", json={"brand_id": brand, "character_id": mia})
+    picked = owner.post("/looks/claymation/sample", json={"brand_id": brand, "character_id": mia})
     assert picked.status_code == 201
     house = owner.post("/looks/house/sample", json={"brand_id": brand})
     assert (house.status_code, house.json()["detail"]) == (409, look_samples.HOUSE)
@@ -204,6 +204,9 @@ def test_a_look_with_its_own_sample_person_never_draws_the_hero(app, db, owner):
     app.state.settings.fake_providers = True
     brand = _brand(owner)
     owner.patch(f"/brands/{brand}", json={"default_cast": [_mia(owner, db, brand)]})
+    card = owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()
+    assert (card["hero"], card["characters"]) == (None, [])  # never "of Mia", no pick (Flow-QA)
+    assert owner.get(f"/looks/claymation/sample?brand_id={brand}").json()["hero"]["name"] == "Mia"
     owner.post("/looks/skeleton/sample", json={"brand_id": brand})
     job = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
     said = job.input["input"]["prompt"]

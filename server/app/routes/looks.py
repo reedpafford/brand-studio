@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import credits, look_samples, looks
+from app import credits, look_samples, looks, prompts
 from app.auth import current_user, owner_only
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -97,12 +97,14 @@ def _sample(db: Session, owner: User, look_id: str, brand_id: int, settings) -> 
     brand, look = get_brand(db, owner, brand_id), looks.get(look_id)
     status, reason = look_samples.state(db, owner.workspace_id, look_id)
     row = looks.switch(db, owner.workspace_id, look_id)
-    hero = look_samples.hero(db, brand)
+    own = prompts.style(look_id)["own_sample"]  # its own person: no hero, no pick (ST3)
+    hero = None if own else look_samples.hero(db, brand)
     return SampleOut(
         status=status, reason=reason,
         credits=credits.price(look_samples.retry_price(db, owner.workspace_id, look_id)),
         hero=Person(id=hero.id, name=hero.name) if hero else None,
-        characters=[Person(id=c.id, name=c.name) for c in look_samples.characters(db, brand)],
+        characters=[] if own else [Person(id=c.id, name=c.name)
+                                   for c in look_samples.characters(db, brand)],
         still_id=row.sample_still_id if row else None,
         clip_id=row.sample_clip_id if row else None,
         look=_out(db, owner.workspace_id, look),
