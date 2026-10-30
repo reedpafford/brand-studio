@@ -28,6 +28,16 @@ Sources: the spec (`docs/research/starpop-2026-10-28/spec.md`), Reed's changes (
 - **Edit shot from a card** (audit M15): a frame or clip card has **Edit shot**, opening the breakdown's shot editor in a panel on the same screen. Saving changes this video's breakdown with the usual effects (that shot's still and clip go out of date, kept, Undo). Split and join on a song video stay in Breakdown.
 - **Flavour from the script** (audit M12, N5): at Publish, or later on the version, the owner picks a flavour per product for each version ("Pitbull 1 · Peanut butter"). It's each new video's default flavour and still changeable per video in the Video settings row (VS1 Flavour). A video reads its script's notes live (the owner can still edit notes after publishing, rule 31).
 
+## Reed's answers, 30 Oct (decided, not built yet; ops/DECISIONS.md rules 4, 5, 21)
+
+Nothing here is built until Reed picks the order (credit cuts). When one is built, its flows below are rewritten in the same PR.
+
+- **Four editor steps:** Plan → Cast → **Make** (Stills and Clips tabs) → Final cut, replacing Storyboard and Clips. Stills and takes the AI check finds clean approve themselves. Every earlier and AI-flagged take stays in the takes list and the Earlier strip: pickable, playable, with **Download** on each, and a flagged take keeps its reason visible, even after "Looks fine". Clip prompts can still be read and changed before their takes; *Check prompts before takes* pauses for a per-prompt OK (audit §7.2).
+- **Quick clips are the editor's own** and may have no brand. History shows each editor their own clips (any brand, or none); the owner gets **Mine / Everyone's**.
+- **Editors may edit brands and Cast & places characters.** This replaces "Only the owner changes the brand." (Brand setup, Editor row) and "Only the owner adds a sheet in another look" (V3 Assets, Cast & places).
+- **Approvals is hidden until something waits.**
+- **One allowance:** $10 (about 97 credits) per editor a week, no rollover, for Quick clips and side videos only; library work isn't counted. Past it, the usual decline with the reason. Open for Reed: do an editor's own scripts count?
+
 ## How to read a step
 
 Each step has a table of states. Every state says **what the person sees** and **the one press that moves them on** (rule 22: never a dead end; editing a raw prompt is never the only way out). The states every step is checked for:
@@ -103,7 +113,7 @@ Where: Script Library → **New script**.
 | E | Three formats: **Dialogue** (as today's Story: people speak on camera), **Song** ("Your lyrics, sung word for word over a music video") and **Narrated** ("One voice reads your script over B-roll, with music"). The Look is a separate setting (ST1). | **Song** → a new draft opens on its Song step. **Narrated** → it opens on Write, then Narration (N1). |
 | O/Ed | Both roles see it. An editor's song script is their own script: everything paid on it counts against their week (rule 5). | — |
 | P | The two choices stacked, full width. | — |
-| U | Back leaves an untouched draft behind? No: an empty draft is not saved until the first word is typed (as today). | Browser back returns to the Library. |
+| U | Back leaves an untouched draft behind? No: a new script is saved by its first typed word or its first press (picking a look, a language or a direction), never by just opening it. | Browser back returns to the Library. |
 | Library | Song scripts carry a **Song** tag in the Library list and a "Song" filter chip. | Tapping one opens it on its first unfinished step. |
 
 Bulk create and reel import still make Dialogue scripts. To learn from a song ad, the owner studies it inside Song (**S3a**): a study informs the directions, it never becomes the lyrics. **Decided here** (Reed's song workflow, #807 item 4).
@@ -546,6 +556,8 @@ A look is a config file (in `server/app/prompts/styles/`, kind: look), not code.
 ## ST1. Picking a look (on a script)
 
 Where: the script's header, next to the title ("Look: House ▾"), for every format. It defaults to the brand's default look (item 3), else House.
+
+**Song is a format, not a look** (Reed, 30 Oct; #1031): a song script or video can be in any look, and the look picker never lists Song. A video's type comes from its script's Format. Anything that was on the old Song look moved to its brand's default look (n15).
 
 | State | What they see | The one press |
 |---|---|---|
