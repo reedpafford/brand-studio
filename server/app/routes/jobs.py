@@ -26,7 +26,7 @@ from app.job_brand import brand_for
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project, ProjectStatus
-from app.schemas import UtcTime
+from app.schemas import ShortText, UtcTime
 
 router = APIRouter(tags=["jobs"])
 
@@ -63,6 +63,8 @@ class JobOut(BaseModel):
     created_by_id: int | None = None  # who asked (for the owner's Approvals list)
     created_by_name: str = ""
     waiting: str = ""  # why a job hasn't started yet, once it has waited a while (plain)
+    held: str = ""  # waiting for the owner: why (plain); withdraw with cancel
+    declined: bool = False  # the owner said no; why is in `error`
     retry_of_id: int | None = None  # P3: the failed take this automatic retry is for
     auto: bool = False  # made on its own (the one automatic retry), not by a press
 
@@ -115,6 +117,8 @@ class JobOut(BaseModel):
             "waiting": WAITING
             if job.status == JobStatus.queued and utcnow() - job.created_at > timedelta(minutes=10)
             else "",
+            "held": job.input.get(HELD, "") if job.status == JobStatus.needs_owner_approval else "",
+            "declined": bool(job.input.get(DECLINE)),
             **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
         }
 
@@ -136,6 +140,9 @@ class JobDetailOut(JobOut):
 
 
 OVER_BUDGET = "That's more than this video's budget."
+DECLINED = "The owner said no this time. Nothing was charged."
+HELD = "held"  # in a held job's input: why it waits for the owner (plain words)
+DECLINE = "declined"  # in its input once the owner said no
 NOT_APPROVED = "This video's length isn't approved yet, so nothing can be made."
 
 
@@ -150,17 +157,19 @@ def enqueue(
     provider: str = "fake",
     prepaid: bool = False,
     hold: Decimal = Decimal(0),
+    wait: str = "",
 ) -> Job:
     """Queue a job for the worker. Feature code calls this; there is no public create route.
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
-    editor's Quick clip past their weekly allowance is declined (409), and so is an editor's
-    job that would take a video over its budget, or on a video whose length isn't approved
-    (409; editors are never sent to Reed, DECISIONS #397/#399), so nothing new ever waits as
-    `needs_owner_approval`.
+    editor's Quick clip past their weekly allowance, or job that would take a video over its
+    budget, is held for the owner (Reed, 30 Oct: "Hold requests"): it waits as
+    `needs_owner_approval`, charged nothing until the owner approves it, and `held` says why.
+    `wait`: hold it with that reason anyway (the rest of a press whose first job was held).
+    The per-video cap, an archived video and a length not approved yet are refused (409).
     The check and the reservation are one locked transaction. `prepaid`: a later step of work
-    the editor already pressed for at its full price (the reel read chain), so the allowance
-    isn't checked again; caps, brand, credits and Usage stay as for any job. `hold`: a later
-    step this press already pays for (e.g. Change it's still or take), checked together."""
+    the editor already pressed for at its full price (a run's next step, the reel read chain),
+    so it's never held again; caps, brand, credits and Usage stay as for any job. `hold`: a
+    later step this press already pays for (e.g. Change it's still or take), checked together."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if project is not None:
         lock(db, Project, project.id)
@@ -171,16 +180,16 @@ def enqueue(
     else:
         lock(db, User, user.id)
         check_clip_cap(db, user, credits)
+    if project is not None and project.status != ProjectStatus.active and not user.is_owner:
+        db.rollback()
+        raise HTTPException(409, NOT_APPROVED)
     # Only a Quick clip counts toward the week (Reed, 30 Oct); free work never goes past it.
     whole = credits + hold
-    quick = is_quick_clip(kind, input, project)
-    if quick and whole and not prepaid and (declined := over_allowance(db, user, whole)):
-        db.rollback()
-        raise HTTPException(409, declined)
-    if needs_approval(db, user, project, credits + hold):  # Reed, 2026-10-26: no Ask Reed
-        db.rollback()
-        active = project.status == ProjectStatus.active
-        raise HTTPException(409, OVER_BUDGET if active else NOT_APPROVED)
+    if not (wait or prepaid or user.is_owner) and whole:
+        if is_quick_clip(kind, input, project):
+            wait = over_allowance(db, user, whole)
+        elif needs_approval(db, user, project, whole):
+            wait = OVER_BUDGET
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
@@ -190,9 +199,11 @@ def enqueue(
         project_id=project.id if project else None,
         brand_id=brand_for(db, project, input),
         credits=credits,
-        status=JobStatus.queued,  # never held for Reed: past a limit it was refused above
+        status=JobStatus.needs_owner_approval if wait else JobStatus.queued,
         approved_by_id=user.id if user.is_owner else None,  # the owner's own jobs need no ask
     )
+    if wait:
+        job.input = {**input, HELD: wait}  # why it waits, as the editor and the owner see it
     db.add(job)
     db.commit()
     return job
@@ -306,6 +317,34 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
         raise HTTPException(409, "This job isn't waiting for approval.")
     db.commit()
     db.refresh(job)
+    return job
+
+
+class DeclineIn(BaseModel):
+    reason: ShortText = ""  # told to whoever asked; empty: a plain "not this time"
+
+
+@router.post("/jobs/{job_id}/decline", response_model=JobOut)
+def decline_job(
+    job_id: int,
+    body: DeclineIn | None = None,
+    owner: User = Depends(owner_only),
+    db: Session = Depends(get_db),
+):
+    """Owner says no to a held job: it never runs and nothing was charged; the reason is its
+    error, for whoever asked."""
+    job = _get_job(db, owner, job_id)
+    reason = (body.reason.strip() if body else "") or DECLINED
+    done = db.execute(
+        update(Job)
+        .where(Job.id == job.id, Job.status == JobStatus.needs_owner_approval)
+        .values(status=JobStatus.cancelled, finished_at=utcnow(), error=reason)
+    )
+    if done.rowcount != 1:
+        raise HTTPException(409, "This job isn't waiting for approval.")
+    db.refresh(job)
+    job.input = {**job.input, DECLINE: True}  # not a withdrawal: the editor sees it was a no
+    db.commit()
     return job
 
 

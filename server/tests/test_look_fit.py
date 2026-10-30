@@ -4,8 +4,6 @@ redone once by itself, then shown with advice. Claude is mocked: no paid calls."
 
 import math
 
-import pytest
-
 from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.library import LibraryItem
@@ -199,13 +197,10 @@ def test_made_looks_say_what_they_really_cost(owner, app, db, editor):
 
 def test_one_credit_is_said_as_one_credit(owner, editor, db):
     """QA nit on #487: "this week's 1 credit", never "1 credits" (now on a Quick clip)."""
-    from fastapi import HTTPException
-
     from app.routes.jobs import enqueue
 
     limits = owner.get("/credits/limits").json()
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 1})
     me = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
-    with pytest.raises(HTTPException) as refused:
-        enqueue(db, me, "video-480p", {}, units=2)
-    assert "this week's 1 credit (" in refused.value.detail
+    held = enqueue(db, me, "video-480p", {}, units=2)
+    assert "this week's 1 credit (" in held.input["held"]
