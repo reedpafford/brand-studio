@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, model_validator
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session, object_session
 
 from app import folders
@@ -212,7 +212,7 @@ def list_jobs(
     q: str = "",  # in what was asked (the prompt)
     removed: bool = False,  # true: the Quick clips taken off the history, to bring back
     folder: str | None = None,  # OR1: a project's id, or "none" for No project
-    mine: bool = False,  # the History's Mine: only the caller's own (Everyone's: the owner's)
+    mine: bool = False,  # only the caller's own; an editor never gets others' Quick clips anyway
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -220,6 +220,10 @@ def list_jobs(
     query = select(Job).where(Job.workspace_id == user.workspace_id, gone if removed else ~gone)
     if mine:
         query = query.where(Job.created_by_id == user.id)
+    elif not user.is_owner:  # an editor's Quick clips are their own (Reed): never anyone else's
+        quick = and_(Job.project_id.is_(None), Job.input["step"].as_string().is_(None),
+                     or_(Job.kind.startswith("video"), Job.kind.startswith("image")))  # fmt: skip
+        query = query.where(or_(Job.created_by_id == user.id, ~quick))
     if status:
         query = query.where(Job.status == status)
     if (filed := folders.where(Job.folder_id, folder)) is not None:
