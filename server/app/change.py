@@ -68,7 +68,7 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
         raise HTTPException(422, " ".join(wrong))
     target = _target(row)
     if target == "clip":
-        clip_takes.fits_model(project, row)
+        clip_takes.fits_model(db, project, row)
     key = "frame_id" if target == "frame" else "project_clip_id"
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     for job in pending:

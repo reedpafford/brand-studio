@@ -504,6 +504,11 @@ def test_a_clip_over_the_video_models_longest_is_flagged_refused_and_split(app, 
                          if "is outside" in p]  # fmt: skip
     owner.post(f"{video}/clips/prompts")
     _work(app, db)
+    whole = db.scalars(select(ProjectClip).where(ProjectClip.seconds > 15)).first()
+    assert owner.post(f"{video}/clips/{whole.id}/generate").status_code == 201
+    _work(app, db)  # a take of the whole 25 s clip, on 2.5
+    db.refresh(whole)
+    assert whole.picked_take_id
     switched = owner.post(f"{video}/settings", json={"video_model": "seedance-2.0"})
     assert switched.status_code == 200, switched.text
     plan = owner.get(f"{video}/breakdown").json()
@@ -528,6 +533,12 @@ def test_a_clip_over_the_video_models_longest_is_flagged_refused_and_split(app, 
     stages = {s["stage"]: s for s in owner.get(f"{video}/estimate").json()["stages"]}
     assert not stages["clip_prompts"]["done"] and stages["clip_prompts"]["credits"] > 0
     assert not stages["clips"]["done"]  # both new clips' takes are still to make
+    assert f"{sum(c['seconds'] for c in newest.data['clips'])} s" in stages["clips"]["note"]
+    assert owner.post(f"{video}/clips/prompts").status_code == 201  # Clips' priced Rewrite
+    _work(app, db)
+    db.refresh(whole)  # QA-3: the take made for all its shots is only an earlier take now
+    assert whole.clip_id == "c1" and whole.picked_take_id is None
+    stages = {s["stage"]: s for s in owner.get(f"{video}/estimate").json()["stages"]}
     assert f"{sum(c['seconds'] for c in newest.data['clips'])} s" in stages["clips"]["note"]
     assert not [p for p in fixed.json()["problems"] if "is outside" in p]
 
