@@ -142,6 +142,24 @@ def _styled(text: str, style_id: str) -> str:
     return TOKEN.sub(lambda m: looks[m.group(1)], text)
 
 
+def _in_look(value, style_id: str):
+    """A worked example with House's look lines swapped for the video's look's, so another
+    look's prompts are never steered toward House's ("Style: Pixar-style 3D…" in the clip
+    example: QA on #1009). House's example is unchanged."""
+    if style_id == "house":
+        return value
+    house, own = style("house")["sections"], style(style_id)["sections"]
+    if isinstance(value, dict):
+        return {k: _in_look(v, style_id) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_in_look(v, style_id) for v in value]
+    if isinstance(value, str):
+        for key, text in house.items():
+            if key not in DATA and text and own.get(key):
+                value = value.replace(text, own[key])
+    return value
+
+
 @cache
 def system(step: str, style_id: str = "house") -> str:
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
@@ -149,7 +167,7 @@ def system(step: str, style_id: str = "house") -> str:
         parts.append(_styled((HERE / f"{name}.md").read_text(), style_id))
     example = HERE / "examples" / f"{step}.json"
     if example.exists():
-        ex = json.loads(example.read_text())
+        ex = _in_look(json.loads(example.read_text()), style_id)
         parts.append(
             f"## Worked example ({ex['source']})\n{ex['note']}\n\n"
             f"<example_input>\n{ex['input']}\n</example_input>\n\n"
