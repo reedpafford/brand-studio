@@ -53,10 +53,13 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
   });
   const { to, step } = opens(m, brandId);
   const isVideo = m.content_type.startsWith("video/");
-  const title = m.video_name ?? (m.open_step === "quick" ? "Quick clip" : m.kind === "sheet" ? "Cast & places" : kindName(m.kind));
+  // A song made on a script (not yet in a video) says which script: its title, read once and shared with the script's own page.
+  const fromScript = m.kind === "song" && !m.video_name && m.script_id ? m.script_id : null;
+  const script = useQuery({ enabled: fromScript !== null, queryKey: ["script-lib", fromScript], queryFn: async () => (await api.GET("/scripts/{script_id}", { params: { path: { script_id: fromScript! } } })).data ?? null });
+  const title = m.video_name ?? script.data?.title ?? (m.open_step === "quick" ? "Quick clip" : m.kind === "sheet" ? "Cast & places" : kindName(m.kind));
   const gone = m.deleted_video_by; // the deleted video's maker: they or the owner may restore it (as the Archived list offers)
   const mayRestore = owner || (!!gone && gone.id === meId);
-  const meta = [kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
+  const meta = [fromScript ? "Song from the script" : m.kind === "song" && m.video_name ? "Song from the video" : kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
   return (
     <li>
       <MediaCard

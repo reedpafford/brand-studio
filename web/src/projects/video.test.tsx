@@ -1075,19 +1075,19 @@ test("Approve all on Clips approves the clips with a picked take", async () => {
   open("?step=clips");
   await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/approve-all")).toBe(true));
-  expect(await screen.findByText("Approved 1.")).toBeInTheDocument();
-  expect(await screen.findByText("Approved 1 clip.")).toBeInTheDocument(); // the toast, with Undo
+  expect(await screen.findByText("Approved 1 clip.")).toBeInTheDocument(); // the toast, with Undo: the one message
+  expect(screen.queryByText("Approved 1.")).toBeNull(); // no second line saying the same (Next-Layout's 390 walk)
 });
 
 test("clips made before the storyboard went out of date stay open, with a banner, and their paid presses wait (audit M14)", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]] });
   open("?step=clips");
-  expect(await screen.findByText("The plan changed after these were made. Make the storyboard again first.")).toBeInTheDocument();
+  expect(await screen.findByText("The plan changed after these were made. Redo storyboard first.")).toBeInTheDocument();
   const bar = screen.getByRole("region", { name: "Cost" });
   const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
   expect(make).toBeDisabled();
-  expect(make).toHaveAccessibleDescription("The plan changed after these were made. Make the storyboard again first.");
+  expect(make).toHaveAccessibleDescription("The plan changed after these were made. Redo storyboard first.");
   await userEvent.click(screen.getByRole("button", { name: "Open Storyboard" }));
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(calls.some((c) => c.key.startsWith("POST /projects/9/clips"))).toBe(false);

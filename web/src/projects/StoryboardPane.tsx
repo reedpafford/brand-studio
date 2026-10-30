@@ -214,7 +214,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
   // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
   const makeTotal = props.oneStep && props.clips && imageCost !== undefined && writeCost !== undefined ? writeCost + imageCost * props.clips : writeCost;
-  const makeLabel = list.length ? "Make the storyboard again" : "Make the storyboard";
+  const makeLabel = list.length ? "Redo storyboard" : "Make the storyboard";
   const allCost = imageCost === undefined ? undefined : imageCost * missing.length;
   const err = make.error ?? approve.error;
   // A still or a saved prompt that was refused says why on its own frame, where it was pressed.
@@ -253,7 +253,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       </Button>
       {confirmRedo && (
         <Dialog
-          title="Make the storyboard again?"
+          title="Redo storyboard?"
           actionLabel={`${makeLabel}${makeTotal === undefined ? "" : ` · ${pressLabel(makeTotal, "estimate")}`}`}
           danger={made > 0}
           cancelLabel="Not yet"

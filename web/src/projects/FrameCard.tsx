@@ -69,7 +69,7 @@ export function FrameCard(props: {
   const problems = blocking(f.problems).length > 0;
   // A grey paid button always says why, naming the press that moves it on.
   const why = props.blockers.length > 0 ? `Approve ${blockerNames(props.blockers)}'s sheet first.` : problems ? "Fix the problem above first." : props.busy ? "This one is still being made." : props.stopFor(props.cost);
-  const approveWhy = f.approved ? null : props.busy ? "This one is still being made." : f.stale ? "Make the storyboard again first." : problems ? "Fix the problem above first." : null;
+  const approveWhy = f.approved ? null : props.busy ? "This one is still being made." : f.stale ? "Redo storyboard first." : problems ? "Fix the problem above first." : null;
   const redoForm = (
     <div className="space-y-2">
       <label className="block text-sm">
@@ -202,7 +202,7 @@ export function FrameCard(props: {
               id={f.id}
               label={f.clip_id}
               change={f.change as ChangeState}
-              hold={props.busy ? "This one is still being made" : f.stale ? "Make the storyboard again first" : null}
+              hold={props.busy ? "This one is still being made" : f.stale ? "Redo storyboard first" : null}
               stopFor={props.stopFor}
               seed={seed}
               onUndo={f.earlier.length ? () => props.onPick((f.earlier.at(-1) as { file_id: number }).file_id) : undefined}

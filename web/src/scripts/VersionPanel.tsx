@@ -89,12 +89,12 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           <section aria-label="Characters" className="space-y-2">
             <h3 className="text-sm font-medium text-muted">Characters</h3>
             <div className="flex flex-wrap gap-2">
-              {(cast.data ?? []).length === 0 && <span className="text-sm text-muted">Everyone is made at Assets</span>}
+              {(cast.data ?? []).length === 0 && <span className="text-sm text-muted">Everyone is made in Cast</span>}
               {(cast.data ?? []).map((c) => (
                 <Badge key={c.id} icon={c.locked ? Lock : undefined}>
                   {c.sheet_file_id && c.locked && <img src={fileUrl(c.sheet_file_id)} alt="" className="size-4 rounded-sm object-cover" />}
                   {c.role}
-                  {c.locked ? " · Locked look" : " · Look made at Assets"}
+                  {c.locked ? " · Locked look" : " · Look made in Cast"}
                 </Badge>
               ))}
             </div>

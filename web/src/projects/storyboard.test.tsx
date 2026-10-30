@@ -225,8 +225,8 @@ test("shots made for an older script also keep the storyboard locked", async () 
 test("Make the storyboard again asks in the app first, saying the stills already made will be dropped and the price", async () => {
   const calls = fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2", file_id: 41 }), frame({ id: 3, clip_id: "c3" })]] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Make the storyboard again · up to 6 credits" }));
-  const ask = screen.getByRole("alertdialog", { name: "Make the storyboard again?" });
+  await userEvent.click(await screen.findByRole("button", { name: "Redo storyboard · up to 6 credits" }));
+  const ask = screen.getByRole("alertdialog", { name: "Redo storyboard?" });
   expect(ask).toHaveTextContent("the 2 stills you've made are dropped");
   await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
   expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -346,8 +346,8 @@ test("after Redo storyboard the old frames are not shown while the new ones load
     return inner!(req.clone(), init);
   }));
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Make the storyboard again · up to 6 credits" }));
-  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Make the storyboard again · up to 6 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Redo storyboard · up to 6 credits" }));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Redo storyboard · up to 6 credits" }));
   // The run has finished but the new frames haven't come: the old ones are gone from the screen.
   expect(await screen.findByText("Writing your frames…")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Redo · / })).toBeNull();
@@ -558,14 +558,14 @@ test("Make all stills, Redraw N stills and Make storyboard are 44px tall on a ph
     "GET /projects/9/storyboard": [200, [frame({ file_id: 40, still_stale: true }), frame({ id: 2, clip_id: "c2" })]],
   });
   open();
-  for (const name of [/^Make \d+ stills?/, /^Redraw 1 out-of-date still/, /^Make the storyboard again/]) expect((await screen.findByRole("button", { name })).className).toContain("min-h-control");
+  for (const name of [/^Make \d+ stills?/, /^Redraw 1 out-of-date still/, /^Redo storyboard/]) expect((await screen.findByRole("button", { name })).className).toContain("min-h-control");
 });
 
 test("an out-of-date still's grey Approve says why, and the step's one amber is the redraw", async () => {
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [withStill({ stale: true, still_stale: true }), withStill({ id: 2, clip_id: "c2" })]] });
   open();
   const card = await screen.findByLabelText("Frame c1");
-  expect(within(card).getByRole("button", { name: "Approve" })).toHaveAccessibleDescription("Make the storyboard again first.");
+  expect(within(card).getByRole("button", { name: "Approve" })).toHaveAccessibleDescription("Redo storyboard first.");
   const ambers = screen.getAllByRole("button").filter((b) => b.className.includes("bg-accent ") && !b.hasAttribute("disabled") && /credit/.test(b.textContent ?? ""));
   expect(ambers.map((b) => b.textContent)).toEqual(["Redraw 1 out-of-date still · 3 credits"]);
 });
@@ -573,6 +573,6 @@ test("an out-of-date still's grey Approve says why, and the step's one amber is 
 test("Make the storyboard again says one still is dropped, in the singular", async () => {
   fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 }), frame({ id: 2, clip_id: "c2" })]] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /^Make the storyboard again/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /^Redo storyboard/ }));
   expect(screen.getByRole("alertdialog")).toHaveTextContent("the 1 still you've made is dropped");
 });
