@@ -49,6 +49,7 @@ Stand-in outcomes to walk (style-line markers, Next-Server PR 1): `fake:fail`, `
 ## Open failures
 | Where | State that fails | Fix expected | Found in |
 |---|---|---|---|
+| Looks, Skeleton sample card (#1015) | The card says "of Mia, the brand's hero" or offers a character pick, but Skeleton makes its own sample and ignores both | `_sample` returns no hero and no characters when the look makes its own sample | #1015 at aabf7014 |
 | S4 | flows.md's Suno recipe adds about 110 characters to the style line; with a 1,000 limit the person's line must stop at about 890 | Limit on screen leaves room; out of date compares the person's own line | #740 at 823c0bd0 vs #746 |
 | Script header (390, on next already) | The title button "Rename …" is 32px tall | 44px | #759 walk |
 | V2 (to walk) | `song_breakdown(written=False)` by default now; walk the editor's flip/split/join route when it lands | — | #755 at 691a5eb5 |
@@ -376,3 +377,10 @@ Paper reviews passed: screen plan (#737, #742), flows.md song ads (#740 at e7fad
 | 2026-10-29 | #1008 Prices as charged (web) | 6f9a015b (+ next) | FAIL: one figure rounds two ways (29 vs 28.1). "Up to" in the four places, Make the shots from /breakdown/price, stills totals rounded once; 674/674 |
 | 2026-10-29 | #1009 Look rewrite (prompt text, read only) | bbb4b1fb | Text passes (no names but Disney Pixar, no "exactly", Skeleton own sample, Zack D its own style); but sample_still_prompt/own_sample aren't wired: look_samples.py:72 still sends "exactly as in [Image1]" with the hero, Skeleton too |
 | 2026-10-29 | #1008 (re-walk) | 27f5226a (+ next) | PASS: "up to 29" in all four places for 28.06; 675/675 |
+| 2026-10-30 | #1015 Skeleton own sample (server) | aabf7014 (+ next) | FAIL: the still prompt is right, but `routes/looks._sample` still returns the hero and characters for Skeleton, so the card promises "of Mia, the brand's hero" or offers a pick that's ignored. Fix: when `own_sample`, return no hero and no characters |
+| 2026-10-30 | #1013 Song timing for shots (server) | 31a0f9d8 | PASS at its own head (guard in; 34/34), but it conflicts with next in `song_breakdown.py`: re-walk once merged |
+| 2026-10-30 | #1012 Script starts at first word (web) | 2bd657ce (+ next) | PASS: 307/307, e2e 17/17. Note: typing then leaving keeps an empty Untitled script |
+| 2026-10-30 | #1017 My credits page (web) | 624baa25 (+ next) | PASS: 42/42, e2e 6/6 |
+| 2026-10-30 | #1016 Cast blocks only while sheets are unfinished (web) | ef758953 (+ next) | PASS: 119/119 |
+| 2026-10-30 | #1014 Kit languages (web) | 9b90966a (+ next) | PASS: 51/51. Note: the Language field hides while loading or on error |
+| 2026-10-30 | #1011 Make settings, gone flavours (web) | 454b56ba (+ next) | PASS: 99/99 |
