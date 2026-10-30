@@ -75,13 +75,42 @@ test("Usage on a phone: brand cards with the sentence, and one Filters button fo
   expect(within(sheet).getByLabelText("Show archived")).not.toBeChecked();
 });
 
-test("Usage: an editor gets Page not found and never sees a dollar", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/brands": [404, { detail: "Not found" }] });
+const mine = {
+  credits: 61, quick_clip_credits: 8, script_credits: 3,
+  videos: [
+    { project_id: 9, title: "Bo tries salmon · B", status: "in_production", credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Kimchi at the vet · A", status: "done", credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
+  ],
+  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }],
+  week: { used: 72, allowance: 145, lines: [{ label: "Videos", credits: 50 }, { label: "Quick clips", credits: 8 }, { label: "Scripts", credits: 3 }, { label: "A look", credits: 11 }] },
+};
+
+test("Usage: an editor is sent to My credits, which lists their week, videos, quick clips and scripts in credits, never a dollar (OR4)", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/brands": [404, { detail: "Not found" }], "GET /usage/mine": [200, mine] });
+  const urls = () => (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.map(([r]) => (typeof r === "string" ? r : r.url)).filter((u) => u.includes("/usage/mine"));
   open();
-  expect(await screen.findByText("Page not found.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "My credits" })).toBeInTheDocument();
+  expect(await screen.findByText("72 credits of 145 credits used")).toBeInTheDocument();
+  const week = screen.getByRole("list", { name: "This week's charges" });
+  expect(within(week).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Videos50 credits", "Quick clips8 credits", "Scripts3 credits", "A look11 credits"]);
+  const videos = screen.getByRole("list", { name: "My videos" });
+  expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Being made.*40 credits of 600 credits/ })).toHaveAttribute("href", "/b/1/videos/9");
+  expect(within(videos).getByText("Finished")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/1/scripts/7");
   expect(document.body.textContent).not.toMatch(/\$/);
-  expect(screen.queryByRole("link", { name: "Usage" })).not.toBeInTheDocument();
+  expect(urls()[0]).toContain("brand_id=1");
+  await userEvent.click(screen.getByRole("radio", { name: "This month" }));
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("period=month"))).toBe(true));
+});
+
+test("Usage: an editor's account menu links My credits; the owner's links Usage instead", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/mine": [200, mine] });
+  open("/b/1/videos");
+  await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+  expect(screen.getByRole("link", { name: "My credits" })).toHaveAttribute("href", "/usage/mine");
+  expect(screen.queryByRole("link", { name: "Usage" })).toBeNull();
 });
 
 test("Usage: nothing spent says so, and no brands has its own words", async () => {

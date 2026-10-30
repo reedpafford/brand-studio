@@ -21,6 +21,7 @@ import { TeamPage } from "./team/TeamPage";
 import { LanguagesPage } from "./languages/LanguagesPage";
 import { LooksPage } from "./looks/LooksPage";
 import { UsageBrandPage } from "./usage/UsageBrandPage";
+import { MinePage } from "./usage/MinePage";
 import { UsagePage } from "./usage/UsagePage";
 import { ReelReviewPage } from "./scripts/ReelReviewPage";
 
@@ -59,6 +60,7 @@ export function App() {
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="production" element={<ProductionPage />} />
           <Route path="usage" element={<UsagePage />} />
+          <Route path="usage/mine" element={<MinePage />} />
           <Route path="usage/brands/:brandId" element={<UsageBrandPage />} />
         </Route>
       </Route>

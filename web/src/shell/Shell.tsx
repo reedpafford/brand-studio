@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, ChevronDown, Clapperboard, Film, Plus, FileText, Images, Languages, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, Coins, ChevronDown, Clapperboard, Film, Plus, FileText, Images, Languages, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
@@ -293,6 +293,12 @@ function AccountMenu() {
             <Link to="/languages" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
               <Languages size={20} strokeWidth={1.75} aria-hidden />
               Languages
+            </Link>
+          )}
+          {me?.role === "editor" && (
+            <Link to="/usage/mine" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
+              <Coins size={20} strokeWidth={1.75} aria-hidden />
+              My credits
             </Link>
           )}
           {me?.role === "owner" && (

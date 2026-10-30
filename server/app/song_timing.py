@@ -19,7 +19,8 @@ from array import array
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from app.prompts.check import LIP_SYNC, SECTION
+from app.prompts import SECTION, section_name
+from app.prompts.check import LIP_SYNC
 
 RATE = 8000  # Hz: enough to hear where the beats land
 HOP = 0.01  # s per energy frame
@@ -136,8 +137,8 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) ->
     out, section = [], ""
     for raw in lyrics.strip().splitlines():
         text = LIP_SYNC.sub("", raw).strip()
-        if SECTION.match(raw):  # "[Chorus] [Lip-sync]" or "[Intro: …]": its first tag names it
-            section = raw.split("]")[0].strip(" [").split(":")[0].strip()
+        if SECTION.match(raw):
+            section = section_name(raw)
         elif text:
             out.append({"section": section, "text": text, "words": text.split()})
     ours = [(i, _norm(w)) for i, line in enumerate(out) for w in line["words"]]

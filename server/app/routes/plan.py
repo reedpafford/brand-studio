@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app import breakdown, credits, plans
+from app import breakdown, credits, plans, prompts
 from app.advice import names
 from app.auth import current_user, user_name
 from app.db import get_db
@@ -29,6 +29,7 @@ SOURCES = {"made": "claude", "owner": "owner", "from_breakdown": "breakdown", "b
 class LineOut(BaseModel):
     n: int  # the script line's number
     text: str  # its words, read only (the plan keeps numbers only, rule 19)
+    section: str = ""  # a song's: the tag above it ("Chorus")
     action: str
     star: bool  # ★: a key product moment
     product: str | None = None  # what the ★ shows (screen:N)
@@ -174,6 +175,7 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
         return base
     known = names(assets(db, project))
     words = dict(enumerate((version.text if version else "").splitlines(), 1))
+    parts = prompts.sections(version.text) if version and plans.song(db, project) else {}
     shape = plan.get("structure") or {}
     based = shape.get("based_on") == "reference"
     label = " → ".join(shape.get("parts") or [])
@@ -194,6 +196,7 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
         "scenes": [SceneOut(id=str(s["id"]), part=s["part"], place=_split(s["place"])[0],
                             time=_split(s["place"])[1], cast_ids=s["cast"],
                             lines=[LineOut(n=x["line"], text=words.get(x["line"], "").strip(),
+                                           section=parts.get(x["line"], ""),
                                            action=x["action"], star=bool(x["product"]),
                                            product=x["product"]) for x in s["lines"]])
                    for s in plan.get("scenes", [])],
@@ -332,7 +335,7 @@ def apply_edit(db: Session, project, version, body: PlanIn) -> None:
               for i, s in enumerate(body.scenes, 1)]  # fmt: skip
     cast = body.cast_ids if body.cast_ids is not None else plan.get("cast", [])
     shape = Structure.model_validate(plan.get("structure"))
-    plans.edit(project, version, ScenePlan(structure=shape, cast=cast, scenes=scenes))
+    plans.edit(db, project, version, ScenePlan(structure=shape, cast=cast, scenes=scenes))
 
 
 @router.post("/approve", response_model=ApproveOut, dependencies=[Depends(generation_on)])
@@ -346,9 +349,7 @@ def approve(project_id: int, user: User = Depends(current_user), db: Session = D
     if plan.get("approved_at"):
         raise HTTPException(409, "This plan is already approved.")
     used = [x["line"] for s in plan["scenes"] for x in s["lines"]]
-    from app import prompts
-
-    if used != prompts.plan_lines(version.text):
+    if used != plans.lines(db, project, version.text):
         raise HTTPException(409, "The script changed since this plan: make the plan again.")
     if any(not x["action"].strip() for s in plan["scenes"] for x in s["lines"]):
         raise HTTPException(409, "Give every line an action first.")

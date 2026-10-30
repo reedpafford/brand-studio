@@ -106,10 +106,8 @@ def approve(
     plan = plans.current(db, stand)
     if plan is None:
         raise HTTPException(404, "This version has no plan yet.")
-    from app import prompts
-
     used = [x["line"] for s in plan["scenes"] for x in s["lines"]]
-    if used != prompts.plan_lines(draft.text):
+    if used != plans.lines(db, stand, draft.text):
         raise HTTPException(409, "The script changed since this plan: make the plan again.")
     if any(not x["action"].strip() for s in plan["scenes"] for x in s["lines"]):
         raise HTTPException(409, "Give every line an action first.")

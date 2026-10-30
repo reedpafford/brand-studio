@@ -403,6 +403,22 @@ def test_a_song_videos_quote_card_and_bar_are_one_figure(app, db, owner, song):
     assert to_finish == pytest.approx(bar, abs=0.01)
 
 
+def test_one_song_video_price_on_its_takes_and_under_make_2_more(app, db, owner, song):
+    """Next-Layout's 390 walk (B2): one 0:24 song showed "about 39" on its takes and "about 41"
+    under Make 2 more. Both now read one sum: the newest take's real length once heard (the
+    lyrics' guess before), with a look for each role not cast yet."""
+    base = song.rsplit("/drafts", 1)[0]
+    owner.post(f"{base}/cast", json={"role": "The Singer"})  # a role with no look yet
+    _style(owner, song, "pop, female lead, 120 BPM")
+    guess = owner.get(f"{song}/songs").json()["video_estimate_credits"]
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    shown = owner.get(f"{song}/songs").json()
+    newest = shown["takes"][-1]
+    assert shown["video_estimate_credits"] == newest["video_credits"] > 0  # one figure
+    assert guess > 0
+
+
 def test_a_song_video_keeps_its_type_in_any_look_and_song_is_never_a_look(
     app, db, owner, editor, song
 ):

@@ -12,8 +12,11 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
   const scriptId = script.id;
   const find = useFindRoles(scriptId);
   const stop = useAllowanceStop(script, find.price);
-  const approved = script.versions.find((v) => v.slot === 0)?.status === "approved";
-  const reason = !approved ? "Approve the script first" : stop;
+  const first = script.versions.find((v) => v.slot === 0);
+  const approved = first?.status === "approved";
+  // A song's roles are read from its lyrics as they are: no Approve first (the Producer's row 4 decision).
+  const song = script.kind === "song";
+  const reason = song ? (!first?.text.trim() ? "Write the lyrics first" : stop) : !approved ? "Approve the script first" : stop;
   // The roles are read from the approved words. A script with no variations is approved here: it is the only version.
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -30,7 +33,7 @@ export function FindRoles({ script, hasRoles }: { script: Script; hasRoles: bool
       if (yes) toast("Script approved. Its words are final.", () => setApproval.mutate(false));
     },
   });
-  const approveIt = !approved && (
+  const approveIt = !approved && !song && (
     <div className="space-y-1">
       <p className="text-sm text-muted">Claude reads the roles from the approved words. Approving makes them final; you can undo it.</p>
       <Button variant="secondary" icon={Check} busy={setApproval.isPending} onClick={() => setApproval.mutate(true)}>

@@ -57,8 +57,8 @@ def read_cast(
     """Read the roles every approved version needs a look for. Slots the script already has
     stay (locked ones stay locked); new roles are added unlocked."""
     script = lib.editable(user, lib.get_script(db, user, script_id))
-    if not cast_read.ready(db, script):
-        raise HTTPException(409, "Approve the original first.")
+    if reason := cast_read.stop(db, script):
+        raise HTTPException(409, reason)
     if lib.writing(db, script.id, "cast_slots"):
         raise HTTPException(409, "The cast is already being read for this script.")
     reference = script_reference(request, script)
