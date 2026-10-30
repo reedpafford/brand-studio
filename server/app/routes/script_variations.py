@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import script_library as lib
 from app import script_variations
 from app.auth import current_user
-from app.credits import afford, estimate
+from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.routes.clips import generation_on
@@ -67,5 +67,4 @@ def write_variations(
         db, script, original, slots, keep_apart, body.note, reference
     )
     data |= {"then_cast": True, "then_cast_reference": reference}  # cast read next, prepaid
-    afford(db, user, _price(db, user), "Writing variations")
     return enqueue(db, user, "write-claude", data, provider="claude")

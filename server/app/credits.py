@@ -26,7 +26,6 @@ from app.models.credits import (
 )
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project, ProjectStatus
-from app.models.script_library import Script, ScriptDraft
 
 log = logging.getLogger(__name__)
 # Estimates only; real cost decides the final credits. Generation rates come from the
@@ -188,45 +187,28 @@ def week_start() -> datetime:
     return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def own_script(db: Session, project: Project, user: User) -> bool:
-    """A video this editor makes from a script they wrote: it runs on their weekly allowance,
-    not a budget the owner approves (Reed, 2026-10-25). Someone else's script is not theirs."""
-    draft_id = project.script_draft_id or project.released_draft_id
-    if user.is_owner or draft_id is None:
-        return False
-    author = db.scalar(
-        select(Script.created_by_id).join(ScriptDraft).where(ScriptDraft.id == draft_id)
-    )
-    return author == user.id
+def is_quick_clip(kind: str, input: dict, project) -> bool:
+    """A Quick clip: a video or picture asked for outside any video, not a step of other work
+    (a sheet, a frame). The only thing the weekly allowance counts (Reed, 30 Oct): anything in
+    a script or video belongs to a brand and is work."""
+    return project is None and kind.startswith(("video", "image")) and "step" not in input
 
 
 def week_jobs(user: User) -> tuple:
-    """What counts toward this person's week (Mon-Sun, UTC): their own jobs outside any
-    project (Quick clips, script steps, looks, checks) and on videos from scripts they wrote.
-    The allowance and the cost log's week both read through this, so they never drift."""
-    own = (
-        select(Project.id)
-        # a released video keeps counting: releasing must not hand the credits back
-        .join(
-            ScriptDraft,
-            ScriptDraft.id == func.coalesce(Project.script_draft_id, Project.released_draft_id),
-        )
-        .join(Script, Script.id == ScriptDraft.script_id)
-        .where(Script.created_by_id == user.id)
-    )
+    """This person's Quick clips this week (Mon-Sun, UTC), as `is_quick_clip` says. The
+    allowance and the cost log's week both read through this, so they never drift."""
     return (
-        or_(Job.project_id.is_(None), Job.project_id.in_(own)),
+        Job.project_id.is_(None),
+        or_(Job.kind.startswith("video"), Job.kind.startswith("image")),
+        Job.input["step"].as_string().is_(None),
         Job.created_by_id == user.id,
         Job.created_at >= week_start(),
     )
 
 
 def quick_clip_used(db: Session, user: User) -> Decimal:
-    """This week's credits on this person's own work (`week_jobs`), plus the later steps of
-    a reel read they pressed for, which are held until they run."""
-    from app.reel_read import held
-
-    return _sum_credits(db, *week_jobs(user)) + held(db, user)
+    """This week's credits on this person's Quick clips (`week_jobs`)."""
+    return _sum_credits(db, *week_jobs(user))
 
 
 def credits_left(db: Session, user: User) -> Decimal | None:
@@ -241,45 +223,22 @@ def price(total: Decimal) -> int:
     return max(1, math.ceil(total))
 
 
-def shown(total: Decimal, left: Decimal) -> tuple[int, int]:
-    """A price and what's left, as a refusal says them: the price rounded up, what's left
-    rounded down, so it never reads "needs 4; you have 4 left"."""
-    return price(total), max(math.floor(left), 0)
-
-
 def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
     """Why `total` more credits on this video would go over, or "" when it fits: the
-    per-video limit (for everyone), then the editor's week on their own script, else the
-    video's budget (the owner's too: work made by itself stays within it)."""
+    per-video limit (for everyone), else the video's budget (the owner's too: work made by
+    itself stays within it)."""
     cap = get_limits(db, project.workspace_id).per_video_max_credits
     if credits_used(db, project) + total > cap:
         return "would go over this video's limit."
-    if own_script(db, project, user):
-        left = credits_left(db, user)
-        if left is None or total <= left:
-            return ""
-        return "would go over this week's credits. It resets on Monday."
     if credits_used(db, project) + total <= project.budget_credits:
         return ""
     return "would go over this video's budget."
 
 
-def afford(db: Session, user: User, total: Decimal, what: str) -> None:
-    """All or none: an editor's allowance must cover the whole press (e.g. writing and the cast
-    read after it) before any of it is queued."""
-    left = credits_left(db, user)
-    if left is not None and total > left:
-        price, have = shown(total, left)
-        raise HTTPException(
-            409,
-            f"{what} takes {price} credits and you have {have} left this week. It resets Monday.",
-        )
-
-
-def over_allowance(db: Session, user: User, project: Project | None, credits: Decimal) -> str:
-    """Plain words if this job would take an editor past their weekly allowance, else "".
-    Past it, their own work is declined, never sent to the owner. Call with the row locked."""
-    if user.is_owner or (project is not None and not own_script(db, project, user)):
+def over_allowance(db: Session, user: User, credits: Decimal) -> str:
+    """Plain words if this Quick clip would take an editor past their weekly allowance, else
+    "". Past it, it's declined, never sent to the owner. Call with the row locked."""
+    if user.is_owner:
         return ""
     allowance = get_limits(db, user.workspace_id).weekly_quick_clip_credits
     used = quick_clip_used(db, user)
@@ -301,10 +260,10 @@ def lock(db: Session, model, row_id: int) -> None:
 
 
 def needs_approval(db: Session, user: User, project: Project | None, credits: Decimal) -> bool:
-    """True if a new job must wait for the owner: an editor's job on a video from the owner's
-    scripts (or an older project) that would go over its budget. An editor's own work is
-    never held: `over_allowance` declines it instead. Call with the right row locked."""
-    if user.is_owner or project is None or own_script(db, project, user):
+    """True if an editor's job on a video would go over its budget (from their own script
+    too, since one allowance: Reed, 30 Oct); `enqueue` then declines it with the reason,
+    never holds it. A Quick clip goes by `over_allowance` instead. Call with the row locked."""
+    if user.is_owner or project is None:
         return False
     if project.status != ProjectStatus.active:
         return True

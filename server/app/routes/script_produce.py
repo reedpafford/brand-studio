@@ -166,6 +166,5 @@ def version_estimate(
         setattr(video, *vs.check(db, user, video, {field: value}).popitem())
     cost = version_cost(db, draft, video)  # every look it will need included
     cap = credits.get_limits(db, user.workspace_id).per_video_max_credits
-    week = credits.over_allowance(db, user, video, cost)
-    reason = vs.OVER_CAP.format(cap) if cost > cap else week
+    reason = vs.OVER_CAP.format(cap) if cost > cap else ""
     return VersionEstimateOut(credits=float(cost), over_cap=cost > cap, reason=reason)

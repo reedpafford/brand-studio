@@ -130,13 +130,13 @@ def test_sheet_rules(app, editor, outsider):
         app.state.settings.generation_enabled = True
 
 
-def test_sheet_past_the_weekly_allowance_is_declined(owner, editor):
+def test_a_sheet_is_never_refused_for_the_week(owner, editor):
+    """One allowance (Reed, 30 Oct): a look is a brand's work, not a Quick clip."""
     owner.put(
         "/credits/limits", json={"weekly_quick_clip_credits": 1, "per_video_max_credits": 729}
     )
     mia = editor.post("/library/character", json={"name": "Mia", "notes": "teen trader"}).json()
     url = f"/library/character/{mia['id']}"
-    declined = editor.post(f"{url}/sheet", json={})
-    assert declined.status_code == 409
-    assert "this week's 1 credit (0 used)" in declined.json()["detail"]
-    assert editor.get(url).json()["sheet_status"] == "none"  # nothing queued or held
+    made = editor.post(f"{url}/sheet", json={})
+    assert made.status_code in (200, 201), made.text
+    assert editor.get(url).json()["sheet_status"] != "none"

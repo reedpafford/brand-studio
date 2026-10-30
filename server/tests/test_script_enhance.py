@@ -46,13 +46,14 @@ def test_directions_on_a_version_suggest_accept_add_and_undo(app, owner, editor,
     assert owner.post(f"{url}/suggestions/{marks['s2']}/accept").status_code == 409
 
 
-def test_directions_on_an_editors_own_script_use_their_allowance(editor, db):
+def test_directions_on_an_editors_own_script_never_use_the_week(editor, db):
+    """One allowance (Reed, 30 Oct): script work is a brand's, never the week's."""
     from app.credits import quick_clip_used
     from app.models.accounts import User
 
     made = _make(editor, text=SCRIPT)
     assert editor.post(f"/scripts/{made['id']}/drafts/0/enhance").status_code == 201
-    assert quick_clip_used(db, db.query(User).filter_by(role="editor").one()) == 3
+    assert quick_clip_used(db, db.query(User).filter_by(role="editor").one()) == 0
 
 
 def test_a_removed_variation_takes_its_marks_with_it(owner, db):

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app import looks, prompts
 from app.auth import current_user
 from app.catalogue import get_model
-from app.credits import estimate, own_script
+from app.credits import estimate
 from app.db import get_db
 from app.images import image_job_input
 from app.models.accounts import User
@@ -139,18 +139,10 @@ def queue_sheet(
     # auto_made: Assets made it by itself; its check and redo say so too ("Made 3 looks · 7")
     data = {**job, "step": "sheet", "library_item_id": item.id, "changed": changed,
             "after_check": str(after), "auto_made": auto, "sheet_look_id": look}  # fmt: skip
-    _on_week(db, project, user, data, check + after)
     return enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
         hold=check + after, prepaid=fit_redo,
     )  # fmt: skip
-
-
-def _on_week(db: Session, project: Project | None, user: User, data: dict, held) -> None:
-    """Held on the person's week until the next step is queued (reel_read.held): their own
-    looks and scripts. A library version's video holds at the press only, like Change it."""
-    if held and (project is None or own_script(db, project, user)):
-        data["then_credits"] = str(held)
 
 
 def text_to(read: dict, fit: LookFit) -> dict:
@@ -244,7 +236,6 @@ def check_fit(
         data["text_for"] = {"slot_id": slot.id, "sheet_file_id": item.sheet_file_id,
                             "role": slot.role, "description": slot.description}  # fmt: skip
     project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
-    _on_week(db, project, user, data, after if redo else Decimal(0))
     db.commit()  # a refusal rolls back: never take the landed sheet with it
     try:  # `pressed`: Check on Assets, paid at its own price; a refusal says why
         enqueue(db, user, "check-claude", data, project=project, provider="claude",

@@ -160,22 +160,21 @@ function TopBar({ brands, brand, current, waiting, rail }: { brands: Brand[]; br
     <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4 lg:h-topbar lg:px-6">
       <BrandSwitcher brands={brands} brand={brand} current={current} />
       <div className="ml-auto flex items-center gap-2">
-        {waiting !== null &&
+        {/* Approvals shows only while something waits (Reed, 30 Oct); the page itself stays at /approvals. */}
+        {!!waiting &&
           (rail ? (
             <Link to="/approvals" className="inline-flex min-h-control items-center gap-2 rounded-full border border-border bg-surface-2 px-4 text-base hover:bg-surface-3">
               <Bell size={20} strokeWidth={1.75} aria-hidden />
               Approvals
-              {waiting > 0 && (
-                <span className="inline-grid min-w-5 place-items-center rounded-full bg-accent px-1.5 text-xs font-semibold text-on-accent tabular-nums">
-                  {waiting}
-                  <span className="sr-only"> waiting</span>
-                </span>
-              )}
+              <span className="inline-grid min-w-5 place-items-center rounded-full bg-accent px-1.5 text-xs font-semibold text-on-accent tabular-nums">
+                {waiting}
+                <span className="sr-only"> waiting</span>
+              </span>
             </Link>
           ) : (
-            <Link to="/approvals" aria-label={waiting > 0 ? `Approvals, ${waiting} waiting` : "Approvals"} className="relative grid size-control place-items-center rounded-full hover:bg-surface-2">
+            <Link to="/approvals" aria-label={`Approvals, ${waiting} waiting`} className="relative grid size-control place-items-center rounded-full hover:bg-surface-2">
               <Bell size={20} strokeWidth={1.75} aria-hidden />
-              {waiting > 0 && <span aria-hidden className="absolute right-1 top-1 inline-grid min-w-5 place-items-center rounded-full bg-accent px-1 text-xs font-semibold text-on-accent tabular-nums">{waiting}</span>}
+              <span aria-hidden className="absolute right-1 top-1 inline-grid min-w-5 place-items-center rounded-full bg-accent px-1 text-xs font-semibold text-on-accent tabular-nums">{waiting}</span>
             </Link>
           ))}
         <AccountMenu />
@@ -381,7 +380,7 @@ function Rail({ brand, current, wide, owner, waiting }: { brand?: Brand; current
         <div className="mt-4 border-t border-border pt-2">
           {wide && <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-muted">Studio</p>}
           <div className="flex flex-col gap-1">
-            {row("/approvals", "Approvals", Bell, <Badge n={waiting} />)}
+            {!!waiting && row("/approvals", "Approvals", Bell, <Badge n={waiting} />)}
             {row("/production", "In production", Clapperboard, <Badge n={attention} word="need attention" />)}
             {row("/team", "Team", UserPlus)}
             {row("/looks", "Looks", Palette)}

@@ -7,7 +7,8 @@ from tests.helpers import assert_hidden, assert_no_dollars
 
 
 def test_team_sees_jobs_and_can_cancel_queued(editor, db):
-    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 2})
+    # a step of shared work, not a Quick clip (those are each editor's own: Reed's item 4)
+    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 2, "step": "clip_take"})
     assert [j["id"] for j in editor.get("/jobs").json()] == [job.id]
     assert editor.post(f"/jobs/{job.id}/cancel").json()["status"] == "cancelled"
     assert editor.post(f"/jobs/{job.id}/cancel").status_code == 409
@@ -123,3 +124,19 @@ def test_every_response_time_uses_utc_time(app):
         if isinstance(route, APIRoute) and route.response_model is not None:
             walk(route.response_model, route.path)
     assert bare == []
+
+
+def test_history_mine_lists_only_the_callers_own_and_everyones_lists_all(owner, editor, db):
+    """Quick clip History (Reed's item 4): Mine is the caller's own; only the owner sees
+    everyone's. An editor never gets another person's Quick clip, flag or not."""
+    from app.models.accounts import Role
+
+    boss = db.query(User).filter_by(role=Role.owner).one()
+    them = db.query(User).filter_by(role=Role.editor).one()
+    ours, theirs = enqueue(db, boss, "video-480p", {}), enqueue(db, them, "video-480p", {})
+    assert [j["id"] for j in editor.get("/jobs", params={"mine": True}).json()] == [theirs.id]
+    assert [j["id"] for j in editor.get("/jobs").json()] == [theirs.id]  # never the owner's clip
+    assert [j["id"] for j in owner.get("/jobs", params={"mine": True}).json()] == [ours.id]
+    everyone = [j["id"] for j in owner.get("/jobs").json()]
+    assert everyone == [theirs.id, ours.id]  # newest first
+    assert owner.get("/jobs", params={"mine": True, "q": "nothing like it"}).json() == []
