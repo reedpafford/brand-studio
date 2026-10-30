@@ -101,6 +101,8 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
           {s.status === "failed" && <p role="alert" className={errorClass}>{s.reason || "The sample didn't finish. Nothing was charged."}</p>}
           {s.hero ? (
             <p className="text-sm text-muted">One still and one 5 s clip of {s.hero.name}, the brand's hero.</p>
+          ) : s.look.own_sample ? (
+            <p className="text-sm text-muted">One still and one 5 s clip of the look's own sample character.</p>
           ) : (
             <Select label="Who's in the sample?" value={who} onChange={(e) => setWho(e.target.value === "sample" ? "sample" : Number(e.target.value))}>
               <option value="sample">A sample character (from the look)</option>

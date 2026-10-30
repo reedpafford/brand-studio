@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChartColumn, ChevronRight, Search } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton } from "../components";
 import { useRail } from "../useMedia";
 import { useDebounced } from "../scripts/ScriptsPage";
@@ -43,7 +43,7 @@ export function UsagePage() {
   const restoreBrand = useRestoreBrand();
   const summary = useSummary(period);
   const rows = useBrandRows({ period, q, archived, sort });
-  if (summary.error?.message === "404") return <p className="p-6">Page not found.</p>;
+  if (summary.error?.message === "404") return <Navigate to="/usage/mine" replace />; // an editor: their own credits (OR4)
   const items = rows.data?.pages.flatMap((p) => p.items) ?? [];
   const total = rows.data?.pages[0]?.total;
   const nothingSpent = summary.data && summary.data.spend_usd === 0 && !summary.data.spend_estimated;
