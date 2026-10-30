@@ -414,9 +414,9 @@ export interface paths {
         head?: never;
         /**
          * Update Brand
-         * @description Change the brand. BR1's new sections are the owner's; what editors changed before BR1
-         *     (name, logo, colours, fonts, notes, never_say, legal and end line) they still may, until
-         *     Reed decides. Nothing already made or published changes (BR1).
+         * @description Change the brand, setup included (Reed, 30 Oct: editors fill in the Brand page too;
+         *     creating, archiving and the paid site read stay the owner's). Nothing already made or
+         *     published changes (BR1).
          */
         patch: operations["update_brand_brands__brand_id__patch"];
         trace?: never;
@@ -1690,8 +1690,8 @@ export interface paths {
         /**
          * Read Again
          * @description Read it again (reel-import.md §5): the breakdown and the script steps run again with
-         *     the note; the download and transcript are kept. Priced first; past an editor's week it's
-         *     refused, never held. A note that changes the reel's words is refused before any charge.
+         *     the note; the download and transcript are kept. A note that changes the reel's words is
+         *     refused before any charge.
          */
         post: operations["read_again_scripts__script_id__import_read_again_post"];
         delete?: never;
@@ -11577,6 +11577,7 @@ export interface operations {
                 q?: string;
                 removed?: boolean;
                 folder?: string | null;
+                mine?: boolean;
             };
             header?: never;
             path?: never;

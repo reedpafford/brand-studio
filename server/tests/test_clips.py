@@ -49,10 +49,10 @@ def test_estimate_auto_attaches_moment_screens(editor, fomo):
 
 def test_estimate_says_when_the_weekly_allowance_is_used(editor, fomo, db):
     ed = db.query(User).filter_by(role=Role.editor).one()
-    enqueue(db, ed, "video-480p", {}, units=143)
+    enqueue(db, ed, "video-480p", {}, units=95)
     r = editor.post("/clips/estimate", json=_clip(fomo))
     assert r.status_code == 409 and r.json()["detail"] == (
-        "That's more than this week's 145 credits (143 used). It resets on Monday."
+        "That's more than this week's 97 credits (95 used). It resets on Monday."
     )
     assert editor.post("/clips", json=_clip(fomo)).status_code == 409  # declined, not held
 

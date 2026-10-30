@@ -63,20 +63,22 @@ def test_one_price_then_watch_write_and_cast_in_turn(app, owner, db, clip):
     assert owner.post(f"{url}/import/read").status_code == 409  # nothing left to read
 
 
-def test_an_editor_past_the_allowance_runs_nothing(app, owner, editor, db, clip):
+def test_reading_a_reel_is_never_refused_for_the_week(app, owner, editor, db, clip):
+    """One allowance (Reed, 30 Oct): reading a reel is a brand's work, never the week's, so
+    an editor with nothing left still reads it and reads it again; no "left" is shown."""
     owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 5, "per_video_max_credits": 729}
+        "/credits/limits", json={"weekly_quick_clip_credits": 0, "per_video_max_credits": 729}
     )
     url = _ready(app, editor, db, clip)
     assert editor.get(f"{url}/import").json()["estimate"] == {
         "credits": 7,
-        "credits_left": 5,
+        "credits_left": None,
         "tries": 0,
     }
-    declined = editor.post(f"{url}/import/read")
-    assert declined.status_code == 409
-    assert declined.json()["detail"] == "This reel needs 7 credits; you have 5 left this week."
-    assert db.query(Job).count() == 1  # only the free prep
+    assert editor.post(f"{url}/import/read").status_code == 201
+    _drain(app, db)
+    assert editor.get(f"{url}/import").json()["status"] == "done"
+    assert editor.post(f"{url}/import/read-again", json={}).status_code == 201
 
 
 def test_later_steps_are_prepaid(app, owner, editor, db, clip):
@@ -141,56 +143,6 @@ def test_new_lines_tells_the_writer_and_skips_the_word_check(app, owner, db, cli
     assert not any("changed or missing" in p for p in problems)
 
 
-def test_the_whole_read_is_held_against_the_allowance_until_it_runs(app, owner, editor, db, clip):
-    """QA on #292: pressing Read holds all 7 credits, so nothing else can spend them first."""
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 7, "per_video_max_credits": 729}
-    )
-    url = _ready(app, editor, db, clip)
-    other = _upload(editor, clip).json()["script_id"]
-    _drain(app, db)
-    assert editor.post(f"{url}/import/read").status_code == 201  # only its watch is queued
-    assert editor.get(f"/scripts/{other}/import").json()["estimate"]["credits_left"] == 0
-    brand = editor.get("/brands").json()[0]["id"]
-    plain = editor.post("/scripts", json={"brand_id": brand, "title": "Plain"}).json()["id"]
-    over = editor.post(f"/scripts/{plain}/write")  # 3 credits: none left while the read holds
-    assert over.status_code == 409 and "credits" in over.json()["detail"]
-    _drain(app, db)
-    assert editor.get(f"{url}/import").json()["status"] == "done"  # its steps all ran
-
-
-def test_a_stopped_read_holds_nothing(app, owner, editor, db, clip, monkeypatch):
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 10, "per_video_max_credits": 729}
-    )
-    url = _ready(app, editor, db, clip)
-    monkeypatch.setattr(check, "reel_watch", lambda w, c, t: ["shot 2 is missing"])
-    editor.post(f"{url}/import/read")
-    _drain(app, db)
-    status = editor.get(f"{url}/import").json()
-    assert status["failed_step"] == "watch"
-    assert status["estimate"]["credits_left"] == 9  # only the watch that ran is spent
-
-
-def test_getting_a_reel_is_free_even_past_the_allowance(app, owner, editor, db, clip):
-    """Designer: only the paid Read (and Write all) stop at the allowance, so the editor sees
-    the price and the reason in context."""
-    plain = editor.post(
-        "/scripts", json={"brand_id": editor.get("/brands").json()[0]["id"], "title": "Spent"}
-    ).json()["id"]
-    assert editor.post(f"/scripts/{plain}/write").status_code == 201  # 3 credits used
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 1, "per_video_max_credits": 729}
-    )
-    made = _upload(editor, clip)  # past the allowance (3 of 1), getting a reel is still free
-    assert made.status_code == 201, made.text
-    _drain(app, db)
-    ready = editor.get(f"/scripts/{made.json()['script_id']}/import").json()
-    assert ready["status"] == "ready" and ready["estimate"]["credits_left"] == 0
-    declined = editor.post(f"/scripts/{made.json()['script_id']}/import/read")
-    assert declined.status_code == 409 and "7 credits" in declined.json()["detail"]
-
-
 def test_a_reel_prepared_before_watch_copies_asks_for_a_new_upload(app, owner, db, clip):
     url = _ready(app, owner, db, clip)
     script = db.get(Script, int(url.rsplit("/", 1)[1]))
@@ -220,9 +172,6 @@ def test_a_failing_video_watch_retries_then_watches_from_frames_charged_once(
     """The Producer's real read: Gemini's video upload kept failing (E001), images worked."""
     from app.providers.fake_local import FakeMedia
 
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 7, "per_video_max_credits": 729}
-    )
     url = _ready(app, editor, db, clip)
     monkeypatch.setattr(FakeMedia, "video_failures", 2)  # the video and its one retry
     assert editor.post(f"{url}/import/read").status_code == 201
@@ -236,11 +185,8 @@ def test_a_failing_video_watch_retries_then_watches_from_frames_charged_once(
     frames = watches[-1].input
     assert "videos" not in frames["files"] and len(frames["files"]["images"]) >= 2
     assert frames["input"]["prompt"].startswith("<watched_from>frames</watched_from>")
-    from app.credits import quick_clip_used
-    from app.models.accounts import User
-
-    them = db.query(User).filter_by(role="editor").one()
-    assert quick_clip_used(db, them) == 7  # one watch, one write, one cast read: failures free
+    paid = [j for j in db.query(Job).all() if j.status == "succeeded" and j.kind != "reel_prepare"]
+    assert sum(j.credits for j in paid) == 7  # one watch, one write, one cast read: failures free
 
 
 def test_a_video_watch_that_works_on_retry_stays_video(app, owner, db, clip, monkeypatch):
@@ -301,26 +247,6 @@ def test_read_it_again_keeps_your_edits_until_you_fill_again(app, owner, db, cli
     assert (filled.json()["edited_since_fill"], filled.json()["new_fill_ready"]) == (False, False)
     assert owner.get(url).json()["versions"][0]["text"] != "GROOM: My own words."
     assert owner.post(f"{url}/fill-from-reel").status_code == 409  # nothing new now
-
-
-def test_read_it_again_past_the_week_runs_nothing(app, owner, editor, db, clip):
-    url = _read(app, editor, db, clip)
-    limits = owner.get("/credits/limits").json()
-    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 0})
-    jobs = db.query(Job).count()
-    refused = editor.post(f"{url}/import/read-again", json={})
-    assert refused.status_code == 409 and "you have 0 left this week" in refused.json()["detail"]
-    assert db.query(Job).count() == jobs and "Reed" not in refused.json()["detail"]
-
-
-def test_a_refusal_rounds_the_price_up_and_whats_left_down():
-    """QA on #452: 3.5 left reads "3 left", so it never says "needs 4; you have 4 left"."""
-    from decimal import Decimal
-
-    from app.credits import shown
-
-    assert shown(Decimal("3.6"), Decimal("3.5")) == (4, 3)
-    assert shown(Decimal("2"), Decimal("-1")) == (2, 0)
 
 
 def test_a_worse_reading_can_be_swapped_back_for_free(app, owner, db, clip):

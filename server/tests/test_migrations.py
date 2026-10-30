@@ -70,7 +70,25 @@ def test_saved_caps_on_the_old_default_move_to_729(tmp_path):
         )
         weekly = conn.execute(text("SELECT weekly_quick_clip_credits FROM credit_limits")).all()
     assert caps == {1: 729, 2: 500}
-    assert {float(w) for (w,) in weekly} == {145}  # the old 150 default became $15 (0024)
+    assert {float(w) for (w,) in weekly} == {97}  # 150 became 145 (0024), then $10 (n16)
+
+
+def test_n16_moves_the_old_weekly_defaults_to_97_and_keeps_a_custom_one(tmp_path):
+    """One allowance (Reed, 30 Oct): $10 a week, Quick clips only."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n15")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        for ws, weekly in ((1, 145), (2, 150), (3, 200)):
+            _row(conn, "workspaces", id=ws)
+            _row(conn, "credit_limits", id=ws, workspace_id=ws, weekly_quick_clip_credits=weekly)
+    command.upgrade(cfg, "n16")
+    with engine.connect() as conn:
+        sql = "SELECT workspace_id, weekly_quick_clip_credits FROM credit_limits"
+        got = dict(conn.execute(text(sql)).all())
+    assert {k: float(v) for k, v in got.items()} == {1: 97, 2: 97, 3: 200}
 
 
 def test_n08_copies_never_say_and_end_line_and_keeps_them(tmp_path):

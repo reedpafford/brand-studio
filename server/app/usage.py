@@ -370,11 +370,9 @@ def script_credits(db: Session, brand_id: int, when: Period, made_by: int) -> di
 
 
 def week_lines(db: Session, user) -> tuple[Decimal, list[tuple[str, Decimal]]]:
-    """This person's week as their allowance counts it (credits.week_jobs, every brand), by
-    line: their videos, quick clips, scripts' writing, each other kind (a look, a check),
-    and what's paid ahead but not run yet. The lines add up to the week's used."""
+    """This person's week as their allowance counts it (credits.week_jobs: Quick clips only,
+    every brand), by line. The lines add up to the week's used."""
     from app.credits import COUNTED, week_jobs
-    from app.reel_read import held
 
     lines: dict[str, Decimal] = {}
     for job in db.scalars(select(Job).where(Job.status.in_(COUNTED), *week_jobs(user))):
@@ -388,6 +386,4 @@ def week_lines(db: Session, user) -> tuple[Decimal, list[tuple[str, Decimal]]]:
         else:
             label = STEPS.get(step, "Other")
         lines[label] = lines.get(label, Decimal(0)) + Decimal(job.credits or 0)
-    if ahead := held(db, user):
-        lines["Paid ahead, not run yet"] = ahead
     return sum(lines.values(), Decimal(0)), sorted(lines.items(), key=lambda kv: -kv[1])

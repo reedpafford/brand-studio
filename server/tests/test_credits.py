@@ -146,31 +146,33 @@ def test_cancelled_and_failed_jobs_free_their_credits(project, editor, ed, db):
 
 
 def test_quick_clips_use_a_weekly_allowance_per_editor(editor, ed, db):
-    """$15 a week (Reed): past it an editor's own work is declined, never sent to the owner."""
-    assert enqueue(db, ed, "video-480p", {}, units=100).status == "queued"
+    """$10 a week, Quick clips only (Reed, 30 Oct): past it a Quick clip is declined, never
+    sent to the owner, and the words never say "ask Reed"."""
+    assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
     with pytest.raises(HTTPException) as err:
-        enqueue(db, ed, "video-480p", {}, units=60)
+        enqueue(db, ed, "video-480p", {}, units=40)
     assert err.value.status_code == 409
     assert err.value.detail == (
-        "That's more than this week's 145 credits (100 used). It resets on Monday."
+        "That's more than this week's 97 credits (60 used). It resets on Monday."
     )
     assert db.query(Job).count() == 1  # nothing queued or held
-    assert enqueue(db, ed, "video-480p", {}, units=45).status == "queued"  # exactly 145
+    assert enqueue(db, ed, "video-480p", {}, units=37).status == "queued"  # exactly 97
     me = editor.get("/credits/me").json()
-    assert (me["quick_clip_credits_used"], me["quick_clip_credits_allowed"]) == (145, 145)
+    assert (me["quick_clip_credits_used"], me["quick_clip_credits_allowed"]) == (97, 97)
     resets = date.fromisoformat(me["resets_on"])
     assert resets.weekday() == 0 and resets > utcnow().date()  # next Monday: "It resets on…"
     with pytest.raises(HTTPException) as spent:
         enqueue(db, ed, "video-480p", {}, units=1)
-    assert spent.value.detail == "You've used this week's 145 credits. It resets on Monday."
+    assert spent.value.detail == "You've used this week's 97 credits. It resets on Monday."
+    assert "reed" not in spent.value.detail.lower()
     assert not db.query(Job).filter_by(status="needs_owner_approval").count()  # never held
 
 
 def test_last_weeks_quick_clips_do_not_count(ed, db):
-    old = enqueue(db, ed, "video-480p", {}, units=145)
+    old = enqueue(db, ed, "video-480p", {}, units=97)
     old.created_at = credits_module.week_start().replace(year=2020)
     db.commit()
-    assert enqueue(db, ed, "video-480p", {}, units=145).status == "queued"
+    assert enqueue(db, ed, "video-480p", {}, units=97).status == "queued"  # a new week
 
 
 def test_owner_jobs_are_never_held(owner, db):
@@ -223,7 +225,7 @@ def test_two_project_jobs_at_once_cannot_both_fit(app, project, ed, db, monkeypa
 
 
 def test_two_quick_clips_at_once_cannot_both_fit(app, ed, db, monkeypatch):
-    enqueue(db, ed, "video-480p", {}, units=135)  # 135 of 145 used
+    enqueue(db, ed, "video-480p", {}, units=87)  # 87 of 97 used
 
     def make(s):
         try:
@@ -267,16 +269,16 @@ def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, d
     with TestClient(app) as c:
         c.post("/auth/accept-invite", json={"token": token, "name": "Two", "password": PASSWORD})
     second = db.query(User).filter_by(email="two@example.com").one()
-    clips = [enqueue(db, ed, "video-480p", {}, units=60).status for _ in range(2)]
+    clips = [enqueue(db, ed, "video-480p", {}, units=40).status for _ in range(2)]
     assert clips == ["queued", "queued"]
     with pytest.raises(HTTPException):
-        enqueue(db, ed, "video-480p", {}, units=60)  # 180 > 145: declined
-    assert enqueue(db, second, "video-480p", {}, units=60).status == "queued"
+        enqueue(db, ed, "video-480p", {}, units=40)  # 120 > 97: declined
+    assert enqueue(db, second, "video-480p", {}, units=40).status == "queued"
     owner.put(
         "/credits/limits",
-        json={"weekly_quick_clip_credits": 180, "per_video_max_credits": 340},
+        json={"weekly_quick_clip_credits": 120, "per_video_max_credits": 340},
     )
-    assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
+    assert enqueue(db, ed, "video-480p", {}, units=40).status == "queued"
 
 
 def test_approving_a_project_releases_its_held_jobs_within_budget(owner, editor, ed, db):
@@ -352,7 +354,7 @@ def test_limits_put_needs_the_cap_so_it_is_never_reset_by_omission(owner):
 def test_default_cap_is_75_dollars_and_no_editor_length_limit(editor):
     limits = editor.get("/credits/limits").json()
     assert limits == {
-        "weekly_quick_clip_credits": 145,
+        "weekly_quick_clip_credits": 97,  # $10 a week (Reed, 30 Oct)
         "per_video_max_credits": 729,
     }
     assert 729 * 0.1028 <= 75  # floored: never more than $75
@@ -370,35 +372,27 @@ def test_a_single_quick_clip_cannot_pass_the_cap(owner, ed, db):
     assert enqueue(db, me, "video-480p", {}, units=50).status == "queued"
 
 
-def test_videos_from_an_editors_own_script_use_their_allowance(owner, editor, ed, db):
-    """Reed: editors' own scripts run on their $15 a week, declined past it; videos from the
-    owner's scripts keep the 2x budget and wait for approval past it."""
+def test_a_video_from_an_editors_own_script_runs_on_its_budget_not_the_week(owner, editor, ed, db):
+    """Reed, 30 Oct: anything in a script or video is a brand's work, so it runs on the
+    video's budget like any other (declined past it, never "ask Reed") and never counts
+    toward the week; only Quick clips do."""
     from app.models.script_library import ScriptDraft
 
     fomo = owner.get("/brands").json()[0]["id"]
-
-    def video(client, planned):
-        script = client.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
-        draft = db.query(ScriptDraft).filter_by(script_id=script.json()["id"]).one()
-        made = editor.post(
-            "/projects", json={"brand_id": fomo, "name": "V", "planned_seconds": planned}
-        )
-        project = db.get(Project, made.json()["id"])
-        project.script_draft_id = draft.id
-        db.commit()
-        return project
-
-    own = video(editor, 100)  # budget over 200, but the allowance (145) is the limit
-    assert enqueue(db, ed, "video-480p", {}, units=100, project=own).status == "queued"
+    script = editor.post("/scripts", json={"brand_id": fomo, "title": "S", "text": "A: hi"})
+    draft = db.query(ScriptDraft).filter_by(script_id=script.json()["id"]).one()
+    made = editor.post("/projects", json={"brand_id": fomo, "name": "V", "planned_seconds": 10})
+    own = db.get(Project, made.json()["id"])
+    own.script_draft_id = draft.id
+    db.commit()
+    assert enqueue(db, ed, "video-480p", {}, units=own.budget_credits, project=own).status == (
+        "queued"
+    )
     with pytest.raises(HTTPException) as err:
-        enqueue(db, ed, "video-480p", {}, units=50, project=own)
-    assert err.value.status_code == 409
-    with pytest.raises(HTTPException):
-        enqueue(db, ed, "video-480p", {}, units=50)  # the same allowance as Quick clips
-    reeds = video(owner, 10)
-    with pytest.raises(HTTPException) as err:
-        enqueue(db, ed, "video-480p", {}, units=reeds.budget_credits + 1, project=reeds)
-    assert err.value.detail == "That's more than this video's budget."  # #399: no Ask Reed
+        enqueue(db, ed, "video-480p", {}, units=1, project=own)
+    assert err.value.detail == "That's more than this video's budget."
+    assert editor.get("/credits/me").json()["quick_clip_credits_used"] == 0  # not the week
+    assert enqueue(db, ed, "video-480p", {}, units=97).status == "queued"  # a whole week left
 
 
 def test_owner_sees_each_editors_allowance(owner, editor, ed, db):
@@ -408,7 +402,7 @@ def test_owner_sees_each_editors_allowance(owner, editor, ed, db):
             "user_id": ed.id,
             "name": "Ed",
             "quick_clip_credits_used": 40,
-            "quick_clip_credits_allowed": 145,
+            "quick_clip_credits_allowed": 97,
         }
     ]
     assert editor.get("/credits/allowances").status_code == 403
@@ -416,10 +410,9 @@ def test_owner_sees_each_editors_allowance(owner, editor, ed, db):
 
 
 def test_one_rounding_for_every_price_shown():
-    """Change it, the cast redraw and refusals all round a price the same way: up, never 0."""
-    price, shown = credits_module.price, credits_module.shown
+    """Change it and the cast redraw round a price the same way: up, never 0."""
+    price = credits_module.price
     assert [price(Decimal(x)) for x in ("0.2", "1", "3.01")] == [1, 1, 4]
-    assert shown(Decimal("3.01"), Decimal("3.99")) == (4, 3)
 
 
 def test_a_short_video_with_two_new_looks_reaches_its_take(owner, editor, ed, db):
