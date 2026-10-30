@@ -131,12 +131,12 @@ test("Takes: past the real-song test budget, the step says new takes are stand-i
 
 test("Takes: Preferred in words; one being made, one still being timed (can't be Preferred yet); a timing failure a retry won't fix offers the other take, not the even spread", async () => {
   setViewport(1440);
-  const list = songs([take({ preferred: true }), take({ id: 2, number: 2, status: "timing" }), take({ id: 3, number: 3, status: "timing_failed", retry_helps: false, failed_reason: "This take's file can't be read, so its timing can't be measured." }), take({ id: 4, number: 4 }), take({ id: 5, number: 5, status: "making", file_id: null, seconds: null, made_at: null })]);
+  const list = songs([take({ preferred: true }), take({ id: 2, number: 2, status: "timing" }), take({ id: 3, number: 3, status: "timing_failed", retry_helps: false, failed_reason: "This take's file can't be read, so its timing can't be measured." }), take({ id: 4, number: 4 }), take({ id: 5, number: 5, status: "making", file_id: null, seconds: null, made_at: null, started_at: new Date(Date.now() - 70_000).toISOString() })]);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, list] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("Preferred")).toBeInTheDocument();
   expect(screen.getAllByText("0:31 · a video of about 34 credits")).toHaveLength(4); // every take with a length says what its video would cost
-  expect(screen.getByText((_, el) => el?.tagName === "P" && /^Making the song… 0:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument(); // flows S4: a timer, m:ss
+  expect(screen.getByText((_, el) => el?.tagName === "P" && /^Making the song… 1:1\d$/.test(el.textContent ?? ""))).toBeInTheDocument(); // flows S4: from when its job started (#1033), so a reload keeps it
   expect(screen.getAllByRole("button", { name: "Make this Preferred" })[0]).toBeDisabled();
   expect(screen.getByText("This take's file can't be read, so its timing can't be measured.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
@@ -323,4 +323,11 @@ test("Keep the first N lines says so when the part dropped holds the brand's end
   open("/b/1/scripts/7?step=takes");
   await userEvent.click(await screen.findByRole("button", { name: "Keep the first 2 lines · free" }));
   expect(screen.getByRole("alertdialog")).toHaveTextContent("The brand's end line is in the part dropped.");
+});
+
+test("a song take that hasn't started says Waiting to start, with a timer", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "making", file_id: null, seconds: null, made_at: null, started_at: null })])] });
+  open("/b/1/scripts/7?step=takes");
+  expect(await screen.findByText((_, el) => el?.tagName === "P" && /^Waiting to start · 0:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument();
 });

@@ -178,6 +178,18 @@ test('at 390 a waiting take says "Waiting to start · m:ss" from when it was ask
   expect(await within(card).findByText((_, el) => el?.tagName === "SPAN" && /^Waiting to start · 2:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument();
 });
 
+test("a take that is running counts Making… from when it started, not from when it was asked", async () => {
+  setViewport(390);
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ id: 2, clip_id: "c2" })]],
+    "GET /jobs": [200, [{ id: 21, kind: "video", step: "clip_take", status: "running", credits: 24, project_id: 9, project_clip_id: 2, created_at: new Date(Date.now() - 600_000).toISOString(), started_at: new Date(Date.now() - 5_000).toISOString() }]],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c2");
+  expect(await within(card).findByText((_, el) => el?.tagName === "SPAN" && /^Making… 0:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument();
+});
+
 test("takes can be picked, and Approve take approves the picked one", async () => {
   const calls = fakeServer({
     ...base,

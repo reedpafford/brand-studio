@@ -586,6 +586,6 @@ test('at 390, frames waiting to be written say "Waiting to start · m:ss", then 
   open();
   const line = (re: RegExp) => screen.findByText((_, el) => el?.tagName === "P" && re.test(el.textContent ?? ""), {}, { timeout: 5000 }); // the job list is read every 3 s
   expect(await line(/^Waiting to start · 1:0\d$/)).toBeInTheDocument();
-  routes["GET /jobs"] = [200, [{ ...job, status: "running" }]];
-  expect(await line(/^Writing your frames… 1:\d\d$/)).toBeInTheDocument();
+  routes["GET /jobs"] = [200, [{ ...job, status: "running", started_at: new Date(Date.now() - 5_000).toISOString() }]];
+  expect(await line(/^Writing your frames… 0:0\d$/)).toBeInTheDocument(); // from when it started, not when it was asked
 });

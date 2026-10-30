@@ -12,14 +12,15 @@ import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
-/** "Making the song… 0:12" (flows S4). A take carries no start time, so the clock counts from when it was first shown. */
-function Making() {
-  const [since] = useState(() => new Date().toISOString());
+/** "Making the song… 0:12" (flows S4), counted from when its job started (#1033), so a reload keeps the time. Before it
+ *  starts it reads "Waiting to start", counted from when it was first shown (a take doesn't say when it was asked). */
+function Making({ started }: { started: string | null }) {
+  const [shown] = useState(() => new Date().toISOString());
   return (
     <div role="status" className="space-y-2">
       <Skeleton className="h-11" />
       <p className="text-sm text-muted">
-        <JobClock queued={false} making="Making the song…" since={since} />
+        <JobClock queued={!started} making="Making the song…" since={started ?? shown} />
       </p>
     </div>
   );
@@ -82,7 +83,7 @@ function TakeCard({ t, a, readOnly, others, onDefaultStyle }: { t: SongTake; a: 
         )}
       </div>
       {t.status === "making" ? (
-        <Making />
+        <Making started={t.started_at} />
       ) : t.file_id !== null && t.seconds !== null ? (
         <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={label} />
       ) : null}

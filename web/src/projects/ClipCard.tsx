@@ -64,7 +64,7 @@ export function ClipCard(props: {
   aspect: string;
   poster: number | null;
   projectName: string;
-  job: { id: number; status: string; created_at: string; error?: string | null; waiting?: string } | undefined;
+  job: { id: number; status: string; created_at: string; started_at?: string | null; error?: string | null; waiting?: string } | undefined;
   busy: boolean;
   blockers: Blocker[];
   toRead: boolean;
@@ -126,7 +126,7 @@ export function ClipCard(props: {
           {status && `${status}${checkedMark(check)}`}
           {!status && (
             <>
-              <JobClock queued={props.job?.status === "queued"} making="Making…" since={props.job?.created_at} />
+              <JobClock queued={props.job?.status === "queued"} making="Making…" since={props.job?.status === "queued" ? props.job.created_at : (props.job?.started_at ?? props.job?.created_at)} />
             </>
           )}
         </span>
