@@ -20,6 +20,7 @@ from app.credits import (
     lock,
     needs_approval,
     over_allowance,
+    someone_elses_quick_clip,
 )
 from app.db import get_db, utcnow
 from app.job_brand import brand_for
@@ -209,10 +210,8 @@ def _seen_job(db: Session, user: User, job_id: int) -> Job:
     """A job the caller may see: another editor's Quick clip is theirs alone (Reed), so it's
     "no such job" as if it weren't there; a video's or script's steps are the team's."""
     job = _get_job(db, user, job_id)
-    quick = job.project_id is None and not job.input.get("step")
-    if quick and job.kind.startswith(("video", "image")):
-        if not (user.is_owner or job.created_by_id == user.id):
-            raise HTTPException(404, "No such job.")
+    if someone_elses_quick_clip(user, job):
+        raise HTTPException(404, "No such job.")
     return job
 
 
@@ -258,7 +257,7 @@ def _prompt(job: Job) -> str:
 def _quick_clip(db: Session, user: User, job_id: int, removed: bool) -> Job:
     """A finished Quick clip of the caller's (the owner: anyone's). Video steps and paid work
     still going can't be taken off the history."""
-    job = _get_job(db, user, job_id)
+    job = _seen_job(db, user, job_id)
     if (job.removed_at is not None) != removed:
         raise HTTPException(404, "No such clip in the history.")
     if not (user.is_owner or job.created_by_id == user.id):

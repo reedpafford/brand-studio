@@ -3989,7 +3989,7 @@ export interface paths {
         /**
          * Clip Request
          * @description The full request a clip was made from (prompt, settings, brand pieces), for "Try again"
-         *     and "Reuse prompt". Same visibility as the job itself: the caller's workspace.
+         *     and "Reuse prompt". Same visibility as the job itself: another editor's isn't there.
          */
         get: operations["clip_request_clips__job_id__request_get"];
         put?: never;

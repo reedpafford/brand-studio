@@ -85,13 +85,13 @@ def _tick(app, db, fake, job, times=1):
     return job
 
 
-def test_video_runs_downloads_output_and_records_real_cost(app, owner, editor, db, fake):
+def test_video_runs_downloads_output_and_records_real_cost(app, owner, db, fake):
     job = _job(db)
     assert job.credits == 5  # catalogue: 1 credit per 480p second
     assert _tick(app, db, fake, job).status == "running"
     assert _tick(app, db, fake, job, 2).status == "succeeded"
     file_id = job.output["file_ids"][0]
-    assert editor.get(f"/files/{file_id}").content == MP4
+    assert owner.get(f"/files/{file_id}").content == MP4  # its maker (an editor: not theirs)
     usage = db.query(Usage).one()
     assert (usage.units, usage.cost_usd, usage.estimated) == (5, Decimal("0.5140"), False)
     assert job.credits == 5
