@@ -184,10 +184,9 @@ def breakdown(
         problems.append("clips don't cover the shots once each, in order")
     by_id = {shot.id: shot for shot in shots}
     scene_of = {shot.id: scene.id for scene in bd.scenes for shot in scene.shots}
+    problems += clip_lengths(bd, min_s, max_s)
     for clip in bd.clips:
         total = sum(by_id[s].seconds for s in clip.shot_ids if s in by_id)
-        if not min_s <= clip.seconds <= max_s:
-            problems.append(f"clip {clip.id}: {clip.seconds} s is outside {min_s}–{max_s} s")
         if clip.seconds < total - 0.5:
             problems.append(f"clip {clip.id}: {clip.seconds} s is shorter than its shots")
         screens = {sid for s in clip.shot_ids if s in by_id for sid in by_id[s].screen_ids}
@@ -198,6 +197,13 @@ def breakdown(
             problems.append(f"{ADVICE}clip {clip.id} crosses scenes {', '.join(map(str, scenes))}; "
                             "end it where the place or time changes")  # fmt: skip
     return problems
+
+
+def clip_lengths(bd, min_s: int, max_s: int) -> list[str]:
+    """Clips the video model can't make at their length (blocking; one over its longest has
+    the Split fix). Also run on a video-model switch (breakdown.follow_model)."""
+    return [f"clip {c.id}: {c.seconds} s is outside {min_s}–{max_s} s"
+            for c in bd.clips if not min_s <= c.seconds <= max_s]  # fmt: skip
 
 
 def _money(shot) -> bool:

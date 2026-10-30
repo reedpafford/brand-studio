@@ -457,3 +457,45 @@ def test_a_song_videos_quote_card_and_bar_are_one_figure(app, db, owner, song):
     assert quote == pytest.approx(card)  # the card and the quote: one figure
     assert quote == pytest.approx(plan + bar, abs=0.01)  # what the press and the rest cost
     assert to_finish == pytest.approx(bar, abs=0.01)
+
+
+def test_a_clip_over_the_video_models_longest_is_flagged_refused_and_split(app, db, owner, song):
+    """QA #1013: the 0:24 song is one 25 s clip on Seedance 2.5 (30 s), fine; switched to 2.0
+    (15 s) the plan says so with its Split fix, a take is refused before any charge, and
+    Split the clip makes clips 2.0 can make."""
+    from sqlalchemy import func, select
+
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+
+    _style(owner, song, "pop")
+    owner.post(f"{song}/songs", json={})
+    _work(app, db)
+    owner.post(f"{song}/approve")
+    owner.post(f"{song.rsplit('/drafts', 1)[0]}/publish")
+    made = owner.post(f"{song}/produce", json={"video_model": "seedance-2.5"}).json()
+    video = f"/projects/{made['project_id']}"
+    _work(app, db)
+    _approve_plan(app, db, owner, video)
+    long = [c for c in owner.get(f"{video}/breakdown").json()["breakdown"]["clips"]
+            if c["seconds"] > 15]  # fmt: skip
+    assert long and not [p for p in owner.get(f"{video}/breakdown").json()["problems"]
+                         if "is outside" in p]  # fmt: skip
+    owner.post(f"{video}/clips/prompts")
+    _work(app, db)
+    switched = owner.post(f"{video}/settings", json={"video_model": "seedance-2.0"})
+    assert switched.status_code == 200, switched.text
+    plan = owner.get(f"{video}/breakdown").json()
+    said = f"clip {long[0]['id']}: {long[0]['seconds']} s is outside 4–15 s"
+    assert said in plan["problems"]
+    assert {"problem": said, "kind": "split_clip", "label": "Split the clip"} in plan["fixes"]
+    row = db.scalars(select(ProjectClip).where(ProjectClip.seconds > 15)).first()
+    spent = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)))
+    refused = owner.post(f"{video}/clips/{row.id}/generate")
+    assert refused.status_code == 409 and "at most 15 s" in refused.json()["detail"]
+    assert db.scalar(select(func.coalesce(func.sum(Job.credits), 0))) == spent  # no charge
+    fixed = owner.post(f"{video}/breakdown/fix", json={"problems": [said]})
+    assert fixed.status_code == 200, fixed.text
+    newest = db.scalars(select(BreakdownVersion).order_by(BreakdownVersion.id.desc())).first()
+    assert max(c["seconds"] for c in newest.data["clips"]) <= 15
+    assert not [p for p in fixed.json()["problems"] if "is outside" in p]

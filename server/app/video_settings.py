@@ -267,6 +267,10 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     for k, v in values.items():
         setattr(project, k, v)
     follow_lip_sync(db, project, could)
+    if "video_model" in values:
+        from app.breakdown import follow_model
+
+        follow_model(db, project)
     if "look" in values:
         follow_own_looks(db, project)
     db.commit()

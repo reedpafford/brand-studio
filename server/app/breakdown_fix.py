@@ -17,17 +17,22 @@ KINDS = {  # the problem as said (advice.plain), and its fix
         r"shorter than its shots)$"
     ),
     "fix_cast": re.compile(r"^Check the cast: "),  # QA-Live: no blocking line without its fix
+    "split_clip": re.compile(r"(?i)^clip (c\d+): (\d+) s is outside \d+–(\d+) s$"),
 }
 LABELS = {
     "add_line": "Add it to a shot",
     "restore_line": "Use the script's words",
     "recover_clips": "Fit the clips to the shots",
     "fix_cast": "Put the right cast in each shot",
+    "split_clip": "Split the clip",
 }
 
 
 def kind(problem: str) -> str | None:
-    return next((k for k, pattern in KINDS.items() if pattern.match(problem)), None)
+    k = next((k for k, pattern in KINDS.items() if pattern.match(problem)), None)
+    if k == "split_clip" and (m := KINDS[k].match(problem)) and int(m[2]) <= int(m[3]):
+        return None  # too short: only too long is split
+    return k
 
 
 def fixes(problems: list[str]) -> list[dict]:
@@ -78,7 +83,35 @@ def repair(script: str, bd: Breakdown, problems: list[str], min_s: int, max_s: i
         elif k == "recover_clips" and "Fitted the clips to the shots." not in done:
             if _recover(bd, shots, min_s, max_s):
                 done.append("Fitted the clips to the shots.")
+        elif k == "split_clip" and _split(bd, shots, m[1], min_s, max_s):
+            done.append(f"Split clip {m[1][1:]} so the video model can make it.")
     return bd, done
+
+
+def _split(bd: Breakdown, shots: list, clip_id: str, min_s: int, max_s: int) -> bool:
+    """A clip longer than the video model makes, cut between its shots into clips it can
+    (rule 29), then numbered c1, c2, … again. A song video's fit sets each new clip's length
+    from the song when it's saved."""
+    at = next((i for i, c in enumerate(bd.clips) if c.id == clip_id), None)
+    seconds = {s.id: s.seconds for s in shots}
+    if at is None:
+        return False
+    groups, run = [[]], 0.0
+    for sid in bd.clips[at].shot_ids:
+        if groups[-1] and run + seconds.get(sid, 0) > max_s:
+            groups, run = [*groups, []], 0.0
+        groups[-1].append(sid)
+        run += seconds.get(sid, 0)
+    if len(groups) < 2:
+        return False  # one shot longer than the model makes: shorten the shot instead
+    bd.clips[at : at + 1] = [
+        bd.clips[at].model_copy(update={"shot_ids": ids, "seconds": min(max(
+            math.ceil(sum(seconds.get(i, 0) for i in ids) - 0.5), min_s), max_s)})
+        for ids in groups
+    ]  # fmt: skip
+    for n, clip in enumerate(bd.clips, 1):
+        clip.id = f"c{n}"
+    return True
 
 
 def _recover(bd: Breakdown, shots: list, min_s: int, max_s: int) -> bool:
