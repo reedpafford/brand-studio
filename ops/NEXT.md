@@ -40,6 +40,7 @@ Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or
 - **QA:** #1036 (`started_at` on jobs). **QA-3:** #1013 (Split; last attempt, parked if it fails again), #1022 re-check (after #1008 lands, CostBar conflict), #1031 (Song in any look, n15; merging next with the `fmt` rename).
 - **Next-Screens:** after #1026 and #1036, one PR: the song, clip and storyboard "Making…" clocks count from `started_at`.
 - **Director:** after #1031, song.md keeps only its still and clip guides; delete the podcast, vox and whiteboard style files and their test lines.
+- **Parked (credit cuts; small, not regressions):** a queued song take's "Waiting to start" counts from page open and resets on reload (needs the job's `created_at` on SongTakeOut plus one line in TakesStep; QA-3 on #1043). After Split and Rewrite the cost bar reads a little high (19) until a reload (16); above the charge, never below (QA-3 on #1013).
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
 - **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song is a format in any look (30 Oct, #1031).
 
