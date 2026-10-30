@@ -59,4 +59,7 @@ class BrandScreen(Entity, Base):
     product: Mapped[str] = mapped_column(String(60), default="")
     variant: Mapped[str] = mapped_column(String(60), default="")
     balance: Mapped[str] = mapped_column(String(40), default="")  # as printed on it, if any
+    # Where a shot's figure is written on it (screen_figures.py): {"box": [x0, y0, x1, y1]
+    # cleared, "at": [x, y] of the number, "size": its px, "chart": [x0, y0, x1, y1] or none}.
+    figure_spot: Mapped[dict | None] = mapped_column(JSON, default=None)
     deleted_at: Mapped[datetime | None]  # deleted, kept for Undo; never used while set

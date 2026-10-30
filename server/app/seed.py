@@ -120,6 +120,7 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
                 product=meta.get("product", ""),
                 variant=meta.get("variant", ""),
                 balance=meta.get("balance", ""),
+                figure_spot=meta.get("figure_spot"),
             )
         )
         existing.add(name)
@@ -148,6 +149,7 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
         screen.default_for = sorted(set(meta.get("default_for", [])))
         screen.product, screen.variant = meta.get("product", ""), meta.get("variant", "")
         screen.balance = meta.get("balance", "")
+        screen.figure_spot = meta.get("figure_spot")
 
 
 def main(folder: str, slug: str = "fomo") -> None:

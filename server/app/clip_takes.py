@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import video_settings
+from app import screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -85,7 +85,15 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
             "generate_audio": True,
         },
         "files": {k: v for k, v in files.items() if v},
+        "screen_figures": screen_figures.for_job(
+            db, [r["id"] for r in clip.references], _shots(breakdown, shots)
+        ),
     }
+
+
+def _shots(breakdown: dict, ids: list[str]) -> list[dict]:
+    by_id = {s["id"]: s for scene in breakdown["scenes"] for s in scene["shots"]}
+    return [by_id[i] for i in ids if i in by_id]
 
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:

@@ -17,6 +17,7 @@ from pathlib import Path
 from PIL import Image
 from sqlalchemy.orm import Session
 
+from app import screen_figures
 from app.enhance import project_screens, screen_name
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
@@ -36,6 +37,7 @@ class Insert:
     start: float  # seconds into the clip, as planned (scaled to the real take when stitching)
     end: float
     on: bool
+    figure: dict | None = None  # the shot's figure, drawn on the picture (screen_figures.py)
 
 
 def inserts(db: Session, project: Project, clip: ProjectClip) -> list[Insert]:
@@ -54,7 +56,10 @@ def inserts(db: Session, project: Project, clip: ProjectClip) -> list[Insert]:
             continue
         screen = screens[first]
         on = (clip.real_images or {}).get(shot_id, False)
-        out.append(Insert(shot_id, first, screen_name(screen), screen.file_id, start, at, on))
+        figure = screen_figures.shot_figure(screen, shot)
+        out.append(
+            Insert(shot_id, first, screen_name(screen), screen.file_id, start, at, on, figure)
+        )
     return out
 
 

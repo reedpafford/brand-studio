@@ -1,6 +1,8 @@
 """Brand screens: named images of the brand's real UI, tagged, some attached to moments
 by default (e.g. fomo's trading screens appear whenever a scene is about trading)."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -29,6 +31,18 @@ class ScreenIn(BaseModel):
     variant: ShortText = ""  # e.g. "Chicken"; each project picks one variant per product
 
 
+Box = Annotated[list[Annotated[int, Field(ge=0, le=10000)]], Field(min_length=4, max_length=4)]
+
+
+class FigureSpot(BaseModel):
+    """Where a shot's figure is written on this screen (screen_figures.py), in pixels."""
+
+    box: Box  # cleared to the screen's background: x0, y0, x1, y1
+    at: list[Annotated[int, Field(ge=0, le=10000)]] = Field(min_length=2, max_length=2)  # number
+    size: int = Field(ge=8, le=400)  # the number's height; the gain line is under it, smaller
+    chart: Box | None = None  # a fresh chart is drawn here, when set
+
+
 class ScreenPatch(BaseModel):
     name: Name | None = None
     file_id: int | None = None
@@ -37,12 +51,14 @@ class ScreenPatch(BaseModel):
     product: ShortText | None = None
     variant: ShortText | None = None
     balance: str | None = Field(None, max_length=40)
+    figure_spot: FigureSpot | None = None  # no spot: shots get the plain screen
 
 
 class ScreenOut(ScreenIn):
     id: int
     brand_id: int
     balance: str  # the money the picture shows, e.g. "$348,920.15" (set with PATCH or seed)
+    figure_spot: FigureSpot | None
 
 
 def _get_screen(
