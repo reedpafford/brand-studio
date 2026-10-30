@@ -414,9 +414,9 @@ export interface paths {
         head?: never;
         /**
          * Update Brand
-         * @description Change the brand. BR1's new sections are the owner's; what editors changed before BR1
-         *     (name, logo, colours, fonts, notes, never_say, legal and end line) they still may, until
-         *     Reed decides. Nothing already made or published changes (BR1).
+         * @description Change the brand, setup included (Reed, 30 Oct: editors fill in the Brand page too;
+         *     creating, archiving and the paid site read stay the owner's). Nothing already made or
+         *     published changes (BR1).
          */
         patch: operations["update_brand_brands__brand_id__patch"];
         trace?: never;
