@@ -103,7 +103,7 @@ Where: Script Library → **New script**.
 | E | Three formats: **Dialogue** (as today's Story: people speak on camera), **Song** ("Your lyrics, sung word for word over a music video") and **Narrated** ("One voice reads your script over B-roll, with music"). The Look is a separate setting (ST1). | **Song** → a new draft opens on its Song step. **Narrated** → it opens on Write, then Narration (N1). |
 | O/Ed | Both roles see it. An editor's song script is their own script: everything paid on it counts against their week (rule 5). | — |
 | P | The two choices stacked, full width. | — |
-| U | Back leaves an untouched draft behind? No: an empty draft is not saved until the first word is typed (as today). | Browser back returns to the Library. |
+| U | Back leaves an untouched draft behind? No: a new script is saved by its first typed word or its first press (picking a look, a language or a direction), never by just opening it. | Browser back returns to the Library. |
 | Library | Song scripts carry a **Song** tag in the Library list and a "Song" filter chip. | Tapping one opens it on its first unfinished step. |
 
 Bulk create and reel import still make Dialogue scripts. To learn from a song ad, the owner studies it inside Song (**S3a**): a study informs the directions, it never becomes the lyrics. **Decided here** (Reed's song workflow, #807 item 4).
@@ -546,6 +546,8 @@ A look is a config file (in `server/app/prompts/styles/`, kind: look), not code.
 ## ST1. Picking a look (on a script)
 
 Where: the script's header, next to the title ("Look: House ▾"), for every format. It defaults to the brand's default look (item 3), else House.
+
+**Song is a format, not a look** (Reed, 30 Oct; #1031): a song script or video can be in any look, and the look picker never lists Song. A video's type comes from its script's Format. Anything that was on the old Song look moved to its brand's default look (n15).
 
 | State | What they see | The one press |
 |---|---|---|
