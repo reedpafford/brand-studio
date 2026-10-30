@@ -265,7 +265,7 @@ def estimate_clip(
     """What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
     answers 409 with the same plain words Generate would (never sent to the owner)."""
     plan = _plan(db, user, body, request.app.state.storage)
-    if declined := over_allowance(db, user, None, plan.credits):
+    if declined := over_allowance(db, user, plan.credits):
         raise HTTPException(409, declined)
     return EstimateOut(
         credits=plan.credits,
