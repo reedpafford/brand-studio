@@ -6703,6 +6703,11 @@ export interface components {
             sample_still_id?: number | null;
             /** Sample Clip Id */
             sample_clip_id?: number | null;
+            /**
+             * Own Sample
+             * @default false
+             */
+            own_sample: boolean;
         };
         /** LookSheetOut */
         LookSheetOut: {
@@ -8568,6 +8573,8 @@ export interface components {
             seconds: number | null;
             /** Made At */
             made_at: string | null;
+            /** Started At */
+            started_at: string | null;
             /** Preferred */
             preferred: boolean;
             /** In Video */

@@ -57,6 +57,18 @@ test("with no hero, Who's in the sample? offers the brand's characters or the lo
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /looks/pixar/sample").at(-1)?.body).toEqual({ brand_id: 1, character_id: 7 }));
 });
 
+test("a look with its own sample character offers no hero and no Who's in the sample? (Flow-QA on #1015)", async () => {
+  setViewport(390);
+  const skeleton = { ...pixar, own_sample: true };
+  const calls = fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ hero: null, look: skeleton })], "POST /looks/pixar/sample": [201, sample({ status: "making", hero: null, look: skeleton })] }));
+  open();
+  const card = await screen.findByLabelText("Disney Pixar");
+  expect(await within(card).findByText(/of the look's own sample character/)).toBeInTheDocument();
+  expect(within(card).queryByLabelText("Who's in the sample?")).toBeNull();
+  await userEvent.click(within(card).getByRole("button", { name: /Make a sample/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /looks/pixar/sample")?.body).toEqual({ brand_id: 1, character_id: null }));
+});
+
 test("a ready sample shows the whole portrait still (never cropped); tapping it opens the full still and the clip, with Switch on there", async () => {
   setViewport(1440);
   const calls = fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ status: "ready", still_id: 80, clip_id: 81 })], "PATCH /looks/pixar": [200, { ...pixar, on: true }] }));

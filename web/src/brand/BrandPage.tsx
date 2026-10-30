@@ -42,7 +42,7 @@ export function BrandPage() {
 
   return (
     <FrameContext.Provider value={{ slot, setDirty }}>
-      <div className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
+      <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
         <div className="flex items-end justify-between gap-3">
           <div className="flex items-end gap-2">
             <div>
@@ -64,7 +64,7 @@ export function BrandPage() {
           }}
         />
         {tab === "look" ? <KitPage /> : tab === "products" ? <ProductsTab /> : <ScreensTab />}
-      </div>
+      </main>
       {leaving && (
         <Dialog
           title="Leave without saving?"

@@ -26,6 +26,7 @@ class LookOut(BaseModel):
     on: bool  # editors can pick it
     sample_still_id: int | None = None  # ST3: the approved sample, once made
     sample_clip_id: int | None = None
+    own_sample: bool = False  # its sample shows its own person: no hero, no "Who's in it?"
 
 
 class LookSwitchIn(BaseModel):
@@ -37,7 +38,8 @@ def _out(db: Session, ws: int, look: dict) -> LookOut:
     return LookOut(id=look["id"], name=look["name"], blurb=look["blurb"],
                    on=looks.is_on(db, ws, look["id"]),
                    sample_still_id=row.sample_still_id if row else None,
-                   sample_clip_id=row.sample_clip_id if row else None)  # fmt: skip
+                   sample_clip_id=row.sample_clip_id if row else None,
+                   own_sample=look["own_sample"])  # fmt: skip
 
 
 @router.get("", response_model=list[LookOut])
@@ -97,12 +99,14 @@ def _sample(db: Session, owner: User, look_id: str, brand_id: int, settings) -> 
     brand, look = get_brand(db, owner, brand_id), looks.get(look_id)
     status, reason = look_samples.state(db, owner.workspace_id, look_id)
     row = looks.switch(db, owner.workspace_id, look_id)
-    hero = look_samples.hero(db, brand)
+    own = look["own_sample"]  # its own person: no hero, no pick (ST3)
+    hero = None if own else look_samples.hero(db, brand)
     return SampleOut(
         status=status, reason=reason,
         credits=credits.price(look_samples.retry_price(db, owner.workspace_id, look_id)),
         hero=Person(id=hero.id, name=hero.name) if hero else None,
-        characters=[Person(id=c.id, name=c.name) for c in look_samples.characters(db, brand)],
+        characters=[] if own else [Person(id=c.id, name=c.name)
+                                   for c in look_samples.characters(db, brand)],
         still_id=row.sample_still_id if row else None,
         clip_id=row.sample_clip_id if row else None,
         look=_out(db, owner.workspace_id, look),
