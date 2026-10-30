@@ -1545,3 +1545,20 @@ test("a version's default flavour is the row's; one the brand has since deleted 
   expect(within(row).getByRole("button", { name: /Flavour: Auto/ })).toBeInTheDocument();
   expect(within(row).queryByText(/Beef/)).toBeNull();
 });
+
+test("an editor opening someone else's published script by its title lands on Make this version for its first ready version (A12)", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, [script()]], "GET /scripts/7": [200, script()], "GET /scripts/7/cast": [200, []] });
+  open();
+  const title = await screen.findByRole("link", { name: "Bo tries salmon" });
+  expect(title.getAttribute("href")).toContain("make=7.1"); // version B is the ready one
+  await userEvent.click(title);
+  expect(await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" })).toBeInTheDocument();
+});
+
+test("the owner's title link still opens the script's own steps", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts": [200, [script()]] });
+  open();
+  expect(await screen.findByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
+});
