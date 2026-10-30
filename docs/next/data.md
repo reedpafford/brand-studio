@@ -29,6 +29,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n12 | A role's own look per look: `projects.own_looks` JSON `{slot_id: {look: item_id}}`, so switching back to a look reuses its own look (ST2) | Next-Server | #979 |
 | n13 | Preferred and going back (OR3): `projects.storyboard_history`, `project_clips.prompt_history`, below | Builder-Server-8 | #957 |
 | n14 | Languages (LG1): new `language_switches` {workspace_id, language_id, on, sample, switched_by_id, switched_at}, one per workspace and language | Switch-On | #972 |
+| n15 | Song in any look: no new column. Rows on look `song` (`scripts`, `projects`, `brands.default_look`) move to their brand's default look, else `house`; `look_switches` rows for `song` are deleted. Song is the script's `kind` (its Format), never a look. Downgrade is a no-op (which rows were on Song isn't kept) | Next-Server | #1031 |
 
 ## Merge order (the chain on `next`)
 
@@ -50,6 +51,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 11 | n03 | #968 | n13 | On `next` (e1517285) |
 | 12 | n12 | #979 | n03 | On `next` (d76cdfd6) |
 | 13 | n14 | #972 | n12 | On `next` (dfc43b33) |
+| 14 | n15 | #1031 | n14 | Open, testing (QA-3) |
 
 ## 1. Song ads
 

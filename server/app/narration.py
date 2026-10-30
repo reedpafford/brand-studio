@@ -21,6 +21,16 @@ VOICE = "Sarah"
 # Silence only: a quiet stretch (below -40 dB) longer than this is shortened to it
 PAUSE, QUIET = 0.25, "-40dB"
 
+
+def video_kind(db, project) -> str:
+    """A video's type is its script's kind: story, song or narrated. A video with no script
+    (the earlier New video form) is a story. Its look is a setting apart (Song in any look)."""
+    from app.models.script_library import Script, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    return db.get(Script, draft.script_id).kind if draft else "story"
+
+
 NO_WORDS = "Write the words first: the narrator reads them as written."
 FAILED = "The narration didn't finish. Nothing was charged."
 MAKING = "A narration is being made. It's ready in a moment."
