@@ -496,13 +496,32 @@ def song_request(lyrics: str, style_line: str) -> dict:
 
 
 HEADING = ("SCENE", "INT.", "EXT.")
+SECTION = re.compile(r"^\s*(\[[^\]]+\]\s*)+$")  # "[Chorus]", "[Chorus] [Lip-sync]"
 
 
-def plan_lines(script: str) -> list[int]:
+def plan_lines(script: str, song: bool = False) -> list[int]:
     """The script lines a scene plan covers, each once and in order (flows P1): every line
-    with words that isn't a scene heading."""
+    with words that isn't a scene heading. In a song, nor a section tag ("[Chorus]"): it
+    names the lines under it and gets no action of its own (Next-Layout's walk, row 7)."""
     lines = enumerate(script.splitlines(), 1)
-    return [n for n, x in lines if x.strip() and not x.strip().startswith(HEADING)]
+    return [n for n, x in lines if x.strip() and not x.strip().startswith(HEADING)
+            and not (song and SECTION.match(x))]  # fmt: skip
+
+
+def section_name(tag_line: str) -> str:
+    """A tag line's name: "[Chorus] [Lip-sync]" or "[Intro: …]": its first tag names it."""
+    return tag_line.split("]")[0].strip(" [").split(":")[0].strip()
+
+
+def sections(script: str) -> dict[int, str]:
+    """Each song line's section, from the tag line above it ("" before any)."""
+    out, now = {}, ""
+    for n, x in enumerate(script.splitlines(), 1):
+        if SECTION.match(x):
+            now = section_name(x)
+        elif x.strip():
+            out[n] = now
+    return out
 
 
 def plan_input(

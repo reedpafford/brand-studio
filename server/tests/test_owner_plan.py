@@ -102,3 +102,38 @@ def test_a_versions_plan_reads_while_made_and_once_landed(app, owner, db, monkey
     assert landed.status_code == 200, landed.text
     monkeypatch.undo()
     assert owner.get(url).json()["status"] == "ready" and owner.get(url).json()["scenes"]
+
+
+WALK = """[Intro]
+Wake up hungry, bowl is bright
+[Verse 1]
+Iron Paws, it feels so right
+Gut so happy, tail so high
+[Chorus] [Lip-sync]
+Iron Paws, my best ally
+Link in my bio"""
+
+
+def test_a_songs_section_tags_are_never_plan_lines_and_name_the_lines_under_them(app, owner, db):
+    """Next-Layout's walk, row 7: 5 sung lines and 3 tags make 5 plan lines, each with its
+    section, by hand or from Claude (a tag it plans anyway is dropped, not a fix)."""
+    from app import plans
+
+    app.state.settings.fake_providers = True
+    brand = owner.get("/brands").json()[0]["id"]
+    made = owner.post("/scripts", json={"brand_id": brand, "title": "Paws", "kind": "song",
+                                        "text": WALK}).json()  # fmt: skip
+    url = f"/scripts/{made['id']}/drafts/0/plan"
+    plan = owner.post(f"{url}/by-hand").json()
+    lines = [(x["n"], x["section"]) for s in plan["scenes"] for x in s["lines"]]
+    assert lines == [(2, "Intro"), (4, "Verse 1"), (5, "Verse 1"), (7, "Chorus"), (8, "Chorus")]
+    assert [s["part"] for s in plan["scenes"]] == ["Intro", "Verse 1", "Chorus"]
+
+    every = [{"line": n, "action": "We see it.", "product": None} for n in range(1, 9)]
+    claude = {"structure": {"name": "Song", "parts": [], "based_on": "pattern"}, "cast": [],
+              "scenes": [{"id": 1, "part": "", "place": "INT. KITCHEN — DAY", "cast": [],
+                          "lines": every}]}  # fmt: skip
+    given = {"script": WALK, "fmt": "song", "cast_ids": [], "stars": [], "max_seconds": 15}
+    kept, fixes = plans.checked(given, claude)
+    assert [x["line"] for x in kept["scenes"][0]["lines"]] == [2, 4, 5, 7, 8] and fixes == []
+    assert plans.checked({**given, "fmt": "dialogue"}, claude)[1] == []  # a story keeps them
