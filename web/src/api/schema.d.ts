@@ -8571,6 +8571,8 @@ export interface components {
             seconds: number | null;
             /** Made At */
             made_at: string | null;
+            /** Started At */
+            started_at: string | null;
             /** Preferred */
             preferred: boolean;
             /** In Video */
