@@ -167,3 +167,42 @@ test("the yes-toast says are for a plural: The owner said yes: the clip prompts 
   await client.refetchQueries({ queryKey: ["jobs", "mine"] });
   expect(await screen.findByText("The owner said yes: the clip prompts are being made.")).toBeInTheDocument();
 });
+
+test("the owner sees what an editor asked on this video, one press from that request in Approvals; no Withdraw", async () => {
+  fakeServer({ "GET /auth/me": [200, { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 }], "GET /jobs": [200, [job(), job({ id: 51, project_id: 10 })]] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ToastProvider>
+        <MemoryRouter>
+          <HeldRequests where={{ projectId: 9 }} />
+        </MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("Waiting for your OK")).toBeInTheDocument();
+  expect(document.body).toHaveTextContent("Eli asked for a new take · 27 credits · Asked just now.");
+  expect(screen.getByRole("link", { name: "Open in Approvals" })).toHaveAttribute("href", "/approvals?job=50");
+  expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
+  expect(screen.getAllByText("Waiting for your OK")).toHaveLength(1);
+});
+
+test("the owner approving a request on this video never sees the editor's 'The owner said yes' toast", async () => {
+  let jobs = [job()];
+  const ownerMe = { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 };
+  vi.stubGlobal("fetch", vi.fn(async (r: Request) => new Response(JSON.stringify(new URL(r.url).pathname.endsWith("/auth/me") ? ownerMe : jobs), { status: 200, headers: { "content-type": "application/json" } })));
+  const client = new QueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <MemoryRouter>
+          <HeldRequests where={{ projectId: 9 }} />
+        </MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("Waiting for your OK")).toBeInTheDocument();
+  jobs = [job({ status: "queued", held: "" })];
+  await client.refetchQueries({ queryKey: ["held-jobs"] });
+  await vi.waitFor(() => expect(screen.queryByText("Waiting for your OK")).toBeNull());
+  expect(screen.queryByText(/The owner said yes/)).toBeNull();
+});
