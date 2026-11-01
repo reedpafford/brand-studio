@@ -56,7 +56,7 @@ def made_with(db: Session, project: Project, refs: list[str], model_id: str,
 
 
 def _stale(project: Project, made: dict, model_id: str, sung_now: list[str] | None) -> bool:
-    if not made:  # made before n09: we can't tell
+    if not made.get("model"):  # made before n09 (or only marks like mutes): can't tell
         return False
     chosen = project.product_variants or {}
     return (made.get("model") != model_id
