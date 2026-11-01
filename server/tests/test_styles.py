@@ -212,3 +212,16 @@ def test_song_has_only_its_guides_and_takes_its_look_from_the_video():
         made = prompts.system(step, "claymation", "song")
         assert "Pixar musical" not in made and "Pixar animated feature" not in made, step
         assert "## Format: Song\nThis video is a Song video in the Claymation look" in made
+
+
+def test_disney_pixar_holds_reeds_skill():
+    """Reed's disney-pixar skill (docs/next/skills, #1095), where the site doesn't differ: the
+    camera block's close, sculpted hair bands, label copy with its colour, mechanism and body
+    shots in plain words, and the three kinds of transition."""
+    look = prompts.style("disney-pixar")["sections"]
+    assert "A stylised 3D animated render." in look["still_look"]
+    assert "crisp light-and-shadow bands" in look["sheet_look"]
+    still = prompts.system("storyboard", "disney-pixar")
+    assert "with its colour" in still and "never clinical terms" in still
+    assert "a pancake becomes the sun" in prompts.system("clip_prompts", "disney-pixar")
+    assert "four to five heads tall" not in look["sheet_look"]  # adults keep adult proportions
