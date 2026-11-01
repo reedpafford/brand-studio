@@ -8,7 +8,6 @@ import { card, errorText as errorClass } from "../ui";
 import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { useFrames } from "./StoryboardPane";
 import { blocking } from "./problems";
-import { useBudgetStop } from "./useBudgetStop";
 import { usePressed } from "./usePressed";
 import { useProblemWords } from "./ProblemText";
 import { type ChangeState } from "./ChangeBox";
@@ -49,9 +48,9 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-clips", projectId] }),
   });
-  const limit = useBudgetStop({ used: props.used, budget: props.budget });
   // While an earlier step is out of date every paid press waits, with why (audit M14); free ones (Approve, Prompt OK) stay.
-  const stopFor = (cost: number | undefined) => props.hold ?? limit(cost);
+  // An editor's over-budget press is held for the owner (#1068), never stopped here; only what blocks for everyone is.
+  const stopFor: (cost: number | undefined) => string | null = () => props.hold ?? null;
   const { words, fix } = useProblemWords(projectId, props.brandId);
   const [writing, setWriting] = useState<number | null>(null);
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);

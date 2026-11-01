@@ -4,7 +4,6 @@ import type { components } from "../api/schema";
 import { Card, EmptyState, Skeleton } from "../components";
 import { fileUrl } from "../api/upload";
 import { errorText as errorClass } from "../ui";
-import { useBudgetStop } from "./useBudgetStop";
 import { useApproveAllWith, type ApproveAllResult } from "./ApproveAll";
 import { AutoLooks } from "./AutoLooks";
 import { useAssetMerge } from "./AssetMerge";
@@ -53,8 +52,6 @@ export function AssetsPane({
   projectId,
   brandId,
   variants,
-  used,
-  budget,
   bar,
 }: {
   /** On the video page: the step's one press (Approve all) sits in the cost bar (audit M1). */
@@ -62,11 +59,10 @@ export function AssetsPane({
   projectId: number;
   brandId: number;
   variants: Record<string, string>;
-  used: number;
-  budget: number;
 }) {
   const assets = useAssets(projectId);
-  const stopFor = useBudgetStop({ used, budget });
+  // An editor's over-budget press is held for the owner (#1068), never stopped here; only what blocks for everyone is.
+  const stopFor = () => null;
   const queryClient = useQueryClient();
   const picks = useBriefChoices(brandId, variants);
   const merge = useAssetMerge(projectId, (assets.data ?? []).filter((a) => a.kind === "character"));
