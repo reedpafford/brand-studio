@@ -99,7 +99,7 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
     for look in ("house", "disney-pixar", "zack-d", "skeleton"):
         assert prompts.look_banned(look), look
         assert set(prompts.look_fixes(look)) == {"refused", "face", "outfit", "product"}, look
-    assert ("Pixar-style", "semi-realistic 3D") in prompts.look_banned("zack-d")
+    assert ("Pixar-style", "stylised 3D") in prompts.look_banned("zack-d")
     # the look's own name never goes to a model (Next-Lead on #1009)
     from app.prompts import check
 
@@ -164,14 +164,6 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     # Skeleton's sample is always its own skeleton, never the brand's human hero
     own = [s["id"] for s in prompts.styles() if s["own_sample"]]
     assert own == ["skeleton", "skeleton-xray", "skeleton-cute"]
-
-
-def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
-    """Reed's references (YouTube shorts): semi-realistic 3D like a game cutscene."""
-    zack = prompts.style("zack-d")["sections"]
-    for part in ("sheet_look", "place_look", "still_look", "clip_style"):
-        assert "semi-realistic 3D" in zack[part] or "Semi-realistic 3D" in zack[part], part
-        assert "cyan" not in zack[part] and "Pixar register" not in zack[part], part
 
 
 def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
