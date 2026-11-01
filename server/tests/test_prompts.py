@@ -1389,6 +1389,18 @@ def test_an_action_never_says_replies_or_answers():
     assert 'never "Mom replies"' in prompts.system("script_draft")
 
 
+def test_the_harvest_is_folded_into_the_steps_that_use_it():
+    """docs/next/harvest (1 Nov): what the agents learned with Reed, as general craft."""
+    assert "normal human eyes, never glowing" in prompts.system("clip_prompts")
+    assert "a line across a cut loses its lip-sync" in prompts.system("breakdown")
+    assert "only the shot's own cast: no extra people" in prompts.system("storyboard")
+    draft = prompts.system("script_draft")
+    assert "each fix fails visibly and makes it worse" in draft and "only when they fit" in draft
+    assert "a hidden cause made visible" in draft and "each phrase is its own line" in draft
+    assert "the hug" not in draft and "weeks later" not in draft  # one story's beats stay its own
+    assert "never moves its mouth" in prompts.system("narrated_clip_prompts")
+
+
 def test_the_director_names_every_tool_it_can_choose_and_never_writes_prompts():
     """director-chat.md §5: one decision a turn, only through the site's own steps."""
     from typing import get_args
