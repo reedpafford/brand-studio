@@ -23,7 +23,7 @@ a flat construction-paper cutout look with jointed paper limbs
 
 ## still
 - State the camera's place inside the paper world in every frame ("at eye level with the paper character", "worm's-eye view up at the cardstock towers", "overhead, straight down on the paper street"). Never "diorama", "shadow box", "tabletop", "table", "board" or "frame": they show the craft from outside. If one does, "the paper shot fills the entire frame, the camera is inside the scene".
-- Name the paper on each major object ("a bowl folded from blue card", "shelves layered from magazine clippings"), not only in the look. Say "papercraft" near faces and products, never "paper cut", which blurs features.
+- Name the paper on each major object ("a bowl folded from blue card", "shelves layered from patterned card"), not only in the look. Say "papercraft" near faces and products, never "paper cut", which blurs features.
 - Bold, saturated flat colour, stated in every frame. A jointed paper puppet does one simple gesture a shot ("raises one arm, pivoting at the shoulder"); comedy lands on the pose, not on smooth movement.
 
 ## clip
@@ -33,7 +33,7 @@ a flat construction-paper cutout look with jointed paper limbs
 ## banned
 diorama → paper scene
 shadow box → paper scene
-tabletop →
+tabletop → paper surface
 paper cut → papercraft
 paper-cut → papercraft
 
