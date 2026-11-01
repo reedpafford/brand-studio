@@ -141,6 +141,8 @@ class JobDetailOut(JobOut):
 
 
 OVER_BUDGET = "That's more than this video's budget."
+SCRIPT_MEDIA = "Songs, narration and music on a script wait for the owner's OK."
+ON_SCRIPT = "on_script"  # a song take's or narration music's script (outside any video)
 DECLINED = "The owner said no this time. Nothing was charged."
 HELD = "held"  # in a held job's input: why it waits for the owner (plain words)
 DECLINE = "declined"  # in its input once the owner said no
@@ -163,7 +165,8 @@ def enqueue(
     """Queue a job for the worker. Feature code calls this; there is no public create route.
     `units` is the expected amount (e.g. seconds of video) used to estimate credits. An
     editor's Quick clip past their weekly allowance, or job that would take a video over its
-    budget, is held for the owner (Reed, 30 Oct: "Hold requests"): it waits as
+    budget, or paid songs, narration or music on a script outside any video (`ON_SCRIPT`; its
+    writing runs free), is held for the owner (Reed: "Hold requests"): it waits as
     `needs_owner_approval`, charged nothing until the owner approves it, and `held` says why.
     `wait`: hold it with that reason anyway (the rest of a press whose first job was held).
     The per-video cap, an archived video and a length not approved yet are refused (409).
@@ -191,6 +194,8 @@ def enqueue(
             wait = over_allowance(db, user, whole)
         elif needs_approval(db, user, project, whole):
             wait = OVER_BUDGET
+        elif project is None and input.get(ON_SCRIPT):
+            wait = SCRIPT_MEDIA
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
