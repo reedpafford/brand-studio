@@ -74,8 +74,9 @@ def test_a_flagged_take_is_made_again_with_its_notes_at_most_twice(
     redos = [t for t in out["turns"] if t["tool"] == "make_take" and "flagged" in t["why"]]
     clips = {t["why"].split()[-1] for t in redos}
     assert len(redos) == director.MAX_REDOS * len(clips)  # then it cuts with the newest
-    assert [t["tool"] for t in out["turns"]][-2:] == ["final_cut", "deliver"]
-    assert "is clean: its newest is used." in out["turns"][-2]["why"]  # said in the log
+    cut = [t for t in out["turns"] if t["tool"] == "final_cut"][-1]
+    assert out["turns"][-1]["tool"] == "deliver"
+    assert "is clean: its newest is used." in cut["why"]  # said in the log
 
 
 def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor, monkeypatch):
@@ -385,3 +386,59 @@ def test_a_turn_that_fails_inside_the_worker_ends_the_run_and_nothing_more_is_ch
     assert (out["status"], out["ended"]) == ("ended", director.TURN_FAILED)
     (turn,) = db.query(Job).filter(Job.project_id == pid).all()  # the failed turn, nothing more
     assert turn.status == JobStatus.failed
+
+
+def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, editor):
+    """Reed, 1 Nov: "watch and make those fixes". On the stand-ins a watch finds a rushed line
+    in clip 1 (redo) and an extra word in the last clip (mute): it redoes, mutes for free,
+    cuts again and watches again, 3 times at most, and the delivery note says what it muted."""
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.clips import ClipTake, ProjectClip
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=120)
+    out = editor.get(f"/projects/{pid}/director").json()
+    tools = [t["tool"] for t in out["turns"]]
+    assert out["status"] == "delivered", (out["ended"], tools)
+    assert tools.count("watch_cut") == director.MAX_WATCHES  # then no more
+    redos = [t for t in out["turns"] if t["tool"] == "make_take" and "watch found" in t["why"]]
+    assert len(redos) == director.MAX_REDOS  # the rushed line, made again twice at most
+    assert tools.count("final_cut") >= 3 and tools[-2:] == ["final_cut", "deliver"]
+    last = db.query(ProjectClip).filter_by(project_id=pid).order_by(ProjectClip.id.desc()).first()
+    muted = f"Muted a stretch of clip {last.clip_id.removeprefix('c')} instead of remaking it."
+    assert [t["result"] for t in out["turns"] if t["tool"] == "mute"] == [muted]
+    assert db.get(ClipTake, last.picked_take_id).made_with["mutes"] == [[0.5, 1.0]]
+    assert out["ended"].endswith(muted)  # named in the delivery note
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    again = director_tools.run(db, user, db.get(Project, pid), {"tool": "mute", "clip_id": "c1"},
+                               None)  # fmt: skip
+    assert again == "Refused: nothing to mute in clip 1."  # only what was found is silenced
+
+
+def test_it_never_watches_before_a_cut_or_the_same_cut_twice(app, db, owner, editor, monkeypatch):
+    from app import director_tools
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    said = director_tools.run(db, user, project, {"tool": "watch_cut"}, None, {})
+    assert said == "Refused: Make the cut first."
+    prompt = director.turn_input(db, project, {"id": "r", "turn": 0, "redos": {}})["prompt"]
+    assert '"watches_left": 3' in prompt and '"watch": {' in prompt
+    db.commit()
+    real = director.choose
+
+    def watch_again(state):  # once it has watched, it asks to watch the same cut again
+        out = real(state)
+        again = out["tool"] in ("make_take", "mute") and state["watch"].get("current")
+        return {**out, "tool": "watch_cut"} if again else out
+
+    monkeypatch.setattr("app.director.choose", watch_again)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["ended"] == "It stopped: it already watched this cut.", out["turns"]
+    assert [t["tool"] for t in out["turns"]].count("watch_cut") == 3  # once, then refused twice

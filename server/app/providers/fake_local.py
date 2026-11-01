@@ -409,7 +409,8 @@ class FakeWriter:
         """The stand-in director: the agents' order, from the video's state (app/director)."""
         from app.director import choose
 
-        return choose(json.loads(_tag(prompt, "video")))
+        allowed = json.loads(_tag(prompt, "allowed") or "{}")
+        return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed})
 
     def _enhance(self, prompt):
         return {"suggestions": [], "notes": []}
