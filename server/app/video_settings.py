@@ -56,7 +56,7 @@ def made_with(db: Session, project: Project, refs: list[str], model_id: str,
 
 
 def _stale(project: Project, made: dict, model_id: str, sung_now: list[str] | None) -> bool:
-    if not made.get("model"):  # made before n09 (or only marks like approved_by): can't tell
+    if not made.get("model"):  # made before n09 (or only marks like mutes): can't tell
         return False
     chosen = project.product_variants or {}
     return (made.get("model") != model_id
@@ -75,12 +75,16 @@ def frame_stale(project: Project, frame: StoryboardFrame) -> bool:
 
 def take_stale(db: Session, project: Project, clip: ProjectClip) -> bool:
     """The clip's picked take made with another video model, shape, flavour or Sung shots."""
+    take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
+    return take is not None and made_stale(project, clip, take)
+
+
+def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
+    """This take of the clip made with another video model, shape, flavour or Sung shots."""
     from app.breakdown import video_model
 
-    take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
     sung = (clip.song_slice or {}).get("sung_shots")
-    return take is not None and _stale(project, take.made_with or {}, video_model(project).id,
-                                       sung)  # fmt: skip
+    return _stale(project, take.made_with or {}, video_model(project).id, sung)
 
 
 # --- Choices and prices ----------------------------------------------------------------------

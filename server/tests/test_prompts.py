@@ -1389,6 +1389,40 @@ def test_an_action_never_says_replies_or_answers():
     assert 'never "Mom replies"' in prompts.system("script_draft")
 
 
+def test_take_check_slice_2_looks_at_eyes_screens_and_cast():
+    """docs/next/take-review-checklist.md B3–B5 (Builder-Server-8, 1 Nov)."""
+    sheets = [("char:1", "Mia: black bob")]
+    before = prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), frames=6)
+    assert before == prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), 6,
+                                              None, None, ["only wins"])  # fmt: skip
+    text = prompts.item_check_input(
+        "Mia waves.", sheets, ("product:2", "bag"), frames=6,
+        cast=["Mia (char:1)", "date (char:12, the alien date)"],
+        screens=[("screen:7", "fomo Home screen")], screen_rules=[" fomo only wins. ", ""],
+    )  # fmt: skip
+    assert (
+        text.startswith(before)
+        and "<cast>Mia (char:1), date (char:12, the alien date)</cast>" in text
+    )
+    assert '<screen image="9" id="screen:7">fomo Home screen</screen>' in text  # after 6+1+1
+    assert "<screen_rules>\nfomo only wins.\n</screen_rules>" in text
+    system = prompts.system("item_check")
+    assert "never glowing or red" in system and "only when <screens> is given" in system
+    assert "A garbled or invented screen is always a finding" in system
+    assert "only wins" not in system  # a brand's own screen rule comes in <screen_rules>
+    F = schemas.Finding
+    found = schemas.ItemCheck(findings=[
+        F(kind="eyes", who="", says="Mia's eyes glow", note="Keep normal human eyes."),
+        F(kind="cast", who="extra", says="An extra man", note="Only Mia in this shot."),
+        F(kind="screen", who="screen", says="Wrong screen", note="Show the Home screen."),
+        F(kind="face", who="char:9", says="Not given", note="x"),
+    ])  # fmt: skip
+    kinds = [f.kind for f in check.item_check(found, ["char:1"]).findings]
+    assert kinds == ["eyes", "cast"]  # no screens given, and char:9 isn't a reference
+    kinds = [f.kind for f in check.item_check(found, ["char:1", "screen:7"]).findings]
+    assert kinds == ["eyes", "cast", "screen"]
+
+
 def test_the_harvest_is_folded_into_the_steps_that_use_it():
     """docs/next/harvest (1 Nov): what the agents learned with Reed, as general craft."""
     assert "normal human eyes, never glowing" in prompts.system("clip_prompts")
