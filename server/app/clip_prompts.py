@@ -355,16 +355,48 @@ def _add(prompt: str, start: str, text: str) -> str:
     return prompt
 
 
-def _forget(prompt: str, gone: set[int]) -> str:
-    """The References and Keep sentences about pictures no longer attached go with them."""
+def _forget(prompt: str, gone: dict[int, str]) -> str:
+    """The References and Keep words about people no longer attached (`gone`: their old
+    [ImageN] -> name) go, and only theirs: one shared sentence ("Keep: Mom's identity…, as in
+    [Image2] (…), and Nate's, as in [Image3] (…); one of each; Mom never in Nate's hoodie")
+    loses Nate's part and the clauses about him, never Mom's (QA-6 on #1116)."""
+
+    def about(text: str) -> bool:  # names one of them, by picture or, with none, by name
+        tags = {int(n) for n in TAGS_N.findall(text)}
+        if tags:
+            return tags <= set(gone)
+        return any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", text) for n in gone.values() if n)
+
+    def trim(clause: str) -> str:
+        parts = re.split(r",? and (?=[^;]*?\[Image\d+\])|, (?=\[Image\d+\])", clause)
+        return " and ".join(p.strip() for p in parts if p.strip() and not about(p))
+
     lines = prompt.splitlines()
     for i, line in enumerate(lines):
         head = next((h for h in ("References: ", "Keep: ") if line.startswith(h)), None)
-        if head and gone:
-            said = re.split(r"(?<=\.)\s+", line[len(head) :])
-            kept = [s for s in said if not ({int(n) for n in TAGS_N.findall(s)} & gone)]
-            lines[i] = head + " ".join(kept)
+        if not head or not gone:
+            continue
+        said = []
+        for sentence in re.split(r"(?<=\.)\s+", line[len(head) :]):
+            end = "." if sentence.rstrip().endswith(".") else ""
+            clauses = [trim(c) for c in sentence.rstrip().rstrip(".").split(";")]
+            kept = "; ".join(c.strip() for c in clauses if c.strip())
+            said += [kept[0].upper() + kept[1:] + end] if kept else []
+        lines[i] = head + " ".join(said)
     return "\n".join(lines)
+
+
+def _kept(prompt: str, people: list[str], new: list, pics: dict) -> str:
+    """Never an empty References or Keep: each person still attached is said in both."""
+    lines = {h: next((ln for ln in prompt.splitlines() if ln.startswith(h)), None)
+             for h in ("References: ", "Keep: ")}  # fmt: skip
+    for r in people:
+        who, tag = _name(pics, r), f"[Image{new.index(r) + 1}]"
+        if lines["References: "] is not None and tag not in lines["References: "]:
+            prompt = _add(prompt, "References: ", f"{tag} is {who}.")
+        if lines["Keep: "] is not None and tag not in lines["Keep: "]:
+            prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
+    return prompt
 
 
 def with_cast(
@@ -441,9 +473,11 @@ def with_cast(
     ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
     dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
-    absent = {i for i in dropped if before[i - 1].startswith(CHAR) and trim
+    absent = {i: n for i, n in dropped.items() if before[i - 1].startswith(CHAR) and trim
               and not any(_same(pics, before[i - 1], c) for c in everyone)}  # fmt: skip
     prompt = _renumber(_forget(clip.prompt, absent), moved, dropped, TAGS)
+    if absent:  # what stays still holds each remaining person's look
+        prompt = _kept(prompt, [r.id for r in new if r.id.startswith(CHAR)], ids, pics)
     for r in (r for r in new if r.id not in before):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
         if r.id in want:  # the actual screen or product (Reed, 30 Oct)

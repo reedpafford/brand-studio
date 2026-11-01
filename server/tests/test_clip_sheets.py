@@ -213,3 +213,24 @@ def test_someone_who_speaks_or_is_named_but_isnt_listed_keeps_their_sheet(app, d
         bd = Breakdown.model_validate(row.data)
         done = clip_prompts.with_cast(db, project, _picked(nate, mom), bd)
         assert nate in [r.id for r in done.references], shot  # only no sign at all drops him
+
+
+def test_a_shared_keep_sentence_loses_only_the_absent_persons_part(app, db, editor, setup):  # noqa: F811
+    row, nate, mom = _people(app, db, editor, setup)
+    _only_mom(db, row, mom)  # QA-6: the guide's one-sentence Keep line, Nate absent
+    project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
+    picks = (("frame:c1", "storyboard frame"), (nate, "Nate"), (mom, "Mom"))
+    shared = ClipPrompt(
+        clip_id="c1", seconds=5,
+        references=[Reference(kind="image", id=i, role=r) for i, r in picks],
+        prompt=_prompt("[Image1] is the first frame. [Image2] is Nate, [Image3] is Mom.",
+                       "Mom's identity and clothing stable in every shot, as in [Image3] (red"
+                       " coat), and Nate's, as in [Image2] (grey hoodie); one of each; Mom never"
+                       " in Nate's hoodie."))  # fmt: skip
+    done = clip_prompts.with_cast(db, project, shared, bd)
+    assert [r.id for r in done.references] == ["frame:c1", mom]
+    assert "References: [Image1] is the first frame. [Image2] is Mom." in done.prompt
+    assert ("Keep: Mom's identity and clothing stable in every shot, as in [Image2] (red coat);"
+            " one of each.") in done.prompt  # fmt: skip
+    assert "Nate" not in done.prompt.split("Keep: ")[1].splitlines()[0]
+    assert not [ln for ln in done.prompt.splitlines() if ln.strip() in ("Keep:", "References:")]
