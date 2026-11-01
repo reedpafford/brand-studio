@@ -101,10 +101,15 @@ def use_prompt(row: ProjectClip, index: int) -> None:
     row.change = row.auto_fix = None
 
 
-def older_prompt(db: Session, row: ProjectClip) -> bool:
-    """The clip's picked take was made from another version of its prompt than the one in
-    hand (OR3: Go back to this). Takes from before Versions carry no version: never said."""
-    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+def _take(db: Session, row: ProjectClip, take: ClipTake | None) -> ClipTake | None:
+    """The take asked about, or else the clip's picked take."""
+    return take or (db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None)
+
+
+def older_prompt(db: Session, row: ProjectClip, take: ClipTake | None = None) -> bool:
+    """The clip's picked take (or `take`) was made from another version of its prompt than the
+    one in hand (OR3: Go back to this). Takes from before Versions carry no version."""
+    take = _take(db, row, take)
     made = (take.made_with or {}).get("prompt_version") if take else None
     return made is not None and made != prompt_version(row)
 
@@ -119,28 +124,31 @@ def take_stale(row: ProjectClip) -> bool:
                for p in row.problems or [])  # fmt: skip
 
 
-def _sent(db: Session, row: ProjectClip) -> set[int]:
-    """The files the clip's picked take was made from; empty with no take, or when not known."""
-    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+def _sent(db: Session, row: ProjectClip, take: ClipTake | None = None) -> set[int]:
+    """The files the clip's picked take (or `take`) was made from; empty with no take, or when
+    not known."""
+    take = _take(db, row, take)
     job = db.get(Job, take.job_id) if take else None
     return {f for ids in ((job.input.get("files") or {}) if job else {}).values() for f in ids}
 
 
-def older_take(db: Session, known: dict, row: ProjectClip) -> list[str]:
+def older_take(
+    db: Session, known: dict, row: ProjectClip, take: ClipTake | None = None
+) -> list[str]:
     """Who or what the clip's picked take was made from an earlier sheet of (N6: a Cast &
     places sheet changed since): its job sent other pictures. [] with no take, or when what
     it was made from isn't known."""
-    if not (sent := _sent(db, row)):
+    if not (sent := _sent(db, row, take)):
         return []
     refs = [r["id"] for r in row.references or [] if r["kind"] == "image"]
     return drawn_from_older(known, refs, sent)
 
 
-def older_still(db: Session, known: dict, row: ProjectClip) -> bool:
+def older_still(db: Session, known: dict, row: ProjectClip, take: ClipTake | None = None) -> bool:
     """The clip's picked take was made from another still than its frame's Preferred one now
     (OR3: Use this still, or a storyboard gone back to). Picking that still back clears it."""
     key = f"frame:{row.clip_id}"
-    if not any(r["id"] == key for r in row.references or []) or not (sent := _sent(db, row)):
+    if not any(r["id"] == key for r in row.references or []) or not (sent := _sent(db, row, take)):
         return False
     now = known.get(key, ("", "", []))[-1][:1]
     return bool(now) and now[0] not in sent
