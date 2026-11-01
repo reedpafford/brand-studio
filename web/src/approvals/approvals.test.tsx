@@ -63,7 +63,7 @@ test("Decline asks first in a dialog, with an optional reason the editor sees, t
 test("with nothing waiting, Approvals says held presses from editors show here (S42)", async () => {
   fakeServer({ ...base, "GET /jobs": [200, []], "GET /projects": [200, []] });
   open();
-  expect(await screen.findByText(/an editor's press goes past a video's budget, a script's budget or their week, it waits here/)).toBeInTheDocument();
+  expect(await screen.findByText(/an editor's press goes past a video's budget or their week, or they make songs, narration or music on a script, it waits here/)).toBeInTheDocument();
   expect(screen.queryByText(/never sent here/)).toBeNull();
 });
 

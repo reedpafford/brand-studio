@@ -51,8 +51,8 @@ test("a decline with no reason doesn't repeat the server's own words", async () 
 });
 
 test("a held song take on a script shows on that script; Quick clips show only on Quick clip", async () => {
-  fakeServer({ "GET /jobs": [200, [job({ id: 60, project_id: null, script_id: 7, step: null, held: "That's more than this script's budget." }), job({ id: 61, project_id: null, script_id: null, step: null, held: "That's more than this week's 97 credits." })]] });
+  fakeServer({ "GET /jobs": [200, [job({ id: 60, project_id: null, script_id: 7, step: null, held: "Songs, narration and music on a script wait for the owner's OK." }), job({ id: 61, project_id: null, script_id: null, step: null, held: "That's more than this week's 97 credits." })]] });
   show({ scriptId: 7 });
-  expect(await screen.findByText(/this script's budget/)).toBeInTheDocument();
+  expect(await screen.findByText(/Songs, narration and music on a script wait for the owner's OK\./)).toBeInTheDocument(); // the server's line, as is
   expect(screen.queryByText(/97 credits/)).toBeNull();
 });

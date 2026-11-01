@@ -120,7 +120,7 @@ export function ApprovalsPage() {
       {approveAll.isError && <p role="alert" className={errorClass}>{approveAll.error.message}</p>}
       {held.count === 0 ? (
         <EmptyState icon={Bell} title="Nothing waiting.">
-          When an editor's press goes past a video's budget, a script's budget or their week, it waits here for you to approve or decline.
+          When an editor's press goes past a video's budget or their week, or they make songs, narration or music on a script, it waits here for you to approve or decline.
         </EmptyState>
       ) : (
         <Card className="p-0 sm:p-0">
