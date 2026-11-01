@@ -1,16 +1,23 @@
 """Credit rates per job kind, owner-set limits, and each person's quick-clip allowance."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user, owner_only
-from app.credits import get_limits, get_rate, quick_clip_used, week_start
+from app.credits import (
+    get_limits,
+    get_rate,
+    quick_clip_used,
+    real_capped,
+    real_spent,
+    week_start,
+)
 from app.db import get_db
 from app.models.accounts import Role, User
 from app.models.credits import CreditLimits, CreditRate
@@ -124,3 +131,20 @@ def editor_allowances(owner: User = Depends(owner_only), db: Session = Depends(g
         )
         for e in editors
     ]
+
+
+class RealBudgetOut(BaseModel):
+    on: bool  # the test site on real providers: every paid call counts against it
+    budget_usd: float
+    spent_usd: float  # since `since`, at the price we charge (above the real cost)
+    since: datetime | None  # the count's start (null: not set up, so nothing paid runs)
+
+
+@router.get("/real-budget", response_model=RealBudgetOut)
+def real_budget(request: Request, owner: User = Depends(owner_only), db: Session = Depends(get_db)):
+    """The test site's real-AI budget for the owner (and the Producer during Reed's test):
+    how much of it real calls have used so far."""
+    settings = request.app.state.settings
+    return RealBudgetOut(on=real_capped(settings), budget_usd=settings.real_budget_usd,
+                         spent_usd=float(real_spent(db, settings)),
+                         since=settings.real_budget_since)  # fmt: skip

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { useMe } from "../auth/useMe";
 import { Button, creditsLabel, wholeCredits } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
@@ -55,11 +56,14 @@ export function CostBarProvider(props: {
     queryFn: async () => (await api.GET("/projects/{project_id}/estimate", { params: { path: { project_id: props.projectId } } })).data ?? null,
   });
   const left = props.budget - props.used;
-  const after = shown?.price != null && !shown.reason ? left - shown.price : null;
+  // Past the budget an editor's press is sent to the owner, never refused (Hold requests, #1068; never "Ask the owner").
+  const editor = useMe().data?.role === "editor";
+  const sends = editor && shown?.price != null && !shown.reason && shown.price > left;
+  const after = shown?.price != null && !shown.reason && !sends ? left - shown.price : null;
   const value = useMemo(() => setAction, []);
   const press = shown && (
     <Button price={shown.price} charge={shown.upTo ? "estimate" : "fixed"} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
-      {shown.label}
+      {sends ? "Send for approval" : shown.label}
     </Button>
   );
   const bar = (
