@@ -15,7 +15,7 @@ from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
 from app.catalogue import CatalogueModel, catalogue
-from app.enhance import escape, project_context, project_screens, screen_name
+from app.enhance import escape, project_context, project_screens, screen_name, wears
 from app.images import image_job_input, image_model_block
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
@@ -113,6 +113,8 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
             parts = (key, item.kind, item.name, them, SHEET_SETS)
         elif not files and usable_files(item):  # a House sheet, none in its look (Flow-QA)
             parts = (*parts, NO_LOOK)
+        if item.kind == Kind.character:  # this video's own outfit, over the sheet's
+            parts = (*parts, wears(project, item.id))
         out[key] = (" | ".join(x for x in parts if x), files)
     for slot in video_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
