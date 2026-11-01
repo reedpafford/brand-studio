@@ -71,4 +71,7 @@
 | 2026-11-01 | FOMO-Producer | fomo "She Stayed" (44 s), project 53: 1 new look (her dad), 6 takes, 2 clips refused as look-alikes (not charged) then made | 62.1 credits | 8.00 | 6.39 (app job records) | Reed ($175 cap) |
 | 2026-11-01 | FOMO-Producer | fomo song video "Left Me for a Yacht" (48 s), project 54: 1 new look, 7 takes timed to song take 1, cut locally with the spoken end line over the instrumental | 61.7 credits | 8.00 | 6.34 (app job records) | Reed ($175 cap) |
 | 2026-11-01 | FOMO-Producer | fomo "Fired" (57 s, remake of reel DfLFWmjyvBB), project 55: 1 new look (puppy), 7 takes | 70.0 credits | 9.00 | 7.19 (app job records) | Reed ($175 cap) |
-| 2026-11-01 | FOMO-Producer | fomo total (batches 1–3, 5 KIE songs) | | 175.00 cap | 153.29 | Reed ("yes, $175 is fine") |
+| 2026-11-01 | FOMO-Producer | Reel reads (site reel import: watch, write, cast) for the two shot-by-shot remakes, scripts 64 and 65 | 14 credits | 1.50 | 1.44 | Reed ("yes, do both") |
+| 2026-11-01 | FOMO-Producer | fomo "The Reptilian" v2 (70 s, shot-by-shot from reel DfF6P64pvpD), project 56: 2 new looks, 7 takes; gasps ducked and stray lines muted in the cut | 85.5 credits | 9.00 | 8.79 (app job records) | Reed ("yes, do both") |
+| 2026-11-01 | FOMO-Producer | fomo "Fired" v2 (61 s, shot-by-shot from reel DfLFWmjyvBB), project 57: 1 new look, 9 takes + 1 look-alike refusal (not charged) | 74.9 credits | 8.00 | 7.70 (app job records) | Reed ("yes, do both") |
+| 2026-11-01 | FOMO-Producer | fomo total (batches 1–3 and the 2 remakes, 5 KIE songs) | | 175.00 cap | 171.22 | Reed ("yes, $175 is fine") |
