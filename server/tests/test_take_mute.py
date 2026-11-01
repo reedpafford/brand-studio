@@ -15,21 +15,25 @@ from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
 
-def test_spans_are_kept_inside_the_take_merged_when_they_touch_and_capped():
+def test_stretches_are_kept_as_added_inside_the_take_and_joined_only_in_the_cut():
     take = ClipTake(made_with={})
     take_mute.add(take, 1.0, 2.0, longest=8)
-    take_mute.add(take, 1.5, 3.0, longest=8)  # overlaps: one stretch
+    take_mute.add(take, 1.5, 3.0, longest=8)  # overlaps: kept as its own, for Undo
     take_mute.add(take, -1, 0.5, longest=8)  # before the start: from 0
-    assert take_mute.add(take, 7.5, 12, longest=8) == [[0.0, 0.5], [1.0, 3.0], [7.5, 8]]
+    assert take_mute.add(take, 7.5, 12, longest=8) == [[1.0, 2.0], [1.5, 3.0], [0.0, 0.5],
+                                                       [7.5, 8]]  # fmt: skip
+    clip_row = ProjectClip(clip_id="c2")
+    assert take_mute.labels(clip_row, take) == ["c2/mute:0.0-0.5", "c2/mute:1.0-3.0",
+                                                "c2/mute:7.5-8"]  # fmt: skip
     with pytest.raises(ValueError, match="Pick a stretch"):
         take_mute.add(take, 9, 10, longest=8)  # past the end: nothing left
+    with pytest.raises(ValueError, match="Pick a stretch"):
+        take_mute.add(take, 0.5, float("nan"), longest=8)
+    assert take_mute.remove(take, 1) == [[1.0, 2.0], [0.0, 0.5], [7.5, 8]]  # Undo: just that one
     for i in range(5):
         take_mute.add(take, 3.5 + i * 0.7, 3.7 + i * 0.7, longest=8)
     with pytest.raises(ValueError, match="8 muted stretches at most"):
         take_mute.add(take, 6.9, 7.1, longest=8)
-    assert take_mute.remove(take, 0)[0] == [1.0, 3.0]  # Undo
-    clip_row = ProjectClip(clip_id="c2")
-    assert take_mute.labels(clip_row, take)[0] == "c2/mute:1.0-3.0"
 
 
 def _loudness(video: bytes, start: float, seconds: float) -> float:
@@ -77,6 +81,9 @@ def test_mute_and_undo_from_the_clip_keep_its_approval(app, db, editor, setup, c
     assert shown["takes"][0]["mutes"] == [[1.0, 2.0]] and shown["approved"] is True
     bad = editor.post(f"{clips}/{clip['id']}/mute", json={"start": 99, "end": 100})
     assert bad.status_code == 422  # past the clip's end
+    nan = editor.post(f"{clips}/{clip['id']}/mute", content='{"start": 0.5, "end": NaN}',
+                      headers={"content-type": "application/json"})  # fmt: skip
+    assert nan.status_code == 422
     back = editor.delete(f"{clips}/{clip['id']}/mute/0").json()
     assert back["takes"][0]["mutes"] == []
     assert editor.delete(f"{clips}/{clip['id']}/mute/0").status_code == 404

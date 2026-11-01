@@ -77,7 +77,7 @@ class TakeOut(BaseModel):
     check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
     words: CheckOut | None = None  # what it says against the script's lines (Advice only)
     verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
-    mutes: list[list[float]] = []  # stretches silenced in the final cut (app/take_mute)
+    mutes: list[list[float]] = []  # stretches muted, as added: Undo takes back one (take_mute)
 
 
 class NarrationOut(BaseModel):
@@ -692,7 +692,7 @@ def unkeep_clip_advice(
 
 
 class MuteIn(BaseModel):
-    start: float
+    start: float  # not a number is a 422 from take_mute.add (the default 422 can't echo NaN)
     end: float
 
 

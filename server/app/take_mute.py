@@ -2,6 +2,7 @@
 a gasp): the picked take's sound is silenced over each span when the video is put together.
 Free (ffmpeg on our server); the take and its approval are untouched."""
 
+import math
 import subprocess
 import tempfile
 from pathlib import Path
@@ -16,21 +17,31 @@ def spans(take: ClipTake | None) -> list[list[float]]:
     return [list(s) for s in ((take.made_with or {}).get("mutes") or [])] if take else []
 
 
+def merged(muted: list[list[float]]) -> list[list[float]]:
+    """The stretches as the cut silences them: ones that overlap or touch become one."""
+    out: list[list[float]] = []
+    for s, e in sorted(muted):
+        if out and s <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], e)
+        else:
+            out.append([s, e])
+    return out
+
+
 def add(take: ClipTake, start: float, end: float, longest: float) -> list[list[float]]:
-    """Mute start–end (seconds in the take, kept inside it); spans that touch become one."""
+    """Mute start–end (seconds in the take, kept inside it). Each stretch is kept as added, so
+    Undo takes back exactly that one; overlaps are only joined in the cut."""
+    if not (math.isfinite(start) and math.isfinite(end)):
+        raise ValueError("Pick a stretch of the take to mute.")
     start, end = max(0.0, start), min(end, longest)
     if end - start < SHORTEST:
         raise ValueError("Pick a stretch of the take to mute.")
-    merged: list[list[float]] = []
-    for s, e in sorted([*spans(take), [round(start, 2), round(end, 2)]]):
-        if merged and s <= merged[-1][1]:
-            merged[-1][1] = max(merged[-1][1], e)
-        else:
-            merged.append([s, e])
-    if len(merged) > MAX:
+    kept = spans(take)
+    if len(kept) >= MAX:
         raise ValueError(f"A take can have {MAX} muted stretches at most.")
-    take.made_with = {**(take.made_with or {}), "mutes": merged}
-    return merged
+    kept.append([round(start, 2), round(end, 2)])
+    take.made_with = {**(take.made_with or {}), "mutes": kept}
+    return kept
 
 
 def remove(take: ClipTake, index: int) -> list[list[float]]:
@@ -46,11 +57,12 @@ def remove(take: ClipTake, index: int) -> list[list[float]]:
 def labels(clip: ProjectClip, take: ClipTake | None) -> list[str]:
     """How the final video remembers the mutes it was made with, so a new one shows as changes
     waiting (beside its cut-ins: "c2/mute:3.5-5.0")."""
-    return [f"{clip.clip_id}/mute:{s}-{e}" for s, e in spans(take)]
+    return [f"{clip.clip_id}/mute:{s}-{e}" for s, e in merged(spans(take))]
 
 
 def apply(video: bytes, muted: list[list[float]]) -> bytes:
     """The take with its sound silenced over each span (the picture copied as it is)."""
+    muted = merged(muted)
     if not muted:
         return video
     with tempfile.TemporaryDirectory() as tmp:
