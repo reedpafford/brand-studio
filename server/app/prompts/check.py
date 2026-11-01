@@ -158,16 +158,6 @@ def breakdown(
         his = shot.character_ids or shot.screen_ids or HIS.search(shot.action)  # hands, phone…
         if any(len(w) == 3 and all(w) for w in windows) and not his:
             problems.append(f"{ADVICE}shot {shot.id}: a montage shot without the main character")
-    runs = [i for i in range(len(shots) - 2) if all(quick[i : i + 3])]
-    if runs:  # earn the payoff: effort beats between the last line and the fast run
-        start = runs[0]
-        spoken = [i for i in range(start) if shots[i].line]
-        grind = start - (spoken[-1] + 1 if spoken else 0)
-        if grind < 3:
-            problems.append(
-                f"{ADVICE}shot {shots[start].id}: the montage reaches the payoff after {grind} "
-                "grind beats; add a red day, a small win, another late night first"
-            )
     first = next((n for n, x in enumerate(lines, 1) if DIALOGUE.match(TAG.sub("", x))), 0)
     before = {  # the script's own set-up, ahead of its first exchange
         n for n in range(1, first) if lines[n - 1].strip() and not lines[n - 1].startswith("SCENE")
@@ -309,7 +299,10 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
             if shot.line and said.count(line) != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
-        if IN_BED.search(c.prompt) and BODILY.search(c.prompt):  # Iron Paws #32: "sexual"
+        told = "\n".join(x for x in c.prompt.splitlines() if not x.startswith("Audio: "))
+        if IN_BED.search(told) and BODILY.search(
+            told
+        ):  # Iron Paws #32; the Audio line's "no …" aside
             problems.append(f"{ADVICE}{c.clip_id}: {NOT_SEXUAL}")
         problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _one_image(c.prompt)]
         if _montage(clip.shot_ids, shots):
