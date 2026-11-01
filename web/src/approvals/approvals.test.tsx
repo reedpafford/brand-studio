@@ -178,3 +178,11 @@ test("if Approve all stops part way, the page refreshes and says how many went t
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Approve all" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("1 of 2 went through. Over this week's limit.");
 });
+
+test("at 390, a row's video link is a 44 px target (QA sweep)", async () => {
+  setViewport(390);
+  fakeServer(base);
+  open();
+  const link = await screen.findByRole("link", { name: "Mia buys the dip" });
+  expect(link.className).toContain("min-h-11"); // 44 px on a phone; its text size on desktop
+});
