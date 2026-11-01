@@ -113,3 +113,31 @@ def test_a_takes_verdict_comes_from_all_its_checks_for_self_approval_later():
     assert verdict([out("ok"), out("checking")]) == "checking"
     for unsure in ([None, None], [out("skipped"), out("ok")], [out("failed")]):
         assert verdict(unsure) == "unchecked"  # never self-approved on a check that didn't run
+
+
+def test_a_gasp_or_heavy_breath_nobody_asked_for_is_advice_with_a_calm_note():
+    found = compare(LINES, _heard("(gasps) Fomo made me rich!", "No way.", "Haah!"), "fomo",
+                    "FOH-moh", ["Mia waves her phone."])  # fmt: skip
+    assert _kinds(found) == [("sound", 0.5), ("sound", 4.5)]  # both lines still count as said
+    in_line, alone = found
+    assert in_line["text"] == "“(gasps)” at 0:00.5: a gasp or breath that isn't in the script."
+    assert alone["text"].endswith("It can be muted in the cut (0:04.5–0:05.8).")  # only a breath
+    assert in_line["change_note"].startswith("No gasps, sighs or heavy breathing")
+
+
+def test_a_sound_the_script_or_action_asks_for_is_on_purpose_and_other_tags_arent_lines():
+    heard = _heard("Fomo made me rich!", "No way.", "[breathing heavily]", "(upbeat music)")
+    assert compare(LINES, heard, "fomo", "FOH-moh", ["Bo catches his breath"]) == []
+    scripted = [*LINES, {"who": "BO", "text": "(gasps) It's up!"}]
+    heard = _heard("Fomo made me rich!", "No way.", "(gasps) It's up!")
+    assert compare(scripted, heard, "fomo", "FOH-moh", []) == []
+
+
+def test_takes_are_heard_with_their_sounds_and_the_stand_in_gasps_on_cue(monkeypatch, tmp_path):
+    asked = {}
+    monkeypatch.setattr("app.reel.transcribe", lambda path, sounds=False: asked.update(
+        sounds=sounds) or [])  # fmt: skip
+    LocalProvider(None).hear_take(tmp_path / "take.mp4", {})
+    assert asked == {"sounds": True}  # whisper keeps its "(gasps)" tags for a take
+    said = [h["text"] for h in hear_take(tmp_path, {"lines": LINES, "prompt": "fake:gasp"})]
+    assert said[-1] == "(gasps)"
