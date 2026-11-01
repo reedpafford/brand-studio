@@ -1387,3 +1387,14 @@ def test_an_action_never_says_replies_or_answers():
         schemas.Breakdown.model_json_schema()
     )
     assert 'never "Mom replies"' in prompts.system("script_draft")
+
+
+def test_the_harvest_is_folded_into_the_steps_that_use_it():
+    """docs/next/harvest (1 Nov): what the agents learned with Reed, as general craft."""
+    assert "normal human eyes, never glowing" in prompts.system("clip_prompts")
+    assert "a line across a cut loses its lip-sync" in prompts.system("breakdown")
+    assert "only the shot's own cast: no extra people" in prompts.system("storyboard")
+    draft = prompts.system("script_draft")
+    assert "every fix fails visibly and makes it worse" in draft
+    assert "the hidden cause made visible" in draft and "each phrase is its own line" in draft
+    assert "never moves its mouth" in prompts.system("narrated_clip_prompts")
