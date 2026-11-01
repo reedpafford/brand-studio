@@ -8,7 +8,6 @@ import { Badge, Banner, Button, Card, Dialog, Panel, Skeleton, buttonClass } fro
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
-import { useBudgetStop } from "../projects/useBudgetStop";
 import { videoCost } from "./TakesStep";
 import type { SongTake } from "./useSongs";
 
@@ -30,10 +29,6 @@ function useVideoSongs(projectId: number, enabled = true) {
   });
 }
 
-/** Why "Make 2 more" can't be pressed by this person, or null: it runs on the video's budget; the owner is never limited. */
-function useMakeStop(p: Project, price: number | undefined): string | null {
-  return useBudgetStop({ used: p.credits_used, budget: p.budget_credits })(price);
-}
 
 /** A narrated video's narrations are song takes of kind "narration" (Next-Server #858): the same panel, its own words (flows V6n). */
 const SONG = {
@@ -53,7 +48,6 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
   const toast = useToast();
   const [asking, setAsking] = useState<SongTake | null>(null);
   const data = songs.data;
-  const stop = useMakeStop(p, data?.estimate_credits);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["video-songs", p.id] }), queryClient.invalidateQueries({ queryKey: ["project", p.id] })]);
   const ok = async <T,>(call: Promise<{ data?: T; error?: unknown; response: Response }>) => {
     const { data: d, error, response } = await call;
@@ -166,7 +160,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
           </ul>
           {data.songs_note && <p className="text-sm text-muted">{data.songs_note}</p>}
           {data.songs_on && (
-            <Button variant="secondary" icon={Music} charge="fixed" price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
+            <Button variant="secondary" icon={Music} charge="fixed" price={data.estimate_credits} busy={make.isPending} onClick={() => make.mutate()}>
               {W.more}
             </Button>
           )}

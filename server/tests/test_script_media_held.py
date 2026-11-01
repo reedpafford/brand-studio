@@ -29,6 +29,9 @@ def test_an_editors_song_takes_wait_for_the_owner_and_the_owners_never_do(app, d
     assert editor.post(f"{url}/songs", json={}).status_code == 201
     (held,) = _held(db)
     assert (held.kind, held.input["held"]) == ("music", SCRIPT_MEDIA)
+    listed = editor.get("/jobs", params={"mine": True, "status": "needs_owner_approval"}).json()
+    script = int(url.split("/")[2])  # listed with its script, for the script page's banner
+    assert [(j["id"], j["script_id"], j["project_id"]) for j in listed] == [(held.id, script, None)]
     assert "Reed" not in editor.get(f"/jobs/{held.id}").json()["held"]
     assert editor.post(f"/jobs/{held.id}/cancel").json()["status"] == "cancelled"  # withdrawn
     mine = _script(owner, "song", LYRICS)
@@ -46,6 +49,7 @@ def test_a_narration_waits_then_its_music_follows_and_a_music_retry_waits_again(
     assert editor.post(f"{url}/songs", json={}).status_code == 201
     (held,) = _held(db)
     assert (held.kind, held.input["held"]) == ("speech", SCRIPT_MEDIA)
+    assert editor.get(f"/jobs/{held.id}").json()["script_id"] == int(url.split("/")[2])
     assert owner.post(f"/jobs/{held.id}/approve").json()["status"] == "queued"
     _work(app, db, ticks=8)
     (take,) = editor.get(f"{url}/songs").json()["takes"]

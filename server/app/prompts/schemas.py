@@ -502,8 +502,12 @@ class ScenePlan(BaseModel):
 
 
 class Finding(BaseModel):
-    kind: Literal["face", "outfit", "product"]
-    who: str = Field(description="The reference's id from <references>: char:N or product:N.")
+    kind: Literal["face", "outfit", "product", "eyes", "screen", "cast"]
+    who: str = Field(
+        description="The reference's id from <references>: char:N or product:N. For eyes, the "
+        "character's char:N, or '' if unclear; for screen, 'screen'; for cast, the missing "
+        "person's char:N, or 'extra' for someone who shouldn't be there."
+    )
     says: str = Field(
         description="One short line for the card: 'Mia's face may differ from her sheet'."
     )

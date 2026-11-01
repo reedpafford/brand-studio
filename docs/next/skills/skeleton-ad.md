@@ -263,11 +263,3 @@ Hook templates across the file: _"What would happen if you \_\_\_?"_ · _"What h
 Generate the media directly.
 
 Don't do all four stages unprompted — wait for each hand-off unless the user asks for everything at once.
-
-## Credit
-
-Made by @davidaistar (Instagram, YouTube), cofounder of starpop.ai.
-
-This skill is optimized for use in Starpop, as it assumes features natively included there, like research, storyboarding, analysis of audio, image and videos, audio slicing, and generation of image, video, audio and music.
-
-However the skill will also work in any agent such as Claude, Claude Code, ChatGPT, Codex etc.

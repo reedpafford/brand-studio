@@ -5,7 +5,7 @@ import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { keepFirst } from "./SongStep";
 import { renderApp } from "../test/render";
-import { owner } from "../test/people";
+import { editor, owner } from "../test/people";
 
 const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paws through the link in my bio." }];
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
@@ -330,4 +330,20 @@ test("a song take that hasn't started says Waiting to start, with a timer", asyn
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "making", file_id: null, seconds: null, made_at: null, started_at: null })])] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText((_, el) => el?.tagName === "P" && /^Waiting to start · 0:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument();
+});
+
+test("at 390, an editor's Make 2 takes reads Send for approval, and once pressed the script shows it waiting (QA on #1088)", async () => {
+  setViewport(390);
+  const waiting = { id: 60, kind: "music", project_id: null, script_id: 7, credits: 1, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: "song_take", error: "", held: "Songs, narration and music on a script wait for the owner's OK.", declined: false, created_by_name: "Eli", waiting: "", auto: false, output: null };
+  const routes = { ...base, "GET /auth/me": [200, editor] as [number, unknown], "GET /scripts/7": [200, song()] as [number, unknown], "GET /scripts/7/drafts/0/songs": [200, songs()] as [number, unknown], "POST /scripts/7/drafts/0/songs": [201, songs()] as [number, unknown] };
+  fakeServer(routes);
+  open("/b/1/scripts/7?step=takes");
+  const ask = await screen.findByRole("button", { name: /Send for approval · 1 credit/ });
+  expect(screen.queryByRole("button", { name: /Make 2 takes/ })).toBeNull();
+  fakeServer({ ...routes, "GET /jobs": [200, [waiting]] });
+  await userEvent.click(ask);
+  expect(await screen.findByText("Sent for approval. It waits for the owner's OK; nothing is charged until then.")).toBeInTheDocument();
+  expect(await screen.findByText("Waiting for approval")).toBeInTheDocument();
+  expect(document.body).toHaveTextContent("Your song or music · 1 credit. Songs, narration and music on a script wait for the owner's OK.");
+  expect(document.body.textContent).not.toMatch(/ask (Reed|the owner)/i);
 });
