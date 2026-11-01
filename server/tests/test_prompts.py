@@ -1536,3 +1536,15 @@ def test_the_director_tries_a_failed_item_again_or_goes_on_without_it():
                 if c["id"] == "director-turns")  # fmt: skip
     failed = [t for t in case["turns"] if "failed_since_last_turn" in t["video"]]
     assert failed and failed[0]["expect"]["tool"] == "stills"
+
+
+def test_no_text_means_no_captions_and_story_text_is_stated_exactly():
+    """Reed, 1 Nov (rule 32): "I want 3d numbers and numbers/text that is important to the
+    videos in. When i say no text, i mean no captions." Sheets stay text-free references."""
+    rule = "No captions, subtitles, titles or overlay text. Text in the world"
+    for step in ("storyboard", "clip_prompts", "improve"):
+        text = prompts.system(step)
+        assert rule in text and "its words stated exactly" in text, step
+        assert "The only text in frame is on the real brand screen" not in text, step
+    assert "random or garbled writing, a caption burned in" in prompts.system("director")
+    assert "No text, letters" in prompts.sheet_prompt("character", "a man")  # a reference
