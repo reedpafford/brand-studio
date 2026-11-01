@@ -61,7 +61,7 @@ def spans_of(lengths: list[tuple[str, int, float]], total: float) -> list[dict]:
     for clip_id, take_id, seconds in lengths:
         end = at + seconds * total / whole
         out.append({"clip_id": clip_id, "take_id": take_id, "start": round(at, 2),
-                    "end": round(end, 2)})  # fmt: skip
+                    "end": round(end, 2), "seconds": seconds})  # fmt: skip
         at = end
     return out
 
@@ -126,6 +126,7 @@ def heard_cut(db: Session, job: Job) -> None:
         seen = latest(db, "take", [t.id for t in others])
         heard = latest(db, "words", [t.id for t in others])
         cut.append({**{k: span[k] for k in ("clip_id", "start", "end", "take_id")},
+                    "seconds": span.get("seconds"),
                     "shots": [{"id": i, "action": shots[i].get("action", ""),
                                "line": shots[i].get("line")}
                               for i in ids.get(span["clip_id"], []) if i in shots],
@@ -177,11 +178,34 @@ def _bare(text: str) -> list[str]:
     return re.findall(r"[a-z0-9']+", text.lower())
 
 
+PAUSE = 0.4  # seconds between words that start a new heard line (as frames_at reads them)
+
+
+def _scripted(word: str, said: set[str]) -> bool:
+    """A heard word is a script word, said right or near it ("fogo" for "fomo")."""
+    from difflib import SequenceMatcher
+
+    return any(w in said or (len(w) >= 3 and any(
+        SequenceMatcher(None, w, s).ratio() >= 0.6 for s in said if len(s) >= 3))
+        for w in _bare(word))  # fmt: skip
+
+
+def _lines(words: list[dict]) -> list[list[dict]]:
+    """The heard words in lines: a pause of PAUSE or more starts a new one."""
+    out: list[list[dict]] = []
+    for n, w in enumerate(words):
+        if n == 0 or w["start"] - words[n - 1]["end"] >= PAUSE:
+            out.append([])
+        out[-1].append(w)
+    return out
+
+
 def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> list[dict]:
     """The look's findings the director can act on: a mute inside one clip and over no
     script word, in that clip's take seconds; a pick of one of the clip's other takes."""
     spans = {c["clip_id"]: c for c in cut}
     said = set(_bare(script))
+    spoken = [line for line in _lines(words) if any(_scripted(w["word"], said) for w in line)]
     out = []
     for f in (answer.get("findings") or [])[:6]:
         f = {**f, "fix": "pick" if f.get("fix") == "other_take" else f.get("fix")}
@@ -191,13 +215,12 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
             why = "names no clip of the cut" if span is None else f"fix {f['fix']!r}"
         elif f["fix"] == "mute":
             start, end = float(f["start"]), float(f["end"])
-            over = [w for w in words if w["end"] > start and w["start"] < end]
             if not (span["start"] - 0.05 <= start < end <= span["end"] + 0.05):
                 why = "a mute across clips"
-            elif any(set(_bare(w["word"])) & said for w in over):
-                why = "a mute over a script word"
+            elif any(w["end"] > start and w["start"] < end for line in spoken for w in line):
+                why = "a mute over a line with script words"  # rule 19, misheard ones too
             else:
-                f["mute"] = [round(max(start - span["start"], 0), 2), round(end - span["start"], 2)]
+                f["mute"] = _in_take(span, start, end)
         elif f["fix"] == "pick" and f.get("take_id") not in {
             t["take_id"] for t in span.get("other_takes", [])
         }:
@@ -210,6 +233,18 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
             f["take_id"] = None
         out.append(f)
     return out
+
+
+def _in_take(span: dict, start: float, end: float) -> list[float]:
+    """Cut seconds as that clip's take seconds (the cut can run a little short or long of its
+    takes: scaled back, `seconds` being the take's own length)."""
+    scale = (span.get("seconds") or (span["end"] - span["start"])) / max(
+        span["end"] - span["start"], 0.01
+    )
+    return [
+        round(max(start - span["start"], 0) * scale, 2),
+        round((end - span["start"]) * scale, 2),
+    ]
 
 
 def save(db: Session, job: Job) -> None:

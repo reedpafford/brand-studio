@@ -26,8 +26,8 @@ WORDS = [{"word": "Get", "start": 4.5, "end": 4.8, "clip_id": "c2"},
 
 def test_each_clip_sits_where_the_cut_put_it_and_the_frames_on_its_boundaries():
     spans = watch_cut.spans_of([("c1", 1, 4.0), ("c2", 2, 6.0)], 9.0)  # re-encoded: 9 s, not 10
-    assert spans == [{"clip_id": "c1", "take_id": 1, "start": 0.0, "end": 3.6},
-                     {"clip_id": "c2", "take_id": 2, "start": 3.6, "end": 9.0}]  # fmt: skip
+    assert [(s["clip_id"], s["start"], s["end"], s["seconds"]) for s in spans] == [
+        ("c1", 0.0, 3.6, 4.0), ("c2", 3.6, 9.0, 6.0)]  # fmt: skip
     assert (watch_cut.count_for(6), watch_cut.count_for(20), watch_cut.count_for(90)) == (
         16,
         20,
@@ -68,6 +68,24 @@ def test_only_findings_the_director_can_act_on_reach_it():
     assert old[0]["fix"] == "pick"  # the schema's first name, said as the director reads it
 
 
+def test_a_mute_never_covers_a_script_word_even_misheard():
+    """QA-6 on #1133: "Get fogo." heard for "Get fomo.": the brand word is still the script's."""
+    fogo = [{**w, "word": "fogo."} if w["word"] == "fomo." else w for w in WORDS]
+    mute = {"clip_id": "c2", "start": 4.8, "end": 5.3, "says": "c2: he says fogo", "fix": "mute"}
+    assert watch_cut.checked({"findings": [mute]}, CUT, fogo, "MIA: Get fomo.") == []
+    near = {**mute, "start": 5.25, "end": 5.6}  # the line's tail, still on it
+    assert watch_cut.checked({"findings": [near]}, CUT, fogo, "MIA: Get fomo.") == []
+    groan = {**mute, "start": 6.9, "end": 7.5}  # its own line after a pause: may be muted
+    assert watch_cut.checked({"findings": [groan]}, CUT, fogo, "MIA: Get fomo.")[0]["mute"]
+
+
+def test_a_mute_lands_in_take_seconds_when_the_cut_ran_short():
+    cut = [{**CUT[1], "start": 3.6, "end": 9.0, "seconds": 6.0}]  # 6 s of take in 5.4 s of cut
+    mute = {"clip_id": "c2", "start": 8.0, "end": 8.5, "says": "c2: a thud", "fix": "mute"}
+    (kept,) = watch_cut.checked({"findings": [mute]}, cut, [], "")
+    assert kept["mute"] == [4.89, 5.44]  # not [4.4, 4.9]: scaled back to the take
+
+
 def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, setup, clip):  # noqa: F811
     project = db.get(Project, setup["project"])
     user = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
@@ -96,7 +114,7 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     redo, mute = watch["findings"]
     assert (redo["clip_id"], redo["fix"], redo["mute"]) == ("c1", "redo", None)
     start, end = mute["mute"]  # in c1's take seconds, half a second
-    assert mute["fix"] == "mute" and 0 < start and round(end - start, 2) == 0.5
+    assert mute["fix"] == "mute" and 0 < start and abs(end - start - 0.5) <= 0.05
     editor.post(f"{base}/clips/{clip['id']}/generate")  # a new take: the cut is out of date
     _work(app, db, FakeSeedance([_mp4("blue")]))
     db.expire_all()
