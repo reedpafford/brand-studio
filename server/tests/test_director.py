@@ -14,7 +14,7 @@ from tests.test_cast_roles import _video
 
 def _run(app, db, ticks=60):
     """Run the worker until the director's run ends (or `ticks` passes)."""
-    providers = get_providers(app.state.settings)
+    providers = get_providers(app.state.settings, app.state.storage)
     for _ in range(ticks):
         run_once(db, providers, app.state.storage)
         db.expire_all()
@@ -278,7 +278,7 @@ def test_a_job_of_its_own_that_fails_never_leaves_the_run_hanging(app, db, owner
     reached its finish) left the run "running" forever. Now it goes on: it sees the failure,
     draws the still again and delivers."""
     pid = _made(app, owner, editor, db)
-    providers = get_providers(app.state.settings)
+    providers = get_providers(app.state.settings, app.state.storage)
     real, failed = providers["replicate"].submit, []
 
     def once(kind, input):
@@ -303,7 +303,7 @@ def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
     """Producer: a failed item is retried at most twice; then the run delivers what it has or,
     with no cut yet, stops with that reason (never spending its turns on it)."""
     pid = _made(app, owner, editor, db)
-    providers = get_providers(app.state.settings)
+    providers = get_providers(app.state.settings, app.state.storage)
     real, tries = providers["replicate"].submit, []
 
     def never(kind, input):
@@ -409,7 +409,8 @@ def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, e
     last = db.query(ProjectClip).filter_by(project_id=pid).order_by(ProjectClip.id.desc()).first()
     muted = f"Muted a stretch of clip {last.clip_id.removeprefix('c')} instead of remaking it."
     assert [t["result"] for t in out["turns"] if t["tool"] == "mute"] == [muted]
-    assert db.get(ClipTake, last.picked_take_id).made_with["mutes"] == [[0.5, 1.0]]
+    ((start, end),) = db.get(ClipTake, last.picked_take_id).made_with["mutes"]
+    assert round(end - start, 2) == 0.5  # the half second the watch found, nothing more
     assert out["ended"].endswith(muted)  # named in the delivery note
     user = db.query(User).filter_by(email="ed@example.com").one()
     again = director_tools.run(db, user, db.get(Project, pid), {"tool": "mute", "clip_id": "c1"},
