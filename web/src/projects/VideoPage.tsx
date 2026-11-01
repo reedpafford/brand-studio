@@ -29,6 +29,7 @@ import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, isMake, videoBlocker, videoHold, videoLock, videoNext, videoPickerStates, videoStepFromParams, type VideoProgress } from "./videoSteps";
 import { HeldRequests } from "../approvals/HeldRequests";
+import { DirectorView, useDirector } from "./DirectorView";
 
 /** A video made from a library version: Plan · Cast · Make (Stills | Clips) · Final cut. */
 export function VideoPage() {
@@ -54,6 +55,7 @@ export function VideoPage() {
   const p = project.data;
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
   const settings = useVideoSettings(id); // the row has Shape once the server offers settings
+  const director = useDirector(id);
   // The storyboard is out of date and the shots are current: one press brings it and the clip prompts up to date (audit M14 part 2).
   // An editor's over-budget press is held for the owner (#1068), never stopped here; only what blocks for everyone is.
   const stopFor = () => null;
@@ -89,8 +91,13 @@ export function VideoPage() {
   if (asked === "make") return <Navigate to={`?step=${videoPickerStates(step, all)[2].id}`} replace />;
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
+  // Two views (audit 8.5): the director's run, and "Look inside" for the steps. Director comes first once a run has
+  // started; only someone who may change the video sees it (the server answers no one else).
+  const run = mayManage(p) && !p.archived_at ? (director.data ?? null) : null;
+  const view = run && (params.get("view") ?? (run.status === "none" ? "steps" : "director")) === "director" ? "director" : "steps";
+  const keep: Record<string, string> = params.get("view") ? { view: params.get("view")! } : {};
   const pick = (to: string) => {
-    setParams(to === "plan" ? {} : { step: to });
+    setParams(to === "plan" ? keep : { step: to, ...keep });
     setPanel(false);
   };
   const showLines = (lines: number[]) => {
@@ -125,7 +132,7 @@ export function VideoPage() {
 
   return (
     // One cost bar at the bottom: the budget, what finishing costs, and the step's press (audit M1).
-    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} lookOnly={lookOnly} fallback={waiting ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
+    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} lookOnly={lookOnly} fallback={waiting || view === "director" ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
@@ -161,6 +168,10 @@ export function VideoPage() {
         </Banner>
       )}
       {p.status === "needs_owner_approval" && <WaitingBadge />}
+      {run && <Tabs label="Video view" value={view} onChange={(to) => setParams({ ...(step === "plan" ? {} : { step }), view: to })} tabs={[{ id: "director", label: "Director" }, { id: "steps", label: "Look inside" }]} />}
+      {view === "director" && run && <DirectorView projectId={id} run={run} />}
+      {view === "steps" && (
+      <>
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           {waiting ? <Skeleton className="h-control" /> : <StepPicker steps={videoPickerStates(step, all)} onPick={pick} />}
@@ -205,6 +216,8 @@ export function VideoPage() {
       {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       </ViewOnly>
+      </>
+      )}
       {panel && (
         <ScriptPanel
           projectId={id}
