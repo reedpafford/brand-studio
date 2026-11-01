@@ -1522,6 +1522,22 @@ def test_clip_lengths_are_suggestions_not_rules():
         assert "s at most" not in text and "up to about 13 s" not in text, step
 
 
+def test_the_director_tries_a_failed_item_again_or_goes_on_without_it():
+    """Next-Server's #1087: <video> carries failed_since_last_turn; the server stops an item
+    after its third failure and ends the run itself, so the prompt only says retry it or go on."""
+    director = prompts.system("director")
+    assert "failed_since_last_turn" in director and "**When something fails.**" in director
+    assert "go on without it when the rest still makes a cut" in director
+    # QA-5: the stills tool takes no note, and the server ends the run itself after 3 failures.
+    assert "it takes no note" in director and "the run ends on its own with the reason" in director
+    assert "a refused still" not in director and "tells you; then" not in director
+    cases = Path(prompts.__file__).parents[2] / "evals" / "cases.json"
+    case = next(c for c in json.loads(cases.read_text())["cases"]
+                if c["id"] == "director-turns")  # fmt: skip
+    failed = [t for t in case["turns"] if "failed_since_last_turn" in t["video"]]
+    assert failed and failed[0]["expect"]["tool"] == "stills"
+
+
 def test_no_text_means_no_captions_and_story_text_is_stated_exactly():
     """Reed, 1 Nov (rule 32): "I want 3d numbers and numbers/text that is important to the
     videos in. When i say no text, i mean no captions." Sheets stay text-free references."""
