@@ -11,8 +11,16 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
-    assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
-    assert set(ids[5:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"}
+    assert ids[:7] == [
+        "house",
+        "disney-pixar",
+        "song",
+        "zack-d",
+        "skeleton",
+        "skeleton-xray",
+        "skeleton-cute",
+    ]  # Reed's skill: its Style Library, side by side
+    assert set(ids[7:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"}
     # Formats: only Song for now (Reed, 30 Oct); podcast, vox and whiteboard are in git history
     assert [s["id"] for s in prompts.styles() if s["kind"] == "format"] == ["song"]
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
@@ -83,7 +91,7 @@ def test_styles_borrow_a_studio_look_never_its_frame_and_never_rewrite_lines():
     for s in prompts.styles():
         text = "\n".join(s["sections"].values())
         assert "frame from a Pixar" not in text and "from an animated Pixar" not in text, s["id"]
-        if "script" in s["sections"] and s["id"] in ("zack-d", "skeleton"):
+        if "script" in s["sections"]:
             assert "word for word" in s["sections"]["script"], s["id"]
 
 
@@ -154,7 +162,8 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     own = prompts.sample_still_prompt("zack-d")
     assert prompts.look_sample("zack-d").rstrip(".") in own and "[Image1]" not in own
     # Skeleton's sample is always its own skeleton, never the brand's human hero
-    assert [s["id"] for s in prompts.styles() if s["own_sample"]] == ["skeleton"]
+    own = [s["id"] for s in prompts.styles() if s["own_sample"]]
+    assert own == ["skeleton", "skeleton-xray", "skeleton-cute"]
 
 
 def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
@@ -212,3 +221,22 @@ def test_song_has_only_its_guides_and_takes_its_look_from_the_video():
         made = prompts.system(step, "claymation", "song")
         assert "Pixar musical" not in made and "Pixar animated feature" not in made, step
         assert "## Format: Song\nThis video is a Song video in the Claymation look" in made
+
+
+def test_skeleton_has_reeds_style_library_and_strategy():
+    """Reed's skeleton-ad skill (docs/next/skills, #1095): Bare-Bones by default (Dressed is
+    its outfit), X-Ray and Mascot as their own looks; the hook templates, three spines and the
+    angle table; one line, one shot, one rung. Never a studio name outside Disney Pixar."""
+    bare = prompts.style("skeleton")["sections"]["sheet_look"]
+    assert "smooth ivory-cream bones with realistic bone detail" in bare
+    assert "organs (heart, lungs, intestines) glowing" in prompts.style("skeleton-xray")[
+        "sections"]["sheet_look"]  # fmt: skip
+    assert "oversized round skull" in prompts.style("skeleton-cute")["sections"]["sheet_look"]
+    for look in ("skeleton", "skeleton-xray", "skeleton-cute"):
+        script = prompts.system("script_draft", look)
+        assert "How many ___ does it take to ___?" in script and "(1, 5, 25, 42)" in script
+        assert "transformation is one option, not the default" in script, look
+        assert "One line is one shot is one rung" in prompts.system("breakdown", look), look
+        text = "\n".join(prompts.style(look)["sections"].values())
+        assert "pixar" not in text.lower(), look
+    assert "never the default skeleton" in prompts.system("storyboard", "skeleton-cute")
