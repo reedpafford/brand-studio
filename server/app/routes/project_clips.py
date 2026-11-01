@@ -75,6 +75,7 @@ class TakeOut(BaseModel):
     created_at: UtcTime  # "made 10:42"
     check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
     words: CheckOut | None = None  # what it says against the script's lines (Advice only)
+    verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
 
 
 class NarrationOut(BaseModel):
@@ -192,8 +193,9 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 number=t.number,
                 file_id=t.file_id,
                 created_at=t.created_at,
-                check=item_checks.shown(db, checks.get(t.id)),
-                words=item_checks.shown(db, words.get(t.id)),
+                check=(seen := item_checks.shown(db, checks.get(t.id))),
+                words=(heard := item_checks.shown(db, words.get(t.id))),
+                verdict=item_checks.verdict([seen, heard]),
             )  # fmt: skip
             for t in takes
         ],

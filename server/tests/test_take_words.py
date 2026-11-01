@@ -3,6 +3,7 @@ script's lines for its clip. Advice only, heard on the free stand-in (no paid ca
 
 import pytest
 
+from app.item_checks import CheckOut, FindingOut, verdict
 from app.models.brands import Brand
 from app.models.checks import ItemCheck
 from app.models.jobs import Job
@@ -88,8 +89,9 @@ def test_a_new_take_is_heard_and_its_advice_shows(app, db, editor, setup, clip, 
 
     local = LocalProvider(app.state.storage, hear_take=drop_last)
     run_once(db, {"local": local}, app.state.storage, only={"local"})
-    words = editor.get(clips).json()[0]["takes"][0]["words"]
-    assert words["status"] == "advice"
+    (take,) = editor.get(clips).json()[0]["takes"]
+    words = take["words"]
+    assert words["status"] == "advice" and take["verdict"] == "flagged"
     assert [f["kind"] for f in words["findings"]] == ["missing"]
     assert words["findings"][0]["note"].endswith(f"“{lines[-1]['text']}”")
     review = editor.get(f"/projects/{setup['project']}/checks").json()
@@ -97,3 +99,17 @@ def test_a_new_take_is_heard_and_its_advice_shows(app, db, editor, setup, clip, 
     url = f"/projects/{setup['project']}/checks/{words['id']}/findings/0/dismiss"
     assert editor.post(url).json()["status"] == "ok"  # Looks fine, as for any check
     assert db.get(ItemCheck, words["id"]).target == "words"
+
+
+def test_a_takes_verdict_comes_from_all_its_checks_for_self_approval_later():
+    def out(status, found=0):
+        return CheckOut(id=1, status=status, findings=[
+            FindingOut(index=i, kind="extra", text="", note="") for i in range(found)])  # fmt: skip
+
+    assert verdict([out("ok"), out("ok")]) == "clean"
+    assert verdict([out("ok"), None]) == "clean"  # a clip with no lines has no words check
+    assert verdict([out("ok"), out("advice", 1)]) == "flagged"
+    assert verdict([out("checking"), out("advice", 2)]) == "flagged"
+    assert verdict([out("ok"), out("checking")]) == "checking"
+    for unsure in ([None, None], [out("skipped"), out("ok")], [out("failed")]):
+        assert verdict(unsure) == "unchecked"  # never self-approved on a check that didn't run

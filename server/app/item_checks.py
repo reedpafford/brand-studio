@@ -221,6 +221,18 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
     return CheckOut(id=row.id, status=status, findings=findings)
 
 
+def verdict(checks: list[CheckOut | None]) -> str:
+    """A take's verdict from all its checks (the item check and its words), for the take
+    check's self-approval to come (rule 21): flagged (Advice not yet Looks fine), checking,
+    clean (checked, nothing found) or unchecked (checks off, skipped or failed)."""
+    ran = [c for c in checks if c]
+    if any(c.findings for c in ran):
+        return "flagged"
+    if any(c.status == "checking" for c in ran):
+        return "checking"
+    return "clean" if ran and all(c.status == "ok" for c in ran) else "unchecked"
+
+
 def with_advice(db: Session, target: str, ids: list[int], also: str | None = None) -> int:
     """How many of these items' newest checks still have Advice ("2 approved with Advice");
     `also`: a second check on the same items (a take's words)."""
