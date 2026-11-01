@@ -50,11 +50,13 @@ def test_estimate_auto_attaches_moment_screens(editor, fomo):
 def test_estimate_says_when_the_weekly_allowance_is_used(editor, fomo, db):
     ed = db.query(User).filter_by(role=Role.editor).one()
     enqueue(db, ed, "video-480p", {}, units=95)
-    r = editor.post("/clips/estimate", json=_clip(fomo))
-    assert r.status_code == 409 and r.json()["detail"] == (
+    r = editor.post("/clips/estimate", json=_clip(fomo)).json()
+    assert r["needs_owner_approval"] is True and r["reason"] == (
         "That's more than this week's 97 credits (95 used). It resets on Monday."
     )
-    assert editor.post("/clips", json=_clip(fomo)).status_code == 409  # declined, not held
+    made = editor.post("/clips", json=_clip(fomo))
+    assert (made.status_code, made.json()["status"]) == (201, "needs_owner_approval")
+    assert made.json()["held"] == r["reason"]  # what it waits for, as the estimate said
 
 
 def test_create_returns_job_with_safe_summary(editor, fomo, db):

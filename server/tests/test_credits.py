@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app import credits as credits_module
+from app.credits import credits_used
 from app.db import utcnow
 from app.models.accounts import Role, User
 from app.models.jobs import Job
@@ -81,7 +82,7 @@ def test_budget_is_twice_the_whole_estimate(project, editor, ed, db):
 
 
 def _held(db, ed, model, credits):
-    """A job held for the owner's OK, as editors' over-budget jobs were before #399."""
+    """A job held for the owner's OK, as an editor's over-budget press is (Hold requests)."""
     from app.models.jobs import Job
 
     held = Job(workspace_id=ed.workspace_id, created_by_id=ed.id, kind="video-480p",
@@ -92,27 +93,25 @@ def _held(db, ed, model, credits):
     return held
 
 
-def test_over_budget_job_is_refused_and_one_already_held_waits_for_owner(
+def test_over_budget_job_waits_for_the_owner_uncharged_and_runs_once_approved(
     project, owner, editor, ed, db
 ):
-    """Reed, 2026-10-26 (#399): past a library version's budget an editor is refused with the
-    reason, never sent to Reed. A job held before that change still waits and can be OK'd."""
-    import pytest
-    from fastapi import HTTPException
-
+    """Reed, 30 Oct ("Hold requests"): past a video's budget an editor's press waits for the
+    owner with why, charged nothing; approved, it runs and is charged then."""
     _, model = project
     enqueue(db, ed, "video-480p", {}, units=model.budget_credits - 5, project=model)
-    with pytest.raises(HTTPException) as refused:
-        enqueue(db, ed, "video-480p", {}, units=10, project=model)
-    assert (refused.value.status_code, refused.value.detail) == (
-        409, "That's more than this video's budget."
-    )  # fmt: skip
-    held = _held(db, ed, model, 10)
+    before = credits_used(db, model)
+    held = enqueue(db, ed, "video-480p", {}, units=10, project=model)
+    assert held.status == "needs_owner_approval"
+    assert editor.get(f"/jobs/{held.id}").json()["held"] == "That's more than this video's budget."
+    assert credits_used(db, model) == before  # nothing charged while it waits
     _run(db)
     db.refresh(held)
     assert held.status == "needs_owner_approval"  # the worker leaves it alone
     assert editor.post(f"/jobs/{held.id}/approve").status_code == 403
+    waiting = credits_used(db, model)
     assert owner.post(f"/jobs/{held.id}/approve").json()["status"] == "queued"
+    assert credits_used(db, model) == waiting + held.credits  # charged once approved
     assert owner.post(f"/jobs/{held.id}/approve").status_code == 409
     me = owner.get("/auth/me").json()["id"]
     assert owner.get(f"/jobs/{held.id}/detail").json()["approved_by_id"] == me
@@ -146,26 +145,22 @@ def test_cancelled_and_failed_jobs_free_their_credits(project, editor, ed, db):
 
 
 def test_quick_clips_use_a_weekly_allowance_per_editor(editor, ed, db):
-    """$10 a week, Quick clips only (Reed, 30 Oct): past it a Quick clip is declined, never
-    sent to the owner, and the words never say "ask Reed"."""
+    """$10 a week, Quick clips only (Reed, 30 Oct): past it a Quick clip waits for the owner,
+    uncharged, and the words never say "ask Reed"."""
     assert enqueue(db, ed, "video-480p", {}, units=60).status == "queued"
-    with pytest.raises(HTTPException) as err:
-        enqueue(db, ed, "video-480p", {}, units=40)
-    assert err.value.status_code == 409
-    assert err.value.detail == (
+    over = enqueue(db, ed, "video-480p", {}, units=40)
+    assert over.status == "needs_owner_approval"
+    assert editor.get(f"/jobs/{over.id}").json()["held"] == (
         "That's more than this week's 97 credits (60 used). It resets on Monday."
     )
-    assert db.query(Job).count() == 1  # nothing queued or held
     assert enqueue(db, ed, "video-480p", {}, units=37).status == "queued"  # exactly 97
     me = editor.get("/credits/me").json()
     assert (me["quick_clip_credits_used"], me["quick_clip_credits_allowed"]) == (97, 97)
     resets = date.fromisoformat(me["resets_on"])
     assert resets.weekday() == 0 and resets > utcnow().date()  # next Monday: "It resets on…"
-    with pytest.raises(HTTPException) as spent:
-        enqueue(db, ed, "video-480p", {}, units=1)
-    assert spent.value.detail == "You've used this week's 97 credits. It resets on Monday."
-    assert "reed" not in spent.value.detail.lower()
-    assert not db.query(Job).filter_by(status="needs_owner_approval").count()  # never held
+    spent = enqueue(db, ed, "video-480p", {}, units=1)
+    assert spent.input["held"] == "You've used this week's 97 credits. It resets on Monday."
+    assert "reed" not in spent.input["held"].lower()
 
 
 def test_last_weeks_quick_clips_do_not_count(ed, db):
@@ -173,6 +168,38 @@ def test_last_weeks_quick_clips_do_not_count(ed, db):
     old.created_at = credits_module.week_start().replace(year=2020)
     db.commit()
     assert enqueue(db, ed, "video-480p", {}, units=97).status == "queued"  # a new week
+
+
+def test_a_declined_request_never_runs_or_counts_and_says_why(owner, editor, ed, db):
+    """The owner says no: it never runs, the week is as it was, and the editor sees why."""
+    enqueue(db, ed, "video-480p", {}, units=90)
+    held = enqueue(db, ed, "video-480p", {}, units=20)
+    assert editor.post(f"/jobs/{held.id}/decline").status_code == 403  # the owner's call
+    said = owner.post(f"/jobs/{held.id}/decline", json={"reason": "Not this week, sorry."})
+    assert (said.json()["status"], said.json()["held"], said.json()["declined"]) == (
+        "cancelled", "", True)  # fmt: skip
+    assert editor.get(f"/jobs/{held.id}").json()["error"] == "Not this week, sorry."
+    assert editor.get("/credits/me").json()["quick_clip_credits_used"] == 90  # untouched
+    assert owner.post(f"/jobs/{held.id}/decline").status_code == 409  # not waiting now
+    plain = enqueue(db, ed, "video-480p", {}, units=20)
+    assert owner.post(f"/jobs/{plain.id}/decline").json()["error"] == (
+        "The owner said no this time. Nothing was charged."
+    )
+    _run(db)
+    db.refresh(held)
+    assert held.status == "cancelled"  # the worker never picks it up
+
+
+def test_the_per_video_cap_is_still_refused_never_held(project, owner, ed, db):
+    _, model = project
+    cap = owner.get("/credits/limits").json()["per_video_max_credits"]
+    for who in (ed, db.query(User).filter_by(role=Role.owner).one()):
+        with pytest.raises(HTTPException) as refused:
+            enqueue(db, who, "video-480p", {}, units=cap + 1, project=model)
+        assert refused.value.status_code == 409
+        with pytest.raises(HTTPException):
+            enqueue(db, who, "video-480p", {}, units=cap + 1)  # a Quick clip: the same cap
+    assert not db.query(Job).filter_by(status="needs_owner_approval").count()
 
 
 def test_owner_jobs_are_never_held(owner, db):
@@ -214,26 +241,20 @@ def test_two_project_jobs_at_once_cannot_both_fit(app, project, ed, db, monkeypa
     enqueue(db, ed, "video-480p", {}, units=model.budget_credits - 5, project=model)  # 5 left
 
     def make(s):
-        try:
-            return enqueue(
-                s, s.get(User, ed.id), "video-480p", {}, units=5, project=s.get(Project, model.id)
-            )
-        except HTTPException as exc:
-            return type("Declined", (), {"status": f"declined {exc.status_code}"})()
+        return enqueue(
+            s, s.get(User, ed.id), "video-480p", {}, units=5, project=s.get(Project, model.id)
+        )
 
-    assert _race(app, monkeypatch, make) == ["declined 409", "queued"]
+    assert _race(app, monkeypatch, make) == ["needs_owner_approval", "queued"]
 
 
 def test_two_quick_clips_at_once_cannot_both_fit(app, ed, db, monkeypatch):
     enqueue(db, ed, "video-480p", {}, units=87)  # 87 of 97 used
 
     def make(s):
-        try:
-            return enqueue(s, s.get(User, ed.id), "video-480p", {}, units=10)
-        except HTTPException as exc:
-            return type("Declined", (), {"status": f"declined {exc.status_code}"})()
+        return enqueue(s, s.get(User, ed.id), "video-480p", {}, units=10)
 
-    assert _race(app, monkeypatch, make) == ["declined 409", "queued"]
+    assert _race(app, monkeypatch, make) == ["needs_owner_approval", "queued"]
 
 
 def test_other_workspace_is_shut_out(project, ed, outsider, db):
@@ -271,8 +292,8 @@ def test_weekly_allowance_is_per_editor_and_owner_can_raise_it(app, owner, ed, d
     second = db.query(User).filter_by(email="two@example.com").one()
     clips = [enqueue(db, ed, "video-480p", {}, units=40).status for _ in range(2)]
     assert clips == ["queued", "queued"]
-    with pytest.raises(HTTPException):
-        enqueue(db, ed, "video-480p", {}, units=40)  # 120 > 97: declined
+    over = enqueue(db, ed, "video-480p", {}, units=40)  # 120 > 97: waits for the owner
+    assert over.status == "needs_owner_approval"
     assert enqueue(db, second, "video-480p", {}, units=40).status == "queued"
     owner.put(
         "/credits/limits",
@@ -374,7 +395,7 @@ def test_a_single_quick_clip_cannot_pass_the_cap(owner, ed, db):
 
 def test_a_video_from_an_editors_own_script_runs_on_its_budget_not_the_week(owner, editor, ed, db):
     """Reed, 30 Oct: anything in a script or video is a brand's work, so it runs on the
-    video's budget like any other (declined past it, never "ask Reed") and never counts
+    video's budget like any other (held past it, never "ask Reed") and never counts
     toward the week; only Quick clips do."""
     from app.models.script_library import ScriptDraft
 
@@ -388,9 +409,8 @@ def test_a_video_from_an_editors_own_script_runs_on_its_budget_not_the_week(owne
     assert enqueue(db, ed, "video-480p", {}, units=own.budget_credits, project=own).status == (
         "queued"
     )
-    with pytest.raises(HTTPException) as err:
-        enqueue(db, ed, "video-480p", {}, units=1, project=own)
-    assert err.value.detail == "That's more than this video's budget."
+    held = enqueue(db, ed, "video-480p", {}, units=1, project=own)
+    assert held.input["held"] == "That's more than this video's budget."
     assert editor.get("/credits/me").json()["quick_clip_credits_used"] == 0  # not the week
     assert enqueue(db, ed, "video-480p", {}, units=97).status == "queued"  # a whole week left
 

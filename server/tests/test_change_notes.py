@@ -181,9 +181,11 @@ def test_a_change_checks_its_whole_price_against_the_videos_budget(
     whole = price(db, project, frame)
     room = credits_used(db, project) + whole
     monkeypatch.setattr("app.credits.budget", lambda db, p: room - Decimal("0.01"))  # rewrite fits
-    refused = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
-    assert (refused.status_code, refused.json()["detail"]) == (
-        409, "That's more than this video's budget.")  # fmt: skip
+    held = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
+    assert held.status_code == 201  # past it with the still: waits for the owner
+    (job,) = db.query(Job).filter_by(status="needs_owner_approval").all()
+    assert job.input["held"] == "That's more than this video's budget."
+    assert editor.post(f"/jobs/{job.id}/cancel").status_code == 200  # withdrawn
     monkeypatch.setattr("app.credits.budget", lambda db, p: room)
     sent = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
     assert sent.status_code == 201
