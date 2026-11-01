@@ -1478,7 +1478,10 @@ def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
     assert "a copy, not a premise" in prompts.system("script_draft")
     assert "Write a montage only when this story" in prompts.system("script_draft")
     director = prompts.system("director")
-    assert "Watch it as a viewer." in director and "garbled or invented screen" in director
+    assert "Judge it as a viewer." in director and "garbled or invented screen" in director
+    # The Producer: the director can't see the cut, so it judges from the notes, never claims it.
+    assert "You can't see the cut" in director and "Never say you watched" in director
+    assert "watch the whole cut" not in director
 
 
 def test_fomo_producers_redo_notes_reach_the_prompts():
