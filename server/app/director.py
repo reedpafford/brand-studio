@@ -119,6 +119,19 @@ def wake(db: Session, project: Project) -> None:
     _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
 
 
+def sweep(db: Session) -> None:
+    """Each worker tick: every run whose last turn was acted on and has nothing left being
+    made gets its next turn, however its work ended (failed, cancelled, released): a run
+    never waits on work that is over (QA on #1087)."""
+    step = Job.input["step"].as_string()
+    acted = select(Job.project_id).where(
+        step == STEP, Job.status == JobStatus.succeeded,
+        Job.input["result"].as_string().is_not(None), Job.input["ended"].as_string().is_(None),
+    ).distinct()  # fmt: skip
+    for project_id in db.scalars(acted).all():
+        wake(db, db.get(Project, project_id))
+
+
 def _act(db: Session, job: Job, storage) -> None:
     project, decision = db.get(Project, job.project_id), dict(job.output or {})
     run = dict(job.input[RUN])
@@ -174,6 +187,13 @@ def _turn(db: Session, user: User, project: Project, run: dict) -> Job:
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
+    if last is not None and (gave_up := _failed_too_often(db, project, run)):
+        made = video_state(db, project)["cut"] == "made"  # what it has: a cut, or nothing
+        last = db.get(Job, last.id)
+        _end(last, f"{gave_up}; delivered without it." if made else f"It stopped: {gave_up}.",
+             result="Delivered." if made else "")  # fmt: skip
+        db.commit()
+        return last
     if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= MAX_USD:
         why = (f"It stopped after {MAX_TURNS} turns." if run["turn"] >= MAX_TURNS
                else f"It stopped at ${MAX_USD} of its own time.")  # fmt: skip
@@ -248,6 +268,10 @@ def video_state(db: Session, project: Project) -> dict:
                       "picked_take_id": row.picked_take_id, "takes": out})  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
+    acted = [j for j in turns(db, project) if "result" in j.input]
+    failed = db.scalars(select(Job).where(
+        Job.project_id == project.id, Job.status == JobStatus.failed,
+        Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
     from app.plans import status
 
     return {
@@ -261,6 +285,7 @@ def video_state(db: Session, project: Project) -> dict:
         "being_made": len([j for j in waiting if j.status != JobStatus.needs_owner_approval]),
         "held_for_owner": [j.input.get("held", "") for j in waiting
                            if j.status == JobStatus.needs_owner_approval],
+        "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
     }  # fmt: skip
 
 
@@ -308,6 +333,35 @@ def choose(state: dict) -> dict:
         said = f" No take of {', '.join(unclean)} is clean: its newest is used." if unclean else ""
         return go("final_cut", f"Every clip has its take.{said}")
     return go("deliver", "The cut is made with each clip's best take.")
+
+
+def _failed_too_often(db: Session, project: Project, run: dict) -> str:
+    """Plain words for the first item of the run's work that failed more than MAX_REDOS
+    times since the run began (tried, then retried twice), e.g. "Clip 3's still failed 3
+    times"; else "". The run then delivers what it has or stops, never spending turns on it."""
+    first = next((j for j in turns(db, project) if j.input[RUN]["id"] == run["id"]), None)
+    if first is None:
+        return ""
+    counts: dict[str, int] = {}
+    for job in db.scalars(select(Job).where(Job.project_id == project.id,
+                                            Job.status == JobStatus.failed,
+                                            Job.created_at >= first.created_at)):  # fmt: skip
+        what = _item(db, job)
+        counts[what] = counts.get(what, 0) + 1
+        if counts[what] > MAX_REDOS:
+            return f"{what} failed {counts[what]} times"
+    return ""
+
+
+def _item(db: Session, job: Job) -> str:
+    """What a failed job was making, in plain words: "Clip 3's still", "Clip 3's take"."""
+    if frame := job.input.get("frame_id"):
+        row = db.get(StoryboardFrame, frame)
+        return f"Clip {row.clip_id.removeprefix('c')}'s still" if row else "A still"
+    if clip := job.input.get("project_clip_id"):
+        row = db.get(ProjectClip, clip)
+        return f"Clip {row.clip_id.removeprefix('c')}'s take" if row else "A take"
+    return f"The {str(job.input.get('step') or job.kind).replace('_', ' ')}"
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:

@@ -466,6 +466,14 @@ def run_once(
     for _ in range(queued):
         if STOP.is_set() or not start_next(db, providers, storage, allow_paid, only):
             break  # stopping: the next start waits for the new worker
+    if only and "claude" not in only:
+        return  # the director's turns are Claude's: only that lane's worker sweeps
+    try:  # a director run whose work ended any other way (failed, cancelled) goes on
+        director.sweep(db)
+        db.commit()
+    except Exception:  # never let the director break the worker
+        db.rollback()
+        log.exception("the director's sweep failed")
 
 
 def main() -> None:  # pragma: no cover - the loop itself is trivial
