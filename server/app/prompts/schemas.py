@@ -530,3 +530,21 @@ class NarrationMusic(BaseModel):
     arc: str = Field(
         description="The mood in a few plain words: 'tense, then hopeful in the last third'."
     )
+
+
+class DirectorTurn(BaseModel):
+    """The site's director (docs/next/director-chat.md): one action a turn; the server runs it
+    through the site's own action and enforces every limit."""
+
+    tool: Literal["plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
+                  "pick_take", "final_cut", "deliver", "wait", "stop"] = Field(
+        description="The one action to take now. 'wait' only while something is being made or "
+        "waits for the owner; 'deliver' when the cut is made and good; 'stop' when it can't go "
+        "on (its why is the note to the owner).")  # fmt: skip
+    clip_id: str | None = Field(default=None, description="For make_take (a redo) and "
+                                "pick_take: the clip, e.g. 'c3'; else null.")  # fmt: skip
+    take_id: int | None = Field(default=None, description="For pick_take: the take; else null.")
+    note: str = Field(default="", description="For make_take as a redo: what to fix, from the "
+                      "take check's notes, in plain words; else empty.")  # fmt: skip
+    why: str = Field(description="One short plain sentence: why this action now. The deliver "
+                     "turn's is the delivery note.")  # fmt: skip
