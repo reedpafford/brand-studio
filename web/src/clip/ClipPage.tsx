@@ -115,12 +115,13 @@ function Studio({ models }: { models: Model[] }) {
   const credits = estimate.data?.credits ?? clipCredits(model, settings);
   const generate = useMutation({
     mutationFn: async () => {
-      const { error, response } = await api.POST("/clips", { body });
+      const { data, error, response } = await api.POST("/clips", { body });
       if (!response.ok) throw new Error(errorText(error));
+      return data?.status === "needs_owner_approval";
     },
-    onSuccess: () => {
+    onSuccess: (held) => {
       setSent(JSON.stringify(body));
-      toast("Clip queued. It will show in History.");
+      toast(held ? "Sent for approval. It waits for the owner's OK; nothing is charged until then." : "Clip queued. It will show in History.");
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["allowance"] });
     },
@@ -169,7 +170,7 @@ function Studio({ models }: { models: Model[] }) {
         onClick={() => generate.mutate()}
         className="w-full"
       >
-        Generate
+        {estimate.data?.needs_owner_approval ? "Send for approval" : "Generate"}
       </Button>
       {generate.isError && <p role="alert" className="text-center text-sm text-danger">{generate.error.message}</p>}
     </div>

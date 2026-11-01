@@ -26,7 +26,7 @@ test("at 390, an editor's Quick clip past the week waits for approval with why, 
 
     await ed.goto(`/b/${fomo}/clip`);
     await expect(ed.getByText("Waiting for approval")).toBeVisible();
-    await expect(ed.getByText(/this week's 1 credit/i)).toBeVisible();
+    await expect(ed.getByText(/Waiting for the owner's OK: this goes past your week's 1/)).toBeVisible();
     await expect(ed.getByText(/ask (Reed|the owner)/i)).toHaveCount(0);
     await ed.getByRole("button", { name: "Withdraw" }).click();
     await expect(ed.getByText("Withdrawn. Nothing was charged.")).toBeVisible();
