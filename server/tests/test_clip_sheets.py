@@ -168,3 +168,103 @@ def test_the_ai_answer_is_saved_with_the_sheets(app, db, editor, setup):  # noqa
     _run(app, db, FakeClaude(answer))
     saved = db.query(ProjectClip).filter_by(project_id=setup["project"]).one()
     assert [r["id"] for r in saved.references][1:3] == [mom, nate]
+
+
+def _only_mom(db, row, mom, **shot):
+    """Shot 1.1 lists only Mom (`shot`: what else it says); the AI attached Nate and Mom."""
+    data = row.data
+    one = {**data["scenes"][0]["shots"][0], "character_ids": [mom], "speaker": "Mom",
+           "line": "Nate, where is all your money?", "action": "Mom finds the empty wallet.",
+           **shot}  # fmt: skip
+    row.data = {**data, "scenes": [{**data["scenes"][0], "shots": [one]}]}
+    db.commit()
+
+
+def _picked(nate: str, mom: str) -> ClipPrompt:
+    picks = (("frame:c1", "storyboard frame"), (nate, "Nate"), (mom, "Mom"))
+    refs = [Reference(kind="image", id=i, role=r) for i, r in picks]
+    return ClipPrompt(
+        clip_id="c1", seconds=5, references=refs,
+        prompt=_prompt("[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
+                       "Nate as in [Image2], the same look as on their sheet. Mom as in [Image3],"
+                       " the same look as on their sheet."))  # fmt: skip
+
+
+def test_a_sheet_of_someone_not_in_the_clip_is_dropped_with_its_lines(app, db, editor, setup):  # noqa: F811
+    row, nate, mom = _people(app, db, editor, setup)
+    _only_mom(db, row, mom)  # FOMO's Reptilian v4: only Mom is in the clip
+    project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
+    done = clip_prompts.with_cast(db, project, _picked(nate, mom), bd)
+    assert [r.id for r in done.references] == ["frame:c1", mom]  # Mom, in the clip, stays
+    assert "References: [Image1] is the first frame. [Image2] is Mom." in done.prompt
+    assert "Keep: Mom as in [Image2], the same look as on their sheet." in done.prompt
+    assert "Nate as in" not in done.prompt and "is Nate" not in done.prompt
+    kept = clip_prompts.with_cast(db, project, _picked(nate, mom), bd, trim=False)  # an edit
+    assert [r.id for r in kept.references] == ["frame:c1", mom, nate]  # Nate kept, after Mom
+
+
+def test_someone_who_speaks_or_is_named_but_isnt_listed_keeps_their_sheet(app, db, editor, setup):  # noqa: F811
+    row, nate, mom = _people(app, db, editor, setup)
+    project = db.get(Project, setup["project"])
+    for shot in ({"speaker": "Nate", "line": "I bought the dip."},  # QA-3's probe
+                 {"speaker": "Nate (V.O.)", "line": "I bought the dip."},  # any line of his
+                 {"action": "Mom glares at Nate."}):  # fmt: skip
+        _only_mom(db, row, mom, **shot)
+        bd = Breakdown.model_validate(row.data)
+        done = clip_prompts.with_cast(db, project, _picked(nate, mom), bd)
+        assert nate in [r.id for r in done.references], shot  # only no sign at all drops him
+
+
+def _absent_nate(app, db, editor, setup, refs: str, keep: str):  # noqa: F811
+    """Only Mom is in the clip; the AI attached Nate ([Image2]) and Mom ([Image3]), said as
+    `refs` and `keep`. With trim on: the prompt with_cast gives."""
+    row, nate, mom = _people(app, db, editor, setup)
+    _only_mom(db, row, mom)
+    project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
+    picks = (("frame:c1", "storyboard frame"), (nate, "Nate"), (mom, "Mom"))
+    attached = [Reference(kind="image", id=i, role=r) for i, r in picks]
+    clip = ClipPrompt(clip_id="c1", seconds=5, prompt=_prompt(refs, keep), references=attached)
+    done = clip_prompts.with_cast(db, project, clip, bd)
+    assert [r.id for r in done.references] == ["frame:c1", mom]
+    return done.prompt
+
+
+REFS = "References: [Image1] is the first frame. [Image2] is Mom."
+DEFAULT = "Keep: Mom as in [Image2], the same look as on their sheet."
+
+
+def test_only_the_dropped_persons_words_go_and_who_stays_keeps_theirs(app, db, editor, setup):  # noqa: F811
+    """QA-6 and the Producer on #1116: whatever shape the AI's sentences take, nothing names
+    Nate after he's dropped, Mom's own details (her coat, her scar) are kept, and where her
+    words can't be pulled out of a shared sentence she's said again in the standard form."""
+    shapes = [
+        ("[Image1] is the first frame. [Image2] is Nate, [Image3] is Mom.",
+         "Mom's identity and clothing stable in every shot, as in [Image3] (red coat), and"
+         " Nate's, as in [Image2] (grey hoodie); one of each; Mom never in Nate's hoodie.",
+         "Keep: Mom's identity and clothing stable in every shot, as in [Image2] (red coat);"
+         " one of each."),
+        ("[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
+         "Mom as in [Image3], the scar on her left cheek, the wallet in her hand. Nate as in"
+         " [Image2].",
+         "Keep: Mom as in [Image2], the scar on her left cheek, the wallet in her hand."),
+        ("[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
+         "Nate as in [Image2], Mom as in [Image3].", DEFAULT),
+        ("[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
+         "Nate and Mom stay as in [Image2] and [Image3].", DEFAULT),
+    ]  # fmt: skip
+    for refs, keep, after in shapes:
+        lines = _absent_nate(app, db, editor, setup, refs, keep).splitlines()
+        assert REFS in lines and after in lines, (keep, lines)
+        said = [ln for ln in lines if ln.startswith(("References: ", "Keep: "))]
+        assert not [ln for ln in said if "Nate" in ln], said
+
+
+def test_a_prompt_with_nobody_to_drop_is_left_exactly_as_it_is(app, db, editor, setup):  # noqa: F811
+    row, nate, mom = _people(app, db, editor, setup)  # both in the clip
+    project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
+    picks = (("frame:c1", "storyboard frame"), (mom, "Mom"), (nate, "Nate"))
+    clip = ClipPrompt(clip_id="c1", seconds=5, references=[
+        Reference(kind="image", id=i, role=r) for i, r in picks], prompt=_prompt(
+        "[Image1] is the first frame. [Image2] is Mom, [Image3] is Nate.",
+        "Mom as in [Image2] and Nate as in [Image3], his scar kept; one of each."))  # fmt: skip
+    assert clip_prompts.with_cast(db, project, clip, bd) is clip  # byte for byte
