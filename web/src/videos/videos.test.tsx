@@ -38,7 +38,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 test("Videos lists the brand's videos with their status, who, and where each opens", async () => {
   setViewport(1440);
-  fakeServer(base(editor, [video({ own_script: true }), video({ id: 10, name: "Bo tries tuna · A", finished_at: "2026-10-24T10:00:00Z" }), video({ id: 11, name: "Old video", script_draft_id: null, archived_at: "2026-10-25T10:00:00Z" })]));
+  fakeServer(base(editor, [video({}), video({ id: 10, name: "Bo tries tuna · A", finished_at: "2026-10-24T10:00:00Z" }), video({ id: 11, name: "Old video", script_draft_id: null, archived_at: "2026-10-25T10:00:00Z" })]));
   open();
   expect(await screen.findByRole("link", { name: /Bo tries salmon · B/ })).toHaveAttribute("href", "/b/1/videos/9");
   expect(screen.getByRole("link", { name: /Bo tries tuna · A/ })).toHaveAttribute("href", "/b/1/videos/10?step=downloads"); // a done video opens at Downloads
@@ -46,7 +46,6 @@ test("Videos lists the brand's videos with their status, who, and where each ope
   expect(old).toHaveAttribute("href", "/b/1/projects/11");
   expect(within(old).getByText(/\(earlier way\)/)).toBeInTheDocument();
   expect(within(old).getByText("Archived")).toBeInTheDocument();
-  expect(screen.getByText(/On your week/)).toBeInTheDocument();
   expect(screen.getAllByText("In production").length).toBeGreaterThan(0);
   expect(screen.getAllByText("Finished").length).toBeGreaterThan(0);
   expect(screen.getByText("3 videos")).toBeInTheDocument();

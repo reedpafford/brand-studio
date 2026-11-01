@@ -41,8 +41,6 @@ export function CostBarProvider(props: {
   used: number;
   budget: number;
   pct: number;
-  /** An editor on their own script is billed to the week, not to a budget. */
-  week: { used: number; allowed: number } | null;
   /** Set where the viewer may only look: the step's own press shows greyed out with this reason. */
   lookOnly?: string | null;
   /** The press when the step has none of its own (Next: …). */
@@ -56,7 +54,7 @@ export function CostBarProvider(props: {
     queryKey: ["project-estimate", props.projectId, props.used],
     queryFn: async () => (await api.GET("/projects/{project_id}/estimate", { params: { path: { project_id: props.projectId } } })).data ?? null,
   });
-  const left = props.week ? props.week.allowed - props.week.used : props.budget - props.used;
+  const left = props.budget - props.used;
   const after = shown?.price != null && !shown.reason ? left - shown.price : null;
   const value = useMemo(() => setAction, []);
   const press = shown && (
@@ -67,13 +65,7 @@ export function CostBarProvider(props: {
   const bar = (
     <div role="region" aria-label="Cost" className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2 text-left"}>
       <div className="min-w-48 flex-1">
-        {props.week ? (
-          <p className="text-sm tabular-nums text-muted">
-            This week: {wholeCredits(props.week.used)} of {wholeCredits(props.week.allowed)} credits
-          </p>
-        ) : (
-          <Meter used={props.used} budget={props.budget} pct={props.pct} />
-        )}
+        <Meter used={props.used} budget={props.budget} pct={props.pct} />
       </div>
       {estimate.data && (
         <p className="text-sm tabular-nums text-muted">

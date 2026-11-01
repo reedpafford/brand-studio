@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Lock, Pencil } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Dialog, Field, Skeleton, StepPicker } from "../components";
 import { useBrands } from "../shell/useBrands";
@@ -53,11 +51,6 @@ export function ScriptFlowPage() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [hold]);
-  const allowance = useQuery({
-    enabled: me?.role !== undefined && me.role !== "owner",
-    queryKey: ["allowance"],
-    queryFn: async () => (await api.GET("/credits/me")).data ?? null,
-  });
 
   if (script.isPending || (voiced && songs.isPending))
     return (
@@ -96,7 +89,7 @@ export function ScriptFlowPage() {
   // A script from a reel isn't ready to move on until the reel is read: Read this reel is the one amber button until then.
   const unread = step === "script" && !!reel.data && reel.data.status !== "done";
   const reelReady = unread && !s.published && !rail && (reel.data?.status === "ready" || reel.data?.status === "failed") && reel.data?.failed_step !== "prepare";
-  const nextButton = reelReady ? <ReadReelButton scriptId={id} createdById={s.created_by_id} /> : publishButton || (next && !unread && (
+  const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : publishButton || (next && !unread && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
@@ -171,13 +164,8 @@ export function ScriptFlowPage() {
         <FormatSetting script={s} />
         <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
         {(mine || me?.role === "owner") && <ProjectPicker brandId={s.brand_id} kind="script" id={s.id} folderId={s.folder_id} />}
-        {allowance.data && (
-          <p className="ml-auto text-sm tabular-nums text-muted">
-            This week: {Math.round(allowance.data.quick_clip_credits_used)} of {Math.round(allowance.data.quick_clip_credits_allowed)} credits
-          </p>
-        )}
         {mayDelete(s) && (
-          <div className={allowance.data ? "" : "ml-auto"}>
+          <div className="ml-auto">
             <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />
           </div>
         )}

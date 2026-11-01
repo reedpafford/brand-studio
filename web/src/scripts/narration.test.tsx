@@ -4,7 +4,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
-import { owner, editor } from "../test/people";
+import { owner } from "../test/people";
 
 const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paws through the link in my bio." }];
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
@@ -214,18 +214,3 @@ test("switching to Dialogue from the Narration step lands on Script", async () =
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
 });
 
-test("an editor past their week sees Try the music again and Try again greyed with why", async () => {
-  setViewport(390);
-    fakeServer({
-    ...base,
-    "GET /auth/me": [200, editor],
-    "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }],
-    "GET /scripts/7": [200, narrated({}, { created_by_id: 2 })],
-    "GET /scripts/7/drafts/0/songs": [200, songs([narration({ id: 2, number: 2, music_status: "failed", music_credits: 2 }), narration({ id: 3, number: 3, status: "failed", file_id: null, seconds: null })])],
-  });
-  open("/b/1/scripts/7?step=narration");
-  const music = await screen.findByRole("button", { name: /Try the music again/ });
-  await vi.waitFor(() => expect(music).toBeDisabled());
-  expect(music).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday.");
-  expect(screen.getByRole("button", { name: /^Try again/ })).toBeDisabled();
-});
