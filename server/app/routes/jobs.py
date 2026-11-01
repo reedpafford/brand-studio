@@ -109,7 +109,8 @@ class JobOut(BaseModel):
             "frame_id": job.input.get("frame_id"),
             "project_clip_id": job.input.get("project_clip_id"),
             "library_item_id": job.input.get("library_item_id"),
-            "script_id": job.input.get("script_id"),
+            # a script's song, narration or music has its script in `on_script` (budget only)
+            "script_id": job.input.get("script_id") or job.input.get(ON_SCRIPT),
             "script_draft_id": job.input.get("script_draft_id"),
             "model_id": job.input.get("model"),
             "brand_id": job.input.get("brand_id"),

@@ -161,7 +161,7 @@ test("an approved picked character shows no buttons: it is shared with every vid
   expect(within(card).queryByRole("link")).toBeNull();
 });
 
-test("one-press Make storyboard is off for an editor when the writing plus the stills pass the budget, not only the writing", async () => {
+test("past the budget an editor's one-press storyboard reads Send for approval at its price and can be pressed (Hold requests); nothing says ask", async () => {
   setViewport(1440);
   fakeServer({
     ...base,
@@ -171,9 +171,10 @@ test("one-press Make storyboard is off for an editor when the writing plus the s
     "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
   });
   open("?step=storyboard");
-  const make = await screen.findByRole("button", { name: "Make the storyboard · 15 credits" });
-  expect(make).toBeDisabled();
-  expect(screen.getByText("That's more than this video's budget.")).toBeInTheDocument();
+  const send = await screen.findByRole("button", { name: "Send for approval · 15 credits" });
+  expect(send).toBeEnabled();
+  expect(screen.queryByText("That's more than this video's budget.")).toBeNull();
+  expect(document.body.textContent).not.toMatch(/ask (Reed|the owner)/i);
 });
 
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });
@@ -392,21 +393,6 @@ test("a note that left the prompt as it was says so, and nothing is made", async
   });
   open("?step=storyboard");
   expect(await screen.findByText("Your note didn't change the prompt. Try saying it another way.")).toBeInTheDocument();
-});
-
-test("Change this… on a clip has the clip's price, and an editor past the budget is told why", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...toClips,
-    "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
-    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]],
-    "GET /projects/9/clips/3/change": [200, { credits: 27 }],
-  });
-  open("?step=clips");
-  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
-  const button = await screen.findByRole("button", { name: "Change it and make a new take · up to 27 credits" });
-  expect(button).toBeDisabled();
-  expect(button).toHaveAccessibleDescription("That's more than this video's budget.");
 });
 
 test("Undo after a clip change goes back to the take that was picked when Change it was pressed, not just the second-newest", async () => {

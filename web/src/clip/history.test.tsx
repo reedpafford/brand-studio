@@ -143,3 +143,19 @@ test("an editor's History always asks for their own clips and has no Mine / Ever
   expect(screen.queryByRole("group", { name: "Whose clips" })).toBeNull();
   expect(jobUrls().some((u) => u.includes("mine=true"))).toBe(true);
 });
+
+test("at 390, past the week a Quick clip's press reads Send for approval at its price, and sending says it waits for the owner", async () => {
+  setViewport(390);
+  const calls = fakeServer(base({
+    "POST /clips/estimate": [200, { credits: 9, needs_owner_approval: true, reason: "Waiting for the owner's OK: this goes past your week's 97 credits (95 used).", auto_screen_ids: [], reference_images: 0, reference_videos: 0, reference_audios: 0 }],
+    "POST /clips": [201, job({ id: 70, status: "needs_owner_approval", held: "Waiting for the owner's OK: this goes past your week's 97 credits (95 used)." })],
+  }));
+  open();
+  await userEvent.type(await screen.findByLabelText("What happens"), "The cat buys the dip, smiling.");
+  const send = await screen.findByRole("button", { name: "Send for approval · 9 credits" });
+  await vi.waitFor(() => expect(send).toBeEnabled());
+  await userEvent.click(send);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /clips")).toBe(true));
+  expect(await screen.findByText(/Sent for approval\. It waits for the owner's OK/)).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/ask (Reed|the owner)/i);
+});
