@@ -275,6 +275,7 @@ def failed(db: Session, job: Job) -> None:
 
 
 TAGS = re.compile(r"(\[Image)(\d+)\]")
+TAGS_N = re.compile(r"\[Image(\d+)\]")
 
 
 def _pictures(known: Assets) -> dict[str, tuple[str, list[int]]]:
@@ -292,6 +293,22 @@ def _cast(bd: Breakdown, clip_id: str, pics: dict, lead: str | None = None) -> l
             if not any(_same(pics, ref, r) for r in out):
                 out.append(ref)
     return sorted(out, key=lambda r: not (lead and _same(pics, r, lead)))
+
+
+def _shown(bd: Breakdown, clip_id: str, pics: dict, refs: list[str]) -> list[str]:
+    """Those of `refs` the clip shows any sign of though its shots' lists miss them: they speak
+    one of its lines (V.O. too) or its action names them (the Producer, #1116: only someone
+    with no sign at all is dropped). The same matching as `breakdown.shows`, which Assets' cast
+    completion uses; a breakdown saved by Claude or by hand doesn't run it."""
+    from app.breakdown import shows
+
+    clip = next((c for c in bd.clips if c.id == clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    names = {r: _name(pics, r) for r in refs}
+    out = []
+    for shot in (shots[i] for i in (clip.shot_ids if clip else []) if i in shots):
+        out += [r for r, n in names.items() if n and shows(n, shot, [])]
+    return list(dict.fromkeys(out))
 
 
 def _screens(bd: Breakdown, clip_id: str) -> list[str]:
@@ -338,6 +355,64 @@ def _add(prompt: str, start: str, text: str) -> str:
     return prompt
 
 
+def _forget(prompt: str, gone: dict[int, str], stay: dict[int, str]) -> str:
+    """The References and Keep words about people no longer attached (`gone`: old [ImageN] ->
+    name; `stay`: the people still attached) go, keeping everything said about who stays: a
+    shared sentence loses the dropped person's part ("…, and Nate's, as in [Image3] (…); Mom
+    never in Nate's hoodie"), and only when what's left names nobody gone and still names
+    each person who stays with their picture; otherwise the whole sentence goes and `_kept`
+    says them again (QA-6 and the Producer on #1116: an outfit or a scar is kept)."""
+
+    def tags(text: str) -> set[int]:
+        return {int(n) for n in TAGS_N.findall(text)}
+
+    def names(text: str, who) -> bool:
+        return any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", text) for n in who if n)
+
+    def about(part: str) -> bool:  # only about someone gone
+        mine = tags(part)
+        return mine <= set(gone) if mine else names(part, gone.values())
+
+    def trim(sentence: str) -> str:
+        body, end = sentence.rstrip().rstrip("."), "." if sentence.rstrip().endswith(".") else ""
+        out = []
+        for clause in body.split(";"):
+            parts = re.split(r",? and (?=[^;]*?\[Image\d+\])|, (?=\[Image\d+\])", clause)
+            kept = " and ".join(p.strip() for p in parts if p.strip() and not about(p))
+            out += [kept] if kept else []
+        left = "; ".join(out)
+        left = (left[:1].upper() + left[1:] + end) if left else ""
+        said = {t: n for t, n in stay.items() if t in tags(sentence)}
+        clean = not (tags(left) & set(gone)) and not names(left, gone.values())
+        whole = all(t in tags(left) and names(left, [n]) for t, n in said.items())
+        return left if clean and whole else ""
+
+    lines = prompt.splitlines()
+    for i, line in enumerate(lines):
+        head = next((h for h in ("References: ", "Keep: ") if line.startswith(h)), None)
+        if head:
+            said = re.split(r"(?<=\.)\s+", line[len(head) :])
+            out = [trim(x) if tags(x) & set(gone) or names(x, gone.values()) else x
+                   for x in said]  # fmt: skip
+            lines[i] = head + " ".join(x for x in out if x.strip())
+    return "\n".join(lines)
+
+
+def _kept(prompt: str, people: list[str], ids: list[str], pics: dict) -> str:
+    """Each person still attached whose picture References or Keep no longer says is said
+    again there in the standard form, in picture order."""
+    for r in people:
+        who, tag = _name(pics, r), f"[Image{ids.index(r) + 1}]"
+        for head, text in (
+            ("References: ", f"{tag} is {who}."),
+            ("Keep: ", f"{who} as in {tag}, the same look as on their sheet."),
+        ):
+            line = next((ln for ln in prompt.splitlines() if ln.startswith(head)), None)
+            if line is not None and tag not in line:
+                prompt = _add(prompt, head, text)
+    return prompt
+
+
 def with_cast(
     db: Session,
     project: Project,
@@ -354,8 +429,9 @@ def with_cast(
     is attached too, after them, the payoff screen last (the Director, #556: "screen isn't
     attached" never blocks). Every [ImageN] follows its picture; an added character joins the
     References and Keep lines, an added screen the References line. Free; doing it again
-    changes nothing. With trim off (an edit, or a saved clip) nothing already picked is
-    dropped."""
+    changes nothing. A sheet of someone not in the clip's shots is dropped, with its
+    References and Keep sentences (FOMO's Reptilian v4: absent people's sheets blurred c4 and
+    c7). With trim off (an edit, or a saved clip) nothing already picked is dropped."""
     known = known if known is not None else assets(db, project)
     pics = _pictures(known)
     images: list[Reference] = []  # each picture once
@@ -368,6 +444,10 @@ def with_cast(
     lead = hero(db, project, bd, pics)
     cast = [c for c in _cast(bd, clip.clip_id, pics, lead) if pics.get(c, ("", []))[1]]
     missing = [c for c in cast if not any(_same(pics, c, r.id) for r in people)]
+    everyone = _cast(bd, clip.clip_id, pics, lead)  # one with no approved sheet yet counts
+    everyone += _shown(bd, clip.clip_id, pics, [r.id for r in people])  # speaks, not listed
+    if trim:  # only who's in the clip
+        people = [r for r in people if any(_same(pics, r.id, c) for c in everyone)]
 
     def rank(r: Reference) -> int:
         return next((i for i, c in enumerate(cast) if _same(pics, r.id, c)), len(cast))
@@ -407,7 +487,15 @@ def with_cast(
     ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
     dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
-    prompt = _renumber(clip.prompt, moved, dropped, TAGS)
+    absent = {i: n for i, n in dropped.items() if before[i - 1].startswith(CHAR) and trim
+              and not any(_same(pics, before[i - 1], c) for c in everyone)}  # fmt: skip
+    if absent:  # only then: what's said about who stays is kept, the rest said again
+        stay = {i + 1: _name(pics, r) for i, r in enumerate(before)
+                if r.startswith(CHAR) and r in ids}  # fmt: skip
+        prompt = _renumber(_forget(clip.prompt, absent, stay), moved, dropped, TAGS)
+        prompt = _kept(prompt, [r for r in ids if r.startswith(CHAR) and r in before], ids, pics)
+    else:
+        prompt = _renumber(clip.prompt, moved, dropped, TAGS)
     for r in (r for r in new if r.id not in before):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
         if r.id in want:  # the actual screen or product (Reed, 30 Oct)
