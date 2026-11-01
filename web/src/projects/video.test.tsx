@@ -42,14 +42,14 @@ function open(query = "?step=cast") {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("the five steps, and Storyboard waits until every asset is approved", async () => {
+test("the four steps (Make holds Stills and Clips), and Make waits until every asset is approved", async () => {
   setViewport(1440);
   fakeServer(base);
   open();
   const steps = await screen.findByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d/, ""))).toEqual(["Plan", "Cast", "Storyboard", "Clips", "Final cut"]);
-  expect(within(steps).getByRole("button", { name: "Storyboard" })).toHaveAccessibleDescription(/Approve the cast first \(1 left\)/);
-  expect(screen.getByRole("button", { name: /Next: Storyboard/ })).toBeDisabled();
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d/, ""))).toEqual(["Plan", "Cast", "Make", "Final cut"]);
+  expect(within(steps).getByRole("button", { name: "Make" })).toHaveAccessibleDescription(/Approve the cast first \(1 left\)/);
+  expect(screen.getByRole("button", { name: /Next: Make/ })).toBeDisabled();
 });
 
 test("a look that needs approval points to Cast & places and never approves a shared character here", async () => {
@@ -87,6 +87,25 @@ test("a role with no character picks one from the library", async () => {
 const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: true, stale: false };
 const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
+
+test("Make has Stills and Clips tabs; ?step=make opens Clips once clips exist; Clips waits on the stills", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, [{ ...done }]] });
+  open("?step=make");
+  expect(await screen.findByRole("tab", { name: /Clips/, selected: true })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: /Stills/ }));
+  expect(await screen.findByRole("tab", { name: /Stills/, selected: true })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Make", level: 2 })).toBeInTheDocument();
+});
+
+test("before the stills are approved, the Clips tab says why and doesn't open", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], approved: false }]] });
+  open("?step=make");
+  await userEvent.click(await screen.findByRole("tab", { name: /Clips/ }));
+  expect(screen.getByRole("tab", { name: /Stills/ })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByText(/^Clips: /)).toBeInTheDocument();
+});
 
 test("a clip's prompt is marked Prompt OK on the server, by its own button or by Make clip, which then makes the take", async () => {
   setViewport(390);
@@ -222,7 +241,8 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
   open("?step=clips");
   expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Make", level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /Clips/ })).toHaveAttribute("aria-selected", "true");
 });
 
 test("Final cut puts the clips together by itself the first time, for free", async () => {
@@ -1049,7 +1069,7 @@ test("clips made before the storyboard went out of date stay open, with a banner
   const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
   expect(make).toBeDisabled();
   expect(make).toHaveAccessibleDescription("The plan changed after these were made. Redo storyboard first.");
-  await userEvent.click(screen.getByRole("button", { name: "Open Storyboard" }));
+  await userEvent.click(screen.getByRole("button", { name: "Open Stills" }));
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(calls.some((c) => c.key.startsWith("POST /projects/9/clips"))).toBe(false);
 });
@@ -1103,9 +1123,9 @@ test("a run that stopped says where and why, with that step's own press", async 
     "GET /projects/9/update-after?from=plan": [200, { ...updatePlan, stopped_at: "storyboard", reason: "The storyboard didn't finish. Nothing was charged." }],
   });
   open("?step=clips");
-  expect(await screen.findByText("Stopped at Storyboard")).toBeInTheDocument();
+  expect(await screen.findByText("Stopped at Stills")).toBeInTheDocument();
   expect(screen.getByText("The storyboard didn't finish. Nothing was charged.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Open Storyboard" }));
+  await userEvent.click(screen.getByRole("button", { name: "Open Stills" }));
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
 });
 
