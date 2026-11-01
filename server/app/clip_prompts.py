@@ -355,32 +355,61 @@ def _add(prompt: str, start: str, text: str) -> str:
     return prompt
 
 
-def _forget(prompt: str, people: set[int], gone: list[str]) -> str:
-    """Before the people's References and Keep are said again (`_kept`): their sentences go,
-    those naming a picture of a person (`people`, the old [ImageN]) or, with no picture, a
-    dropped person (`gone`). Every other sentence stays as written (QA-6 on #1116: editing
-    inside a shared sentence kept meeting new shapes)."""
+def _forget(prompt: str, gone: dict[int, str], stay: dict[int, str]) -> str:
+    """The References and Keep words about people no longer attached (`gone`: old [ImageN] ->
+    name; `stay`: the people still attached) go, keeping everything said about who stays: a
+    shared sentence loses the dropped person's part ("…, and Nate's, as in [Image3] (…); Mom
+    never in Nate's hoodie"), and only when what's left names nobody gone and still names
+    each person who stays with their picture; otherwise the whole sentence goes and `_kept`
+    says them again (QA-6 and the Producer on #1116: an outfit or a scar is kept)."""
 
-    def about(sentence: str) -> bool:
-        if {int(n) for n in TAGS_N.findall(sentence)} & people:
-            return True
-        return any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", sentence) for n in gone if n)
+    def tags(text: str) -> set[int]:
+        return {int(n) for n in TAGS_N.findall(text)}
+
+    def names(text: str, who) -> bool:
+        return any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", text) for n in who if n)
+
+    def about(part: str) -> bool:  # only about someone gone
+        mine = tags(part)
+        return mine <= set(gone) if mine else names(part, gone.values())
+
+    def trim(sentence: str) -> str:
+        body, end = sentence.rstrip().rstrip("."), "." if sentence.rstrip().endswith(".") else ""
+        out = []
+        for clause in body.split(";"):
+            parts = re.split(r",? and (?=[^;]*?\[Image\d+\])|, (?=\[Image\d+\])", clause)
+            kept = " and ".join(p.strip() for p in parts if p.strip() and not about(p))
+            out += [kept] if kept else []
+        left = "; ".join(out)
+        left = (left[:1].upper() + left[1:] + end) if left else ""
+        said = {t: n for t, n in stay.items() if t in tags(sentence)}
+        clean = not (tags(left) & set(gone)) and not names(left, gone.values())
+        whole = all(t in tags(left) and names(left, [n]) for t, n in said.items())
+        return left if clean and whole else ""
 
     lines = prompt.splitlines()
     for i, line in enumerate(lines):
         head = next((h for h in ("References: ", "Keep: ") if line.startswith(h)), None)
         if head:
             said = re.split(r"(?<=\.)\s+", line[len(head) :])
-            lines[i] = head + " ".join(s for s in said if s.strip() and not about(s))
+            out = [trim(x) if tags(x) & set(gone) or names(x, gone.values()) else x
+                   for x in said]  # fmt: skip
+            lines[i] = head + " ".join(x for x in out if x.strip())
     return "\n".join(lines)
 
 
 def _kept(prompt: str, people: list[str], ids: list[str], pics: dict) -> str:
-    """Each person still attached, said again in the standard form, in picture order."""
+    """Each person still attached whose picture References or Keep no longer says is said
+    again there in the standard form, in picture order."""
     for r in people:
         who, tag = _name(pics, r), f"[Image{ids.index(r) + 1}]"
-        prompt = _add(prompt, "References: ", f"{tag} is {who}.")
-        prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
+        for head, text in (
+            ("References: ", f"{tag} is {who}."),
+            ("Keep: ", f"{who} as in {tag}, the same look as on their sheet."),
+        ):
+            line = next((ln for ln in prompt.splitlines() if ln.startswith(head)), None)
+            if line is not None and tag not in line:
+                prompt = _add(prompt, head, text)
     return prompt
 
 
@@ -460,13 +489,14 @@ def with_cast(
     dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
     absent = {i: n for i, n in dropped.items() if before[i - 1].startswith(CHAR) and trim
               and not any(_same(pics, before[i - 1], c) for c in everyone)}  # fmt: skip
-    if absent:  # the people's References and Keep, said again from who's still attached
-        people = {i + 1 for i, r in enumerate(before) if r.startswith(CHAR)}
-        prompt = _renumber(_forget(clip.prompt, people, [*absent.values()]), moved, dropped, TAGS)
-        prompt = _kept(prompt, [r for r in ids if r.startswith(CHAR)], ids, pics)
+    if absent:  # only then: what's said about who stays is kept, the rest said again
+        stay = {i + 1: _name(pics, r) for i, r in enumerate(before)
+                if r.startswith(CHAR) and r in ids}  # fmt: skip
+        prompt = _renumber(_forget(clip.prompt, absent, stay), moved, dropped, TAGS)
+        prompt = _kept(prompt, [r for r in ids if r.startswith(CHAR) and r in before], ids, pics)
     else:
         prompt = _renumber(clip.prompt, moved, dropped, TAGS)
-    for r in (r for r in new if r.id not in before and not (absent and r.id.startswith(CHAR))):
+    for r in (r for r in new if r.id not in before):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
         if r.id in want:  # the actual screen or product (Reed, 30 Oct)
             real = (
