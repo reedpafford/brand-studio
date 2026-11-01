@@ -60,6 +60,7 @@ def test_a_flagged_take_is_made_again_with_its_notes_at_most_twice(
     clips = {t["why"].split()[-1] for t in redos}
     assert len(redos) == director.MAX_REDOS * len(clips)  # then it cuts with the newest
     assert [t["tool"] for t in out["turns"]][-2:] == ["final_cut", "deliver"]
+    assert "is clean: its newest is used." in out["turns"][-2]["why"]  # said in the log
 
 
 def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor, monkeypatch):

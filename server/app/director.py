@@ -247,13 +247,19 @@ def choose(state: dict) -> dict:
             note = "; ".join(last["notes"]) or "Fix what the take check found."
             return go("make_take", f"The take check flagged {c['clip_id']}.",
                       clip_id=c["clip_id"], note=note[:500])  # fmt: skip
-    for c in clips:
-        best = next((t for t in reversed(c["takes"]) if t["verdict"] == "clean"), c["takes"][-1])
+    for c in clips:  # the newest clean take (Builder-Server-8's best-take function to come)
+        clean = next((t for t in reversed(c["takes"]) if t["verdict"] == "clean"), None)
+        best = clean or c["takes"][-1]
         if c["picked_take_id"] != best["id"]:
-            return go("pick_take", f"Take {best['number']} is {c['clip_id']}'s best.",
-                      clip_id=c["clip_id"], take_id=best["id"])  # fmt: skip
+            why = (f"Take {best['number']} is {c['clip_id']}'s newest clean take." if clean
+                   else f"No take of {c['clip_id']} is clean: using the newest, take "
+                   f"{best['number']}.")  # fmt: skip
+            return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
     if state["cut"] != "made":
-        return go("final_cut", "Every clip has its take.")
+        unclean = [c["clip_id"] for c in clips
+                   if not any(t["verdict"] == "clean" for t in c["takes"])]  # fmt: skip
+        said = f" No take of {', '.join(unclean)} is clean: its newest is used." if unclean else ""
+        return go("final_cut", f"Every clip has its take.{said}")
     return go("deliver", "The cut is made with each clip's best take.")
 
 
