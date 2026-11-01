@@ -536,6 +536,41 @@ class NarrationMusic(BaseModel):
     )
 
 
+# --- Watch the cut (Reed, 1 Nov: "i want it to watch and make those fixes") ---
+
+
+class CutFinding(BaseModel):
+    clip_id: str = Field(description="The clip it's in, from <cut>: 'c3'.")
+    start: float = Field(description="Where it starts, in cut seconds.")
+    end: float = Field(description="Where it ends, in cut seconds.")
+    says: str = Field(
+        description="One plain line for the owner: \"c3: he says 'fogo', not 'fomo'\"."
+    )
+    fix: Literal["redo", "pick", "mute", "keep"] = Field(
+        description="The smallest fix that works: 'mute' an unscripted sound with nothing wrong "
+        "in the picture; 'pick' another take of the clip; 'redo' the clip with a change note; "
+        "'keep' a weakness no fix here would help."
+    )
+    take_id: int | None = Field(
+        default=None, description="For pick: the id of one of that clip's other_takes; else null."
+    )
+    note: str = Field(
+        default="",
+        description="For redo, the change note, ready to send; for mute, what's heard there; "
+        "for keep, why, for the owner.",
+    )
+
+
+class CutWatch(BaseModel):
+    """The cut as a viewer meets it. Judging only: the director acts on it."""
+
+    lands: bool = Field(description="Whether the ending lands.")
+    summary: str = Field(description="One or two plain sentences on how it plays as a whole.")
+    findings: list[CutFinding] = Field(
+        max_length=6, description="Worst first, 6 at most; empty when it plays well."
+    )
+
+
 # --- The director (director-chat.md §5): one decision a turn, run by the server ---
 class DirectorTurn(BaseModel):
     tool: Literal[
