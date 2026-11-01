@@ -1,5 +1,5 @@
 # Paper Collage
-<!-- Reed's paper skill (docs/next/skills/paper.md, #1095; first from Starpop's paper-animation-ads, docs/research/starpop-2026-10-28, rule 20), its "Mixed-media collage" lane. The style and physicality blocks are the skill's, word for word, except that its newspaper, magazine clippings and stamps become textless scraps: the only words in frame are the brand's own screen or product (QA-5 on #1110). -->
+<!-- Reed's paper skill (docs/next/skills/paper.md, #1095; first from Starpop's paper-animation-ads, docs/research/starpop-2026-10-28, rule 20), its "Mixed-media collage" lane. The style and physicality blocks are the skill's, word for word, except that its newspaper, magazine clippings and stamps become textless scraps: random clipping text comes out garbled, and a readable word appears only when the story needs it (QA-5 on #1110, rule 32). -->
 kind: look
 order: 7.3
 on: no
@@ -24,7 +24,7 @@ a mixed-media paper collage look with photographic cutout faces
 ## still
 - State the camera's place inside the paper world in every frame ("at eye level with the paper character", "worm's-eye view up at the cardstock towers", "overhead, straight down on the paper street"). Never "diorama", "shadow box", "tabletop", "table", "board" or "frame": they show the craft from outside. If one does, "the paper shot fills the entire frame, the camera is inside the scene".
 - Name the paper on each major object ("a bowl folded from blue card", "shelves layered from patterned card"), not only in the look. Say "papercraft" near faces and products, never "paper cut", which blurs features.
-- Every scrap is textless: patterned, coloured or photographic paper, never a newspaper, a magazine page, a stamp or a label with letters, numbers or printed words. The only words in frame are the real brand's own screen or product label.
+- Every scrap is textless: patterned, coloured or photographic paper, never a newspaper, a magazine page, a stamp or a label with letters, numbers or printed words: random clipping text only comes out garbled. A readable word appears only when the story needs it, stated exactly (rule 32).
 - The product stays photographic here: a photo cutout of the real product with rough scissor-cut edges, composed into the scene, so its label stays exact. Compose every piece into one deep scene: never a flat-lay board of pasted items.
 
 ## clip
