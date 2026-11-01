@@ -229,6 +229,7 @@ export function TakesStep({ script: s }: { script: Script }) {
       <Button variant={primary ? "primary" : "secondary"} icon={Music} charge="fixed" price={data.estimate_credits} busy={a.make.isPending} onClick={() => a.make.mutate()}>
         {a.ask(label, data.estimate_credits)}
       </Button>
+      {a.sends(data.estimate_credits) && <p className="text-sm text-muted">{a.sends(data.estimate_credits)}</p>}
       {failed && <p role="alert" className={errorClass}>{failed}</p>}
       <p className="text-sm text-muted">A video this long: about {Math.ceil(data.video_estimate_credits)} credits to make.</p>
     </div>
