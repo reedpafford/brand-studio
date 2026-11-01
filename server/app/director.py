@@ -13,7 +13,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app import director_tools
@@ -83,9 +83,14 @@ def active(db: Session, project: Project) -> Job | None:
 
 
 def stop(db: Session, project: Project, why: str = "Stopped.") -> None:
+    """No more turns. A turn not yet asked is cancelled (only if the worker hasn't taken it);
+    one being asked finishes, and what its call cost is recorded and charged as ever (a paid
+    call is always logged), but nothing more is done."""
     if last := active(db, project):
-        if last.status in WAITING:
-            last.status = JobStatus.cancelled
+        db.execute(update(Job).where(Job.id == last.id, Job.status.in_(
+            (JobStatus.queued, JobStatus.needs_owner_approval))).values(
+            status=JobStatus.cancelled))  # fmt: skip
+        db.refresh(last)
         _end(last, why)
         db.commit()
 
@@ -182,11 +187,23 @@ def _record(db: Session, job: Job, run: dict, result: str) -> None:
     """The turn's result on its log line; the next turn starts now if nothing it started is
     being made (else when that's done: `wake`)."""
     job = db.get(Job, job.id)
-    stopped = _stopped(db, job)  # pressed while the tool ran: the result is kept, no more
-    job.input = {**job.input, RUN: run, "result": result}
+    _stopped(db, job)
+    kept = _write(db, job, {**job.input, RUN: run, "result": result})
+    if not kept:  # pressed while the tool ran: its result is kept beside the stop, no more
+        db.refresh(job)
+        job.input = {**job.input, "result": result}
     db.commit()
-    if not stopped:
+    if kept:
         wake(db, db.get(Project, job.project_id))
+
+
+def _write(db: Session, job: Job, data: dict) -> bool:
+    """A turn's input written only while its run hasn't ended, in one statement, so a Stop
+    that lands meanwhile is never overwritten (QA-7); whether it was written."""
+    done = db.execute(update(Job).where(Job.id == job.id,
+                                        Job.input["ended"].as_string().is_(None))
+                      .values(input=data).execution_options(synchronize_session=False))  # fmt: skip
+    return done.rowcount == 1
 
 
 def _stopped(db: Session, job: Job) -> bool:
@@ -234,13 +251,20 @@ def _turn(db: Session, user: User, project: Project, run: dict) -> Job:
         return last
 
 
-def refresh(db: Session, job: Job) -> None:
+def refresh(db: Session, job: Job) -> bool:
     """A turn about to be asked reads the video as it is now, not as it was when queued (a
-    step saved since, or the turn waited for the owner)."""
+    step saved since, or the turn waited for the owner). False when its run was stopped
+    before the call: the worker then makes no call (nothing is charged)."""
     project = db.get(Project, job.project_id)
-    db.refresh(job)  # a Stop since it was queued is kept
-    job.input = {**job.input, **turn_input(db, project, job.input[RUN])}
+    db.refresh(job)
+    if job.input.get("ended"):
+        return False
+    asked = turn_input(db, project, job.input[RUN])
+    db.refresh(job)  # Stop may land while the prompt is built: checked as it's written
+    kept = _write(db, job, {**job.input, **asked})
     db.commit()
+    db.refresh(job)
+    return kept
 
 
 def turn_input(db: Session, project: Project, run: dict) -> dict:
