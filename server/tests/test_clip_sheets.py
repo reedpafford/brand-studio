@@ -215,22 +215,39 @@ def test_someone_who_speaks_or_is_named_but_isnt_listed_keeps_their_sheet(app, d
         assert nate in [r.id for r in done.references], shot  # only no sign at all drops him
 
 
-def test_a_shared_keep_sentence_loses_only_the_absent_persons_part(app, db, editor, setup):  # noqa: F811
+def _absent_nate(app, db, editor, setup, refs: str, keep: str):  # noqa: F811
+    """Only Mom is in the clip; the AI attached Nate ([Image2]) and Mom ([Image3]), said as
+    `refs` and `keep`. With trim on: the prompt with_cast gives."""
     row, nate, mom = _people(app, db, editor, setup)
-    _only_mom(db, row, mom)  # QA-6: the guide's one-sentence Keep line, Nate absent
+    _only_mom(db, row, mom)
     project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
     picks = (("frame:c1", "storyboard frame"), (nate, "Nate"), (mom, "Mom"))
-    shared = ClipPrompt(
-        clip_id="c1", seconds=5,
-        references=[Reference(kind="image", id=i, role=r) for i, r in picks],
-        prompt=_prompt("[Image1] is the first frame. [Image2] is Nate, [Image3] is Mom.",
-                       "Mom's identity and clothing stable in every shot, as in [Image3] (red"
-                       " coat), and Nate's, as in [Image2] (grey hoodie); one of each; Mom never"
-                       " in Nate's hoodie."))  # fmt: skip
-    done = clip_prompts.with_cast(db, project, shared, bd)
+    attached = [Reference(kind="image", id=i, role=r) for i, r in picks]
+    clip = ClipPrompt(clip_id="c1", seconds=5, prompt=_prompt(refs, keep), references=attached)
+    done = clip_prompts.with_cast(db, project, clip, bd)
     assert [r.id for r in done.references] == ["frame:c1", mom]
-    assert "References: [Image1] is the first frame. [Image2] is Mom." in done.prompt
-    assert ("Keep: Mom's identity and clothing stable in every shot, as in [Image2] (red coat);"
-            " one of each.") in done.prompt  # fmt: skip
-    assert "Nate" not in done.prompt.split("Keep: ")[1].splitlines()[0]
-    assert not [ln for ln in done.prompt.splitlines() if ln.strip() in ("Keep:", "References:")]
+    return done.prompt
+
+
+SAID = ("References: [Image1] is the first frame. [Image2] is Mom.",
+        "Keep: Mom as in [Image2], the same look as on their sheet.")  # fmt: skip
+
+
+def test_the_peoples_lines_are_said_again_when_someone_is_dropped(app, db, editor, setup):  # noqa: F811
+    """QA-6 on #1116: whatever shape the AI's sentences take, the people's References and Keep
+    are said again in the standard form from who's still attached; nothing names Nate."""
+    shapes = [
+        ("[Image1] is the first frame. [Image2] is Nate, [Image3] is Mom.",
+         "Mom's identity and clothing stable in every shot, as in [Image3] (red coat), and"
+         " Nate's, as in [Image2] (grey hoodie); one of each; Mom never in Nate's hoodie."),
+        ("[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
+         "Nate as in [Image2], Mom as in [Image3]."),
+        ("[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
+         "Nate and Mom stay as in [Image2] and [Image3]."),
+    ]  # fmt: skip
+    for refs, keep in shapes:
+        prompt = _absent_nate(app, db, editor, setup, refs, keep)
+        lines = prompt.splitlines()
+        assert SAID[0] in lines and SAID[1] in lines, (keep, prompt)
+        said = [ln for ln in lines if ln.startswith(("References: ", "Keep: "))]
+        assert not [ln for ln in said if "Nate" in ln], prompt
