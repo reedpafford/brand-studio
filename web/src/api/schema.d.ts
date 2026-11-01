@@ -3558,6 +3558,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mute
+         * @description Mute a stretch of the picked take in the final cut (an unscripted line, a gasp). Free;
+         *     the take and its approval stay as they are. Undo: DELETE …/mute/{index}. A director tool
+         *     calls this same route.
+         */
+        post: operations["mute_projects__project_id__clips__clip_id__mute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}/mute/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unmute
+         * @description Undo a mute: the stretch is heard again in the final cut.
+         */
+        delete: operations["unmute_projects__project_id__clips__clip_id__mute__index__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/video": {
         parameters: {
             query?: never;
@@ -5913,6 +5955,8 @@ export interface components {
             fix: string;
             /** At */
             at?: number | null;
+            /** Mute */
+            mute?: number[] | null;
         };
         /** FixIn */
         FixIn: {
@@ -7048,6 +7092,13 @@ export interface components {
             shots: string[];
             /** Lines */
             lines: components["schemas"]["Line"][];
+        };
+        /** MuteIn */
+        MuteIn: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
         };
         /** MyAllowanceOut */
         MyAllowanceOut: {
@@ -8960,6 +9011,11 @@ export interface components {
              * @default unchecked
              */
             verdict: string;
+            /**
+             * Mutes
+             * @default []
+             */
+            mutes: number[][];
         };
         /** TextFitOut */
         TextFitOut: {
@@ -17060,6 +17116,75 @@ export interface operations {
             path: {
                 project_id: number;
                 clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mute_projects__project_id__clips__clip_id__mute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unmute_projects__project_id__clips__clip_id__mute__index__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+                index: number;
             };
             cookie?: never;
         };
