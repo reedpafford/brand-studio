@@ -336,19 +336,21 @@ def test_a_turn_that_fails_inside_the_worker_ends_the_run_and_nothing_more_is_ch
     assert turn.status == JobStatus.failed
 
 
-def _stop_during(monkeypatch, editor, pid, where: str) -> list:
-    """Stop is pressed once, while `where` (the turn being asked, or its tool) runs."""
+def _stop_during(monkeypatch, editor, pid, where: str, before: bool = False) -> list:
+    """Stop is pressed once, while `where` (the turn being asked, or its tool) runs; `before`:
+    just as it starts (the worker took the turn, then Stop came)."""
     module, name = where.rsplit(".", 1)
     import importlib
 
     real, pressed = getattr(importlib.import_module(module), name), []
 
     def midway(*args, **kwargs):
-        out = real(*args, **kwargs)
+        out = None if before else real(*args, **kwargs)
         if not pressed:
             args[0].commit()  # as the worker's own session would be, mid-step
             pressed.append(editor.post(f"/projects/{pid}/director/stop").json())
-        return out
+            pressed.append(args[0].query(Job).count())  # every job there is when it stops
+        return real(*args, **kwargs) if before else out
 
     monkeypatch.setattr(where, midway)
     return pressed
@@ -357,14 +359,16 @@ def _stop_during(monkeypatch, editor, pid, where: str) -> list:
 def test_a_stop_while_a_turn_or_its_tool_runs_holds(app, db, owner, editor, monkeypatch):
     """QA on #1087: Stop pressed mid-turn was overwritten when the worker recorded that turn
     (from what it read before), and the run went on to deliver."""
-    for where in ("app.director.refresh", "app.director_tools.run"):
-        pid = _made_again(app, owner, editor, db) if where.endswith("run") else \
-            _made(app, owner, editor, db)  # fmt: skip
-        pressed = _stop_during(monkeypatch, editor, pid, where)
+    cases = [("app.director.refresh", True), ("app.director.refresh", False),
+             ("app.director_tools.run", False)]  # fmt: skip
+    for n, (where, before) in enumerate(cases):
+        pid = _made(app, owner, editor, db) if n == 0 else _made_again(app, owner, editor, db)
+        pressed = _stop_during(monkeypatch, editor, pid, where, before)
         editor.post(f"/projects/{pid}/director")
         _run(app, db)
         out = editor.get(f"/projects/{pid}/director").json()
         assert pressed and pressed[0]["status"] == "ended", where
         assert (out["status"], out["ended"]) == ("ended", "Stopped."), (where, out["turns"])
         assert len(out["turns"]) == 1, where  # no turn after the stop
+        assert db.query(Job).count() == pressed[1], where  # nor any job: nothing more charged
         monkeypatch.undo()
