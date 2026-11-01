@@ -158,16 +158,6 @@ def breakdown(
         his = shot.character_ids or shot.screen_ids or HIS.search(shot.action)  # hands, phone…
         if any(len(w) == 3 and all(w) for w in windows) and not his:
             problems.append(f"{ADVICE}shot {shot.id}: a montage shot without the main character")
-    runs = [i for i in range(len(shots) - 2) if all(quick[i : i + 3])]
-    if runs:  # earn the payoff: effort beats between the last line and the fast run
-        start = runs[0]
-        spoken = [i for i in range(start) if shots[i].line]
-        grind = start - (spoken[-1] + 1 if spoken else 0)
-        if grind < 3:
-            problems.append(
-                f"{ADVICE}shot {shots[start].id}: the montage reaches the payoff after {grind} "
-                "grind beats; add a red day, a small win, another late night first"
-            )
     first = next((n for n, x in enumerate(lines, 1) if DIALOGUE.match(TAG.sub("", x))), 0)
     before = {  # the script's own set-up, ahead of its first exchange
         n for n in range(1, first) if lines[n - 1].strip() and not lines[n - 1].startswith("SCENE")
