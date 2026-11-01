@@ -206,14 +206,10 @@ def test_a_sheet_of_someone_not_in_the_clip_is_dropped_with_its_lines(app, db, e
 def test_someone_who_speaks_or_is_named_but_isnt_listed_keeps_their_sheet(app, db, editor, setup):  # noqa: F811
     row, nate, mom = _people(app, db, editor, setup)
     project = db.get(Project, setup["project"])
-    for shot in ({"speaker": "Nate", "line": "I bought the dip.", "action": "A grin."},  # QA-3
+    for shot in ({"speaker": "Nate", "line": "I bought the dip."},  # QA-3's probe
+                 {"speaker": "Nate (V.O.)", "line": "I bought the dip."},  # any line of his
                  {"action": "Mom glares at Nate."}):  # fmt: skip
         _only_mom(db, row, mom, **shot)
         bd = Breakdown.model_validate(row.data)
         done = clip_prompts.with_cast(db, project, _picked(nate, mom), bd)
-        assert nate in [r.id for r in done.references], shot
-    _only_mom(db, row, mom, speaker="Nate (V.O.)", line="I bought the dip.", action="A grin.")
-    done = clip_prompts.with_cast(
-        db, project, _picked(nate, mom), Breakdown.model_validate(row.data)
-    )
-    assert nate not in [r.id for r in done.references]
+        assert nate in [r.id for r in done.references], shot  # only no sign at all drops him
