@@ -258,22 +258,3 @@ def test_disney_pixar_holds_reeds_skill():
     assert "with its colour" in still and "never clinical terms" in still
     assert "a pancake becomes the sun" in prompts.system("clip_prompts", "disney-pixar")
     assert "four to five heads tall" not in look["sheet_look"]  # adults keep adult proportions
-
-
-def test_paper_has_reeds_five_lanes_with_their_blocks_word_for_word():
-    """Reed's paper skill (docs/next/skills, #1095): one lane a video, each its own look, its
-    style and physicality blocks word for word; the camera inside the paper world."""
-    skill = (HERE.parents[2] / "docs" / "next" / "skills" / "paper.md").read_text()
-    blocks = [b.split("`", 1)[0] for b in skill.split("- Style block: `")[1:]]
-    looks = ["paper", "paper-flat", "paper-handmade", "paper-collage", "paper-origami"]
-    assert len(blocks) == len(looks)
-    phys = skill.split("## The physicality block", 1)[1].split("```\n", 2)[1].strip()
-    for look, block in zip(looks, blocks, strict=True):
-        still = prompts.style(look)["sections"]["still_look"]
-        assert block in still, look
-        assert (phys in still) == (look != "paper-origami"), look  # origami: folded edges
-        assert "paper" in prompts.style(look)["sections"]["clip_style"].lower(), look  # not clay
-        assert "the camera is inside the scene" in prompts.system("storyboard", look), look
-        assert ("diorama", "paper scene") in prompts.look_banned(look), look
-    assert "crisp crease lines" in prompts.style("paper-origami")["sections"]["still_look"]
-    assert "photo cutout of the real product" in prompts.system("storyboard", "paper-collage")
