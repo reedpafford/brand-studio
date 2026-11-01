@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -153,6 +153,21 @@ test("on a phone there are five tabs (Videos first), no More, and Reed gets an A
   expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
 });
 
+test("with nothing waiting, Reed sees no Approvals in the top bar or the rail, at 390 and on desktop (Reed, 30 Oct)", async () => {
+  for (const width of [390, 1440]) {
+    setViewport(width);
+    const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []] });
+    renderAt("/b/1/projects");
+    await screen.findByRole("link", { name: "Videos" });
+    if (width === 1440) await within(screen.getByRole("navigation", { name: "Main" })).findByRole("link", { name: "In production" });
+    await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /jobs")).toBe(true));
+    await new Promise((r) => setTimeout(r, 50)); // the answer is drawn
+    expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
+    cleanup();
+    vi.unstubAllGlobals();
+  }
+});
+
 test("an editor has no Approvals bell", async () => {
   setViewport(390);
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
@@ -279,12 +294,13 @@ test("if the clipboard says no, the fresh link is shown in a read-only field to 
   expect(field).toHaveAttribute("readonly");
 });
 
-test("an editor's brand menu says brands are set up by the owner and has no New brand", async () => {
+test("an editor's brand menu lists the brands, with no New brand and no owner-only note", async () => {
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/");
   await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
-  expect(screen.getByText("Brands are set up by the owner.")).toBeInTheDocument();
+  expect(await within(screen.getByRole("menu")).findByText("Iron Paws")).toBeInTheDocument();
+  expect(screen.queryByText("Brands are set up by the owner.")).toBeNull();
   expect(screen.queryByRole("menuitem", { name: "New brand" })).toBeNull();
 });
 

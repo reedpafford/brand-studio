@@ -86,10 +86,10 @@ def test_an_editors_own_script_writing_shows_on_their_week_and_no_one_elses(owne
         db.query(Job).filter(Job.created_by_id == me.id).one().credits)  # fmt: skip
 
 
-def test_an_editors_week_lists_every_charge_its_allowance_counts(owner, editor, db):
-    """QA-3: Mine's week adds up to the week's used, built from the allowance's own query:
-    their video (from a script they wrote), a quick clip, a script's writing and a look made
-    in Cast & places with no video ("A look"), never the owner's."""
+def test_an_editors_week_lists_only_their_quick_clips(owner, editor, db):
+    """QA-3: Mine's week adds up to the week's used, built from the allowance's own query. One
+    allowance (Reed, 30 Oct): only their Quick clips; their video (from a script they wrote),
+    a script's writing and a look are a brand's work, never the week; never the owner's."""
     from app.credits import quick_clip_used
     from app.models.script_library import ScriptDraft
 
@@ -110,8 +110,7 @@ def test_an_editors_week_lists_every_charge_its_allowance_counts(owner, editor, 
     week = editor.get("/usage/mine", params={"brand_id": fomo}).json()["week"]
     assert week["used"] == float(quick_clip_used(db, them)) > 0
     assert round(sum(line["credits"] for line in week["lines"]), 3) == round(week["used"], 3)
-    assert {line["label"] for line in week["lines"]} == {"Videos", "Quick clips", "Scripts",
-                                                         "A look"}  # fmt: skip
+    assert [line["label"] for line in week["lines"]] == ["Quick clips"]
     assert week["allowance"] is not None
     assert not any("usd" in k or "dollar" in k for k in _keys(week))
     assert owner.get("/usage/mine", params={"brand_id": fomo}).json()["week"]["allowance"] is None

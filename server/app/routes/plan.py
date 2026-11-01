@@ -158,13 +158,8 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
     if plan is None and job is None:
         return None
     price = credits.price(plans.price(db, project))
-    if project.id is None:  # a script version's plan (S6): the editor's own week
-        left = credits.credits_left(db, user)
-        stop = (
-            None
-            if left is None or plans.price(db, project) <= left
-            else ("Making the plan would go over this week's credits. It resets on Monday.")
-        )
+    if project.id is None:  # a script version's plan (S6): script work, never on the week
+        stop = None
     else:
         stop = credits.fits(db, project, user, plans.price(db, project)) or None
         stop = f"Making the plan {stop}" if stop else None

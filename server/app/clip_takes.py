@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import video_settings
+from app import screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -27,7 +27,6 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
-from app.storyboard import say_logo
 
 log = logging.getLogger(__name__)
 RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
@@ -79,14 +78,22 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "exact_file_ids": exact,
         "input": {
-            "prompt": _with_note(in_english(say_logo(known, clip.prompt, images, clip=True)), note),
+            "prompt": _with_note(in_english(clip.prompt), note),
             "duration": clip.seconds,
             "resolution": RESOLUTION,
             "aspect_ratio": project.aspect_ratio,
             "generate_audio": True,
         },
         "files": {k: v for k, v in files.items() if v},
+        "screen_figures": screen_figures.for_job(
+            db, [r["id"] for r in clip.references], _shots(breakdown, shots)
+        ),
     }
+
+
+def _shots(breakdown: dict, ids: list[str]) -> list[dict]:
+    by_id = {s["id"]: s for scene in breakdown["scenes"] for s in scene["shots"]}
+    return [by_id[i] for i in ids if i in by_id]
 
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
@@ -336,6 +343,11 @@ def save_take(db: Session, job: Job) -> None:
     shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
     refs = [r["id"] for r in clip.references or [] if r["kind"] == "image"]
     queue_safely(db, job, "take", take.id, take.file_id, refs, clip.breakdown_id, shots)
+    from app import take_words  # what it says against the script's lines: Advice only
+
+    by_id = {s["id"]: s for sc in breakdown.get("scenes", []) for s in sc.get("shots", [])}
+    said = [by_id[i] for i in shots if i in by_id]
+    take_words.queue_safely(db, job, take.id, take.file_id, said, take.prompt or "")
 
 
 def pick(clip: ProjectClip, take: ClipTake) -> None:

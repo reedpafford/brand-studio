@@ -81,7 +81,9 @@ def test_a_song_breakdown_is_the_breakdown_plus_its_own_part():
     assert "# Song ads" in song and "# Song ads" not in story
     assert "## Worked example" not in song  # the story example would teach dialogue shots
     assert "Style: Song" not in song
-    assert prompts.style("song")["sections"].get("clip") in prompts.system("clip_prompts", "song")
+    assert prompts.style("song")["sections"].get("clip") in prompts.system(
+        "clip_prompts", "house", "song"
+    )
 
 
 def test_song_block_lists_sections_beats_and_timed_lines():

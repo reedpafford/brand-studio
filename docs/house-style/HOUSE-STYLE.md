@@ -8,9 +8,9 @@ What this is: the default look, sound and storytelling for every Brand Studio vi
 
 ## Visual style line (first line of every image/video prompt)
 
-> Stylised 3D animated feature-film look (Pixar/Disney-like CG). Faces, builds and outfits come from the character sheets: each character's body and face follow their age, and an adult is never drawn with a child's proportions. Fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The frame is mostly locked off at eye level with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off.
+> Stylised 3D animated feature-film look (Pixar/Disney-like CG). Faces, builds and outfits come from the character sheets: each character's body and face follow their age, and an adult is never drawn with a child's proportions. Fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The camera is mostly at eye level and alive, pushing, panning and tracking with the action, with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off.
 
-A short version for tight prompt budgets: *"Pixar-style 3D animation, warm amber key against cool blue shadows, shallow depth of field, locked-off cinematic framing, big readable expressions."*
+A short version for tight prompt budgets: *"Pixar-style 3D animation, warm amber key against cool blue shadows, shallow depth of field, dynamic cinematic camera moves, big readable expressions."*
 
 All reels are vertical 9:16. Set the aspect ratio as the generation setting, never in the prompt text (our prompt checks reject ratios in prompts).
 
@@ -119,7 +119,7 @@ Measured over 537 CG shots:
 - **Framing mix:** close-ups and medium close-ups **30 %**; extreme close-ups **8 %** (eyes, a screaming mouth, a phone screen, a wheel); wides and full shots **24 %**; the rest mediums and two-shots.
 - **Focal length feel:** close-ups are normal-to-long (about 50–85 mm), with flattering faces and a blurred background. Wides are slightly wide (about 24–35 mm) and often symmetrical (warehouse aisle, villa, Eiffel Tower).
 - **Angles:** mostly eye level. Slightly low for confident or arrival moments, slightly high for the hero at his low point. Arguments are a **profile two-shot, nose to nose**.
-- **Movement:** **60 % of CG shots are locked off.** About 10 % use a push-in, snap zoom or crash zoom, always on a feeling (realisation, shock, smugness). Reveals use one continuous follow or arc (up to 8–10 s, e.g. DcP_aC_AoQz 49–57 s, Db35MX-A_mA 14–25 s). There is no handheld in the CG; handheld is only used for the real-life tag.
+- **Movement:** *Reed, 30 Oct: more movement and commotion than the reels below. Most shots now carry a camera move or big physical action, and a locked-off frame is kept for the quiet beat. The figures here describe the reference reels, not the target.* **60 % of CG shots are locked off.** About 10 % use a push-in, snap zoom or crash zoom, always on a feeling (realisation, shock, smugness). Reveals use one continuous follow or arc (up to 8–10 s, e.g. DcP_aC_AoQz 49–57 s, Db35MX-A_mA 14–25 s). There is no handheld in the CG; handheld is only used for the real-life tag.
 - **Objects to lens:** wallets, ring boxes and phones are thrust at the camera for emphasis, and thrown objects (bags, boxes, shirts) serve as wipes.
 
 ---

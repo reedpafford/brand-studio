@@ -35,15 +35,11 @@ from app.storyboard import (
     _same,
     drawn_from_older,
     hero,
-    is_logo,
     is_product,
     left_out,
-    logo_clip,
     nearest_first,
     newer_sheets,
     older_looks,
-    one_logo,
-    say_logo,
     shown_product,
     weakest,
 )
@@ -354,9 +350,8 @@ def with_cast(
     dropped."""
     known = known if known is not None else assets(db, project)
     pics = _pictures(known)
-    images: list[Reference] = []  # every logo-only screen as the one logo, once
+    images: list[Reference] = []  # each picture once
     for r in (r for r in clip.references if r.kind == "image"):
-        r = r.model_copy(update={"id": one_logo(pics, r.id)})
         images += [] if any(o.id == r.id for o in images) else [r]
     others = [r for r in clip.references if r.kind != "image"]
     first = [r for r in images if r.id.startswith("frame:")]
@@ -379,7 +374,7 @@ def with_cast(
         added = added[: max(room - len(people), 0)]
         people = sorted(people + added, key=rank)
     new = first + people + objects
-    want = [one_logo(pics, s) for s in _screens(bd, clip.clip_id)]
+    want = list(_screens(bd, clip.clip_id))
     # The real product the clip's words show (a Change it note's too), as if its shots listed
     # it, making room if it must (Reed's #32 c9: an invented "Iron Paws" bag on a shelf).
     shown = {*want, *(r.id for r in new if r.id.startswith("screen:"))}  # the clip keeps to 3
@@ -397,24 +392,24 @@ def with_cast(
             want = [product, *want[1:]] if len(want) == room else [product, *want]
     elif product:
         want = [product, *want]
-    new += [Reference(kind="image", id=s, role=_name(pics, s) + " screen" * (not is_logo(pics, s)))
-            for s in want]  # fmt: skip
+    new += [Reference(kind="image", id=s, role=f"{_name(pics, s)} screen") for s in want]
     was = [r for r in clip.references if r.kind == "image"]
     if new == was:
         return clip
-    ids, before = [r.id for r in new], [one_logo(pics, r.id) for r in was]
+    ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
     dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
     prompt = _renumber(clip.prompt, moved, dropped, TAGS)
     for r in (r for r in new if r.id not in before):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
-        if r.id in want:  # rule 14: a logo is only the logo, the trading screen is invented
-            n, real = new.index(r) + 1, f"{tag} is the {who} screen, exactly as it is."
+        if r.id in want:  # the actual screen or product (Reed, 30 Oct)
+            real = (
+                f"{tag} is the {who} screen: keep its UI, logo and layout; the coin, "
+                "numbers and chart are what the shot says."
+            )  # never one token (video #16)
             if is_product(pics, r.id):
                 real = f"{tag} is the real {who}; show it exactly as it is."
-            prompt = _add(
-                prompt, "References: ", logo_clip(n, who) if is_logo(pics, r.id) else real
-            )
+            prompt = _add(prompt, "References: ", real)
             continue
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
@@ -426,11 +421,8 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
     yet included (Reed, 2026-10-27); sheets are attached by `with_cast`."""
     m, known = video_model(project), assets(db, project)
     pics = _pictures(known)
-    seen = bd.model_copy(deep=True)  # every logo-only screen is the one logo `with_cast` attached
-    for shot in (s for scene in seen.scenes for s in scene.shots):
-        shot.screen_ids = list(dict.fromkeys(one_logo(pics, s) for s in shot.screen_ids))
     problems = check.clip_prompts(
-        seen, ClipPrompts(clips=[clip]), m.max_reference_images, m.max_reference_audios
+        bd, ClipPrompts(clips=[clip]), m.max_reference_images, m.max_reference_audios
     )
     for c in _cast(bd, clip.clip_id, pics):
         if c in pics and pics[c][1]:
@@ -549,7 +541,6 @@ def repair(db: Session, project: Project) -> int:
                          references=[Reference(**r) for r in row.references or []])  # fmt: skip
         now = repair_shape(with_cast(db, project, was, bd, known, trim=False), bd)
         images = [r.id for r in now.references if r.kind == "image"]
-        now = now.model_copy(update={"prompt": say_logo(known, now.prompt, images, clip=True)})
         newer = newer_sheets(db, known, images, row.job_id)  # a sheet changed since it was written
         for n, r in ((n, r) for n, r in enumerate(images, 1) if r in newer):
             now = now.model_copy(update={"prompt": _sheet_words(now.prompt, n, _name(known, r))})
@@ -559,7 +550,7 @@ def repair(db: Session, project: Project) -> int:
             row.auto_fix = {"before": was.prompt, "after": words[0], "fixed": words[1],
                             "undone": False}  # fmt: skip
             now = now.model_copy(update={"prompt": words[0]})
-        cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}  # none on a logo-only screen
+        cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}
         if cleared := bool((row.real_images or {}).keys() - cuts):
             row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
         problems = (

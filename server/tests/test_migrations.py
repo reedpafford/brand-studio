@@ -70,7 +70,25 @@ def test_saved_caps_on_the_old_default_move_to_729(tmp_path):
         )
         weekly = conn.execute(text("SELECT weekly_quick_clip_credits FROM credit_limits")).all()
     assert caps == {1: 729, 2: 500}
-    assert {float(w) for (w,) in weekly} == {145}  # the old 150 default became $15 (0024)
+    assert {float(w) for (w,) in weekly} == {97}  # 150 became 145 (0024), then $10 (n16)
+
+
+def test_n16_moves_the_old_weekly_defaults_to_97_and_keeps_a_custom_one(tmp_path):
+    """One allowance (Reed, 30 Oct): $10 a week, Quick clips only."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n15")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        for ws, weekly in ((1, 145), (2, 150), (3, 200)):
+            _row(conn, "workspaces", id=ws)
+            _row(conn, "credit_limits", id=ws, workspace_id=ws, weekly_quick_clip_credits=weekly)
+    command.upgrade(cfg, "n16")
+    with engine.connect() as conn:
+        sql = "SELECT workspace_id, weekly_quick_clip_credits FROM credit_limits"
+        got = dict(conn.execute(text(sql)).all())
+    assert {k: float(v) for k, v in got.items()} == {1: 97, 2: 97, 3: 200}
 
 
 def test_n08_copies_never_say_and_end_line_and_keeps_them(tmp_path):
@@ -206,3 +224,23 @@ def test_a_migration_run_leaves_the_app_loggers_on(tmp_path):
     cfg.set_main_option("sqlalchemy.url", f"sqlite:///{tmp_path}/m.db")
     command.upgrade(cfg, "head")
     assert not log.disabled
+
+
+def test_n17_gives_fomos_money_screens_their_figure_spot(tmp_path):
+    """Screen figures: fomo's three money screens get where their figure goes; others none."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n15")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "brands", id=1, slug="fomo")
+        _row(conn, "brands", id=2, slug="ironpaws")
+        _row(conn, "files", id=1)
+        _row(conn, "brand_screens", id=1, brand_id=1, name="Token chart up", file_id=1)
+        _row(conn, "brand_screens", id=2, brand_id=1, name="Desktop trading", file_id=1)
+        _row(conn, "brand_screens", id=3, brand_id=2, name="Token chart up", file_id=1)
+    command.upgrade(cfg, "n17")
+    with engine.connect() as conn:
+        spots = [r[0] for r in conn.execute(text("SELECT figure_spot FROM brand_screens"))]
+    assert json.loads(spots[0])["at"] == [24, 104] and spots[1:] == [None, None]

@@ -7,7 +7,8 @@ from tests.helpers import assert_hidden, assert_no_dollars
 
 
 def test_team_sees_jobs_and_can_cancel_queued(editor, db):
-    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 2})
+    # a step of shared work, not a Quick clip (those are each editor's own: Reed's item 4)
+    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 2, "step": "clip_take"})
     assert [j["id"] for j in editor.get("/jobs").json()] == [job.id]
     assert editor.post(f"/jobs/{job.id}/cancel").json()["status"] == "cancelled"
     assert editor.post(f"/jobs/{job.id}/cancel").status_code == 409
@@ -40,7 +41,7 @@ def test_other_workspace_cannot_see_job(owner, outsider, db):
 
 
 def test_editor_sees_no_dollars_on_finished_jobs(editor, db):
-    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 3})
+    job = enqueue(db, db.query(User).first(), "video-480p", {"seconds": 3, "step": "clip_take"})
     fake = FakeProvider()
     run_once(db, {"fake": fake})
     run_once(db, {"fake": fake})
@@ -123,3 +124,42 @@ def test_every_response_time_uses_utc_time(app):
         if isinstance(route, APIRoute) and route.response_model is not None:
             walk(route.response_model, route.path)
     assert bare == []
+
+
+def test_history_mine_lists_only_the_callers_own_and_everyones_lists_all(owner, editor, db):
+    """Quick clip History (Reed's item 4): Mine is the caller's own; only the owner sees
+    everyone's. An editor never gets another person's Quick clip, flag or not."""
+    from app.models.accounts import Role
+
+    boss = db.query(User).filter_by(role=Role.owner).one()
+    them = db.query(User).filter_by(role=Role.editor).one()
+    ours, theirs = enqueue(db, boss, "video-480p", {}), enqueue(db, them, "video-480p", {})
+    assert [j["id"] for j in editor.get("/jobs", params={"mine": True}).json()] == [theirs.id]
+    assert [j["id"] for j in editor.get("/jobs").json()] == [theirs.id]  # never the owner's clip
+    assert [j["id"] for j in owner.get("/jobs", params={"mine": True}).json()] == [ours.id]
+    everyone = [j["id"] for j in owner.get("/jobs").json()]
+    assert everyone == [theirs.id, ours.id]  # newest first
+    assert owner.get("/jobs", params={"mine": True, "q": "nothing like it"}).json() == []
+
+
+def test_another_editors_quick_clip_is_not_found_by_id_but_the_owner_still_can(
+    app, owner, editor, db
+):
+    """An editor's Quick clips are their own: another editor can't read or cancel one by its
+    id (404, so it doesn't show it exists); its maker and the owner can."""
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import PASSWORD
+
+    token = owner.post("/team/invites", json={"email": "bo@example.com"}).json()["token"]
+    with TestClient(app) as other:
+        other.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
+        ed = db.query(User).filter_by(email="ed@example.com").one()
+        clip = enqueue(db, ed, "video-480p", {})
+        shared = enqueue(db, ed, "video-480p", {"seconds": 2, "step": "clip_take"})
+        assert other.get(f"/jobs/{clip.id}").status_code == 404
+        assert other.post(f"/jobs/{clip.id}/cancel").status_code == 404
+        assert other.get(f"/jobs/{shared.id}").status_code == 200  # shared work: the team's
+        assert editor.get(f"/jobs/{clip.id}").status_code == 200
+        assert owner.get(f"/jobs/{clip.id}").status_code == 200
+        assert owner.post(f"/jobs/{clip.id}/cancel").json()["status"] == "cancelled"

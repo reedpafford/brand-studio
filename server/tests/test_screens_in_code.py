@@ -3,16 +3,10 @@ line's shot shows the brand's real screen on the hero's phone, and every screen 
 is attached to its clip and its frame, so "screen isn't attached" never blocks. Free."""
 
 import copy
-import json
 
-from sqlalchemy import select
-
-from app import clip_prompts, clip_takes, storyboard
+from app import clip_prompts, storyboard
 from app.models.brands import Brand, BrandScreen
-from app.models.breakdowns import BreakdownVersion
-from app.models.clips import ProjectClip
 from app.models.projects import Project
-from app.models.storyboards import StoryboardFrame
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ClipPrompt, ClipPrompts, Frame, Reference
 from tests.conftest import upload
@@ -21,8 +15,8 @@ from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _prompt
 
-LOGO = "[Image2] is the fomo logo: the word fomo in lowercase."
-WORD = "fomo logo, the word fomo in lowercase, sharp and legible"
+UI_CLIP = ": keep its UI, logo and layout; the coin, numbers and chart are what the shot says."
+UI_STILL = ": keep its UI, logo and layout; the coin, numbers and chart are what this frame says."
 
 
 def _cast(editor, db, setup) -> tuple[Project, int]:  # noqa: F811
@@ -69,7 +63,7 @@ def test_a_clip_and_a_frame_attach_every_screen_their_shots_show(app, db, editor
     clip = ClipPrompt(clip_id="c1", seconds=5, prompt=prompt, references=mine)
     fixed = clip_prompts.with_cast(db, project, clip, bd)
     assert [r.id for r in fixed.references] == [f"char:{mom}", screen]
-    assert "[Image2] is the Buy screen, exactly as it is." in fixed.prompt
+    assert "[Image2] is the Buy screen" + UI_CLIP in fixed.prompt
     found = check.clip_prompts(bd, ClipPrompts(clips=[fixed]), 9, 3)
     assert not [p for p in found if "isn't attached" in p]
     left = check.clip_prompts(bd, ClipPrompts(clips=[clip]), 9, 3)
@@ -79,7 +73,7 @@ def test_a_clip_and_a_frame_attach_every_screen_their_shots_show(app, db, editor
                   reference_ids=[f"char:{mom}"])  # fmt: skip
     drawn = storyboard.with_cast(db, project, frame, bd)
     assert drawn.reference_ids == [f"char:{mom}", screen]
-    assert "Show the Buy screen from image 2 as it is." in drawn.prompt
+    assert "Show the Buy screen from image 2" + UI_STILL in drawn.prompt
     assert storyboard.with_cast(db, project, drawn, bd) == drawn  # again changes nothing
 
 
@@ -103,78 +97,38 @@ def _trading(db, editor, owner, setup):  # noqa: F811
     return project, f"char:{mom}", logo, (up, down, home), data
 
 
-def test_a_trading_beat_gets_the_logo_and_the_cta_keeps_the_real_home_screen(
+def test_a_trading_beat_attaches_its_real_screens_as_given(
     app,
     db,
     editor,
     owner,
     setup,  # noqa: F811
 ):
-    """Current rules 14 (QA-Live, video #16: every montage phone copied one STONK chart)."""
+    """Reed, 30 Oct ("actual fomo UI always", rule 14 replaced): a trading screen is attached as
+    it is, never swapped for the logo with an invented screen; the CTA keeps the real Home."""
     project, char, logo, (up, down, home), data = _trading(db, editor, owner, setup)
     mom = int(char[5:])
     bd = Breakdown.model_validate(data)
     known = clip_prompts.assets(db, project)
-    assert known[up][2] == known[down][2] == [logo]  # never the chart screenshot
+    assert logo not in known[up][2] + known[down][2]  # the screens' own pictures
+    assert known[up][0].split(" | ")[1] == "screen"  # never "logo"
     mine = [Reference(kind="image", id=f"char:{mom}", role="Mom")]
     clip = ClipPrompt(clip_id="c1", seconds=5, prompt=_prompt(), references=mine)
     fixed = clip_prompts.with_cast(db, project, clip, bd)
-    assert [r.id for r in fixed.references] == [f"char:{mom}", up, home]  # the logo once
-    assert f"{LOGO} [Image3] is the Home screen, exactly as it is." in (fixed.prompt)
-    assert "layout" not in fixed.prompt
+    ids = [r.id for r in fixed.references]
+    assert ids[0] == f"char:{mom}" and {up, down, home} <= set(ids)
+    n = ids.index(up) + 1
+    assert f"[Image{n}] is the Token chart up screen" + UI_CLIP in fixed.prompt
+    assert "fomo logo" not in fixed.prompt  # never the logo in place of the screen
     assert not [p for p in clip_prompts.clip_problems(db, project, bd, fixed) if "attached" in p]
     assert clip_prompts.with_cast(db, project, fixed, bd) == fixed
-    # Stills follow the same rule: the logo for the trading beat, the real Home for the CTA.
     frame = Frame(clip_id="c1", shot_id="1.1", prompt="Mom checks her phone.",
                   reference_ids=[f"char:{mom}"])  # fmt: skip
     drawn = storyboard.with_cast(db, project, frame, bd)
-    assert drawn.reference_ids == [f"char:{mom}", up]
-    assert 'Image 2 is the fomo logo, the word "fomo" in lowercase: sharp' in drawn.prompt
-    picked = frame.model_copy(update={"reference_ids": [f"char:{mom}", down, up]})
-    assert storyboard.with_cast(db, project, picked, bd).reference_ids == [f"char:{mom}", up]
+    assert drawn.reference_ids == [f"char:{mom}", up, down]
+    assert "Show the Token chart up screen from image 2" + UI_STILL in drawn.prompt
+    assert "fomo logo" not in drawn.prompt
     cta = storyboard.with_cast(db, project, frame.model_copy(update={"shot_id": "1.2",
                                "reference_ids": [f"char:{mom}"]}), bd)  # fmt: skip
     assert cta.reference_ids == [f"char:{mom}", home]
-    assert "Show the Home screen from image 2 as it is." in cta.prompt
-
-
-def test_saved_trading_prompts_stills_and_cut_ins_are_repaired_for_free(
-    app,
-    db,
-    editor,
-    owner,
-    setup,  # noqa: F811
-):
-    project, mom, _, (up, down, home), data = _trading(db, editor, owner, setup)
-    editor.post(f"/projects/{project.id}/breakdown")
-    _run(app, db, FakeClaude(data))
-    bd = db.scalars(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)).one()
-    old = ('References: [Image1] is Mom. [Image2] is the fomo "Token chart up" screen. [Image3] '
-           'is the fomo "Token chart down" screen.\nShot 1 | 0–2 s. Her phone shows [Image3], '
-           "with its logo, colours and layout exactly.")  # fmt: skip
-    refs = [{"kind": "image", "id": i, "role": "x"} for i in (mom, up, down)]
-    ids = {"project_id": project.id, "breakdown_id": bd.id, "clip_id": "c1"}
-    cuts = {"1.1": True, "1.2": True}
-    clip = ProjectClip(**ids, seconds=5, prompt=old, references=refs, real_images=cuts)
-    still = (
-        "Mom checks her phone. Show the Token chart up screen from image 2 as it is. Place"
-        " the app screen from image 2; keep its logo, colours and layout exactly."
-    )
-    frame = StoryboardFrame(**ids, shot_id="1.1", reference_ids=[mom, up], prompt=still)
-    db.add_all([clip, frame])
-    db.commit()
-    # A paid take or still made before any repair never sends the logo called a chart.
-    sent = clip_takes.take_input(db, project, clip)["input"]["prompt"]
-    assert LOGO in sent and "Token chart up" not in sent
-    assert "layout" not in json.dumps(storyboard.render_input(db, project, frame))
-    assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 1
-    db.commit()
-    db.refresh(clip)
-    db.refresh(frame)
-    assert [r["id"] for r in clip.references] == [mom, up, home]  # the logo once
-    assert clip.prompt.count(LOGO) == 1 and "layout" not in clip.prompt
-    assert f"shows [Image2], with its {WORD}" in clip.prompt
-    assert clip.real_images == {"1.2": True}  # no real chart pasted; Home still can be
-    assert f"keep its {WORD} in the top corner" in (frame.prompt)
-    assert 'the word "fomo" in lowercase: sharp' in frame.prompt and "Token" not in frame.prompt
-    assert clip_prompts.repair(db, project) == storyboard.repair(db, project) == 0  # idempotent
+    assert "Show the Home screen from image 2" + UI_STILL in cta.prompt

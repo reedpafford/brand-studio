@@ -169,13 +169,11 @@ def update_brand(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Change the brand. BR1's new sections are the owner's; what editors changed before BR1
-    (name, logo, colours, fonts, notes, never_say, legal and end line) they still may, until
-    Reed decides. Nothing already made or published changes (BR1)."""
+    """Change the brand, setup included (Reed, 30 Oct: editors fill in the Brand page too;
+    creating, archiving and the paid site read stay the owner's). Nothing already made or
+    published changes (BR1)."""
     brand = get_brand(db, user, brand_id)
     values = body.model_dump(exclude_unset=True)
-    if not user.is_owner and any(values.get(k) is not None for k in SetupIn.model_fields):
-        raise HTTPException(403, OWNER_ONLY)
     _apply(db, user, brand, values)
     db.commit()
     return brand_out(db, brand)
@@ -218,7 +216,7 @@ class CtaDeleted(BaseModel):
 
 @router.post("/{brand_id}/cta-lines", response_model=BrandOut, status_code=201)
 def add_cta_line(
-    brand_id: int, body: CtaIn, user: User = Depends(brand_owner), db: Session = Depends(get_db)
+    brand_id: int, body: CtaIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Add a call to action line (the first one is the Default)."""
     brand = get_brand(db, user, brand_id)
@@ -232,7 +230,7 @@ def edit_cta_line(
     brand_id: int,
     line_id: str,
     body: CtaPatch,
-    user: User = Depends(brand_owner),
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     brand = get_brand(db, user, brand_id)
@@ -243,7 +241,7 @@ def edit_cta_line(
 
 @router.delete("/{brand_id}/cta-lines/{line_id}", response_model=CtaDeleted)
 def delete_cta_line(
-    brand_id: int, line_id: str, user: User = Depends(brand_owner), db: Session = Depends(get_db)
+    brand_id: int, line_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Delete a line; deleting the Default makes the next line the Default (Undo: restore)."""
     brand = get_brand(db, user, brand_id)
@@ -254,7 +252,7 @@ def delete_cta_line(
 
 @router.post("/{brand_id}/cta-lines/{line_id}/restore", response_model=BrandOut)
 def restore_cta_line(
-    brand_id: int, line_id: str, user: User = Depends(brand_owner), db: Session = Depends(get_db)
+    brand_id: int, line_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Undo a delete: the line comes back, and the Default again if it was."""
     brand = get_brand(db, user, brand_id)

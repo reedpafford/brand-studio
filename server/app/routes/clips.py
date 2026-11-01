@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import prompts
 from app.auth import current_user
 from app.catalogue import CatalogueModel, get_model
-from app.credits import estimate, over_allowance
+from app.credits import estimate, over_allowance, someone_elses_quick_clip
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand, BrandScreen
@@ -265,7 +265,7 @@ def estimate_clip(
     """What Generate would cost. Nothing is queued. Past the editor's weekly allowance it
     answers 409 with the same plain words Generate would (never sent to the owner)."""
     plan = _plan(db, user, body, request.app.state.storage)
-    if declined := over_allowance(db, user, None, plan.credits):
+    if declined := over_allowance(db, user, plan.credits):
         raise HTTPException(409, declined)
     return EstimateOut(
         credits=plan.credits,
@@ -306,8 +306,10 @@ def create_clip(
 @router.get("/{job_id}/request", response_model=ClipIn)
 def clip_request(job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """The full request a clip was made from (prompt, settings, brand pieces), for "Try again"
-    and "Reuse prompt". Same visibility as the job itself: the caller's workspace."""
+    and "Reuse prompt". Same visibility as the job itself: another editor's isn't there."""
     job = db.get(Job, job_id)
     if not job or job.workspace_id != user.workspace_id or "request" not in job.input:
+        raise HTTPException(404, "No such clip.")
+    if someone_elses_quick_clip(user, job):  # the same answer: it doesn't show it exists
         raise HTTPException(404, "No such clip.")
     return job.input["request"]

@@ -61,12 +61,6 @@ def screen_name(s: BrandScreen) -> str:
     return f"{s.name} ({s.variant})" if s.variant.lower() not in s.name.lower() else s.name
 
 
-def logo_only(s: BrandScreen, brand: Brand) -> bool:
-    """A trading screen is never attached (every shot copied its token, QA-Live on video #16):
-    the brand's logo goes and the screen is invented; home screens stay real (Current rules 14)."""
-    return "trading" in s.tags and "product" not in s.tags and bool(brand.logo_file_id)
-
-
 def _length(project: Project) -> str:
     if project.planned_seconds:
         return f"{project.planned_seconds} s"
@@ -84,7 +78,6 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
             "tags": s.tags,
             "default_for": s.default_for,
             "balance": s.balance,
-            "logo_only": logo_only(s, brand),
         }
         for s in project_screens(db, project)
     ]

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app import brand_setup, folders, looks, narration, needs_you, plans, reference
 from app.auth import current_user, owner_only, user_name
-from app.credits import credits_used, get_limits, lock, over_cap, own_script, price
+from app.credits import credits_used, get_limits, lock, over_cap, price
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
@@ -96,7 +96,7 @@ class ProjectOut(BaseModel):
     created_by_name: str
     script_draft_id: int | None = None  # made from a library version; null: an earlier-style video
     released: bool = False  # archived by Release: its version went back to Ready to make
-    own_script: bool = False  # from a script the viewer wrote: it runs on their weekly allowance
+    own_script: bool = False  # always false: every video is on its budget (one allowance, 30 Oct)
     archived_at: UtcTime | None = None  # put away; POST .../unarchive brings it back
     finished_at: UtcTime | None = None  # "Video done": the whole video was downloaded
     # The last still redraw after a cast change, for the Storyboard note: {"redrawn_for_cast":
@@ -178,7 +178,6 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         created_by_name=user_name(db, project.created_by_id),
         script_draft_id=project.script_draft_id,
         released=project.released_draft_id is not None,
-        own_script=own_script(db, project, user),
         archived_at=project.archived_at,
         finished_at=project.finished_at,
         cast_redraw=project.cast_redraw,

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app import reel_read, script_write
 from app import script_library as lib
 from app.auth import current_user
-from app.credits import afford, credits_left, estimate, shown
+from app.credits import estimate
 from app.db import get_db
 from app.models.accounts import User
 from app.models.script_library import Script
@@ -30,7 +30,7 @@ class WriteManyIn(BaseModel):
 class WriteManyEstimate(BaseModel):
     count: int
     credits: float  # all of them together
-    credits_left: float | None  # an editor's weekly allowance left; null for the owner
+    credits_left: float | None  # always null: script work isn't on the week (Reed, 30 Oct)
     reading: int = 0  # scripts whose imported reel is read first (watch, write, cast read)
     read_credits: float = 0  # of `credits`: reading the reels, still-preparing ones too
     write_credits: float = 0  # of `credits`: the scripts that are simply written
@@ -111,7 +111,6 @@ def write_one(
     script = _writable(db, user, script_id)
     if _plan(db, script) != "write":
         raise HTTPException(409, "Read the reel first.")
-    afford(db, user, _price(db, user), "Writing this script")
     return _queue(db, user, request, script)
 
 
@@ -123,7 +122,6 @@ def write_many_estimate(
     ids = list(dict.fromkeys(body.script_ids))
     scripts = [lib.get_script(db, user, script_id) for script_id in ids]
     plans = [_plan(db, s) for s in scripts]
-    left = credits_left(db, user)
     costs = [(p, _cost(db, user, s, p)) for s, p in zip(scripts, plans, strict=True)]
     read = [s for s, p in zip(scripts, plans, strict=True) if p in ("read", "waiting")]
     videos = sum((s.reel or {}).get("source") == "upload" for s in read)
@@ -132,7 +130,7 @@ def write_many_estimate(
         credits=sum((c for _, c in costs), 0),
         read_credits=sum((c for p, c in costs if p in ("read", "waiting")), 0),
         write_credits=sum((c for p, c in costs if p == "write"), 0),
-        credits_left=None if left is None else max(left, Decimal(0)),
+        credits_left=None,
         reading=plans.count("read"),
         writing=plans.count("write"),
         waiting=[s.id for s, p in zip(scripts, plans, strict=True) if p == "waiting"],
@@ -162,14 +160,6 @@ def write_many(
     if failed := plans.count("failed"):
         it = "reel needs" if failed == 1 else "reels need"
         raise HTTPException(409, f"{failed} {it} the video uploaded again. Upload it or untick it.")
-    costs = [_cost(db, user, s, p) for s, p in zip(scripts, plans, strict=True)]
-    total, left = sum(costs, Decimal(0)), credits_left(db, user)
-    if left is not None and total > left:
-        raise HTTPException(
-            409,
-            "Writing these takes {} credits and you have {} left this week. It resets "
-            "Monday.".format(*shown(total, left)),
-        )
     return [
         reel_read.queue(db, user, s, reel_read.remaining(s)[0])
         if p == "read"

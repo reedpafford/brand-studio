@@ -74,7 +74,7 @@ export function CreditLimits() {
     <section aria-label="Credit limits" className="space-y-3">
       <h2 className="type-section">Credit limits</h2>
       <Card className="space-y-4">
-        {field("weekly-limit", "Editors' weekly allowance", weekly, (v) => setEdit({ weekly: v, cap }), weeklyError, "Free generation for each editor's own scripts and quick clips. Resets on Monday.")}
+        {field("weekly-limit", "Editors' weekly allowance", weekly, (v) => setEdit({ weekly: v, cap }), weeklyError, "Each editor's Quick clips only; scripts and videos run on their budgets. Resets on Monday.")}
         {field("video-cap", "Most one video can cost", cap, (v) => setEdit({ weekly, cap: v }), capError, "For everyone, the owner too. A video's budget is twice its estimate, up to this.")}
         {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
         <div className="sm:flex sm:justify-end">

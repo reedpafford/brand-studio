@@ -17,7 +17,6 @@ from app import script_library as lib
 from app import script_write
 from app.advice import SaidText
 from app.auth import current_user
-from app.credits import credits_left, shown
 from app.db import get_db
 from app.filetypes import matches
 from app.models.accounts import User
@@ -48,7 +47,7 @@ class LinkIn(BaseModel):
 
 class Estimate(BaseModel):
     credits: float  # every step still to run, together
-    credits_left: float | None  # an editor's weekly allowance left; null for the owner
+    credits_left: float | None  # always null: script work isn't on the week (Reed, 30 Oct)
     # How often the step it starts from has been tried already: a retry is charged again, so
     # after 2 failed tries the screen says so before the next press.
     tries: int = 0
@@ -90,10 +89,9 @@ def _out(db: Session, script: Script, user: User) -> ImportOut:
         problem = f"{read.NAMES[failed]} didn't finish. Nothing more was charged; try again."
     estimate = None
     if status in ("ready", "failed") and failed != "prepare":
-        left = credits_left(db, user)
         estimate = Estimate(
             credits=read.price(db, user, read.remaining(script)),
-            credits_left=None if left is None else max(left, 0),
+            credits_left=None,
             tries=(reel.get("tries") or {}).get(failed or "", 0),
         )
     draft = script_write.original(db, script)
@@ -300,12 +298,6 @@ def read_reel(script_id: int, user: User = Depends(current_user), db: Session = 
     if read.needs_upload(script):
         raise HTTPException(409, "Upload the video again so this reel can be read.")
     steps = read.remaining(script)
-    total, left = read.price(db, user, steps), credits_left(db, user)
-    if left is not None and total > left:
-        raise HTTPException(
-            409,
-            "This reel needs {} credits; you have {} left this week.".format(*shown(total, left)),
-        )
     read.queue(db, user, script, steps[0])
     return _out(db, script, user)
 
@@ -323,8 +315,8 @@ def read_again(
     db: Session = Depends(get_db),
 ):
     """Read it again (reel-import.md §5): the breakdown and the script steps run again with
-    the note; the download and transcript are kept. Priced first; past an editor's week it's
-    refused, never held. A note that changes the reel's words is refused before any charge."""
+    the note; the download and transcript are kept. A note that changes the reel's words is
+    refused before any charge."""
     script = lib.editable(user, lib.get_script(db, user, script_id))
     status, _ = read.state(db, script)
     if status != "done":
@@ -334,13 +326,6 @@ def read_again(
     note = body.note.strip()
     if wrong := check.reel_note(note, [x["text"] for x in script.reel.get("transcript", [])]):
         raise HTTPException(422, wrong)
-    total, left = read.price(db, user, list(read.AGAIN)), credits_left(db, user)
-    if left is not None and total > left:
-        raise HTTPException(
-            409,
-            "Reading it again needs {} credits; you have {} left this week. It resets on "
-            "Monday.".format(*shown(total, left)),
-        )
     done = [s for s in script.reel.get("done", []) if s not in read.AGAIN]
     previous = read.last_reading(db, script)  # so the watch keeps what the note doesn't touch
     script.reel = {**script.reel, "done": done, "note": note, "last_reading": previous,

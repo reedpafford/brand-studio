@@ -32,6 +32,7 @@ class FindingOut(BaseModel):
     text: str  # the card's line: "Mia's face may differ from her sheet"
     note: str  # the ready "Change this…" note
     fix: str = ""  # the video's look's fix for this kind of finding (ST2), as next step
+    at: float | None = None  # a words finding: where in the take, in seconds (app/take_words)
 
 
 class CheckOut(BaseModel):
@@ -212,7 +213,7 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
     gone = {d["index"] for d in row.dismissed or []}
     fixes = prompts.look_fixes(db.get(Project, row.project_id).look)
     findings = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"],
-                           fix=fixes.get(f["kind"], ""))
+                           fix=fixes.get(f["kind"], ""), at=f.get("at"))
                 for i, f in enumerate(row.findings or []) if i not in gone]  # fmt: skip
     status = {"checking": "checking", "failed": "failed", "skipped": "skipped"}.get(
         row.status, "advice" if findings else "ok"
@@ -220,7 +221,21 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
     return CheckOut(id=row.id, status=status, findings=findings)
 
 
-def with_advice(db: Session, target: str, ids: list[int]) -> int:
-    """How many of these items' newest checks still have Advice ("2 approved with Advice")."""
-    rows = latest(db, target, ids).values()
-    return sum(1 for r in rows if (out := shown(db, r)) and out.findings)
+def verdict(checks: list[CheckOut | None]) -> str:
+    """A take's verdict from all its checks (the item check and its words), for the take
+    check's self-approval to come (rule 21): flagged (Advice not yet Looks fine), checking,
+    clean (checked, nothing found) or unchecked (checks off, skipped or failed)."""
+    ran = [c for c in checks if c]
+    if any(c.findings for c in ran):
+        return "flagged"
+    if any(c.status == "checking" for c in ran):
+        return "checking"
+    return "clean" if ran and all(c.status == "ok" for c in ran) else "unchecked"
+
+
+def with_advice(db: Session, target: str, ids: list[int], also: str | None = None) -> int:
+    """How many of these items' newest checks still have Advice ("2 approved with Advice");
+    `also`: a second check on the same items (a take's words)."""
+    found = [latest(db, t, ids) for t in (target, also) if t]
+    return sum(1 for i in ids if any((out := shown(db, c.get(i))) and out.findings
+                                     for c in found))  # fmt: skip

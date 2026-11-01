@@ -259,8 +259,6 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
              if values.get(k) is not None and values[k] != (getattr(item, k) or "")}  # fmt: skip
     if words and item.kind != Kind.prop:
         raise HTTPException(422, "Only products have a description and a main claim.")
-    if words and not user.is_owner:
-        raise HTTPException(403, "Only the owner changes the brand.")
     for field in PRODUCT_WORDS:
         if values.get(field) is None:
             values.pop(field, None)

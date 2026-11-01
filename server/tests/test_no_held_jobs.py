@@ -65,29 +65,26 @@ def test_every_paid_video_route_refuses_an_editor_past_the_budget(owner, editor,
     assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
 
 
-def test_an_editors_own_work_past_the_week_is_refused_never_held(owner, editor, db):
+def test_past_the_week_only_a_quick_clip_is_refused_and_nothing_is_held(owner, editor, db):
+    """One allowance (Reed, 30 Oct): the week counts Quick clips only. Script work, looks and
+    Improve are a brand's work, never refused for the week; a Quick clip past it is declined,
+    never held for the owner."""
     limits = owner.get("/credits/limits").json()
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 0})
     fomo = editor.get("/brands").json()[0]["id"]
     sid = _make(editor, text=SCRIPT)["id"]
     s = f"/scripts/{sid}"
     look = editor.post("/library/character", json={"name": "Bo", "notes": "a pug"}).json()["id"]
-    jobs = db.query(Job).count()
     answers = _posts(editor, [
         (f"{s}/write", {}),
-        (f"{s}/variations", {}),
-        (f"{s}/cast/read", {}),
         (f"{s}/drafts/0/enhance", {}),
         (f"{s}/drafts/0/breakdown", {}),
         ("/clips/improve", {"brand_id": fomo, "prompt": "A dog eats.", "duration": 5}),
         (f"/library/character/{look}/sheet", {}),
     ])  # fmt: skip
     for url, r in answers.items():
-        assert r.status_code in (409, 422), (url, r.status_code, r.text)
-    other = {u: r.json()["detail"] for u, r in answers.items() if "this week" not in r.text}
-    # Variations and the cast read need an approved original first; every other is the week
-    assert other == dict.fromkeys(
-        [f"{s}/variations", f"{s}/cast/read"], "Approve the original first."
-    )
-    assert db.query(Job).count() == jobs
+        assert "this week" not in r.text, (url, r.text)
+    clip = editor.post("/clips", json={"brand_id": fomo, "prompt": "A dog eats.", "duration": 5})
+    assert (clip.status_code, clip.json()["detail"]) == (
+        409, "You've used this week's 0 credits. It resets on Monday.")  # fmt: skip
     assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()

@@ -64,7 +64,9 @@ def test_who_files_what_videos_and_quick_clips(app, owner, editor, db):
     assert file_into(editor, "clip", theirs.id, fid).status_code == 403  # not theirs
     assert file_into(owner, "clip", theirs.id, fid).status_code == 200  # the owner files anything
     shown = {j["id"]: j["folder_id"] for j in editor.get(f"/jobs?folder={fid}").json()}
-    assert shown == {clip.id: fid, theirs.id: fid}
+    assert shown == {clip.id: fid}  # an editor's Quick clips are their own (Reed's item 4)
+    every = {j["id"]: j["folder_id"] for j in owner.get(f"/jobs?folder={fid}").json()}
+    assert every == {clip.id: fid, theirs.id: fid}
 
     base, _ = _published(owner, db, breakdown=BREAKDOWN)
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]

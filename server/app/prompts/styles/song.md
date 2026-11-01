@@ -1,25 +1,10 @@
 # Song
-<!-- Song ads (Reed, 2026-10-28): a music video where the song leads. From Starpop's song-ads skill (docs/research/starpop-2026-10-28, rule 20). The look is Disney Pixar's with music-video light; the song flow (lyrics, takes, sung or B-roll shots timed to the track) is its own step. -->
+<!-- Song ads (Reed, 2026-10-28): a music video where the song leads. From Starpop's song-ads skill (docs/research/starpop-2026-10-28, rule 20). Song is a video type, drawn in whatever look the video has (Song in any look, #1031): this file holds only its still and clip guides, added after the look's own; the song flow (lyrics, takes, sung or B-roll shots timed to the track) is its own step. -->
 kind: format
 order: 2
 on: no
 image_model: auto
 blurb: An animated music video: the song plays over B-roll that shows each line as it's sung; the lead sings on camera only where the script asks.
-
-## sheet_look
-A frame in the style of a Pixar animated feature film: high-end stylised 3D animation, every surface a designed 3D asset with simplified, appealing shapes and believable stylised materials. Caricatured, appealing design with a readable silhouette: large expressive eyes with glossy catch-lights, defined eyebrows, a wide expressive mouth, smooth matte skin, hair sculpted into clear stylised clumps. The body and face follow the character's age: an adult has an adult's height, build and face (a defined jaw, the head only slightly large for the body), never a child's; a teenager looks like a teenager, a child like a child. An animal is a stylised Pixar animal with the same glossy eyes. One fixed, stage-ready outfit with one bold colour that reads at a glance, identical in every view.
-
-## place_look
-A frame in the style of a Pixar animated feature film: high-end stylised 3D animation, every object a designed 3D asset with simplified, appealing shapes, a detailed lived-in environment, rich music-video light: saturated colour, warm bounce light, coloured rim light and a soft haze in the air.
-
-## still_look
-The Song look, unless the brand block says otherwise: "A frame in the style of an animated Pixar musical: high-end stylised 3D animation, every object a designed 3D asset with simplified, appealing shapes. Faces, builds and outfits come from the character sheets. Music-video light: saturated, harmonious colour, warm bounce light with a coloured rim light, a soft haze catching the light, shallow cinematic depth of field. Composed like a hero frame from an animated feature, the camera inside the scene and the scene filling the frame. Expressions and poses are big and full of rhythm, readable with the sound off."
-
-## clip_style
-Smooth cinematic 3D animation in the style of an animated Pixar musical, fluid and full of rhythm, saturated music-video light with a coloured rim light and soft haze
-
-## fit_look
-a stylised Pixar-like 3D look with large glossy eyes and sculpted hair
 
 ## still
 - Each B-roll still shows the lyric at that moment, literally, so the story reads with the sound off; the lead sings only in a Sung shot. One clear subject and one action per frame.
