@@ -7,6 +7,7 @@ from app.enhance import project_context
 from app.models.projects import Project
 from app.storyboard import assets
 from tests.conftest import PASSWORD
+from tests.helpers import with_sheet
 from tests.test_cast_roles import _video
 
 
@@ -52,3 +53,17 @@ def test_the_videos_outfit_is_in_every_cast_line_and_the_stills_asset_line(owner
     assert "wears:" not in mias  # no outfit given: the sheet's, as before
     line, _ = assets(db, project)[f"char:{kid}"]
     assert line.endswith("wears: mustard trench coat (this video)")
+
+
+def test_with_an_outfit_the_sheet_line_never_says_not_to_describe_clothes(owner, editor, db):
+    """QA on #1104: "never describe … coat" then "wears: a raincoat" was a mixed message."""
+    pid, _, kid = _video(owner, editor, db)
+    with_sheet(db, kid)
+    project = db.get(Project, pid)
+    plain, _ = assets(db, project)[f"char:{kid}"]
+    assert "never describe their face, breed, coat, skin" in plain  # no outfit: as before
+    editor.put(f"/projects/{pid}/locks", json={"outfits": {f"char:{kid}": "a yellow raincoat"}})
+    db.refresh(project)
+    line, _ = assets(db, project)[f"char:{kid}"]
+    assert "coat," not in line and "except for what they wear" in line
+    assert line.endswith("wears: a yellow raincoat (this video)")
