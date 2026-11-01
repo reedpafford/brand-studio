@@ -242,6 +242,9 @@ def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
     return "would go over this video's budget."
 
 
+WAIT_OK = "Waiting for the owner's OK: "  # a held press says why it waits, never "ask Reed"
+
+
 def over_allowance(db: Session, user: User, credits: Decimal) -> str:
     """Plain words if this Quick clip would take an editor past their weekly allowance, else
     "". Past it, the clip waits for the owner (`enqueue`). Call with the row locked."""
@@ -253,11 +256,7 @@ def over_allowance(db: Session, user: User, credits: Decimal) -> str:
         return ""
     n = f"{allowance:.0f}"
     plural = "" if n == "1" else "s"  # "1 credit", never "1 credits"
-    if used >= allowance:  # the screens' words (useScript.ts weekStop)
-        return f"You've used this week's {n} credit{plural}. It resets on Monday."
-    return (
-        f"That's more than this week's {n} credit{plural} ({used:.0f} used). It resets on Monday."
-    )
+    return f"{WAIT_OK}this goes past your week's {n} credit{plural} ({used:.0f} used)."
 
 
 def lock(db: Session, model, row_id: int) -> None:

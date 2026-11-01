@@ -140,7 +140,7 @@ class JobDetailOut(JobOut):
     cost_usd: float = 0.0
 
 
-OVER_BUDGET = "That's more than this video's budget."
+OVER_BUDGET = "Waiting for the owner's OK: this goes past the video's budget."
 SCRIPT_MEDIA = "Songs, narration and music on a script wait for the owner's OK."
 ON_SCRIPT = "on_script"  # a song take's or narration music's script (outside any video)
 DECLINED = "The owner said no this time. Nothing was charged."

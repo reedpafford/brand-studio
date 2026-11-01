@@ -184,7 +184,7 @@ def test_a_change_checks_its_whole_price_against_the_videos_budget(
     held = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
     assert held.status_code == 201  # past it with the still: waits for the owner
     (job,) = db.query(Job).filter_by(status="needs_owner_approval").all()
-    assert job.input["held"] == "That's more than this video's budget."
+    assert job.input["held"] == "Waiting for the owner's OK: this goes past the video's budget."
     assert editor.post(f"/jobs/{job.id}/cancel").status_code == 200  # withdrawn
     monkeypatch.setattr("app.credits.budget", lambda db, p: room)
     sent = editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
