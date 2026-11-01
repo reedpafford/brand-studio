@@ -319,3 +319,18 @@ def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
     out = owner.get(f"/projects/{pid}/director").json()
     assert (out["status"], out["ended"]) == ("ended", "It stopped: Clip 1's still failed 3 times.")
     assert len(tries) == 3 and len(out["turns"]) < 8  # three tries, no turns spent past them
+
+
+def test_a_turn_that_fails_inside_the_worker_ends_the_run_and_nothing_more_is_charged(
+    app, db, owner, editor, monkeypatch
+):
+    """An answer that isn't a tool fails the turn before the worker's finish: the run used to
+    stay "running" forever. Now it ends, saying so, and nothing more is made."""
+    monkeypatch.setattr("app.director.choose", lambda state: {"tool": "dance", "why": "?"})
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert (out["status"], out["ended"]) == ("ended", director.TURN_FAILED)
+    (turn,) = db.query(Job).filter(Job.project_id == pid).all()  # the failed turn, nothing more
+    assert turn.status == JobStatus.failed
