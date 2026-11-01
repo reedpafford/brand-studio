@@ -12,7 +12,12 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
-    assert set(ids[5:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"}
+    assert set(ids[5:]) == {"claymation", "claymation-goofy", "claymation-clean",
+                            "claymation-puppet", "anime-comic", "paper", "watercolor",
+                            "wool-crochet"}  # fmt: skip
+    at = ids.index("claymation")  # Reed's skill: its four lanes, side by side
+    assert ids[at : at + 4] == ["claymation", "claymation-goofy", "claymation-clean",
+                                "claymation-puppet"]  # fmt: skip
     # Formats: only Song for now (Reed, 30 Oct); podcast, vox and whiteboard are in git history
     assert [s["id"] for s in prompts.styles() if s["kind"] == "format"] == ["song"]
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
@@ -103,7 +108,9 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
     for quote in ('"Voilà : ça va ; très bien ."', '"Hello , world : ok"', '"Wait . . .  what"'):
         line = f"Mia says {quote} in the style of Zack D. Films"
         assert check.look_words(line, "zack-d")[0] == f"Mia says {quote}", line
-    assert prompts.look_banned("claymation") == [] and prompts.look_fixes("claymation") == {}
+    assert prompts.look_banned("claymation") == []
+    assert set(prompts.look_fixes("claymation")) == {"refused", "face", "outfit", "product"}
+    assert prompts.look_fixes("claymation-goofy") == {}
     for step in prompts.SCHEMAS:  # data, never sent to a model
         assert "## banned" not in prompts.system(step, "zack-d"), step
 
@@ -212,3 +219,27 @@ def test_song_has_only_its_guides_and_takes_its_look_from_the_video():
         made = prompts.system(step, "claymation", "song")
         assert "Pixar musical" not in made and "Pixar animated feature" not in made, step
         assert "## Format: Song\nThis video is a Song video in the Claymation look" in made
+
+
+def test_claymation_has_reeds_four_lanes_with_their_blocks_word_for_word():
+    """Reed's claymation skill (docs/next/skills, #1095): one lane a video, each its own look,
+    its style block word for word; the motion guard in every clip; never smooth CGI."""
+    skill = (HERE.parents[2] / "docs" / "next" / "skills" / "claymation.md").read_text()
+    blocks = {
+        "claymation": "Detailed cinematic claymation scene — hand-sculpted plasticine",
+        "claymation-goofy": "Goofy claymation scene — everything sculpted from plasticine",
+        "claymation-clean": "Polished claymation scene — everything sculpted from smooth",
+        "claymation-puppet": "Stop-motion clay puppet scene — clay characters detailed",
+    }
+    for look, start in blocks.items():
+        still = prompts.style(look)["sections"]["still_look"]
+        block = start + skill.split(start, 1)[1].split("`", 1)[0]
+        assert block in still, look
+        clip = prompts.system("clip_prompts", look)
+        assert "slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI." in clip
+        assert "Animation must start at the first frame." in clip, look
+    assert "never sticking out in every direction" in prompts.system(
+        "storyboard", "claymation-goofy"
+    )
+    assert "clay imitation of" in prompts.system("storyboard", "claymation")
+    assert "young clay skin" not in prompts.style("claymation")["sections"]["sheet_look"]  # age
