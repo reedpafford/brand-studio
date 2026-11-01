@@ -113,3 +113,19 @@ def test_a_takes_verdict_comes_from_all_its_checks_for_self_approval_later():
     assert verdict([out("ok"), out("checking")]) == "checking"
     for unsure in ([None, None], [out("skipped"), out("ok")], [out("failed")]):
         assert verdict(unsure) == "unchecked"  # never self-approved on a check that didn't run
+
+
+def test_a_failed_queue_never_stops_the_take(app, db, editor, setup, clip, monkeypatch, caplog):  # noqa: F811, E501
+    monkeypatch.setattr("app.item_checks.on", lambda: True)
+
+    def broken(*args):
+        raise RuntimeError("no file")
+
+    monkeypatch.setattr("app.take_words.queue", broken)
+    clips = f"/projects/{setup['project']}/clips"
+    editor.post(f"{clips}/{clip['id']}/generate")
+    _work(app, db, FakeSeedance([_mp4("red")]))
+    (take,) = editor.get(clips).json()[0]["takes"]  # saved and picked all the same
+    assert take["words"] is None and take["verdict"] != "flagged"
+    assert "couldn't queue the words check for take" in caplog.text
+    assert db.query(Job).filter(Job.kind == "take_listen").count() == 0

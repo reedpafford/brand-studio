@@ -196,6 +196,34 @@ test("a refused take shows the look's fix beside its own press", async () => {
   expect(await within(await screen.findByLabelText("Clip c2")).findByText("For this look: Take out any studio or film name, then Make another take.")).toBeInTheDocument();
 });
 
+test("a take's words check has its own chip: what's off and when, Change this… fills the change box, Looks fine dismisses it", async () => {
+  setViewport(1440);
+  const missing = { index: 0, kind: "missing", text: "Not heard: BO: “No way.”", note: "Make sure BO says, word for word: “No way.”", at: null };
+  const misname = { index: 1, kind: "name", text: "“Fobo” at 0:00.5: fomo may be said wrong. Listen first: the transcript can mishear.", note: "Say fomo as FOH-moh, never “Fobo”.", at: 0.5 };
+  const words = { id: 8, status: "advice", findings: [missing, misname] };
+  const picked = { ...take(2, 1, { id: 7, status: "ok", findings: [] }), words };
+  const calls = fakeServer(routes({ "GET /projects/9/clips": [200, [clip({ takes: [picked], picked_take_id: 2 })]], "POST /projects/9/checks/8/findings/1/dismiss": [200, { ...words, findings: [missing] }] }));
+  open("?step=clips");
+  await userEvent.click(await screen.findByRole("button", { name: "2 notes on the words in clip c1" }));
+  expect(screen.queryByRole("button", { name: /notes? on clip c1/ })).toBeNull(); // the picture check found nothing
+  const notes = screen.getByLabelText("Notes on the words for clip c1");
+  expect(within(notes).getByText(/“Fobo” at 0:00.5/)).toBeInTheDocument();
+  await userEvent.click(within(notes).getAllByRole("button", { name: "Looks fine" })[1]);
+  expect(calls.some((c) => c.key === "POST /projects/9/checks/8/findings/1/dismiss")).toBe(true);
+  await userEvent.click(within(notes).getAllByRole("button", { name: "Change this…" })[0]);
+  expect(screen.getByLabelText("Change this… c1")).toHaveValue("Make sure BO says, word for word: “No way.”");
+});
+
+test("while a take's words are heard it says so, apart from the picture check", async () => {
+  setViewport(1440);
+  const picked = { ...take(2, 1, { id: 7, status: "checking", findings: [] }), words: { id: 8, status: "checking", findings: [] } };
+  fakeServer(routes({ "GET /projects/9/clips": [200, [clip({ takes: [picked], picked_take_id: 2 })]] }));
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(await within(card).findByText("Checking the words…")).toBeInTheDocument();
+  expect(within(card).getByText("Checking…")).toBeInTheDocument();
+});
+
 test("a clean take that approved itself says so; one a person approved just says Approved", async () => {
   setViewport(1440);
   const clean = { id: 7, status: "ok", findings: [] };

@@ -101,10 +101,12 @@ export function ClipCard(props: {
   const failed = props.job?.status === "failed" && !failedBefore;
   const picked = c.takes.find((t) => t.id === c.picked_take_id);
   const check = (picked as (typeof picked & { check?: ItemCheck }) | undefined)?.check; // the picked take's advisory check (P4)
+  const words = (picked as (typeof picked & { words?: ItemCheck }) | undefined)?.words; // what it says against the script's lines
   // The chip says what the card holds now; a failed newest take is a line under it (it never hides a good picked take).
   const byCheck = (picked as (typeof picked & { approved_by?: string | null }) | undefined)?.approved_by === "check"; // rule 21: a clean take
   const status = c.approved ? (byCheck ? "Approved by the check" : "Approved") : props.busy ? null : c.stale ? "Out of date" : picked ? `Take ${picked.number} · ready to check` : failed ? "Didn't finish" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
+  const change = (text: string) => (props.review && !c.stale ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setNote(text)); // a check's note
   const problems = blocking(c.problems, c.kept).length > 0;
   // A grey paid button always says why, naming the press that moves it on.
   const why = props.blockers.length > 0
@@ -139,7 +141,8 @@ export function ClipCard(props: {
         </p>
       )}
       <LookTip text={c.look_fix} />
-      {picked && <CheckNotes check={check} projectId={props.projectId} label={`clip ${c.clip_id}`} onChange={(text) => (props.review && !c.stale ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setNote(text))} />}
+      {picked && <CheckNotes check={check} projectId={props.projectId} label={`clip ${c.clip_id}`} onChange={change} />}
+      {picked && <CheckNotes check={words} projectId={props.projectId} label={`clip ${c.clip_id}`} what="the words" onChange={change} />}
       {failedBefore && <p role="status" className="text-sm text-muted">The last take, before your change, failed.</p>}
       {props.job?.waiting && <p role="status" className="text-sm text-muted">{props.job.waiting}</p>}
       <RetryLine clip={c} />

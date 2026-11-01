@@ -9,7 +9,7 @@ import { Sheet } from "./Sheet";
 import { LookTip } from "./LookFix";
 
 /** The advisory check on a still or a take (flows P4; Builder-Server-8's CheckOut, #891). Advice only: it never blocks. */
-export type Finding = { index: number; kind: string; text: string; note: string; fix?: string };
+export type Finding = { index: number; kind: string; text: string; note: string; fix?: string; at?: number | null };
 export type ItemCheck = { id: number; status: "checking" | "ok" | "advice" | "failed" | "skipped"; findings: Finding[] } | null | undefined;
 type Flagged = { kind: "still" | "take"; id: number; clip_id: string; label: string; findings: number };
 type Review = { on: boolean; credits_per_check: number; items: Flagged[]; paused?: boolean };
@@ -30,8 +30,9 @@ export function useReview(projectId: number) {
   return useQuery({ queryKey: ["checks", projectId], queryFn: () => call("GET", `/projects/${projectId}/checks`) as Promise<Review | null>, retry: false });
 }
 
-/** Under a still or a take: "Checking…", "Couldn't check this one.", or the quiet "N notes" chip that opens the findings (PL6). */
-export function CheckNotes({ check, projectId, label, onChange }: { check: ItemCheck; projectId: number; label: string; onChange: (note: string) => void }) {
+/** Under a still or a take: "Checking…", "Couldn't check this one.", or the quiet "N notes" chip that opens the findings (PL6).
+ *  `what` names a second check on the same item, so its chip reads apart: "1 note on the words" (the take's words check). */
+export function CheckNotes({ check, projectId, label, what, onChange }: { check: ItemCheck; projectId: number; label: string; what?: string; onChange: (note: string) => void }) {
   const [open, setOpen] = useState(false);
   const phone = useMedia("(max-width: 639px)");
   const queryClient = useQueryClient();
@@ -55,12 +56,12 @@ export function CheckNotes({ check, projectId, label, onChange }: { check: ItemC
     was.current = status;
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!check) return null;
-  if (check.status === "checking") return <p className="text-xs text-muted" role="status">Checking…</p>;
-  if (check.status === "failed") return <p className="text-xs text-muted">Couldn't check this one.</p>;
+  if (check.status === "checking") return <p className="text-xs text-muted" role="status">{what ? `Checking ${what}…` : "Checking…"}</p>;
+  if (check.status === "failed") return <p className="text-xs text-muted">Couldn't check {what ?? "this one"}.</p>;
   const findings = check.findings;
   if (findings.length === 0) return null;
   const lines = (
-    <ul className="space-y-3" aria-label={`Notes for ${label}`}>
+    <ul className="space-y-3" aria-label={`Notes ${what ? `on ${what} ` : ""}for ${label}`}>
       {findings.map((f) => (
         <li key={f.index} className="space-y-1">
           <p>{f.text}</p>
@@ -77,15 +78,15 @@ export function CheckNotes({ check, projectId, label, onChange }: { check: ItemC
       ))}
     </ul>
   );
-  const chip = `${findings.length} note${findings.length === 1 ? "" : "s"}`;
+  const chip = `${findings.length} note${findings.length === 1 ? "" : "s"}${what ? ` on ${what}` : ""}`;
   return (
     <div className="text-sm">
-      <button type="button" className="inline-flex min-h-11 items-center rounded-sm bg-surface-2 px-2 text-xs font-medium sm:min-h-0 sm:py-0.5" aria-expanded={open} aria-label={`${chip} on ${label}`} onClick={() => setOpen(!open)}>
+      <button type="button" className="inline-flex min-h-11 items-center rounded-sm bg-surface-2 px-2 text-xs font-medium sm:min-h-0 sm:py-0.5" aria-expanded={open} aria-label={`${chip} ${what ? "in" : "on"} ${label}`} onClick={() => setOpen(!open)}>
         {chip}
       </button>
       {open && !phone && <div className="mt-2 rounded-md border border-border bg-surface-2 p-3">{lines}</div>}
       {open && phone && (
-        <Sheet title={`${chip} on ${label}`} onClose={() => setOpen(false)}>
+        <Sheet title={`${chip} ${what ? "in" : "on"} ${label}`} onClose={() => setOpen(false)}>
           {lines}
         </Sheet>
       )}
