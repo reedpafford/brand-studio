@@ -102,3 +102,12 @@ def test_a_quick_cut_and_a_line_after_a_pause_are_found(tmp_path):
     subprocess.run(["ffmpeg", *args], check=True)  # noqa: S603, S607
     assert [round(t, 1) for t in take_frames.cuts(src)] == [1.2]  # red to blue
     assert [round(t, 1) for t in take_frames.starts(None, None, src)] == [1.5]  # no words yet
+
+
+def test_a_cast_finding_is_dropped_when_no_cast_was_sent(app, db, editor, setup, clip):  # noqa: F811
+    _shot(db, character_ids=[], action="A bag on the counter. fake:extra-person")
+    clips, job = _check(app, db, editor, setup, clip)
+    assert job.input["cast"] is False and "<cast>" not in job.input["prompt"]
+    run_writer(app, db)
+    (take,) = editor.get(clips).json()[0]["takes"]
+    assert "cast" not in [f["kind"] for f in (take["check"] or {}).get("findings", [])]

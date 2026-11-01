@@ -185,7 +185,7 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
     data = {"step": "item_check", "item_check_id": None, "project_id": project.id,
             "system": [prompts.system("item_check")], "prompt": text, "effort": "low",
             "max_tokens": 2000, "fit_images_to": 1024,
-            "ref_ids": sheets + ([pair[0]] if pair else []) + screens,
+            "ref_ids": sheets + ([pair[0]] if pair else []) + screens, "cast": bool(cast),
             "files": {"reference_images": [file_id] * (target == "frame") + images}}  # fmt: skip
     if target == "take":
         data["take_frames"] = {"file_id": file_id, "count": FRAMES,  # the worker reads them
@@ -217,8 +217,9 @@ def save(db: Session, job: Job) -> None:
     if not row:
         return
     answer = check.item_check(Answer.model_validate(job.output), job.input.get("ref_ids", []))
+    cast = job.input.get("cast", True)  # with no <cast> sent, a cast finding is a guess (QA-3)
     row.findings = [{"kind": f.kind, "role": f.who, "text": f.says, "change_note": f.note}
-                    for f in answer.findings]  # fmt: skip
+                    for f in answer.findings if cast or f.kind != "cast"]  # fmt: skip
     row.status = "done"
 
 
