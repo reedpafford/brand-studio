@@ -30,7 +30,7 @@ export function useLatestScript(projectId: number) {
 }
 
 /** The script: paste it or upload a document. Every save is a new numbered version. */
-export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0, budget = Infinity }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void; used?: number; budget?: number }) {
+export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { projectId: number; enhance: EnhanceState; highlight?: number[]; onLineClick?: (line: number) => void }) {
   const viewOnly = useViewOnly(); // an older video only its maker or the owner may change
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -121,7 +121,7 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick, used = 0
   if (!current && editing === null) {
     return (
       <div className="space-y-4">
-        <DraftsPanel projectId={projectId} used={used} budget={budget}>
+        <DraftsPanel projectId={projectId}>
           <Card className="space-y-3">
             <h2 className="flex items-center gap-2 font-display text-md font-bold">
               <FileText size={20} strokeWidth={1.75} aria-hidden />
