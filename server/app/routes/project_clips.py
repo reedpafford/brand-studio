@@ -198,7 +198,9 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 check=(seen := item_checks.shown(db, checks.get(t.id))),
                 words=(heard := item_checks.shown(db, words.get(t.id))),
                 verdict=item_checks.verdict([seen, heard]),
-                approved_by=(t.made_with or {}).get("approved_by"),
+                approved_by=(t.made_with or {}).get("approved_by")
+                if row.approved and t.id == row.picked_take_id
+                else None,
             )  # fmt: skip
             for t in takes
         ],
@@ -539,6 +541,9 @@ def pick_take(
         raise HTTPException(404, "No such take.")
     if row.picked_take_id != take.id:
         clip_takes.pick(row, take)
+        take_approval.unmark(db, row)
+        db.flush()
+        take_approval.after_check(db, take.id)  # a clean take approves itself (QA-3)
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
@@ -555,7 +560,7 @@ def approve(
     if not row.picked_take_id:
         raise HTTPException(409, "Make a take of this clip first.")
     row.approved, row.change = True, None
-    take_approval.by_person(row, db)
+    take_approval.by_person(row, db, take_approval.YES)
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
@@ -581,6 +586,7 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
             skipped.append({"id": row.id, "reason": why})
             continue
         row.approved, row.change = True, None
+        take_approval.by_person(row, db, take_approval.YES)  # the person's, not the check's
         approved.append(row.id)
     picked = [r.picked_take_id for r in _clips(db, project.id) if r.id in approved]
     flagged = item_checks.with_advice(db, "take", picked, also="words")
@@ -696,7 +702,7 @@ def unapprove(
 ):
     project, row = _clip(db, user, project_id, clip_id)
     row.approved = False
-    take_approval.by_person(row, db)  # the check won't approve this take again
+    take_approval.by_person(row, db, take_approval.NO)  # the check stays out of this take
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 

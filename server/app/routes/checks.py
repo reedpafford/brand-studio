@@ -87,6 +87,11 @@ def looks_fine(
     if index not in {d["index"] for d in row.dismissed or []}:
         said = {"index": index, "by_id": user.id, "at": utcnow().isoformat()}
         row.dismissed = [*(row.dismissed or []), said]
+    if row.target in ("take", "words"):  # its last note cleared: a clean take approves itself
+        from app.take_approval import after_check
+
+        db.flush()
+        after_check(db, row.target_id)
     db.commit()
     return item_checks.shown(db, row)
 

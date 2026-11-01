@@ -392,6 +392,7 @@ class FakeWriter:
     def run(self, kind: str, input: dict) -> Result:
         step, prompt = input["step"], input["prompt"]
         self._system = "\n".join(input.get("system") or [])  # the brand block lists screens
+        self._take = "take_frames" in input  # a take's check, not a still's
         answer = getattr(self, f"_{step}")(prompt)
         return Result("succeeded", output=SCHEMAS[step].model_validate(answer).model_dump())
 
@@ -649,10 +650,12 @@ class FakeWriter:
         return {"structure": shape, "cast": cast, "scenes": scenes}
 
     def _item_check(self, prompt):
-        """The first character sheet "may differ" on every check (so Advice, Looks fine and
-        Change this… can all be walked for free); an item with only a product matches."""
+        """The first character sheet "may differ" on every still's check (so Advice, Looks fine
+        and Change this… can all be walked for free); an item with only a product matches. A
+        take is clean unless its shot asks for it (fake:face), so a clean take approving
+        itself can be walked too."""
         who = re.search(r"\b(char|slot):\d+", prompt)
-        if not who:
+        if not who or (self._take and "fake:face" not in prompt):
             return {"findings": []}
         return {"findings": [{"kind": "face", "who": who[0], "says": "Their face may differ "
                               "from their sheet", "note": "Keep their face exactly as on "
