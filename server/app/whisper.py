@@ -2,7 +2,8 @@
 Run by `app.reel.transcribe` in a subprocess: `python -m app.whisper <video>`, or for a song's
 words by `app.song_timing.words`: `python -m app.whisper <song> --words <lyrics>`, or for a
 song ad's lines with their words by `app.song_study.hear`: `python -m app.whisper <video>
---study`. The model is
+--study`, or for a take's words with its gasps and breaths by `app.take_words`: `python -m
+app.whisper <take> --sounds`. The model is
 downloaded once into HF_HOME (a volume on the server)."""
 
 import json
@@ -27,16 +28,19 @@ def _words(segment) -> list[dict]:
     ]
 
 
-def main(path: str, words_prompt: str | None = None, study: bool = False) -> None:
+def main(path: str, words_prompt: str | None = None, study: bool = False,
+         sounds: bool = False) -> None:  # fmt: skip
     from faster_whisper import WhisperModel
 
     model = WhisperModel("small", device="cpu", compute_type="int8")
     if path == "--warm":  # download and load it, nothing to transcribe
         return
     # No VAD: reels put music under every line, and VAD dropped 6 of the altar reel's 11 lines
+    # `sounds`: whisper's non-speech tags ("(gasps)", "[breathing]") are kept, not suppressed.
     segments, _ = model.transcribe(
-        path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt
-    )
+        path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt,
+        **({"suppress_tokens": []} if sounds else {}),
+    )  # fmt: skip
     if words_prompt is not None:  # a song: each sung word and when (app/song_timing.py)
         json.dump([w for s in segments if heard(s) for w in _words(s)], sys.stdout)
         return
@@ -56,4 +60,4 @@ def main(path: str, words_prompt: str | None = None, study: bool = False) -> Non
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[3] if sys.argv[2:3] == ["--words"] else None,
-         study=sys.argv[2:3] == ["--study"])  # fmt: skip
+         study=sys.argv[2:3] == ["--study"], sounds=sys.argv[2:3] == ["--sounds"])  # fmt: skip

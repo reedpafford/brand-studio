@@ -1357,10 +1357,18 @@ def text_on_screen_advice(prompt: str) -> list[str]:
 
 def item_check(result: ItemCheck, ref_ids: list[str]) -> ItemCheck:
     """Only findings about a reference the check was given: a product finding needs the
-    product's image, and a face or outfit finding a sheet."""
-    keep = [f for f in result.findings if f.who in ref_ids
-            and (f.kind == "product") == f.who.startswith("product:")]  # fmt: skip
-    return ItemCheck(findings=keep)
+    product's image, a face or outfit finding a sheet, and a screen finding the screens.
+    Eyes and cast stand on the item alone (take check slice 2)."""
+    screens = any(r.startswith("screen:") for r in ref_ids)
+
+    def given(f) -> bool:
+        if f.kind in ("eyes", "cast"):
+            return True
+        if f.kind == "screen":
+            return screens
+        return f.who in ref_ids and (f.kind == "product") == f.who.startswith("product:")
+
+    return ItemCheck(findings=[f for f in result.findings if given(f)])
 
 
 VO = re.compile(r"V\.?\s?O\.?", re.I)  # "(V.O.)", "(VO)"

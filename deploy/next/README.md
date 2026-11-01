@@ -28,7 +28,12 @@ It also answers at `https://thisisatestingenv.online` (port 443, for cloud sessi
 
 **A paid test** (only one Reed and the Producer approved, logged in ops/SPEND.md): repo variables
 `NEXT_FAKE_PROVIDERS=false` and `NEXT_GENERATION_ENABLED=true`, run deploy-next, run the test,
-then set `NEXT_FAKE_PROVIDERS` back to `true` and run deploy-next again.
+then set `NEXT_FAKE_PROVIDERS` back to `true` and run deploy-next again. Every real call counts
+against `NEXT_REAL_BUDGET_USD` (dollars) from `NEXT_REAL_BUDGET_SINCE` (an ISO time like
+`2026-11-02T09:00:00Z`). Set both together; with either unset, nothing paid runs. A new budget
+starts counting at its new start time. Past it, a press says "The test site's real-AI budget ($N) is used up. Nothing was
+charged." and queued work isn't sent. Spent so far: the owner's `GET /api/credits/real-budget`,
+or the worker's log lines "real budget: $X of $Y since …".
 
 **Start over:** `docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml down -v`
 then run deploy-next. This wipes only the test site.

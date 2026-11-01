@@ -274,6 +274,42 @@ def needs_approval(db: Session, user: User, project: Project | None, credits: De
     return credits_used(db, project) + credits > project.budget_credits
 
 
+FREE_LANES = ("fake", "local")  # our own server and the tests' fake: never a paid call
+REAL_DONE = "The test site's real-AI budget (${:.0f}) is used up. Nothing was charged."
+
+
+def real_capped(settings) -> bool:
+    """The test site on real providers (Reed's test): every paid call counts against one
+    budget, BS_REAL_BUDGET_USD. Live is never capped here; the stand-ins cost nothing."""
+    return settings.env == "next" and not settings.fake_providers
+
+
+def real_spent(db: Session, settings) -> Decimal:
+    """What real calls sent since `real_budget_since` came to, at their credits (the price we
+    charge, above the real cost: it errs safe). A job counts once sent, whatever after."""
+    query = select(func.coalesce(func.sum(Job.credits), 0)).where(
+        Job.provider.not_in(FREE_LANES),
+        Job.provider_ref.is_not(None),  # sent
+    )
+    if settings.real_budget_since:
+        query = query.where(Job.started_at >= settings.real_budget_since)
+    return Decimal(db.scalar(query)) * USD_PER_CREDIT
+
+
+def real_budget_refusal(db: Session, settings, provider: str, credits: Decimal) -> str:
+    """The plain refusal when a paid call of `credits` would take the test site's real spend
+    past its budget (and on the test site with no budget or start time set, any paid call: the
+    test site deploys many times an hour, so the count never restarts by itself); else ""."""
+    if provider in FREE_LANES or not real_capped(settings):
+        return ""
+    budget = Decimal(str(settings.real_budget_usd))
+    if not (budget > 0 and settings.real_budget_since):  # not set up: nothing paid runs
+        return REAL_DONE.format(budget)
+    if real_spent(db, settings) + credits * USD_PER_CREDIT <= budget:
+        return ""
+    return REAL_DONE.format(budget)
+
+
 def test_budget_fits(db: Session, provider: str, budget_usd: float, credits: Decimal) -> bool:
     """A real lane on the test site (look samples, language tests; Reed, 2026-10-29): whether
     a press of `credits` still fits its budget. A job counts once sent, whatever happens to

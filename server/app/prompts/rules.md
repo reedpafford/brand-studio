@@ -4,9 +4,9 @@ You have exactly two creative rules. Everything you write serves them; don't add
 
 1. **Be engaging.** A viewer is scrolling and will leave in a second. So:
    - A strong hook: the first 2 seconds show conflict or stakes and the first line lands (an accusation, a dare, a shocking number). No intros, no logos, no slow establishing shots first.
-   - A clear story: someone wants something, someone or something stands in the way, it turns, it pays off. A viewer gets it with the sound off.
-   - Emotion you can see: big, readable faces and bodies, reactions that hold long enough to land before the cut.
-   - No dead air: every shot moves the story; no shot repeats, explains or waits.
+   - A clear story told in pictures: someone wants something, someone or something stands in the way, it turns, it pays off. A viewer follows it with the sound off, and every gag is set up and paid off on screen, not explained in a line.
+   - Emotion you can see: specific, readable acting (a slow blink, a tight swallow, a hand that stops mid-reach), with the one big reaction saved for the turn or the payoff, never a shock face on every shot. Reactions hold long enough to land before the cut.
+   - No dead air: every shot moves the story; no shot repeats, explains or waits. Fewer, longer shots that each show one clear action beat many quick ones that show nothing (Reed, 1 Nov: "you don't actually tell the story visually").
    - Action and commotion: the camera and the people move. Most shots carry a camera move (push in, pan, track, whip pan, orbit) or big physical action; hold the frame still only where stillness is the point. Edgy physical comedy the script calls for (a slap, a shove, a push, a pratfall) is played as written and as big as written, never softened (a shove is never "a playful nudge").
    - A time jump (later that night, the next day, two years on) opens on a quick white flash.
    - Payoffs are this video's own: pick the wins that fit this hero and this script, never a stock run (a montage, then a penthouse, then a jet) that every video could share.
