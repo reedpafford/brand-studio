@@ -6,7 +6,7 @@ import { serverTime } from "../time";
 import { JobClock } from "../clip/History";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
-import { useAllowanceStop, type Script } from "./useScript";
+import type { Script } from "./useScript";
 import { keepFirst, useSaveSong, type Song } from "./SongStep";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
@@ -175,7 +175,6 @@ export function TakesStep({ script: s }: { script: Script }) {
   const songs = useSongs(s.id);
   const a = useSongActions(s.id);
   const data = songs.data;
-  const stop = useAllowanceStop(s, data?.estimate_credits);
   const [keeping, setKeeping] = useState(false);
   const put = useSaveSong(s.id);
   const toast = useToast();
@@ -227,7 +226,7 @@ export function TakesStep({ script: s }: { script: Script }) {
       </div>
     ) : (
     <div className="space-y-1">
-      <Button variant={primary ? "primary" : "secondary"} icon={Music} charge="fixed" price={data.estimate_credits} disabled={stop !== null} reason={stop} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+      <Button variant={primary ? "primary" : "secondary"} icon={Music} charge="fixed" price={data.estimate_credits} busy={a.make.isPending} onClick={() => a.make.mutate()}>
         {label}
       </Button>
       {failed && <p role="alert" className={errorClass}>{failed}</p>}

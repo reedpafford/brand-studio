@@ -17,11 +17,11 @@ function Slot() {
   const { setNode } = useActionBarSlot();
   return <div data-testid="phone-bar" ref={setNode} />;
 }
-function show(action: CostAction | null, fallback: CostAction | null = null, week: { used: number; allowed: number } | null = null) {
+function show(action: CostAction | null, fallback: CostAction | null = null) {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <ActionBarProvider>
-        <CostBarProvider projectId={9} used={412} budget={660} pct={62} week={week} fallback={fallback}>
+        <CostBarProvider projectId={9} used={412} budget={660} pct={62} fallback={fallback}>
           <Step action={action} />
         </CostBarProvider>
         <Slot />
@@ -56,13 +56,13 @@ test("a press that can't go says why where the amber is, and the step's own pres
   expect(screen.queryByRole("button", { name: /Next/ })).toBeNull();
 });
 
-test("on a phone the bar sits in the action bar above the tabs; an editor's own script shows the week", async () => {
+test("on a phone the bar sits in the action bar above the tabs, with the video's budget", async () => {
   setViewport(390);
   fakeServer(estimate);
-  show(null, { label: "Next: Assets", onPress: () => {} }, { used: 40, allowed: 145 });
+  show(null, { label: "Next: Assets", onPress: () => {} });
   const phone = screen.getByTestId("phone-bar");
   expect(await within(phone).findByRole("button", { name: "Next: Assets" })).toBeInTheDocument();
-  expect(within(phone).getByText("This week: 40 of 145 credits")).toBeInTheDocument();
+  expect(within(phone).queryByText(/This week/)).toBeNull();
 });
 
 test("one credit left to finish says credit", async () => {

@@ -4,7 +4,7 @@ import { fileUrl } from "../api/upload";
 import { Badge, Banner, Button, Card, EmptyState, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
 import { TakePlayer, clock } from "./TakePlayer";
-import { useAllowanceStop, type Script } from "./useScript";
+import type { Script } from "./useScript";
 import { useSongActions, useSongs, type SongTake } from "./useSongs";
 
 /** A narration is a song take of kind "narration" (Next-Server #858), with its voice and, when pauses were trimmed, its length before. */
@@ -22,10 +22,7 @@ function Elapsed() {
 }
 
 /** One narration: its player, length, pauses trimmed, its state in words and the press each state needs (flows N1). */
-function NarrationCard({ t, a, readOnly, price, script }: { t: Narration; a: ReturnType<typeof useSongActions>; readOnly: boolean; price: number; script: Script }) {
-  // Past the week (rule 5) a paid press says why and waits, as Make the narration does (Flow-QA).
-  const musicStop = useAllowanceStop(script, t.music_credits);
-  const tryStop = useAllowanceStop(script, t.status === "failed" ? price : 0);
+function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<typeof useSongActions>; readOnly: boolean; price: number }) {
   const label = `Narration ${t.number}`;
   const length = t.seconds;
   return (
@@ -57,7 +54,7 @@ function NarrationCard({ t, a, readOnly, price, script }: { t: Narration; a: Ret
         <div className="space-y-2">
           <p role="alert" className="text-sm text-warning">{t.music_reason || "The music didn't finish. Nothing was charged for it."} The narration is kept.</p>
           {!readOnly && (
-            <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.music_credits} disabled={musicStop !== null} reason={musicStop} busy={a.musicAgain.isPending && a.musicAgain.variables === t.id} onClick={() => a.musicAgain.mutate(t.id)}>
+            <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.music_credits} busy={a.musicAgain.isPending && a.musicAgain.variables === t.id} onClick={() => a.musicAgain.mutate(t.id)}>
               Try the music again
             </Button>
           )}
@@ -81,7 +78,7 @@ function NarrationCard({ t, a, readOnly, price, script }: { t: Narration; a: Ret
         <div className="space-y-2">
           <p role="alert" className={errorClass}>{t.failed_reason ?? "The narration didn't finish. Nothing was charged."}</p>
           {!readOnly && t.retry_helps && (
-            <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.status === "failed" ? price : 0} disabled={tryStop !== null} reason={tryStop} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
+            <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.status === "failed" ? price : 0} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
               Try again
             </Button>
           )}
@@ -111,7 +108,6 @@ export function NarrationStep({ script: s }: { script: Script }) {
   const songs = useSongs(s.id);
   const a = useSongActions(s.id, WORDS);
   const data = songs.data;
-  const stop = useAllowanceStop(s, data?.estimate_credits);
   if (songs.isPending)
     return (
       <div role="status" aria-label="Loading the narration" className="space-y-4">
@@ -134,7 +130,7 @@ export function NarrationStep({ script: s }: { script: Script }) {
   const noWords = !!data.songs_note && !data.estimate_credits;
   const make = (label: string, primary: boolean) => (
     // With nothing for the narrator to read, the server sends why (songs_note) and no price (#920): the press says it, greyed.
-    <Button variant={primary ? "primary" : "secondary"} icon={Mic} charge="fixed" price={noWords ? undefined : data.estimate_credits} disabled={noWords || stop !== null || making} reason={noWords ? data.songs_note! : stop ?? (making ? "One is being made" : null)} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+    <Button variant={primary ? "primary" : "secondary"} icon={Mic} charge="fixed" price={noWords ? undefined : data.estimate_credits} disabled={noWords || making} reason={noWords ? data.songs_note! : making ? "One is being made" : null} busy={a.make.isPending} onClick={() => a.make.mutate()}>
       {label}
     </Button>
   );
@@ -157,7 +153,7 @@ export function NarrationStep({ script: s }: { script: Script }) {
           <ul className="grid gap-4 [&>li]:min-w-0">
             {narrations.map((t) => (
               <li key={t.id}>
-                <NarrationCard t={t} a={a} readOnly={readOnly} price={data.estimate_credits} script={s} />
+                <NarrationCard t={t} a={a} readOnly={readOnly} price={data.estimate_credits} />
               </li>
             ))}
           </ul>

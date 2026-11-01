@@ -1387,3 +1387,69 @@ def test_an_action_never_says_replies_or_answers():
         schemas.Breakdown.model_json_schema()
     )
     assert 'never "Mom replies"' in prompts.system("script_draft")
+
+
+def test_take_check_slice_2_looks_at_eyes_screens_and_cast():
+    """docs/next/take-review-checklist.md B3–B5 (Builder-Server-8, 1 Nov)."""
+    sheets = [("char:1", "Mia: black bob")]
+    before = prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), frames=6)
+    assert before == prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), 6,
+                                              None, None, ["only wins"])  # fmt: skip
+    text = prompts.item_check_input(
+        "Mia waves.", sheets, ("product:2", "bag"), frames=6,
+        cast=["Mia (char:1)", "date (char:12, the alien date)"],
+        screens=[("screen:7", "fomo Home screen")], screen_rules=[" fomo only wins. ", ""],
+    )  # fmt: skip
+    assert (
+        text.startswith(before)
+        and "<cast>Mia (char:1), date (char:12, the alien date)</cast>" in text
+    )
+    assert '<screen image="9" id="screen:7">fomo Home screen</screen>' in text  # after 6+1+1
+    assert "<screen_rules>\nfomo only wins.\n</screen_rules>" in text
+    system = prompts.system("item_check")
+    assert "never glowing or red" in system and "only when <screens> is given" in system
+    assert "A garbled or invented screen is always a finding" in system
+    assert "only wins" not in system  # a brand's own screen rule comes in <screen_rules>
+    F = schemas.Finding
+    found = schemas.ItemCheck(findings=[
+        F(kind="eyes", who="", says="Mia's eyes glow", note="Keep normal human eyes."),
+        F(kind="cast", who="extra", says="An extra man", note="Only Mia in this shot."),
+        F(kind="screen", who="screen", says="Wrong screen", note="Show the Home screen."),
+        F(kind="face", who="char:9", says="Not given", note="x"),
+    ])  # fmt: skip
+    kinds = [f.kind for f in check.item_check(found, ["char:1"]).findings]
+    assert kinds == ["eyes", "cast"]  # no screens given, and char:9 isn't a reference
+    kinds = [f.kind for f in check.item_check(found, ["char:1", "screen:7"]).findings]
+    assert kinds == ["eyes", "cast", "screen"]
+
+
+def test_the_harvest_is_folded_into_the_steps_that_use_it():
+    """docs/next/harvest (1 Nov): what the agents learned with Reed, as general craft."""
+    assert "normal human eyes, never glowing" in prompts.system("clip_prompts")
+    assert "a line across a cut loses its lip-sync" in prompts.system("breakdown")
+    assert "only the shot's own cast: no extra people" in prompts.system("storyboard")
+    draft = prompts.system("script_draft")
+    assert "each fix fails visibly and makes it worse" in draft and "only when they fit" in draft
+    assert "a hidden cause made visible" in draft and "each phrase is its own line" in draft
+    assert "the hug" not in draft and "weeks later" not in draft  # one story's beats stay its own
+    assert "never moves its mouth" in prompts.system("narrated_clip_prompts")
+
+
+def test_the_director_names_every_tool_it_can_choose_and_never_writes_prompts():
+    """director-chat.md §5: one decision a turn, only through the site's own steps."""
+    from typing import get_args
+
+    text = prompts.system("director")
+    tools = get_args(schemas.DirectorTurn.model_fields["tool"].annotation)
+    assert set(tools) == set(re.findall(r"^- `(\w+)`", text, re.M)), tools
+    assert "never write a plan, a still prompt or a clip prompt" in text
+    assert "The script's words are never changed" in text and "2 redos at most" in text
+    assert "**Be engaging.**" in text  # the rules come with it, to judge the takes
+    turn = schemas.DirectorTurn.model_validate({"tool": "plan", "why": "There is no plan yet."})
+    assert (turn.clip_id, turn.take_id, turn.note) == (None, None, "")
+    ex = json.loads((Path(evals.__file__).parent / "cases.json").read_text())
+    case = next(c for c in ex["cases"] if c["id"] == "director-turns")
+    assert {
+        t["expect"]["tool"] if isinstance(t["expect"]["tool"], str) else "either"
+        for t in case["turns"]
+    } >= {"plan", "make_looks", "pick_take", "deliver", "wait"}
