@@ -93,6 +93,7 @@ def start(db: Session, take: SongTake, user: User, prepaid: bool = True, hold=0)
     system, _ = project_context(db, stand_in_project(db, script, draft), STEP)
     message = prompts.narration_music_input(check.narration_text(take.lyrics), take.seconds)
     job = enqueue(db, user, "write-claude", {"step": STEP, "take_id": take.id,
+                                             "on_script": script.id,  # its budget
                                              "system": system, "prompt": message},
                   units=1, provider="claude", prepaid=prepaid, hold=hold)  # fmt: skip
     take.music_job_id, take.music_file_id = job.id, None
@@ -121,7 +122,8 @@ def save_prompt(db: Session, job: Job) -> None:
     prompt = prompts.music_prompt(NarrationMusic.model_validate(job.output))
     user = db.get(User, job.created_by_id)
     bed = enqueue(db, user, "music_bed", {**bed_job(prompt, take.seconds), "step": BED,
-                                          "take_id": take.id, "prompt_job_id": job.id},
+                                          "take_id": take.id, "prompt_job_id": job.id,
+                                          "on_script": job.input.get("on_script")},
                   units=1, provider="replicate", prepaid=True)  # fmt: skip
     take.music_job_id = bed.id
 
