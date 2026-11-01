@@ -50,9 +50,21 @@ test("a decline with no reason doesn't repeat the server's own words", async () 
   expect(await screen.findByText("The owner said no")).toBeInTheDocument();
 });
 
-test("a held song take on a script shows on that script; Quick clips show only on Quick clip", async () => {
-  fakeServer({ "GET /jobs": [200, [job({ id: 60, project_id: null, script_id: 7, step: null, held: "Songs, narration and music on a script wait for the owner's OK." }), job({ id: 61, project_id: null, script_id: null, step: null, held: "That's more than this week's 97 credits." })]] });
+const song = (o: object = {}) => job({ id: 60, kind: "music", project_id: null, script_id: 7, step: "song_take", held: "Songs, narration and music on a script wait for the owner's OK.", ...o });
+const clip = job({ id: 61, project_id: null, script_id: null, step: null, held: "That's more than this week's 97 credits." });
+
+test("a held song take on a script shows on that script, named as a song; Quick clips show only on Quick clip", async () => {
+  fakeServer({ "GET /jobs": [200, [song(), clip]] });
   show({ scriptId: 7 });
   expect(await screen.findByText(/Songs, narration and music on a script wait for the owner's OK\./)).toBeInTheDocument(); // the server's line, as is
+  expect(document.body).toHaveTextContent("Your song or music · 27 credits.");
   expect(screen.queryByText(/97 credits/)).toBeNull();
+});
+
+test("Quick clip shows only real Quick clips: never a script's song or narration, even one with no script on it (QA on #1088)", async () => {
+  fakeServer({ "GET /jobs": [200, [song({ script_id: null }), song({ id: 62, kind: "speech", script_id: null }), clip]] });
+  show({ quick: true });
+  expect(await screen.findByText(/97 credits/)).toBeInTheDocument();
+  expect(screen.getAllByText("Waiting for approval")).toHaveLength(1);
+  expect(document.body).toHaveTextContent("Your Quick clip · 27 credits.");
 });
