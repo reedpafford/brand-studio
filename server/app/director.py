@@ -1,0 +1,276 @@
+"""The site's director, first slice (docs/next/director-chat.md §1, §2, §6 items 3-4): builds
+a video end to end from a published script, the editor path (its words locked), with the
+site's own actions (`director_tools`). Each turn is one Claude call on the video (step
+"director", paid from its budget like any press, so held for the owner past it): it reads the
+video's state and its last actions and picks one tool; the server runs it. When the work it
+started is all done, the next turn starts. The run's turns are its log, on the video.
+Server-side limits whatever the answer: MAX_TURNS, MAX_REDOS a clip and MAX_USD of its own
+Claude time. On the stand-ins (BS_FAKE_PROVIDERS) `choose` answers each turn: no paid call."""
+
+import json
+import logging
+import uuid
+from decimal import Decimal
+
+from fastapi import HTTPException
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session
+
+from app import director_tools
+from app.models.accounts import User
+from app.models.clips import ClipTake, FinalVideo, ProjectClip
+from app.models.jobs import WAITING, Job, JobStatus, Usage
+from app.models.projects import Project
+from app.models.script_library import Script, ScriptDraft
+from app.models.storyboards import StoryboardFrame
+
+log = logging.getLogger(__name__)
+STEP = "director"
+RUN = "director_run"
+MAX_TURNS = 40  # a run's turns at most
+MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
+MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
+NOT_PUBLISHED = "The director builds from a published script. Publish it first."
+RUNNING = "The director is already building this video."
+
+
+def start(db: Session, user: User, project: Project) -> Job:
+    """A run on a video made from a published script (its words are locked): its first turn."""
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if not (draft and db.get(Script, draft.script_id).published):
+        raise HTTPException(409, NOT_PUBLISHED)
+    if active(db, project):
+        raise HTTPException(409, RUNNING)
+    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
+    return _turn(db, user, project, run)
+
+
+def turns(db: Session, project: Project) -> list[Job]:
+    """Every turn of the video's newest run, in order (its log)."""
+    rows = db.scalars(select(Job).where(Job.project_id == project.id,
+                                        Job.input["step"].as_string() == STEP)
+                      .order_by(Job.id)).all()  # fmt: skip
+    run = rows[-1].input[RUN]["id"] if rows else None
+    return [j for j in rows if j.input[RUN]["id"] == run]
+
+
+def active(db: Session, project: Project) -> Job | None:
+    """The newest run's last turn while the run goes on (not delivered, stopped or ended)."""
+    last = next(reversed(turns(db, project)), None)
+    if last is None or last.input.get("ended") or last.status in (JobStatus.cancelled,):
+        return None
+    return last
+
+
+def stop(db: Session, project: Project, why: str = "Stopped.") -> None:
+    if last := active(db, project):
+        if last.status in WAITING:
+            last.status = JobStatus.cancelled
+        _end(last, why)
+        db.commit()
+
+
+def spent(db: Session, run_id: str) -> Decimal:
+    """What the run's own Claude turns really cost (Usage), for the limit and to measure."""
+    ids = select(Job.id).where(Job.input[RUN]["id"].as_string() == run_id)
+    return Decimal(db.scalar(select(func.coalesce(func.sum(Usage.cost_usd), 0))
+                             .where(Usage.job_id.in_(ids))))  # fmt: skip
+
+
+def after(db: Session, job: Job, storage) -> None:
+    """The worker finished `job`: a turn's answer is acted on; any other work on a video with
+    a run going may wake the next turn."""
+    if job.input.get("step") == STEP:
+        if job.status == JobStatus.succeeded:
+            _act(db, job, storage)
+        else:
+            _end(job, "A turn failed; nothing more was done. Start it again to go on.")
+        return
+    if job.project_id:
+        wake(db, db.get(Project, job.project_id))
+
+
+def wake(db: Session, project: Project) -> None:
+    """The next turn, once the last one was acted on and nothing on the video is waiting."""
+    last = active(db, project)
+    if last is None or last.status != JobStatus.succeeded or "result" not in last.input:
+        return
+    if _waiting(db, project):
+        return
+    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+
+
+def _act(db: Session, job: Job, storage) -> None:
+    project, decision = db.get(Project, job.project_id), dict(job.output or {})
+    run = dict(job.input[RUN])
+    tool = decision.get("tool")
+    if tool == "deliver":
+        return _end(job, decision.get("why") or "Delivered.", result="Delivered.")
+    if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
+        return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
+    if tool == "make_take" and decision.get("clip_id"):
+        clip = decision["clip_id"]
+        if run["redos"].get(clip, 0) >= MAX_REDOS and _has_take(db, project, clip):
+            return _record(db, job, run, f"Refused: {clip} was made again {MAX_REDOS} times.")
+        if _has_take(db, project, clip):
+            run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
+    if tool == "wait":
+        said = "Waiting." if _waiting(db, project) else "Nothing to wait for."
+        if not _waiting(db, project):
+            return _end(job, "It stopped: it waited with nothing being made.", result=said)
+        return _record(db, job, run, said)
+    db.commit()  # the turn's answer is kept whatever the tool does
+    user = db.get(User, run["by"])
+    _record(db, job, run, director_tools.run(db, user, project, decision, storage))
+
+
+def _record(db: Session, job: Job, run: dict, result: str) -> None:
+    """The turn's result on its log line; the next turn starts now if nothing it started is
+    being made (else when that's done: `wake`)."""
+    job = db.get(Job, job.id)
+    job.input = {**job.input, RUN: run, "result": result}
+    db.commit()
+    wake(db, db.get(Project, job.project_id))
+
+
+def _end(job: Job, why: str, result: str = "") -> None:
+    job.input = {**job.input, "ended": why, **({"result": result} if result else {})}
+
+
+def _turn(db: Session, user: User, project: Project, run: dict) -> Job:
+    from app.routes.jobs import enqueue
+
+    last = next(reversed(turns(db, project)), None)
+    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= MAX_USD:
+        why = (f"It stopped after {MAX_TURNS} turns." if run["turn"] >= MAX_TURNS
+               else f"It stopped at ${MAX_USD} of its own time.")  # fmt: skip
+        if last is not None:
+            _end(last, why)
+            db.commit()
+        return last
+    run = {**run, "turn": run["turn"] + 1}
+    data = {"step": STEP, RUN: run, **turn_input(db, project, run)}
+    try:
+        return enqueue(db, user, "write-claude", data, project=project, provider="claude")
+    except HTTPException as no:  # e.g. the per-video cap: the run ends, saying why
+        if last is None:
+            raise
+        last = db.get(Job, last.id)
+        _end(last, f"It stopped: {no.detail}")
+        db.commit()
+        return last
+
+
+def turn_input(db: Session, project: Project, run: dict) -> dict:
+    """The director's prompt (app/prompts/director.md, the Director's) and the brand, then the
+    video's state, its run's last actions and what it still may do."""
+    from app.enhance import project_context
+
+    system, brief = project_context(db, project, STEP)
+    done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
+             "result": j.input.get("result")} for j in turns(db, project)[-8:]]  # fmt: skip
+    allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
+               "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
+               "own_time_limit_usd": float(MAX_USD)}  # fmt: skip
+    parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed))
+    tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
+    return {"system": system, "prompt": f"{brief}\n{tagged}"}
+
+
+def video_state(db: Session, project: Project) -> dict:
+    """Where the video is, as the director reads it (and `choose` on the stand-ins)."""
+    from app.clip_prompts import newest
+    from app.item_checks import latest, shown, verdict
+    from app.routes.project_assets import _missing
+    from app.routes.project_clips import out_of_date
+
+    bd = newest(db, project)
+    frames = [f for f in db.scalars(select(StoryboardFrame).where(
+        StoryboardFrame.project_id == project.id)) if bd and f.breakdown_id == bd.id]  # fmt: skip
+    clips = []
+    for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
+                          .order_by(ProjectClip.id)):  # fmt: skip
+        takes = db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)
+                           .order_by(ClipTake.number)).all()  # fmt: skip
+        ids = [t.id for t in takes]
+        seen, heard = latest(db, "take", ids), latest(db, "words", ids)
+        out = []
+        for t in takes:
+            checks = [shown(db, seen.get(t.id)), shown(db, heard.get(t.id))]
+            notes = [f.note for c in checks if c for f in c.findings]
+            out.append({"id": t.id, "number": t.number, "verdict": verdict(checks),
+                        "notes": notes})  # fmt: skip
+        clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
+                      "picked_take_id": row.picked_take_id, "takes": out})  # fmt: skip
+    video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
+    waiting = _waiting(db, project)
+    return {
+        "shots": "ready" if bd else "none",
+        "missing_looks": [s.role for s in _missing(db, project)] if bd else [],
+        "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id)},
+        "clips": clips,
+        "cut": "none" if not video else
+               ("out of date" if project.id in out_of_date(db, [project]) else "made"),
+        "being_made": len([j for j in waiting if j.status != JobStatus.needs_owner_approval]),
+        "held_for_owner": [j.input.get("held", "") for j in waiting
+                           if j.status == JobStatus.needs_owner_approval],
+    }  # fmt: skip
+
+
+def choose(state: dict) -> dict:
+    """The stand-in director (no paid call): the agents' order, step by step. A flagged take
+    is made again with the take check's notes (the server counts the redos)."""
+
+    def go(tool: str, why: str, **extra) -> dict:
+        return {"tool": tool, "why": why, "clip_id": None, "take_id": None, "note": "", **extra}
+
+    clips = state["clips"]
+    if state["being_made"] or state["held_for_owner"]:
+        return go("wait", "Something is still being made or waits for the owner.")
+    if state["shots"] == "none":
+        return go("plan", "There are no shots yet.")
+    if state["missing_looks"]:
+        return go("make_looks", "Some roles have no look yet.")
+    if not state["stills"]["frames"]:
+        return go("storyboard", "The shots are ready; the storyboard is next.")
+    if state["stills"]["drawn"] < state["stills"]["frames"]:
+        return go("stills", "Some frames have no still yet.")
+    if not clips or any(c["stale"] for c in clips):
+        return go("clip_prompts", "The clips need their prompts.")
+    if any(not c["takes"] for c in clips):
+        return go("make_take", "Some clips have no take yet.")
+    for c in clips:
+        last = c["takes"][-1]
+        if last["verdict"] == "checking":
+            return go("wait", f"{c['clip_id']}'s take is being checked.")
+        if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS:
+            note = "; ".join(last["notes"]) or "Fix what the take check found."
+            return go("make_take", f"The take check flagged {c['clip_id']}.",
+                      clip_id=c["clip_id"], note=note[:500])  # fmt: skip
+    for c in clips:  # the newest clean take (Builder-Server-8's best-take function to come)
+        clean = next((t for t in reversed(c["takes"]) if t["verdict"] == "clean"), None)
+        best = clean or c["takes"][-1]
+        if c["picked_take_id"] != best["id"]:
+            why = (f"Take {best['number']} is {c['clip_id']}'s newest clean take." if clean
+                   else f"No take of {c['clip_id']} is clean: using the newest, take "
+                   f"{best['number']}.")  # fmt: skip
+            return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
+    if state["cut"] != "made":
+        unclean = [c["clip_id"] for c in clips
+                   if not any(t["verdict"] == "clean" for t in c["takes"])]  # fmt: skip
+        said = f" No take of {', '.join(unclean)} is clean: its newest is used." if unclean else ""
+        return go("final_cut", f"Every clip has its take.{said}")
+    return go("deliver", "The cut is made with each clip's best take.")
+
+
+def _waiting(db: Session, project: Project) -> list[Job]:
+    step = Job.input["step"].as_string()
+    return list(db.scalars(select(Job).where(Job.project_id == project.id,
+                                             Job.status.in_(WAITING),
+                                             or_(step.is_(None), step != STEP))))  # fmt: skip
+
+
+def _has_take(db: Session, project: Project, clip_id: str) -> bool:
+    row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
+                                              ProjectClip.clip_id == clip_id))  # fmt: skip
+    return bool(row and row.picked_take_id)
