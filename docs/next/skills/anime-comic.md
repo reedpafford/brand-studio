@@ -48,11 +48,3 @@ Treat genre references as broad craft direction, never as permission to copy a p
 - Are graphic effects supporting the product story?
 
 - Is exact text handled in post rather than entrusted to image generation?
-
-## Credit
-
-Made by @davidaistar (Instagram, YouTube), cofounder of starpop.ai.
-
-This skill is optimized for use in Starpop, as it assumes features natively included there, like research, storyboarding, analysis of audio, image and videos, audio slicing, and generation of image, video, audio and music.
-
-However the skill will also work in any agent such as Claude, Claude Code, ChatGPT, Codex etc.

@@ -181,11 +181,3 @@ Angle = "something real, finally" (clean tallow vs. labels full of lies).
 
 
 Don't run past the song generation unprompted — wait for the finished song before storyboarding.
-
-## Credit
-
-Made by @davidaistar (Instagram, YouTube), cofounder of starpop.ai.
-
-This skill is optimized for use in Starpop, as it assumes features natively included there, like research, storyboarding, analysis of audio, image and videos, audio slicing, and generation of image, video, audio and music.
-
-However the skill will also work in any agent such as Claude, Claude Code, ChatGPT, Codex etc.
