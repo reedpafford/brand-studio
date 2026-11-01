@@ -5861,6 +5861,8 @@ export interface components {
              * @default
              */
             fix: string;
+            /** At */
+            at?: number | null;
         };
         /** FixIn */
         FixIn: {
@@ -8871,6 +8873,7 @@ export interface components {
              */
             created_at: string;
             check?: components["schemas"]["CheckOut"] | null;
+            words?: components["schemas"]["CheckOut"] | null;
         };
         /** TextFitOut */
         TextFitOut: {

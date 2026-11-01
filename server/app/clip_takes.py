@@ -343,6 +343,11 @@ def save_take(db: Session, job: Job) -> None:
     shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
     refs = [r["id"] for r in clip.references or [] if r["kind"] == "image"]
     queue_safely(db, job, "take", take.id, take.file_id, refs, clip.breakdown_id, shots)
+    from app import take_words  # what it says against the script's lines: Advice only
+
+    by_id = {s["id"]: s for sc in breakdown.get("scenes", []) for s in sc.get("shots", [])}
+    said = [by_id[i] for i in shots if i in by_id]
+    take_words.queue_safely(db, job, take.id, take.file_id, said, take.prompt or "")
 
 
 def pick(clip: ProjectClip, take: ClipTake) -> None:

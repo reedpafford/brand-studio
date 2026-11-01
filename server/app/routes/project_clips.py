@@ -74,6 +74,7 @@ class TakeOut(BaseModel):
     file_id: int
     created_at: UtcTime  # "made 10:42"
     check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
+    words: CheckOut | None = None  # what it says against the script's lines (Advice only)
 
 
 class NarrationOut(BaseModel):
@@ -181,6 +182,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
     inserts = [InsertOut(**vars(i), use_real_image=i.on) for i in cut_in.inserts(db, project, row)]
     takes = _takes(db, row)
     checks = item_checks.latest(db, "take", [t.id for t in takes])
+    words = item_checks.latest(db, "words", [t.id for t in takes])
     return ProjectClipOut(
         inserts=inserts,
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
@@ -191,6 +193,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 file_id=t.file_id,
                 created_at=t.created_at,
                 check=item_checks.shown(db, checks.get(t.id)),
+                words=item_checks.shown(db, words.get(t.id)),
             )  # fmt: skip
             for t in takes
         ],
@@ -574,7 +577,7 @@ def approve_all(project_id: int, user: User = Depends(current_user), db: Session
         row.approved, row.change = True, None
         approved.append(row.id)
     picked = [r.picked_take_id for r in _clips(db, project.id) if r.id in approved]
-    flagged = item_checks.with_advice(db, "take", picked)
+    flagged = item_checks.with_advice(db, "take", picked, also="words")
     db.commit()
     return advice.ApproveAllChecked(approved=approved, skipped=skipped,
                                     approved_with_advice=flagged)  # fmt: skip
