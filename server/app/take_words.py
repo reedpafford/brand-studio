@@ -23,14 +23,16 @@ SAID = 0.6  # how close a heard line must be to a script line to count as said
 # Action wording that a video model tends to say out loud (checklist B 9).
 VOICED = re.compile(r"\b(thinks?|thought|wonders?|inner|to (him|her|them)self|repl(y|ies|ied)"
                     r"|answers?|answered)\b", re.I)  # fmt: skip
-# Non-speech sounds (Reed, FOMO batch 3: gasping): whisper's own tags ("(gasps)", "[breathing]",
-# "*sigh*"), and lines that are only a breath ("Haah!", "Huh."). On purpose when the script or
-# the clip's action asks for them ("she sighs").
+# Non-speech sounds: whisper's own tags ("(gasps)", "[breathing]", "*sigh*"), and lines that
+# are only a breath ("Haah!", "Huh."). Gasps are allowed when they serve the moment (Reed,
+# 1 Nov: "We CAN have gasps, I just want the director to THINK"): only one the script or the
+# clip's action doesn't ask for ("she sighs"), or a second one in a clip, is Advice.
 SOUNDS = ("gasp", "sigh", "breath", "pant", "groan", "moan", "scream", "grunt", "sob", "laugh",
           "cough", "huff", "wheez")  # fmt: skip
 TAG = re.compile(r"[(\[*]\s*([a-z ]+?)\s*[)\]*]", re.I)
 BREATH = re.compile(r"(a+h+|h+a+h*|hu+h|o+h+|u+h+|hm+|phew|whew)[.!?…\s]*", re.I)
-CALM = "No gasps, sighs or heavy breathing: they speak calmly, and only the script's lines."
+UNASKED = "A gasp here isn't asked for by the script; keep it only if it serves the moment."
+REPEAT = "One gasp or breath in this clip at most, where it serves the moment."
 SHOW = ("Show the feeling instead of saying it: no inner thoughts and no “replies” or "
         "“answers” in the action, only the script's lines.")  # fmt: skip
 
@@ -76,8 +78,9 @@ def _sound(tag: str) -> bool:
 
 def _sounds(heard: list[dict], asked: str) -> tuple[list[dict], list[dict]]:
     """The non-speech sounds heard, as findings, and the heard lines with them taken out. A
-    sound the script or the action asks for ("(gasps)", "she sighs") is left alone."""
-    found, spoken = [], []
+    sound the script or the action asks for ("(gasps)", "she sighs") is left alone, unless
+    it's a second one in the clip."""
+    found, spoken, count = [], [], 0
     for h in heard:
         at, span = _clock(h["start"]), f"{_clock(h['start'])}–{_clock(h['end'])}"
         tags = [f"({t})" for t in TAG.findall(h["text"]) if _sound(t)]
@@ -85,13 +88,16 @@ def _sounds(heard: list[dict], asked: str) -> tuple[list[dict], list[dict]]:
         if BREATH.fullmatch(rest):  # only a breath: "Haah!"
             tags, rest = [*tags, rest.strip(" .!?…")], ""
         for t in tags:
-            if any(w in t.lower() and w in asked for w in SOUNDS) or (
+            count += 1
+            wanted = any(w in t.lower() and w in asked for w in SOUNDS) or (
                 BREATH.fullmatch(t) and any(w in asked for w in ("gasp", "breath", "sigh"))
-            ):
+            )
+            if wanted and count == 1:
                 continue
             alone = f" It can be muted in the cut ({span})." if not rest else ""  # else: a redo
-            found.append(_finding("sound", h["start"], f"“{t}” at {at}: a gasp or breath "
-                                  f"that isn't in the script.{alone}", CALM))  # fmt: skip
+            why, note = (("another gasp or breath in this clip", REPEAT) if wanted or count > 1
+                         else ("a gasp or breath the script doesn't ask for", UNASKED))  # fmt: skip
+            found.append(_finding("sound", h["start"], f"“{t}” at {at}: {why}.{alone}", note))
         if rest:
             spoken.append({**h, "text": rest})
     return found, spoken

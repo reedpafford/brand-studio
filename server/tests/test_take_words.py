@@ -115,14 +115,16 @@ def test_a_takes_verdict_comes_from_all_its_checks_for_self_approval_later():
         assert verdict(unsure) == "unchecked"  # never self-approved on a check that didn't run
 
 
-def test_a_gasp_or_heavy_breath_nobody_asked_for_is_advice_with_a_calm_note():
+def test_a_gasp_nobody_asked_for_and_a_second_one_are_advice():
     found = compare(LINES, _heard("(gasps) Fomo made me rich!", "No way.", "Haah!"), "fomo",
                     "FOH-moh", ["Mia waves her phone."])  # fmt: skip
     assert _kinds(found) == [("sound", 0.5), ("sound", 4.5)]  # both lines still count as said
     in_line, alone = found
-    assert in_line["text"] == "“(gasps)” at 0:00.5: a gasp or breath that isn't in the script."
+    assert in_line["text"] == "“(gasps)” at 0:00.5: a gasp or breath the script doesn't ask for."
+    assert in_line["change_note"] == ("A gasp here isn't asked for by the script; keep it only "
+                                      "if it serves the moment.")  # fmt: skip
+    assert alone["text"].startswith("“Haah” at 0:04.5: another gasp or breath in this clip.")
     assert alone["text"].endswith("It can be muted in the cut (0:04.5–0:05.8).")  # only a breath
-    assert in_line["change_note"].startswith("No gasps, sighs or heavy breathing")
 
 
 def test_a_sound_the_script_or_action_asks_for_is_on_purpose_and_other_tags_arent_lines():
@@ -131,6 +133,9 @@ def test_a_sound_the_script_or_action_asks_for_is_on_purpose_and_other_tags_aren
     scripted = [*LINES, {"who": "BO", "text": "(gasps) It's up!"}]
     heard = _heard("Fomo made me rich!", "No way.", "(gasps) It's up!")
     assert compare(scripted, heard, "fomo", "FOH-moh", []) == []
+    twice = _heard("(gasps) Fomo made me rich!", "No way.", "(gasps) It's up!")
+    (again,) = compare(scripted, twice, "fomo", "FOH-moh", [])  # asked for once, heard twice
+    assert again["at"] == 4.5 and "another gasp" in again["text"]
 
 
 def test_takes_are_heard_with_their_sounds_and_the_stand_in_gasps_on_cue(monkeypatch, tmp_path):
