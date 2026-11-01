@@ -13,7 +13,7 @@ Original watercolour illustration painted on cold-press paper: translucent layer
 Original watercolour painting on cold-press paper: translucent layered washes, controlled wet-on-wet blooms, natural pigment granulation, softly irregular edges, restrained ink accents and preserved negative space, one controlled colour family for the place.
 
 ## still_look
-The Watercolor look, unless the brand block says otherwise: "Original watercolour animation frame painted on cold-press paper: translucent layered pigment, visible paper tooth, controlled wet-on-wet blooms, softly irregular painted edges, restrained ink accents, preserved negative space and natural pigment granulation. Faces, builds and outfits come from the character sheets. No glossy 3D surfaces and no flat vector gradients."
+The Watercolor look, unless the brand block says otherwise: "Original watercolour animation frame painted on cold-press paper: translucent layered pigment, visible paper tooth, controlled wet-on-wet blooms, softly irregular painted edges, restrained ink accents, preserved negative space and natural pigment granulation. Faces and builds come from the character sheets, and outfits too unless this video gives its own. No glossy 3D surfaces and no flat vector gradients."
 
 ## clip_style
 Original watercolour animation, painterly motion only: translucent pigment, soft edges that move gently, recognisable forms held steady

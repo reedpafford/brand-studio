@@ -13,7 +13,7 @@ Clean, simple claymation: a character sculpted from smooth matte modeling clay i
 Clean, simple claymation: a tidy set sculpted from smooth matte modeling clay, clean rounded forms with soft even surfaces and subtle tool marks, a few well-chosen props, soft bright light with real cast shadows.
 
 ## still_look
-The Clean Claymation look, unless the brand block says otherwise: "Polished claymation scene — everything sculpted from smooth matte modeling clay, clean rounded forms with soft even surfaces and subtle tool marks, gently exaggerated cartoon proportions, refined handcrafted stop-motion feel, the scene filling the entire frame with the camera inside the clay world. Faces, builds and outfits come from the character sheets. Tidy compositions in soft bright light with real cast shadows."
+The Clean Claymation look, unless the brand block says otherwise: "Polished claymation scene — everything sculpted from smooth matte modeling clay, clean rounded forms with soft even surfaces and subtle tool marks, gently exaggerated cartoon proportions, refined handcrafted stop-motion feel, the scene filling the entire frame with the camera inside the clay world. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Tidy compositions in soft bright light with real cast shadows."
 
 ## clip_style
 Handmade stop-motion claymation throughout: matte plasticine, subtle tool marks, slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI. Non cartoon. Animation must start at the first frame
