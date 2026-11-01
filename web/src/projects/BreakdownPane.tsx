@@ -6,7 +6,6 @@ import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Clapperboard, RotateCcw } from "lucide-react";
 import { Banner, Button, EmptyState, Skeleton } from "../components";
 import { WaitingBadge } from "./Meter";
-import { useBudgetStop } from "./useBudgetStop";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
@@ -34,7 +33,6 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   const { pieces } = useBrandPieces(brandId);
   const [startedJob, setStartedJob] = useState<number | null>(null);
   const [asked, setAsked] = useState(false);
-  const stopFor = useBudgetStop({ used: props.used, budget: props.budget });
 
   const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();
@@ -80,16 +78,13 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   if (current.isError) return <p role="alert" className={errorClass}>Could not load the breakdown. Try again.</p>;
   const row = current.data;
 
-  // Past a limit an editor's paid button is disabled with the reason; nobody is asked to approve.
-  const stop = stopFor(cost ?? undefined);
   const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
     <Button
       variant={opts.primary ? "primary" : "secondary"}
       icon={label === "Redo" ? RotateCcw : undefined}
       charge="estimate" price={cost}
       busy={make.isPending}
-      disabled={running || asked || !!stop}
-      reason={stop}
+      disabled={running || asked}
       onClick={() => {
         if (opts.ask && !window.confirm(opts.ask)) return;
         setAsked(false);

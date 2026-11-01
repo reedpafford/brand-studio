@@ -208,11 +208,3 @@ Model choice for start/end transition clips follows the central recommendation.
 | One character looks different between shots | Text descriptions do not reproduce a face — generate the character once and attach that image as a reference                                                     |
 | Transition cuts instead of morphing         | The frame pair broke the pair-design rules — rebuild it per single-shot generation (identical anchor from same references, one action, similar composition) |
 | Texture melts away mid-clip                 | Motion guard restated in every clip prompt, transitions included                                                                                                 |
-
-## Credit
-
-Made by @davidaistar (Instagram, YouTube), cofounder of starpop.ai.
-
-This skill is optimized for use in Starpop, as it assumes features natively included there, like research, storyboarding, analysis of audio, image and videos, audio slicing, and generation of image, video, audio and music.
-
-However the skill will also work in any agent such as Claude, Claude Code, ChatGPT, Codex etc.

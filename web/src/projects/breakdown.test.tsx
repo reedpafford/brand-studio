@@ -274,15 +274,6 @@ test("Redo is a secondary button; Next is the only primary one", async () => {
   expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveClass("bg-accent");
 });
 
-test("an editor's paid button is off, with the reason, when the call would take the video past its budget; nothing asks Reed", async () => {
-  fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
-  open();
-  const redo = await screen.findByRole("button", { name: "Redo · up to 6 credits" });
-  expect(redo).toBeDisabled();
-  expect(redo).toHaveAccessibleDescription("That's more than this video's budget.");
-  expect(screen.queryByText(/Ask Reed/)).not.toBeInTheDocument();
-});
-
 test("Reed past the budget gets the plain button: pressing it is his approval", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();

@@ -50,7 +50,8 @@ def transcript(path: Path) -> list[dict]:
 def hear_take(path: Path, job: dict) -> list[dict]:
     """Stand-in hearing of a take: its script lines, one every 2 s. A marker in the take's
     prompt walks each finding (QA): fake:drop-line (the last line isn't said),
-    fake:extra-line (an unscripted line after them) or fake:misname (the brand said "Fobo")."""
+    fake:extra-line (an unscripted line after them), fake:misname (the brand said "Fobo") or
+    fake:gasp (a gasp after the lines)."""
     lines, prompt = [x["text"] for x in job["lines"]], job.get("prompt", "")
     if "fake:drop-line" in prompt:
         lines = lines[:-1]
@@ -58,6 +59,8 @@ def hear_take(path: Path, job: dict) -> list[dict]:
         lines = [f"{lines[0]} I love Fobo." if lines else "I love Fobo.", *lines[1:]]
     if "fake:extra-line" in prompt:
         lines = [*lines, "Can't believe it worked."]
+    if "fake:gasp" in prompt:
+        lines = [*lines, "(gasps)"]
     return [{"start": 2.0 * i + 0.5, "end": 2.0 * i + 1.8, "text": t, "speaker": None}
             for i, t in enumerate(lines)]  # fmt: skip
 

@@ -117,16 +117,28 @@ test("picking previews the switch: Sung to B-roll, what goes out of date and the
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/settings").map((c) => c.body)).toContainEqual({ video_model: null, undo: true })); // `was` with undo, so it's never refused over the limit
 });
 
-test("over the budget, Switch is disabled with the reason and the picker stays open", async () => {
+test("past the budget a switch still goes through (later presses wait for the owner); only the cap stops it", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, over_budget: true, reason: "That's more than this video's budget." }] });
+  const calls = fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, over_budget: true, reason: "Waiting for the owner's OK: this goes past the video's budget." }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
+  const ask = await screen.findByRole("alertdialog", { name: "Switch to Seedance 2.0?" });
+  const go = await within(ask).findByRole("button", { name: "Switch" });
+  await vi.waitFor(() => expect(go).toBeEnabled());
+  expect(calls.some((c) => c.key === "POST /projects/9/settings")).toBe(false);
+});
+
+test("over the video limit, Switch is disabled with the reason and the picker stays open", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, over_cap: true, reason: "This video would go over its limit." }] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
   await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Seedance 2.0?" });
   const go = await within(ask).findByRole("button", { name: "Switch" });
   await vi.waitFor(() => expect(go).toBeDisabled());
-  expect(within(ask).getByText("That's more than this video's budget.")).toBeInTheDocument();
+  expect(within(ask).getByText("This video would go over its limit.")).toBeInTheDocument();
   await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
   expect(screen.getByRole("button", { name: /Seedance 2.0/ })).toBeInTheDocument(); // the picker is still open
   expect(calls.some((c) => c.key === "POST /projects/9/settings")).toBe(false);

@@ -196,7 +196,7 @@ export function ProjectPage() {
       {step === "script" && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0">
-            <ScriptTab projectId={id} used={p.credits_used} budget={p.budget_credits} enhance={enhance} />
+            <ScriptTab projectId={id} enhance={enhance} />
           </div>
           <div className="min-w-0">
             <Notes e={enhance} />
