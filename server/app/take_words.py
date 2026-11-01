@@ -197,3 +197,7 @@ def save(db: Session, job: Job) -> None:
     row.findings = compare(i["lines"], (job.output or {}).get("heard", []), i["brand"],
                            i["said_as"], i["actions"])  # fmt: skip
     row.status = "done"
+    from app.take_approval import after_check
+
+    db.flush()
+    after_check(db, row.target_id)  # a clean picked take approves itself (rule 21)
