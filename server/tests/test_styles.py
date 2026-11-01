@@ -259,6 +259,19 @@ def test_claymation_has_reeds_four_lanes_with_their_blocks_word_for_word():
     assert "young clay skin" not in prompts.style("claymation")["sections"]["sheet_look"]  # age
 
 
+def test_disney_pixar_holds_reeds_skill():
+    """Reed's disney-pixar skill (docs/next/skills, #1095), where the site doesn't differ: the
+    camera block's close, sculpted hair bands, label copy with its colour, mechanism and body
+    shots in plain words, and the three kinds of transition."""
+    look = prompts.style("disney-pixar")["sections"]
+    assert "A stylised 3D animated render." in look["still_look"]
+    assert "crisp light-and-shadow bands" in look["sheet_look"]
+    still = prompts.system("storyboard", "disney-pixar")
+    assert "with its colour" in still and "never clinical terms" in still
+    assert "a pancake becomes the sun" in prompts.system("clip_prompts", "disney-pixar")
+    assert "four to five heads tall" not in look["sheet_look"]  # adults keep adult proportions
+
+
 def test_paper_has_reeds_five_lanes_with_their_blocks_word_for_word():
     """Reed's paper skill (docs/next/skills, #1095): one lane a video, each its own look, its
     style and physicality blocks word for word; the camera inside the paper world."""
