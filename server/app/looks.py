@@ -4,6 +4,8 @@ Director's paragraphs); the formats there are not looks. A look is On for editor
 the owner switches it on, and that needs its sample first (ST3); with no switch, the file's
 own `on:` applies (House alone). The owner may try an Off look on their own drafts."""
 
+import re
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -33,7 +35,9 @@ def get(look_id: str) -> dict:
         raise HTTPException(422, UNKNOWN)
     parent = every.get(found.get("parent") or "")
     if found["kind"] == "lane" and parent:
-        return {**found, "name": f"{parent['name']} · {found['name']}", "on": parent["on"]}
+        own = re.sub(rf"\s*\b{re.escape(parent['name'])}\b\s*", " ", found["name"], flags=re.I)
+        name = f"{parent['name']} · {own.strip() or found['name']}"  # not "Paper · Flat Paper"
+        return {**found, "name": name, "on": parent["on"]}
     return found
 
 

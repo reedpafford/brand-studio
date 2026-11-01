@@ -20,7 +20,7 @@ LANES = {s["id"] for s in prompts.styles() if s["kind"] == "lane"}
 def test_a_lane_is_found_named_by_its_style_and_follows_its_switch(db, owner, editor):
     assert {"paper-flat", "claymation-goofy", "skeleton-xray"} <= LANES
     flat = looks.get("paper-flat")
-    assert (flat["name"], flat["parent"]) == ("Paper · Flat Paper", "paper")
+    assert (flat["name"], flat["parent"]) == ("Paper · Flat", "paper")
     assert looks.base("paper-flat") == "paper" and looks.base("paper") == "paper"
     with pytest.raises(HTTPException):
         looks.get("song")  # a format is neither
@@ -28,7 +28,7 @@ def test_a_lane_is_found_named_by_its_style_and_follows_its_switch(db, owner, ed
     assert not LANES & set(cards) and {"paper", "claymation", "skeleton"} <= set(cards)
     assert len(cards) == len(set(cards))  # one card per style
     paper = next(c for c in editor.get("/looks").json() if c["id"] == "paper")
-    assert {"id": "paper-flat", "name": "Paper · Flat Paper"} in paper["lanes"]  # to name a video
+    assert {"id": "paper-flat", "name": "Paper · Flat"} in paper["lanes"]  # to name a video
     assert next(c for c in editor.get("/looks").json() if c["id"] == "house")["lanes"] == []
     ws = owner.get("/auth/me").json()["workspace_id"]
     assert not looks.is_on(db, ws, "paper-flat")
