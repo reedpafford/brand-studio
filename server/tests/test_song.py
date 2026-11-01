@@ -221,7 +221,7 @@ def test_the_prompts_carry_what_made_reeds_song_ads_good():
     assert "**Following a reference.**" in directions and "Never copy its lyrics" in directions
     assert "the symptom list, chanted" in directions
     breakdown = prompts.system("song_breakdown")
-    for part in ("**The shape that sells.**", "mid-air leap", "nudges the product to the lens",
+    for part in ("**A shape that has worked.**", "mid-air leap", "nudges the product to the lens",
                  "never gross", "at four moments", "past about 16 s"):  # fmt: skip
         assert part in breakdown, part
     assert "## Style:" not in prompts.system("breakdown")  # story breakdowns untouched
@@ -336,3 +336,18 @@ def test_a_song_in_any_look_gets_its_looks_tokens_and_songs_guides():
             assert song[guide] not in prompts.system(step, "house", kind)
             assert prompts.system(step, "house", kind) == prompts.system(step, "house")
     assert prompts.system("plan", "claymation", "song") == prompts.system("plan", "claymation")
+
+
+def test_reeds_song_skill_is_folded_in():
+    """Reed's song-ad skill (docs/next/skills, #1095): the whole genre map, the Suno pacing
+    and tags (already in song_request), and a shape that worked stays a pattern, never a rule
+    (story logic is per story, Reed)."""
+    directions = prompts.system("song_directions")
+    for genre in ("bachata", "neo-soul", "americana", "jazz-pop", "throwback pop", "alt-pop"):
+        assert genre in directions, genre
+    assert "take the closest fit and say why" in directions
+    assert "use it only when it fits this song's story" in prompts.system("song_breakdown")
+    sent = prompts.song_request("[Chorus]\nWe sing.", "indie pop, 100 BPM")
+    assert sent["lyrics"].startswith("[Intro: vocals start immediately]\n")
+    assert sent["lyrics"].endswith("\n[End]") and "spoken word" in sent["exclude_styles"]
+    assert sent["style"].endswith("continuous singing, tight ending")
