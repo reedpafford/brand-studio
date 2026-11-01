@@ -1524,10 +1524,13 @@ def test_clip_lengths_are_suggestions_not_rules():
 
 def test_the_director_tries_a_failed_item_again_or_goes_on_without_it():
     """Next-Server's #1087: <video> carries failed_since_last_turn; the server stops an item
-    after its third failure, so the prompt only says retry it, soften it, or go on."""
+    after its third failure and ends the run itself, so the prompt only says retry it or go on."""
     director = prompts.system("director")
     assert "failed_since_last_turn" in director and "**When something fails.**" in director
     assert "go on without it when the rest still makes a cut" in director
+    # QA-5: the stills tool takes no note, and the server ends the run itself after 3 failures.
+    assert "it takes no note" in director and "the run ends on its own with the reason" in director
+    assert "a refused still" not in director and "tells you; then" not in director
     cases = Path(prompts.__file__).parents[2] / "evals" / "cases.json"
     case = next(c for c in json.loads(cases.read_text())["cases"]
                 if c["id"] == "director-turns")  # fmt: skip
