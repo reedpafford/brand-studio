@@ -75,12 +75,16 @@ def frame_stale(project: Project, frame: StoryboardFrame) -> bool:
 
 def take_stale(db: Session, project: Project, clip: ProjectClip) -> bool:
     """The clip's picked take made with another video model, shape, flavour or Sung shots."""
+    take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
+    return take is not None and made_stale(project, clip, take)
+
+
+def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
+    """This take of the clip made with another video model, shape, flavour or Sung shots."""
     from app.breakdown import video_model
 
-    take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
     sung = (clip.song_slice or {}).get("sung_shots")
-    return take is not None and _stale(project, take.made_with or {}, video_model(project).id,
-                                       sung)  # fmt: skip
+    return _stale(project, take.made_with or {}, video_model(project).id, sung)
 
 
 # --- Choices and prices ----------------------------------------------------------------------
