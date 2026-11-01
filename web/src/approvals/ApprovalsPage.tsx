@@ -4,7 +4,7 @@ import { Bell, Check, Sparkles } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Card, creditsText, Dialog, EmptyState, Skeleton } from "../components";
+import { Banner, Button, Card, creditsText, Dialog, EmptyState, Field, Skeleton } from "../components";
 import { Meter } from "../projects/Meter";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
@@ -16,7 +16,7 @@ import { serverTime } from "../time";
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 // What a request makes, in plain words (the card names the video beside it).
-const STEPS: Record<string, string> = {
+export const STEPS: Record<string, string> = {
   enhance: "Script suggestions",
   script_draft: "A script draft",
   breakdown: "The breakdown",
@@ -26,6 +26,7 @@ const STEPS: Record<string, string> = {
   clip_take: "A new take",
   sheet: "A character's look",
   improve: "A better prompt",
+  song_take: "Songs, narration or music on a script",
 };
 
 /** How long ago, in words: "just now", "2m", "3h", "4d". */
@@ -120,7 +121,7 @@ export function ApprovalsPage() {
       {approveAll.isError && <p role="alert" className={errorClass}>{approveAll.error.message}</p>}
       {held.count === 0 ? (
         <EmptyState icon={Bell} title="Nothing waiting.">
-          Editors are never sent here any more: past a budget or their week, their button gives the reason. Requests from before 26 Oct show here until they're handled.
+          When an editor's press goes past a video's budget or their week, or they make songs, narration or music on a script, it waits here for you to approve or decline.
         </EmptyState>
       ) : (
         <Card className="p-0 sm:p-0">
@@ -178,6 +179,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
   const toast = useToast();
   const refresh = useRefresh();
   const [declining, setDeclining] = useState(false);
+  const [why, setWhy] = useState("");
   const project = projects.find((p) => p.id === job.project_id);
   const what = job.step ? (STEPS[job.step] ?? job.step) : "Quick clip";
   const who = job.created_by_name;
@@ -186,7 +188,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
     mutationFn: async (yes: boolean) => {
       const { error, response } = yes
         ? await api.POST("/jobs/{job_id}/approve", { params: { path: { job_id: job.id } } })
-        : await api.POST("/jobs/{job_id}/cancel", { params: { path: { job_id: job.id } } });
+        : await api.POST("/jobs/{job_id}/decline", { params: { path: { job_id: job.id } }, body: { reason: why.trim() } });
       if (!response.ok) throw new Error(errorText(error));
       return yes;
     },
@@ -241,7 +243,8 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
       </div>
       {declining && (
         <Dialog title={`Decline ${lower(what)}${who ? ` for ${who}` : ""}?`} cancelLabel="Keep it" actionLabel="Decline" danger busy={act.isPending} onCancel={() => setDeclining(false)} onConfirm={() => act.mutate(false)}>
-          Nothing is charged.{who && ` ${who} can ask again.`}
+          <p>Nothing is charged.{who && ` ${who} sees your reason and can ask again.`}</p>
+          <Field label="Reason (optional)" value={why} maxLength={300} placeholder="Let's keep this video under budget" onChange={(e) => setWhy(e.target.value)} />
         </Dialog>
       )}
     </li>

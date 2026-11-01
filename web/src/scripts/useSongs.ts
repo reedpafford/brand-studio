@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
+import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { clock } from "./TakePlayer";
 
@@ -31,7 +32,11 @@ export function useSongs(scriptId: number, enabled = true) {
 export function useSongActions(scriptId: number, words: { noun: string; picked: string } = { noun: "Take", picked: "is Preferred" }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["songs", scriptId] }), queryClient.invalidateQueries({ queryKey: ["allowance"] })]);
+  // An editor's paid song, narration or music on a script waits for the owner (#1068): its press says so, and the
+  // waiting banner (["jobs"]) picks it up.
+  const editor = useMe().data?.role === "editor";
+  const ask = (label: string, price: number | null | undefined) => (editor && price ? "Send for approval" : label);
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["songs", scriptId] }), queryClient.invalidateQueries({ queryKey: ["allowance"] }), queryClient.invalidateQueries({ queryKey: ["jobs"] })]);
   const ok = async <T,>(call: Promise<{ data?: T; error?: unknown; response: Response }>) => {
     const { data, error, response } = await call;
     if (!response.ok) throw new Error(errorText(error));
@@ -43,6 +48,7 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
     mutationFn: () => ok(api.POST("/scripts/{script_id}/drafts/{slot}/songs", { params: { path: { script_id: scriptId, slot: 0 } } })),
     onSuccess: (data) => {
       queryClient.setQueryData(["songs", scriptId], data);
+      if (editor) toast("Sent for approval. It waits for the owner's OK; nothing is charged until then.");
       return refresh();
     },
   });
@@ -83,5 +89,5 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
       toast(`${words.noun} ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", take(t.id))).then(refresh));
     },
   });
-  return { make, tryAgain, musicAgain, spread, prefer, trim, remove };
+  return { make, tryAgain, musicAgain, spread, prefer, trim, remove, ask };
 }

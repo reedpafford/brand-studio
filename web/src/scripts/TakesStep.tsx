@@ -102,7 +102,7 @@ function TakeCard({ t, a, readOnly, others, onDefaultStyle }: { t: SongTake; a: 
               )}
               {t.retry_helps && !t.refused_for && (
                 <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.retry_credits} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
-                  Try again
+                  {a.ask("Try again", t.retry_credits)}
                 </Button>
               )}
               <Link to="?edit=1" className={buttonClass(t.refused_for ? "secondary" : "ghost")}>
@@ -111,7 +111,7 @@ function TakeCard({ t, a, readOnly, others, onDefaultStyle }: { t: SongTake; a: 
               </Link>
               {t.retry_helps && t.refused_for && (
                 <Button variant="ghost" icon={RotateCcw} charge="fixed" price={t.retry_credits} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
-                  Try again
+                  {a.ask("Try again", t.retry_credits)}
                 </Button>
               )}
             </div>
@@ -136,7 +136,7 @@ function TakeCard({ t, a, readOnly, others, onDefaultStyle }: { t: SongTake; a: 
               )}
               {t.retry_helps && (
                 <Button variant="ghost" icon={RotateCcw} charge="fixed" price={t.retry_credits} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
-                  Try again
+                  {a.ask("Try again", t.retry_credits)}
                 </Button>
               )}
             </div>
@@ -227,7 +227,7 @@ export function TakesStep({ script: s }: { script: Script }) {
     ) : (
     <div className="space-y-1">
       <Button variant={primary ? "primary" : "secondary"} icon={Music} charge="fixed" price={data.estimate_credits} busy={a.make.isPending} onClick={() => a.make.mutate()}>
-        {label}
+        {a.ask(label, data.estimate_credits)}
       </Button>
       {failed && <p role="alert" className={errorClass}>{failed}</p>}
       <p className="text-sm text-muted">A video this long: about {Math.ceil(data.video_estimate_credits)} credits to make.</p>

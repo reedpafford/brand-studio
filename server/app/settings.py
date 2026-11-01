@@ -1,5 +1,6 @@
 """Settings read from environment variables (prefix BS_). Never hard-code secrets."""
 
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -62,6 +63,11 @@ class Settings(BaseSettings):
     # their spend past this budget; after that a test is a stand-in again.
     real_language_samples: bool = False
     language_samples_budget_usd: float = 0.0
+    # Real AI on the test site (Producer, 1 Nov): with the stand-ins off there (env "next"),
+    # every paid call counts against this one budget, from `real_budget_since`; past it,
+    # presses are refused and queued work isn't sent. Either unset there: nothing paid runs.
+    real_budget_usd: float = 0.0
+    real_budget_since: datetime | None = None
     # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Paid generation (Replicate, Claude). Off by default: the owner turns it on at deploy.
