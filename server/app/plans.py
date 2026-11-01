@@ -316,7 +316,18 @@ def _set(project: Project, plan: dict, source: str, job_id: int | None, text: st
     project.plan = {**plan, "version": version, "source": source, "approved_at": None,
                     "approved_by_id": None, "job_id": job_id,
                     "made_for_text_hash": _hash(text), "made_at": utcnow().isoformat()}  # fmt: skip
+    _lane(project)
     return project.plan
+
+
+def _lane(project: Project) -> None:
+    """The plan's lane is the video's look, when it may be (looks.follow_lane)."""
+    from sqlalchemy.orm import object_session
+
+    from app import looks
+
+    if db := object_session(project):
+        looks.follow_lane(db, project)
 
 
 def _holder(db: Session, job: Job) -> tuple[Project | None, object | None]:
@@ -380,6 +391,7 @@ def edit(db: Session, project: Project, version: ScriptVersion, plan: ScenePlan)
     project.plan = {**keep, **plan.model_dump(), "approved_at": None, "approved_by_id": None,
                     "source": keep.get("source", "by_hand"),
                     "version": _next(project)}  # shots made before read older  # fmt: skip
+    _lane(project)
     return project.plan
 
 
