@@ -69,14 +69,6 @@ test("Undo after adding saves the earlier words back", async () => {
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "MIA: Hell no!\nBO: Salmon?" }));
 });
 
-test("an editor past the week's allowance can't press Suggest directions", async () => {
-  setViewport(1440);
-  fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 2, role: "editor" }], "GET /scripts/7": [200, script({ created_by_id: 2 })], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
-  open();
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: /^Suggest directions/ })).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday."));
-  expect(screen.getByRole("button", { name: /^Suggest directions/ })).toBeDisabled();
-});
-
 test("Directions waits for the script's words", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7": [200, script({ versions: [{ ...script().versions[0], text: "", words: 0 }] })] }));

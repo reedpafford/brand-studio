@@ -9,7 +9,7 @@ import { errorText as errorClass } from "../ui";
 import { Stopwatch } from "../clip/History";
 import type { components } from "../api/schema";
 import { lengthNote, type Song } from "./SongStep";
-import { useAllowanceStop, type Script } from "./useScript";
+import type { Script } from "./useScript";
 
 /** One song direction Claude wrote (flows S3): a suggestion only; nothing reaches the lyrics without Use this one (rule 19). */
 export type Direction = components["schemas"]["SongDirectionOut"];
@@ -58,7 +58,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
   const [asking, setAsking] = useState<Direction | null>(null);
   // "Nothing to go on" (no brand facts) lifts once a script is pasted to adapt; any other stop (an approved version) holds.
   const serverStop = d.directions_stop_kind === "no_facts" && source.trim() ? null : d.directions_stop;
-  const stop = useAllowanceStop(s, d.directions_estimate_credits) ?? serverStop;
+  const stop = serverStop;
   const job = d.directions_job;
   const busy = job?.status === "queued" || job?.status === "running";
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
