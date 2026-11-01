@@ -85,6 +85,10 @@ def cast_looks(db: Session, project: Project) -> list[LibraryItem]:
 SHEET_SETS = (  # no role text or notes beside a sheet: "the golden dog" drew a Frenchie golden
     "looks exactly as their sheet; never describe their face, breed, coat, skin, hair or colouring"
 )
+SHEET_SETS_BUT_WEARS = (  # this video's outfit (below) is the one thing said: no mixed message
+    "looks exactly as their sheet, except for what they wear; never describe their face, breed, "
+    "fur, skin, hair or colouring"
+)
 
 
 def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
@@ -110,7 +114,8 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         files = sheet_for(db, project, item)  # in the video's look (ST2)
         if item.kind == Kind.character and files:  # rule 10: the sheet wins
             them = "; ".join(f"plays {short(s.role)}" for s in roles.get(item.id, []))
-            parts = (key, item.kind, item.name, them, SHEET_SETS)
+            sets = SHEET_SETS_BUT_WEARS if wears(project, item.id) else SHEET_SETS
+            parts = (key, item.kind, item.name, them, sets)
         elif not files and usable_files(item):  # a House sheet, none in its look (Flow-QA)
             parts = (*parts, NO_LOOK)
         if item.kind == Kind.character:  # this video's own outfit, over the sheet's
