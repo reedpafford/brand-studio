@@ -203,4 +203,4 @@ def test_one_credit_is_said_as_one_credit(owner, editor, db):
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 1})
     me = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
     held = enqueue(db, me, "video-480p", {}, units=2)
-    assert "this week's 1 credit (" in held.input["held"]
+    assert "your week's 1 credit (" in held.input["held"]

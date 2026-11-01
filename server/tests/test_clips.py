@@ -52,7 +52,7 @@ def test_estimate_says_when_the_weekly_allowance_is_used(editor, fomo, db):
     enqueue(db, ed, "video-480p", {}, units=95)
     r = editor.post("/clips/estimate", json=_clip(fomo)).json()
     assert r["needs_owner_approval"] is True and r["reason"] == (
-        "That's more than this week's 97 credits (95 used). It resets on Monday."
+        "Waiting for the owner's OK: this goes past your week's 97 credits (95 used)."
     )
     made = editor.post("/clips", json=_clip(fomo))
     assert (made.status_code, made.json()["status"]) == (201, "needs_owner_approval")

@@ -13,7 +13,7 @@ from tests.helpers import with_sheet
 from tests.test_cast_roles import _video
 from tests.test_script_library import SCRIPT, _make
 
-BUDGET = "That's more than this video's budget."
+BUDGET = "Waiting for the owner's OK: this goes past the video's budget."
 
 
 def _spent(db, project, credits):
@@ -87,4 +87,6 @@ def test_past_the_week_only_a_quick_clip_waits_for_the_owner(owner, editor, db):
     assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
     clip = editor.post("/clips", json={"brand_id": fomo, "prompt": "A dog eats.", "duration": 5})
     assert clip.status_code == 201 and clip.json()["status"] == "needs_owner_approval"
-    assert clip.json()["held"] == "You've used this week's 0 credits. It resets on Monday."
+    assert clip.json()["held"] == (
+        "Waiting for the owner's OK: this goes past your week's 0 credits (0 used)."
+    )
