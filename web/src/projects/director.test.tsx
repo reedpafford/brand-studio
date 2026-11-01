@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { ToastProvider } from "../toast";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
-import { DirectorPanel } from "./DirectorPanel";
+import { DirectorPanel, NOT_PLAIN } from "./DirectorPanel";
 
 const owner = { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 };
 const editor = { ...owner, id: 2, role: "editor" };
@@ -14,7 +14,7 @@ const at = new Date().toISOString();
 const turn = (n: number, o: object = {}) => ({ turn: n, tool: "storyboard", why: "The looks are approved, so the storyboard comes next.", result: "Making the storyboard.", status: "succeeded", created_at: at, ...o });
 const run = (o: object = {}) => ({ status: "running", ended: "", turns: [turn(1, { tool: "plan", result: "Making the shots.", why: "There are no shots yet." }), turn(2)], spent_usd: 0.42, credits: 31, start_blocked: "The director is already building this video.", ...o });
 const take = (id: number) => ({ id, number: id, file_id: id, created_at: at, verdict: "clean" });
-const clips = (made: number, of: number) => Array.from({ length: of }, (_, i) => ({ id: i + 1, takes: i < made ? [take(i + 1)] : [], picked_take_id: null }));
+const clips = (made: number, of: number) => Array.from({ length: of }, (_, i) => ({ id: i + 1, clip_id: `c${i + 1}`, seconds: 5, takes: i < made ? [take(i + 1)] : [], picked_take_id: null }));
 const routes = (o: Record<string, [number, unknown]> = {}) => ({ "GET /auth/me": [200, owner] as [number, unknown], "GET /projects/9/clips": [200, []] as [number, unknown], "GET /projects/9/video": [404, { detail: "none" }] as [number, unknown], ...o });
 
 function show(onLookInside = () => {}) {
@@ -83,7 +83,7 @@ test("Stop asks first, says what still finishes, and stops the run", async () =>
   expect(screen.getByText(/What it already started still finishes, and nothing is undone/)).toBeInTheDocument();
   await userEvent.click(screen.getAllByRole("button", { name: "Stop" }).at(-1)!);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/director/stop")).toBe(true));
-  expect(await screen.findByText(/^Stopped\. · 31 credits for this run/)).toBeInTheDocument();
+  expect(await screen.findByText(/^Stopped\. · up to 31 credits for this run/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
 });
 
@@ -101,14 +101,14 @@ test("at 390, the delivered cut plays and downloads, with the total, the note, w
     ],
   });
   const inside = vi.fn();
-  fakeServer(routes({ "GET /auth/me": [200, editor], "GET /projects/9/director": [200, done], "GET /projects/9/video": [200, { id: 3, file_id: 77, song_take_id: null, narration: null, created_at: at }] }));
+  fakeServer(routes({ "GET /auth/me": [200, editor], "GET /projects/9/director": [200, done], "GET /projects/9/clips": [200, [18, 20, 16].map((n, i) => ({ id: i + 1, clip_id: `c${i + 1}`, seconds: n, takes: [take(i + 1)], picked_take_id: i + 1 }))], "GET /projects/9/video": [200, { id: 3, file_id: 77, song_take_id: null, narration: null, created_at: at }] }));
   show(inside);
   expect(await screen.findByLabelText("The finished video")).toBeInTheDocument();
   expect(screen.getByText("Delivered")).toBeInTheDocument();
   expect(screen.getAllByText("Every take checked clean; take 2 of clip 3 has the clearest product shot.")[0]).toBeVisible(); // the note, and again in Every move
-  expect(screen.getByText("58 credits for this run")).toBeInTheDocument();
+  expect(screen.getByText("54 s · up to 58 credits for this run")).toBeInTheDocument(); // its length, and never below the charge
   await userEvent.click(screen.getByText("What it redid (1)"));
-  expect(screen.getAllByText("Take 1 of c3 is flagged: the label is hard to read.")[0]).toBeVisible();
+  expect(screen.getAllByText("Take 1 of clip 3 is flagged: the label is hard to read.")[0]).toBeVisible();
   expect(screen.getByRole("link", { name: /Download MP4/ })).toHaveAttribute("download", "cat-buys-the-dip.mp4");
   await userEvent.click(screen.getByRole("button", { name: "Look inside" }));
   expect(inside).toHaveBeenCalled();
@@ -123,4 +123,23 @@ test("while it runs, only the newest 5 moves show, and Show all opens the rest",
   expect(screen.queryByText("Move 3.")).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Show all 8 moves" }));
   expect(screen.getByText("Move 1.")).toBeInTheDocument();
+});
+
+test("move lines are plain words: no tool names, codes, ids or JSON on screen; said is shown when the server sends it", async () => {
+  setViewport(390);
+  const raw = [
+    turn(1, { tool: "make_take", result: "Making 1 take.", why: "c2 is flagged: the boss looks calm." }),
+    turn(2, { tool: "pick_take", result: "Picked take 12 for c2.", why: "It's the newest clean take." }),
+    turn(3, { tool: "make_take", result: "Refused: there's no tool called make_takes.", why: '{"tool": "make_take", "clip_id": "c9"}' }),
+    turn(4, { tool: "final_cut", result: "Made the cut.", said: "Putting the cut together.", why: "Every clip has a picked take." }),
+  ];
+  fakeServer(routes({ "GET /projects/9/clips": [200, [{ id: 2, clip_id: "c2", seconds: 5, takes: [{ ...take(12), number: 3 }], picked_take_id: 12 }]], "GET /projects/9/director": [200, run({ turns: raw })] }));
+  show();
+  expect(await screen.findByText("clip 2 is flagged: the boss looks calm.")).toBeInTheDocument();
+  expect(screen.getByText("Picked take 3 for clip 2.")).toBeInTheDocument(); // the take's number, not its id
+  expect(screen.getByText("Making clips.")).toBeInTheDocument(); // an unplain line falls back to its step
+  expect(screen.getByText("Putting the cut together.")).toBeInTheDocument(); // said, over result
+  const moves = screen.getByText("Picked take 3 for clip 2.").closest("ol")!;
+  expect(moves.textContent).not.toMatch(NOT_PLAIN);
+  expect(moves.textContent).not.toMatch(/make_take|pick_take|final_cut|clip_id|\bc\d+\b|\{/);
 });

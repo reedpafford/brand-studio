@@ -30,7 +30,10 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   await expect(ed.getByLabel("The finished video")).toBeVisible();
   await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible();
-  await expect(ed.getByText(/^\d+(\.\d)? credits? for this run$/)).toBeVisible();
+  await expect(ed.getByText(/^\d+ s · up to \d+(\.\d)? credits? for this run$/)).toBeVisible();
+  await ed.getByText(/^Every move \(\d+\)$/).click();
+  const moves = await ed.locator("details", { hasText: /^Every move/ }).locator("ol").textContent();
+  expect(moves).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words only: no tool names, clip codes or JSON
   expect(await ed.locator("main").textContent()).not.toMatch(/\$\d|ask (Reed|the owner)/i);
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);

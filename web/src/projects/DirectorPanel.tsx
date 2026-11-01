@@ -11,7 +11,24 @@ import { ReviewChip } from "./Checks";
 import { useProjectClips, useProjectVideo } from "./useProgress";
 
 type Run = components["schemas"]["DirectorOut"];
-type Turn = Run["turns"][number];
+// `said` is the server's own plain line for a move (Next-Server's follow-up to #1087); until it lands, `result`.
+type Turn = Run["turns"][number] & { said?: string };
+type Clip = components["schemas"]["ProjectClipOut"];
+
+// Never on screen: tool names, codes, ids, JSON or model names (the Producer's condition). A line with any left is dropped
+// for the plain step it belongs to.
+export const NOT_PLAIN = /\b[a-z]+_[a-z_]+\b|[{}[\]<>]|"\w+"\s*:|\b[a-z]\d+\b|\bid\b|\b(claude|gpt|opus|sonnet|haiku)\b/i;
+
+/** The server's words for a move, made plain: "c3" is clip 3 and "take 12" is that clip's take number. */
+export function plain(line: string, clips: Clip[]): string {
+  const out = line
+    .replace(/\btake (\d+) for c(\d+)\b/g, (_all, id: string, n: string) => {
+      const t = clips.find((c) => c.clip_id === `c${n}`)?.takes.find((k) => k.id === Number(id));
+      return t ? `take ${t.number} for clip ${n}` : `a take for clip ${n}`;
+    })
+    .replace(/\bc(\d+)\b/g, "clip $1");
+  return NOT_PLAIN.test(out) ? "" : out;
+}
 
 // What it's doing, from its newest move (ux-audit §8.5's progress line).
 const DOING: Record<string, string> = {
@@ -90,13 +107,14 @@ export function DirectorPanel({ projectId, aspect, name, onLookInside }: { proje
   const phase = held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && list.length ? `Making clips: ${made} of ${list.length}` : DOING[doing];
   const credits = r ? creditsText(r.credits) : null;
   const dollars = owner && r?.spent_usd != null ? `the director's own time $${r.spent_usd.toFixed(2)}` : null; // rule 4: the owner only
-  const note = [...turns].reverse().find((t) => t.tool === "deliver")?.why ?? "";
+  const note = plain([...turns].reverse().find((t) => t.tool === "deliver")?.why ?? "", list);
   const firstTake = turns.findIndex((t) => t.tool === "make_take");
-  const redid = turns.filter((t, i) => t.tool === "make_take" && i > firstTake && t.why);
+  const redid = turns.filter((t, i) => t.tool === "make_take" && i > firstTake && plain(t.why, list));
+  const seconds = Math.round(list.reduce((n, c) => n + c.seconds, 0));
   const line =
     status === "none" ? (blocked ?? "It makes every step from the script, checks each take, and delivers the finished cut. You can stop it any time.")
     : running ? [phase, credits && `up to ${credits} so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
-    : [status === "ended" && (r!.ended || "It stopped."), credits && `${credits} for this run`, dollars].filter(Boolean).join(" · ");
+    : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `up to ${credits} for this run`, dollars].filter(Boolean).join(" · ");
   const badge = running ? <Badge tone={held ? "warning" : "neutral"}>{held ? "Waiting for approval" : "Working…"}</Badge> : status === "delivered" ? <Badge tone="success">Delivered</Badge> : status === "ended" ? <Badge tone="warning">Stopped</Badge> : null;
 
   return (
@@ -134,13 +152,13 @@ export function DirectorPanel({ projectId, aspect, name, onLookInside }: { proje
         {note && <p className="break-words">{note}</p>}
         {redid.length > 0 && (
           <Section title={`What it redid (${redid.length})`}>
-            <Moves turns={redid} />
+            <Moves turns={redid} clips={list} />
           </Section>
         )}
         {status === "delivered" && <ReviewChip projectId={projectId} />}
         {turns.length > 0 && (
           <Section title={`Every move (${turns.length})`} open={running}>
-            <Moves turns={turns} newest={running ? 5 : undefined} />
+            <Moves turns={turns} newest={running ? 5 : undefined} clips={list} />
           </Section>
         )}
         <p className="text-sm text-muted">
@@ -170,7 +188,7 @@ function Section({ title, open, children }: { title: string; open?: boolean; chi
 }
 
 /** Each move as one plain line, what it did, with its reason under it. While it runs, only the newest few, with Show all. */
-function Moves({ turns, newest }: { turns: Turn[]; newest?: number }) {
+function Moves({ turns, newest, clips }: { turns: Turn[]; newest?: number; clips: Clip[] }) {
   const [all, setAll] = useState(false);
   const shown = newest && !all ? turns.slice(-newest) : turns;
   return (
@@ -181,12 +199,16 @@ function Moves({ turns, newest }: { turns: Turn[]; newest?: number }) {
         </Button>
       )}
       <ol className="space-y-2">
-        {shown.map((t) => (
-          <li key={t.turn} className="min-w-0 border-l-2 border-line pl-3 text-sm">
-            <p className="break-words">{t.result || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : "Deciding what to do next…")}</p>
-            {t.why && <p className="break-words text-muted">{t.why}</p>}
-          </li>
-        ))}
+        {shown.map((t) => {
+          const said = plain(t.said || t.result, clips) || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : t.tool && DOING[t.tool] ? `${DOING[t.tool]}.` : "Deciding what to do next…");
+          const why = plain(t.why, clips);
+          return (
+            <li key={t.turn} className="min-w-0 border-l-2 border-line pl-3 text-sm">
+              <p className="break-words">{said}</p>
+              {why && <p className="break-words text-muted">{why}</p>}
+            </li>
+          );
+        })}
       </ol>
     </>
   );

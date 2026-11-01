@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { ToastProvider } from "../toast";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { MemoryRouter } from "react-router-dom";
 import { HeldRequests, type HeldWhere } from "./HeldRequests";
 
 const job = (o: object = {}) => ({ id: 50, kind: "video", project_id: 9, script_id: null, credits: 27, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: "clip_take", error: "", held: "That's more than this video's budget.", declined: false, created_by_name: "Eli", waiting: "", auto: false, output: null, ...o });
@@ -67,4 +68,22 @@ test("Quick clip shows only real Quick clips: never a script's song or narration
   expect(await screen.findByText(/97 credits/)).toBeInTheDocument();
   expect(screen.getAllByText("Waiting for approval")).toHaveLength(1);
   expect(document.body).toHaveTextContent("Your Quick clip · 27 credits.");
+});
+
+test("the owner sees what an editor asked on this video, one press from that request in Approvals; no Withdraw", async () => {
+  fakeServer({ "GET /auth/me": [200, { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 }], "GET /jobs": [200, [job(), job({ id: 51, project_id: 10 })]] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ToastProvider>
+        <MemoryRouter>
+          <HeldRequests where={{ projectId: 9 }} />
+        </MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("Waiting for your OK")).toBeInTheDocument();
+  expect(document.body).toHaveTextContent("Eli asked for a new take · 27 credits.");
+  expect(screen.getByRole("link", { name: "Open in Approvals" })).toHaveAttribute("href", "/approvals?job=50");
+  expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
+  expect(screen.getAllByText("Waiting for your OK")).toHaveLength(1);
 });

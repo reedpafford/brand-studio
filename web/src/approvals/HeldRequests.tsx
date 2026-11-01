@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useMe } from "../auth/useMe";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
-import { Banner, Button, creditsText } from "../components";
+import { Banner, Button, buttonClass, creditsText } from "../components";
 import { useToast } from "../toast";
 import { STEPS } from "./ApprovalsPage";
 import type { Job } from "./useHeld";
@@ -15,6 +17,7 @@ const here = (j: Job, w: HeldWhere) =>
 // The server words a decline without a reason itself ("The owner said no this time…"); only a reason the owner typed is shown.
 const reasonOf = (j: Job) => (j.error && !j.error.startsWith("The owner said no") ? j.error : "");
 const seenKey = "declines-seen";
+const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const readSeen = (): number[] => {
   try {
     return JSON.parse(localStorage.getItem(seenKey) ?? "[]");
@@ -29,7 +32,17 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [seen, setSeen] = useState(readSeen);
+  const owner = useMe().data?.role === "owner";
+  // The owner's own presses are never held: on a video or a script they see what anyone asked there, one press from its row
+  // in Approvals (no dead end). Editors' Quick clips wait in Approvals only.
+  const asked = useQuery({
+    enabled: owner && !("quick" in where),
+    queryKey: ["held-jobs"],
+    refetchInterval: 30_000,
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } })).data ?? [],
+  });
   const mine = useQuery({
+    enabled: !owner,
     queryKey: ["jobs", "mine"],
     queryFn: async () => (await api.GET("/jobs", { params: { query: { mine: true } } })).data ?? [],
     refetchInterval: (q) => (q.state.data?.some((j) => j.status === "needs_owner_approval") ? 15_000 : false),
@@ -54,12 +67,22 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
       /* a private window: it shows again next time */
     }
   };
-  const jobs = (mine.data ?? []).filter((j) => here(j, where));
+  const jobs = ((owner ? asked.data : mine.data) ?? []).filter((j) => here(j, where));
   const held = jobs.filter((j) => j.status === "needs_owner_approval");
   const declined = jobs.filter((j) => j.declined && !seen.includes(j.id));
   if (held.length === 0 && declined.length === 0) return null;
   const what = (j: Job) =>
     j.step === "song_take" ? (j.kind === "speech" ? "Your narration" : "Your song or music") : j.step ? (STEPS[j.step] ?? "Your request") : quick(j) ? "Your Quick clip" : "Your request";
+  if (owner)
+    return (
+      <div className="space-y-2" aria-label="Waiting for you">
+        {held.map((j) => (
+          <Banner key={j.id} tone="info" title="Waiting for your OK" action={<Link className={buttonClass("secondary")} to={`/approvals?job=${j.id}`}>Open in Approvals</Link>}>
+            {j.created_by_name || "An editor"} asked for {lower(what(j).replace(/^Your /, ""))} · {creditsText(j.credits)}. {j.held}
+          </Banner>
+        ))}
+      </div>
+    );
   return (
     <div className="space-y-2" aria-label="Your requests">
       {held.map((j) => (
