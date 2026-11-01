@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import video_settings
+from app import screen_figures, video_settings
 from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
@@ -665,8 +665,10 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     prompt = f"{prompt}\nChange from the last still: {note}" if note else prompt
     job = still_input(image_model(project), prompt, project.aspect_ratio, characters, objects)
     made = video_settings.made_with(db, project, frame.reference_ids, job["model"])  # VS1
+    shots = [s for sc in breakdown.data["scenes"] for s in sc["shots"] if s["id"] == frame.shot_id]
+    drawn = screen_figures.for_job(db, frame.reference_ids, shots)
     return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id,
-            "made_with": made}  # fmt: skip
+            "made_with": made, "screen_figures": drawn}  # fmt: skip
 
 
 def save_still(db: Session, job: Job) -> None:

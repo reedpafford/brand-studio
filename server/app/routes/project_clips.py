@@ -25,6 +25,7 @@ from app import (
     narration,
     narration_music,
     prompts,
+    screen_figures,
     video_settings,
 )
 from app.advice import Said
@@ -819,7 +820,11 @@ def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> 
     """The picked take, with the real picture cut in over each insert that's switched on."""
     video = storage.get(db.get(StoredFile, clip.file_id).key)
     cuts = [
-        (storage.get(db.get(StoredFile, i.file_id).key), i.start, i.end)
+        (
+            screen_figures.draw(storage.get(db.get(StoredFile, i.file_id).key), i.figure),
+            i.start,
+            i.end,
+        )
         for i in cut_in.inserts(db, project, clip)
         if i.on
     ]

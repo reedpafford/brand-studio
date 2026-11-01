@@ -123,26 +123,22 @@ test("no CTA line left: the Advice says videos end without one", async () => {
   expect(await screen.findByText("Videos will end without a saved call to action.")).toBeInTheDocument();
 });
 
-test("an editor keeps what they edit today (tone notes, Don't as never say, End line); only the new sections are read only", async () => {
+test("an editor edits the whole brand as the owner does: audience, Do and Don't, CTA lines, defaults (Reed, 30 Oct)", async () => {
   setViewport(390);
   const calls = fakeServer({ ...routes(editor), "PATCH /brands/1": [200, brand] });
   renderAt("/b/1/brand");
-  expect(await screen.findAllByText("Only the owner changes the brand.")).toHaveLength(2);
-  expect(screen.getByLabelText("Audience")).toHaveAttribute("readonly");
-  expect(screen.getByLabelText("Music style")).toHaveAttribute("readonly");
-  expect(await screen.findByLabelText("Look")).toBeDisabled();
-  expect(screen.queryByRole("button", { name: "Add line" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Make default" })).toBeNull();
-  expect(screen.queryByLabelText("Add to the default cast")).toBeNull();
-  await userEvent.type(screen.getByLabelText("How the brand talks"), ", warm");
-  await userEvent.type(screen.getByLabelText("Add to don't"), "miracle{Enter}");
-  await userEvent.clear(screen.getByLabelText("End line"));
-  await userEvent.type(screen.getByLabelText("End line"), "Link in bio.");
+  const audience = await screen.findByLabelText("Audience");
+  expect(audience).not.toHaveAttribute("readonly");
+  expect(screen.queryByText("Only the owner changes the brand.")).toBeNull();
+  expect(await screen.findByLabelText("Look")).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Add line" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Import from website/ })).toBeNull(); // reading the site stays the owner's
+  await userEvent.type(audience, " and their vets");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")).toBeTruthy());
   const body = calls.find((c) => c.key === "PATCH /brands/1")!.body as Record<string, unknown>;
-  expect(body).toMatchObject({ tone_notes: "Punchy, warm", never_say: ["cure", "miracle"], end_line: "Link in bio." });
-  for (const k of ["audience", "do_list", "dont_list", "music_style", "default_look", "default_cast"]) expect(body).not.toHaveProperty(k);
+  expect(body.audience).toMatch(/ and their vets$/);
+  expect(body).not.toHaveProperty("never_say");
 });
 
 test("without brand setup on the server the page is as before", async () => {

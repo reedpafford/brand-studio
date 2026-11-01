@@ -311,8 +311,8 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         if IN_BED.search(c.prompt) and BODILY.search(c.prompt):  # Iron Paws #32: "sexual"
             problems.append(f"{ADVICE}{c.clip_id}: {NOT_SEXUAL}")
-        if _montage(clip.shot_ids, shots):  # guests and crowds elsewhere are never cast
-            problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _cuts_name_someone(c.prompt)]
+        problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _one_image(c.prompt)]
+        if _montage(clip.shot_ids, shots):
             problems += [f"{ADVICE}{c.clip_id}: {p}" for p in _screens_climb(c.prompt)]
         keep = next((x for x in c.prompt.splitlines() if x.startswith("Keep: ")), "")
         problems += [  # each attached character holds their look by name (live test, 10-26)
@@ -442,20 +442,17 @@ NOT_SEXUAL = (
 )
 
 
-def _cuts_name_someone(prompt: str) -> list[str]:
-    """In a "Two quick cuts: …; then …" segment every cut names a cast member, so the model
-    never opens on an empty room (fomo montage, 2026-10-24)."""
-    refs = next((line for line in prompt.splitlines() if line.startswith("References: ")), "")
-    names = set(CAST.findall(refs)) - {"The"}
-    if not names:
-        return []
-    problems = []
-    for line in prompt.splitlines():
-        if m := re.match(r"^Shot (\d+) \|[^:]*quick cuts[^:]*: (.*)$", line, re.I):
-            for cut in m.group(2).split("; then "):
-                if not any(re.search(rf"\b{re.escape(n)}\b", cut) for n in names):
-                    problems.append(f"shot {m.group(1)}: a quick cut names nobody (“{cut[:40]}”)")
-    return problems
+ONE_IMAGE = re.compile(
+    r"^Shot (\d+) \|(?:(?!never).)*\b(?:quick cuts|split[- ]screen)\b", re.I | re.M
+)
+
+
+def _one_image(prompt: str) -> list[str]:
+    """Reed's runs (project 46 c3): "two quick cuts" inside one shot came out as a split
+    screen. One shot is one image. Advice."""
+    return [f"shot {m.group(1)}: one image per shot; quick cuts inside one shot come out as a "
+            "split screen, so give each its own shot or drop it"
+            for m in ONE_IMAGE.finditer(prompt)]  # fmt: skip
 
 
 def _silence(prompt: str, spoken: bool) -> list[str]:

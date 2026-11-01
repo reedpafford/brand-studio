@@ -6,7 +6,6 @@ import { fileUrl, uploadFile } from "../api/upload";
 import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
-import { useMe } from "../auth/useMe";
 import { backLink, btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 import { CharacterExtras } from "./CharacterExtras";
 import { SheetPanel } from "./SheetPanel";
@@ -45,11 +44,10 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
   const start = { name: item.name, notes: item.notes ?? "", brand_ids: item.brand_ids ?? [], image_file_ids: item.image_file_ids ?? [],
     outfits: item.outfits ?? [],
     voice_file_id: item.voice_file_id ?? null,
-    // A product's line and its claim (flows BR1, #910): the owner's, read by every script.
+    // A product's line and its claim (flows BR1, #910), read by every script; editors change them too (Reed, 30 Oct).
     short_description: item.short_description ?? "",
     main_claim: item.main_claim ?? "",
   };
-  const owner = useMe().data?.role === "owner";
   const [form, setForm] = useState(start);
   const changed = JSON.stringify(form) !== JSON.stringify(start);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
@@ -62,7 +60,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
 
   const save = useMutation({
     mutationFn: async () => {
-      const { error, response } = await api.PATCH("/library/{kind}/{item_id}", { params: { path }, body: kind === "character" ? { ...form, short_description: undefined, main_claim: undefined } : { name: form.name, notes: form.notes, brand_ids: form.brand_ids, image_file_ids: form.image_file_ids, ...(owner && kind === "prop" ? { short_description: form.short_description, main_claim: form.main_claim } : {}) } });
+      const { error, response } = await api.PATCH("/library/{kind}/{item_id}", { params: { path }, body: kind === "character" ? { ...form, short_description: undefined, main_claim: undefined } : { name: form.name, notes: form.notes, brand_ids: form.brand_ids, image_file_ids: form.image_file_ids, ...(kind === "prop" ? { short_description: form.short_description, main_claim: form.main_claim } : {}) } });
       if (!response.ok) throw new Error(errorText(error));
     },
     onSuccess: refresh,
@@ -144,14 +142,13 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
         </label>
         {kind === "prop" && (
           <div className="space-y-3">
-            {!owner && <p className="text-sm text-muted">Only the owner changes the brand.</p>}
             <label className="block text-sm">
               What it is, in a line
-              <input className={input} readOnly={!owner} maxLength={500} placeholder="Grain-free salmon kibble for picky dogs" value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
+              <input className={input} maxLength={500} placeholder="Grain-free salmon kibble for picky dogs" value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
             </label>
             <label className="block text-sm">
               Main claim
-              <input className={input} readOnly={!owner} maxLength={500} placeholder="Dogs finish the bowl" value={form.main_claim} onChange={(e) => setForm({ ...form, main_claim: e.target.value })} />
+              <input className={input} maxLength={500} placeholder="Dogs finish the bowl" value={form.main_claim} onChange={(e) => setForm({ ...form, main_claim: e.target.value })} />
             </label>
             {(item.advice ?? []).map((a) => (
               <p key={a} className="text-sm text-warning">{a}</p>

@@ -26,16 +26,17 @@ So this is a **re-layout and re-wording**, not new logic. Every rule stays as it
    - Writing: six steps become four: **Write → Cast → Plan → Publish**. Directions and Variations move inside Write.
    - Video: the five steps stay, but Downloads is called **Final cut**, and Clips shows two clear phases (**Prompts**, then **Takes**).
    - Navigation: **Videos** gets its own place in the menu. Today an editor's videos hide behind a switch inside Scripts.
-6. **The video flow with the creative plan** (Part 7): four or five editor steps instead of eight. With Reed's yes it's Plan, Cast, Make, Final cut; with his no it's Plan, Cast, Storyboard, Clips, Final cut. Breakdown folds into Plan either way. If Reed agrees (P5.1), three human presses (approve the plan, approve all looks, watch the final cut) and one priced Make the video. The AI check is a quiet "2 notes" chip with a ready Change this… note, and one Review list. Automatic fixes are said after the fact on the card.
-7. **Every screen and card** (Part 6): Quick clip History shows everyone's clips from every brand; a version chip on a script card names a person but not the step, and opens the wrong place; one video has three names; the Brand page has no setup checklist; money mixes credits and dollars with decimals; Approvals can't receive anything any more.
-8. **Reed's wider ask** (Part 5): the hierarchy, the script → editor handoff, saving, editing ease, and how much each step shows. The biggest gaps:
+6. **Reed's 30 Oct decisions** (Part 8): over-budget presses are now *held* for the owner ("Ask the owner · N", Withdraw), so Approvals comes back when something waits. The allowance counts Quick clips only. Every earlier and AI-flagged take stays playable and downloadable, with its reason. The director's chat becomes the video page's main view, with the steps as "look inside". The Approvals page text is now wrong (S42).
+7. **The video flow with the creative plan** (Part 7): four or five editor steps instead of eight. With Reed's yes it's Plan, Cast, Make, Final cut; with his no it's Plan, Cast, Storyboard, Clips, Final cut. Breakdown folds into Plan either way. If Reed agrees (P5.1), three human presses (approve the plan, approve all looks, watch the final cut) and one priced Make the video. The AI check is a quiet "2 notes" chip with a ready Change this… note, and one Review list. Automatic fixes are said after the fact on the card.
+8. **Every screen and card** (Part 6): Quick clip History shows everyone's clips from every brand; a version chip on a script card names a person but not the step, and opens the wrong place; one video has three names; the Brand page has no setup checklist; money mixes credits and dollars with decimals; Approvals can't receive anything any more.
+9. **Reed's wider ask** (Part 5): the hierarchy, the script → editor handoff, saving, editing ease, and how much each step shows. The biggest gaps:
    - the script never says the flavour, so every editor is stopped to pick it again;
    - a script and its videos don't link to each other;
    - "kept in History" has no History to open;
    - a late breakdown fix locks the editor out of their own takes;
    - clip cards show the prompt but not the lines they cover.
    - In the local walk, editing a finished video's breakdown locked the editor out of the video she had already finished (§1.8 LW1).
-9. **Fastest wins:**
+10. **Fastest wins:**
    - every disabled button says why;
    - rename the two different "Looks good" buttons;
    - one word for the breakdown;
@@ -372,7 +373,7 @@ This is Starpop's three columns: the brand and its videos, the work, and the med
 
 # Part 3. Low-fi wireframes
 
-**Clickable version** (updated for Part 7: Plan with Shots, Cast, Storyboard, Clips with AI notes and automatic-fix lines, Final cut with the Review list; a switch for Reed's P5.1 yes or no; writing Write → Plan → Cast → Publish; Format and Look chips): [`wireframes/index.html`](wireframes/index.html) is one self-contained file, grey-box, dark or light. It toggles between phone 390 and desktop and between editor and owner, and a state switch shows Normal, Waiting, Failed, Refused, Out of date and Over budget on the video steps. It covers the Videos home, the Scripts library, Make this version (the handoff card), Write, Song, Takes, Cast, Plan, Publish, Breakdown, Assets, Storyboard, Clips (Prompts and Takes), Final cut, the cost bar and the state words. Part 6 adds:
+**Clickable version** (updated for Part 8: set Card state to *Over budget* to see held requests, Withdraw, the owner's Approve/Decline and Approvals appearing in the menu; the Director view with chat, locks and delivery note, and "Look inside" for the steps; "Other takes" with the AI's reason, Play, Use this take and Download; Quick clip at 97 credits, mine across brands. Updated for Part 7: Plan with Shots, Cast, Storyboard, Clips with AI notes and automatic-fix lines, Final cut with the Review list; a switch for Reed's P5.1 yes or no; writing Write → Plan → Cast → Publish; Format and Look chips): [`wireframes/index.html`](wireframes/index.html) is one self-contained file, grey-box, dark or light. It toggles between phone 390 and desktop and between editor and owner, and a state switch shows Normal, Waiting, Failed, Refused, Out of date and Over budget on the video steps. It covers the Videos home, the Scripts library, Make this version (the handoff card), Write, Song, Takes, Cast, Plan, Publish, Breakdown, Assets, Storyboard, Clips (Prompts and Takes), Final cut, the cost bar and the state words. Part 6 adds:
 - the brand switcher (with colours and "N need you");
 - script cards with version rows;
 - Quick clip with "my clips in this brand";
@@ -1277,14 +1278,108 @@ The rules for these lines:
 
 ---
 
+# Part 8. Screens after Reed's 30 October decisions
+
+Reed answered the open questions on 30 Oct (ops/DECISIONS.md, Current rules 4, 5 and 21, and the History lines of 30 Oct). Several later decisions change screens this audit had already specified. This part says what changes, screen by screen.
+
+**Test site walked on 30 Oct** at `https://thisisatestingenv.online` (port 443, so cloud sessions can reach it now), signed in as a QA owner, read-only, nothing paid. It has no videos yet, so the video steps were checked in the code on `next`.
+
+## 8.1 The decisions, and where each one shows
+
+| # | Reed decided | Screens it touches | Built on `next`? |
+|---|---|---|---|
+| D1 | **Four editor steps** (Plan → Cast → Make → Final cut), clean stills and takes approve themselves, *"if they can still scroll through and select and view and download previous clips the ai decided weren't good enough (and why)"* | the video page, Make, the takes list | No (five steps today) |
+| D2 | **Quick clips are the editor's own;** the owner sees everyone's. Brandless Quick clips come after 1 Nov | Quick clip History | Server yes (#1051); the owner's Mine/Everyone's switch is due |
+| D3 | **Editors edit brands and Cast & places** | brand menu, Brand page, Cast & places | Yes (#1050, #1062) |
+| D4 | **Over-budget presses are held for the owner** ("Hold requests"), not declined: nothing charged while waiting, the editor can withdraw, the owner approves or declines in Approvals. The $75 cap stays a hard refusal | every paid press, the cost bar, Approvals, lists | Being built |
+| D5 | **Approvals is hidden until something waits** | the rail, top bar, phone bell | Hidden: yes. The page text is wrong (A8.1) |
+| D6 | **$10 (97 credits) per editor a week, Quick clips only;** scripts and videos run on their budgets | Quick clip, Team, the cost bar on video and script screens | Yes (Team, Quick clip "of 97") |
+| D7 | **The site's director** (plan, not built): it builds the whole video on its own, delivers with the cost and a note, takes revisions in chat. Owner and editors can lock choices. Editors use published scripts only. The step screens stay as "look inside" | the video page's main view | No (plan, docs/next/director-chat.md) |
+
+## 8.2 What was right before and is now wrong
+
+| Id | Where | Says or does now | Why it's wrong (decision) | Fix | Size |
+|---|---|---|---|---|---|
+| **A8.1** | Approvals page (empty state) | "Editors are never sent here any more: past a budget or their week, their button gives the reason. Requests from before 26 Oct show here until they're handled." (`web/src/approvals/ApprovalsPage.tsx:123`; seen on the test site) | D4 brings held requests back to this page | "Nothing waiting. When an editor's press goes past a video's budget or their week, it waits here for you." Once D5's hiding is in, this text is seen only when everything has just been handled | S |
+| **A8.2** | Cost bar and every paid press, editor past a limit (§2.4, §2.5 "Over budget") | Disabled, with "That's more than this video's budget." / "You've used this week's N credits." | D4: the press is held, not refused | The press stays pressable and says what will happen: **"Ask the owner · 54 credits"**, with the line "This goes past the video's budget. Nothing is charged until the owner says yes." (the editor isn't told "ask Reed"; the button names the action). After pressing: the item reads **Waiting for the owner's OK** with **Withdraw**. The $75 cap stays a refusal: "This would go past the most one video can cost." | M |
+| **A8.3** | §2.5 "Waiting for the owner" row | "This would go past the video's budget." with "— (editor)" | D4 gives the editor a press | Editor: **Withdraw** (free, Undo). Owner, on the same card: **Approve · 54 credits** / **Decline** | S |
+| **A8.4** | Week meters on script and video screens (§2.4 left part, wireframes) | "This week: 40 of 145 credits" on an editor's own script | D6: the allowance is Quick clips only | The week shows only on Quick clip (and on Videos/Quick clip lists). Script and video screens show the video's budget meter only | S |
+| **A8.5** | §6.5 QC1 proposal, M20 | "my clips in this brand by default" | D2: the editor's own clips; brandless clips are coming | History is **mine, every brand**, with a brand filter. Brandless clips appear as "No brand" after 1 Nov. Owner: **Mine · Everyone's** | S |
+| **A8.6** | §6.2 B5, N12, Q5 | open question | D3 answered: editors edit | Closed; built (#1062). The menu line is gone | — |
+| **A8.7** | §6.8 ST1, S31 | "hide while nothing waits" | D5 answered the same way | Closed; keep S31 | — |
+| **A8.8** | Part 7 Q8, Q9 | open | D1: yes, four steps | Part 7's "If yes" column is now the plan; the five-step build is the interim | — |
+
+## 8.3 Reed's condition on four steps: every take stays reachable
+
+D1 holds only if editors *"can still scroll through and select and view and download previous clips the ai decided weren't good enough (and why)"*. On each clip card in **Make › Clips**:
+
+```
+┌ Clip 3 · 6 s ────────────────────────── Approved ✓ checked ┐
+│ ▶ [ take 3 — the one in the cut ]                          │
+│ LEXI: "Hell no."   ·  Lexi, Nate · Altar                    │
+│ Other takes (2) ▾                                           │
+│  ┌ Take 1 · AI: "Lexi's hair shorter than her sheet (0:02)" │
+│  │ ▶ play   [ Use this take ]   ⤓ Download                  │
+│  └ Take 2 · AI: "The ring is missing (0:04)"                │
+│    ▶ play   [ Use this take ]   ⤓ Download                  │
+│ Change this… [__________]                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Other takes (N)** is open by default when the picked take was chosen by the check, so the editor sees there were others.
+- Each earlier take shows **the AI's reason in plain words**, even after "Looks fine" (then it reads "Marked fine").
+- **Use this take** is one press with Undo, and puts it in the cut.
+- **Download** is on every take. Final cut keeps "each clip's takes" as today.
+- A take that **failed or was refused** shows in the same list with its reason ("Refused: read as too close to someone else's character"), with no play button since there's no file.
+
+## 8.4 Held requests (D4), screen by screen
+
+| Who | Where | What they see | The one press |
+|---|---|---|---|
+| Editor | any paid press past the video's budget, or Quick clip past the week | the button reads **Ask the owner · N credits**, with the line "Goes past the video's budget. Nothing is charged until the owner says yes." | **Ask the owner** |
+| Editor | the item after pressing (still, take, clip, look) | **Waiting for the owner's OK** (grey badge) · "Asked 2 min ago" | **Withdraw** (free, Undo) |
+| Editor | the video header and the Videos list | "1 request waiting for the owner" | — |
+| Editor | when the owner approves | the item turns to **Making… 0:12**; a toast "The owner said yes: clip 3 is being made." | — |
+| Editor | when the owner declines | "The owner said no. Nothing was charged." | **Change this…** or **Withdraw** clears it |
+| Owner | rail and top bar | **Approvals 2** appears (hidden at 0, D5); the phone bell shows a count | open Approvals |
+| Owner | Approvals | one row per request: what, which video, who asked, credits and $, "takes the video to 108% of its budget" | **Approve · N credits** / **Decline** (with a reason line), and **Approve all** with the total |
+| Anyone | the $75 cap | a refusal, never a hold: "This would go past the most one video can cost (729 credits)." | the free alternatives on the screen |
+| Director (D7) | a press past a budget | the same held request, and the director's chat says "Waiting for the owner's OK to make clip 3 (6 credits over the budget)." | — |
+
+## 8.5 The director (D7) and the video page
+
+The director plan keeps the step screens as **"look inside"** and makes the director's run the main path. If both land, the video page has two views, with the director's view first:
+
+| | **Director** (default once built) | **Look inside** (the steps) |
+|---|---|---|
+| What it shows | the video player or the newest cut; a progress line ("Making clips: 6 of 9 · up to 42 credits so far"); the **delivery card** (the cut, what it cost, a short decision note); the **chat**; the **locks** | Plan → Cast → Make → Final cut, exactly as Part 7 specifies |
+| The person's presses | type a change in the chat; **Lock** a choice; approve a held request (owner) | as today |
+| Locks | chips that can be pinned: Cast and looks · Look · Length · Song · Screens · End line. A locked chip shows 🔒 and "The director builds around this." | the same locks are shown on their steps (a 🔒 on the cast card, the look in Video settings) |
+| Editors | published scripts only. A request to change words gets: "The words are set for this script. I can change the delivery, the visuals or the pacing instead." (never a dead end, never "ask Reed") | — |
+| Phone (390) | the player on top, the progress line, then the chat; the composer fixed above the tabs, where the cost bar was; locks in a sheet from "Locks" | "Look inside" opens the step picker |
+| Desktop | the player and delivery in the centre, the chat on the right (the right column from §2.6), locks above the chat | the steps in the centre, the chat stays on the right |
+| Cost | the running "up to" cost in the cost bar; delivery shows the real total; past a budget it waits on a held request (8.4) | the cost bar as before |
+
+This also answers where the AI check's Advice and the Review list go: the director's delivery note lists what it redid and why, and the **Review** list (§7.7) stays the place for what it left with Advice.
+
+## 8.6 Changes added to the list
+
+| # | Change | Fixes | Size |
+|---|---|---|---|
+| **S42** | Approvals empty-state text (A8.1) | A8.1 | S |
+| **M29** | **Held requests** on every paid press: "Ask the owner · N" with its line, the Waiting badge with Withdraw, the owner's Approve/Decline on the item and in Approvals; the counter appears in the rail only when something waits | A8.2, A8.3, D4, D5 | M |
+| **S43** | Week meter on Quick clip only; video and script screens show the video's budget only | A8.4 | S |
+| **S44** | Quick clip History: mine across brands with a brand filter; owner Mine · Everyone's; "No brand" rows after 1 Nov | A8.5 | S |
+| **M30** | **Other takes (N)** on every clip card: play, Use this take, Download, the AI's reason (also failed and refused tries) | D1, 8.3 | M |
+| **L3** | **Director view** on the video page: player and delivery card, progress line, chat, locks; "Look inside" for the steps (with the director plan's build order) | D7, 8.5 | L |
+
+**Build order now:** S42 and S43 first (they correct live text and numbers), then M29 (it changes what editors see on every paid press), then M30 together with Part 7's Make step (M27), then L3 after the director's server pieces.
+
+---
+
 ## Test site walk
 
-**Blocked from this session.** The test site is up at `https://srv2091584.hstgr.cloud:8443` (Next-Lead, 2026-10-28; its own health check passed), on the free stand-ins. This cloud session can't reach port 8443: the connection is reset by the session's network proxy, not by the site. It also has no owner account until Reed runs his invite.
-
-Until then, §1.8 stands in: the same `next` code, run locally on the same stand-ins. To finish the walk, one of these:
-- the session's network access allows `srv2091584.hstgr.cloud:8443`;
-- a teammate who can reach the site runs the walk script in `ux-audit-shots/NOTES.md` against it;
-- Reed or QA-Live walks it with this audit's §1.7 and §1.8 as the checklist.
+The test site answers on port 443 at `https://thisisatestingenv.online` (#1038), which cloud sessions can reach; `:8443` still works for browsers. Walked on 30 Oct as a QA owner, read-only (§8). It had no videos yet, so the video steps still rely on the local walks (§1.8, Part 6).
 
 ## Questions
 

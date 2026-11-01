@@ -14,7 +14,7 @@ import { ImagePicker } from "./ImagePicker";
 import { useMe } from "../auth/useMe";
 import { useLooks } from "../scripts/Looks";
 import { useLanguages } from "../languages/useLanguages";
-import { CtaLines, DefaultCast, OWNER_ONLY, setupOf } from "./BrandSetup";
+import { CtaLines, DefaultCast, setupOf } from "./BrandSetup";
 import { SiteImport } from "./SiteImport";
 
 type Brand = components["schemas"]["BrandOut"];
@@ -47,11 +47,10 @@ function KitWithImport({ brand }: { brand: Brand }) {
 /** `quiet`: an import review holds the page's one press, so an untouched form's Save changes steps aside. */
 function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (changed: boolean) => void; quiet: boolean }) {
   const setup = setupOf(brand); // BR1, once the server has it
-  const owner = useMe().data?.role === "owner";
   const looks = useLooks().data;
   const languages = useLanguages().data;
-  // With BR1 the new sections are the owner's (an editor's save leaves them out), and never_say and end_line are the
-  // server's to keep in step with the Don't list and the Default CTA line, so they are never sent.
+  // Editors edit the whole brand, as the owner does (Reed, 30 Oct). With BR1, never_say and end_line are the server's to
+  // keep in step with the Don't list and the Default CTA line, so they are never sent.
   const extra = setup
     ? { audience: setup.audience, do_list: setup.do_list, dont_list: setup.dont_list, music_style: setup.music_style, default_look: setup.default_look, default_language: setup.default_language, default_cast: setup.default_cast }
     : null;
@@ -74,9 +73,7 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
   const toast = useToast();
   const patch = async (all: typeof kit) => {
     const { never_say, end_line, audience, do_list, dont_list, music_style, default_look, default_language, default_cast, tone_notes, ...rest } = all;
-    // Until the owner decides, editors keep what they edit today: tone notes, never say and the end line (the server
-    // carries those into the Don't list and the Default CTA line). The owner edits the new fields themselves.
-    const body = owner && setup ? { ...rest, tone_notes, audience, do_list, dont_list, music_style, default_look, default_language, default_cast } : { ...rest, tone_notes, never_say, end_line };
+    const body = setup ? { ...rest, tone_notes, audience, do_list, dont_list, music_style, default_look, default_language, default_cast } : { ...rest, tone_notes, never_say, end_line };
     const { error, response } = await api.PATCH("/brands/{brand_id}", { params: { path: { brand_id: brand.id } }, body: body as typeof kit });
     if (!response.ok) throw new Error(errorText(error));
     await queryClient.invalidateQueries({ queryKey: ["brands"] });
@@ -159,33 +156,17 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
           <Card className="min-w-0 space-y-5">
             <h2 className="type-section">Voice and tone</h2>
             <TextArea label="How the brand talks" rows={5} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
-            {owner ? (
-              <>
-                <TextArea label="Audience" rows={2} placeholder="Dog owners who've tried everything" value={kit.audience ?? ""} onChange={(e) => set("audience", e.target.value)} />
-                <ChipList label="Do" items={kit.do_list ?? []} onChange={(v) => set("do_list", v)} placeholder="Something to always do" />
-                <ChipList label="Don't" items={kit.dont_list ?? []} onChange={(v) => set("dont_list", v)} placeholder="A word or phrase to never say" />
-                <Field label="Music style" value={kit.music_style ?? ""} placeholder="Upbeat pop, warm" hint="New song versions start with this music style." onChange={(e) => set("music_style", e.target.value)} />
-              </>
-            ) : (
-              <>
-                <ChipList label="Don't" items={kit.never_say} onChange={(v) => set("never_say", v)} placeholder="A word or phrase to never say" />
-                <Field label="End line" value={kit.end_line} onChange={(e) => set("end_line", e.target.value)} hint="The Default call to action: the last clip of a video says it." />
-                <div className="space-y-3 rounded-md bg-surface-2 p-3">
-                  <p className="text-sm text-muted">{OWNER_ONLY}</p>
-                  <TextArea label="Audience" rows={2} readOnly value={kit.audience ?? ""} />
-                  <ReadList label="Do" items={kit.do_list ?? []} />
-                  <Field label="Music style" readOnly value={kit.music_style ?? ""} />
-                </div>
-              </>
-            )}
+            <TextArea label="Audience" rows={2} placeholder="Dog owners who've tried everything" value={kit.audience ?? ""} onChange={(e) => set("audience", e.target.value)} />
+            <ChipList label="Do" items={kit.do_list ?? []} onChange={(v) => set("do_list", v)} placeholder="Something to always do" />
+            <ChipList label="Don't" items={kit.dont_list ?? []} onChange={(v) => set("dont_list", v)} placeholder="A word or phrase to never say" />
+            <Field label="Music style" value={kit.music_style ?? ""} placeholder="Upbeat pop, warm" hint="New song versions start with this music style." onChange={(e) => set("music_style", e.target.value)} />
             <Field label="Legal line" value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
           </Card>
-          <CtaLines brandId={brand.id} lines={setup.cta_lines} advice={setup.advice} owner={owner} />
+          <CtaLines brandId={brand.id} lines={setup.cta_lines} advice={setup.advice} />
           <Card className="min-w-0 space-y-5">
             <h2 className="type-section">Defaults for new scripts</h2>
-            {!owner && <p className="text-sm text-muted">{OWNER_ONLY}</p>}
             {looks && (
-              <Select label="Look" disabled={!owner} value={kit.default_look} onChange={(e) => set("default_look", e.target.value)} hint={looks.find((l) => l.id === kit.default_look)?.on === false ? "Off for editors: new scripts will start on House until it's on." : undefined}>
+              <Select label="Look" value={kit.default_look} onChange={(e) => set("default_look", e.target.value)} hint={looks.find((l) => l.id === kit.default_look)?.on === false ? "Off for editors: new scripts will start on House until it's on." : undefined}>
                 {looks.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}{l.on ? "" : " (off for editors)"}</option>
                 ))}
@@ -193,13 +174,13 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
             )}
             {languages && (
               // Every language, as the Look picker: an Off one is marked, and editors start in English.
-              <Select label="Language" disabled={!owner} value={kit.default_language} onChange={(e) => set("default_language", e.target.value)} hint={languages.some((l) => l.id === kit.default_language && !l.on) ? "New scripts by editors start in English." : undefined}>
+              <Select label="Language" value={kit.default_language} onChange={(e) => set("default_language", e.target.value)} hint={languages.some((l) => l.id === kit.default_language && !l.on) ? "New scripts by editors start in English." : undefined}>
                 {languages.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}{l.on ? "" : " (off for editors)"}</option>
                 ))}
               </Select>
             )}
-            <DefaultCast brandId={brand.id} value={kit.default_cast ?? []} picks={setup.cast} readOnly={!owner} onChange={(v) => set("default_cast", v)} />
+            <DefaultCast brandId={brand.id} value={kit.default_cast ?? []} picks={setup.cast} onChange={(v) => set("default_cast", v)} />
           </Card>
           {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
         </div>
@@ -218,21 +199,5 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
       </Card>
       )}
     </form>
-  );
-}
-
-/** A list shown read only (an editor's Do and Don't). */
-function ReadList({ label, items }: { label: string; items: string[] }) {
-  return (
-    <div className="space-y-1">
-      <p className="text-sm font-medium">{label}</p>
-      {items.length === 0 ? <p className="text-sm text-muted">Nothing yet.</p> : (
-        <ul className="flex flex-wrap gap-2">
-          {items.map((x) => (
-            <li key={x} className="rounded-md bg-surface-3 px-3 py-1 text-sm">{x}</li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
