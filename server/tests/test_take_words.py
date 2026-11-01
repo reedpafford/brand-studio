@@ -138,6 +138,13 @@ def test_a_sound_the_script_or_action_asks_for_is_on_purpose_and_other_tags_aren
     assert again["at"] == 4.5 and "another gasp" in again["text"]
 
 
+def test_a_scripted_one_word_line_is_a_line_not_a_gasp():
+    for word in ("Oh.", "Hmm.", "Huh?", "Ah!"):
+        lines = [*LINES, {"who": "MIA", "text": word}]
+        heard = _heard("Fomo made me rich!", "No way.", word)
+        assert compare(lines, heard, "fomo", "FOH-moh", []) == [], word  # neither, said right
+
+
 def test_takes_are_heard_with_their_sounds_and_the_stand_in_gasps_on_cue(monkeypatch, tmp_path):
     asked = {}
     monkeypatch.setattr("app.reel.transcribe", lambda path, sounds=False: asked.update(

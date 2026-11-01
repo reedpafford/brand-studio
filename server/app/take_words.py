@@ -76,16 +76,17 @@ def _sound(tag: str) -> bool:
     return any(w in tag.lower() for w in SOUNDS)
 
 
-def _sounds(heard: list[dict], asked: str) -> tuple[list[dict], list[dict]]:
+def _sounds(heard: list[dict], asked: str, lines: list[str]) -> tuple[list[dict], list[dict]]:
     """The non-speech sounds heard, as findings, and the heard lines with them taken out. A
     sound the script or the action asks for ("(gasps)", "she sighs") is left alone, unless
-    it's a second one in the clip."""
+    it's a second one in the clip. A breath-like line the script has ("MIA: Oh.") is a line."""
     found, spoken, count = [], [], 0
     for h in heard:
         at, span = _clock(h["start"]), f"{_clock(h['start'])}–{_clock(h['end'])}"
         tags = [f"({t})" for t in TAG.findall(h["text"]) if _sound(t)]
         rest = TAG.sub("", h["text"]).strip()  # no tag is a line: "(music)", "[applause]"
-        if BREATH.fullmatch(rest):  # only a breath: "Haah!"
+        scripted = any(_close(rest, line) >= SAID for line in lines)
+        if BREATH.fullmatch(rest) and not scripted:  # only a breath: "Haah!"
             tags, rest = [*tags, rest.strip(" .!?…")], ""
         for t in tags:
             count += 1
@@ -109,7 +110,7 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
     the clip's action has inner speech or reply/answer wording), the brand said wrong, and
     gasps or heavy breaths nobody asked for."""
     asked = " ".join([*actions, *(line["text"] for line in lines)]).lower()
-    findings, heard = _sounds(heard, asked)
+    findings, heard = _sounds(heard, asked, [line["text"] for line in lines])
     sounds, findings, used = findings, [], set()
     for line in lines:
         near = sorted(range(len(heard)), key=lambda i: -_close(line["text"], heard[i]["text"]))
