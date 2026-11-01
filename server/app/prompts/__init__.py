@@ -79,7 +79,7 @@ def styles() -> list[dict]:
             "id": path.stem,
             "name": head.splitlines()[0].removeprefix("# "),
             "kind": meta["kind"],
-            "order": int(meta["order"]),
+            "order": float(meta["order"]),  # 5.1: a look's sub-style sits beside it
             "on": meta["on"] == "yes",
             "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero
             "image_model": meta["image_model"],
@@ -729,11 +729,17 @@ def item_check_input(
     sheets: list[tuple[str, str]],
     product: tuple[str, str] | None = None,
     frames: int = 0,
+    cast: list[str] | None = None,
+    screens: list[tuple[str, str]] | None = None,
+    screen_rules: list[str] | None = None,
 ) -> str:
     """The user message for item_check; the images go before it, in this order: the item (a
     still, or a take's `frames` in order), each sheet in `sheets` ((id, "Mia: ...")), then the
     product's image when the shot shows it ((id, "Iron Paws peanut butter bag")).
-    `shot` is what the item should show (its action and who's in it)."""
+    `shot` is what the item should show (its action and who's in it). Take check slice 2:
+    `cast` names who should be in the shot, `screens` ((id, "fomo Home screen")) are the
+    brand's screens, their images after the product's, and `screen_rules` the brand notes'
+    lines about screens (only with screens). With none of them, the message is as before."""
     seen = (
         f"Images 1–{frames} are frames of one take, in order"
         if frames > 1
@@ -744,9 +750,19 @@ def item_check_input(
         n += 1
         refs.append(f'<sheet image="{n}" id="{ref_id}">{what.strip()}</sheet>')
     if product:
-        refs.append(f'<product image="{n + 1}" id="{product[0]}">{product[1].strip()}</product>')
-    return (f"<item>{seen}.</item>\n<shot>{shot.strip()}</shot>\n"
+        n += 1
+        refs.append(f'<product image="{n}" id="{product[0]}">{product[1].strip()}</product>')
+    text = (f"<item>{seen}.</item>\n<shot>{shot.strip()}</shot>\n"
             "<references>\n" + "\n".join(refs) + "\n</references>")  # fmt: skip
+    if cast:
+        text += f"\n<cast>{', '.join(cast)}</cast>"
+    if screens:
+        shown = [f'<screen image="{n + i}" id="{s}">{what.strip()}</screen>'
+                 for i, (s, what) in enumerate(screens, 1)]  # fmt: skip
+        text += "\n<screens>" + "".join(shown) + "</screens>"
+        if rules := [r.strip() for r in screen_rules or [] if r.strip()]:
+            text += "\n<screen_rules>\n" + "\n".join(rules) + "\n</screen_rules>"
+    return text
 
 
 def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:

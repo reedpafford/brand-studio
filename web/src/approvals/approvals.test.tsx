@@ -45,18 +45,27 @@ test("a held job shows what it is, its credits and what it does to the budget, a
   expect(await screen.findByText("Approved. A new take is being made.")).toBeInTheDocument();
 });
 
-test("Decline asks first in a dialog, then cancels and says nothing was charged", async () => {
-  const calls = fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "POST /jobs/50/cancel": [200, held({ status: "cancelled" })] });
+test("Decline asks first in a dialog, with an optional reason the editor sees, then declines and says nothing was charged", async () => {
+  const calls = fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "POST /jobs/50/decline": [200, held({ status: "cancelled", declined: true })] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Decline a new take" }));
   const ask = await screen.findByRole("alertdialog", { name: "Decline a new take for Sam?" });
-  expect(within(ask).getByText(/Nothing is charged\. Sam can ask again\./)).toBeInTheDocument();
+  expect(within(ask).getByText(/Nothing is charged\. Sam sees your reason and can ask again\./)).toBeInTheDocument();
   await userEvent.click(within(ask).getByRole("button", { name: "Keep it" }));
-  expect(calls.some((c) => c.key === "POST /jobs/50/cancel")).toBe(false);
+  expect(calls.some((c) => c.key === "POST /jobs/50/decline")).toBe(false);
   await userEvent.click(screen.getByRole("button", { name: "Decline a new take" }));
-  await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Decline" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /jobs/50/cancel")).toBe(true));
+  const again = await screen.findByRole("alertdialog");
+  await userEvent.type(within(again).getByLabelText("Reason (optional)"), "Over budget this week");
+  await userEvent.click(within(again).getByRole("button", { name: "Decline" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /jobs/50/decline")?.body).toEqual({ reason: "Over budget this week" }));
   expect(await screen.findByText("Declined. Nothing was charged.")).toBeInTheDocument();
+});
+
+test("with nothing waiting, Approvals says held presses from editors show here (S42)", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, []], "GET /projects": [200, []] });
+  open();
+  expect(await screen.findByText(/an editor's press goes past a video's budget or their week, or they make songs, narration or music on a script, it waits here/)).toBeInTheDocument();
+  expect(screen.queryByText(/never sent here/)).toBeNull();
 });
 
 test("Approve all asks with the total in credits and dollars, then approves every request", async () => {

@@ -23,6 +23,7 @@ import { useScript, usePatchScript } from "./useScript";
 import { LookSetting } from "./Looks";
 import { ProjectPicker } from "../folders/Projects";
 import { FormatAdvice, FormatSetting } from "./Format";
+import { HeldRequests } from "../approvals/HeldRequests";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -171,6 +172,7 @@ export function ScriptFlowPage() {
         )}
       </div>
       {del.dialog}
+      <HeldRequests where={{ scriptId: s.id }} />
       {leaving && (
         <Dialog title={hold?.title ?? "Leave this step?"} cancelLabel="Stay" actionLabel="Leave" danger onCancel={() => setLeaving(null)} onConfirm={() => { leaving(); setLeaving(null); }}>
           {hold?.body}

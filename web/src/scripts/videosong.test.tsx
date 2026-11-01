@@ -45,17 +45,6 @@ test("the strip shows the video's song with Change song; Use this take asks firs
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /projects/5/song").at(-1)?.body).toEqual({ take_id: 1 }));
 });
 
-test("an editor over the video's budget can't make 2 more and is told why; the takes there stay usable", async () => {
-  setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: false })])] });
-  show(project({ credits_used: 99.5, budget_credits: 100 }));
-  await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
-  const panel = await screen.findByRole("dialog", { name: "Change song" });
-  expect(within(panel).getByRole("button", { name: /Make 2 more takes/ })).toBeDisabled();
-  expect(within(panel).getByText("That's more than this video's budget.")).toBeInTheDocument();
-  expect(within(panel).getByRole("button", { name: "Use this take" })).toBeEnabled();
-});
-
 test("a take too long for this video can't be used until 'Use the first 0:55' trims it", async () => {
   setViewport(1440);
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: false, seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/2/trim": [200, take({ id: 2, number: 2, trim_to: 55 })] });

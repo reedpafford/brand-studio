@@ -4,7 +4,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
-import { owner } from "../test/people";
+import { editor, owner } from "../test/people";
 
 const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paws through the link in my bio." }];
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
@@ -214,3 +214,11 @@ test("switching to Dialogue from the Narration step lands on Script", async () =
   expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
 });
 
+
+test("an editor's Make the narration reads Send for approval with its price; the owner's stays as it is", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts/7": [200, narrated()], "GET /scripts/7/drafts/0/songs": [200, songs([], { estimate_credits: 2 })] });
+  open("/b/1/scripts/7?step=narration");
+  expect(await screen.findByRole("button", { name: /Send for approval · 2 credits/ })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: /Make the narration/ })).toBeNull();
+});
