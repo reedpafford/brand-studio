@@ -81,7 +81,7 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     run = {"id": "r1", "turn": 3, "redos": {}}
     assert watch_cut.start(db, user, project, run) == "Watching the cut."
     db.commit()
-    assert watch_cut.watch_state(db, project)["state"] == "watching"
+    assert watch_cut.state(db, project)["state"] == "watching"
     run_once(db, {"local": LocalProvider(app.state.storage, hear_cut=hear_cut)},
              app.state.storage, only={"local"})  # fmt: skip
     look = db.query(Job).filter(Job.kind == "check-claude").order_by(Job.id.desc()).first()
@@ -91,7 +91,7 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     assert look.credits > 0  # priced "up to", on the director's own limit
     run_writer(app, db)
     db.expire_all()
-    watch = watch_cut.watch_state(db, project)
+    watch = watch_cut.state(db, project)
     assert (watch["state"], watch["current"], watch["lands"]) == ("done", True, True)
     redo, mute = watch["findings"]
     assert (redo["clip_id"], redo["fix"], redo["mute"]) == ("c1", "redo", None)
@@ -100,4 +100,4 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     editor.post(f"{base}/clips/{clip['id']}/generate")  # a new take: the cut is out of date
     _work(app, db, FakeSeedance([_mp4("blue")]))
     db.expire_all()
-    assert watch_cut.watch_state(db, project)["current"] is False
+    assert watch_cut.state(db, project)["current"] is False

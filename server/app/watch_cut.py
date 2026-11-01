@@ -134,7 +134,7 @@ def heard_cut(db: Session, job: Job) -> None:
                         for t in others]})  # fmt: skip
     version = plans.script(db, project)
     plan = plans.current(db, project)
-    labels = [(n, f"[Image{n}] {f['clip_id']} at {f['t']:.1f} s ({f['label']})")
+    labels = [(n, f"{f['clip_id']} at {f['t']:.1f} s ({f['label']})")
               for n, f in enumerate(frames, 1)]  # fmt: skip
     text = prompts.watch_cut_input(
         version.text if version else "",
@@ -219,7 +219,7 @@ def save(db: Session, job: Job) -> None:
     job.output = {**(job.output or {}), "checked": found}
 
 
-def watch_state(db: Session, project: Project) -> dict:
+def state(db: Session, project: Project) -> dict:
     """What the director reads as <video>.watch: the newest watch, and whether it's of the
     cut there is now."""
     from app.routes.project_clips import out_of_date
@@ -242,3 +242,6 @@ def watch_state(db: Session, project: Project) -> dict:
     out = newest.output or {}
     return {"state": "done", **base, "lands": bool(out.get("lands")),
             "summary": out.get("summary", ""), "findings": out.get("checked", [])}  # fmt: skip
+
+
+watch_state = state  # the name Next-Server's first wiring used
