@@ -5,7 +5,7 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Button } from "../components";
-import { useLooks } from "../scripts/Looks";
+import { pickable, useLooks } from "../scripts/Looks";
 import { useToast } from "../toast";
 import { card, errorText as errorClass } from "../ui";
 import { useSheetPrice } from "./SheetPanel";
@@ -16,7 +16,7 @@ type Item = components["schemas"]["ItemOut"];
  *  look without one makes its own copy at Assets instead. */
 export function LookSheets({ item }: { item: Item }) {
   const owner = useMe().data?.role === "owner";
-  const looks = (useLooks().data ?? []).filter((l) => l.id !== "house");
+  const looks = pickable(useLooks().data ?? []).filter((l) => l.id !== "house");
   const queryClient = useQueryClient();
   const toast = useToast();
   const { model, price } = useSheetPrice();

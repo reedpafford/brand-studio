@@ -12,7 +12,7 @@ import { BrandAction, useReportDirty } from "./BrandPage";
 import { ChipList } from "./ChipList";
 import { ImagePicker } from "./ImagePicker";
 import { useMe } from "../auth/useMe";
-import { useLooks } from "../scripts/Looks";
+import { lookName, pickable, useLooks } from "../scripts/Looks";
 import { useLanguages } from "../languages/useLanguages";
 import { CtaLines, DefaultCast, setupOf } from "./BrandSetup";
 import { SiteImport } from "./SiteImport";
@@ -167,9 +167,11 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
             <h2 className="type-section">Defaults for new scripts</h2>
             {looks && (
               <Select label="Look" value={kit.default_look} onChange={(e) => set("default_look", e.target.value)} hint={looks.find((l) => l.id === kit.default_look)?.on === false ? "Off for editors: new scripts will start on House until it's on." : undefined}>
-                {looks.map((l) => (
+                {/* The styles; a brand already on one of a style's lanes keeps it, by its name (one look per style). */}
+                {[...pickable(looks), ...looks.filter((l) => l.id === kit.default_look && !pickable(looks).includes(l))].map((l) => (
                   <option key={l.id} value={l.id}>{l.name}{l.on ? "" : " (off for editors)"}</option>
                 ))}
+                {!looks.some((l) => l.id === kit.default_look) && kit.default_look && <option value={kit.default_look}>{lookName(looks, kit.default_look)}</option>}
               </Select>
             )}
             {languages && (
