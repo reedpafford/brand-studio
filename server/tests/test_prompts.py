@@ -1203,7 +1203,7 @@ def test_pacing_is_by_purpose_and_scenes_hand_off():
             assert gone not in text, (step, gone)
     bd = prompts.system("breakdown")
     assert "Pace by purpose, never by the clock" in bd and "go wide when a reaction" in bd
-    assert "for as long as it needs, up to about 13 s" in bd
+    assert "for as long as it needs, within the video model's max" in bd
     assert "**Endings flow.**" in bd and "the dog's ears dropping" in bd
     assert "The clip's last line never ends in its last moments" in prompts.system("clip_prompts")
     assert "**Scenes flow.**" in prompts.system("script_draft")
@@ -1485,7 +1485,38 @@ def test_fomo_producers_redo_notes_reach_the_prompts():
     """FOMO-Producer's Reptilian and Fired redos (projects 56, 57; 1 Nov)."""
     breakdown = prompts.system("breakdown")
     assert "a remake keeps its <reference>'s own pace" in breakdown
-    assert "up to about 13 s even where the model allows more" in breakdown
-    assert "split a longer one at a natural beat" in breakdown
+    assert "past about 13 s consider splitting at a natural beat" in breakdown
+    assert "the story comes first" in breakdown and "up to about 13 s" not in breakdown
     clip = prompts.system("clip_prompts")
     assert '"Oh my God", "Oh", "Yes!"' in clip and "no bangs), never who they are" in clip
+
+
+def test_reptilian_v4_craft_reaches_the_steps():
+    """FOMO-Producer's Reptilian v4 (Reed: "much better") and the shot-by-shot notes, as craft,
+    never story rules, and with no seconds (rule 29)."""
+    breakdown = prompts.system("breakdown")
+    for part in ('"why does this happen?"', "the wit is in the lines and the gags",
+                 "Never add a hook or an opener the script doesn't have",
+                 "one named feeling and one clear action", 'never just "talks" or "reacts"',
+                 "the call to action is still said shaken", "then a reaction shot"):  # fmt: skip
+        assert part in breakdown, part
+    assert '"why does this happen?"' in prompts.system("plan")
+    clip = prompts.system("clip_prompts")
+    assert "A reveal or a punchline is big, unmistakable and held long enough to read" in clip
+    director = prompts.system("director")
+    for part in ("the words against the pictures", "a feeling that snaps", "a dead hold",
+                 "Fix what you find before delivering, rather than listing it"):  # fmt: skip
+        assert part in director, part
+    for step in ("breakdown", "clip_prompts", "director", "plan"):
+        assert "6–11 s" not in prompts.system(step), step
+
+
+def test_clip_lengths_are_suggestions_not_rules():
+    """Reed, 1 Nov: "Why is there a hard 13 second rule? we said no hard rules, just
+    suggestions." The scene's length comes first; past a length, splitting is worth a thought."""
+    assert "the story comes first" in prompts.system("breakdown")
+    for step in ("breakdown", "song_breakdown", "narrated_breakdown"):
+        text = prompts.system(
+            step, fmt={"song_breakdown": "song", "narrated_breakdown": "narrated"}.get(step, "")
+        )
+        assert "s at most" not in text and "up to about 13 s" not in text, step
