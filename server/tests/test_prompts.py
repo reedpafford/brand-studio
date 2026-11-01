@@ -1404,6 +1404,7 @@ def test_take_check_slice_2_looks_at_eyes_screens_and_cast():
     assert "<screen_rules>\nfomo only wins.\n</screen_rules>" in text
     system = prompts.system("item_check")
     assert "never glowing or red" in system and "only when <screens> is given" in system
+    assert "A garbled or invented screen is always a finding" in system
     assert "only wins" not in system  # a brand's own screen rule comes in <screen_rules>
     F = schemas.Finding
     found = schemas.ItemCheck(findings=[
