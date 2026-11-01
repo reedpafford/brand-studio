@@ -212,3 +212,13 @@ def test_song_has_only_its_guides_and_takes_its_look_from_the_video():
         made = prompts.system(step, "claymation", "song")
         assert "Pixar musical" not in made and "Pixar animated feature" not in made, step
         assert "## Format: Song\nThis video is a Song video in the Claymation look" in made
+
+
+def test_anime_comic_holds_reeds_skill():
+    """Reed's anime-comic skill (docs/next/skills, #1097): one original graphic language set
+    once, strong key poses, effects only when they serve the shot, no protected characters."""
+    look = prompts.style("anime-comic")["sections"]
+    assert "set once here and held in every shot" in look["sheet_look"]
+    assert "franchise symbol" in look["sheet_look"] and "panel border" in look["still"]
+    breakdown = prompts.system("breakdown", "anime-comic")
+    assert "a power-up that shows how the product works" in breakdown
