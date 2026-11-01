@@ -58,7 +58,7 @@ for (const [step, ready] of [
   ["plan", () => screen.findByRole("heading", { name: "Plan", level: 2 })],
   ["cast", () => screen.findByLabelText("Bo")],
   ["storyboard", () => screen.findByLabelText("Frame c1")],
-  ["clips", () => screen.findByRole("heading", { name: "Clips", level: 2 })],
+  ["clips", () => screen.findByRole("tab", { name: /Clips/, selected: true })],
   ["downloads", () => screen.findByRole("link", { name: /Download MP4/ })],
 ] as const) {
   test(`at ${step}, an editor on someone else's video can look: one banner, every changing press greyed out, reads still live`, async () => {

@@ -39,5 +39,5 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
   await ed.getByRole("tab", { name: "Look inside" }).click();
   await expect(ed).toHaveURL(/step=plan/);
-  await expect(ed.getByRole("button", { name: /^Step 1 of 5/ })).toBeVisible(); // the phone step picker
+  await expect(ed.getByRole("button", { name: /^Step 1 of 4/ })).toBeVisible(); // the phone step picker
 });
