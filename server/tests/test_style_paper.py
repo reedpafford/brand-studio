@@ -40,3 +40,12 @@ def test_paper_footage_has_no_printed_words_and_repairs_keep_a_noun():
     for s in prompts.styles():  # a noun is replaced, never deleted ("a wooden," behind)
         deleted = {w.lower() for w, new in prompts.look_banned(s["id"]) if not new}
         assert not deleted & {"tabletop", "table", "board", "diorama", "shadow box"}, s["id"]
+
+
+def test_a_safeguard_after_nothing_is_never_rewritten():
+    """Next-Lead on #1115: "Nothing gory, no blood." became "Nothing, no blood."."""
+    from app.prompts import check
+
+    for line in ("Nothing gory, no blood.", "Bones and glow, none of it gory."):
+        assert check.look_words(line, "skeleton")[:2] == (line, []), line
+    assert check.look_words("A gory scene.", "skeleton")[0] == "A scene."  # still repaired
