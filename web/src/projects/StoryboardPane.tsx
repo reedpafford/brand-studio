@@ -11,7 +11,6 @@ import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
-import { useBudgetStop } from "./useBudgetStop";
 import { Banner, Button, Dialog, pressLabel, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
@@ -52,9 +51,9 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const [lightbox, setLightbox] = useState<Frame | null>(null);
   const [confirmRedo, setConfirmRedo] = useState(false);
   const auto = useRef(false);
-  const limit = useBudgetStop({ used: props.used, budget: props.budget }); // the frames were just asked for, and the stills follow
   // While an earlier step is out of date every paid press waits, with why (audit M14); free ones (Approve, edits) stay.
-  const stopFor = (cost: number | undefined) => props.hold ?? limit(cost);
+  // An editor's over-budget press is held for the owner (#1068), never stopped here; only what blocks for everyone is.
+  const stopFor: (cost: number | undefined) => string | null = () => props.hold ?? null;
   const jobOf = (id: number) => jobs.data?.find((j) => j.id === id);
   // Still going: the run that writes the frames, and the stills I started. Between pressing and the job showing in the list it counts as going.
   // A job the list never shows is waited on only briefly (a lost run or still must not read "Writing…" or "Drawing…" for ever).
