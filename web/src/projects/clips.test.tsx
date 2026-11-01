@@ -199,12 +199,33 @@ test("takes can be picked, and Approve take approves the picked one", async () =
   });
   open();
   const card = await screen.findByLabelText("Clip c1");
-  expect(within(card).getByLabelText("Take 2")).toBeChecked();
-  await userEvent.click(within(card).getByLabelText("Take 1"));
+  expect(within(card).getByText("Take 2 · ready to check")).toBeInTheDocument();
+  await userEvent.click(within(card).getByText("Other takes (1)"));
+  expect(within(card).getByLabelText("Take 1")).toHaveTextContent("Not checked");
+  expect(within(card).getByRole("link", { name: "Download take 1" })).toHaveAttribute("download", "Mia buys the dip-c1-take1.mp4");
+  await userEvent.click(within(card).getByRole("button", { name: "Use take 1" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/takes/5/pick")).toBe(true));
   await userEvent.click(within(card).getByRole("button", { name: "Approve take" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/approve")).toBe(true));
   expect(within(card).getByRole("link", { name: "Download" })).toHaveAttribute("download", "Mia buys the dip-c1-take2.mp4");
+});
+
+test("a take the check passed over stays playable and downloadable, with why (Reed, 30 Oct)", async () => {
+  fakeServer({
+    ...base,
+    "GET /projects/9/clips": [200, [clip({ file_id: 71, picked_take_id: 6, takes: [
+      { id: 5, number: 1, file_id: 70, verdict: "flagged", check: { id: 1, status: "advice", findings: [{ index: 0, kind: "face", text: "Mia's face may differ from her sheet", note: "Keep Mia's face as on her sheet." }] } },
+      { id: 6, number: 2, file_id: 71, verdict: "clean", check: { id: 2, status: "ok", findings: [] } },
+    ] })]],
+  });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  const other = within(card).getByLabelText("Take 1"); // open by itself: a take was passed over
+  expect(other).toHaveTextContent("Passed over");
+  expect(other).toHaveTextContent("Mia's face may differ from her sheet");
+  await userEvent.click(within(other).getByRole("button", { name: "Play take 1" }));
+  expect(within(other).getByLabelText("Take 1 of clip c1")).toHaveAttribute("src", expect.stringContaining("70"));
+  expect(within(other).getByRole("link", { name: "Download take 1" })).toBeInTheDocument();
 });
 
 test("the video waits for every approval, says how many are left, then stitches for free", async () => {

@@ -321,6 +321,57 @@ def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
     assert len(tries) == 3 and len(out["turns"]) < 8  # three tries, no turns spent past them
 
 
+def test_it_keeps_to_the_videos_locks_and_reads_its_outfits(app, db, owner, editor):
+    import json
+
+    from app import director_tools
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    kid = db.get(Project, pid).cast_ids[-1]
+    editor.put(
+        f"/projects/{pid}/locks",
+        json={"locks": {"cast": True}, "outfits": {f"char:{kid}": "a yellow raincoat"}},
+    )
+    project = db.get(Project, pid)
+    db.refresh(project)
+    state = director.video_state(db, project)
+    assert state["locked"] == {"cast": True}
+    assert state["outfits"] == {f"char:{kid}": "a yellow raincoat"}
+    prompt = director.turn_input(db, project, {"id": "r", "turn": 0, "redos": {}})["prompt"]
+    assert json.loads(prompt.split("<video>")[1].split("</video>")[0])["locked"] == {"cast": True}
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    said = director_tools.run(db, user, project, {"tool": "make_looks"}, None)
+    assert said == (
+        "Refused: the cast is locked for this video. Approve the missing looks in "
+        "Cast, or unlock the cast, then start it again."
+    )
+    db.commit()  # reading the video may save its plan's state: let the requests write
+    editor.post(f"/projects/{pid}/director")  # its cast is whole: the lock never stands in the way
+    _run(app, db)
+    assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+
+
+def test_a_locked_cast_with_a_look_missing_stops_saying_what_to_do(
+    app, db, owner, editor, monkeypatch
+):
+    pid = _made(app, owner, editor, db)
+    editor.put(f"/projects/{pid}/locks", json={"locks": {"cast": True}})
+    real = director.choose
+    monkeypatch.setattr(
+        "app.director.choose",
+        lambda state: {**real(state), "tool": "make_looks", "why": "A look is missing."},
+    )  # every turn
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "ended" and len(out["turns"]) == 2  # refused twice, then stops
+    assert out["ended"] == (
+        "It stopped: the cast is locked for this video. Approve the missing "
+        "looks in Cast, or unlock the cast, then start it again."
+    )
+
+
 def test_a_turn_that_fails_inside_the_worker_ends_the_run_and_nothing_more_is_charged(
     app, db, owner, editor, monkeypatch
 ):
