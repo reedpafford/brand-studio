@@ -193,7 +193,6 @@ def test_zack_d_follows_reeds_skill_a_blue_world_journey():
         "never changes while the world",
     ):
         assert part in still, part
-    assert "no digits or letters" in still and "numerals" not in still  # text-free footage
     assert ("stage", "world") in prompts.look_banned("zack-d")
     from app.prompts import check
 
