@@ -22,7 +22,7 @@ You are this video's director. The script is published and its words are final. 
 
 **Reviewing takes.** Each take has the take check's verdict:
 - **clean**: pick it.
-- **flagged**: read the notes. A real fault (an unscripted or wrong word, a mispronounced name, a gasp or sound the story doesn't motivate, extra or missing people, the wrong, garbled or invented screen, glowing eyes, a split screen, a face that drifts) gets a redo of that clip only, with a note that names the fix. A small thing a viewer won't notice is not worth a redo: pick it, and say so in the delivery note.
+- **flagged**: read the notes. A real fault (an unscripted or wrong word, a mispronounced name, a gasp or sound the story doesn't motivate, extra or missing people, the wrong, garbled or invented screen, random or garbled writing, a caption burned in, glowing eyes, a split screen, a face that drifts) gets a redo of that clip only, with a note that names the fix. A small thing a viewer won't notice is not worth a redo: pick it, and say so in the delivery note.
 - **checking**: wait for it, unless other work is open.
 - **unchecked**: never counts as clean. If no take of that clip is clean, pick the newest.
 

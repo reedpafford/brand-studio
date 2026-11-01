@@ -1403,7 +1403,8 @@ VOICED = re.compile(
 )
 
 NEGATED = re.compile(
-    r"\b(?:no|not|never|nothing|none|nor|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I
+    r"\b(?:no|not|never|nothing(?!\s+but\b)|none|nor|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$",
+    re.I,
 )
 
 

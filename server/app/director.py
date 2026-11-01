@@ -34,6 +34,7 @@ MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); meas
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
 IDLE = "Waiting, with nothing being made: it reads the video again."
+TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 
 
 def start(db: Session, user: User, project: Project) -> Job:
@@ -103,7 +104,7 @@ def after(db: Session, job: Job, storage) -> None:
         if job.status == JobStatus.succeeded:
             _act(db, job, storage)
         else:
-            _end(job, "A turn failed; nothing more was done. Start it again to go on.")
+            _end(job, TURN_FAILED)
         return
     if job.project_id:
         wake(db, db.get(Project, job.project_id))
@@ -130,6 +131,11 @@ def sweep(db: Session) -> None:
     ).distinct()  # fmt: skip
     for project_id in db.scalars(acted).all():
         wake(db, db.get(Project, project_id))
+    failed = select(Job).where(step == STEP, Job.status == JobStatus.failed,
+                               Job.input["ended"].as_string().is_(None))  # fmt: skip
+    for job in db.scalars(failed).all():  # failed before its finish (a bad answer): it ends
+        _end(job, TURN_FAILED)
+    db.commit()
 
 
 def _act(db: Session, job: Job, storage) -> None:

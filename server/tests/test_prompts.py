@@ -1528,3 +1528,18 @@ def test_the_director_keeps_to_what_is_locked():
     director = prompts.system("director")
     assert "**Keep to what's locked.**" in director and "locked: the choices fixed" in director
     assert "uses the locked screens" in director and "`make_looks` is refused" in director
+    # The Producer, after #1124: a video's own outfit (the cast line's "wears: …") wins.
+    wins = 'their cast line\'s "wears: … (this video)"), which wins'
+    assert wins in prompts.system("storyboard") and wins in prompts.system("clip_prompts")
+
+
+def test_no_text_means_no_captions_and_story_text_is_stated_exactly():
+    """Reed, 1 Nov (rule 32): "I want 3d numbers and numbers/text that is important to the
+    videos in. When i say no text, i mean no captions." Sheets stay text-free references."""
+    rule = "No captions, subtitles, titles or overlay text. Text in the world"
+    for step in ("storyboard", "clip_prompts", "improve"):
+        text = prompts.system(step)
+        assert rule in text and "its words stated exactly" in text, step
+        assert "The only text in frame is on the real brand screen" not in text, step
+    assert "random or garbled writing, a caption burned in" in prompts.system("director")
+    assert "No text, letters" in prompts.sheet_prompt("character", "a man")  # a reference
