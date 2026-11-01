@@ -9,7 +9,7 @@ for (const [width, look] of [[1440, "Zack D"], [390, "Skeleton"]] as const) {
     await signIn(page, "reed@example.com");
     await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
     await page.goto("/looks");
-    const card = page.getByRole("listitem", { name: look });
+    const card = page.getByRole("listitem", { name: look, exact: true }); // not "Skeleton X-Ray"
     const make = card.getByRole("button", { name: /^Make a sample/ });
     const thumb = card.getByAltText(`${look} sample`);
     await expect(make.or(thumb)).toBeVisible();

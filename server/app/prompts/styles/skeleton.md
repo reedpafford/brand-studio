@@ -1,5 +1,5 @@
 # Skeleton
-<!-- From Starpop's skeleton-ads skill (docs/research/starpop-2026-10-28, rule 20). A look usable on any story script (flows Q4): "What happens if you ___?" told as an escalating ladder (Day 1, Day 30, Day 365) lived by one lovable cartoon skeleton, under one narrator. -->
+<!-- Reed's skeleton-ad skill (docs/next/skills/skeleton-ad.md, #1095; first from Starpop's skeleton-ads, docs/research/starpop-2026-10-28, rule 20): its Bare-Bones Cinematic skeleton, the default (Dressed is this look with an outfit in the description); X-Ray and Cute Mascot are their own looks (skeleton-xray, skeleton-cute). A look usable on any story script (flows Q4): "What happens if you ___?" told as an escalating ladder (Day 1, Day 30, Day 365) lived by one lovable cartoon skeleton, under one narrator. -->
 kind: look
 order: 4
 on: no
@@ -24,7 +24,7 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 
 ## still
 - The skeleton is in every shot and is always the same character, from its sheet: never change its eyes, bones or proportions.
-- Each shot shows one rung of the ladder, literally (Day 1: the first try, in an ordinary place; later rungs: bigger reactions, a grander place), so the climb reads with the sound off. Vary the framing: a wide of the world, a medium on the skeleton, a two-shot with someone reacting, a close-up of the product in its bony hands, a hero shot for the payoff.
+- Each shot shows one rung of the ladder, literally (Day 1: the first try, in an ordinary place; later rungs: bigger reactions, a grander place), so the climb reads with the sound off: the picture is the proof of the line. Vary the framing: a wide of the world, a medium on the skeleton, a two-shot with someone reacting, a close-up of the product in its bony hands, a hero shot for the payoff. People who react (townsfolk, coworkers, a crowd) make the climb bigger, from a stare to awe.
 - Describe the body gently and dry: bones and glow, never wounds or anything gory.
 
 ## clip
@@ -35,14 +35,15 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 - One line is one shot is one rung of the ladder; never two ideas in a shot. The skeleton is in every shot's `character_ids`.
 
 ## script
-- Open on a curiosity-gap question: "What happens if you ___ every day?", "What if you NEVER ___?", "How long can you ___?". Then 5 to 7 escalating rungs, each one line: by time (Day 1, Day 30, Day 365), by amount (1, 5, 25) or by stage. Then the payoff, a triumph (transformed, unstoppable) or a catastrophe for not using it, with the end line.
+- Open on a curiosity-gap question: "What would happen if you ___?", "What happens if you ___ every day?", "How long can you ___ before ___?", "How many ___ does it take to ___?", "What if you NEVER ___?". Then 5 to 7 escalating rungs, each one line: by time (Day 1, Day 30, Day 365; or hour, week, year), by amount (1, 5, 25, 42) or by stage (Stage 1 to Stage 5). Then the payoff, a triumph (transformed, unstoppable, crowned) or a catastrophe (a system failure, ruin), with the end line. About 110–160 words.
+- Think about the product before the arc; transformation is one option, not the default. A product that compounds with daily use suits "use it for 30 days" (time, triumph); one that replaces a painful, worsening status quo suits "what if you never fix this" (time, catastrophe); one that fixes an overdone old way suits "how far the old way goes before it breaks" (amount, catastrophe); one that is vivid dropped into another world or era suits "what if you had this in ___" (time or stage, triumph). Two can fuse. Pick the one that makes the product's benefit most vivid, open the question in the first line, bring the product in on one clean turn, and answer the question at the payoff.
 - Second person, present tense, short punchy sentences, one concrete physical picture per line, each rung more intense than the last. Say what physically happens; never corporate words ("revolutionary", "seamless").
 - In a Narrated script the narrator is the only voice; in a Dialogue one, the skeleton speaks its own rungs.
 - This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
 
 ## banned
 gory →
-gore →
+gore → glow
 blood → glow
 bloody → glowing
 wound → crack
