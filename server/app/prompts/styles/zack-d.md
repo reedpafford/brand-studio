@@ -1,41 +1,46 @@
 # Zack D
-<!-- After Zack D. Films (Reed's references, 2026-10-29: youtube.com/shorts/YhlCwRRnREY, 1b-z9fscEXk, sPKpPv9Pk0w; tells in docs/research/look-tells-2026-10-29.md). Not Starpop's version (a Pixar-style cartoon on a cyan stage): the real channel is semi-realistic 3D like a video-game cutscene, real everyday places with bold painted walls, slightly uncanny glossy people, big expressions and gross macro close-ups, cut fast under a calm narrator. A look usable on any story script (flows Q4). -->
+<!-- Reed's Zack D skill (docs/next/skills/zack-d.md, #1097). Reed, 1 Nov: "Skill, drop realistic": the skill's format replaces the semi-realistic cutscene look of 29 Oct. A format worn as a look: a friendly, rounded 3D world on an infinite blue ground, one calm narrator, one continuous camera journey. Not wired (Reed decides later): the skill's background plates, narrator voices and music track, so the world is described in words. The word "stage" never goes in a picture prompt (it draws a stage set): the banned list repairs it. -->
 kind: look
 order: 3
 on: no
 image_model: auto
-blurb: Semi-realistic 3D like a video-game cutscene: glossy faces, bold-coloured rooms and gross close-ups, explaining one surprising thing.
+blurb: One continuous 3D camera journey through an infinite blue world, explained by a calm narrator: podiums, prop islands, cutaways and glowing 3D numbers.
 
 ## sheet_look
-Semi-realistic 3D computer-generated character, like a modern video-game cutscene, never a cartoon: realistic human proportions and anatomy, a realistic face simplified slightly, smooth glossy skin with a waxy sheen on the forehead, nose and cheeks, clear eyes of normal size with crisp catch-lights, hair modelled in neat smooth chunks, and a big, slightly over-the-top expression. Simple everyday clothes in one solid saturated colour (a magenta T-shirt, a navy suit with a red tie) with smooth cloth and few folds. No oversized eyes, no big head, no cartoon caricature, no photographic skin. The body and face follow the character's age: an adult has an adult's height, build and face (a defined jaw, adult proportions), never a child's; a teenager looks like a teenager, a child like a child. One fixed outfit, identical in every view, and one silhouette-defining item that reads at a glance.
+Friendly stylised 3D animated render: rounded, appealing forms, a readable silhouette, a simple friendly face with clear expressive eyes, smooth stylised materials, soft even lighting, the character full body in a relaxed neutral pose facing the camera, on an infinite bright cyan-blue ground with one soft contact shadow. The body and face follow the character's age: an adult has an adult's height, build and face, never a child's; a teenager looks like a teenager, a child like a child. One fixed outfit in clear colours, identical in every view, and one silhouette-defining item that reads at a glance.
 
 ## place_look
-Semi-realistic 3D computer-generated set, like a modern video-game cutscene: a real everyday place (a classroom, a kitchen, a bathroom, a film set) built from clean, slightly simplified 3D assets, its walls painted one bold saturated colour (teal, maroon, royal blue), a few believable props, bright even daylight or studio light with soft shadows, the background gently blurred.
+Friendly stylised 3D animated render of an infinite bright cyan-blue world with a soft horizon. This world is an infinite canvas: it continues unbroken past every edge of the frame, and the camera is inside it. No ceiling, no roof structure, no walls, and no platform edge or visible boundary where the ground ends. The ground is completely smooth with no grid lines anywhere. Soft even light; only the few props the line needs, resting on the ground with soft contact shadows.
 
 ## still_look
-The Zack D look, unless the brand block says otherwise: "Semi-realistic 3D computer-generated scene, like a modern video-game cutscene, never a cartoon and never a photograph: realistic people with smooth, glossy, slightly waxy skin and big, slightly over-the-top expressions, in a real everyday place built from clean, slightly simplified 3D assets with walls painted one bold saturated colour, bright even light with soft shadows, the background gently blurred. Faces, builds and outfits come from the character sheets. Medium close-ups and close-ups at eye level, the face filling much of the frame; the thing the line is about (a lump, a drip, a gadget, the product) fills the frame in a sharp macro close-up when it matters."
+The Zack D look, unless the brand block says otherwise: "Friendly stylised 3D animated render with rounded, appealing forms and soft even lighting; the product itself is photo-accurate. The environment is an infinite bright cyan-blue world with a soft horizon. This world is an infinite canvas: it continues unbroken past every edge of the frame, and the camera is inside it. No ceiling, no roof structure, no walls, and no platform edge or visible boundary where the ground ends. The ground is completely smooth with no grid lines anywhere. Faces, builds and outfits come from the character sheets. The subject is centred or deliberately placed, with generous clean background in frame and one soft contact shadow; everything rests naturally on the ground, nothing floats. It reads on a phone in under a second: one subject, one idea, clean space."
 
 ## clip_style
-Semi-realistic 3D computer-generated animation like a modern video-game cutscene: realistic people with glossy, slightly waxy skin and big expressions, clean slightly simplified sets with bold painted walls, bright even light, quick plain cuts
+Friendly stylised 3D animation, rounded forms and soft even light, one continuous camera move through an infinite bright cyan-blue world, the product photo-accurate. No captions
 
 ## fit_look
-a semi-realistic 3D video-game-cutscene look with realistic proportions and glossy skin
+a friendly stylised 3D look with rounded forms on an infinite blue world
 
 ## still
-- Each shot shows exactly what its line says, literally, so the story reads with the sound off: the person doing it, their face reacting, or the thing itself.
-- Gross, surprising or tiny details get a sharp macro close-up filling the frame (the lump on the fish, the rot in the river, the pill in the hand). A mechanism ("inside your stomach") is a cross-section or X-ray view of the real body or object.
-- Vary the size shot to shot: a medium close-up of a face reacting, a macro insert, a medium of the person in the room. Faces read big: a wide grin, a grimace, wide eyes.
+- Each line becomes one of four shots. The subject or product itself: a podium, one subject centred in the open world, often in a glowing floor ring. A place ("in your kitchen", "at the gym"): a prop island, the place cut down to 2–3 defining props resting on the open ground, or the real place itself when that makes the stronger frame. A mechanism or "inside X": a macro cutaway, a cross-section or X-ray filling the frame, still inside the world. A number, claim or comparison: a data object, the claim as a lit 3D object (extruded gold numerals, a red X, a yellow arrow, molecules as letter shapes).
+- The best visual wins; the blue world is home. Every shot gets the most entertaining frame it can carry: if the strongest picture is a real office, shoot the office. Abstract and explanatory shots belong in the blue world, and the video keeps coming back to it; departures stay purposeful and short.
+- One recurring character never changes while the world changes scale around him (tiny beside a giant glass, astride a capsule, chest-deep in powder): he gives every abstract shot a human read and carries the comedy.
+- Colour is state: the world washes gold for value or the win, red for danger or the wrong choice, green for the healthy response, a cyan glow for a mechanism working, grey for the rejected option, then back to blue. Write it as a coloured light wash over the blue world.
+- Graphics are objects, never overlays: a number is extruded 3D geometry with a shine and a cast shadow under the scene's own light. Never flat text on screen; captions are added in editing.
+- Choose each camera angle: a dramatic top-down with the character presenting up to the camera, a low hero angle that makes the product tower, an extreme macro, a wide-angle lean-in, varied across the video. The straight-on eye-level podium is the resting state between them, never a catalogue line-up.
+- Nothing floats or hovers: everything rests on the ground with a soft contact shadow.
 
 ## clip
-- Plain hard cuts on the line's beats, about every 2 to 3 seconds, each shot with one small natural move (a slow push-in on a face, a quick tilt down to the object). Something changes about every second.
-- When the video is narrated, the narrator is a voiceover (calm, matter-of-fact, slightly deadpan) and no one on screen speaks; otherwise the script's speakers say their lines on camera, in the same calm register.
+- One continuous camera move per shot, with the subject's motion and the camera's motion as two separate instructions. One visible change about every second, and every change of shot is a named transition: a push through (fly into an object, come out somewhere else), a white flash, a squeeze wipe, a hand-off (the object placed into the next shot), a portal push, a material morph. A plain cut is a choice, never the default.
+- When the video is narrated, the narrator is a voiceover (calm, matter-of-fact, unhurried, slightly deadpan: the surprising fact does the work) and no one on screen speaks; otherwise the script's speakers say their lines in the same calm register.
 
 ## breakdown
-- Shots run about 1.5–3 s, one idea each, cutting with the words; a purely connective line ("Here's what actually happens") rides the shot before it.
-- Every line becomes a concrete person, object, action or close-up; a claim about the body becomes a cross-section or X-ray shot. The video ends on the product in a real place, label to camera, with room for the end line.
+- One continuous camera journey: a designed transition about every 4–8 s, each shot one continuous camera move. Every shot settles four things: its job (prove the claim, land the joke, show the mechanism), its one action (a spray blooms, the room floods red, the camera pushes into the jug), its shot type (podium, prop island, macro cutaway, data object) and the transition out (push through, white flash, squeeze wipe, hand-off, portal push, material morph), which the next shot's opening answers: if shot 2 opens inside the product, shot 1 lands on it.
+- A purely connective line ("Here's what actually happens") gets no scene of its own: it rides the camera move between its two neighbours. Every line has a shot; a shot may have no line. The video closes on a podium shot of the product with clean space for the end line.
+- The hook line gets the strongest picture. In `hook`, name the chosen opening and two other distinct opening pictures in a clause each (one subject, one scene, a clear change), so the editor can pick; an opening on the product itself has to earn its place.
 
 ## script
-- One surprising thing, explained in short, plain, factual sentences (by a narrator in a Narrated script, by the cast in a Dialogue one), the register of someone calmly explaining something odd, never ad copy. Every line must be something you can show: a concrete object, action or change. The first line gets the strongest picture.
+- One surprising thing, explained in short, plain, factual sentences: the register of someone calmly explaining something odd, never ad copy. A new draft is Narrated, one calm narrator, never on-camera speech. Every line earns a picture: a concrete object, action or change. The first line gets the strongest picture.
 - This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
 
 ## banned
@@ -43,20 +48,21 @@ in the style of Zack D. Films →
 in the style of Zack D →
 Zack D. Films →
 Zack D →
-Pixar-style → semi-realistic 3D
+Pixar-style → stylised 3D
 in the style of Pixar →
-cartoonish → semi-realistic
-cartoon → semi-realistic 3D
-chibi →
-photorealistic → semi-realistic
-photo-realistic → semi-realistic
+photorealistic → stylised
+photo-realistic → stylised
 live-action →
+stage → world
+floating → resting
+hovering → resting
+hovers → rests
 
 ## fixes
-refused: Soften it (a close-up shows the thing, never an injury), then Make another.
-face: Make another first. If it drifts again, Change this… "the same face as the sheet: same hair, skin tone and glasses, glossy semi-realistic 3D".
+refused: Soften it (a cutaway shows the thing, never an injury), then Make another.
+face: Make another first. If it drifts again, Change this… "the same face as the sheet: same hair, skin tone and outfit, friendly stylised 3D".
 outfit: Change this… naming the sheet's one outfit colour.
-product: Change this… "the real product from its image in a sharp close-up, the label facing the camera".
+product: Change this… "the real product from its image on a podium in the blue world, the label facing the camera".
 
 ## sample
-A man in his thirties with short brown hair and a big over-the-top grin, in one plain magenta T-shirt, at a desk in a classroom with teal-painted walls.
+A friendly stylised 3D man in his thirties with short brown hair and a calm half-smile, in one plain orange T-shirt, standing in an infinite bright cyan-blue world.

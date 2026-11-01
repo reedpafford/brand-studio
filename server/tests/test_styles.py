@@ -93,7 +93,7 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
     for look in ("house", "disney-pixar", "zack-d", "skeleton"):
         assert prompts.look_banned(look), look
         assert set(prompts.look_fixes(look)) == {"refused", "face", "outfit", "product"}, look
-    assert ("Pixar-style", "semi-realistic 3D") in prompts.look_banned("zack-d")
+    assert ("Pixar-style", "stylised 3D") in prompts.look_banned("zack-d")
     # the look's own name never goes to a model (Next-Lead on #1009)
     from app.prompts import check
 
@@ -157,12 +157,33 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     assert [s["id"] for s in prompts.styles() if s["own_sample"]] == ["skeleton"]
 
 
-def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
-    """Reed's references (YouTube shorts): semi-realistic 3D like a game cutscene."""
+def test_zack_d_follows_reeds_skill_a_blue_world_journey():
+    """Reed, 1 Nov: "Skill, drop realistic" (docs/next/skills/zack-d.md, #1097): a friendly 3D
+    look on an infinite blue world, one continuous camera journey under a calm narrator."""
     zack = prompts.style("zack-d")["sections"]
-    for part in ("sheet_look", "place_look", "still_look", "clip_style"):
-        assert "semi-realistic 3D" in zack[part] or "Semi-realistic 3D" in zack[part], part
-        assert "cyan" not in zack[part] and "Pixar register" not in zack[part], part
+    for part in ("place_look", "still_look", "clip_style"):
+        assert "infinite bright cyan-blue world" in zack[part], part
+        assert "semi-realistic" not in zack[part].lower() and "stage" not in zack[part], part
+    world = "This world is an infinite canvas: it continues unbroken past every edge of the frame"
+    assert world in zack["still_look"] and "no grid lines anywhere" in zack["still_look"]
+    assert zack["clip_style"].endswith("No captions")  # "Style: ….  No captions." every clip
+    assert "No captions." in prompts.system("clip_prompts", "zack-d")
+    board = prompts.system("breakdown", "zack-d")
+    for part in ("podium, prop island, macro cutaway, data object", "about every 4–8 s",
+                 "two other distinct opening pictures", "rides the camera move"):  # fmt: skip
+        assert part in board, part
+    still = prompts.system("storyboard", "zack-d")
+    for part in (
+        "The best visual wins; the blue world is home",
+        "Colour is state",
+        "Graphics are objects, never overlays",
+        "never changes while the world",
+    ):
+        assert part in still, part
+    assert ("stage", "world") in prompts.look_banned("zack-d")
+    from app.prompts import check
+
+    assert check.look_words("He stands on the stage.", "zack-d")[0] == "He stands on the world."
 
 
 def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
