@@ -398,6 +398,8 @@ def start_next(
         _fail(db, job, UNKNOWN, job.provider)
         db.commit()
         return True
+    if provider.paid and not _within_real_budget(db, job):
+        return True
     if getattr(provider, "sync", False):  # answers in the same call (e.g. Claude)
         return _run_sync(db, job, provider, storage)
     try:
@@ -421,6 +423,23 @@ def start_next(
     else:
         db.execute(update(Job).where(Job.id == job.id).values(provider_ref=ref))
     db.commit()
+    return True
+
+
+def _within_real_budget(db: Session, job: Job) -> bool:
+    """On the test site's real lane: the cap again, right before the call (a queued job, a
+    run's next step or a retry can't slip past it). Past it, the job fails uncharged."""
+    from app.credits import real_budget_refusal, real_capped, real_spent
+    from app.settings import get_settings
+
+    settings = get_settings()
+    if no := real_budget_refusal(db, settings, job.provider, job.credits):
+        _fail(db, job, no, "real budget used up")
+        db.commit()
+        return False
+    if real_capped(settings):  # for the Producer during Reed's test: spent so far
+        log.info("real budget: $%.2f of $%.2f since %s", real_spent(db, settings),
+                 settings.real_budget_usd, settings.real_budget_since or "the start")  # fmt: skip
     return True
 
 

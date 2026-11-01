@@ -274,15 +274,3 @@ Captions (small, thin, light white sans, centred in the clean background above t
 - Is the word "stage" absent from every generation prompt — world vocabulary and the infinite-canvas line in its place?
 
 - Is the voiceover one timed take in a Zack D. Films voice, with the storyboard built against it and the narration laid under the edit in post?
-
-## Credit
-
-Format decomposed from Zack D. Films' published work and community ad references; stage, pacing, and continuity rules measured from footage by Starpop.
-
-## Credit
-
-Made by @davidaistar (Instagram, YouTube), cofounder of starpop.ai.
-
-This skill is optimized for use in Starpop, as it assumes features natively included there, like research, storyboarding, analysis of audio, image and videos, audio slicing, and generation of image, video, audio and music.
-
-However the skill will also work in any agent such as Claude, Claude Code, ChatGPT, Codex etc.

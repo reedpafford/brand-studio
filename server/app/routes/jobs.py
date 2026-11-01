@@ -20,6 +20,7 @@ from app.credits import (
     lock,
     needs_approval,
     over_allowance,
+    real_budget_refusal,
     someone_elses_quick_clip,
 )
 from app.db import get_db, utcnow
@@ -28,6 +29,7 @@ from app.models.accounts import User
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project, ProjectStatus
 from app.schemas import ShortText, UtcTime
+from app.settings import get_settings
 
 router = APIRouter(tags=["jobs"])
 
@@ -176,6 +178,8 @@ def enqueue(
     so it's never held again; caps, brand, credits and Usage stay as for any job. `hold`: a
     later step this press already pays for (e.g. Change it's still or take), checked together."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
+    if no := real_budget_refusal(db, get_settings(), provider, credits + hold):
+        raise HTTPException(409, no)  # the Producer's cap, before anything is reserved
     if project is not None:
         lock(db, Project, project.id)
         db.refresh(project)  # read its status after taking the lock

@@ -3,7 +3,9 @@ name: deploy-next
 # server as live, over SSH (deploy/next/remote-deploy.sh). Uses the live deploy's repo secrets
 # (VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_HOST_KEY). The test site runs on the free stand-ins:
 # only for a paid test Reed and the Producer approved, set repo variable NEXT_FAKE_PROVIDERS to
-# false (and NEXT_GENERATION_ENABLED to true), run this, and set it back afterwards.
+# false (and NEXT_GENERATION_ENABLED to true), run this, and set it back afterwards. Every real
+# call then counts against NEXT_REAL_BUDGET_USD from NEXT_REAL_BUDGET_SINCE (an ISO time); set
+# both together; with either unset, nothing paid runs.
 # Real Suno songs through KIE (Reed, 2026-10-29: test site only, with a test budget): set repo
 # variable NEXT_KIE_SUNO to true and NEXT_KIE_BUDGET_USD to the budget, with the KIE_API_KEY
 # secret. Everything else stays on the stand-ins.
@@ -88,9 +90,12 @@ jobs:
           # Real language tests: the Claude key travels only while this is true.
           LANGUAGE_TESTS: ${{ vars.NEXT_REAL_LANGUAGE_SAMPLES || 'false' }}
           LANGUAGE_BUDGET: ${{ vars.NEXT_LANGUAGE_SAMPLES_BUDGET_USD || '0' }}
+          # Real AI (stand-ins off): one budget for every paid call, from its start time.
+          REAL_BUDGET: ${{ vars.NEXT_REAL_BUDGET_USD || '0' }}
+          REAL_SINCE: ${{ vars.NEXT_REAL_BUDGET_SINCE || '' }}
         run: |
           {
-            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET; do
+            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET REAL_BUDGET REAL_SINCE; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat deploy/next/remote-deploy.sh

@@ -152,17 +152,18 @@ def test_one_image_per_shot_and_never_a_split_screen():
     assert "Two quick cuts" not in prompts.system("improve")
 
 
-def test_breakdown_check_wants_grind_before_the_payoff_and_the_hook_first():
+def test_breakdown_check_wants_the_hook_first_and_no_forced_grind():
     ex, bd = example("breakdown")
     script = script_of(ex)
-    assert check.breakdown(script, bd, FOMO, 4, 30) == []  # four beats before the fast run
+    assert check.breakdown(script, bd, FOMO, 4, 30) == []
     scene = bd.scenes[1]
-    jump = scene.shots[:4] + scene.shots[7:]  # the old way: one trade, then the car
+    jump = scene.shots[:4] + scene.shots[7:]  # one trade, then the payoff
     scene.shots, bd.clips[1].shot_ids = jump, [s.id for s in jump]
     bd.clips[1].seconds = 7
     lines = check.breakdown(script, bd, FOMO, 4, 30)
-    assert "Advice: shot 2.8: the montage reaches the payoff after 1 grind beats; add a red " \
-        "day, a small win, another late night first" in lines  # fmt: skip
+    assert not [x for x in lines if "grind beats" in x]  # Reed, 1 Nov: "montages are forced"
+    for step in ("breakdown", "script_draft"):
+        assert "at least three effort or setback beats" not in prompts.system(step), step
     _, bd = example("breakdown")
     first = bd.scenes[0].shots
     cut = {"script_lines": [3]}  # tied to Tasha's opening line, as the remake's cutaways were
@@ -1195,7 +1196,7 @@ def test_pacing_is_by_purpose_and_scenes_hand_off():
             assert gone not in text, (step, gone)
     bd = prompts.system("breakdown")
     assert "Pace by purpose, never by the clock" in bd and "go wide when a reaction" in bd
-    assert "for as long as it needs, up to the video model's max" in bd
+    assert "for as long as it needs, up to about 13 s" in bd
     assert "**Endings flow.**" in bd and "the dog's ears dropping" in bd
     assert "The clip's last line never ends in its last moments" in prompts.system("clip_prompts")
     assert "**Scenes flow.**" in prompts.system("script_draft")
@@ -1389,6 +1390,40 @@ def test_an_action_never_says_replies_or_answers():
     assert 'never "Mom replies"' in prompts.system("script_draft")
 
 
+def test_take_check_slice_2_looks_at_eyes_screens_and_cast():
+    """docs/next/take-review-checklist.md B3–B5 (Builder-Server-8, 1 Nov)."""
+    sheets = [("char:1", "Mia: black bob")]
+    before = prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), frames=6)
+    assert before == prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), 6,
+                                              None, None, ["only wins"])  # fmt: skip
+    text = prompts.item_check_input(
+        "Mia waves.", sheets, ("product:2", "bag"), frames=6,
+        cast=["Mia (char:1)", "date (char:12, the alien date)"],
+        screens=[("screen:7", "fomo Home screen")], screen_rules=[" fomo only wins. ", ""],
+    )  # fmt: skip
+    assert (
+        text.startswith(before)
+        and "<cast>Mia (char:1), date (char:12, the alien date)</cast>" in text
+    )
+    assert '<screen image="9" id="screen:7">fomo Home screen</screen>' in text  # after 6+1+1
+    assert "<screen_rules>\nfomo only wins.\n</screen_rules>" in text
+    system = prompts.system("item_check")
+    assert "never glowing or red" in system and "only when <screens> is given" in system
+    assert "A garbled or invented screen is always a finding" in system
+    assert "only wins" not in system  # a brand's own screen rule comes in <screen_rules>
+    F = schemas.Finding
+    found = schemas.ItemCheck(findings=[
+        F(kind="eyes", who="", says="Mia's eyes glow", note="Keep normal human eyes."),
+        F(kind="cast", who="extra", says="An extra man", note="Only Mia in this shot."),
+        F(kind="screen", who="screen", says="Wrong screen", note="Show the Home screen."),
+        F(kind="face", who="char:9", says="Not given", note="x"),
+    ])  # fmt: skip
+    kinds = [f.kind for f in check.item_check(found, ["char:1"]).findings]
+    assert kinds == ["eyes", "cast"]  # no screens given, and char:9 isn't a reference
+    kinds = [f.kind for f in check.item_check(found, ["char:1", "screen:7"]).findings]
+    assert kinds == ["eyes", "cast", "screen"]
+
+
 def test_the_harvest_is_folded_into_the_steps_that_use_it():
     """docs/next/harvest (1 Nov): what the agents learned with Reed, as general craft."""
     assert "normal human eyes, never glowing" in prompts.system("clip_prompts")
@@ -1419,3 +1454,31 @@ def test_the_director_names_every_tool_it_can_choose_and_never_writes_prompts():
         t["expect"]["tool"] if isinstance(t["expect"]["tool"], str) else "either"
         for t in case["turns"]
     } >= {"plan", "make_looks", "pick_take", "deliver", "wait"}
+
+
+def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
+    """Reed, 1 Nov (batch 3): "weird gasping … you don't actually tell the story visually …
+    montages are forced … the 'copy these' videos aren't copied at all"; then: "We CAN have
+    gasps, i just want the director to THINK. Be creative how we have." """
+    for step in ("clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"):
+        assert "No gasps" not in prompts.system(step), step  # Reed: "We CAN have gasps"
+    assert "fine when the story motivates it" in prompts.system("clip_prompts")
+    assert "a gasp or sound the story doesn't motivate" in prompts.system("director")
+    assert "jaw drops" not in prompts.system("clip_prompts")
+    assert "2–4 shots, each with one clear action" in prompts.system("breakdown")
+    assert "1.5–3 s" not in prompts.system("breakdown")  # rule 29: no rigid timings
+    assert "a copy of it, not a premise" in prompts.system("breakdown")
+    assert "a copy, not a premise" in prompts.system("script_draft")
+    assert "Write a montage only when this story" in prompts.system("script_draft")
+    director = prompts.system("director")
+    assert "Watch it as a viewer." in director and "garbled or invented screen" in director
+
+
+def test_fomo_producers_redo_notes_reach_the_prompts():
+    """FOMO-Producer's Reptilian and Fired redos (projects 56, 57; 1 Nov)."""
+    breakdown = prompts.system("breakdown")
+    assert "a remake keeps its <reference>'s own pace" in breakdown
+    assert "up to about 13 s even where the model allows more" in breakdown
+    assert "split a longer one at a natural beat" in breakdown
+    clip = prompts.system("clip_prompts")
+    assert '"Oh my God", "Oh", "Yes!"' in clip and "no bangs), never who they are" in clip

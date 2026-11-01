@@ -48,6 +48,8 @@ main() {
       echo "BS_GENERATION_ENABLED=${GENERATION:-false}"
       echo "REPLICATE_API_TOKEN=$REPLICATE"
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
+      echo "BS_REAL_BUDGET_USD=${REAL_BUDGET:-0}"  # every paid call stops at it (0: none runs)
+      if [ -n "${REAL_SINCE:-}" ]; then echo "BS_REAL_BUDGET_SINCE=$REAL_SINCE"; fi  # unset: none runs
     elif [ -n "${KIE:-}" ] || [ "$samples" = true ] || [ "$tests" = true ]; then  # stand-ins, but real songs, samples or tests
       echo "BS_FAKE_PROVIDERS=true"
       echo "BS_GENERATION_ENABLED=true"
