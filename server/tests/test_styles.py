@@ -12,26 +12,13 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
-    assert set(ids[5:]) == {
-        "claymation",
-        "claymation-goofy",
-        "claymation-clean",
-        "claymation-puppet",
-        "anime-comic",
-        "paper",
-        "paper-flat",
-        "paper-handmade",
-        "paper-collage",
-        "paper-origami",
-        "watercolor",
-        "wool-crochet",
-    }
-    at = ids.index("claymation")  # Reed's skill: its four lanes, side by side
-    assert ids[at : at + 4] == ["claymation", "claymation-goofy", "claymation-clean",
-                                "claymation-puppet"]  # fmt: skip
-    at = ids.index("paper")  # Reed's skill: its five lanes, side by side
-    assert ids[at : at + 5] == ["paper", "paper-flat", "paper-handmade", "paper-collage",
-                                "paper-origami"]  # fmt: skip
+    assert {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"} <= set(ids)
+    # A look's own lanes (order 5.1, 5.2…) sit right after it, in order; no PR lists them here
+    styles = prompts.styles()
+    for before, s in zip(styles, styles[1:], strict=False):
+        if s["order"] != int(s["order"]):
+            assert int(before["order"]) == int(s["order"]), s["id"]
+    assert ids.index("paper") + 4 == ids.index("paper-origami")  # Reed's five paper lanes
     # Formats: only Song for now (Reed, 30 Oct); podcast, vox and whiteboard are in git history
     assert [s["id"] for s in prompts.styles() if s["kind"] == "format"] == ["song"]
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
@@ -102,7 +89,7 @@ def test_styles_borrow_a_studio_look_never_its_frame_and_never_rewrite_lines():
     for s in prompts.styles():
         text = "\n".join(s["sections"].values())
         assert "frame from a Pixar" not in text and "from an animated Pixar" not in text, s["id"]
-        if "script" in s["sections"] and s["id"] in ("zack-d", "skeleton"):
+        if "script" in s["sections"]:
             assert "word for word" in s["sections"]["script"], s["id"]
 
 
@@ -175,7 +162,8 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     own = prompts.sample_still_prompt("zack-d")
     assert prompts.look_sample("zack-d").rstrip(".") in own and "[Image1]" not in own
     # Skeleton's sample is always its own skeleton, never the brand's human hero
-    assert [s["id"] for s in prompts.styles() if s["own_sample"]] == ["skeleton"]
+    own = [s["id"] for s in prompts.styles() if s["own_sample"]]
+    assert own == ["skeleton", "skeleton-xray", "skeleton-cute"]
 
 
 def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
