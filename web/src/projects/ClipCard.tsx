@@ -12,6 +12,7 @@ import { AdviceList, useKeep } from "./Keep";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
+import { OtherTakes } from "./OtherTakes";
 import { LookTip } from "./LookFix";
 import { ClipVersions } from "./VersionLists";
 
@@ -103,7 +104,8 @@ export function ClipCard(props: {
   const check = (picked as (typeof picked & { check?: ItemCheck }) | undefined)?.check; // the picked take's advisory check (P4)
   const words = (picked as (typeof picked & { words?: ItemCheck }) | undefined)?.words; // what it says against the script's lines
   // The chip says what the card holds now; a failed newest take is a line under it (it never hides a good picked take).
-  const status = c.approved ? "Approved" : props.busy ? null : c.stale ? "Out of date" : picked ? `Take ${picked.number} · ready to check` : failed ? "Didn't finish" : "Not made";
+  const byCheck = (picked as (typeof picked & { approved_by?: string | null }) | undefined)?.approved_by === "check"; // rule 21: a clean take
+  const status = c.approved ? (byCheck ? "Approved by the check" : "Approved") : props.busy ? null : c.stale ? "Out of date" : picked ? `Take ${picked.number} · ready to check` : failed ? "Didn't finish" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
   const change = (text: string) => (props.review && !c.stale ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setNote(text)); // a check's note
   const problems = blocking(c.problems, c.kept).length > 0;
@@ -195,18 +197,7 @@ export function ClipCard(props: {
       })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
       <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} hold={props.busy || props.fixBusy ? "Wait for this clip's take or prompt being made." : null} versions={c.versions ?? []} />
-      {c.takes.length > 0 && (
-        <fieldset className="flex flex-wrap items-center gap-3">
-          <legend className="sr-only">Takes for clip {c.clip_id}</legend>
-          <span className="text-muted">Takes:</span>
-          {[...c.takes].reverse().map((t) => (
-            <label key={t.id} className="inline-flex min-h-11 items-center gap-1 sm:min-h-0">
-              <input type="radio" name={`takes-${c.id}`} disabled={viewOnly} className="size-5 sm:size-4" checked={t.id === c.picked_take_id} onChange={() => props.onPick(t.id)} />
-              Take {t.number}
-            </label>
-          ))}
-        </fieldset>
-      )}
+      <OtherTakes takes={c.takes} pickedId={c.picked_take_id} clipId={c.clip_id} fileName={(n) => `${props.projectName}-${c.clip_id}-take${n}.mp4`} disabled={viewOnly} onPick={props.onPick} />
       {note !== null && (
         <div className="space-y-2">
           <label className="block">

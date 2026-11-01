@@ -177,10 +177,10 @@ for (const width of [1440, 390]) {
       .getByRole("button", { name: /^Make clip/ })
       .first()
       .click();
-    await expect(
-      page.getByRole("button", { name: "Approve take" }).first(),
-    ).toBeVisible({ timeout: 90_000 });
-    await page.getByRole("button", { name: "Approve take" }).first().click();
+    // A clean take approves itself (rule 21): its checks find nothing on the stand-ins.
+    await expect(page.getByText(/^Approved by the check/).first()).toBeVisible({
+      timeout: 90_000,
+    });
     await page.getByRole("button", { name: /Next: Final cut/ }).click();
     // The whole video is put together by itself.
     await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({

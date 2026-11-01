@@ -28,7 +28,7 @@ import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, isMake, videoBlocker, videoHold, videoLock, videoNext, videoPickerStates, videoStepFromParams, type VideoProgress } from "./videoSteps";
-import { HeldRequests } from "../approvals/HeldRequests";
+import { HeldRequests, WaitingCount } from "../approvals/HeldRequests";
 
 /** A video made from a library version: Plan · Cast · Make (Stills | Clips) · Final cut. */
 export function VideoPage() {
@@ -141,6 +141,7 @@ export function VideoPage() {
             <h1 className="min-w-0 break-words type-page">{p.name}</h1>
             {menu}
           </div>
+          <WaitingCount projectId={id} className="basis-full" />
           {mayManage(p) && <ProjectPicker brandId={p.brand_id} kind="video" id={id} folderId={p.folder_id} />}
         </div>
       </div>
