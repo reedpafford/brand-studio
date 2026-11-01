@@ -539,34 +539,34 @@ class NarrationMusic(BaseModel):
 # --- Watch the cut (Reed, 1 Nov: "i want it to watch and make those fixes") ---
 
 
-class CutFinding(BaseModel):
-    clip_id: str = Field(description="The clip it's in, from <cut>: 'c3'.")
-    start: float = Field(description="Where it starts, in cut seconds.")
-    end: float = Field(description="Where it ends, in cut seconds.")
-    says: str = Field(
-        description="One plain line for the owner: \"c3: he says 'fogo', not 'fomo'\"."
+class WatchFinding(BaseModel):
+    clip_id: str = Field(description="The clip it's in, from <shots>: 'c3'.")
+    start_s: float = Field(description="Where it starts, in cut seconds.")
+    end_s: float = Field(description="Where it ends, in cut seconds.")
+    problem: str = Field(
+        description="One plain line for the owner: \"he says 'fogo', not 'fomo'\"."
     )
-    fix: Literal["redo", "pick", "mute", "keep"] = Field(
+    fix: Literal["redo", "other_take", "mute", "keep"] = Field(
         description="The smallest fix that works: 'mute' an unscripted sound with nothing wrong "
-        "in the picture; 'pick' another take of the clip; 'redo' the clip with a change note; "
-        "'keep' a weakness no fix here would help."
-    )
-    take_id: int | None = Field(
-        default=None, description="For pick: the id of one of that clip's other_takes; else null."
+        "in the picture; 'other_take' when another take of the clip may do; 'redo' the clip "
+        "with a change note; 'keep' a weakness no fix here would help."
     )
     note: str = Field(
         default="",
-        description="For redo, the change note, ready to send; for mute, what's heard there; "
-        "for keep, why, for the owner.",
+        description="For redo, what should happen on screen or be heard, ready to send; for "
+        "mute, what's heard there; for keep, why, for the owner.",
     )
 
 
-class CutWatch(BaseModel):
+class WatchCut(BaseModel):
     """The cut as a viewer meets it. Judging only: the director acts on it."""
 
-    lands: bool = Field(description="Whether the ending lands.")
-    summary: str = Field(description="One or two plain sentences on how it plays as a whole.")
-    findings: list[CutFinding] = Field(
+    verdict: Literal["good", "fixable", "weak"] = Field(
+        description="good: it plays and the ending lands; fixable: the findings would get it "
+        "there; weak: it doesn't hold a viewer even with them."
+    )
+    summary: str = Field(description="One plain sentence on how it plays as a whole.")
+    findings: list[WatchFinding] = Field(
         max_length=6, description="Worst first, 6 at most; empty when it plays well."
     )
 
