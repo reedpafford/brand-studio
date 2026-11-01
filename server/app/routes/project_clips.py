@@ -26,6 +26,7 @@ from app import (
     narration_music,
     prompts,
     screen_figures,
+    take_approval,
     video_settings,
 )
 from app.advice import Said
@@ -76,6 +77,7 @@ class TakeOut(BaseModel):
     check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
     words: CheckOut | None = None  # what it says against the script's lines (Advice only)
     verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
+    approved_by: str | None = None  # "check": it approved itself, clean (rule 21)
 
 
 class NarrationOut(BaseModel):
@@ -196,6 +198,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 check=(seen := item_checks.shown(db, checks.get(t.id))),
                 words=(heard := item_checks.shown(db, words.get(t.id))),
                 verdict=item_checks.verdict([seen, heard]),
+                approved_by=(t.made_with or {}).get("approved_by"),
             )  # fmt: skip
             for t in takes
         ],
@@ -552,6 +555,7 @@ def approve(
     if not row.picked_take_id:
         raise HTTPException(409, "Make a take of this clip first.")
     row.approved, row.change = True, None
+    take_approval.by_person(row, db)
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
@@ -692,6 +696,7 @@ def unapprove(
 ):
     project, row = _clip(db, user, project_id, clip_id)
     row.approved = False
+    take_approval.by_person(row, db)  # the check won't approve this take again
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 

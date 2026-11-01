@@ -187,6 +187,11 @@ def save(db: Session, job: Job) -> None:
     row.findings = [{"kind": f.kind, "role": f.who, "text": f.says, "change_note": f.note}
                     for f in answer.findings]  # fmt: skip
     row.status = "done"
+    if row.target == "take":
+        from app.take_approval import after_check
+
+        db.flush()
+        after_check(db, row.target_id)  # a clean picked take approves itself (rule 21)
 
 
 def failed(db: Session, job: Job) -> None:

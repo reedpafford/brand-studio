@@ -195,3 +195,15 @@ test("a refused take shows the look's fix beside its own press", async () => {
   open("?step=clips");
   expect(await within(await screen.findByLabelText("Clip c2")).findByText("For this look: Take out any studio or film name, then Make another take.")).toBeInTheDocument();
 });
+
+test("a clean take that approved itself says so; one a person approved just says Approved", async () => {
+  setViewport(1440);
+  const clean = { id: 7, status: "ok", findings: [] };
+  const byCheck = { ...take(2, 1, clean), approved_by: "check" };
+  const byPerson = { ...take(4, 1, clean), approved_by: null };
+  fakeServer(routes({ "GET /projects/9/clips": [200, [clip({ takes: [byCheck], picked_take_id: 2, approved: true }), clip({ id: 4, clip_id: "c2", takes: [byPerson], picked_take_id: 4, approved: true })]] }));
+  open("?step=clips");
+  expect(await within(await screen.findByLabelText("Clip c1")).findByText(/^Approved by the check/)).toBeInTheDocument();
+  const other = screen.getByLabelText("Clip c2");
+  expect(within(other).getByText(/^Approved/)).not.toHaveTextContent("by the check");
+});
