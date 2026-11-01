@@ -101,6 +101,8 @@ def after(db: Session, job: Job, storage) -> None:
     """The worker finished `job`: a turn's answer is acted on; any other work on a video with
     a run going may wake the next turn."""
     if job.input.get("step") == STEP:
+        if _stopped(db, job):  # Stop was pressed while it ran: it stays stopped (QA)
+            return
         if job.status == JobStatus.succeeded:
             _act(db, job, storage)
         else:
@@ -180,9 +182,18 @@ def _record(db: Session, job: Job, run: dict, result: str) -> None:
     """The turn's result on its log line; the next turn starts now if nothing it started is
     being made (else when that's done: `wake`)."""
     job = db.get(Job, job.id)
+    stopped = _stopped(db, job)  # pressed while the tool ran: the result is kept, no more
     job.input = {**job.input, RUN: run, "result": result}
     db.commit()
-    wake(db, db.get(Project, job.project_id))
+    if not stopped:
+        wake(db, db.get(Project, job.project_id))
+
+
+def _stopped(db: Session, job: Job) -> bool:
+    """Whether the run ended (Stop) since `job` was read: a fresh read, so what the worker
+    writes next keeps the stop instead of overwriting it with what it read before."""
+    db.refresh(job)
+    return bool(job.input.get("ended"))
 
 
 def _end(job: Job, why: str, result: str = "") -> None:
@@ -227,6 +238,7 @@ def refresh(db: Session, job: Job) -> None:
     """A turn about to be asked reads the video as it is now, not as it was when queued (a
     step saved since, or the turn waited for the owner)."""
     project = db.get(Project, job.project_id)
+    db.refresh(job)  # a Stop since it was queued is kept
     job.input = {**job.input, **turn_input(db, project, job.input[RUN])}
     db.commit()
 
