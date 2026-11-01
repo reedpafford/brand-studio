@@ -1064,6 +1064,104 @@
     ],
     "max_slots": 2
    }
+  },
+  {
+   "id": "director-turns",
+   "brand": "fomo",
+   "steps": [
+    "director"
+   ],
+   "_note": "One decision per state (director-chat.md §5). 'expect' is the tool the turn should pick; a paid run scores it, --print only writes the prompts.",
+   "brief": "Goal: show that anyone can trade on fomo. Audience: 18–25, TikTok. 9:16, 45 s.",
+   "cast": [
+    "char:1 Aiden, 19, trader",
+    "char:2 Uncle Rick, loud, sure of himself",
+    "char:3 Mom"
+   ],
+   "places": [
+    "place:1 Family dining room at Thanksgiving",
+    "place:2 Aiden's small bedroom"
+   ],
+   "script": [
+    "SCENE 1 — INT. DINING ROOM — THANKSGIVING",
+    "The family sits around the table. Everyone is eating and talking about school and work.",
+    "MOM: Pass the potatoes, please.",
+    "UNCLE RICK: So Aiden, still doing your little internet trading?",
+    "AIDEN: It's going well, actually.",
+    "UNCLE RICK: Going well? You live in your mom's basement.",
+    "The whole table laughs.",
+    "MOM: Rick, leave him alone.",
+    "AIDEN: Give me a year.",
+    "Aiden goes to his room. He is angry and wants to prove Rick wrong.",
+    "Aiden opens fomo on his phone.",
+    "He loses a trade and slams the desk.",
+    "He keeps trading at his desk every night for months.",
+    "★ fomo screen: Wallet — showing his balance",
+    "SCENE 3 — INT. DINING ROOM — THANKSGIVING, ONE YEAR LATER",
+    "UNCLE RICK: Still in the basement?",
+    "Aiden slides his phone across the table.",
+    "UNCLE RICK: Is that... real?",
+    "AIDEN: Pass the potatoes, Rick."
+   ],
+   "turns": [
+    {
+     "video": "{\"shots\": \"none\", \"missing_looks\": [], \"stills\": {\"frames\": 0, \"drawn\": 0}, \"clips\": [], \"cut\": \"none\", \"being_made\": 0, \"held_for_owner\": []}",
+     "last": "[]",
+     "allowed": "{\"turns_left\": 40, \"redos_per_clip\": 2, \"redos_used\": {}, \"own_time_usd\": 0.0, \"own_time_limit_usd\": 5}",
+     "expect": {
+      "tool": "plan"
+     }
+    },
+    {
+     "video": "{\"shots\": \"ready\", \"missing_looks\": [\"Tasha\"], \"stills\": {\"frames\": 0, \"drawn\": 0}, \"clips\": [], \"cut\": \"none\", \"being_made\": 0, \"held_for_owner\": []}",
+     "last": "[{\"tool\": \"plan\", \"why\": \"There is no plan yet.\", \"result\": \"Made the shots.\"}]",
+     "allowed": "{\"turns_left\": 39, \"redos_per_clip\": 2, \"redos_used\": {}, \"own_time_usd\": 0.06, \"own_time_limit_usd\": 5}",
+     "expect": {
+      "tool": "make_looks"
+     }
+    },
+    {
+     "video": "{\"shots\": \"ready\", \"missing_looks\": [], \"stills\": {\"frames\": 6, \"drawn\": 6}, \"clips\": [{\"clip_id\": \"c1\", \"stale\": false, \"picked_take_id\": null, \"takes\": [{\"id\": 11, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}, {\"clip_id\": \"c2\", \"stale\": false, \"picked_take_id\": null, \"takes\": [{\"id\": 12, \"number\": 1, \"verdict\": \"flagged\", \"notes\": [\"Malik says 'fogo' instead of fomo: say fomo as FOH-moh\"]}]}, {\"clip_id\": \"c3\", \"stale\": false, \"picked_take_id\": null, \"takes\": [{\"id\": 13, \"number\": 1, \"verdict\": \"checking\", \"notes\": []}]}], \"cut\": \"none\", \"being_made\": 0, \"held_for_owner\": []}",
+     "last": "[{\"tool\": \"make_take\", \"why\": \"First takes of every clip.\", \"result\": \"Making 3 takes.\"}]",
+     "allowed": "{\"turns_left\": 30, \"redos_per_clip\": 2, \"redos_used\": {}, \"own_time_usd\": 0.4, \"own_time_limit_usd\": 5}",
+     "expect": {
+      "tool": [
+       "pick_take",
+       "make_take"
+      ],
+      "clip_id": [
+       "c1",
+       "c2"
+      ]
+     }
+    },
+    {
+     "video": "{\"shots\": \"ready\", \"missing_looks\": [], \"stills\": {\"frames\": 6, \"drawn\": 6}, \"clips\": [{\"clip_id\": \"c1\", \"stale\": false, \"picked_take_id\": 11, \"takes\": [{\"id\": 11, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}, {\"clip_id\": \"c2\", \"stale\": false, \"picked_take_id\": null, \"takes\": [{\"id\": 12, \"number\": 1, \"verdict\": \"flagged\", \"notes\": [\"Malik says 'fogo'\"]}, {\"id\": 14, \"number\": 2, \"verdict\": \"flagged\", \"notes\": [\"Malik says 'fobo'\"]}, {\"id\": 15, \"number\": 3, \"verdict\": \"flagged\", \"notes\": [\"a background extra mouths a word\"]}]}, {\"clip_id\": \"c3\", \"stale\": false, \"picked_take_id\": 13, \"takes\": [{\"id\": 13, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}], \"cut\": \"none\", \"being_made\": 0, \"held_for_owner\": []}",
+     "last": "[{\"tool\": \"make_take\", \"why\": \"Redo c2: say fomo as FOH-moh.\", \"result\": \"Made take 3 of c2.\"}]",
+     "allowed": "{\"turns_left\": 22, \"redos_per_clip\": 2, \"redos_used\": {\"c2\": 2}, \"own_time_usd\": 0.7, \"own_time_limit_usd\": 5}",
+     "expect": {
+      "tool": "pick_take",
+      "clip_id": "c2",
+      "take_id": 15
+     }
+    },
+    {
+     "video": "{\"shots\": \"ready\", \"missing_looks\": [], \"stills\": {\"frames\": 6, \"drawn\": 6}, \"clips\": [{\"clip_id\": \"c1\", \"stale\": false, \"picked_take_id\": 11, \"takes\": [{\"id\": 11, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}, {\"clip_id\": \"c2\", \"stale\": false, \"picked_take_id\": 15, \"takes\": [{\"id\": 15, \"number\": 3, \"verdict\": \"flagged\", \"notes\": [\"a background extra mouths a word\"]}]}, {\"clip_id\": \"c3\", \"stale\": false, \"picked_take_id\": 13, \"takes\": [{\"id\": 13, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}], \"cut\": \"made\", \"being_made\": 0, \"held_for_owner\": []}",
+     "last": "[{\"tool\": \"final_cut\", \"why\": \"Every clip has a picked take.\", \"result\": \"Made the cut.\"}]",
+     "allowed": "{\"turns_left\": 18, \"redos_per_clip\": 2, \"redos_used\": {\"c2\": 2}, \"own_time_usd\": 0.8, \"own_time_limit_usd\": 5}",
+     "expect": {
+      "tool": "deliver"
+     }
+    },
+    {
+     "video": "{\"shots\": \"ready\", \"missing_looks\": [], \"stills\": {\"frames\": 6, \"drawn\": 6}, \"clips\": [{\"clip_id\": \"c1\", \"stale\": false, \"picked_take_id\": 11, \"takes\": [{\"id\": 11, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}, {\"clip_id\": \"c2\", \"stale\": false, \"picked_take_id\": 12, \"takes\": [{\"id\": 12, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}, {\"clip_id\": \"c3\", \"stale\": false, \"picked_take_id\": null, \"takes\": []}], \"cut\": \"none\", \"being_made\": 0, \"held_for_owner\": [\"Making c3 would go past the video's budget.\"]}",
+     "last": "[{\"tool\": \"make_take\", \"why\": \"c3 has no take.\", \"result\": \"Held for the owner: making c3 would go past the video's budget.\"}]",
+     "allowed": "{\"turns_left\": 25, \"redos_per_clip\": 2, \"redos_used\": {}, \"own_time_usd\": 0.5, \"own_time_limit_usd\": 5}",
+     "expect": {
+      "tool": "wait"
+     }
+    }
+   ]
   }
  ]
 }

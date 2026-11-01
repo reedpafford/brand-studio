@@ -36,7 +36,7 @@ SCHEMAS = {
     "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
     "site_read": schemas.SiteRead,  # flows BR2: Import from website
     "language_sample": schemas.ScriptDrafts,  # flows VS1: a language's sample test
-    "director": schemas.DirectorTurn,  # the site's director: one action a turn
+    "director": schemas.DirectorTurn,  # director-chat.md §5: one decision a turn
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
