@@ -10,8 +10,7 @@ import { useToast } from "../toast";
 import { ReviewChip } from "./Checks";
 import { useProjectClips, useProjectVideo } from "./useProgress";
 
-// What the run says (Next-Server #1087). `credits` (up to), `start_blocked` and an editor's null `spent_usd` are agreed and come in its next push.
-type Run = components["schemas"]["DirectorOut"] & { credits?: number; start_blocked?: string; spent_usd?: number | null };
+type Run = components["schemas"]["DirectorOut"];
 type Turn = Run["turns"][number];
 
 // What it's doing, from its newest move (ux-audit §8.5's progress line).
@@ -37,7 +36,7 @@ export function DirectorPanel({ projectId, aspect, name, onLookInside }: { proje
   const [stopping, setStopping] = useState(false);
   const run = useQuery({
     queryKey: ["director", projectId],
-    queryFn: async () => ((await api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } })).data as Run | undefined) ?? null,
+    queryFn: async () => (await api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } })).data ?? null,
     refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : false),
   });
   const clips = useProjectClips(projectId);
@@ -59,7 +58,7 @@ export function DirectorPanel({ projectId, aspect, name, onLookInside }: { proje
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director", { params: { path: { project_id: projectId } } });
       if (!data) throw new Error(errorText(error));
-      return data as Run;
+      return data;
     },
     onSuccess: after,
     onError: (e: Error) => toast(e.message, undefined, "error"),
@@ -68,7 +67,7 @@ export function DirectorPanel({ projectId, aspect, name, onLookInside }: { proje
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/stop", { params: { path: { project_id: projectId } } });
       if (!data) throw new Error(errorText(error));
-      return data as Run;
+      return data;
     },
     onSuccess: (data) => {
       setStopping(false);
@@ -89,7 +88,7 @@ export function DirectorPanel({ projectId, aspect, name, onLookInside }: { proje
   const doing = [...turns].reverse().find((t) => t.tool && DOING[t.tool])?.tool;
   const made = list.filter((c) => c.takes.length > 0).length;
   const phase = held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && list.length ? `Making clips: ${made} of ${list.length}` : DOING[doing];
-  const credits = r?.credits != null ? creditsText(r.credits) : null;
+  const credits = r ? creditsText(r.credits) : null;
   const dollars = owner && r?.spent_usd != null ? `the director's own time $${r.spent_usd.toFixed(2)}` : null; // rule 4: the owner only
   const note = [...turns].reverse().find((t) => t.tool === "deliver")?.why ?? "";
   const firstTake = turns.findIndex((t) => t.tool === "make_take");
