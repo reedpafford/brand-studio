@@ -222,7 +222,7 @@ def test_the_prompts_carry_what_made_reeds_song_ads_good():
     assert "the symptom list, chanted" in directions
     breakdown = prompts.system("song_breakdown")
     for part in ("**The shape that sells.**", "mid-air leap", "nudges the product to the lens",
-                 "never gross", "at four moments", "16 s at most"):  # fmt: skip
+                 "never gross", "at four moments", "past about 16 s"):  # fmt: skip
         assert part in breakdown, part
     assert "## Style:" not in prompts.system("breakdown")  # story breakdowns untouched
 
