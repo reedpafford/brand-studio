@@ -223,7 +223,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
         </div>
         {job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>}
         <p className="tabular-nums">
-          {creditsText(job.credits)}{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
+          {creditsText(job.credits)}{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the video to ${Math.round(after)}% of its budget`}
         </p>
         {!project && !job.step && week && (
           <p className="text-muted tabular-nums">

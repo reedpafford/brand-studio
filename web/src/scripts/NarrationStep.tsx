@@ -130,9 +130,12 @@ export function NarrationStep({ script: s }: { script: Script }) {
   const noWords = !!data.songs_note && !data.estimate_credits;
   const make = (label: string, primary: boolean) => (
     // With nothing for the narrator to read, the server sends why (songs_note) and no price (#920): the press says it, greyed.
-    <Button variant={primary ? "primary" : "secondary"} icon={Mic} charge="fixed" price={noWords ? undefined : data.estimate_credits} disabled={noWords || making} reason={noWords ? data.songs_note! : making ? "One is being made" : null} busy={a.make.isPending} onClick={() => a.make.mutate()}>
-      {a.ask(label, noWords ? 0 : data.estimate_credits)}
-    </Button>
+    <div className="space-y-1">
+      <Button variant={primary ? "primary" : "secondary"} icon={Mic} charge="fixed" price={noWords ? undefined : data.estimate_credits} disabled={noWords || making} reason={noWords ? data.songs_note! : making ? "One is being made" : null} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+        {a.ask(label, noWords ? 0 : data.estimate_credits)}
+      </Button>
+      {!noWords && a.sends(data.estimate_credits) && <p className="text-sm text-muted">{a.sends(data.estimate_credits)}</p>}
+    </div>
   );
   return (
     <div className="max-w-[720px] space-y-4">

@@ -340,10 +340,11 @@ test("at 390, an editor's Make 2 takes reads Send for approval, and once pressed
   open("/b/1/scripts/7?step=takes");
   const ask = await screen.findByRole("button", { name: /Send for approval · 1 credit/ });
   expect(screen.queryByRole("button", { name: /Make 2 takes/ })).toBeNull();
+  expect(screen.getByText("Songs, narration and music on a script wait for the owner's OK. Nothing is charged until they say yes.")).toBeInTheDocument();
   fakeServer({ ...routes, "GET /jobs": [200, [waiting]] });
   await userEvent.click(ask);
   expect(await screen.findByText("Sent for approval. It waits for the owner's OK; nothing is charged until then.")).toBeInTheDocument();
   expect(await screen.findByText("Waiting for approval")).toBeInTheDocument();
-  expect(document.body).toHaveTextContent("Your song or music · 1 credit. Songs, narration and music on a script wait for the owner's OK.");
+  expect(document.body).toHaveTextContent("Your song or music · 1 credit · Asked just now. Songs, narration and music on a script wait for the owner's OK.");
   expect(document.body.textContent).not.toMatch(/ask (Reed|the owner)/i);
 });
