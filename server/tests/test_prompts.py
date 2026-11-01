@@ -1548,3 +1548,27 @@ def test_no_text_means_no_captions_and_story_text_is_stated_exactly():
         assert "The only text in frame is on the real brand screen" not in text, step
     assert "random or garbled writing, a caption burned in" in prompts.system("director")
     assert "No text, letters" in prompts.sheet_prompt("character", "a man")  # a reference
+
+
+def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
+    """Reed, 1 Nov: "i want it to watch and make those fixes if something is off how we do it
+    in the chat." The contract agreed with Builder-Server-8 and Next-Server: cut seconds only,
+    one fix per finding, never a change to the script's words (rule 19)."""
+    watch = prompts.system("watch_cut")
+    assert prompts.SCHEMAS["watch_cut"] is schemas.CutWatch and "rules.md" not in watch
+    for part in ("the story reads without the words", "a mispronounced name", "rule 32",
+                 "never suggest changing a line", "The ending lands", "never a script word",
+                 "A gasp or a laugh the story motivates is fine"):  # fmt: skip
+        assert part.lower() in watch.lower(), part
+    fixes = schemas.CutFinding.model_fields["fix"].annotation.__args__
+    assert set(fixes) == {"redo", "pick", "mute", "keep"}
+    one = schemas.CutFinding(clip_id="c1", start=0, end=1, says="x", fix="keep")
+    with pytest.raises(ValueError):
+        schemas.CutWatch(lands=True, summary="", findings=[one] * 7)
+    text = prompts.watch_cut_input(
+        "Get <fomo>.", "1. He wins.", [{"clip_id": "c1", "start": 0, "end": 4.2}],
+        [{"word": "Get", "start": 0.1, "end": 0.3, "clip_id": "c1"}],
+        [(1, "c1 at 0.0 s (shot 1.1 starts)")], "House",
+    )  # fmt: skip
+    assert "<script>Get &lt;fomo&gt;.</script>" in text and "[Image1] c1 at 0.0 s" in text
+    assert '"clip_id": "c1"' in text

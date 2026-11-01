@@ -37,6 +37,7 @@ SCHEMAS = {
     "site_read": schemas.SiteRead,  # flows BR2: Import from website
     "language_sample": schemas.ScriptDrafts,  # flows VS1: a language's sample test
     "director": schemas.DirectorTurn,  # director-chat.md §5: one decision a turn
+    "watch_cut": schemas.CutWatch,  # the director's eyes on the finished cut
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -52,6 +53,7 @@ NO_RULES = {
     "narration_music",
     "item_check",
     "site_read",
+    "watch_cut",
 }  # not script writers: the rules would only add tokens
 
 
@@ -763,6 +765,27 @@ def item_check_input(
         if rules := [r.strip() for r in screen_rules or [] if r.strip()]:
             text += "\n<screen_rules>\n" + "\n".join(rules) + "\n</screen_rules>"
     return text
+
+
+def watch_cut_input(
+    script: str,
+    plan: str,
+    cut: list[dict],
+    transcript: list[dict],
+    frames: list[tuple[int, str]],
+    look: str,
+) -> str:
+    """The user message for watch_cut; the frames go before it, in time order (24 at most).
+    `cut` is the clips in cut order ({clip_id, start, end, take_id, shots, other_takes}, cut
+    seconds), `transcript` the cut's heard words ({word, start, end, clip_id}), `frames`
+    (n, "c3 at 12.4 s (shot 3.2 starts)") for each image, and `look` the look's name."""
+    seen = "\n".join(f"[Image{n}] {label.strip()}" for n, label in frames)
+    return (
+        f"<look>{escape(look.strip())}</look>\n<script>{escape(script.strip())}</script>\n"
+        f"<plan>{escape(plan.strip())}</plan>\n<cut>{json.dumps(cut, ensure_ascii=False)}</cut>\n"
+        f"<transcript>{json.dumps(transcript, ensure_ascii=False)}</transcript>\n"
+        f"<frames>\n{escape(seen)}\n</frames>"
+    )
 
 
 def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:
