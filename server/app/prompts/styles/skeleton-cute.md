@@ -42,7 +42,7 @@ a playful chibi 3D look (a skeleton character is a cute toy-like skeleton with a
 
 ## banned
 gory →
-gore →
+gore → glow
 blood → glow
 bloody → glowing
 wound → crack

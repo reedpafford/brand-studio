@@ -43,7 +43,7 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 
 ## banned
 gory →
-gore →
+gore → glow
 blood → glow
 bloody → glowing
 wound → crack

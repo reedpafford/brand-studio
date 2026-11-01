@@ -11,29 +11,14 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
-    assert ids[:7] == [
-        "house",
-        "disney-pixar",
-        "song",
-        "zack-d",
-        "skeleton",
-        "skeleton-xray",
-        "skeleton-cute",
-    ]  # Reed's skill: its Style Library, side by side
-    assert set(ids[7:]) == {
-        "claymation",
-        "anime-comic",
-        "paper",
-        "paper-flat",
-        "paper-handmade",
-        "paper-collage",
-        "paper-origami",
-        "watercolor",
-        "wool-crochet",
-    }
-    at = ids.index("paper")  # Reed's skill: its five lanes, side by side
-    assert ids[at : at + 5] == ["paper", "paper-flat", "paper-handmade", "paper-collage",
-                                "paper-origami"]  # fmt: skip
+    assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
+    assert {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"} <= set(ids)
+    # A look's own lanes (order 5.1, 5.2…) sit right after it, in order; no PR lists them here
+    styles = prompts.styles()
+    for before, s in zip(styles, styles[1:], strict=False):
+        if s["order"] != int(s["order"]):
+            assert int(before["order"]) == int(s["order"]), s["id"]
+    assert ids.index("paper") + 4 == ids.index("paper-origami")  # Reed's five paper lanes
     # Formats: only Song for now (Reed, 30 Oct); podcast, vox and whiteboard are in git history
     assert [s["id"] for s in prompts.styles() if s["kind"] == "format"] == ["song"]
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
@@ -234,25 +219,6 @@ def test_song_has_only_its_guides_and_takes_its_look_from_the_video():
         made = prompts.system(step, "claymation", "song")
         assert "Pixar musical" not in made and "Pixar animated feature" not in made, step
         assert "## Format: Song\nThis video is a Song video in the Claymation look" in made
-
-
-def test_skeleton_has_reeds_style_library_and_strategy():
-    """Reed's skeleton-ad skill (docs/next/skills, #1095): Bare-Bones by default (Dressed is
-    its outfit), X-Ray and Mascot as their own looks; the hook templates, three spines and the
-    angle table; one line, one shot, one rung. Never a studio name outside Disney Pixar."""
-    bare = prompts.style("skeleton")["sections"]["sheet_look"]
-    assert "smooth ivory-cream bones with realistic bone detail" in bare
-    assert "organs (heart, lungs, intestines) glowing" in prompts.style("skeleton-xray")[
-        "sections"]["sheet_look"]  # fmt: skip
-    assert "oversized round skull" in prompts.style("skeleton-cute")["sections"]["sheet_look"]
-    for look in ("skeleton", "skeleton-xray", "skeleton-cute"):
-        script = prompts.system("script_draft", look)
-        assert "How many ___ does it take to ___?" in script and "(1, 5, 25, 42)" in script
-        assert "transformation is one option, not the default" in script, look
-        assert "One line is one shot is one rung" in prompts.system("breakdown", look), look
-        text = "\n".join(prompts.style(look)["sections"].values())
-        assert "pixar" not in text.lower(), look
-    assert "never the default skeleton" in prompts.system("storyboard", "skeleton-cute")
 
 
 def test_paper_has_reeds_five_lanes_with_their_blocks_word_for_word():

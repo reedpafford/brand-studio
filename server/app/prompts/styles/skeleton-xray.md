@@ -43,7 +43,7 @@ a clean medical 3D look (a skeleton character is a glowing x-ray body with lit o
 
 ## banned
 gory →
-gore →
+gore → glow
 blood → glow
 bloody → glowing
 wound → crack
