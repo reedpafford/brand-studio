@@ -83,6 +83,12 @@ class Project(Filed, Entity, Base):
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="9:16")
     format: Mapped[str] = mapped_column(String(120), default="")  # optional named format
     cast_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # library characters
+    # Choices fixed for the director (director-chat.md §1; app/locks.py): {"cast": true, …,
+    # "screens": [ids]}. Unlocking hands the choice back. People's own presses aren't blocked.
+    locks: Mapped[dict] = mapped_column(JSON, default=dict)
+    # This video's outfit per character ({"char:12": "mustard trench coat"}): its stills and
+    # Keep lines use it over the sheet's outfit. None: the sheet's, as before.
+    outfits: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
     reference_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # a video
     # A reference reel to adapt: its breakdown (app/reference.py shape) and what to rebuild.
     product_variants: Mapped[dict] = mapped_column(JSON, default=dict)  # product -> variant

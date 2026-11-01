@@ -67,6 +67,14 @@ def _length(project: Project) -> str:
     return "not set (the breakdown decides)"
 
 
+def wears(project: Project, item_id: int) -> str:
+    """The cast line's "wears: …" when this video gives the character its own outfit (over
+    the sheet's: FOMO-Producer's mustard trench coat); else ""."""
+    from app.locks import outfit
+
+    return f"wears: {o} (this video)" if (o := outfit(project, item_id)) else ""
+
+
 def project_context(db: Session, project: Project, step: str) -> tuple[list[str], str]:
     """What every script-flow call starts with: the fixed system parts (step rules, then the
     brand; cached together) and the <brief> and <cast> for the user message."""
@@ -98,7 +106,17 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     )
     roles = cast_roles(db, project)  # who plays whom, so a model never has to guess
     cast_lines = "\n".join(
-        " | ".join(x for x in (f"char:{c.id}", c.name, plays(roles.get(c.id, [])), c.notes) if x)
+        " | ".join(
+            x
+            for x in (
+                f"char:{c.id}",
+                c.name,
+                plays(roles.get(c.id, [])),
+                c.notes,
+                wears(project, c.id),
+            )
+            if x
+        )  # fmt: skip
         for c in cast
     )
     message = f"<brief>\n{escape(brief)}\n</brief>\n<cast>\n{escape(cast_lines)}\n</cast>"
