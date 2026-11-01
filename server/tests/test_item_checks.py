@@ -11,7 +11,7 @@ from app.providers.fake_local import FakeWriter
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import run_writer, upload
-from tests.helpers import with_sheet
+from tests.helpers import shot, with_sheet
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_replicate import BASE
@@ -25,6 +25,7 @@ def checks_on(monkeypatch):
 
 def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setup, clip):  # noqa: F811
     clips, url = f"/projects/{setup['project']}/clips", f"/projects/{setup['project']}/checks"
+    shot(db, action="Mom waves. fake:face")  # a stand-in take is clean unless asked
     editor.post(f"{clips}/{clip['id']}/generate")
     _work(app, db, FakeSeedance([_mp4("red")]))
     (take,) = editor.get(clips).json()[0]["takes"]

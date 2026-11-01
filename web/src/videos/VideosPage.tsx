@@ -1,3 +1,4 @@
+import { WaitingCount } from "../approvals/HeldRequests";
 import { ProjectsChip, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ function Row({ p }: { p: Project }) {
           <span className="block break-words type-card">{p.name}</span>
           <span className="block text-sm text-muted">{meta}</span>
           {p.needs_you && p.waiting_on && <span className="block text-sm font-medium text-warning">{p.waiting_on}</span>}
+          <WaitingCount projectId={p.id} className="block" />
           <span className="flex flex-wrap gap-2">
             {done && p.final_out_of_date ? (
               <Badge tone="warning" icon={Clock}>

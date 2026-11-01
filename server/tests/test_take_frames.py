@@ -65,7 +65,7 @@ def test_a_shown_screen_goes_with_its_rules(app, db, editor, setup, clip):  # no
 def test_eyes_extra_people_and_screens_are_advice(app, db, editor, setup, clip):  # noqa: F811
     screen = db.get(BrandScreen, setup["screen"])
     screen.product, screen.tags = "", ["app"]
-    _shot(db, action="They argue. fake:eyes fake:extra-person fake:screen",
+    _shot(db, action="They argue. fake:face fake:eyes fake:extra-person fake:screen",
           screen_ids=[f"screen:{screen.id}"])  # fmt: skip
     clips, _ = _check(app, db, editor, setup, clip)
     run_writer(app, db)

@@ -395,6 +395,7 @@ class FakeWriter:
     def run(self, kind: str, input: dict) -> Result:
         step, prompt = input["step"], input["prompt"]
         self._system = "\n".join(input.get("system") or [])  # the brand block lists screens
+        self._take = "take_frames" in input  # a take's check, not a still's
         answer = getattr(self, f"_{step}")(prompt)
         return Result("succeeded", output=SCHEMAS[step].model_validate(answer).model_dump())
 
@@ -661,9 +662,12 @@ class FakeWriter:
         """The first character sheet "may differ" on every check (so Advice, Looks fine and
         Change this… can all be walked for free); an item with only a product matches. A
         marker in a shot's action walks slice 2's kinds (QA): fake:eyes, fake:extra-person,
-        and fake:screen when the check was given the brand's screens."""
+        and fake:screen when the check was given the brand's screens. A take has no face note
+        unless its shot asks for one (fake:face), so a clean take approving itself can be
+        walked too."""
         found = []
-        if who := re.search(r"<sheet[^>]*id=\"((?:char|slot):\d+)\"", prompt):
+        who = re.search(r"<sheet[^>]*id=\"((?:char|slot):\d+)\"", prompt)
+        if who and (not self._take or "fake:face" in prompt):
             found.append(
                 {
                     "kind": "face",

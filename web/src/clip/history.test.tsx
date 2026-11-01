@@ -153,6 +153,7 @@ test("at 390, past the week a Quick clip's press reads Send for approval at its 
   open();
   await userEvent.type(await screen.findByLabelText("What happens"), "The cat buys the dip, smiling.");
   const send = await screen.findByRole("button", { name: "Send for approval · 9 credits" });
+  expect(screen.getByText("Goes past your week. Nothing is charged until the owner says yes.")).toBeInTheDocument();
   await vi.waitFor(() => expect(send).toBeEnabled());
   await userEvent.click(send);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /clips")).toBe(true));

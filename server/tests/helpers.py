@@ -127,3 +127,15 @@ def approved_plan(db, project) -> None:
             line["action"] = "It happens, big."
     plans.approve(project, None)
     db.commit()
+
+
+def shot(db, **change) -> None:
+    """Change the first shot of the video's breakdown (what a take or still shows)."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.models.breakdowns import BreakdownVersion
+
+    row = db.query(BreakdownVersion).order_by(BreakdownVersion.id.desc()).first()
+    row.data["scenes"][0]["shots"][0].update(change)
+    flag_modified(row, "data")
+    db.commit()
