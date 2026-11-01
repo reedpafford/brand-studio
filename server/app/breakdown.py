@@ -386,7 +386,7 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
 
 
 def _hero_in_montage(db: Session, project: Project, bd: Breakdown, added: dict) -> None:
-    """The main character is in every montage shot, a run of 3+ quick wordless shots (rule
+    """The main character is in every montage shot (`check.montage`, rule
     17; QA-Live 6: frame c3 had no hero, so none was drawn). In place."""
     from app.storyboard import _name, _same, assets, hero
 
@@ -394,9 +394,7 @@ def _hero_in_montage(db: Session, project: Project, bd: Breakdown, added: dict) 
     if not (lead := hero(db, project, bd, known)):
         return
     shots = [s for scene in bd.scenes for s in scene.shots]
-    quick = [not s.line and s.seconds <= 0.6 for s in shots]
-    runs = {k for i in range(len(shots) - 2) if all(quick[i : i + 3]) for k in range(i, i + 3)}
-    for shot in (shots[k] for k in sorted(runs)):
+    for shot in (shots[k] for k in check.montage(shots)):
         if not any(_same(known, lead, c) for c in shot.character_ids):
             shot.character_ids = [*shot.character_ids, lead]
             added.setdefault(shot.id, []).append(_name(known, lead))

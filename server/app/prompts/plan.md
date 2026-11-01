@@ -23,6 +23,8 @@ Give each scene its part.
 
 **Scenes.** Each scene is one place and one time (rule 29): `place` reads like a heading ("INT. KITCHEN — NIGHT", "EXT. PARK — DAY, WEEKS LATER"), never two places ("kitchen, then park" is two scenes). A new place or time starts a new scene, and the script's own scene headings always do. A scene is as long as its lines need, up to what one clip of the video model can hold (<video_model>'s max seconds): split a longer run at a natural turn. Use a place from <places> when one fits, named the same.
 
+**Story first.** Ask of every beat "why does this happen?" so each scene sets up the next; keep the stakes clear and simple, with the wit in the lines and the gags, never in extra plot; and never add a hook or an opener the script doesn't have.
+
 **Actions.** Each line gets one action: what we see while it plays, vivid and exaggerated, made for a phone screen. Play symptoms and problems big and funny ("he licks his paw so fast his tongue is a blur"), show the hidden cause as a picture (a camera dive into the belly, an x-ray glow), and keep the payoff warm and quiet. The action shows what the words say, and moves on with them: never the same action twice in a row. Dialogue lines show the speaker saying it and how the others take it. For a song or narrated video, nobody speaks on screen: the action is B-roll that shows the words.
 
 **★ The product.** Mark the key product moments with `product` (the product or screen id from the brand block): the find, the use (the scoop, the tap), the proof and the end. Usually three to five lines, never none. A ★ line shows the real product, label or logo to camera.
