@@ -357,12 +357,25 @@ def carry_kept(kept: list[str], problems: list[str]) -> list[str]:
             or (p.startswith(CAST) and (m := shot.search(p)) and m[1] in cast)]  # fmt: skip
 
 
+def shows(role: str, shot, roles: list[str], off: bool = False) -> bool:
+    """This role is in the shot: it speaks there on screen (`off`: the script's label says
+    V.O. or O.S.; not in a reaction shot of someone else among `roles`), or the action names
+    it."""
+    from app.cast_roles import labels, named
+
+    seen = f"{shot.action} {shot.reaction or ''}"
+    reacting = [r for r in roles if r != role and named(r, seen)]
+    speaks = bool(shot.speaker) and labels(shot.speaker, role) and not off
+    speaks = speaks and not (reacting and not named(role, seen))  # a reaction shot
+    return speaks or named(role, shot.action)
+
+
 def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[str, list[str]]:
     """Each of the video's roles is in the shots that show them (Reed, 2026-10-27, "Marriage
     Rejection": the groom was never in his own shots, so no sheet was attached and the video
     model invented him): the shots they speak in on screen (the script's label has no V.O. or
     O.S.), and the shots whose action names them. In place; {shot id: names added}. Free."""
-    from app.cast_roles import labels, named, ref, short, video_slots
+    from app.cast_roles import ref, short, video_slots
 
     slots = [s for s in video_slots(db, project) if short(s.role)]
     lines, added = text.splitlines(), {}
@@ -370,15 +383,12 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
         said = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
                 if 0 < n <= len(lines)]  # fmt: skip
         off = any(m and OFF_SCREEN.search(m[0]) for m in said)
+        roles = [s.role for s in slots]
         for slot in slots:
             who = ref(db, project, slot)
             if {who, f"slot:{slot.id}"} & set(shot.character_ids):
                 continue
-            seen = f"{shot.action} {shot.reaction or ''}"
-            reacting = [s for s in slots if s is not slot and named(s.role, seen)]
-            speaks = bool(shot.speaker) and labels(shot.speaker, slot.role) and not off
-            speaks = speaks and not (reacting and not named(slot.role, seen))  # a reaction shot
-            if speaks or named(slot.role, shot.action):
+            if shows(slot.role, shot, roles, off):
                 shot.character_ids = [*shot.character_ids, who]
                 added.setdefault(shot.id, []).append(short(slot.role))
     _hero_in_montage(db, project, bd, added)

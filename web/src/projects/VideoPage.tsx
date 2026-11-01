@@ -29,6 +29,7 @@ import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, isMake, videoBlocker, videoHold, videoLock, videoNext, videoPickerStates, videoStepFromParams, type VideoProgress } from "./videoSteps";
 import { HeldRequests, WaitingCount } from "../approvals/HeldRequests";
+import { DirectorPanel } from "./DirectorPanel";
 
 /** A video made from a library version: Plan · Cast · Make (Stills | Clips) · Final cut. */
 export function VideoPage() {
@@ -90,7 +91,7 @@ export function VideoPage() {
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
   const pick = (to: string) => {
-    setParams(to === "plan" ? {} : { step: to });
+    setParams({ step: to }); // no step is the Director view
     setPanel(false);
   };
   const showLines = (lines: number[]) => {
@@ -117,6 +118,9 @@ export function VideoPage() {
   // Only its maker or the owner may change a video (the server refuses the rest): anyone else can look, with every press greyed out.
   const maker = p.created_by_name || "someone else";
   const lookOnly = !mayManage(p) && !p.archived_at ? `Only ${maker} or the owner can change this video.` : null;
+  // Two views (ux-audit §8.5): the Director first, and Look inside for the steps (any ?step= address). Only whoever may change the video directs it.
+  const mayDirect = p.script_draft_id != null && !p.archived_at && !lookOnly; // made from a (published) script version
+  const directing = mayDirect && !params.get("step");
   // Until Assets' own read lands, the step picker, the heading line and Next wait under one skeleton: no counts from an older read.
   const waiting = step === "cast" && assetsLoading;
   const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
@@ -161,6 +165,11 @@ export function VideoPage() {
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
         </Banner>
       )}
+      {mayDirect && <Tabs label="View" value={directing ? "director" : "inside"} onChange={(v) => (v === "director" ? setParams({}) : pick("plan"))} tabs={[{ id: "director", label: "Director" }, { id: "inside", label: "Look inside" }]} />}
+      {directing ? (
+        <DirectorPanel projectId={id} aspect={p.aspect_ratio} name={p.name} onLookInside={() => pick("plan")} />
+      ) : (
+      <>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
@@ -206,6 +215,8 @@ export function VideoPage() {
       {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       </ViewOnly>
+      </>
+      )}
       {panel && (
         <ScriptPanel
           projectId={id}
