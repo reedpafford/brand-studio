@@ -196,7 +196,9 @@ def test_the_sheet_owns_the_face_in_every_prompt():
     """Reed (faces, #602), after docs/prompting/seedance-2.5.md §1-2 and nano-banana.md §2."""
     clip = prompts.system("clip_prompts")
     assert "the main character's sheet first" in clip
-    assert "set each face and outfit and override the first frame where they differ" in clip
+    assert "the character sheets set each face, and each outfit unless this video gives" in clip
+    assert "set each face and outfit" not in clip  # the video's own outfit wins (QA-7, #1131)
+    assert "the Keep line names it instead of the sheet's" in clip
     assert "big glossy eyes" not in clip.split("Style: ", 1)[1].split("\n", 1)[0]
     assert "Keep: Aiden's identity and clothing stable in every shot" in clip
     for step in ("breakdown", "script_draft", "variations"):
