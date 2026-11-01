@@ -121,7 +121,9 @@ def test_past_the_budget_it_waits_for_the_owner_then_goes_on(app, db, owner, edi
             break
     out = editor.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered", out["ended"]
-    assert approved >= 5  # its own turns and its presses each waited for the owner's OK
+    assert approved >= 4  # its presses each waited for the owner's OK
+    held = db.query(Job).filter(Job.approved_by_id.is_not(None), Job.project_id == pid).all()
+    assert all(j.input.get("step") != director.STEP for j in held)  # never its own turns
 
 
 def test_only_a_published_script_and_stop_ends_the_run(app, db, owner, editor):
@@ -224,3 +226,29 @@ def test_a_take_for_a_clip_that_isnt_there_is_refused(db, owner, editor, app):
     user = db.query(User).filter_by(email="ed@example.com").one()
     said = director_tools.run(db, user, project, {"tool": "make_take", "clip_id": "c9"}, None)
     assert said == "Refused: there's no clip c9."
+
+
+def test_its_own_turns_never_use_the_videos_budget_but_the_cap_counts_them(app, db, owner, editor):
+    """Next-Lead (DECISIONS #1066): the video's budget, the director's own and the per-video
+    cap are three limits. An editor's run is never held for the budget by its own turns."""
+    from app.credits import get_limits
+
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    earlier = {"step": director.STEP, "ended": "Stopped.",
+               director.RUN: {"id": "earlier", "turn": 1, "redos": {}, "by": 1}}  # fmt: skip
+    turns = Job(workspace_id=project.workspace_id, kind="write-claude", provider="claude",
+                input=earlier, project_id=pid, credits=project.budget_credits,
+                status="succeeded")  # fmt: skip
+    db.add(turns)  # as if an earlier run's own turns had spent the whole budget
+    db.commit()
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
+
+    turns.credits = get_limits(db, project.workspace_id).per_video_max_credits
+    db.commit()  # its turns alone reach the per-video cap: nothing more, for anyone
+    refused = editor.post(f"/projects/{pid}/director")
+    assert refused.status_code == 409 and "limit" in refused.json()["detail"]
