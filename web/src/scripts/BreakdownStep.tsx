@@ -12,7 +12,7 @@ import { Scenes } from "../projects/PlanStep";
 import { refName } from "../projects/names";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
-import { useAllowanceStop, type Script } from "./useScript";
+import type { Script } from "./useScript";
 
 type Breakdown = components["schemas"]["Breakdown"];
 const LETTER = ["A", "B", "C"];
@@ -76,7 +76,6 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
     queryFn: async () => (await api.GET("/scripts/{script_id}/drafts/{slot}/breakdown/estimate", { params: { path } })).data?.credits,
   });
   const price = estimate.data;
-  const stop = useAllowanceStop(script, price);
   const run = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown", { params: { path } });
@@ -135,8 +134,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
       icon={planned ? RotateCcw : Sparkles}
       charge="estimate" price={price}
       busy={run.isPending}
-      disabled={running || readOnly || stop !== null}
-      reason={stop ?? undefined}
+      disabled={running || readOnly}
       onClick={() => (planned ? setAsking(true) : run.mutate())}
     >
       {failed ? "Try again" : makeLabel}
@@ -224,7 +222,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
         </div>
       )}
       {older && !readOnly && (
-        <Banner tone="warning" title="Made for an older plan." action={<Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} busy={run.isPending} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => run.mutate()}>Make the preview again</Button>}>
+        <Banner tone="warning" title="Made for an older plan." action={<Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} busy={run.isPending} disabled={running} onClick={() => run.mutate()}>Make the preview again</Button>}>
           The scene plan changed after these shots were made, so a new video makes its own shots from the plan. Make the preview again to start videos from it.
         </Banner>
       )}
@@ -256,7 +254,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
             return data as unknown as { changed_shots: { shot_id: string; before: string[]; after: string[] }[] };
           },
           again: readOnly ? null : (
-            <Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} disabled={running || stop !== null} reason={stop ?? undefined} onClick={() => setAsking(true)}>
+            <Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} disabled={running} onClick={() => setAsking(true)}>
               Make it again
             </Button>
           ),

@@ -273,31 +273,6 @@ test("a filled slot can be swapped for another character", async () => {
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/assets/slots/3")?.body).toEqual({ library_item_id: 8 }));
 });
 
-test("on an editor's own script past the weekly allowance the storyboard is declined with the reason, never Ask Reed", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9": [200, { ...project, own_script: true, credits_used: 590, budget_credits: 600 }],
-    "GET /projects/9/assets": [200, []],
-    "GET /credits/me": [200, { quick_clip_credits_used: 140, quick_clip_credits_allowed: 145 }],
-    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 4 }]],
-    "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
-  });
-  open("?step=storyboard");
-  const button = await screen.findByRole("button", { name: "Make the storyboard · 15 credits" });
-  expect(button).toBeDisabled();
-  expect(await screen.findByText(/more than this week's 145 credits/)).toBeInTheDocument();
-  expect(screen.queryByText(/Ask Reed/)).toBeNull();
-});
-
-test("on an editor's own script the header shows the week, not a budget", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9": [200, { ...project, own_script: true }], "GET /projects/9/assets": [200, []], "GET /credits/me": [200, { quick_clip_credits_used: 3, quick_clip_credits_allowed: 145 }] });
-  open();
-  expect(await screen.findByText("This week: 3 of 145 credits")).toBeInTheDocument();
-  expect(screen.queryByText(/% ·|credits · \d+%/)).toBeNull();
-});
-
 test("Assets gets its tick only once it has been opened, not before (#749 LW9)", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
