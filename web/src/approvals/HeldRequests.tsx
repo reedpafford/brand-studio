@@ -8,8 +8,10 @@ import type { Job } from "./useHeld";
 
 /** Which of my requests belong on this page: a video's, a script's, or my Quick clips (no video, no script). */
 export type HeldWhere = { projectId: number } | { scriptId: number } | { quick: true };
+// A Quick clip is a video or an image with no step, video or script; never just "not on a video or script" (QA on #1088).
+const quick = (j: Job) => (j.kind === "video" || j.kind === "image") && !j.step && j.project_id == null && j.script_id == null;
 const here = (j: Job, w: HeldWhere) =>
-  "projectId" in w ? j.project_id === w.projectId : "scriptId" in w ? j.script_id === w.scriptId && j.project_id == null : j.project_id == null && j.script_id == null;
+  "projectId" in w ? j.project_id === w.projectId : "scriptId" in w ? j.script_id === w.scriptId && j.project_id == null : quick(j);
 // The server words a decline without a reason itself ("The owner said no this time…"); only a reason the owner typed is shown.
 const reasonOf = (j: Job) => (j.error && !j.error.startsWith("The owner said no") ? j.error : "");
 const seenKey = "declines-seen";
@@ -56,7 +58,8 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
   const held = jobs.filter((j) => j.status === "needs_owner_approval");
   const declined = jobs.filter((j) => j.declined && !seen.includes(j.id));
   if (held.length === 0 && declined.length === 0) return null;
-  const what = (j: Job) => (j.step ? (STEPS[j.step] ?? "Your request") : j.project_id == null && j.script_id == null ? "Your Quick clip" : "Your request");
+  const what = (j: Job) =>
+    j.step === "song_take" ? (j.kind === "speech" ? "Your narration" : "Your song or music") : j.step ? (STEPS[j.step] ?? "Your request") : quick(j) ? "Your Quick clip" : "Your request";
   return (
     <div className="space-y-2" aria-label="Your requests">
       {held.map((j) => (
