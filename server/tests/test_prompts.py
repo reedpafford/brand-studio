@@ -1431,7 +1431,8 @@ def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
     assert "fine when the story motivates it" in prompts.system("clip_prompts")
     assert "a gasp or sound the story doesn't motivate" in prompts.system("director")
     assert "jaw drops" not in prompts.system("clip_prompts")
-    assert "2–4 shots, each about 1.5–3 s" in prompts.system("breakdown")
+    assert "2–4 shots, each with one clear action" in prompts.system("breakdown")
+    assert "1.5–3 s" not in prompts.system("breakdown")  # rule 29: no rigid timings
     assert "a copy of it, not a premise" in prompts.system("breakdown")
     assert "a copy, not a premise" in prompts.system("script_draft")
     assert "Write a montage only when this story" in prompts.system("script_draft")
@@ -1443,6 +1444,7 @@ def test_fomo_producers_redo_notes_reach_the_prompts():
     """FOMO-Producer's Reptilian and Fired redos (projects 56, 57; 1 Nov)."""
     breakdown = prompts.system("breakdown")
     assert "a remake keeps its <reference>'s own pace" in breakdown
-    assert "up to about 13 s even when the video model allows more" in breakdown
+    assert "up to about 13 s even where the model allows more" in breakdown
+    assert "split a longer one at a natural beat" in breakdown
     clip = prompts.system("clip_prompts")
     assert '"Oh my God", "Oh", "Yes!"' in clip and "no bangs), never who they are" in clip
