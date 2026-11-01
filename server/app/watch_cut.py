@@ -190,6 +190,20 @@ def _scripted(word: str, said: set[str]) -> bool:
         for w in _bare(word))  # fmt: skip
 
 
+def _holds_script(line: list[dict], said: set[str]) -> bool:
+    """A heard line holds a script word: a word of it, or two or all of its pieces run
+    together ("Foh-moh." or "Pho mo." for "fomo", QA-6)."""
+    bits = [b for w in line for b in _bare(w["word"])]
+    joined = ["".join(bits), *("".join(bits[n : n + 2]) for n in range(len(bits) - 1))]
+    return any(_scripted(w, said) for w in [*(w["word"] for w in line), *joined])
+
+
+def _script_words(script: str) -> set[str]:
+    """The script's spoken words, without its speaker labels ("MOM:")."""
+    lines = [re.sub(r"^\s*[A-Z][A-Z .'-]*?(?: \([^)]*\))?:", "", ln) for ln in script.splitlines()]
+    return set(_bare(" ".join(lines)))
+
+
 def _lines(words: list[dict]) -> list[list[dict]]:
     """The heard words in lines: a pause of PAUSE or more starts a new one."""
     out: list[list[dict]] = []
@@ -204,8 +218,8 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
     """The look's findings the director can act on: a mute inside one clip and over no
     script word, in that clip's take seconds; a pick of one of the clip's other takes."""
     spans = {c["clip_id"]: c for c in cut}
-    said = set(_bare(script))
-    spoken = [line for line in _lines(words) if any(_scripted(w["word"], said) for w in line)]
+    said = _script_words(script)
+    spoken = [line for line in _lines(words) if _holds_script(line, said)]
     out = []
     for f in (answer.get("findings") or [])[:6]:
         f = {**f, "fix": "pick" if f.get("fix") == "other_take" else f.get("fix")}
