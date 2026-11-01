@@ -32,6 +32,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n15 | Song in any look: no new column. Rows on look `song` (`scripts`, `projects`, `brands.default_look`) move to their brand's default look, else `house`; `look_switches` rows for `song` are deleted. Song is the script's `kind` (its Format), never a look. Downgrade is a no-op (which rows were on Song isn't kept) | Next-Server | #1031 |
 | n16 | One editor allowance (Reed, 30 Oct; DECISIONS rule 5): no new column. Workspace limits still on the old default (145 or 150 credits) move to 97 ($10); a custom figure stays. The allowance counts Quick clips only (a video or image job outside any video, with no step) | Next-Server | #1053 |
 | n17 | Screen figures (#1057's `Shot.screen_figure`): `brand_screens.figure_spot` JSON, nullable, no default (null = the screen is never drawn on): `{box [x0,y0,x1,y1], at [x,y], size px, chart [x0,y0,x1,y1] optional}`. Sets the spots for fomo's Home (rich), Token chart up and Token chart down | Next-Server | #1059 |
+| n18 | Locks and per-video outfits (director-chat.md §1): `projects.locks` JSON not null default `{}` (the choices fixed for the director: cast, look, length, song, end_line as true; screens as a list of ids) and `projects.outfits` JSON not null default `{}` (this video's outfit per character, keyed `char:<id>`, ≤200 chars; empty = the sheet's outfit). Downgrade drops both | Next-Server | #1104 |
 
 ## Merge order (the chain on `next`)
 
@@ -55,7 +56,8 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 13 | n14 | #972 | n12 | On `next` (dfc43b33) |
 | 14 | n15 | #1031 | n14 | On `next` (9f72273b) |
 | 15 | n16 | #1053 | n15 | On `next` |
-| 16 | n17 | #1059 | n16 | Open, testing (QA) |
+| 16 | n17 | #1059 | n16 | On `next` (08d2dce5) |
+| 17 | n18 | #1104 | n17 | Open, testing |
 
 ## 1. Song ads
 

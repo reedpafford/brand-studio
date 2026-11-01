@@ -1402,7 +1402,9 @@ VOICED = re.compile(
     r"\b(?:vocals?|choir|singing|singer|sung|humm(?:ing|ed)|lyrics?|chant\w*)\b", re.I
 )
 
-NEGATED = re.compile(r"\b(?:no|not|never|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I)
+NEGATED = re.compile(
+    r"\b(?:no|not|never|nothing|none|nor|without|non|zero)(?:[-\s]+[\w']+,?){0,3}[-\s]+$", re.I
+)
 
 
 def _negated(text: str, m: re.Match) -> bool:
