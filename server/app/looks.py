@@ -37,6 +37,12 @@ def get(look_id: str) -> dict:
     return found
 
 
+def lanes(look_id: str) -> list[dict]:
+    """A style's lanes, each as get() gives it ("Paper · Flat Paper")."""
+    return [get(s["id"]) for s in prompts.styles()
+            if s["kind"] == "lane" and s.get("parent") == look_id]  # fmt: skip
+
+
 def base(look_id: str) -> str:
     """The look a lane belongs to (its switch and sample are the look's); a look is its own."""
     return get(look_id).get("parent") or look_id

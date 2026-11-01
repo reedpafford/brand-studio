@@ -19,6 +19,11 @@ router = APIRouter(prefix="/looks", tags=["looks"])
 HOUSE_STAYS = "House is the default look, so it stays on."
 
 
+class LaneOut(BaseModel):
+    id: str
+    name: str  # "Paper · Flat Paper"
+
+
 class LookOut(BaseModel):
     id: str
     name: str
@@ -27,6 +32,7 @@ class LookOut(BaseModel):
     sample_still_id: int | None = None  # ST3: the approved sample, once made
     sample_clip_id: int | None = None
     own_sample: bool = False  # its sample shows its own person: no hero, no "Who's in it?"
+    lanes: list[LaneOut] = []  # the style's lanes, picked by a video's plan (one look per style)
 
 
 class LookSwitchIn(BaseModel):
@@ -39,7 +45,9 @@ def _out(db: Session, ws: int, look: dict) -> LookOut:
                    on=looks.is_on(db, ws, look["id"]),
                    sample_still_id=row.sample_still_id if row else None,
                    sample_clip_id=row.sample_clip_id if row else None,
-                   own_sample=look["own_sample"])  # fmt: skip
+                   own_sample=look["own_sample"],
+                   lanes=[LaneOut(id=x["id"], name=x["name"])
+                          for x in looks.lanes(look["id"])])  # fmt: skip
 
 
 @router.get("", response_model=list[LookOut])

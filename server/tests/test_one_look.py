@@ -27,6 +27,9 @@ def test_a_lane_is_found_named_by_its_style_and_follows_its_switch(db, owner, ed
     cards = [c["id"] for c in editor.get("/looks").json()]
     assert not LANES & set(cards) and {"paper", "claymation", "skeleton"} <= set(cards)
     assert len(cards) == len(set(cards))  # one card per style
+    paper = next(c for c in editor.get("/looks").json() if c["id"] == "paper")
+    assert {"id": "paper-flat", "name": "Paper · Flat Paper"} in paper["lanes"]  # to name a video
+    assert next(c for c in editor.get("/looks").json() if c["id"] == "house")["lanes"] == []
     ws = owner.get("/auth/me").json()["workspace_id"]
     assert not looks.is_on(db, ws, "paper-flat")
     db.add(LookSwitch(workspace_id=ws, look_id="paper", sample_still_id=_a_file(db),
