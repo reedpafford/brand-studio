@@ -22,14 +22,14 @@ Original cel-shaded anime animation, clean ink lines and two-tone shading, pose-
 an original cel-shaded anime look with clean ink lines
 
 ## still
-- Every shot is a strong key pose. Speed lines, halftone, an impact frame or a panel border only when they sell the moment (the win, the reveal), never as decoration. No speech balloons or captions: words are added in editing. Never a composition copied from a known anime, manga or comic frame.
+- Every shot is a strong key pose. Speed lines, halftone, an impact frame or an ink border round the whole frame only when they sell the moment (the win, the reveal), never as decoration. One full frame per shot: never several panels, a grid or a split frame in one image. No speech balloons or captions: words are added in editing. Never a composition copied from a known anime, manga or comic frame.
 - Prioritise silhouette and expression over fine detail. The product keeps its real shape and label, drawn in the same line and shading.
 
 ## clip
 - Animate pose to pose: hold the key pose, snap to the next on the beat, with a restrained camera move. A reveal or a power-up can land on an impact frame.
 
 ## breakdown
-- Strong key poses carry it: plan each shot around one pose that reads at a glance. Devices this look tells well, when the story has one: a transformation, a dramatic reveal, a side-by-side versus, a power-up that shows how the product works, a hero talking to the viewer, or a panel-by-panel explainer.
+- Strong key poses carry it: plan each shot around one pose that reads at a glance. Devices this look tells well, when the story has one: a transformation, a dramatic reveal, a versus (shot against shot, or both rivals in one scene), a power-up that shows how the product works, a hero talking to the viewer, or an explainer told one full-frame shot at a time, with comic-panel transitions between them.
 
 ## sample
 A determined young adult with spiky black hair and bright eyes, in one plain navy jacket, in a strong key pose.
