@@ -4,7 +4,7 @@ default, unchanged; Starpop's styles are entries in styles/, in Reed's order."""
 import pytest
 
 from app import prompts
-from app.prompts import HERE
+from app.prompts import HERE, schemas
 
 TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 
@@ -29,8 +29,8 @@ def test_reeds_order_and_only_house_starts_on():
                    for s in prompts.styles())  # fmt: skip
     assert [s["id"] for s in prompts.styles() if s["on"]] == ["house"]
     for s in prompts.styles():
-        assert s["kind"] in ("look", "format") and s["blurb"], s["id"]
-        if s["kind"] == "look":  # a format (Song) has no look of its own: it takes the video's
+        assert s["kind"] in ("look", "format", "lane") and s["blurb"], s["id"]
+        if s["kind"] != "format":  # a format (Song) has no look of its own: it takes the video's
             assert set(TOKENS) <= set(s["sections"]), s["id"]
         assert set(s["sections"]) <= set(TOKENS) | set(prompts.GUIDES) | prompts.DATA, s["id"]
 
@@ -141,11 +141,35 @@ def test_a_looks_banned_words_are_repaired_but_never_in_a_spoken_line():
         assert check.look_words(safe, look)[:2] == (safe, []), safe
 
 
+def test_reeds_looks_are_one_per_style_and_their_lanes_choose_per_video():
+    """Reed, 1 Nov: "Why are there so many different types for one style? The style would be
+    'skeleton' or 'paper mache'." One look each; its lanes are files kept word for word, and the
+    plan picks one per video, the skill's recommended lane by default."""
+    looks = [s["id"] for s in prompts.styles() if s["kind"] == "look"]
+    lanes = {s["id"]: s["parent"] for s in prompts.styles() if s["kind"] == "lane"}
+    assert lanes == {"paper-flat": "paper", "paper-handmade": "paper", "paper-collage": "paper",
+                     "paper-origami": "paper", "claymation-goofy": "claymation",
+                     "claymation-clean": "claymation", "claymation-puppet": "claymation",
+                     "skeleton-xray": "skeleton", "skeleton-cute": "skeleton"}  # fmt: skip
+    assert not set(lanes) & set(looks) and set(lanes.values()) <= set(looks)
+    for parent in set(lanes.values()):
+        plan = prompts.system("plan", parent)
+        assert "This look has lanes" in plan and '- "" (the default' in plan, parent
+        assert all(f'- "{lane}": ' in plan for lane, p in lanes.items() if p == parent), parent
+    assert "This look has lanes" not in prompts.system("plan", "paper-flat")  # chosen already
+    assert "This look has lanes" not in prompts.system("storyboard", "paper")  # the plan's only
+    assert "**The lane.**" in prompts.system("plan")
+    assert schemas.Structure.model_fields["lane"].default == ""
+    assert "Layered papercraft" in prompts.style("paper")["sections"]["lanes"]
+    assert "Cinematic claymation" in prompts.style("claymation")["sections"]["lanes"]
+    assert "Bare-Bones" in prompts.style("skeleton")["sections"]["lanes"]
+
+
 def test_every_look_has_a_sample_person_and_formats_have_none():
     """flows ST3: a look's sample still shows `## sample` when the brand has no hero."""
     for s in prompts.styles():
         sample = prompts.look_sample(s["id"])
-        assert bool(sample) == (s["kind"] == "look"), s["id"]
+        assert bool(sample) == (s["kind"] != "format"), s["id"]  # a lane keeps Reed's own
         assert "\n" not in sample and len(sample.split()) <= 30, s["id"]
     assert "skeleton" in prompts.look_sample("skeleton")
     for step in prompts.SCHEMAS:  # data, never step guidance

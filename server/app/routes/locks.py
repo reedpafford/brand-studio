@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy.orm import Session
 
+from app import looks
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -52,7 +53,8 @@ def save(
     cast = {f"char:{c.id}" for c in cast_looks(db, project)}
     if unknown := sorted(set(body.outfits) - cast):
         raise HTTPException(422, f"Not in this video's cast: {', '.join(unknown)}.")
-    project.locks = body.locks.model_dump(exclude_defaults=True)
+    picked = {looks.PICKED: True} if (project.locks or {}).get(looks.PICKED) else {}
+    project.locks = {**body.locks.model_dump(exclude_defaults=True), **picked}
     project.outfits = {k: v for k, v in body.outfits.items() if v}
     db.commit()
     return read(project_id, user, db)

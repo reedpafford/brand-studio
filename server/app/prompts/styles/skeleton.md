@@ -41,6 +41,12 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 - In a Narrated script the narrator is the only voice; in a Dialogue one, the skeleton speaks its own rungs.
 - This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
 
+## lanes
+This look has lanes, ways of making it; choose one for this video in `lane`:
+- "" (the default, Bare-Bones): one lovable cartoon skeleton; for most stories.
+- "skeleton-xray": Skeleton X-Ray: a glowing x-ray body with its organs lit; for a story about what happens inside the body (health, food, sleep).
+- "skeleton-cute": Skeleton Mascot: a cute chibi skeleton mascot; for a playful brand or a younger audience.
+
 ## banned
 gory →
 gore → glow
