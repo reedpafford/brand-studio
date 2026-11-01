@@ -1395,6 +1395,7 @@ def test_the_harvest_is_folded_into_the_steps_that_use_it():
     assert "a line across a cut loses its lip-sync" in prompts.system("breakdown")
     assert "only the shot's own cast: no extra people" in prompts.system("storyboard")
     draft = prompts.system("script_draft")
-    assert "every fix fails visibly and makes it worse" in draft
-    assert "the hidden cause made visible" in draft and "each phrase is its own line" in draft
+    assert "each fix fails visibly and makes it worse" in draft and "only when they fit" in draft
+    assert "a hidden cause made visible" in draft and "each phrase is its own line" in draft
+    assert "the hug" not in draft and "weeks later" not in draft  # one story's beats stay its own
     assert "never moves its mouth" in prompts.system("narrated_clip_prompts")
