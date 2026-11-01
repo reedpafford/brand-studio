@@ -34,7 +34,7 @@ def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setu
     run_writer(app, db)
     job = db.query(Job).filter(Job.kind == "check-claude").one()
     assert len(job.input["files"]["reference_images"]) == 1  # Mom's sheet; frames come first
-    assert job.input["take_frames"]["count"] == 1  # key_takes: one frame keeps it to cents
+    assert job.input["take_frames"]["count"] == 6  # a strip of frames (take check slice 2)
     assert editor.post(f"{clips}/approve-all").json()["approved_with_advice"] == 1
     assert (
         editor.post(f"{clips}/approve-all").json()["approved_with_advice"] == 0
@@ -49,7 +49,7 @@ def test_a_take_gets_advice_looks_fine_and_the_review_list(app, db, editor, setu
     review = editor.get(url).json()
     assert [(i["kind"], i["label"]) for i in review["items"]] == [("take", "Clip c1 · take 1")]
     assert review["on"] is True and review["credits_per_check"] == 1
-    assert review["check_credits_per_video"] == 1  # one speaking clip: 0.2, rounded up
+    assert review["check_credits_per_video"] == 1  # one speaking clip: 0.6, rounded up
     fine = editor.post(f"{url}/{check['id']}/findings/0/dismiss").json()
     assert (fine["status"], fine["findings"]) == ("ok", [])
     assert db.get(ItemCheck, check["id"]).dismissed[0]["index"] == 0  # kept in its history
@@ -85,7 +85,7 @@ def test_stills_are_checked_only_when_the_scope_is_everything(app, db, editor, s
     draw()
     assert editor.get(url).json()[0]["check"]["status"] == "advice"
     review = editor.get(f"/projects/{setup['project']}/checks").json()
-    assert review["check_credits_per_video"] == 1  # a still and a take for its one clip: 0.4
+    assert review["check_credits_per_video"] == 1  # a still and a take for its one clip: 0.8
 
 
 def test_over_budget_is_skipped_and_a_failed_check_is_free(app, db, editor, setup, clip):  # noqa: F811
