@@ -14,7 +14,7 @@ from app.models.accounts import Role, User
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.providers.fake import FakeProvider
-from app.routes.jobs import enqueue
+from app.routes.jobs import OVER_BUDGET, enqueue
 from app.worker import run_once
 from tests.conftest import PASSWORD
 from tests.helpers import assert_hidden, assert_no_dollars
@@ -103,7 +103,7 @@ def test_over_budget_job_waits_for_the_owner_uncharged_and_runs_once_approved(
     before = credits_used(db, model)
     held = enqueue(db, ed, "video-480p", {}, units=10, project=model)
     assert held.status == "needs_owner_approval"
-    assert editor.get(f"/jobs/{held.id}").json()["held"] == "That's more than this video's budget."
+    assert editor.get(f"/jobs/{held.id}").json()["held"] == OVER_BUDGET
     assert credits_used(db, model) == before  # nothing charged while it waits
     _run(db)
     db.refresh(held)
@@ -151,7 +151,7 @@ def test_quick_clips_use_a_weekly_allowance_per_editor(editor, ed, db):
     over = enqueue(db, ed, "video-480p", {}, units=40)
     assert over.status == "needs_owner_approval"
     assert editor.get(f"/jobs/{over.id}").json()["held"] == (
-        "That's more than this week's 97 credits (60 used). It resets on Monday."
+        "Waiting for the owner's OK: this goes past your week's 97 credits (60 used)."
     )
     assert enqueue(db, ed, "video-480p", {}, units=37).status == "queued"  # exactly 97
     me = editor.get("/credits/me").json()
@@ -159,7 +159,9 @@ def test_quick_clips_use_a_weekly_allowance_per_editor(editor, ed, db):
     resets = date.fromisoformat(me["resets_on"])
     assert resets.weekday() == 0 and resets > utcnow().date()  # next Monday: "It resets on…"
     spent = enqueue(db, ed, "video-480p", {}, units=1)
-    assert spent.input["held"] == "You've used this week's 97 credits. It resets on Monday."
+    assert spent.input["held"] == (
+        "Waiting for the owner's OK: this goes past your week's 97 credits (97 used)."
+    )
     assert "reed" not in spent.input["held"].lower()
 
 
@@ -410,7 +412,7 @@ def test_a_video_from_an_editors_own_script_runs_on_its_budget_not_the_week(owne
         "queued"
     )
     held = enqueue(db, ed, "video-480p", {}, units=1, project=own)
-    assert held.input["held"] == "That's more than this video's budget."
+    assert held.input["held"] == "Waiting for the owner's OK: this goes past the video's budget."
     assert editor.get("/credits/me").json()["quick_clip_credits_used"] == 0  # not the week
     assert enqueue(db, ed, "video-480p", {}, units=97).status == "queued"  # a whole week left
 
@@ -455,5 +457,5 @@ def test_a_short_video_with_two_new_looks_reaches_its_take(owner, editor, ed, db
                    status="succeeded"))  # fmt: skip
     db.commit()
     take = enqueue(db, ed, "video-480p", {}, units=12, project=project)
-    assert take.status == "queued"  # not "That's more than this video's budget."
+    assert take.status == "queued"  # never held for the budget
     assert project.budget_credits <= get_limits(db, ed.workspace_id).per_video_max_credits
