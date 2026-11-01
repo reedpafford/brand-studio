@@ -156,7 +156,8 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   const pick = (f: Field, c: Choice) => (c.id === f.current ? setPicking(null) : setAsking({ field: f, choice: c }));
   const lookOpen = picking?.key === "look" && looks.data;
   const lines = asking && preview.data ? confirmText(asking.field, asking.choice, preview.data, finished) : null;
-  const hold = preview.data ? (preview.data.reason ?? (preview.data.over_budget ? "That's more than this video's budget." : preview.data.over_cap ? "Over the video limit." : null)) : null;
+  // Only the cap stops a switch; past the budget an editor's later presses wait for the owner (Hold requests, #1068).
+  const hold = preview.data?.over_cap ? (preview.data.reason ?? "Over the video limit.") : null;
   return (
     <>
       {row}

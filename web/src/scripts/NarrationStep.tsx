@@ -55,7 +55,7 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
           <p role="alert" className="text-sm text-warning">{t.music_reason || "The music didn't finish. Nothing was charged for it."} The narration is kept.</p>
           {!readOnly && (
             <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.music_credits} busy={a.musicAgain.isPending && a.musicAgain.variables === t.id} onClick={() => a.musicAgain.mutate(t.id)}>
-              Try the music again
+              {a.ask("Try the music again", t.music_credits)}
             </Button>
           )}
         </div>
@@ -79,7 +79,7 @@ function NarrationCard({ t, a, readOnly, price }: { t: Narration; a: ReturnType<
           <p role="alert" className={errorClass}>{t.failed_reason ?? "The narration didn't finish. Nothing was charged."}</p>
           {!readOnly && t.retry_helps && (
             <Button variant="secondary" icon={RotateCcw} charge="fixed" price={t.status === "failed" ? price : 0} busy={a.tryAgain.isPending && a.tryAgain.variables === t.id} onClick={() => a.tryAgain.mutate(t.id)}>
-              Try again
+              {a.ask("Try again", t.status === "failed" ? price : 0)}
             </Button>
           )}
         </div>
@@ -131,7 +131,7 @@ export function NarrationStep({ script: s }: { script: Script }) {
   const make = (label: string, primary: boolean) => (
     // With nothing for the narrator to read, the server sends why (songs_note) and no price (#920): the press says it, greyed.
     <Button variant={primary ? "primary" : "secondary"} icon={Mic} charge="fixed" price={noWords ? undefined : data.estimate_credits} disabled={noWords || making} reason={noWords ? data.songs_note! : making ? "One is being made" : null} busy={a.make.isPending} onClick={() => a.make.mutate()}>
-      {label}
+      {a.ask(label, noWords ? 0 : data.estimate_credits)}
     </Button>
   );
   return (
