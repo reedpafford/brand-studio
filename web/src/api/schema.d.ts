@@ -9147,6 +9147,8 @@ export interface components {
              * @default unchecked
              */
             verdict: string;
+            /** Approved By */
+            approved_by?: string | null;
             /**
              * Mutes
              * @default []

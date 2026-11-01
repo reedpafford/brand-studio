@@ -103,7 +103,8 @@ export function ClipCard(props: {
   const check = (picked as (typeof picked & { check?: ItemCheck }) | undefined)?.check; // the picked take's advisory check (P4)
   const words = (picked as (typeof picked & { words?: ItemCheck }) | undefined)?.words; // what it says against the script's lines
   // The chip says what the card holds now; a failed newest take is a line under it (it never hides a good picked take).
-  const status = c.approved ? "Approved" : props.busy ? null : c.stale ? "Out of date" : picked ? `Take ${picked.number} · ready to check` : failed ? "Didn't finish" : "Not made";
+  const byCheck = (picked as (typeof picked & { approved_by?: string | null }) | undefined)?.approved_by === "check"; // rule 21: a clean take
+  const status = c.approved ? (byCheck ? "Approved by the check" : "Approved") : props.busy ? null : c.stale ? "Out of date" : picked ? `Take ${picked.number} · ready to check` : failed ? "Didn't finish" : "Not made";
   const verb = c.takes.length === 0 ? "Make clip" : "Make another take";
   const change = (text: string) => (props.review && !c.stale ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setNote(text)); // a check's note
   const problems = blocking(c.problems, c.kept).length > 0;
