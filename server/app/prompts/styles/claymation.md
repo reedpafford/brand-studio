@@ -13,7 +13,7 @@ Detailed cinematic claymation: a hand-sculpted plasticine character with an appe
 Detailed cinematic claymation: a physical miniature set in which every object is hand-sculpted plasticine with thumb-pressed surfaces and fine tool marks, densely dressed with tiny sculpted props, photographed with a macro lens at shallow depth of field with strong background bokeh, bright warm practical light with a soft rim light, real cast shadows, a rich harmonious sage, cream and terracotta palette.
 
 ## still_look
-The Claymation look, unless the brand block says otherwise: "Detailed cinematic claymation scene — hand-sculpted plasticine characters with an appealing idealized build and richly sculpted features, matte clay skin carrying thumb-worked smoothing and fine tool striations, chunky rounded clay hands with softly tapered fingertips and no realistic fingernails, real woven fabric clothing with stitched seams, staged on a physical miniature set and photographed with a macro lens at shallow depth of field with strong background bokeh, warm practical lighting with a soft rim light, the scene filling the entire frame with the camera inside the miniature world. Faces, builds and outfits come from the character sheets. Everything in frame is hand-sculpted plasticine and real fabric, photographed on a physical miniature set — visible tool striations and thumb-worked clay surfaces, woven fabric weave, real cast shadows, the miniature scene filling the entire frame. No photographic human skin, no real human hands, no fingernails, no wrinkled realistic faces."
+The Claymation look, unless the brand block says otherwise: "Detailed cinematic claymation scene — hand-sculpted plasticine characters with an appealing idealized build and richly sculpted features, matte clay skin carrying thumb-worked smoothing and fine tool striations, chunky rounded clay hands with softly tapered fingertips and no realistic fingernails, real woven fabric clothing with stitched seams, staged on a physical miniature set and photographed with a macro lens at shallow depth of field with strong background bokeh, warm practical lighting with a soft rim light, the scene filling the entire frame with the camera inside the miniature world. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Everything in frame is hand-sculpted plasticine and real fabric, photographed on a physical miniature set — visible tool striations and thumb-worked clay surfaces, woven fabric weave, real cast shadows, the miniature scene filling the entire frame. No photographic human skin, no real human hands, no fingernails, no wrinkled realistic faces."
 
 ## clip_style
 Handmade stop-motion claymation throughout: matte plasticine, fine tool striations, slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI. Non cartoon. Animation must start at the first frame
@@ -38,7 +38,7 @@ a hand-sculpted claymation look with large almond eyes and matte clay skin
 ## fixes
 refused: Soften it, then Make another.
 face: Make another first. If it drifts again, Change this… "the white of the eye clearly visible around a deeply coloured iris, thick sculpted brows, exactly as the sheet".
-outfit: Change this… naming the sheet's real woven pieces in the shot.
+outfit: Change this… naming the real woven pieces in the shot, this video's outfit when it gives one, else the sheet's.
 product: Change this… "the product sculpted in clay with a real printed paper label, its words exactly as in its image".
 
 ## sample

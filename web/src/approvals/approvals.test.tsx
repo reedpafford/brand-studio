@@ -186,3 +186,12 @@ test("at 390, a row's video link is a 44 px target (QA sweep)", async () => {
   const link = await screen.findByRole("link", { name: "Mia buys the dip" });
   expect(link.className).toContain("min-h-11"); // 44 px on a phone; its text size on desktop
 });
+
+test("a link to one request (?job=51, from the page it waits on) lands on that row, marked and focused", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [held({}), held({ id: 51, step: "frame", credits: 3 })]] });
+  open("/approvals?job=51");
+  const row = (await screen.findByRole("button", { name: "Approve a new still" })).closest("li")!;
+  await vi.waitFor(() => expect(row).toHaveFocus());
+  expect(row).toHaveAttribute("aria-current", "true");
+  expect(screen.getByRole("button", { name: "Approve a new take" }).closest("li")).not.toHaveAttribute("aria-current");
+});

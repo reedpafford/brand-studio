@@ -13,7 +13,7 @@ Handmade paper stop-motion: a character built from torn construction paper with 
 Handmade paper stop-motion: torn paper edges, visible glue seams, construction-paper grain, finger-crumpled textures and hand-placed imperfection, soft practical lighting with visible falloff, the scene filling the entire frame.
 
 ## still_look
-The Handmade Paper look, unless the brand block says otherwise: "Handmade paper stop-motion scene — torn paper edges, visible glue seams, construction-paper grain, hand-placed imperfection, soft practical lighting with visible falloff, the scene filling the entire frame. Faces, builds and outfits come from the character sheets. Everything in frame is real physical paper, photographed — visible paper grain and fibers, cut edges showing paper thickness, real cast shadows, soft studio lighting, the paper shot filling the entire frame."
+The Handmade Paper look, unless the brand block says otherwise: "Handmade paper stop-motion scene — torn paper edges, visible glue seams, construction-paper grain, hand-placed imperfection, soft practical lighting with visible falloff, the scene filling the entire frame. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Everything in frame is real physical paper, photographed — visible paper grain and fibers, cut edges showing paper thickness, real cast shadows, soft studio lighting, the paper shot filling the entire frame."
 
 ## clip_style
 Handmade paper stop-motion, torn construction paper and glue seams, 12 fps judder with slight frame-to-frame jitter and no motion blur

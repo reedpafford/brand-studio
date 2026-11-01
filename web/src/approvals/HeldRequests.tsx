@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Banner, Button, buttonClass, creditsText } from "../components";
 import { serverTime } from "../time";
+import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { PLURAL, STEPS } from "./ApprovalsPage";
 import type { Job } from "./useHeld";
@@ -69,6 +70,15 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
   const toast = useToast();
   const [seen, setSeen] = useState(readSeen);
   const mine = useMyRequests();
+  const owner = useMe().data?.role === "owner";
+  // The owner's own presses are never held: on a video or a script they see what anyone asked there, one press from its row
+  // in Approvals (no dead end; #1119). Editors' Quick clips wait in Approvals only.
+  const asked = useQuery({
+    enabled: owner && !("quick" in where),
+    queryKey: ["held-jobs"],
+    refetchInterval: 30_000,
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } })).data ?? [],
+  });
   const withdraw = useMutation({
     mutationFn: async (j: Job) => {
       const { error, response } = await api.POST("/jobs/{job_id}/cancel", { params: { path: { job_id: j.id } } });
@@ -89,12 +99,13 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
       /* a private window: it shows again next time */
     }
   };
-  const jobs = (mine.data ?? []).filter((j) => here(j, where));
+  const jobs = ((owner ? asked.data : mine.data) ?? []).filter((j) => here(j, where));
   const held = jobs.filter((j) => j.status === "needs_owner_approval");
   const declined = jobs.filter((j) => j.declined && !seen.includes(j.id));
   // A request that was waiting here and now runs was approved: say so once (a withdrawn or declined one is cancelled).
   const waiting = useRef(new Set<number>());
   useEffect(() => {
+    if (owner) return; // the owner said yes themselves
     for (const j of jobs) {
       if (waiting.current.has(j.id) && j.status !== "needs_owner_approval" && j.status !== "cancelled" && !j.declined) {
         toast(`The owner said yes: ${lower(what(j))} ${PLURAL.has(what(j)) ? "are" : "is"} being made.`);
@@ -105,6 +116,16 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
     for (const j of held) waiting.current.add(j.id);
   });
   if (held.length === 0 && declined.length === 0) return null;
+  if (owner)
+    return (
+      <div className="space-y-2" aria-label="Waiting for you">
+        {held.map((j) => (
+          <Banner key={j.id} tone="info" title="Waiting for your OK" action={<Link className={buttonClass("secondary")} to={`/approvals?job=${j.id}`}>Open in Approvals</Link>}>
+            {j.created_by_name || "An editor"} asked for {lower(what(j).replace(/^Your /, ""))} · {creditsText(j.credits)} · {askedAgo(j.created_at)}. {j.held}
+          </Banner>
+        ))}
+      </div>
+    );
   const change = (j: Job) => {
     const step = j.project_id != null ? (stepOf(j) ?? "plan") : undefined; // on a video, never a dead end
     if (step)
