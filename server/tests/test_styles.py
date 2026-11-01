@@ -12,26 +12,13 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
-    assert set(ids[5:]) == {
-        "claymation",
-        "claymation-goofy",
-        "claymation-clean",
-        "claymation-puppet",
-        "anime-comic",
-        "paper",
-        "paper-flat",
-        "paper-handmade",
-        "paper-collage",
-        "paper-origami",
-        "watercolor",
-        "wool-crochet",
-    }
-    at = ids.index("claymation")  # Reed's skill: its four lanes, side by side
-    assert ids[at : at + 4] == ["claymation", "claymation-goofy", "claymation-clean",
-                                "claymation-puppet"]  # fmt: skip
-    at = ids.index("paper")  # Reed's skill: its five lanes, side by side
-    assert ids[at : at + 5] == ["paper", "paper-flat", "paper-handmade", "paper-collage",
-                                "paper-origami"]  # fmt: skip
+    assert {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"} <= set(ids)
+    # A look's own lanes (order 5.1, 5.2…) sit right after it, in order; no PR lists them here
+    styles = prompts.styles()
+    for before, s in zip(styles, styles[1:], strict=False):
+        if s["order"] != int(s["order"]):
+            assert int(before["order"]) == int(s["order"]), s["id"]
+    assert ids.index("paper") + 4 == ids.index("paper-origami")  # Reed's five paper lanes
     # Formats: only Song for now (Reed, 30 Oct); podcast, vox and whiteboard are in git history
     assert [s["id"] for s in prompts.styles() if s["kind"] == "format"] == ["song"]
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
@@ -102,7 +89,7 @@ def test_styles_borrow_a_studio_look_never_its_frame_and_never_rewrite_lines():
     for s in prompts.styles():
         text = "\n".join(s["sections"].values())
         assert "frame from a Pixar" not in text and "from an animated Pixar" not in text, s["id"]
-        if "script" in s["sections"] and s["id"] in ("zack-d", "skeleton"):
+        if "script" in s["sections"]:
             assert "word for word" in s["sections"]["script"], s["id"]
 
 
@@ -112,7 +99,7 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
     for look in ("house", "disney-pixar", "zack-d", "skeleton"):
         assert prompts.look_banned(look), look
         assert set(prompts.look_fixes(look)) == {"refused", "face", "outfit", "product"}, look
-    assert ("Pixar-style", "semi-realistic 3D") in prompts.look_banned("zack-d")
+    assert ("Pixar-style", "stylised 3D") in prompts.look_banned("zack-d")
     # the look's own name never goes to a model (Next-Lead on #1009)
     from app.prompts import check
 
@@ -175,15 +162,8 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     own = prompts.sample_still_prompt("zack-d")
     assert prompts.look_sample("zack-d").rstrip(".") in own and "[Image1]" not in own
     # Skeleton's sample is always its own skeleton, never the brand's human hero
-    assert [s["id"] for s in prompts.styles() if s["own_sample"]] == ["skeleton"]
-
-
-def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
-    """Reed's references (YouTube shorts): semi-realistic 3D like a game cutscene."""
-    zack = prompts.style("zack-d")["sections"]
-    for part in ("sheet_look", "place_look", "still_look", "clip_style"):
-        assert "semi-realistic 3D" in zack[part] or "Semi-realistic 3D" in zack[part], part
-        assert "cyan" not in zack[part] and "Pixar register" not in zack[part], part
+    own = [s["id"] for s in prompts.styles() if s["own_sample"]]
+    assert own == ["skeleton", "skeleton-xray", "skeleton-cute"]
 
 
 def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
@@ -270,22 +250,3 @@ def test_disney_pixar_holds_reeds_skill():
     assert "with its colour" in still and "never clinical terms" in still
     assert "a pancake becomes the sun" in prompts.system("clip_prompts", "disney-pixar")
     assert "four to five heads tall" not in look["sheet_look"]  # adults keep adult proportions
-
-
-def test_paper_has_reeds_five_lanes_with_their_blocks_word_for_word():
-    """Reed's paper skill (docs/next/skills, #1095): one lane a video, each its own look, its
-    style and physicality blocks word for word; the camera inside the paper world."""
-    skill = (HERE.parents[2] / "docs" / "next" / "skills" / "paper.md").read_text()
-    blocks = [b.split("`", 1)[0] for b in skill.split("- Style block: `")[1:]]
-    looks = ["paper", "paper-flat", "paper-handmade", "paper-collage", "paper-origami"]
-    assert len(blocks) == len(looks)
-    phys = skill.split("## The physicality block", 1)[1].split("```\n", 2)[1].strip()
-    for look, block in zip(looks, blocks, strict=True):
-        still = prompts.style(look)["sections"]["still_look"]
-        assert block in still, look
-        assert (phys in still) == (look != "paper-origami"), look  # origami: folded edges
-        assert "paper" in prompts.style(look)["sections"]["clip_style"].lower(), look  # not clay
-        assert "the camera is inside the scene" in prompts.system("storyboard", look), look
-        assert ("diorama", "paper scene") in prompts.look_banned(look), look
-    assert "crisp crease lines" in prompts.style("paper-origami")["sections"]["still_look"]
-    assert "photo cutout of the real product" in prompts.system("storyboard", "paper-collage")

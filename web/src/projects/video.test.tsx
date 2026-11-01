@@ -173,6 +173,7 @@ test("past the budget an editor's one-press storyboard reads Send for approval a
   open("?step=storyboard");
   const send = await screen.findByRole("button", { name: "Send for approval · 15 credits" });
   expect(send).toBeEnabled();
+  expect(screen.getByText("Goes past the video's budget. Nothing is charged until the owner says yes.")).toBeInTheDocument();
   expect(screen.queryByText("That's more than this video's budget.")).toBeNull();
   expect(document.body.textContent).not.toMatch(/ask (Reed|the owner)/i);
 });
@@ -1609,4 +1610,12 @@ test("a video not made from a script version has no Director view: it opens on i
   open("");
   expect(await screen.findByRole("list", { name: "Steps" })).toBeInTheDocument();
   expect(screen.queryByRole("tab", { name: "Director" })).toBeNull();
+});
+
+test("the video header says how many of my requests wait for the owner", async () => {
+  setViewport(390);
+  const waiting = { id: 50, kind: "image", project_id: 9, script_id: null, credits: 4, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: "frame", error: "", held: "Waiting for the owner's OK: this goes past the video's budget.", declined: false, created_by_name: "Eli", waiting: "", auto: false, output: null };
+  fakeServer({ ...base, "GET /projects/9/assets": [200, []], "GET /jobs?mine=true": [200, [waiting, { ...waiting, id: 51, project_id: 10 }]] });
+  open();
+  expect(await screen.findByText("1 request waiting for the owner")).toBeInTheDocument();
 });

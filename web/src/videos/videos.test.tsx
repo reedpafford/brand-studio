@@ -158,3 +158,13 @@ test("Status: Needs you asks the server for just those, in one list", async () =
   expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
   expect(screen.getByLabelText("Status")).toHaveValue("needs_you");
 });
+
+test("a video with my request waiting says so on its row: 1 request waiting for the owner", async () => {
+  setViewport(390);
+  const waiting = { id: 50, kind: "video", project_id: 9, script_id: null, credits: 27, status: "needs_owner_approval", created_at: new Date().toISOString(), step: "clip_take", declined: false };
+  fakeServer(base(editor, [video({}), video({ id: 10, name: "Bo tries tuna · A" })], { "GET /jobs?mine=true": [200, [waiting]] }));
+  open();
+  const row = await screen.findByRole("link", { name: /Bo tries salmon · B/ });
+  expect(await within(row).findByText("1 request waiting for the owner")).toBeInTheDocument();
+  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).queryByText(/waiting for the owner/)).toBeNull();
+});

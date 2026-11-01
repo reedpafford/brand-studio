@@ -24,6 +24,8 @@ from app.settings import get_settings
 
 log = logging.getLogger(__name__)
 KIND = "check-claude"
+FRAMES = 6  # a take is looked at as a strip of frames (take check slice 2; Producer, 1 Nov)
+TAKE_LOOKS = 3  # what those frames cost, in looks at one picture: about 0.6 credits a take
 
 
 class FindingOut(BaseModel):
@@ -48,8 +50,10 @@ def on() -> bool:
     return settings.fake_providers or settings.item_checks_paid
 
 
-def price(db: Session, project: Project) -> Decimal:
-    return estimate(db, project.workspace_id, KIND, Decimal(1), {})
+def price(db: Session, project: Project, target: str = "take") -> Decimal:
+    """One check's "up to": a take's strip of frames costs more than one still (rule 32)."""
+    looks = TAKE_LOOKS if target == "take" else 1
+    return estimate(db, project.workspace_id, KIND, Decimal(looks), {})
 
 
 def scope() -> str:
@@ -108,9 +112,30 @@ def per_video(db: Session, project: Project) -> Decimal:
         refs = {r.clip_id: [x["id"] for x in r.references or []] for r in rows}
         ids = [c["id"] for c in row.data.get("clips", [])]
         count = sum(key(db, project, c, refs.get(i, [])) for c, i in zip(clips, ids, strict=True))
-    else:
-        count = len(clips) * (2 if scope() == "everything" else 1)
-    return price(db, project) * count
+        return price(db, project) * count
+    stills = price(db, project, "frame") if scope() == "everything" else Decimal(0)
+    return (price(db, project) + stills) * len(clips)
+
+
+def _cast(ref: str, line: str) -> str:
+    """A cast member as <cast> lists them: name, id and the part they play, so a name that's
+    also a word reads as a person ("date (char:12, the alien date)", not "his date"). From
+    their picture's line ("char:12 | character | date | plays the alien date | …")."""
+    parts = [*line.split(" | "), "", "", ""]
+    if not (name := parts[2]):
+        return ref
+    plays = parts[3].split(";")[0].strip() if parts[3].startswith("plays ") else ""
+    return f"{name} ({', '.join(x for x in (ref, plays.removeprefix('plays ')) if x)})"
+
+
+def _screen_rules(db: Session, project: Project) -> list[str]:
+    """The brand's own rules for its screens, from its notes (fomo: "fomo only ever wins")."""
+    from app.models.brands import Brand
+
+    brand = db.get(Brand, project.brand_id)
+    notes = [*(brand.tone_notes or "").splitlines(), *(brand.do_list or []),
+             *(brand.dont_list or [])]  # fmt: skip
+    return [n.strip() for n in notes if "screen" in n.lower()]
 
 
 def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs: list[str],
@@ -131,13 +156,17 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
     products = _products(db, project)
     product = next((r for r in refs if (r.startswith("prop:") or r in products)
                     and known.get(r, ("", []))[1]), None)  # fmt: skip
-    if not sheets and not product:
+    cast = list(dict.fromkeys(_cast(c, known.get(c, (c, []))[0]) for s in shots
+                              for c in s.get("character_ids") or []))  # fmt: skip
+    screens = [i for s in shots for i in s.get("screen_ids") or []
+               if i not in products and known.get(i, ("", []))[1]]  # fmt: skip
+    screens = list(dict.fromkeys(screens))
+    if not sheets and not product and not cast and not screens:
         return None
-    frames = 3 if scope() == "everything" else 1  # a take as one frame keeps it to cents
     row = ItemCheck(project_id=project.id, target=target, target_id=target_id, status="checking")
     db.add(row)
     user = db.get(User, job.created_by_id)
-    credits = price(db, project)
+    credits = price(db, project, target)
     if not user or fits(db, project, user, credits + _one_take(db, project, breakdown_id,
                                                                  shot_ids)):  # fmt: skip
         row.status = "skipped"  # "Not checked: the video is at its budget."
@@ -148,16 +177,20 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
     if product:
         images.append(known[product][1][0])
         pair = (f"product:{product.split(':')[1]}", known[product][0])
+    images += [known[i][1][0] for i in screens]  # numbered after the product's
     text = prompts.item_check_input(" ".join(s["action"] for s in shots),
                                     [(r, known[r][0]) for r in sheets], pair,
-                                    frames=frames if target == "take" else 1)  # fmt: skip
+                                    frames=FRAMES if target == "take" else 1, cast=cast or None,
+                                    screens=[(i, known[i][0]) for i in screens] or None,
+                                    screen_rules=_screen_rules(db, project))  # fmt: skip
     data = {"step": "item_check", "item_check_id": None, "project_id": project.id,
             "system": [prompts.system("item_check")], "prompt": text, "effort": "low",
             "max_tokens": 2000, "fit_images_to": 1024,
-            "ref_ids": sheets + ([pair[0]] if pair else []),
+            "ref_ids": sheets + ([pair[0]] if pair else []) + screens, "cast": bool(cast),
             "files": {"reference_images": [file_id] * (target == "frame") + images}}  # fmt: skip
     if target == "take":
-        data["take_frames"] = {"file_id": file_id, "count": frames}  # the worker reads them
+        data["take_frames"] = {"file_id": file_id, "count": FRAMES,  # the worker reads them
+                               "take_id": target_id}  # fmt: skip
     db.flush()
     data["item_check_id"] = row.id
     check_job = Job(workspace_id=project.workspace_id, created_by_id=user.id, kind=KIND,
@@ -185,9 +218,15 @@ def save(db: Session, job: Job) -> None:
     if not row:
         return
     answer = check.item_check(Answer.model_validate(job.output), job.input.get("ref_ids", []))
+    cast = job.input.get("cast", True)  # with no <cast> sent, a cast finding is a guess (QA-3)
     row.findings = [{"kind": f.kind, "role": f.who, "text": f.says, "change_note": f.note}
-                    for f in answer.findings]  # fmt: skip
+                    for f in answer.findings if cast or f.kind != "cast"]  # fmt: skip
     row.status = "done"
+    if row.target == "take":
+        from app.take_approval import after_check
+
+        db.flush()
+        after_check(db, row.target_id)  # a clean picked take approves itself (rule 21)
 
 
 def failed(db: Session, job: Job) -> None:

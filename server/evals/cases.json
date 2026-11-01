@@ -1154,6 +1154,14 @@
      }
     },
     {
+     "video": "{\"shots\": \"ready\", \"missing_looks\": [], \"stills\": {\"frames\": 6, \"drawn\": 5}, \"clips\": [], \"cut\": \"none\", \"being_made\": 0, \"held_for_owner\": [], \"failed_since_last_turn\": [\"The image service refused the still for clip 3 (shot 3.1): it read the scene as unsafe. Nothing was charged.\"]}",
+     "last": "[{\"tool\": \"stills\", \"why\": \"Every frame needs its still.\", \"result\": \"Drew 5 of 6 stills; clip 3's was refused.\"}]",
+     "allowed": "{\"turns_left\": 39, \"redos_per_clip\": 2, \"redos_used\": {}, \"own_time_usd\": 0.06, \"own_time_limit_usd\": 5}",
+     "expect": {
+      "tool": "stills"
+     }
+    },
+    {
      "video": "{\"shots\": \"ready\", \"missing_looks\": [], \"stills\": {\"frames\": 6, \"drawn\": 6}, \"clips\": [{\"clip_id\": \"c1\", \"stale\": false, \"picked_take_id\": 11, \"takes\": [{\"id\": 11, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}, {\"clip_id\": \"c2\", \"stale\": false, \"picked_take_id\": 12, \"takes\": [{\"id\": 12, \"number\": 1, \"verdict\": \"clean\", \"notes\": []}]}, {\"clip_id\": \"c3\", \"stale\": false, \"picked_take_id\": null, \"takes\": []}], \"cut\": \"none\", \"being_made\": 0, \"held_for_owner\": [\"Making c3 would go past the video's budget.\"]}",
      "last": "[{\"tool\": \"make_take\", \"why\": \"c3 has no take.\", \"result\": \"Held for the owner: making c3 would go past the video's budget.\"}]",
      "allowed": "{\"turns_left\": 25, \"redos_per_clip\": 2, \"redos_used\": {}, \"own_time_usd\": 0.5, \"own_time_limit_usd\": 5}",

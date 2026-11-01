@@ -38,7 +38,7 @@ test("a held job shows what it is, its credits and what it does to the budget, a
   expect(await screen.findByText("Approvals")).toBeInTheDocument();
   expect(await screen.findByText(/1 waiting · 27 credits/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Mia buys the dip" })).toHaveAttribute("href", "/b/1/projects/9");
-  expect(screen.getByText(/27 credits · takes the project to 117% of its budget/)).toBeInTheDocument();
+  expect(screen.getByText(/27 credits · takes the video to 117% of its budget/)).toBeInTheDocument();
   expect(screen.getByText(/Over budget/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Approve a new take" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /jobs/50/approve")).toBe(true));
@@ -147,7 +147,7 @@ test("each row says who asked, and the owner sees the dollars next to the credit
   });
   open();
   expect(await screen.findByText(/asked by Sam, /)).toBeInTheDocument();
-  expect(await screen.findByText(/27 credits \(\$2\.36\) · takes the project to/)).toBeInTheDocument();
+  expect(await screen.findByText(/27 credits \(\$2\.36\) · takes the video to/)).toBeInTheDocument();
   expect(screen.getByText("asked by Jo")).toBeInTheDocument();
   expect(screen.getByText("To decline, ask Jo to shorten the plan.")).toBeInTheDocument();
 });

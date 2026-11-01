@@ -36,6 +36,8 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
   // waiting banner (["jobs"]) picks it up.
   const editor = useMe().data?.role === "editor";
   const ask = (label: string, price: number | null | undefined) => (editor && price ? "Send for approval" : label);
+  const SENDS = "Songs, narration and music on a script wait for the owner's OK. Nothing is charged until they say yes.";
+  const sends = (price: number | null | undefined) => (editor && price ? SENDS : null);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["songs", scriptId] }), queryClient.invalidateQueries({ queryKey: ["allowance"] }), queryClient.invalidateQueries({ queryKey: ["jobs"] })]);
   const ok = async <T,>(call: Promise<{ data?: T; error?: unknown; response: Response }>) => {
     const { data, error, response } = await call;
@@ -89,5 +91,5 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
       toast(`${words.noun} ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", take(t.id))).then(refresh));
     },
   });
-  return { make, tryAgain, musicAgain, spread, prefer, trim, remove, ask };
+  return { make, tryAgain, musicAgain, spread, prefer, trim, remove, ask, sends };
 }

@@ -28,7 +28,17 @@ export const STEPS: Record<string, string> = {
   improve: "A better prompt",
   director: "The director's next move",
   song_take: "Songs, narration or music on a script",
+  // As the server names them (needs_you.NAMES), for every step an editor's press can be held on (QA-5 on #1114).
+  plan: "The scene plan",
+  plan_scene: "A scene",
+  song_breakdown: "The shot plan",
+  narrated_breakdown: "The shot plan",
+  stills: "The stills",
+  change: "A change",
+  variations: "Variations",
 };
+// Names that are plural, so a line about them reads "are" ("The clip prompts are being made").
+export const PLURAL = new Set(["Script suggestions", "The clip prompts", "The stills", "Variations"]);
 
 /** How long ago, in words: "just now", "2m", "3h", "4d". */
 function ago(iso: string) {
@@ -233,7 +243,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
         </div>
         {job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>}
         <p className="tabular-nums">
-          {creditsText(job.credits)}{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the project to ${Math.round(after)}% of its budget`}
+          {creditsText(job.credits)}{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the video to ${Math.round(after)}% of its budget`}
         </p>
         {!project && !job.step && week && (
           <p className="text-muted tabular-nums">

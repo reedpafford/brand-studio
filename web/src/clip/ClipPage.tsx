@@ -172,6 +172,7 @@ function Studio({ models }: { models: Model[] }) {
       >
         {estimate.data?.needs_owner_approval ? "Send for approval" : "Generate"}
       </Button>
+      {estimate.data?.needs_owner_approval && <p className="text-center text-sm text-muted">Goes past your week. Nothing is charged until the owner says yes.</p>}
       {generate.isError && <p role="alert" className="text-center text-sm text-danger">{generate.error.message}</p>}
     </div>
   );

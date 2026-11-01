@@ -681,6 +681,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/locks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_projects__project_id__locks_get"];
+        /**
+         * Save
+         * @description Lock or unlock (unlocking hands the choice back), and set each character's outfit for
+         *     this video: one in its cast (422 otherwise); an empty outfit is the sheet's again.
+         */
+        put: operations["save_projects__project_id__locks_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/{kind}/{item_id}/sheet": {
         parameters: {
             query?: never;
@@ -6847,6 +6869,60 @@ export interface components {
             /** Library Item Id */
             library_item_id: number;
         };
+        /** Locks */
+        Locks: {
+            /**
+             * Cast
+             * @default false
+             */
+            cast: boolean;
+            /**
+             * Look
+             * @default false
+             */
+            look: boolean;
+            /**
+             * Length
+             * @default false
+             */
+            length: boolean;
+            /**
+             * Song
+             * @default false
+             */
+            song: boolean;
+            /**
+             * End Line
+             * @default false
+             */
+            end_line: boolean;
+            /**
+             * Screens
+             * @default []
+             */
+            screens: number[];
+        };
+        /** LocksIO */
+        LocksIO: {
+            /**
+             * @default {
+             *       "cast": false,
+             *       "look": false,
+             *       "length": false,
+             *       "song": false,
+             *       "end_line": false,
+             *       "screens": []
+             *     }
+             */
+            locks: components["schemas"]["Locks"];
+            /**
+             * Outfits
+             * @default {}
+             */
+            outfits: {
+                [key: string]: string;
+            };
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -9071,6 +9147,8 @@ export interface components {
              * @default unchecked
              */
             verdict: string;
+            /** Approved By */
+            approved_by?: string | null;
             /**
              * Mutes
              * @default []
@@ -11623,6 +11701,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__locks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocksIO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_projects__project_id__locks_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocksIO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocksIO"];
                 };
             };
             /** @description Validation Error */

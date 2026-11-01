@@ -80,6 +80,7 @@ export function CostBarProvider(props: {
         <div className="flex flex-col items-stretch gap-1 lg:items-end">
           {after !== null && <p className="text-xs tabular-nums text-muted">This press leaves {wholeCredits(Math.max(0, after))}</p>}
           {press}
+          {sends && <p className="text-xs text-muted">Goes past the video's budget. Nothing is charged until the owner says yes.</p>}
         </div>
       )}
     </div>
