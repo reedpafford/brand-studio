@@ -434,7 +434,7 @@ def _within_real_budget(db: Session, job: Job) -> bool:
 
     settings = get_settings()
     if no := real_budget_refusal(db, settings, job.provider, job.credits):
-        _fail(db, job, no, "real budget used up")
+        _fail(db, job, no, "real budget refused")
         db.commit()
         return False
     if real_capped(settings):  # for the Producer during Reed's test: spent so far
