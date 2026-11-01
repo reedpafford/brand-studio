@@ -1196,7 +1196,7 @@ def test_pacing_is_by_purpose_and_scenes_hand_off():
             assert gone not in text, (step, gone)
     bd = prompts.system("breakdown")
     assert "Pace by purpose, never by the clock" in bd and "go wide when a reaction" in bd
-    assert "for as long as it needs, up to the video model's max" in bd
+    assert "for as long as it needs, up to about 13 s" in bd
     assert "**Endings flow.**" in bd and "the dog's ears dropping" in bd
     assert "The clip's last line never ends in its last moments" in prompts.system("clip_prompts")
     assert "**Scenes flow.**" in prompts.system("script_draft")
@@ -1438,3 +1438,12 @@ def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
     assert "Write a montage only when this story" in prompts.system("script_draft")
     director = prompts.system("director")
     assert "Watch it as a viewer." in director and "garbled or invented screen" in director
+
+
+def test_fomo_producers_redo_notes_reach_the_prompts():
+    """FOMO-Producer's Reptilian and Fired redos (projects 56, 57; 1 Nov)."""
+    breakdown = prompts.system("breakdown")
+    assert "a remake keeps its <reference>'s own pace" in breakdown
+    assert "up to about 13 s even when the video model allows more" in breakdown
+    clip = prompts.system("clip_prompts")
+    assert '"Oh my God", "Oh", "Yes!"' in clip and "no bangs), never who they are" in clip
