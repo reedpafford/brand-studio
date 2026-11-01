@@ -1424,13 +1424,12 @@ def test_the_director_names_every_tool_it_can_choose_and_never_writes_prompts():
 
 def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
     """Reed, 1 Nov (batch 3): "weird gasping … you don't actually tell the story visually …
-    montages are forced … the 'copy these' videos aren't copied at all"."""
-    nogasp = "No gasps, breaths, sighs, grunts or wordless vocal sounds."
+    montages are forced … the 'copy these' videos aren't copied at all"; then: "We CAN have
+    gasps, i just want the director to THINK. Be creative how we have." """
     for step in ("clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"):
-        assert nogasp in prompts.system(step), step
-    _, cp = example("clip_prompts")
-    audio = [x for x in cp.clips[0].prompt.splitlines() if x.startswith("Audio: ")]
-    assert audio and all(nogasp in x for x in audio)
+        assert "No gasps" not in prompts.system(step), step  # Reed: "We CAN have gasps"
+    assert "fine when the story motivates it" in prompts.system("clip_prompts")
+    assert "a gasp or sound the story doesn't motivate" in prompts.system("director")
     assert "jaw drops" not in prompts.system("clip_prompts")
     assert "2–4 shots, each about 1.5–3 s" in prompts.system("breakdown")
     assert "a copy of it, not a premise" in prompts.system("breakdown")
