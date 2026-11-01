@@ -319,3 +319,31 @@ def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
     out = owner.get(f"/projects/{pid}/director").json()
     assert (out["status"], out["ended"]) == ("ended", "It stopped: Clip 1's still failed 3 times.")
     assert len(tries) == 3 and len(out["turns"]) < 8  # three tries, no turns spent past them
+
+
+def test_it_keeps_to_the_videos_locks_and_reads_its_outfits(app, db, owner, editor):
+    import json
+
+    from app import director_tools
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    kid = db.get(Project, pid).cast_ids[-1]
+    editor.put(
+        f"/projects/{pid}/locks",
+        json={"locks": {"cast": True}, "outfits": {f"char:{kid}": "a yellow raincoat"}},
+    )
+    project = db.get(Project, pid)
+    db.refresh(project)
+    state = director.video_state(db, project)
+    assert state["locked"] == {"cast": True}
+    assert state["outfits"] == {f"char:{kid}": "a yellow raincoat"}
+    prompt = director.turn_input(db, project, {"id": "r", "turn": 0, "redos": {}})["prompt"]
+    assert json.loads(prompt.split("<video>")[1].split("</video>")[0])["locked"] == {"cast": True}
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    said = director_tools.run(db, user, project, {"tool": "make_looks"}, None)
+    assert said == "Refused: the cast is locked for this video."
+    db.commit()  # reading the video may save its plan's state: let the requests write
+    editor.post(f"/projects/{pid}/director")  # its cast is whole: the lock never stands in the way
+    _run(app, db)
+    assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"

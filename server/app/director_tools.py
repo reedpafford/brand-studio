@@ -23,7 +23,7 @@ TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_tak
 
 def run(db: Session, user: User, project: Project, decision: dict, storage) -> str:
     """Do one tool; what happened, in plain words (a refusal's own words)."""
-    from app import plans
+    from app import locks, plans
     from app.routes import breakdown, project_assets, project_clips, storyboard
     from app.routes import plan as plan_route
 
@@ -42,6 +42,8 @@ def run(db: Session, user: User, project: Project, decision: dict, storage) -> s
             breakdown.make(**me)
             return "Making the shots."
         if tool == "make_looks":
+            if no := locks.refusal(project, "cast"):  # the cast and its looks are fixed
+                return no
             project_assets.make_missing_looks(**me)
             return "Making the missing looks."
         if tool == "storyboard":
