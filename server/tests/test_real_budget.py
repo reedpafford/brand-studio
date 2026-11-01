@@ -9,7 +9,7 @@ from decimal import Decimal
 import pytest
 from fastapi import HTTPException
 
-from app.credits import REAL_DONE, USD_PER_CREDIT, real_budget_refusal
+from app.credits import NO_START, REAL_DONE, USD_PER_CREDIT, real_budget_refusal
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
@@ -42,7 +42,11 @@ def test_presses_run_within_the_budget_then_are_refused_in_plain_words(owner, db
     db.commit()
     with pytest.raises(HTTPException) as no:
         _take(db, boss)
-    assert no.value.detail == "The test site's real-AI budget ($1) is used up. Nothing was charged."
+    assert (
+        no.value.detail
+        == REAL_DONE.format(real.real_budget_usd)
+        == "The test site's real-AI budget ($0.77) is used up. Nothing was charged."  # not "$1"
+    )
     assert db.query(Job).count() == 1  # nothing reserved
 
 
@@ -54,20 +58,32 @@ def test_queued_work_past_it_isnt_sent_and_charges_nothing(owner, db, real):
     db.expire_all()
     assert db.get(Job, jobs[0].id).status == JobStatus.running  # sent
     second = db.get(Job, jobs[1].id)
-    assert (second.status, second.error) == (JobStatus.failed, REAL_DONE.format(Decimal(1)))
+    assert (second.status, second.error) == (
+        JobStatus.failed,
+        REAL_DONE.format(real.real_budget_usd),
+    )
     assert second.provider_ref is None  # never sent
 
 
 def test_no_budget_or_start_on_the_test_site_runs_nothing_paid_and_live_is_never_capped(db):
     on_test = Settings(env="next", fake_providers=False)
-    assert real_budget_refusal(db, on_test, "replicate", Decimal(1)) == REAL_DONE.format(0)
+    assert real_budget_refusal(db, on_test, "replicate", Decimal(1)) == NO_START
     no_start = Settings(env="next", fake_providers=False, real_budget_usd=50)  # not set up
-    assert real_budget_refusal(db, no_start, "replicate", Decimal(1)) == REAL_DONE.format(50)
+    assert real_budget_refusal(db, no_start, "replicate", Decimal(1)) == NO_START
+    assert "start time not set" in NO_START and "used up" not in NO_START
+    no_budget = Settings(env="next", fake_providers=False, real_budget_since=SINCE)
+    assert real_budget_refusal(db, no_budget, "replicate", Decimal(1)) == REAL_DONE.format(0)
     assert real_budget_refusal(db, on_test, "local", Decimal(1)) == ""  # our own server: free
     live = Settings(env="production", fake_providers=False)
     assert real_budget_refusal(db, live, "replicate", Decimal(10**6)) == ""
     stand_ins = Settings(env="next", fake_providers=True)
     assert real_budget_refusal(db, stand_ins, "replicate", Decimal(10**6)) == ""
+
+
+def test_the_budget_shows_its_cents(db):
+    cents = Settings(env="next", fake_providers=False, real_budget_since=SINCE, real_budget_usd=2.5)
+    no = real_budget_refusal(db, cents, "replicate", Decimal(10**6))
+    assert no == "The test site's real-AI budget ($2.50) is used up. Nothing was charged."
 
 
 def test_the_owner_reads_what_is_spent_so_far(app, owner, editor, db):

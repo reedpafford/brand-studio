@@ -681,6 +681,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/locks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_projects__project_id__locks_get"];
+        /**
+         * Save
+         * @description Lock or unlock (unlocking hands the choice back), and set each character's outfit for
+         *     this video: one in its cast (422 otherwise); an empty outfit is the sheet's again.
+         */
+        put: operations["save_projects__project_id__locks_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/{kind}/{item_id}/sheet": {
         parameters: {
             query?: never;
@@ -3621,6 +3643,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read
+         * @description The newest run: going or not, and each turn (the log on the video).
+         */
+        get: operations["read_projects__project_id__director_get"];
+        put?: never;
+        /**
+         * Start
+         * @description Build the video from its published script (409 if it isn't, or a run is going). Its
+         *     first turn is paid from the video's budget, held for the owner past it.
+         */
+        post: operations["start_projects__project_id__director_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/director/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop
+         * @description Stop the run: no more turns. What it already started goes on; nothing is undone.
+         */
+        post: operations["stop_projects__project_id__director_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/update-after": {
         parameters: {
             query?: never;
@@ -5792,6 +5859,21 @@ export interface components {
             /** Started At */
             started_at: string | null;
         };
+        /** DirectorOut */
+        DirectorOut: {
+            /** Status */
+            status: string;
+            /** Ended */
+            ended: string;
+            /** Turns */
+            turns: components["schemas"]["TurnOut"][];
+            /** Credits */
+            credits: number;
+            /** Spent Usd */
+            spent_usd: number | null;
+            /** Start Blocked */
+            start_blocked: string;
+        };
         /** DraftIn */
         DraftIn: {
             /** Text */
@@ -6786,6 +6868,60 @@ export interface components {
         LockIn: {
             /** Library Item Id */
             library_item_id: number;
+        };
+        /** Locks */
+        Locks: {
+            /**
+             * Cast
+             * @default false
+             */
+            cast: boolean;
+            /**
+             * Look
+             * @default false
+             */
+            look: boolean;
+            /**
+             * Length
+             * @default false
+             */
+            length: boolean;
+            /**
+             * Song
+             * @default false
+             */
+            song: boolean;
+            /**
+             * End Line
+             * @default false
+             */
+            end_line: boolean;
+            /**
+             * Screens
+             * @default []
+             */
+            screens: number[];
+        };
+        /** LocksIO */
+        LocksIO: {
+            /**
+             * @default {
+             *       "cast": false,
+             *       "look": false,
+             *       "length": false,
+             *       "song": false,
+             *       "end_line": false,
+             *       "screens": []
+             *     }
+             */
+            locks: components["schemas"]["Locks"];
+            /**
+             * Outfits
+             * @default {}
+             */
+            outfits: {
+                [key: string]: string;
+            };
         };
         /** LoginIn */
         LoginIn: {
@@ -9036,6 +9172,24 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** TurnOut */
+        TurnOut: {
+            /** Turn */
+            turn: number;
+            /** Tool */
+            tool: string | null;
+            /** Why */
+            why: string;
+            /** Result */
+            result: string;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** UpdateOut */
         UpdateOut: {
@@ -11545,6 +11699,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__locks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocksIO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_projects__project_id__locks_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocksIO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocksIO"];
                 };
             };
             /** @description Validation Error */
@@ -17259,6 +17479,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__director_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_projects__project_id__director_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_projects__project_id__director_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorOut"];
                 };
             };
             /** @description Validation Error */
