@@ -71,9 +71,7 @@ def test_how_the_brand_is_said_comes_from_its_notes():
     assert say(Brand(name="Acme", tone_notes="", do_list=[])) == "Acme"  # as written
 
 
-def test_a_new_take_is_heard_and_its_words_advice_shows_on_the_take(
-    app, db, editor, setup, clip, monkeypatch
-):  # noqa: F811
+def test_a_new_take_is_heard_and_its_advice_shows(app, db, editor, setup, clip, monkeypatch):  # noqa: F811, E501
     monkeypatch.setattr("app.item_checks.on", lambda: True)  # as on the test site's stand-ins
     clips = f"/projects/{setup['project']}/clips"
     editor.post(f"{clips}/{clip['id']}/generate")

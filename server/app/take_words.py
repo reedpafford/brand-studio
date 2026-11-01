@@ -107,10 +107,11 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
 def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict],
           prompt: str) -> ItemCheck | None:  # fmt: skip
     """After a take is saved (in the worker): a free listen, when checks are on and its clip
-    has spoken lines (a narrated video's lines are the narrator's, not the take's)."""
+    has spoken lines. Dialogue only: a narrated video's lines are the narrator's and a song
+    video's are the song's, heard over the take, not said in it."""
     project = db.get(Project, job.project_id) if job.project_id else None
     lines = [{"who": s.get("speaker") or "", "text": s["line"]} for s in shots if s.get("line")]
-    if not project or not item_checks.on() or not lines or plans.fmt(db, project) == "narrated":
+    if not project or not item_checks.on() or not lines or plans.fmt(db, project) != "dialogue":
         return None
     brand = db.get(Brand, project.brand_id)
     row = ItemCheck(project_id=project.id, target=TARGET, target_id=take_id, status="checking")
