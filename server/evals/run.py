@@ -119,6 +119,27 @@ def run_case(
             watch = schemas.ReelWatch.model_validate_json(saved.read_text())
             reference = "\n" + reference_block(watch_breakdown(watch, transcript, cuts or []))
             continue
+        if step == "director":  # one decision per sample state (director-chat.md §5)
+            for n, turn in enumerate(case["turns"], 1):
+                prompt = (f"<video>\n{turn['video']}\n</video>\n<last_actions>\n{turn['last']}\n"
+                          f"</last_actions>\n<allowed>\n{turn['allowed']}\n</allowed>")  # fmt: skip
+                if dry:
+                    text = (
+                        f"=== SYSTEM\n{system(step, style)}\n\n{brand_text}\n\n=== USER\n{prompt}\n"
+                    )
+                    (out / f"{case['id']}.{step}.{n}.prompt.txt").write_text(text)
+                    continue
+                answer = ask(client, system=[system(step, style), brand_text], prompt=prompt,
+                             schema=SCHEMAS[step], max_tokens=2000)  # fmt: skip
+                spent.append(answer.cost_usd)
+                got, want = answer.parsed, turn["expect"]
+                ok = all(
+                    getattr(got, k) in (v if isinstance(v, list) else [v]) for k, v in want.items()
+                )
+                print(f"{case['id']}.{step}.{n}: {got.tool} {got.clip_id or ''} "
+                      f"{'ok' if ok else f'expected {want}'} — {got.why}", flush=True)  # fmt: skip
+            print(f"{case['id']}.{step}: {len(case['turns'])} turns", flush=True)
+            continue
         if step == "enhance":
             prompt = f"{brief}\n{cast}\n<script>\n{number_lines(script)}\n</script>"
         elif step == "script_draft":
