@@ -1,5 +1,5 @@
 # Song
-<!-- Song ads (Reed, 2026-10-28): a music video where the song leads. From Starpop's song-ads skill (docs/research/starpop-2026-10-28, rule 20). Song is a video type, drawn in whatever look the video has (Song in any look, #1031): this file holds only its still and clip guides, added after the look's own; the song flow (lyrics, takes, sung or B-roll shots timed to the track) is its own step. -->
+<!-- Song ads (Reed, 2026-10-28): a music video where the song leads. From Reed's song-ad skill (docs/next/skills/song-ad.md, #1095; first from Starpop's song-ads, docs/research/starpop-2026-10-28, rule 20). Song is a video type, drawn in whatever look the video has (Song in any look, #1031): this file holds only its still and clip guides, added after the look's own; the song flow (lyrics, takes, sung or B-roll shots timed to the track) is its own step. -->
 kind: format
 order: 2
 on: no
