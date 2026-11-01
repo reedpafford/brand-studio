@@ -94,15 +94,6 @@ test("Find roles waits for the script to be approved, and says so up front", asy
   expect(screen.getByRole("button", { name: /^Find roles in the script/ })).toBeDisabled();
 });
 
-test("an editor past the week's allowance can't press Find roles", async () => {
-  setViewport(1440);
-  const editor = { ...owner, id: 2, role: "editor" };
-  fakeServer(base({ "GET /auth/me": [200, editor], "GET /scripts/7": [200, { ...script, created_by_id: 2 }], "GET /credits/me": [200, { quick_clip_credits_used: 145, quick_clip_credits_allowed: 145 }] }));
-  open();
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: /^Find roles in the script/ })).toHaveAccessibleDescription("You've used this week's 145 credits. It resets on Monday."));
-  expect(screen.getByRole("button", { name: /^Find roles in the script/ })).toBeDisabled();
-});
-
 test("a refused Find roles shows the server's reason alone", async () => {
   setViewport(1440);
   fakeServer(base({ "POST /scripts/7/cast/read": [409, { detail: "The cast is already being read for this script." }] }));

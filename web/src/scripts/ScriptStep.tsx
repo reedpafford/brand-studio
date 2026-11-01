@@ -11,7 +11,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { DescriptionForm } from "./DescriptionForm";
 import { ReelBlock, useReelImport } from "./ReelImport";
-import { useAllowanceStop, usePatchScript, useWriteWords, type Script } from "./useScript";
+import { usePatchScript, useWriteWords, type Script } from "./useScript";
 import { SCRIPT_BOX, useTypingOn } from "./NewScriptButton";
 
 const GOING = ["queued", "running"];
@@ -23,9 +23,8 @@ function WriteWithClaude({ script: s, text, hasUnsaved, onWritten }: { script: S
   const hasReference = !!s.reference_id;
   const estimate = useQuery({ queryKey: ["write-estimate", s.id], queryFn: async () => (await api.GET("/scripts/{script_id}/write/estimate", { params: { path: { script_id: s.id } } })).data ?? null });
   const credits = estimate.data?.credits;
-  const allowance = useAllowanceStop(s, credits);
   // Claude writes from the About fields: with nothing there it has nothing to go on.
-  const stop = !s.description.trim() && !s.reference_id ? "Say what it's for in About first" : allowance;
+  const stop = !s.description.trim() && !s.reference_id ? "Say what it's for in About first" : null;
   const patch = usePatchScript(s.id);
   const put = useWriteWords(s.id);
   const jobs = useJobs();
@@ -209,7 +208,7 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
   const marked = fromReel && marks.length > 0 && !approved;
   return (
     <div className="space-y-4">
-      <ReelBlock scriptId={s.id} published={s.published} createdById={s.created_by_id} />
+      <ReelBlock scriptId={s.id} published={s.published} />
       {!!reel.data && !s.published && <ReelTitle script={s} />}
       {fromReel && !s.new_lines && !approved && marks.length > 0 && (
         <Banner tone="info" title={`From the reel: ${kept} line${kept === 1 ? "" : "s"} kept, ${marks.length} rewritten${brandName ? ` for ${brandName}` : ""}. Check them, then approve.`} />
