@@ -270,3 +270,52 @@ def test_an_editors_run_approves_its_own_videos_plan(app, db, owner, editor):
     said = director_tools.run(db, ed, project, {"tool": "plan"}, app.state.storage)
     assert said == "Approved the plan; making the shots."
     assert plans.status(db, db.get(Project, pid)) == "approved"
+
+
+def test_a_job_of_its_own_that_fails_never_leaves_the_run_hanging(app, db, owner, editor):
+    """QA on #1087: a still that failed (the provider refused it at once, so the worker never
+    reached its finish) left the run "running" forever. Now it goes on: it sees the failure,
+    draws the still again and delivers."""
+    pid = _made(app, owner, editor, db)
+    providers = get_providers(app.state.settings)
+    real, failed = providers["replicate"].submit, []
+
+    def once(kind, input):
+        if kind == "image" and not failed:
+            failed.append(1)
+            raise RuntimeError("the still service refused it")
+        return real(kind, input)
+
+    providers["replicate"].submit = once
+    owner.post(f"/projects/{pid}/director")
+    for _ in range(60):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert failed and out["status"] == "delivered", (out["ended"], out["turns"])
+    assert [t["tool"] for t in out["turns"]].count("stills") == 2  # drawn again after it failed
+
+
+def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
+    app, db, owner, editor
+):
+    """Producer: a failed item is retried at most twice; then the run delivers what it has or,
+    with no cut yet, stops with that reason (never spending its turns on it)."""
+    pid = _made(app, owner, editor, db)
+    providers = get_providers(app.state.settings)
+    real, tries = providers["replicate"].submit, []
+
+    def never(kind, input):
+        if kind == "image":
+            tries.append(1)
+            raise RuntimeError("the still service refused it")
+        return real(kind, input)
+
+    providers["replicate"].submit = never
+    owner.post(f"/projects/{pid}/director")
+    for _ in range(40):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert (out["status"], out["ended"]) == ("ended", "It stopped: Clip 1's still failed 3 times.")
+    assert len(tries) == 3 and len(out["turns"]) < 8  # three tries, no turns spent past them
