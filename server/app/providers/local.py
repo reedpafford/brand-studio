@@ -31,7 +31,7 @@ class LocalProvider:
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
         read_site: Callable[[str], dict] = site_fetch.switched_off,
-        hear_take: Callable[[Path, dict], list[dict]] = lambda path, input: reel.transcribe(path),
+        hear_take: Callable[[Path, dict], list[dict]] = lambda path, _: reel.transcribe(path, True),
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
         self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study

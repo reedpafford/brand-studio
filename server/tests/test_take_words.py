@@ -129,3 +129,43 @@ def test_a_failed_queue_never_stops_the_take(app, db, editor, setup, clip, monke
     assert take["words"] is None and take["verdict"] != "flagged"
     assert "couldn't queue the words check for take" in caplog.text
     assert db.query(Job).filter(Job.kind == "take_listen").count() == 0
+
+
+def test_a_gasp_nobody_asked_for_and_a_second_one_are_advice():
+    found = compare(LINES, _heard("(gasps) Fomo made me rich!", "No way.", "Haah!"), "fomo",
+                    "FOH-moh", ["Mia waves her phone."])  # fmt: skip
+    assert _kinds(found) == [("sound", 0.5), ("sound", 4.5)]  # both lines still count as said
+    in_line, alone = found
+    assert in_line["text"] == "“(gasps)” at 0:00.5: a gasp or breath the script doesn't ask for."
+    assert in_line["change_note"] == ("A gasp here isn't asked for by the script; keep it only "
+                                      "if it serves the moment.")  # fmt: skip
+    assert alone["text"].startswith("“Haah” at 0:04.5: another gasp or breath in this clip.")
+    assert alone["text"].endswith("It can be muted in the cut (0:04.5–0:05.8).")  # only a breath
+
+
+def test_a_sound_the_script_or_action_asks_for_is_on_purpose_and_other_tags_arent_lines():
+    heard = _heard("Fomo made me rich!", "No way.", "[breathing heavily]", "(upbeat music)")
+    assert compare(LINES, heard, "fomo", "FOH-moh", ["Bo catches his breath"]) == []
+    scripted = [*LINES, {"who": "BO", "text": "(gasps) It's up!"}]
+    heard = _heard("Fomo made me rich!", "No way.", "(gasps) It's up!")
+    assert compare(scripted, heard, "fomo", "FOH-moh", []) == []
+    twice = _heard("(gasps) Fomo made me rich!", "No way.", "(gasps) It's up!")
+    (again,) = compare(scripted, twice, "fomo", "FOH-moh", [])  # asked for once, heard twice
+    assert again["at"] == 4.5 and "another gasp" in again["text"]
+
+
+def test_a_scripted_one_word_line_is_a_line_not_a_gasp():
+    for word in ("Oh.", "Hmm.", "Huh?", "Ah!"):
+        lines = [*LINES, {"who": "MIA", "text": word}]
+        heard = _heard("Fomo made me rich!", "No way.", word)
+        assert compare(lines, heard, "fomo", "FOH-moh", []) == [], word  # neither, said right
+
+
+def test_takes_are_heard_with_their_sounds_and_the_stand_in_gasps_on_cue(monkeypatch, tmp_path):
+    asked = {}
+    monkeypatch.setattr("app.reel.transcribe", lambda path, sounds=False: asked.update(
+        sounds=sounds) or [])  # fmt: skip
+    LocalProvider(None).hear_take(tmp_path / "take.mp4", {})
+    assert asked == {"sounds": True}  # whisper keeps its "(gasps)" tags for a take
+    said = [h["text"] for h in hear_take(tmp_path, {"lines": LINES, "prompt": "fake:gasp"})]
+    assert said[-1] == "(gasps)"

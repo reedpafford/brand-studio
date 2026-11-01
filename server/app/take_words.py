@@ -23,6 +23,16 @@ SAID = 0.6  # how close a heard line must be to a script line to count as said
 # Action wording that a video model tends to say out loud (checklist B 9).
 VOICED = re.compile(r"\b(thinks?|thought|wonders?|inner|to (him|her|them)self|repl(y|ies|ied)"
                     r"|answers?|answered)\b", re.I)  # fmt: skip
+# Non-speech sounds: whisper's own tags ("(gasps)", "[breathing]", "*sigh*"), and lines that
+# are only a breath ("Haah!", "Huh."). Gasps are allowed when they serve the moment (Reed,
+# 1 Nov: "We CAN have gasps, I just want the director to THINK"): only one the script or the
+# clip's action doesn't ask for ("she sighs"), or a second one in a clip, is Advice.
+SOUNDS = ("gasp", "sigh", "breath", "pant", "groan", "moan", "scream", "grunt", "sob", "laugh",
+          "cough", "huff", "wheez")  # fmt: skip
+TAG = re.compile(r"[(\[*]\s*([a-z ]+?)\s*[)\]*]", re.I)
+BREATH = re.compile(r"(a+h+|h+a+h*|hu+h|o+h+|u+h+|hm+|phew|whew)[.!?…\s]*", re.I)
+UNASKED = "A gasp here isn't asked for by the script; keep it only if it serves the moment."
+REPEAT = "One gasp or breath in this clip at most, where it serves the moment."
 SHOW = ("Show the feeling instead of saying it: no inner thoughts and no “replies” or "
         "“answers” in the action, only the script's lines.")  # fmt: skip
 
@@ -65,11 +75,46 @@ def _finding(kind: str, at: float | None, text: str, note: str, role: str = "",
             **({"span": span} if span else {})}  # fmt: skip
 
 
+def _sound(tag: str) -> bool:
+    return any(w in tag.lower() for w in SOUNDS)
+
+
+def _sounds(heard: list[dict], asked: str, lines: list[str]) -> tuple[list[dict], list[dict]]:
+    """The non-speech sounds heard, as findings, and the heard lines with them taken out. A
+    sound the script or the action asks for ("(gasps)", "she sighs") is left alone, unless
+    it's a second one in the clip. A breath-like line the script has ("MIA: Oh.") is a line."""
+    found, spoken, count = [], [], 0
+    for h in heard:
+        at, span = _clock(h["start"]), f"{_clock(h['start'])}–{_clock(h['end'])}"
+        tags = [f"({t})" for t in TAG.findall(h["text"]) if _sound(t)]
+        rest = TAG.sub("", h["text"]).strip()  # no tag is a line: "(music)", "[applause]"
+        scripted = any(_close(rest, line) >= SAID for line in lines)
+        if BREATH.fullmatch(rest) and not scripted:  # only a breath: "Haah!"
+            tags, rest = [*tags, rest.strip(" .!?…")], ""
+        for t in tags:
+            count += 1
+            wanted = any(w in t.lower() and w in asked for w in SOUNDS) or (
+                BREATH.fullmatch(t) and any(w in asked for w in ("gasp", "breath", "sigh"))
+            )
+            if wanted and count == 1:
+                continue
+            alone = f" It can be muted in the cut ({span})." if not rest else ""  # else: a redo
+            why, note = (("another gasp or breath in this clip", REPEAT) if wanted or count > 1
+                         else ("a gasp or breath the script doesn't ask for", UNASKED))  # fmt: skip
+            found.append(_finding("sound", h["start"], f"“{t}” at {at}: {why}.{alone}", note))
+        if rest:
+            spoken.append({**h, "text": rest})
+    return found, spoken
+
+
 def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
             actions: list[str]) -> list[dict]:  # fmt: skip
     """Findings: script lines not heard, heard lines not in the script (spoken actions when
-    the clip's action has inner speech or reply/answer wording) and the brand said wrong."""
-    findings, used = [], set()
+    the clip's action has inner speech or reply/answer wording), the brand said wrong, and
+    gasps or heavy breaths nobody asked for."""
+    asked = " ".join([*actions, *(line["text"] for line in lines)]).lower()
+    findings, heard = _sounds(heard, asked, [line["text"] for line in lines])
+    sounds, findings, used = findings, [], set()
     for line in lines:
         near = sorted(range(len(heard)), key=lambda i: -_close(line["text"], heard[i]["text"]))
         if near and _close(line["text"], heard[near[0]]["text"]) >= SAID:
@@ -106,7 +151,7 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                                          "be said wrong. Listen first: the transcript can "
                                          f"mishear.", f"Say {brand} as {said_as}, never "
                                          f"“{word}”."))  # fmt: skip
-    return findings
+    return findings + sounds
 
 
 def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict],
