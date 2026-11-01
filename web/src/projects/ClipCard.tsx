@@ -14,6 +14,7 @@ import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 import { LookTip } from "./LookFix";
 import { ClipVersions } from "./VersionLists";
+import { OtherTakes } from "./OtherTakes";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -196,18 +197,7 @@ export function ClipCard(props: {
       })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
       <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} hold={props.busy || props.fixBusy ? "Wait for this clip's take or prompt being made." : null} versions={c.versions ?? []} />
-      {c.takes.length > 0 && (
-        <fieldset className="flex flex-wrap items-center gap-3">
-          <legend className="sr-only">Takes for clip {c.clip_id}</legend>
-          <span className="text-muted">Takes:</span>
-          {[...c.takes].reverse().map((t) => (
-            <label key={t.id} className="inline-flex min-h-11 items-center gap-1 sm:min-h-0">
-              <input type="radio" name={`takes-${c.id}`} disabled={viewOnly} className="size-5 sm:size-4" checked={t.id === c.picked_take_id} onChange={() => props.onPick(t.id)} />
-              Take {t.number}
-            </label>
-          ))}
-        </fieldset>
-      )}
+      <OtherTakes clip={c} aspect={props.aspect} projectName={props.projectName} viewOnly={viewOnly} onPick={props.onPick} />
       {note !== null && (
         <div className="space-y-2">
           <label className="block">

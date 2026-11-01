@@ -190,7 +190,7 @@ test("a take that is running counts Making… from when it started, not from whe
   expect(await within(card).findByText((_, el) => el?.tagName === "SPAN" && /^Making… 0:0\d$/.test(el.textContent ?? ""))).toBeInTheDocument();
 });
 
-test("takes can be picked, and Approve take approves the picked one", async () => {
+test("an earlier take is under Other takes; Use this take picks it, and Approve take approves the picked one", async () => {
   const calls = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ file_id: 71, takes: [{ id: 5, number: 1, file_id: 70 }, { id: 6, number: 2, file_id: 71 }], picked_take_id: 6 })]],
@@ -199,8 +199,8 @@ test("takes can be picked, and Approve take approves the picked one", async () =
   });
   open();
   const card = await screen.findByLabelText("Clip c1");
-  expect(within(card).getByLabelText("Take 2")).toBeChecked();
-  await userEvent.click(within(card).getByLabelText("Take 1"));
+  await userEvent.click(within(card).getByText("Other takes (1)"));
+  await userEvent.click(within(card).getByRole("button", { name: "Use take 1" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/takes/5/pick")).toBe(true));
   await userEvent.click(within(card).getByRole("button", { name: "Approve take" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/approve")).toBe(true));
@@ -440,4 +440,53 @@ test("a failed newest take never turns a card with a good picked take red, and n
   expect(within(card).getByText("Take 1 · ready to check")).toBeInTheDocument();
   expect(within(card).getByText("The service couldn't finish this. Credits returned; try again.")).toBeInTheDocument();
   expect(within(card).queryByText(/Ask the owner/)).toBeNull();
+});
+
+const tk = (id: number, number: number, o: object = {}) => ({ id, number, file_id: 60 + id, created_at: "2026-11-01T10:00:00Z", verdict: "unchecked", ...o });
+const said = (text: string) => ({ id: 1, status: "ok", findings: [{ index: 0, kind: "look", text, note: "", fix: "" }] });
+
+test("at 390, Other takes lists each earlier take with the AI's reason, Play, Use this take with Undo, and Download (§8.3)", async () => {
+  setViewport(390);
+  const takes = [tk(5, 1, { check: said("Lexi's hair is shorter than her sheet (0:02)"), verdict: "flagged" }), tk(6, 2, { verdict: "clean" }), tk(7, 3, { marked_fine: ["The ring is missing (0:04)"], verdict: "clean" }), tk(8, 4, { verdict: "clean" })];
+  const calls = fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ file_id: 68, takes, picked_take_id: 8 })]], "POST /projects/9/clips/1/takes/5/pick": [200, clip({})], "POST /projects/9/clips/1/takes/8/pick": [200, clip({})] });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  await userEvent.click(within(card).getByText("Other takes (3)"));
+  const list = within(card).getByRole("list", { name: "Other takes for clip c1" });
+  expect(within(list).getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["Take 3", "Take 2", "Take 1"]); // newest first, not the picked one
+  expect(list).toHaveTextContent("Take 1 · AI: Lexi's hair is shorter than her sheet (0:02)");
+  expect(list).toHaveTextContent("Take 2 · AI: no notes");
+  expect(list).toHaveTextContent("Take 3 · Marked fine: The ring is missing (0:04)"); // still said after Looks fine
+  expect(within(list).getByRole("link", { name: "Download take 1" })).toHaveAttribute("download", "Mia buys the dip-c1-take1.mp4");
+  await userEvent.click(within(list).getByRole("button", { name: "Play take 1" }));
+  expect(within(list).getByLabelText("Take 1", { selector: "video" })).toBeInTheDocument();
+  await userEvent.click(within(list).getByRole("button", { name: "Use take 1" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/takes/5/pick")).toBe(true));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/takes/8/pick")).toBe(true));
+  const sizes = { scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth };
+  expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+});
+
+test("failed and refused tries are listed with why and nothing to play; the list opens itself when the check picked the take", async () => {
+  setViewport(1440);
+  const c = clip({ file_id: 62, approved: true, takes: [tk(1, 1, { verdict: "flagged", check: said("The boss looks calm") }), tk(2, 2, { verdict: "clean", approved_by: "check" })], picked_take_id: 2, tries: [{ at: "2026-11-01T10:05:00Z", reason: "Read as too close to someone else's character", refused: true }, { at: "2026-11-01T10:01:00Z", reason: "The video service didn't finish. Nothing was charged." }] });
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [c]] });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  const list = within(card).getByRole("list", { name: "Other takes for clip c1" });
+  expect(list).toBeVisible(); // open by default: the check picked take 2, so the editor sees there were others
+  expect(within(card).getByText("Other takes (3)")).toBeInTheDocument();
+  expect(list).toHaveTextContent("Refused · Read as too close to someone else's character");
+  expect(list).toHaveTextContent("Didn't finish · The video service didn't finish. Nothing was charged.");
+  const refused = within(list).getByLabelText("A refused try");
+  expect(within(refused).queryByRole("button")).toBeNull(); // no file: no Play, no Use, no Download
+  expect(within(refused).queryByRole("link")).toBeNull();
+});
+
+test("one take and no tries: no Other takes", async () => {
+  fakeServer({ ...base, "GET /projects/9/clips": [200, [clip({ file_id: 61, takes: [tk(1, 1)], picked_take_id: 1 })]] });
+  open();
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).queryByText(/Other takes/)).toBeNull();
 });
