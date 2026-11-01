@@ -1616,9 +1616,9 @@ test("at 390, a video opens on the Director view; Look inside opens the step pic
   open("");
   expect(await screen.findByRole("button", { name: "Make it" })).toBeEnabled();
   expect(screen.getByRole("tab", { name: "Director" })).toHaveAttribute("aria-selected", "true");
-  expect(screen.queryByRole("button", { name: /^Step 1 of 5/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Step 1 of 4/ })).toBeNull();
   await userEvent.click(screen.getByRole("tab", { name: "Look inside" }));
-  expect(await screen.findByRole("button", { name: /^Step 1 of 5/ })).toBeInTheDocument(); // the phone step picker
+  expect(await screen.findByRole("button", { name: /^Step 1 of 4/ })).toBeInTheDocument(); // the phone step picker
   expect(screen.queryByRole("button", { name: "Make it" })).toBeNull();
   await userEvent.click(screen.getByRole("tab", { name: "Director" }));
   expect(await screen.findByRole("button", { name: "Make it" })).toBeInTheDocument();
