@@ -74,4 +74,5 @@
 | 2026-11-01 | FOMO-Producer | Reel reads (site reel import: watch, write, cast) for the two shot-by-shot remakes, scripts 64 and 65 | 14 credits | 1.50 | 1.44 | Reed ("yes, do both") |
 | 2026-11-01 | FOMO-Producer | fomo "The Reptilian" v2 (70 s, shot-by-shot from reel DfF6P64pvpD), project 56: 2 new looks, 7 takes; gasps ducked and stray lines muted in the cut | 85.5 credits | 9.00 | 8.79 (app job records) | Reed ("yes, do both") |
 | 2026-11-01 | FOMO-Producer | fomo "Fired" v2 (61 s, shot-by-shot from reel DfLFWmjyvBB), project 57: 1 new look, 9 takes + 1 look-alike refusal (not charged) | 74.9 credits | 8.00 | 7.70 (app job records) | Reed ("yes, do both") |
-| 2026-11-01 | FOMO-Producer | fomo total (batches 1–3 and the 2 remakes, 5 KIE songs) | | 175.00 cap | 171.22 | Reed ("yes, $175 is fine") |
+| 2026-11-01 | FOMO-Producer | fomo "The Reptilian" v3 and v4 rebuild (73 s), project 56: new script and breakdown, stills redrawn, 2 look redraws, prompt rewrites, all 8 clips retaken (c5 three times); a made-up line muted in the cut | 121.4 credits | 13.00 | 12.48 (app job records) | Reed ("Raise the spend to 200") |
+| 2026-11-01 | FOMO-Producer | fomo total (batches 1–3, the 2 remakes, the Reptilian rebuild, 5 KIE songs) | | 200.00 cap | 183.70 | Reed ("Raise the spend to 200") |
