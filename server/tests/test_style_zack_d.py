@@ -31,5 +31,12 @@ def test_zack_d_follows_reeds_skill_a_blue_world_journey():
 
     # QA-5 on #1122: repairs are phrase-level, only where "stage" means the set.
     assert check.look_words("He stands on the stage.", "zack-d")[0] == "He stands in the world."
-    for kept in ("At this stage the price doubles.", "His thumb hovers over Sell."):
+    kept_as_written = (
+        "At this stage the price doubles.",
+        "Stage 1: the savings jar fills.",
+        "His thumb hovers over Sell.",
+        "The drone is hovering above the podium.",
+        "Dust floating in the light.",
+    )
+    for kept in kept_as_written:
         assert check.look_words(kept, "zack-d")[0] == kept, kept
