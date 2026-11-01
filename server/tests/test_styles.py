@@ -12,7 +12,13 @@ TOKENS = ["sheet_look", "place_look", "still_look", "clip_style", "fit_look"]
 def test_reeds_order_and_only_house_starts_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:5] == ["house", "disney-pixar", "song", "zack-d", "skeleton"]
-    assert set(ids[5:]) == {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"}
+    assert {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"} <= set(ids)
+    # A look's own lanes (order 5.1, 5.2…) sit right after it, in order; no PR lists them here
+    styles = prompts.styles()
+    for before, s in zip(styles, styles[1:], strict=False):
+        if s["order"] != int(s["order"]):
+            assert int(before["order"]) == int(s["order"]), s["id"]
+    assert ids.index("paper") + 4 == ids.index("paper-origami")  # Reed's five paper lanes
     # Formats: only Song for now (Reed, 30 Oct); podcast, vox and whiteboard are in git history
     assert [s["id"] for s in prompts.styles() if s["kind"] == "format"] == ["song"]
     for on_story in ("zack-d", "skeleton"):  # pickable on a story script (flows Q4)
@@ -83,7 +89,7 @@ def test_styles_borrow_a_studio_look_never_its_frame_and_never_rewrite_lines():
     for s in prompts.styles():
         text = "\n".join(s["sections"].values())
         assert "frame from a Pixar" not in text and "from an animated Pixar" not in text, s["id"]
-        if "script" in s["sections"] and s["id"] in ("zack-d", "skeleton"):
+        if "script" in s["sections"]:
             assert "word for word" in s["sections"]["script"], s["id"]
 
 
@@ -103,7 +109,9 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
     for quote in ('"Voilà : ça va ; très bien ."', '"Hello , world : ok"', '"Wait . . .  what"'):
         line = f"Mia says {quote} in the style of Zack D. Films"
         assert check.look_words(line, "zack-d")[0] == f"Mia says {quote}", line
-    assert prompts.look_banned("claymation") == [] and prompts.look_fixes("claymation") == {}
+    assert prompts.look_banned("claymation") == []
+    assert set(prompts.look_fixes("claymation")) == {"refused", "face", "outfit", "product"}
+    assert prompts.look_fixes("claymation-goofy") == {}
     for step in prompts.SCHEMAS:  # data, never sent to a model
         assert "## banned" not in prompts.system(step, "zack-d"), step
 
@@ -154,7 +162,8 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     own = prompts.sample_still_prompt("zack-d")
     assert prompts.look_sample("zack-d").rstrip(".") in own and "[Image1]" not in own
     # Skeleton's sample is always its own skeleton, never the brand's human hero
-    assert [s["id"] for s in prompts.styles() if s["own_sample"]] == ["skeleton"]
+    own = [s["id"] for s in prompts.styles() if s["own_sample"]]
+    assert own == ["skeleton", "skeleton-xray", "skeleton-cute"]
 
 
 def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
@@ -212,3 +221,40 @@ def test_song_has_only_its_guides_and_takes_its_look_from_the_video():
         made = prompts.system(step, "claymation", "song")
         assert "Pixar musical" not in made and "Pixar animated feature" not in made, step
         assert "## Format: Song\nThis video is a Song video in the Claymation look" in made
+
+
+def test_claymation_has_reeds_four_lanes_with_their_blocks_word_for_word():
+    """Reed's claymation skill (docs/next/skills, #1095): one lane a video, each its own look,
+    its style block word for word; the motion guard in every clip; never smooth CGI."""
+    skill = (HERE.parents[2] / "docs" / "next" / "skills" / "claymation.md").read_text()
+    blocks = {
+        "claymation": "Detailed cinematic claymation scene — hand-sculpted plasticine",
+        "claymation-goofy": "Goofy claymation scene — everything sculpted from plasticine",
+        "claymation-clean": "Polished claymation scene — everything sculpted from smooth",
+        "claymation-puppet": "Stop-motion clay puppet scene — clay characters detailed",
+    }
+    for look, start in blocks.items():
+        still = prompts.style(look)["sections"]["still_look"]
+        block = start + skill.split(start, 1)[1].split("`", 1)[0]
+        assert block in still, look
+        clip = prompts.system("clip_prompts", look)
+        assert "slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI." in clip
+        assert "Animation must start at the first frame." in clip, look
+    assert "never sticking out in every direction" in prompts.system(
+        "storyboard", "claymation-goofy"
+    )
+    assert "clay imitation of" in prompts.system("storyboard", "claymation")
+    assert "young clay skin" not in prompts.style("claymation")["sections"]["sheet_look"]  # age
+
+
+def test_disney_pixar_holds_reeds_skill():
+    """Reed's disney-pixar skill (docs/next/skills, #1095), where the site doesn't differ: the
+    camera block's close, sculpted hair bands, label copy with its colour, mechanism and body
+    shots in plain words, and the three kinds of transition."""
+    look = prompts.style("disney-pixar")["sections"]
+    assert "A stylised 3D animated render." in look["still_look"]
+    assert "crisp light-and-shadow bands" in look["sheet_look"]
+    still = prompts.system("storyboard", "disney-pixar")
+    assert "with its colour" in still and "never clinical terms" in still
+    assert "a pancake becomes the sun" in prompts.system("clip_prompts", "disney-pixar")
+    assert "four to five heads tall" not in look["sheet_look"]  # adults keep adult proportions

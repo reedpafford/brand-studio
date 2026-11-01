@@ -399,6 +399,12 @@ class FakeWriter:
         answer = getattr(self, f"_{step}")(prompt)
         return Result("succeeded", output=SCHEMAS[step].model_validate(answer).model_dump())
 
+    def _director(self, prompt):
+        """The stand-in director: the agents' order, from the video's state (app/director)."""
+        from app.director import choose
+
+        return choose(json.loads(_tag(prompt, "video")))
+
     def _enhance(self, prompt):
         return {"suggestions": [], "notes": []}
 
@@ -653,16 +659,51 @@ class FakeWriter:
         return {"structure": shape, "cast": cast, "scenes": scenes}
 
     def _item_check(self, prompt):
-        """The first character sheet "may differ" on every still's check (so Advice, Looks fine
-        and Change this… can all be walked for free); an item with only a product matches. A
-        take is clean unless its shot asks for it (fake:face), so a clean take approving
-        itself can be walked too."""
-        who = re.search(r"\b(char|slot):\d+", prompt)
-        if not who or (self._take and "fake:face" not in prompt):
-            return {"findings": []}
-        return {"findings": [{"kind": "face", "who": who[0], "says": "Their face may differ "
-                              "from their sheet", "note": "Keep their face exactly as on "
-                              "their sheet."}]}  # fmt: skip
+        """The first character sheet "may differ" on every check (so Advice, Looks fine and
+        Change this… can all be walked for free); an item with only a product matches. A
+        marker in a shot's action walks slice 2's kinds (QA): fake:eyes, fake:extra-person,
+        and fake:screen when the check was given the brand's screens. A take has no face note
+        unless its shot asks for one (fake:face), so a clean take approving itself can be
+        walked too."""
+        found = []
+        who = re.search(r"<sheet[^>]*id=\"((?:char|slot):\d+)\"", prompt)
+        if who and (not self._take or "fake:face" in prompt):
+            found.append(
+                {
+                    "kind": "face",
+                    "who": who[1],
+                    "says": "Their face may differ from their sheet",
+                    "note": "Keep their face exactly as on their sheet.",
+                }
+            )
+        if "fake:eyes" in prompt:
+            found.append(
+                {
+                    "kind": "eyes",
+                    "who": "",
+                    "says": "Their eyes glow red",
+                    "note": "Keep normal human eyes the whole time, never glowing or red.",
+                }
+            )
+        if "fake:extra-person" in prompt:
+            found.append(
+                {
+                    "kind": "cast",
+                    "who": "extra",
+                    "says": "Someone who isn't in the cast is in the shot",
+                    "note": "Only the cast in this shot: no other characters.",
+                }
+            )
+        if "fake:screen" in prompt and "<screens>" in prompt:
+            found.append(
+                {
+                    "kind": "screen",
+                    "who": "screen",
+                    "says": "The phone shows another app",
+                    "note": "Show the brand's Home screen on the phone, logo readable.",
+                }
+            )
+        return {"findings": found}  # fmt: skip
 
     def _site_read(self, prompt):  # the practice page's two products and both its colours
         return {"products": [

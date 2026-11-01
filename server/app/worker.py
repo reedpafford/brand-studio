@@ -23,7 +23,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import music, screen_figures
+from app import director, music, screen_figures
 from app.clip_takes import still_wanted
 from app.credits import USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -236,7 +236,20 @@ def _finish(
             db.refresh(job)
             step_failed(db, job)
     db.commit()
+    if moved and job.project_id:  # the director's turn acted on, or its next turn woken,
+        try:  # after the job's own result is kept, so nothing here can undo it
+            director.after(db, job, storage or _storage())
+            db.commit()
+        except Exception:  # never let the director break the worker
+            db.rollback()
+            log.exception("job %s: the director couldn't go on", job.id)
     return True
+
+
+def _storage() -> Storage:
+    from app.settings import get_settings
+
+    return LocalStorage(get_settings().storage_dir)
 
 
 def check_running(
@@ -322,17 +335,22 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
     if take := job.input.get("take_frames"):  # the advisory check: the take's frames first
         stored = _stored(db, storage, job, take["file_id"])
         frames = [f"data:image/jpeg;base64,{base64.b64encode(f).decode()}"
-                  for f in video_frames(storage.get(stored.key), take["count"])]  # fmt: skip
+                  for f in video_frames(storage.get(stored.key), take["count"], db,
+                                        take.get("take_id"))]  # fmt: skip
         given = payload.get("input", {})
         payload["input"] = {**given, "reference_images": frames + given.get("reference_images", [])}
     return payload
 
 
-def video_frames(video: bytes, count: int) -> list[bytes]:
-    """`count` JPEG frames spread over a video, first to last (ffmpeg, free)."""
+def video_frames(video: bytes, count: int, db: Session | None = None,
+                 take_id: int | None = None) -> list[bytes]:  # fmt: skip
+    """`count` JPEG frames of a video, on its shot changes and the starts of its lines, filled
+    in evenly (app/take_frames; ffmpeg, free)."""
     import subprocess
     import tempfile
     from pathlib import Path
+
+    from app import take_frames
 
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "take.mp4"
@@ -341,9 +359,9 @@ def video_frames(video: bytes, count: int) -> list[bytes]:
             ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",  # noqa: S607
              str(src)], capture_output=True, text=True, timeout=60, check=True)  # fmt: skip
         length = float(probe.stdout.strip() or 0)
+        marks = take_frames.cuts(src) + (take_frames.starts(db, take_id, src) if db else [])
         out = []
-        for n in range(count):
-            at = length / 2 if count == 1 else min(length * n / (count - 1), max(length - 0.5, 0))
+        for n, at in enumerate(take_frames.moments(length, marks, count)):
             dst = Path(tmp) / f"{n}.jpg"
             subprocess.run(  # noqa: S603
                 ["ffmpeg", "-v", "error", "-y", "-ss", f"{at:.2f}", "-i", str(src),  # noqa: S607
@@ -421,7 +439,7 @@ def _within_real_budget(db: Session, job: Job) -> bool:
 
     settings = get_settings()
     if no := real_budget_refusal(db, settings, job.provider, job.credits):
-        _fail(db, job, no, "real budget used up")
+        _fail(db, job, no, "real budget refused")
         db.commit()
         return False
     if real_capped(settings):  # for the Producer during Reed's test: spent so far
@@ -431,6 +449,8 @@ def _within_real_budget(db: Session, job: Job) -> bool:
 
 
 def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
+    if job.input.get("step") == director.STEP:  # it reads the video as it is now (QA, #1087)
+        director.refresh(db, job)
     try:  # a Claude check that looks at a picture gets it as data, like other providers
         result = provider.run(job.kind, _files_as_data(db, storage, job))
         result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
@@ -470,6 +490,14 @@ def run_once(
     for _ in range(queued):
         if STOP.is_set() or not start_next(db, providers, storage, allow_paid, only):
             break  # stopping: the next start waits for the new worker
+    if only and "claude" not in only:
+        return  # the director's turns are Claude's: only that lane's worker sweeps
+    try:  # a director run whose work ended any other way (failed, cancelled) goes on
+        director.sweep(db)
+        db.commit()
+    except Exception:  # never let the director break the worker
+        db.rollback()
+        log.exception("the director's sweep failed")
 
 
 def main() -> None:  # pragma: no cover - the loop itself is trivial

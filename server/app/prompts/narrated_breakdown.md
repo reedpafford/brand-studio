@@ -7,4 +7,4 @@ This script is narrated: every spoken line is the narrator's voiceover, read onc
 
 **All B-roll.** Every shot shows what its sentence says, literally, so the story reads with the sound off. Nobody on screen speaks or moves their lips: `line` and `speaker` are null and `sung` is false on every shot; the narrator is never on camera saying the words.
 
-**Clips follow the narration.** A clip's shots are consecutive, one place and one action, and its slice runs from its first shot's `song_start` to its last shot's `song_end`; `seconds` is that span rounded up, within the video model's limits. End clips between sentences. A clip with people in it runs 16 s at most: split a longer stretch at a sentence's end.
+**Clips follow the narration.** A clip's shots are consecutive, one place and one action, and its slice runs from its first shot's `song_start` to its last shot's `song_end`; `seconds` is that span rounded up, within the video model's limits. End clips between sentences. Faces drift in long clips, so a clip with people in it past about 16 s is worth splitting at a sentence's end, when the narration allows it.

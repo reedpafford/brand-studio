@@ -22,13 +22,13 @@ import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
-import { useBudgetStop } from "./useBudgetStop";
 import { ProjectPicker } from "../folders/Projects";
 import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoHold, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
+import { HeldRequests } from "../approvals/HeldRequests";
 
 /** A video made from a library version: Plan · Cast · Storyboard · Clips · Final cut. */
 export function VideoPage() {
@@ -55,7 +55,8 @@ export function VideoPage() {
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
   const settings = useVideoSettings(id); // the row has Shape once the server offers settings
   // The storyboard is out of date and the shots are current: one press brings it and the clip prompts up to date (audit M14 part 2).
-  const stopFor = useBudgetStop(p ? { used: p.credits_used, budget: p.budget_credits } : undefined);
+  // An editor's over-budget press is held for the owner (#1068), never stopped here; only what blocks for everyone is.
+  const stopFor = () => null;
   const updating = (step === "storyboard" || step === "clips") && !progress.shots.stale && (progress.frames.stale || progress.clips.stale);
   const update = useUpdateAfter(id, updating, stopFor, (to) => setParams({ step: to }));
   // When this step was opened, the Assets list as it was then: a read since then is this step's own.
@@ -151,6 +152,7 @@ export function VideoPage() {
           <VideoSettings project={p} finished={finished} song={step !== "plan"} />
         </ViewOnly>
       )}
+      <HeldRequests where={{ projectId: id }} />
       {p.archived_at && (
         <Banner tone="info" title="Archived" action={mayManage(p) ? <Button variant="secondary" onClick={() => void video.restore(target)}>Restore</Button> : undefined}>
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
@@ -191,7 +193,7 @@ export function VideoPage() {
           }
         />
       )}
-      {step === "cast" && <AssetsPane bar projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} used={p.credits_used} budget={p.budget_credits} />}
+      {step === "cast" && <AssetsPane bar projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} />}
       {step === "storyboard" && <StoryboardPane barTaken={!!update.action} hold={hold} castRedraw={p.cast_redraw} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
       {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
