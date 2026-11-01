@@ -1482,3 +1482,23 @@ def test_fomo_producers_redo_notes_reach_the_prompts():
     assert "split a longer one at a natural beat" in breakdown
     clip = prompts.system("clip_prompts")
     assert '"Oh my God", "Oh", "Yes!"' in clip and "no bangs), never who they are" in clip
+
+
+def test_reptilian_v4_craft_reaches_the_steps():
+    """FOMO-Producer's Reptilian v4 (Reed: "much better") and the shot-by-shot notes, as craft,
+    never story rules, and with no seconds (rule 29)."""
+    breakdown = prompts.system("breakdown")
+    for part in ('"why does this happen?"', "the wit is in the lines and the gags",
+                 "Never add a hook or an opener the script doesn't have",
+                 "one named feeling and one clear action", 'never just "talks" or "reacts"',
+                 "the call to action is still said shaken", "then a reaction shot"):  # fmt: skip
+        assert part in breakdown, part
+    assert '"why does this happen?"' in prompts.system("plan")
+    clip = prompts.system("clip_prompts")
+    assert "A reveal or a punchline is big, unmistakable and held long enough to read" in clip
+    director = prompts.system("director")
+    for part in ("the words against the pictures", "a feeling that snaps", "a dead hold",
+                 "Fix what you find before delivering, rather than listing it"):  # fmt: skip
+        assert part in director, part
+    for step in ("breakdown", "clip_prompts", "director", "plan"):
+        assert "6–11 s" not in prompts.system(step), step
