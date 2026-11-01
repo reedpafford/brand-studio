@@ -1,12 +1,15 @@
 """Take check slice 2, frames (take-review checklist B3–B5): the take's picture check looks at
 a strip of frames for eyes, the brand's screens and the cast, on the free stand-in writer."""
 
+import itertools
 import re
+import subprocess
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.orm.attributes import flag_modified
 
+from app import take_frames
 from app.item_checks import _cast
 from app.models.brands import Brand, BrandScreen
 from app.models.breakdowns import BreakdownVersion
@@ -78,3 +81,24 @@ def test_a_cast_name_thats_also_a_word_reads_as_a_person():
     line = "char:12 | character | date | plays the alien date | Sheet sets the look."
     assert _cast("char:12", line) == "date (char:12, the alien date)"  # not "his date"
     assert _cast("slot:3", "slot:3 | character | Omar | A rival") == "Omar (slot:3)"
+
+
+def test_frames_sit_on_the_boundaries_spread_out_or_filled_in_evenly():
+    assert take_frames.moments(6.0, [], 6) == [0.0, 1.14, 2.28, 3.42, 4.56, 5.7]  # none: even
+    shown = take_frames.moments(6.0, [2.0, 2.05, 4.0], 6)  # a cut, a line just after, a cut
+    assert [2.15, 2.2, 4.15] == [t for t in shown if t in (2.15, 2.2, 4.15)]
+    assert len(shown) == 6 and shown == sorted(shown) and shown[-1] <= 5.7
+    many = take_frames.moments(6.0, [n * 0.25 for n in range(24)], 6)  # more than 6: spread
+    assert len(many) == 6 and min(b - a for a, b in itertools.pairwise(many)) >= 0.75
+
+
+def test_a_quick_cut_and_a_line_after_a_pause_are_found(tmp_path):
+    src = tmp_path / "take.mp4"
+    args = ["-v", "error", "-f", "lavfi", "-i", "color=c=red:s=64x64:d=1.2", "-f", "lavfi",
+            "-i", "color=c=blue:s=64x64:d=1.8", "-f", "lavfi", "-i",
+            "sine=frequency=440:duration=3,volume=enable='lt(t,1.5)':volume=0",
+            "-filter_complex", "[0:v][1:v]concat=n=2:v=1[v]", "-map", "[v]", "-map", "2:a",
+            "-c:v", "libx264", "-c:a", "aac", str(src)]  # fmt: skip
+    subprocess.run(["ffmpeg", *args], check=True)  # noqa: S603, S607
+    assert [round(t, 1) for t in take_frames.cuts(src)] == [1.2]  # red to blue
+    assert [round(t, 1) for t in take_frames.starts(None, None, src)] == [1.5]  # no words yet

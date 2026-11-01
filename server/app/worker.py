@@ -322,17 +322,22 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
     if take := job.input.get("take_frames"):  # the advisory check: the take's frames first
         stored = _stored(db, storage, job, take["file_id"])
         frames = [f"data:image/jpeg;base64,{base64.b64encode(f).decode()}"
-                  for f in video_frames(storage.get(stored.key), take["count"])]  # fmt: skip
+                  for f in video_frames(storage.get(stored.key), take["count"], db,
+                                        take.get("take_id"))]  # fmt: skip
         given = payload.get("input", {})
         payload["input"] = {**given, "reference_images": frames + given.get("reference_images", [])}
     return payload
 
 
-def video_frames(video: bytes, count: int) -> list[bytes]:
-    """`count` JPEG frames spread over a video, first to last (ffmpeg, free)."""
+def video_frames(video: bytes, count: int, db: Session | None = None,
+                 take_id: int | None = None) -> list[bytes]:  # fmt: skip
+    """`count` JPEG frames of a video, on its shot changes and the starts of its lines, filled
+    in evenly (app/take_frames; ffmpeg, free)."""
     import subprocess
     import tempfile
     from pathlib import Path
+
+    from app import take_frames
 
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "take.mp4"
@@ -341,9 +346,9 @@ def video_frames(video: bytes, count: int) -> list[bytes]:
             ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",  # noqa: S607
              str(src)], capture_output=True, text=True, timeout=60, check=True)  # fmt: skip
         length = float(probe.stdout.strip() or 0)
+        marks = take_frames.cuts(src) + (take_frames.starts(db, take_id, src) if db else [])
         out = []
-        for n in range(count):
-            at = length / 2 if count == 1 else min(length * n / (count - 1), max(length - 0.5, 0))
+        for n, at in enumerate(take_frames.moments(length, marks, count)):
             dst = Path(tmp) / f"{n}.jpg"
             subprocess.run(  # noqa: S603
                 ["ffmpeg", "-v", "error", "-y", "-ss", f"{at:.2f}", "-i", str(src),  # noqa: S607

@@ -188,7 +188,8 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
             "ref_ids": sheets + ([pair[0]] if pair else []) + screens,
             "files": {"reference_images": [file_id] * (target == "frame") + images}}  # fmt: skip
     if target == "take":
-        data["take_frames"] = {"file_id": file_id, "count": FRAMES}  # the worker reads them
+        data["take_frames"] = {"file_id": file_id, "count": FRAMES,  # the worker reads them
+                               "take_id": target_id}  # fmt: skip
     db.flush()
     data["item_check_id"] = row.id
     check_job = Job(workspace_id=project.workspace_id, created_by_id=user.id, kind=KIND,
