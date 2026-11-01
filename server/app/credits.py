@@ -271,11 +271,14 @@ def needs_approval(db: Session, user: User, project: Project | None, credits: De
     the row locked."""
     if user.is_owner or project is None:
         return False
-    return credits_used(db, project) + credits > project.budget_credits
+    step = Job.input["step"].as_string()  # the director's own turns have their own limit
+    used = _sum_credits(db, Job.project_id == project.id, or_(step.is_(None), step != "director"))
+    return used + credits > project.budget_credits
 
 
 FREE_LANES = ("fake", "local")  # our own server and the tests' fake: never a paid call
-REAL_DONE = "The test site's real-AI budget (${:.0f}) is used up. Nothing was charged."
+REAL_DONE = "The test site's real-AI budget (${:.2f}) is used up. Nothing was charged."
+NO_START = "The test site's real-AI budget: start time not set. Nothing was charged."
 
 
 def real_capped(settings) -> bool:
@@ -303,7 +306,9 @@ def real_budget_refusal(db: Session, settings, provider: str, credits: Decimal) 
     if provider in FREE_LANES or not real_capped(settings):
         return ""
     budget = Decimal(str(settings.real_budget_usd))
-    if not (budget > 0 and settings.real_budget_since):  # not set up: nothing paid runs
+    if not settings.real_budget_since:  # not set up: nothing paid runs
+        return NO_START
+    if not budget > 0:
         return REAL_DONE.format(budget)
     if real_spent(db, settings) + credits * USD_PER_CREDIT <= budget:
         return ""

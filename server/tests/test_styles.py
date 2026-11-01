@@ -89,7 +89,7 @@ def test_styles_borrow_a_studio_look_never_its_frame_and_never_rewrite_lines():
     for s in prompts.styles():
         text = "\n".join(s["sections"].values())
         assert "frame from a Pixar" not in text and "from an animated Pixar" not in text, s["id"]
-        if "script" in s["sections"] and s["id"] in ("zack-d", "skeleton"):
+        if "script" in s["sections"]:
             assert "word for word" in s["sections"]["script"], s["id"]
 
 
@@ -162,7 +162,8 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     own = prompts.sample_still_prompt("zack-d")
     assert prompts.look_sample("zack-d").rstrip(".") in own and "[Image1]" not in own
     # Skeleton's sample is always its own skeleton, never the brand's human hero
-    assert [s["id"] for s in prompts.styles() if s["own_sample"]] == ["skeleton"]
+    own = [s["id"] for s in prompts.styles() if s["own_sample"]]
+    assert own == ["skeleton", "skeleton-xray", "skeleton-cute"]
 
 
 def test_zack_d_is_the_real_channels_look_not_a_cyan_cartoon():
