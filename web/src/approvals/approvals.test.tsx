@@ -187,3 +187,9 @@ test("a link to one request (?job=51, from the page it waits on) lands on that r
   expect(row).toHaveAttribute("aria-current", "true");
   expect(screen.getByRole("button", { name: "Approve a new take" }).closest("li")).not.toHaveAttribute("aria-current");
 });
+
+test("a held request's '% of its budget' leaves the director's own time out, as the hold check does", async () => {
+  fakeServer({ ...base, "GET /projects": [200, [{ ...project, credits_used: 90, director_credits: 60 }]] });
+  open();
+  expect(await screen.findByText(/27 credits · takes the video to 57% of its budget/)).toBeInTheDocument(); // (90 − 60 + 27) / 100
+});

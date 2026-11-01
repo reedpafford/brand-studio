@@ -29,6 +29,7 @@ import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoHold, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 import { HeldRequests, WaitingCount } from "../approvals/HeldRequests";
+import { budgetPct, budgetUsed, directorTime } from "./budget";
 import { DirectorPanel } from "./DirectorPanel";
 
 /** A video made from a library version: Plan · Cast · Storyboard · Clips · Final cut. */
@@ -127,7 +128,7 @@ export function VideoPage() {
 
   return (
     // One cost bar at the bottom: the budget, what finishing costs, and the step's press (audit M1).
-    <CostBarProvider projectId={id} used={p.credits_used} budget={p.budget_credits} pct={p.budget_pct} lookOnly={lookOnly} fallback={waiting ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
+    <CostBarProvider projectId={id} used={budgetUsed(p)} budget={p.budget_credits} pct={budgetPct(p)} director={directorTime(p)} lookOnly={lookOnly} fallback={waiting ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
