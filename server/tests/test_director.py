@@ -385,3 +385,27 @@ def test_a_turn_that_fails_inside_the_worker_ends_the_run_and_nothing_more_is_ch
     assert (out["status"], out["ended"]) == ("ended", director.TURN_FAILED)
     (turn,) = db.query(Job).filter(Job.project_id == pid).all()  # the failed turn, nothing more
     assert turn.status == JobStatus.failed
+
+
+def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owner, editor):
+    """The cost bar read "Over budget" after one director run: its turns are counted in
+    credits_used but the hold leaves them out. director_credits shows them apart."""
+    from decimal import Decimal
+
+    import pytest
+
+    from app import credits
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    got = editor.get(f"/projects/{pid}").json()
+    turns = director.turns(db, db.get(Project, pid))
+    assert got["director_credits"] == float(sum(j.credits for j in turns)) > 0
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    budget = credits.credits_used(db, project) - credits.director_credits(db, project)
+    assert float(budget) == pytest.approx(got["credits_used"] - got["director_credits"])
+    room = project.budget_credits - budget  # what the hold still lets through
+    assert not credits.needs_approval(db, ed, project, room)  # exactly fits
+    assert credits.needs_approval(db, ed, project, room + Decimal("0.01"))  # one cent past

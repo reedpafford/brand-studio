@@ -182,6 +182,14 @@ def credits_used(db: Session, project: Project) -> Decimal:
     return _sum_credits(db, Job.project_id == project.id)
 
 
+def director_credits(db: Session, project: Project) -> Decimal:
+    """The director's own turns on this video: they have their own limit (DECISIONS #1066), so
+    the budget and its hold leave them out (`needs_approval`, and the cost bar)."""
+    return _sum_credits(
+        db, Job.project_id == project.id, Job.input["step"].as_string() == "director"
+    )
+
+
 def week_start() -> datetime:
     now = utcnow()
     return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -271,8 +279,7 @@ def needs_approval(db: Session, user: User, project: Project | None, credits: De
     the row locked."""
     if user.is_owner or project is None:
         return False
-    step = Job.input["step"].as_string()  # the director's own turns have their own limit
-    used = _sum_credits(db, Job.project_id == project.id, or_(step.is_(None), step != "director"))
+    used = credits_used(db, project) - director_credits(db, project)  # its own limit
     return used + credits > project.budget_credits
 
 

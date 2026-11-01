@@ -7842,6 +7842,8 @@ export interface components {
             budget_credits: number;
             /** Credits Used */
             credits_used: number;
+            /** Director Credits */
+            director_credits: number;
             /** Budget Pct */
             budget_pct: number;
             /** Created By Id */
