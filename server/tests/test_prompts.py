@@ -8,7 +8,7 @@ import pytest
 
 import evals
 from app import prompts
-from app.prompts import check, schemas
+from app.prompts import HERE, check, schemas
 from evals import checks
 
 EXAMPLES = Path(prompts.__file__).parent / "examples"
@@ -199,6 +199,14 @@ def test_the_sheet_owns_the_face_in_every_prompt():
     assert "the character sheets set each face, and each outfit unless this video gives" in clip
     assert "set each face and outfit" not in clip  # the video's own outfit wins (QA-7, #1131)
     assert "the Keep line names it instead of the sheet's" in clip
+    # QA-7 on #1131: no prompt says the sheet or look alone sets the outfit, rules.md included
+    old = re.compile(r"(face|hair|faces, builds)[^.]{0,20}(and|,) outfits? (come|from)|"
+                     r"set each face and outfit|sets his face and outfit", re.I)  # fmt: skip
+    for path in [*HERE.glob("*.md"), *HERE.glob("styles/*.md"), *HERE.glob("examples/*.json")]:
+        assert not old.search(path.read_text()), path.name
+    assert (
+        "and their outfit too unless this video gives them one" in (HERE / "rules.md").read_text()
+    )
     assert "big glossy eyes" not in clip.split("Style: ", 1)[1].split("\n", 1)[0]
     assert "Keep: Aiden's identity and clothing stable in every shot" in clip
     for step in ("breakdown", "script_draft", "variations"):
