@@ -1478,7 +1478,10 @@ def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
     assert "a copy, not a premise" in prompts.system("script_draft")
     assert "Write a montage only when this story" in prompts.system("script_draft")
     director = prompts.system("director")
-    assert "Watch it as a viewer." in director and "garbled or invented screen" in director
+    assert "Judge it as a viewer." in director and "garbled or invented screen" in director
+    # The Producer: the director can't see the cut, so it judges from the notes, never claims it.
+    assert "You can't see the cut" in director and "Never say you watched" in director
+    assert "watch the whole cut" not in director
 
 
 def test_fomo_producers_redo_notes_reach_the_prompts():
@@ -1520,6 +1523,17 @@ def test_clip_lengths_are_suggestions_not_rules():
             step, fmt={"song_breakdown": "song", "narrated_breakdown": "narrated"}.get(step, "")
         )
         assert "s at most" not in text and "up to about 13 s" not in text, step
+
+
+def test_the_director_keeps_to_what_is_locked():
+    """Next-Server's #1129: <video> carries `locked` (and `outfits`); make_looks is refused
+    while the cast is locked, so the director never spends a turn on it."""
+    director = prompts.system("director")
+    assert "**Keep to what's locked.**" in director and "locked: the choices fixed" in director
+    assert "uses the locked screens" in director and "`make_looks` is refused" in director
+    # The Producer, after #1124: a video's own outfit (the cast line's "wears: …") wins.
+    wins = 'their cast line\'s "wears: … (this video)"), which wins'
+    assert wins in prompts.system("storyboard") and wins in prompts.system("clip_prompts")
 
 
 def test_the_director_tries_a_failed_item_again_or_goes_on_without_it():
