@@ -342,8 +342,46 @@ def test_it_keeps_to_the_videos_locks_and_reads_its_outfits(app, db, owner, edit
     assert json.loads(prompt.split("<video>")[1].split("</video>")[0])["locked"] == {"cast": True}
     user = db.query(User).filter_by(email="ed@example.com").one()
     said = director_tools.run(db, user, project, {"tool": "make_looks"}, None)
-    assert said == "Refused: the cast is locked for this video."
+    assert said == (
+        "Refused: the cast is locked for this video. Approve the missing looks in "
+        "Cast, or unlock the cast, then start it again."
+    )
     db.commit()  # reading the video may save its plan's state: let the requests write
     editor.post(f"/projects/{pid}/director")  # its cast is whole: the lock never stands in the way
     _run(app, db)
     assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+
+
+def test_a_locked_cast_with_a_look_missing_stops_saying_what_to_do(
+    app, db, owner, editor, monkeypatch
+):
+    pid = _made(app, owner, editor, db)
+    editor.put(f"/projects/{pid}/locks", json={"locks": {"cast": True}})
+    real = director.choose
+    monkeypatch.setattr(
+        "app.director.choose",
+        lambda state: {**real(state), "tool": "make_looks", "why": "A look is missing."},
+    )  # every turn
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "ended" and len(out["turns"]) == 2  # refused twice, then stops
+    assert out["ended"] == (
+        "It stopped: the cast is locked for this video. Approve the missing "
+        "looks in Cast, or unlock the cast, then start it again."
+    )
+
+
+def test_a_turn_that_fails_inside_the_worker_ends_the_run_and_nothing_more_is_charged(
+    app, db, owner, editor, monkeypatch
+):
+    """An answer that isn't a tool fails the turn before the worker's finish: the run used to
+    stay "running" forever. Now it ends, saying so, and nothing more is made."""
+    monkeypatch.setattr("app.director.choose", lambda state: {"tool": "dance", "why": "?"})
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert (out["status"], out["ended"]) == ("ended", director.TURN_FAILED)
+    (turn,) = db.query(Job).filter(Job.project_id == pid).all()  # the failed turn, nothing more
+    assert turn.status == JobStatus.failed

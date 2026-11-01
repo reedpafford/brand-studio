@@ -17,6 +17,7 @@ from app.models.clips import ProjectClip
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 
+CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "final_cut")  # fmt: skip
 
@@ -43,7 +44,7 @@ def run(db: Session, user: User, project: Project, decision: dict, storage) -> s
             return "Making the shots."
         if tool == "make_looks":
             if no := locks.refusal(project, "cast"):  # the cast and its looks are fixed
-                return no
+                return f"{no} {CAST_LOCKED}"  # what to do (rule 22), said again when it stops
             project_assets.make_missing_looks(**me)
             return "Making the missing looks."
         if tool == "storyboard":
