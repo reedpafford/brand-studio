@@ -6,7 +6,9 @@ import { ToastProvider } from "../toast";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { MemoryRouter } from "react-router-dom";
-import { HeldRequests, askedAgo, type HeldWhere } from "./HeldRequests";
+import { HeldRequests, askedAgo, stepOf, type HeldWhere } from "./HeldRequests";
+import { PLURAL, STEPS } from "./ApprovalsPage";
+import type { Job } from "./useHeld";
 
 const job = (o: object = {}) => ({ id: 50, kind: "video", project_id: 9, script_id: null, credits: 27, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: "clip_take", error: "", held: "That's more than this video's budget.", declined: false, created_by_name: "Eli", waiting: "", auto: false, output: null, ...o });
 function show(where: HeldWhere) {
@@ -127,4 +129,41 @@ test("a declined take offers Change this…, which goes to its step (Clips) and 
   expect(change).toHaveAttribute("href", "/?step=clips");
   await userEvent.click(change);
   expect(screen.queryByText(/The owner said no/)).toBeNull();
+});
+
+test("a declined Plan press is named and its Change this… goes to Plan; the yes-toast agrees in number (QA-5 on #1114)", async () => {
+  fakeServer({ "GET /jobs": [200, [job({ step: "plan", status: "cancelled", declined: true, held: "", error: "" })]] });
+  show({ projectId: 9 });
+  expect(await screen.findByText("The owner said no")).toBeInTheDocument();
+  expect(document.body).toHaveTextContent("The scene plan wasn't made.");
+  expect(screen.getByRole("link", { name: "Change this…" })).toHaveAttribute("href", "/?step=plan");
+});
+
+test("every step a video press can be held on has a name and a step for Change this…; a change goes where its still or clip is", () => {
+  for (const step of ["plan", "plan_scene", "breakdown", "song_breakdown", "narrated_breakdown", "sheet", "storyboard", "frame", "stills", "clip_prompts", "clip_take", "improve", "change"]) {
+    expect(STEPS[step], step).toBeTruthy();
+    expect(stepOf(job({ step }) as Job), step).toBeTruthy();
+  }
+  expect(stepOf(job({ step: "change", frame_id: 3, project_clip_id: null }) as Job)).toBe("storyboard");
+  expect(stepOf(job({ step: "change", frame_id: null, project_clip_id: 4 }) as Job)).toBe("clips");
+  expect(PLURAL.has("The clip prompts")).toBe(true);
+});
+
+test("the yes-toast says are for a plural: The owner said yes: the clip prompts are being made", async () => {
+  let jobs = [job({ step: "clip_prompts" })];
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(jobs), { status: 200, headers: { "content-type": "application/json" } })));
+  const client = new QueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <MemoryRouter>
+          <HeldRequests where={{ projectId: 9 }} />
+        </MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("Waiting for approval")).toBeInTheDocument();
+  jobs = [job({ step: "clip_prompts", status: "running", held: "" })];
+  await client.refetchQueries({ queryKey: ["jobs", "mine"] });
+  expect(await screen.findByText("The owner said yes: the clip prompts are being made.")).toBeInTheDocument();
 });

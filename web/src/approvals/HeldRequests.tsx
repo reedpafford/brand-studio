@@ -5,7 +5,7 @@ import { api, errorText } from "../api/client";
 import { Banner, Button, buttonClass, creditsText } from "../components";
 import { serverTime } from "../time";
 import { useToast } from "../toast";
-import { STEPS } from "./ApprovalsPage";
+import { PLURAL, STEPS } from "./ApprovalsPage";
 import type { Job } from "./useHeld";
 
 /** Which of my requests belong on this page: a video's, a script's, or my Quick clips (no video, no script). */
@@ -19,8 +19,13 @@ const reasonOf = (j: Job) => (j.error && !j.error.startsWith("The owner said no"
 const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const what = (j: Job) =>
   j.step === "song_take" ? (j.kind === "speech" ? "Your narration" : "Your song or music") : j.step ? (STEPS[j.step] ?? "Your request") : quick(j) ? "Your Quick clip" : "Your request";
-// Where "Change this…" goes for a declined press: the video step it was pressed on (ux-audit §8.4).
-const VIDEO_STEP: Record<string, string> = { breakdown: "plan", sheet: "cast", storyboard: "storyboard", frame: "storyboard", clip_prompts: "clips", clip_take: "clips", improve: "clips" };
+// Where "Change this…" goes for a declined press: the video step it was pressed on (ux-audit §8.4). A change goes where its
+// still or clip is.
+const VIDEO_STEP: Record<string, string> = {
+  plan: "plan", plan_scene: "plan", breakdown: "plan", song_breakdown: "plan", narrated_breakdown: "plan", sheet: "cast",
+  storyboard: "storyboard", frame: "storyboard", stills: "storyboard", clip_prompts: "clips", clip_take: "clips", improve: "clips",
+};
+export const stepOf = (j: Job) => (j.step === "change" ? (j.frame_id != null ? "storyboard" : "clips") : j.step ? VIDEO_STEP[j.step] : undefined);
 const seenKey = "declines-seen";
 const readSeen = (): number[] => {
   try {
@@ -92,7 +97,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
   useEffect(() => {
     for (const j of jobs) {
       if (waiting.current.has(j.id) && j.status !== "needs_owner_approval" && j.status !== "cancelled" && !j.declined) {
-        toast(`The owner said yes: ${lower(what(j))} is being made.`);
+        toast(`The owner said yes: ${lower(what(j))} ${PLURAL.has(what(j)) ? "are" : "is"} being made.`);
         waiting.current.delete(j.id);
       }
     }
@@ -101,7 +106,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
   });
   if (held.length === 0 && declined.length === 0) return null;
   const change = (j: Job) => {
-    const step = j.project_id != null && j.step ? VIDEO_STEP[j.step] : undefined;
+    const step = j.project_id != null ? (stepOf(j) ?? "plan") : undefined; // on a video, never a dead end
     if (step)
       return (
         <Link className={buttonClass("secondary")} to={`?step=${step}`} onClick={() => dismiss(j.id)}>
