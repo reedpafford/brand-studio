@@ -13,7 +13,7 @@ Stylised 3D animated feature-film look (Pixar/Disney-like CG) with expressive ey
 Stylised 3D animated feature-film look (Pixar/Disney-like CG), dense and specific set dressing with photoreal props, motivated cinematic light: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights.
 
 ## still_look
-The house look, unless the brand block says otherwise: "Stylised 3D animated feature-film look (Pixar/Disney-like CG). Faces, builds and outfits come from the character sheets. Fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The camera is mostly at eye level and alive, pushing, panning and tracking with the action, with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off."
+The house look, unless the brand block says otherwise: "Stylised 3D animated feature-film look (Pixar/Disney-like CG). Faces and builds come from the character sheets, and outfits too unless this video gives its own. Fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The camera is mostly at eye level and alive, pushing, panning and tracking with the action, with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off."
 
 ## clip_style
 Pixar-style 3D animation, warm amber key against cool blue shadows, shallow depth of field, dynamic cinematic camera moves, big readable expressions
@@ -31,7 +31,7 @@ Pixar-style → animated-feature
 ## fixes
 refused: Soften it (the free fix rewords the picture, never the lines), then Make another.
 face: Make another first: the same prompt often lands. If it drifts again, Change this… "keep the face exactly as the sheet".
-outfit: Change this… naming the sheet's key pieces in the shot ("the red beanie, the grey hoodie").
+outfit: Change this… naming the outfit's key pieces in the shot, this video's when it gives one, else the sheet's ("the red beanie, the grey hoodie").
 product: Change this… "the real bag from its image, the label facing the camera and readable".
 
 ## sample

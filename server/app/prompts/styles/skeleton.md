@@ -54,7 +54,7 @@ rotting → dusty
 ## fixes
 refused: Soften it: bones and glow, never wounds, blood or anything gory. Then Make another.
 face: Change this… "the skeleton exactly as its sheet: same eyes, bones and proportions".
-outfit: Change this… naming what the skeleton wears on its sheet.
+outfit: Change this… naming what the skeleton wears, this video's outfit when it gives one, else its sheet's.
 product: Change this… "the real product from its image in the skeleton's hand, the label facing the camera".
 
 ## sample
