@@ -92,13 +92,15 @@ def _request(
             job_input = narration.job(draft.text)
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
-        return enqueue(db, user, "speech", {**job_input, "step": "song_take"}, project=project,
+        job_input = {**job_input, "step": "song_take", "on_script": draft.script_id}
+        return enqueue(db, user, "speech", job_input, project=project,
                        provider="replicate", units=_units(job_input))  # fmt: skip
     try:
         job_input = music.job(draft.text, draft.style_line)
     except music.NotReady as no:
         raise HTTPException(422, str(no)) from None
-    job_input = {**job_input, "step": "song_take", **({"free_retry": True} if free else {}),
+    job_input = {**job_input, "step": "song_take", "on_script": draft.script_id,
+                 **({"free_retry": True} if free else {}),
                  **({"kie": True} if kie else {})}  # fmt: skip
     job = enqueue(db, user, "music", job_input, project=project,
                   provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip

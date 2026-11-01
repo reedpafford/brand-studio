@@ -73,8 +73,8 @@ def test_past_the_budget_nothing_is_rewritten_by_itself(app, db, editor, setup, 
     assert not _rewrites(db, setup["project"])  # past the budget: skipped
     price = editor.get(f"{base}/clips/prompts/price").json()
     assert price == {"clip_ids": ["c1"], "credits": 3}  # the button stays, with its price
-    pressed = editor.post(f"{base}/clips/prompts")
-    assert pressed.status_code == 409 and "budget" in pressed.json()["detail"]
+    pressed = editor.post(f"{base}/clips/prompts")  # a press: it waits for the owner
+    assert pressed.status_code == 201 and pressed.json()["status"] == "needs_owner_approval"
 
 
 def test_a_recast_carries_clips_for_free(app, db, editor, setup, clip):  # noqa: F811

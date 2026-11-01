@@ -68,7 +68,7 @@ def test_the_press_runs_the_storyboard_its_stills_then_the_clip_prompts(app, db,
     assert (again.status_code, again.json()["detail"]) == (409, update_after.NOTHING)
 
 
-def test_over_the_videos_budget_nothing_starts(app, db, editor, setup):  # noqa: F811
+def test_over_the_videos_budget_the_run_waits_for_the_owner(app, db, editor, setup):  # noqa: F811
     url = f"/projects/{setup['project']}"
     _made(app, db, editor, url)
     project = db.get(Project, setup["project"])
@@ -79,10 +79,12 @@ def test_over_the_videos_budget_nothing_starts(app, db, editor, setup):  # noqa:
                project_id=project.id, status="succeeded",
                credits=project.budget_credits - spent - left))  # fmt: skip
     db.commit()
-    before = db.query(Job).count()
-    refused = editor.post(f"{url}/update-after")
-    assert refused.status_code == 409, refused.text
-    assert db.query(Job).count() == before  # nothing half-runs
+    started = editor.post(f"{url}/update-after")
+    assert started.status_code == 202, started.text  # the whole run waits for the owner
+    assert started.json()["steps"][0]["status"] == "held"
+    queued = db.query(Job).filter(Job.project_id == project.id, Job.status == "queued").count()
+    held = db.query(Job).filter_by(status="needs_owner_approval").all()
+    assert queued == 0 and len(held) == 1  # nothing half-runs: its first step is held
 
 
 def test_a_still_that_fails_stops_the_run_and_says_where(app, db, editor, setup):  # noqa: F811

@@ -25,7 +25,7 @@ from app.models.credits import (
     CreditRate,
 )
 from app.models.jobs import Job, JobStatus
-from app.models.projects import Project, ProjectStatus
+from app.models.projects import Project
 
 log = logging.getLogger(__name__)
 # Estimates only; real cost decides the final credits. Generation rates come from the
@@ -242,9 +242,12 @@ def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
     return "would go over this video's budget."
 
 
+WAIT_OK = "Waiting for the owner's OK: "  # a held press says why it waits, never "ask Reed"
+
+
 def over_allowance(db: Session, user: User, credits: Decimal) -> str:
     """Plain words if this Quick clip would take an editor past their weekly allowance, else
-    "". Past it, it's declined, never sent to the owner. Call with the row locked."""
+    "". Past it, the clip waits for the owner (`enqueue`). Call with the row locked."""
     if user.is_owner:
         return ""
     allowance = get_limits(db, user.workspace_id).weekly_quick_clip_credits
@@ -253,11 +256,7 @@ def over_allowance(db: Session, user: User, credits: Decimal) -> str:
         return ""
     n = f"{allowance:.0f}"
     plural = "" if n == "1" else "s"  # "1 credit", never "1 credits"
-    if used >= allowance:  # the screens' words (useScript.ts weekStop)
-        return f"You've used this week's {n} credit{plural}. It resets on Monday."
-    return (
-        f"That's more than this week's {n} credit{plural} ({used:.0f} used). It resets on Monday."
-    )
+    return f"{WAIT_OK}this goes past your week's {n} credit{plural} ({used:.0f} used)."
 
 
 def lock(db: Session, model, row_id: int) -> None:
@@ -267,13 +266,11 @@ def lock(db: Session, model, row_id: int) -> None:
 
 
 def needs_approval(db: Session, user: User, project: Project | None, credits: Decimal) -> bool:
-    """True if an editor's job on a video would go over its budget (from their own script
-    too, since one allowance: Reed, 30 Oct); `enqueue` then declines it with the reason,
-    never holds it. A Quick clip goes by `over_allowance` instead. Call with the row locked."""
+    """True if an editor's job on a video would go over its budget; `enqueue` then holds it
+    for the owner (Reed, 30 Oct). A Quick clip goes by `over_allowance` instead. Call with
+    the row locked."""
     if user.is_owner or project is None:
         return False
-    if project.status != ProjectStatus.active:
-        return True
     return credits_used(db, project) + credits > project.budget_credits
 
 
