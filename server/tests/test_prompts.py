@@ -1520,3 +1520,11 @@ def test_clip_lengths_are_suggestions_not_rules():
             step, fmt={"song_breakdown": "song", "narrated_breakdown": "narrated"}.get(step, "")
         )
         assert "s at most" not in text and "up to about 13 s" not in text, step
+
+
+def test_the_director_keeps_to_what_is_locked():
+    """Next-Server's #1129: <video> carries `locked` (and `outfits`); make_looks is refused
+    while the cast is locked, so the director never spends a turn on it."""
+    director = prompts.system("director")
+    assert "**Keep to what's locked.**" in director and "locked: the choices fixed" in director
+    assert "uses the locked screens" in director and "`make_looks` is refused" in director
