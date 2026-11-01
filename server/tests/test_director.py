@@ -252,3 +252,21 @@ def test_its_own_turns_never_use_the_videos_budget_but_the_cap_counts_them(app, 
     db.commit()  # its turns alone reach the per-video cap: nothing more, for anyone
     refused = editor.post(f"/projects/{pid}/director")
     assert refused.status_code == 409 and "limit" in refused.json()["detail"]
+
+
+def test_an_editors_run_approves_its_own_videos_plan(app, db, owner, editor):
+    """Producer: an editor's run reaching a ready plan approves it (the Approve button's
+    route: the video's maker may), so it never dead-ends on "Approve the plan first."."""
+    from app import director_tools, plans
+    from app.models.accounts import User
+
+    pid = _made_again(app, owner, editor, db)
+    assert plans.status(db, db.get(Project, pid)) == "none"
+    app.state.settings.fake_providers = True
+    editor.post(f"/projects/{pid}/plan")
+    _run(app, db, ticks=3)
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    assert plans.status(db, project) == "ready"
+    said = director_tools.run(db, ed, project, {"tool": "plan"}, app.state.storage)
+    assert said == "Approved the plan; making the shots."
+    assert plans.status(db, db.get(Project, pid)) == "approved"
