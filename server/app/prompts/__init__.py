@@ -62,6 +62,7 @@ GUIDES = {
     "clip": ["clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"],
     "breakdown": ["breakdown", "song_breakdown", "narrated_breakdown", "plan", "plan_scene"],
     "script": ["script_draft", "enhance", "variations"],
+    "lanes": ["plan"],  # a look's lanes: the plan picks one per video
 }
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
 
@@ -78,7 +79,8 @@ def styles() -> list[dict]:
         out.append({
             "id": path.stem,
             "name": head.splitlines()[0].removeprefix("# "),
-            "kind": meta["kind"],
+            "kind": meta["kind"],  # look, format, or lane: one way of making a look (Reed, 1 Nov)
+            "parent": meta.get("parent", ""),  # a lane's look
             "order": float(meta["order"]),  # 5.1: a look's sub-style sits beside it
             "on": meta["on"] == "yes",
             "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero

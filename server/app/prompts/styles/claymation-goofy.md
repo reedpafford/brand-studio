@@ -1,6 +1,7 @@
 # Goofy Claymation
 <!-- Reed's claymation skill (docs/next/skills/claymation.md, #1095), its "Goofy" lane: playful brands, comedy, high-energy hooks. The style block is the skill's, word for word. -->
-kind: look
+kind: lane
+parent: claymation
 order: 5.1
 on: no
 image_model: auto
