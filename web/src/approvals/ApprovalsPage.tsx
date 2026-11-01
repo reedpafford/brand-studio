@@ -16,7 +16,7 @@ import { serverTime } from "../time";
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 // What a request makes, in plain words (the card names the video beside it).
-const STEPS: Record<string, string> = {
+export const STEPS: Record<string, string> = {
   enhance: "Script suggestions",
   script_draft: "A script draft",
   breakdown: "The breakdown",

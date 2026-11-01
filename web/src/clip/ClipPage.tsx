@@ -15,6 +15,7 @@ import { ImproveDialog } from "./Improve";
 import { History, isRendering, useJobs } from "./History";
 import { ModelPicker } from "./ModelPicker";
 import { blockedReason, clipCredits, defaultSettings, fit, mentionsMoment, type Model, type Settings } from "./logic";
+import { HeldRequests } from "../approvals/HeldRequests";
 
 const MAX_PROMPT = 2000;
 
@@ -281,6 +282,7 @@ function Studio({ models }: { models: Model[] }) {
       </section>
       <section aria-label="History" className="space-y-3">
         <h2 className="type-section">History</h2>
+        <HeldRequests where={{ quick: true }} />
         <History brandName={brand?.name ?? "brand"} onTryAgain={tryAgain} onStart={() => promptBox.current?.focus()} />
       </section>
     </main>
