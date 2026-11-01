@@ -295,6 +295,22 @@ def _cast(bd: Breakdown, clip_id: str, pics: dict, lead: str | None = None) -> l
     return sorted(out, key=lambda r: not (lead and _same(pics, r, lead)))
 
 
+def _shown(bd: Breakdown, clip_id: str, pics: dict, refs: list[str]) -> list[str]:
+    """Those of `refs` the clip's shots show though their lists miss them: they speak there on
+    screen, or the action names them (`breakdown.shows`, the rule Assets' cast completion uses;
+    a breakdown saved by Claude or by hand doesn't run it)."""
+    from app.breakdown import OFF_SCREEN, shows
+
+    clip = next((c for c in bd.clips if c.id == clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    names = {r: _name(pics, r) for r in refs}
+    out = []
+    for shot in (shots[i] for i in (clip.shot_ids if clip else []) if i in shots):
+        off = bool(OFF_SCREEN.search(f"{shot.speaker or ''} {shot.line or ''}"))
+        out += [r for r, n in names.items() if n and shows(n, shot, [*names.values()], off)]
+    return list(dict.fromkeys(out))
+
+
 def _screens(bd: Breakdown, clip_id: str) -> list[str]:
     """The screens the clip's shots show, the one shown last (the payoff) last."""
     clip = next((c for c in bd.clips if c.id == clip_id), None)
@@ -383,6 +399,7 @@ def with_cast(
     cast = [c for c in _cast(bd, clip.clip_id, pics, lead) if pics.get(c, ("", []))[1]]
     missing = [c for c in cast if not any(_same(pics, c, r.id) for r in people)]
     everyone = _cast(bd, clip.clip_id, pics, lead)  # one with no approved sheet yet counts
+    everyone += _shown(bd, clip.clip_id, pics, [r.id for r in people])  # speaks, not listed
     if trim:  # only who's in the clip
         people = [r for r in people if any(_same(pics, r.id, c) for c in everyone)]
 

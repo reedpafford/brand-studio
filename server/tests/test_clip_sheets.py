@@ -170,23 +170,50 @@ def test_the_ai_answer_is_saved_with_the_sheets(app, db, editor, setup):  # noqa
     assert [r["id"] for r in saved.references][1:3] == [mom, nate]
 
 
-def test_a_sheet_of_someone_not_in_the_clip_is_dropped_with_its_lines(app, db, editor, setup):  # noqa: F811
-    row, nate, mom = _people(app, db, editor, setup)
-    data = row.data  # FOMO's Reptilian v4: only Mom is in the clip, the AI attached Nate too
-    shot = {**data["scenes"][0]["shots"][0], "character_ids": [mom]}
-    row.data = {**data, "scenes": [{**data["scenes"][0], "shots": [shot]}]}
+def _only_mom(db, row, mom, **shot):
+    """Shot 1.1 lists only Mom (`shot`: what else it says); the AI attached Nate and Mom."""
+    data = row.data
+    one = {**data["scenes"][0]["shots"][0], "character_ids": [mom], "speaker": "Mom",
+           "line": "Nate, where is all your money?", "action": "Mom finds the empty wallet.",
+           **shot}  # fmt: skip
+    row.data = {**data, "scenes": [{**data["scenes"][0], "shots": [one]}]}
     db.commit()
-    project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
+
+
+def _picked(nate: str, mom: str) -> ClipPrompt:
     picks = (("frame:c1", "storyboard frame"), (nate, "Nate"), (mom, "Mom"))
     refs = [Reference(kind="image", id=i, role=r) for i, r in picks]
-    picked = ClipPrompt(clip_id="c1", seconds=5, references=refs, prompt=_prompt(
-        "[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
-        "Nate as in [Image2], the same look as on their sheet. Mom as in [Image3], the same"
-        " look as on their sheet."))  # fmt: skip
-    done = clip_prompts.with_cast(db, project, picked, bd)
+    return ClipPrompt(
+        clip_id="c1", seconds=5, references=refs,
+        prompt=_prompt("[Image1] is the first frame. [Image2] is Nate. [Image3] is Mom.",
+                       "Nate as in [Image2], the same look as on their sheet. Mom as in [Image3],"
+                       " the same look as on their sheet."))  # fmt: skip
+
+
+def test_a_sheet_of_someone_not_in_the_clip_is_dropped_with_its_lines(app, db, editor, setup):  # noqa: F811
+    row, nate, mom = _people(app, db, editor, setup)
+    _only_mom(db, row, mom)  # FOMO's Reptilian v4: only Mom is in the clip
+    project, bd = db.get(Project, setup["project"]), Breakdown.model_validate(row.data)
+    done = clip_prompts.with_cast(db, project, _picked(nate, mom), bd)
     assert [r.id for r in done.references] == ["frame:c1", mom]  # Mom, in the clip, stays
     assert "References: [Image1] is the first frame. [Image2] is Mom." in done.prompt
     assert "Keep: Mom as in [Image2], the same look as on their sheet." in done.prompt
     assert "Nate as in" not in done.prompt and "is Nate" not in done.prompt
-    kept = clip_prompts.with_cast(db, project, picked, bd, trim=False)  # an edit: a person's pick
+    kept = clip_prompts.with_cast(db, project, _picked(nate, mom), bd, trim=False)  # an edit
     assert [r.id for r in kept.references] == ["frame:c1", mom, nate]  # Nate kept, after Mom
+
+
+def test_someone_who_speaks_or_is_named_but_isnt_listed_keeps_their_sheet(app, db, editor, setup):  # noqa: F811
+    row, nate, mom = _people(app, db, editor, setup)
+    project = db.get(Project, setup["project"])
+    for shot in ({"speaker": "Nate", "line": "I bought the dip.", "action": "A grin."},  # QA-3
+                 {"action": "Mom glares at Nate."}):  # fmt: skip
+        _only_mom(db, row, mom, **shot)
+        bd = Breakdown.model_validate(row.data)
+        done = clip_prompts.with_cast(db, project, _picked(nate, mom), bd)
+        assert nate in [r.id for r in done.references], shot
+    _only_mom(db, row, mom, speaker="Nate (V.O.)", line="I bought the dip.", action="A grin.")
+    done = clip_prompts.with_cast(
+        db, project, _picked(nate, mom), Breakdown.model_validate(row.data)
+    )
+    assert nate not in [r.id for r in done.references]

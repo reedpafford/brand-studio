@@ -25,20 +25,9 @@ def _mom(editor, db, setup):  # noqa: F811
     return mom
 
 
-def _in_shot(app, db, editor, setup, mom):  # noqa: F811
-    """The breakdown, with Mom in the clip's first shot (only the clip's people keep sheets)."""
-    from sqlalchemy.orm.attributes import flag_modified
-
-    _with_breakdown(app, db, editor, setup)
-    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
-    row.data["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mom}"]
-    flag_modified(row, "data")
-    db.commit()
-
-
 def test_a_frame_is_softened_by_itself_and_with_soften_it(app, db, editor, setup):  # noqa: F811
     mom = _mom(editor, db, setup)
-    _in_shot(app, db, editor, setup, mom)
+    _with_breakdown(app, db, editor, setup)
     url = f"/projects/{setup['project']}/storyboard"
     editor.post(url, json={})
     made = _frames(f"char:{mom}", f"screen:{setup['screen']}")
@@ -75,7 +64,7 @@ def _clip(db, setup, prompt, seconds=5, mom=None):  # noqa: F811
 
 def test_fix_this_clips_prompt_puts_its_shape_right_in_code(app, db, editor, setup):  # noqa: F811
     mom = _mom(editor, db, setup)
-    _in_shot(app, db, editor, setup, mom)
+    _with_breakdown(app, db, editor, setup)
     no_keep = "\n".join(x for x in _prompt().splitlines() if not x.startswith("Keep: "))
     row = _clip(db, setup, no_keep, seconds=4, mom=mom)  # no Keep line, 4 s of 5
     jobs = db.query(Job).count()
@@ -96,7 +85,7 @@ def test_what_code_cant_fix_claude_rewrites_free(app, db, owner, editor, setup):
     from app.models.accounts import User
 
     mom = _mom(editor, db, setup)
-    _in_shot(app, db, editor, setup, mom)
+    _with_breakdown(app, db, editor, setup)
     wrong = _prompt().replace("where is all your money", "where is your money")
     row = _clip(db, setup, wrong, mom=mom)
     ed = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
@@ -120,7 +109,7 @@ def test_the_free_claude_fix_runs_once_per_prompt(app, db, editor, setup):  # no
     flight at a time; a second press after it answers "We couldn't fix this one
     automatically."; a manual edit makes it free again, its Undo doesn't."""
     mom = _mom(editor, db, setup)
-    _in_shot(app, db, editor, setup, mom)
+    _with_breakdown(app, db, editor, setup)
     wrong = _prompt().replace("where is all your money", "where is your money")
     row = _clip(db, setup, wrong, mom=mom)
     url = f"/projects/{setup['project']}/clips/{row.id}"
@@ -176,7 +165,7 @@ def _overlapping() -> str:
 
 def test_shot_times_and_no_one_speaks_are_repaired_free_on_save_and_open(app, db, editor, setup):  # noqa: E501, F811
     mom = _mom(editor, db, setup)
-    _in_shot(app, db, editor, setup, mom)
+    _with_breakdown(app, db, editor, setup)
     editor.post(f"/projects/{setup['project']}/clips/prompts")
     _run(app, db, FakeClaude(_answer(mom, setup["screen"], _overlapping())))  # saved: repaired
     db.expire_all()
@@ -199,7 +188,7 @@ def test_a_free_fix_that_fails_is_not_free_again(app, db, editor, setup):  # noq
     from tests.helpers import claude_stream
 
     mom = _mom(editor, db, setup)
-    _in_shot(app, db, editor, setup, mom)
+    _with_breakdown(app, db, editor, setup)
     wrong = _prompt().replace("where is all your money", "where is your money")
     row = _clip(db, setup, wrong, mom=mom)
     url = f"/projects/{setup['project']}/clips/{row.id}"
@@ -221,7 +210,7 @@ def test_c4s_format_problems_are_fixed_in_code_with_no_claude_call(app, db, edit
     before) and a closing audio line that didn't match. Fix this clip's prompt repairs both
     in code, free, every other word kept, even while other clip prompts are being written."""
     mom = _mom(editor, db, setup)
-    _in_shot(app, db, editor, setup, mom)
+    _with_breakdown(app, db, editor, setup)
     lines = _prompt().splitlines()
     lines = [re.sub(r"^(Shot 2 \| )2–5 s\.", r"\g<1>1–5 s", x) for x in lines]  # no full stop
     lines[-1] = lines[0].replace("No subtitles.", "Calm. No subtitles.")
