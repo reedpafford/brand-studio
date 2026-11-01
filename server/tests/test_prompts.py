@@ -1396,10 +1396,14 @@ def test_take_check_slice_2_looks_at_eyes_screens_and_cast():
     assert before == prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), 6,
                                               None, None, ["only wins"])  # fmt: skip
     text = prompts.item_check_input(
-        "Mia waves.", sheets, ("product:2", "bag"), frames=6, cast=["Mia", "Bo"],
+        "Mia waves.", sheets, ("product:2", "bag"), frames=6,
+        cast=["Mia (char:1)", "date (char:12, the alien date)"],
         screens=[("screen:7", "fomo Home screen")], screen_rules=[" fomo only wins. ", ""],
     )  # fmt: skip
-    assert text.startswith(before) and "<cast>Mia, Bo</cast>" in text
+    assert (
+        text.startswith(before)
+        and "<cast>Mia (char:1), date (char:12, the alien date)</cast>" in text
+    )
     assert '<screen image="9" id="screen:7">fomo Home screen</screen>' in text  # after 6+1+1
     assert "<screen_rules>\nfomo only wins.\n</screen_rules>" in text
     system = prompts.system("item_check")
