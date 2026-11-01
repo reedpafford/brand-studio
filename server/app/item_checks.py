@@ -116,10 +116,15 @@ def per_video(db: Session, project: Project) -> Decimal:
     return (price(db, project) + stills) * len(clips)
 
 
-def _name(line: str) -> str:
-    """A cast member's name from their picture's line ("char:5 | character | Mia | …")."""
-    parts = line.split(" | ")
-    return parts[2] if len(parts) > 2 else parts[0]
+def _cast(ref: str, line: str) -> str:
+    """A cast member as <cast> lists them: name, id and the part they play, so a name that's
+    also a word reads as a person ("date (char:12, the alien date)", not "his date"). From
+    their picture's line ("char:12 | character | date | plays the alien date | …")."""
+    parts = [*line.split(" | "), "", "", ""]
+    if not (name := parts[2]):
+        return ref
+    plays = parts[3].split(";")[0].strip() if parts[3].startswith("plays ") else ""
+    return f"{name} ({', '.join(x for x in (ref, plays.removeprefix('plays ')) if x)})"
 
 
 def _screen_rules(db: Session, project: Project) -> list[str]:
@@ -150,7 +155,7 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
     products = _products(db, project)
     product = next((r for r in refs if (r.startswith("prop:") or r in products)
                     and known.get(r, ("", []))[1]), None)  # fmt: skip
-    cast = list(dict.fromkeys(_name(known.get(c, (c, []))[0]) for s in shots
+    cast = list(dict.fromkeys(_cast(c, known.get(c, (c, []))[0]) for s in shots
                               for c in s.get("character_ids") or []))  # fmt: skip
     screens = [i for s in shots for i in s.get("screen_ids") or []
                if i not in products and known.get(i, ("", []))[1]]  # fmt: skip

@@ -1,11 +1,13 @@
 """Take check slice 2, frames (take-review checklist B3–B5): the take's picture check looks at
 a strip of frames for eyes, the brand's screens and the cast, on the free stand-in writer."""
 
+import re
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.item_checks import _cast
 from app.models.brands import Brand, BrandScreen
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
@@ -39,7 +41,7 @@ def test_a_take_is_a_strip_with_its_cast_at_its_price(app, db, editor, setup, cl
     _, job = _check(app, db, editor, setup, clip)
     assert job.input["take_frames"]["count"] == 6
     assert "Images 1–6 are frames of one take" in job.input["prompt"]
-    assert "<cast>Mom</cast>" in job.input["prompt"]
+    assert re.search(r"<cast>Mom \(char:\d+\)</cast>", job.input["prompt"])  # a name, by id
     assert job.credits == Decimal("0.6")  # three looks' worth, held as its "up to"
     assert "<screens>" not in job.input["prompt"]  # the shot shows no brand screen
 
@@ -70,3 +72,9 @@ def test_eyes_extra_people_and_screens_are_advice(app, db, editor, setup, clip):
     eyes = take["check"]["findings"][1]
     assert eyes["note"] == "Keep normal human eyes the whole time, never glowing or red."
     assert take["verdict"] == "flagged"
+
+
+def test_a_cast_name_thats_also_a_word_reads_as_a_person():
+    line = "char:12 | character | date | plays the alien date | Sheet sets the look."
+    assert _cast("char:12", line) == "date (char:12, the alien date)"  # not "his date"
+    assert _cast("slot:3", "slot:3 | character | Omar | A rival") == "Omar (slot:3)"
