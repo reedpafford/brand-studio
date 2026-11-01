@@ -2,7 +2,7 @@
 published script, read what it did (its log), stop it. Whoever may change the video may run
 it; every action it takes is checked as that person's own press (app/director_tools)."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.routes.clips import generation_on
-from app.routes.projects import get_project, video_writer
+from app.routes.projects import _mine, get_project, video_writer
 from app.schemas import UtcTime
 
 router = APIRouter(
@@ -31,12 +31,14 @@ class TurnOut(BaseModel):
 
 class DirectorOut(BaseModel):
     status: str  # none, running, delivered or ended
-    ended: str  # why it ended ("" while running)
-    turns: list[TurnOut]
-    spent_usd: float  # its own Claude time this run (to measure; owner sees Usage too)
+    ended: str  # why it ended, in plain words ("" while running)
+    turns: list[TurnOut]  # the deliver turn's why is the delivery note
+    credits: float  # the run's cost "up to": its turns and every press its tools made
+    spent_usd: float | None  # the owner only: its own Claude time this run (to measure)
+    start_blocked: str  # "" when this person can press Make it now; else why (the 409's words)
 
 
-def _out(db: Session, project) -> DirectorOut:
+def _out(db: Session, user: User, project) -> DirectorOut:
     rows = director.turns(db, project)
     last = rows[-1] if rows else None
     ended = (last.input.get("ended") or "") if last else ""
@@ -47,13 +49,21 @@ def _out(db: Session, project) -> DirectorOut:
                      why=(j.output or {}).get("why", ""), result=j.input.get("result", ""),
                      status=j.status, created_at=j.created_at) for j in rows]  # fmt: skip
     spent = director.spent(db, last.input[director.RUN]["id"]) if last else 0
-    return DirectorOut(status=status, ended=ended, turns=turns, spent_usd=float(spent))
+    try:
+        _mine(db, user, project.id)  # as the start's own check: the maker or the owner
+        blocked = director.blocked(db, project)
+    except HTTPException as no:
+        blocked = no.detail
+    return DirectorOut(status=status, ended=ended, turns=turns,
+                       credits=float(director.credits(db, project)),
+                       spent_usd=float(spent) if user.is_owner else None,
+                       start_blocked=blocked)  # fmt: skip
 
 
 @router.get("", response_model=DirectorOut)
 def read(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """The newest run: going or not, and each turn (the log on the video)."""
-    return _out(db, get_project(db, user, project_id))
+    return _out(db, user, get_project(db, user, project_id))
 
 
 @router.post("", response_model=DirectorOut, status_code=201, dependencies=[Depends(generation_on)])
@@ -62,7 +72,7 @@ def start(project_id: int, user: User = Depends(current_user), db: Session = Dep
     first turn is paid from the video's budget, held for the owner past it."""
     project = get_project(db, user, project_id)
     director.start(db, user, project)
-    return _out(db, project)
+    return _out(db, user, project)
 
 
 @router.post("/stop", response_model=DirectorOut)
@@ -70,4 +80,4 @@ def stop(project_id: int, user: User = Depends(current_user), db: Session = Depe
     """Stop the run: no more turns. What it already started goes on; nothing is undone."""
     project = get_project(db, user, project_id)
     director.stop(db, project)
-    return _out(db, project)
+    return _out(db, user, project)

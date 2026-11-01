@@ -425,6 +425,8 @@ def start_next(
 
 
 def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
+    if job.input.get("step") == director.STEP:  # it reads the video as it is now (QA, #1087)
+        director.refresh(db, job)
     try:  # a Claude check that looks at a picture gets it as data, like other providers
         result = provider.run(job.kind, _files_as_data(db, storage, job))
         result = recheck(job.input, result, lambda again: provider.run(job.kind, again))

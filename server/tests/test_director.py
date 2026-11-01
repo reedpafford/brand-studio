@@ -20,6 +20,17 @@ def _run(app, db, ticks=60):
         db.expire_all()
 
 
+def _made_again(app, owner, editor, db) -> int:
+    """A second video from a published script, in the same workspace."""
+    from tests.test_script_library import SCRIPT, _make
+
+    made = _make(owner, text=SCRIPT, title="Again")
+    base = f"/scripts/{made['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    return editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+
+
 def _made(app, owner, editor, db) -> int:
     app.state.settings.fake_providers = True
     pid, _, kid = _video(owner, editor, db)
@@ -30,10 +41,12 @@ def _made(app, owner, editor, db) -> int:
 def test_it_builds_the_video_from_a_published_script_and_logs_every_turn(app, db, owner, editor):
     pid = _made(app, owner, editor, db)
     url = f"/projects/{pid}/director"
+    assert editor.get(url).json()["start_blocked"] == ""
     started = editor.post(url)
     assert started.status_code == 201, started.text
     assert started.json()["status"] == "running"
     assert editor.post(url).status_code == 409  # one run at a time
+    assert editor.get(url).json()["start_blocked"] == director.RUNNING
     _run(app, db)
     out = editor.get(url).json()
     tools = [t["tool"] for t in out["turns"]]
@@ -44,7 +57,9 @@ def test_it_builds_the_video_from_a_published_script_and_logs_every_turn(app, db
     assert tools[-2:] == ["final_cut", "deliver"]
     assert all(not t["result"].startswith("Refused") for t in out["turns"]), out["turns"]
     assert editor.get(f"/projects/{pid}/video").json()["file_id"]
-    assert out["spent_usd"] == 0  # the stand-ins cost nothing
+    assert out["spent_usd"] is None  # editors never see dollars (rule 4)
+    assert owner.get(url).json()["spent_usd"] == 0  # the stand-ins cost nothing
+    assert out["credits"] > 0  # its turns and every press its tools made, "up to"
 
 
 def test_a_flagged_take_is_made_again_with_its_notes_at_most_twice(
@@ -118,6 +133,9 @@ def test_only_a_published_script_and_stop_ends_the_run(app, db, owner, editor):
     editor.put(f"/projects/{loose}/script", json={"text": SCRIPT})
     refused = editor.post(f"/projects/{loose}/director")
     assert (refused.status_code, refused.json()["detail"]) == (409, director.NOT_PUBLISHED)
+    assert editor.get(f"/projects/{loose}/director").json()["start_blocked"] == (
+        director.NOT_PUBLISHED
+    )
 
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
@@ -139,3 +157,70 @@ def test_it_stops_and_says_why_when_it_cant_go_on(app, db, owner, editor, monkey
     assert (out["status"], out["ended"]) == (
         "ended", "The ending needs a story choice: who keeps the money?")  # fmt: skip
     assert [t["result"] for t in out["turns"]] == ["Stopped."]
+
+
+def test_a_wait_with_nothing_being_made_reads_the_video_again(app, db, owner, editor, monkeypatch):
+    """QA on #1087: started right after a step, its first turn read the video before the step
+    saved and answered wait. It reads the video again and goes on (twice in a row: it stops)."""
+    real, said = director.choose, []
+
+    def late(state):
+        said.append(1)
+        return real(state) if len(said) > 1 else {**real(state), "tool": "wait"}
+
+    monkeypatch.setattr(director, "choose", late)
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    assert out["turns"][0]["result"] == director.IDLE
+
+    monkeypatch.setattr(director, "choose", lambda state: {**real(state), "tool": "wait"})
+    pid = _made_again(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=4)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["ended"] == "It stopped: it waited twice with nothing being made."
+
+
+def test_a_video_with_no_shots_gets_its_plan_made_and_approved_first(app, db, owner, editor):
+    """QA on #1087: a video whose script has no shots waits on its own plan; `plan` makes the
+    plan, then approves it (which makes the shots), as the Plan step does."""
+    from tests.test_script_library import SCRIPT, _make
+
+    app.state.settings.fake_providers = True
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    owner.post(f"/projects/{pid}/director")  # never held: the plan steps alone
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    results = [t["result"] for t in out["turns"]]
+    assert "Approved the plan; making the shots." in results, results
+    assert out["status"] == "delivered", (out["ended"], results)
+
+
+def test_the_same_refused_tool_again_stops_the_run_with_why(app, db, owner, editor, monkeypatch):
+    stuck = {"tool": "pick_take", "clip_id": "c9", "take_id": 1, "note": "", "why": "Pick it."}
+    monkeypatch.setattr(director, "choose", lambda state: stuck)
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=4)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert [t["result"] for t in out["turns"]] == [
+        "Refused: name one clip.", "Refused again: name one clip."]  # fmt: skip
+    assert (out["status"], out["ended"]) == ("ended", "It stopped: name one clip.")
+
+
+def test_a_take_for_a_clip_that_isnt_there_is_refused(db, owner, editor, app):
+    from app import director_tools
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    said = director_tools.run(db, user, project, {"tool": "make_take", "clip_id": "c9"}, None)
+    assert said == "Refused: there's no clip c9."

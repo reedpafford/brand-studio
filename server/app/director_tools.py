@@ -23,13 +23,22 @@ TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_tak
 
 def run(db: Session, user: User, project: Project, decision: dict, storage) -> str:
     """Do one tool; what happened, in plain words (a refusal's own words)."""
+    from app import plans
     from app.routes import breakdown, project_assets, project_clips, storyboard
+    from app.routes import plan as plan_route
 
     tool, pid = decision["tool"], project.id
     me = {"project_id": pid, "user": user, "db": db}
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(storage=storage)))
     try:
-        if tool == "plan":
+        if tool == "plan":  # the video's plan first when it needs one, as the Plan step does
+            status = plans.status(db, project)
+            if status == "none":
+                plan_route.make(body=None, **me)
+                return "Making the plan."
+            if status == "ready":
+                plan_route.approve(**me)  # approving it makes the shots
+                return "Approved the plan; making the shots."
             breakdown.make(**me)
             return "Making the shots."
         if tool == "make_looks":
@@ -51,6 +60,10 @@ def run(db: Session, user: User, project: Project, decision: dict, storage) -> s
             return "Writing the clip prompts."
         if tool == "make_take":
             rows = _clips(db, pid, decision.get("clip_id"))
+            if not rows:
+                clip = decision.get("clip_id")
+                return (f"Refused: there's no clip {clip}." if clip
+                        else "Refused: every clip has a take already.")  # fmt: skip
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=decision.get("note") or "")

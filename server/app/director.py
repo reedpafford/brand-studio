@@ -17,6 +17,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app import director_tools
+from app.credits import COUNTED
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import WAITING, Job, JobStatus, Usage
@@ -32,17 +33,35 @@ MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
+IDLE = "Waiting, with nothing being made: it reads the video again."
 
 
 def start(db: Session, user: User, project: Project) -> Job:
     """A run on a video made from a published script (its words are locked): its first turn."""
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    if not (draft and db.get(Script, draft.script_id).published):
-        raise HTTPException(409, NOT_PUBLISHED)
-    if active(db, project):
-        raise HTTPException(409, RUNNING)
+    if why := blocked(db, project):
+        raise HTTPException(409, why)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
     return _turn(db, user, project, run)
+
+
+def blocked(db: Session, project: Project) -> str:
+    """Why a run can't start on this video now ("" when it can): the start's own refusal."""
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if not (draft and db.get(Script, draft.script_id).published):
+        return NOT_PUBLISHED
+    return RUNNING if active(db, project) else ""
+
+
+def credits(db: Session, project: Project) -> Decimal:
+    """The newest run's cost "up to": every job on the video since its first turn (its turns
+    and what its tools pressed), queued, running, held or done at their price; never a
+    cancelled, declined or failed one (nothing charged)."""
+    rows = turns(db, project)
+    if not rows:
+        return Decimal(0)
+    counted = (*COUNTED, JobStatus.needs_owner_approval)
+    return Decimal(db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(
+        Job.project_id == project.id, Job.id >= rows[0].id, Job.status.in_(counted))))  # fmt: skip
 
 
 def turns(db: Session, project: Project) -> list[Job]:
@@ -114,14 +133,28 @@ def _act(db: Session, job: Job, storage) -> None:
             return _record(db, job, run, f"Refused: {clip} was made again {MAX_REDOS} times.")
         if _has_take(db, project, clip):
             run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
-    if tool == "wait":
-        said = "Waiting." if _waiting(db, project) else "Nothing to wait for."
-        if not _waiting(db, project):
-            return _end(job, "It stopped: it waited with nothing being made.", result=said)
-        return _record(db, job, run, said)
+    if tool == "wait":  # with nothing being made (it read the video before a step saved), the
+        idle = not _waiting(db, project)  # next turn reads it again now (`wake`), once
+        rows = [j for j in turns(db, project) if j.id < job.id]
+        if idle and rows and rows[-1].input.get("result") == IDLE:
+            return _end(job, "It stopped: it waited twice with nothing being made.", result=IDLE)
+        return _record(db, job, run, IDLE if idle else "Waiting.")
+    if (refused := _refused_again(db, job, decision)) is not None:
+        return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
     db.commit()  # the turn's answer is kept whatever the tool does
     user = db.get(User, run["by"])
     _record(db, job, run, director_tools.run(db, user, project, decision, storage))
+
+
+def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
+    """The same tool, as it was, right after it was refused: the refusal (else None). Nothing
+    changed, so it would be refused again; the run stops and says why."""
+    rows = turns(db, db.get(Project, job.project_id))
+    before = next((j for j in reversed(rows) if j.id < job.id), None)
+    said = (before.input.get("result") or "") if before else ""
+    keys = ("tool", "clip_id", "take_id", "note")
+    same = before is not None and all((before.output or {}).get(k) == decision.get(k) for k in keys)
+    return said.removeprefix("Refused: ") if same and said.startswith("Refused: ") else None
 
 
 def _record(db: Session, job: Job, run: dict, result: str) -> None:
@@ -159,6 +192,14 @@ def _turn(db: Session, user: User, project: Project, run: dict) -> Job:
         _end(last, f"It stopped: {no.detail}")
         db.commit()
         return last
+
+
+def refresh(db: Session, job: Job) -> None:
+    """A turn about to be asked reads the video as it is now, not as it was when queued (a
+    step saved since, or the turn waited for the owner)."""
+    project = db.get(Project, job.project_id)
+    job.input = {**job.input, **turn_input(db, project, job.input[RUN])}
+    db.commit()
 
 
 def turn_input(db: Session, project: Project, run: dict) -> dict:
@@ -204,7 +245,10 @@ def video_state(db: Session, project: Project) -> dict:
                       "picked_take_id": row.picked_take_id, "takes": out})  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
+    from app.plans import status
+
     return {
+        "plan": status(db, project),  # none, ready (waits for approval) or approved
         "shots": "ready" if bd else "none",
         "missing_looks": [s.role for s in _missing(db, project)] if bd else [],
         "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id)},

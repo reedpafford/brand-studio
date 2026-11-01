@@ -5782,8 +5782,12 @@ export interface components {
             ended: string;
             /** Turns */
             turns: components["schemas"]["TurnOut"][];
+            /** Credits */
+            credits: number;
             /** Spent Usd */
-            spent_usd: number;
+            spent_usd: number | null;
+            /** Start Blocked */
+            start_blocked: string;
         };
         /** DraftIn */
         DraftIn: {
