@@ -29,6 +29,7 @@ import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
 import { VIDEO_STEPS, videoBlocker, videoHold, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
 import { HeldRequests } from "../approvals/HeldRequests";
+import { DirectorPanel } from "./DirectorPanel";
 
 /** A video made from a library version: Plan · Cast · Storyboard · Clips · Final cut. */
 export function VideoPage() {
@@ -153,6 +154,7 @@ export function VideoPage() {
         </ViewOnly>
       )}
       <HeldRequests where={{ projectId: id }} />
+      {!p.archived_at && !lookOnly && <DirectorPanel projectId={id} aspect={p.aspect_ratio} name={p.name} />}
       {p.archived_at && (
         <Banner tone="info" title="Archived" action={mayManage(p) ? <Button variant="secondary" onClick={() => void video.restore(target)}>Restore</Button> : undefined}>
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.

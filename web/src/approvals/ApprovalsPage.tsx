@@ -26,6 +26,7 @@ export const STEPS: Record<string, string> = {
   clip_take: "A new take",
   sheet: "A character's look",
   improve: "A better prompt",
+  director: "The director's next move",
 };
 
 /** How long ago, in words: "just now", "2m", "3h", "4d". */
