@@ -23,7 +23,7 @@ an origami look folded from soft pastel paper
 
 ## still
 - State the camera's place inside the paper world in every frame ("at eye level with the paper character", "worm's-eye view up at the cardstock towers", "overhead, straight down on the paper street"). Never "diorama", "shadow box", "tabletop", "table", "board" or "frame": they show the craft from outside. If one does, "the paper shot fills the entire frame, the camera is inside the scene".
-- Name the paper on each major object ("a bowl folded from blue card", "shelves layered from magazine clippings"), not only in the look. Say "papercraft" near faces and products, never "paper cut", which blurs features.
+- Name the paper on each major object ("a bowl folded from blue card", "shelves layered from patterned card"), not only in the look. Say "papercraft" near faces and products, never "paper cut", which blurs features.
 - Soft pastels (blush, sage, cream) with gentle contrast: the one paper look that is never saturated, so the fold shadows carry the frame. The pop-up unfold suits it best for a change between scenes.
 
 ## clip
@@ -33,7 +33,7 @@ an origami look folded from soft pastel paper
 ## banned
 diorama → paper scene
 shadow box → paper scene
-tabletop →
+tabletop → paper surface
 paper cut → papercraft
 paper-cut → papercraft
 
