@@ -53,10 +53,8 @@ in the style of Pixar →
 photorealistic → stylised
 photo-realistic → stylised
 live-action →
-stage → world
-floating → resting
-hovering → resting
-hovers → rests
+on the stage → in the world
+on a stage → in the world
 
 ## fixes
 refused: Soften it (a cutaway shows the thing, never an injury), then Make another.

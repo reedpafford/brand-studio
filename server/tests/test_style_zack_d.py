@@ -26,7 +26,10 @@ def test_zack_d_follows_reeds_skill_a_blue_world_journey():
         "never changes while the world",
     ):
         assert part in still, part
-    assert ("stage", "world") in prompts.look_banned("zack-d")
+    assert ("on the stage", "in the world") in prompts.look_banned("zack-d")
     from app.prompts import check
 
-    assert check.look_words("He stands on the stage.", "zack-d")[0] == "He stands on the world."
+    # QA-5 on #1122: repairs are phrase-level, only where "stage" means the set.
+    assert check.look_words("He stands on the stage.", "zack-d")[0] == "He stands in the world."
+    for kept in ("At this stage the price doubles.", "His thumb hovers over Sell."):
+        assert check.look_words(kept, "zack-d")[0] == kept, kept
