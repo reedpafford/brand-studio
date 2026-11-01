@@ -79,7 +79,7 @@ def styles() -> list[dict]:
             "id": path.stem,
             "name": head.splitlines()[0].removeprefix("# "),
             "kind": meta["kind"],
-            "order": int(meta["order"]),
+            "order": float(meta["order"]),  # 5.1: a look's sub-style sits beside it
             "on": meta["on"] == "yes",
             "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero
             "image_model": meta["image_model"],

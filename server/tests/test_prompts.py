@@ -116,18 +116,22 @@ def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
     ex, bd = example("breakdown")
     script = script_of(ex)
     assert check.breakdown(script, bd, FOMO, 4, 30) == []
-    shot = next(s for s in bd.scenes[1].shots if s.id == "2.10")
-    shot.character_ids = []
+    shots = [s for scene in bd.scenes for s in scene.shots]  # beats that hold, one line split
+    assert [shots[i].id for i in check.montage(shots)] == ["2.4", "2.5", "2.6", "2.7"]
+    shot = next(s for s in bd.scenes[1].shots if s.id == "2.7")
+    shot.character_ids, shot.action = [], "Gold light fills the studio as the first track plays."
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
-        "Advice: shot 2.10: a montage shot without the main character"
+        "Advice: shot 2.7: a montage shot without the main character"
     ]
     shot.action = "Malik's hands push open the glass door of a penthouse."
     assert check.breakdown(script, bd, FOMO, 4, 30) == []  # his hands count as him
     shot.action, shot.screen_ids = "The phone shows the chart.", ["screen:2"]
     shot.moment = "win"
     assert check.breakdown(script, bd, FOMO, 4, 30) == []  # so does his screen
-    lone = bd.scenes[0].shots[1]  # 1.2: one quick empty insert between lines, not a montage
-    assert not lone.line and not lone.character_ids and lone.seconds <= 0.6
+    quick = [s.model_copy(update={"seconds": 0.4, "script_lines": [n]}) for n, s in
+             enumerate(shots[8:11])]  # fmt: skip
+    assert check.montage(quick) == [0, 1, 2]  # the old fast run still counts
+    assert check.montage(shots[:6]) == []  # the argument: one wordless shot, between lines
 
 
 def test_one_image_per_shot_and_never_a_split_screen():
@@ -136,17 +140,15 @@ def test_one_image_per_shot_and_never_a_split_screen():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
     assert check._one_image(prompt) == [] and "quick cuts" not in prompt
-    two = prompt.replace(
-        "Shot 9 | 9-10 s. Medium shot,", "Shot 9 | 9-10 s. Two quick cuts: a medium shot,"
-    )
+    two = prompt.replace("Shot 3 | 5-7 s. Close-up", "Shot 3 | 5-7 s. Two quick cuts: a close-up")
     flag = (
-        "shot 9: one image per shot; quick cuts inside one shot come out as a split screen, "
+        "shot 3: one image per shot; quick cuts inside one shot come out as a split screen, "
         "so give each its own shot or drop it"
     )
     assert check._one_image(two) == [flag]
     assert check._one_image(prompt.replace("No one speaks.", "Never a split screen.", 1)) == []
     cp.clips[0].prompt = two
-    assert f"Advice: c2: {flag}" in check.clip_prompts(bd, cp, 30, 10)  # Advice, never a block
+    assert f"Advice: c3: {flag}" in check.clip_prompts(bd, cp, 30, 10)  # Advice, never a block
     for step in ("clip_prompts", "breakdown"):
         assert "split screen" in prompts.system(step), step
     assert "Two quick cuts" not in prompts.system("improve")
@@ -156,17 +158,20 @@ def test_breakdown_check_wants_the_hook_first_and_no_forced_grind():
     ex, bd = example("breakdown")
     script = script_of(ex)
     assert check.breakdown(script, bd, FOMO, 4, 30) == []
+    assert [s.id for s in check.payoff([s for sc in bd.scenes for s in sc.shots])] == ["2.7"]
     scene = bd.scenes[1]
-    jump = scene.shots[:4] + scene.shots[7:]  # one trade, then the payoff
-    scene.shots, bd.clips[1].shot_ids = jump, [s.id for s in jump]
-    bd.clips[1].seconds = 7
+    desk = scene.shots[6].model_copy(update={"id": "2.8"})
+    jump = [*scene.shots[:2], *scene.shots[5:], desk]  # one trade, then the payoff
+    scene.shots, bd.clips[2].shot_ids, bd.clips[2].seconds = jump, [s.id for s in jump], 11
+    bd.clips = [c for c in bd.clips if c.id != "c4"]
     lines = check.breakdown(script, bd, FOMO, 4, 30)
     assert not [x for x in lines if "grind beats" in x]  # Reed, 1 Nov: "montages are forced"
     for step in ("breakdown", "script_draft"):
         assert "at least three effort or setback beats" not in prompts.system(step), step
     _, bd = example("breakdown")
     first = bd.scenes[0].shots
-    cut = {"script_lines": [3]}  # tied to Tasha's opening line, as the remake's cutaways were
+    cut = {"script_lines": [3], "line": None, "speaker": None, "screen_ids": [], "moment": None}
+    cut |= {"character_ids": []}  # tied to Tasha's opening line, as the remake's cutaways were
     wide = first[1].model_copy(update={"id": "1.0", "action": "Wide of the kitchen."} | cut)
     guests = first[1].model_copy(update={"id": "1.01", "action": "Neighbours look in."} | cut)
     bd.scenes[0].shots = [wide, guests, *first]
@@ -234,10 +239,10 @@ def test_a_clip_holds_one_scene_for_as_long_as_it_needs():
     bd.clips[0].seconds = 31
     assert check.breakdown(script, bd, FOMO, 4, 30) == ["clip c1: 31 s is outside 4–30 s"]
     _, bd = example("breakdown")
-    bd.clips[1].shot_ids += bd.clips[2].shot_ids  # the montage clip runs on into the kitchen
-    bd.clips[1].seconds += bd.clips[2].seconds
-    bd.clips = [bd.clips[0], bd.clips[1]]
-    assert "Advice: clip c2 crosses scenes 2, 3; end it where the place or time changes" in (
+    bd.clips[3].shot_ids += bd.clips[4].shot_ids  # the montage clip runs on into the kitchen
+    bd.clips[3].seconds += bd.clips[4].seconds
+    del bd.clips[4]
+    assert "Advice: clip c4 crosses scenes 2, 3; end it where the place or time changes" in (
         check.breakdown(script, bd, FOMO, 4, 30)
     )
     assert "one scene: always end it where the place or time changes" in prompts.system("breakdown")
@@ -251,10 +256,10 @@ def test_a_clip_holds_one_scene_for_as_long_as_it_needs():
 def test_breakdown_check_keeps_a_clip_to_three_screens():
     ex, bd = example("breakdown")
     script = script_of(ex)
-    shot = next(s for s in bd.scenes[1].shots if s.id == "2.11")
-    shot.screen_ids = ["screen:1"]
+    shot = next(s for s in bd.scenes[1].shots if s.id == "2.2")
+    shot.screen_ids = ["screen:1", "screen:4"]
     assert check.breakdown(script, bd, FOMO, 4, 30) == [
-        "clip c2: 4 screens; keep the 3 its beats need"
+        "clip c3: 4 screens; keep the 3 its beats need"
     ]
 
 
@@ -528,9 +533,9 @@ def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
 
 
 def test_a_redo_note_never_changes_what_is_said():
-    _, bd = example("breakdown")  # c1: Tasha and Malik argue; c2 has one line, Malik's
+    _, bd = example("breakdown")  # c1: Tasha and Malik argue; c3 has one line, Malik's
     assert check.redo_note("Tasha should look angrier and lean in.", bd, "c1") == []
-    assert check.redo_note('Say "Thirty days. Watch me." slower.', bd, "c1") == []
+    assert check.redo_note('Say "I put it in fomo." slower.', bd, "c1") == []
     assert check.redo_note('Tasha says "Give it back!"', bd, "c1") == [
         "The note quotes “Give it back!”, which nobody says in this clip. A note can change "
         "how a line is said, never its words."
@@ -539,7 +544,7 @@ def test_a_redo_note_never_changes_what_is_said():
         "The note changes what's said. The spoken lines stay exactly as written; say how they "
         "should sound instead (louder, angrier, slower)."
     ]
-    assert check.redo_note("Make Tasha shout at him here too.", bd, "c2") == [
+    assert check.redo_note("Make Tasha shout at him here too.", bd, "c3") == [
         "Tasha has no line in this clip, so the note can't make them speak."
     ]
     for note in (  # QA on #276: notes about delivery or the shot, not the words
@@ -558,18 +563,17 @@ def test_nobody_speaks_unless_the_script_says_so():
     assert check._silence(prompt, True) == []
     assert check._silence(prompt, False) == ["the audio line doesn't match whether anyone speaks"]
     montage = prompt.replace(
-        "Shot 2 | 1-3 s. High-angle close-up, slow push in. Malik drops his head onto his arms "
-        "in the blue glow, shoulders sagging, eyes shut. No one speaks.",
-        "Shot 2 | 1-3 s. High-angle close-up. Malik stares at the loss and does not sell.",
+        "a slow grin spreads. No one speaks.", "Malik stares at the gain and does not sell."
     )
     assert check._silence(montage, True) == [
-        "shot 2 has no line but doesn't say no one speaks",
-        "shot 2: 'does not sell' reads like a line; show what the body does",
+        "shot 3 has no line but doesn't say no one speaks",
+        "shot 3: 'does not sell' reads like a line; show what the body does",
     ]
     calm = montage.replace(
-        "stares at the loss and does not sell.", "stares; the dog does not move."
+        "stares at the gain and does not sell.", "stares; the dog does not move."
     )
-    assert check._silence(calm, True) == ["shot 2 has no line but doesn't say no one speaks"]
+    assert check._silence(calm, True) == ["shot 3 has no line but doesn't say no one speaks"]
+    assert check._silence(cp.clips[1].prompt, False) == []  # c4: nobody speaks
     _, result = example("improve")
     quiet = result.prompt.replace("Audio: only the spoken lines and", check.SILENT.rstrip())
     assert check.AUDIO_LINE.match(quiet.splitlines()[0])
@@ -580,24 +584,24 @@ def test_nobody_speaks_unless_the_script_says_so():
 def test_shot_times_take_a_hyphen_or_an_en_dash():
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
-    assert "| 0-1 s." in prompt
-    assert check._shape(prompt, 10) == check._shape(prompt.replace("-", "–"), 10)
-    assert check._shape(prompt, 10)[0] == []
-    assert check._shape(prompt.replace("0-1 s.", "0\ty1 s."), 10)[0] == [
+    assert "| 0-3 s." in prompt
+    assert check._shape(prompt, 7) == check._shape(prompt.replace("-", "–"), 7)
+    assert check._shape(prompt, 7)[0] == []
+    assert check._shape(prompt.replace("0-3 s.", "0\ty3 s."), 7)[0] == [
         "shot 1 has no times; write them like “0-2 s.”"
     ]
     # Reed's c4: whole seconds with no full stop are never "not whole seconds" (the real
     # reason instead), and decimals are.
-    assert check._shape(prompt.replace("0-1 s.", "0-1 s"), 10)[0] == [
+    assert check._shape(prompt.replace("0-3 s.", "0-3 s"), 7)[0] == [
         "shot 1's times need a full stop after “s”, like “0-2 s.”"
     ]
-    assert check._shape(prompt.replace("0-1 s.", "0-1.5 s."), 10)[0] == [
+    assert check._shape(prompt.replace("0-3 s.", "0-1.5 s."), 7)[0] == [
         "shot 1's times aren't whole seconds; write them like “0-2 s.”"
     ]
     last = re.findall(r"^Shot \d+ \| \d+[-–]\d+ s\.", prompt, re.M)[-1]
-    empty = prompt.replace(last, f"{last}\nShot 99 | 10-10 s.")  # the live test's 12–12 s
-    assert check._shape(empty, 10)[0] == [
-        "has an empty last shot (10–10 s). Remove it or give it a length."
+    empty = prompt.replace(last, f"{last}\nShot 99 | 7-7 s.")  # the live test's 12–12 s
+    assert check._shape(empty, 7)[0] == [
+        "has an empty last shot (7–7 s). Remove it or give it a length."
     ]
 
 
@@ -651,9 +655,9 @@ def test_clip_prompt_checks_catch_music_and_aspect():
     clip.prompt = clip.prompt.split("\n", 1)[1] + "\nStyle: 9:16."
     clip.references.append(schemas.Reference(kind="image", id="char:2", role="Tasha"))
     assert check.clip_prompts(bd, cp, 30, 10) == [
-        "c2: doesn't open and close with the same audio line",
-        "c2: has no Keep line before the closing audio line",
-        "c2: writes aspect or resolution (those are settings)",
+        "c3: doesn't open and close with the same audio line",
+        "c3: has no Keep line before the closing audio line",
+        "c3: writes aspect or resolution (those are settings)",
     ]  # the cast's order is the server's (clip_prompts.with_cast), never a problem
 
 
@@ -663,7 +667,7 @@ def test_the_keep_line_holds_every_attached_characters_look():
     assert check.clip_prompts(bd, cp, 30, 10) == []
     clip = cp.clips[0]
     clip.prompt = clip.prompt.replace("[Image2] is Malik.", "[Image2] is Malik. [Image7] is Tasha.")
-    assert "Advice: c2: the Keep line doesn't name Tasha; give their look and outfit" in (
+    assert "Advice: c3: the Keep line doesn't name Tasha; give their look and outfit" in (
         check.clip_prompts(bd, cp, 30, 10)
     )
     assert "never the rival's black leather jacket" in prompts.system("clip_prompts")
@@ -747,12 +751,14 @@ def test_short_lines_and_clock_times_in_dialogue_dont_trip_the_clip_checks():
     shots = bd.scenes[1].shots
     clip = cp.clips[0]
     clip.prompt = clip.prompt.replace('"Come on. One more."', '"No."')
-    clip.prompt = clip.prompt.replace("eyes red.", 'eyes red. Malik: "Okay, I know. It\'s 3:15."')
-    shots[2].line, shots[4].line = "No.", "Okay, I know. It's 3:15."
+    clip.prompt = clip.prompt.replace(
+        "grin spreads.", 'grin spreads. Malik: "Okay, I know. It\'s 3:15."'
+    )
+    shots[1].line, shots[2].line = "No.", "Okay, I know. It's 3:15."
     assert check.clip_prompts(bd, cp, 30, 10) == []
-    clip.prompt = clip.prompt.replace("eyes red.", "eyes red, a wall clock reading 3:12.")
+    clip.prompt = clip.prompt.replace("grin spreads.", "grin spreads, a wall clock reading 3:12.")
     assert check.clip_prompts(bd, cp, 30, 10) == []  # a clock outside the dialogue too
-    shots[1].line = "No."  # a line said twice on purpose, quoted twice
+    shots[0].line = "No."  # a line said twice on purpose, quoted twice
     clip.prompt = clip.prompt.replace("eyes shut.", 'eyes shut. Malik (muttering): "No."')
     assert check.clip_prompts(bd, cp, 30, 10) == []
 
@@ -796,11 +802,11 @@ def test_clip_prompt_check_wants_first_frame_summary_and_whole_seconds():
     clip = cp.clips[0]
     clip.prompt = re.sub(r"Summary: .*\n", "", clip.prompt)
     clip.prompt = clip.prompt.replace("[Image1] is the first frame.", "[Image1] storyboard frame.")
-    clip.prompt = clip.prompt.replace("Shot 1 | 0-1 s.", "Shot 1 | 0-1.2 s.")
+    clip.prompt = clip.prompt.replace("Shot 1 | 0-3 s.", "Shot 1 | 0-1.2 s.")
     assert check.clip_prompts(bd, cp, 30, 10) == [
-        "c2: has no Summary line",
-        "c2: shot 1's times aren't whole seconds; write them like “0-2 s.”",
-        "c2: doesn't name [Image1] the first frame",
+        "c3: has no Summary line",
+        "c3: shot 1's times aren't whole seconds; write them like “0-2 s.”",
+        "c3: doesn't name [Image1] the first frame",
     ]
 
 
@@ -1010,34 +1016,34 @@ def test_money_on_trading_screens_only_climbs():
     assert "**Money climbs.**" in prompts.system("script_draft")  # imported reels too
     _, bd = example("breakdown")
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
-    shots["2.7"].action = "Malik at the desk; the balance reads $380."  # below +$420
-    shots["2.4"].moment, shots["2.4"].action = "trading", "The token rockets up."
+    shots["2.6"].action = "Malik at the desk; the balance reads $380."  # below +$420
+    shots["2.3"].moment, shots["2.3"].action = "trading", "The token rockets up."
     problems = [p for p in check.breakdown(script_of(example("breakdown")[0]), bd, FOMO, 4, 30)
                 if "$" in p or "reads" in p]  # fmt: skip
     assert problems == [
-        "Advice: shot 2.4: say what the trading screen reads (e.g. “the balance reads $1,240”), "
+        "Advice: shot 2.3: say what the trading screen reads (e.g. “the balance reads $1,240”), "
         "bigger than the shot before"
     ]
-    shots["2.4"].action = "The token rockets up: the balance reads $420."
+    shots["2.3"].action = "The token rockets up: the balance reads $420."
     assert check._money_climbs(list(shots.values())) == [
-        "Advice: shot 2.7: the screen reads $380, less than shot 2.4; the money only climbs"
+        "Advice: shot 2.6: the screen reads $380, less than shot 2.3; the money only climbs"
     ]
-    shots["2.4"].action = "A red tick first: the position reads −$80, then it turns."  # a loss
-    shots["2.7"].action = "Malik at the desk; the position reads +$40 on a $12,400 balance."
-    shots["3.2"].action = "Malik's phone slides to Tasha; the balance reads $348k."
+    shots["2.3"].action = "A red tick first: the position reads −$80, then it turns."  # a loss
+    shots["2.6"].action = "Malik at the desk; the position reads +$40 on a $12,400 balance."
+    shots["3.1"].action = "Malik's phone slides to Tasha; the balance reads $348k."
     assert check._money_climbs(list(shots.values())) == []  # gains and balances apart
-    shots["2.4"].action = "The token rockets up: the position reads +$420 (+38%)."
-    shots["3.2"].action = "Malik's phone slides across the counter to Tasha."  # no payoff figure
-    shots["3.6"].action = "Tasha holds the phone up in both hands."
-    shots["2.7"].action = "Malik at the desk; the balance reads $12,400."
-    shots["2.4"].moment = "win"
+    shots["2.3"].action = "The token rockets up: the position reads +$420 (+38%)."
+    shots["3.1"].action = "Malik's phone slides across the counter to Tasha."  # no payoff figure
+    shots["3.5"].action = "Tasha holds the phone up in both hands."
+    shots["2.6"].action = "Malik at the desk; the balance reads $12,400."
+    shots["2.3"].moment = "win"
     assert check._money_climbs(list(shots.values())) == [
-        "Advice: shot 2.7: the payoff reads under $100,000; make it clearly large (six figures "
+        "Advice: shot 2.6: the payoff reads under $100,000; make it clearly large (six figures "
         "or more)"
     ]
     _, cp = example("clip_prompts")
     assert check.clip_prompts(bd, cp, 30, 10) == []  # the clip says what its shot says
-    shots["2.7"].action = "Malik at the desk; the balance reads $12,900."
+    shots["2.6"].action = "Malik at the desk; the balance reads $12,900."
     assert check.clip_prompts(bd, cp, 30, 10) == []  # Reed #600: numbers are free
 
 
@@ -1045,26 +1051,27 @@ def test_a_montages_trading_screens_are_the_real_ones_and_climb():
     """Rule 14 (Reed, 30 Oct): each screen is attached as itself, its UI exact; the coin and
     numbers come from the story, so no two shots copy one screenshot's price (video #16)."""
     _, bd = example("breakdown")
-    _, cp = example("clip_prompts")  # c2: -$380, then +$420, then +$48,000
-    clip = cp.clips[0]
-    assert [r.id for r in clip.references][3:] == ["screen:3", "screen:2", "screen:4"]
+    _, cp = example("clip_prompts")  # c3: -$380, then +$420; c4: $12,400
+    clip, grind = cp.clips
+    assert [r.id for r in clip.references][3:] == ["screen:3", "screen:2"]
+    assert [r.id for r in grind.references][3:] == ["screen:4"]  # each clip only what it needs
     for shown in (
         "[Image4], the fomo Token chart down screen, the SNORE coin plunging to -$380",
         "[Image5], the fomo Token chart up screen, the SNORE coin shooting up to +$420",
-        "[Image6], the fomo Desktop trading screen, a huge green chart climbing",
     ):
         assert shown in clip.prompt, shown
-    assert "invented trading screen" not in clip.prompt  # the brand has a screen for each
-    clip.prompt = clip.prompt.replace("+$48,000", "+$300")
-    assert check.clip_prompts(bd, cp, 30, 10) == [
-        "Advice: c2: shot 7's trading screen reads +$300, not more than shot 4's; make each win "
-        "bigger"
-    ]
-    clip.prompt = clip.prompt.replace("+$300", "-$300")  # a red day is a dip, never flagged
-    falls = clip.prompt.replace(
-        "[Image6], the fomo Desktop trading screen", "[Image6], the fomo Home screen"
+    assert "[Image4], the fomo Desktop trading screen, the balance climbing to $12,400" in (
+        grind.prompt
     )
-    assert check._screens_climb(falls.replace("-$300", "+$100")) == []  # a home balance may fall
+    assert "invented trading screen" not in clip.prompt  # the brand has a screen for each
+    assert check._screens_climb(clip.prompt) == []  # a red day is a dip, never flagged
+    bigger = clip.prompt.replace("-$380", "+$500")
+    assert check._screens_climb(bigger) == [
+        "shot 3's trading screen reads +$420, not more than shot 1's; make each win bigger"
+    ]
+    falls = bigger.replace("the fomo Token chart up screen", "the fomo Home screen")
+    assert check._screens_climb(falls) == []  # a home balance may fall
+    clip.prompt = bigger  # only a montage clip's screens are held to it
     assert check.clip_prompts(bd, cp, 30, 10) == []
     for step in ("clip_prompts", "storyboard", "improve"):
         assert "invented trading screen" in prompts.system(step), step
@@ -1134,7 +1141,7 @@ def test_the_grind_shows_trading_and_phone_beats_play_for_drama():
         assert "screen's glow" in prompts.system(step), step
     assert "for a trading app, the trading itself" in prompts.system("script_draft")
     _, cp = example("clip_prompts")
-    assert "Malik's thumb scrolls the coin list and taps Buy" in cp.clips[0].prompt
+    assert "Malik's thumb scrolls the coin list and taps Buy" in cp.clips[1].prompt
 
 
 def test_the_app_bridge_is_only_for_an_app_brand():
@@ -1169,7 +1176,7 @@ def test_the_closing_call_to_action_only_has_to_name_the_brand():
     cta = next(s for s in bd.scenes[2].shots if s.line == end)  # Reed, 2026-10-27
     cta.screen_ids = []
     assert (
-        "Advice: shot 3.6: the end line's shot shows no screen; show the brand's real screen "
+        "Advice: shot 3.5: the end line's shot shows no screen; show the brand's real screen "
         "on the phone he holds up to the camera"
     ) in check.breakdown(script, bd, FOMO, 4, 30, end, "fomo")
     assert "approved" not in inspect.signature(check.breakdown).parameters
@@ -1312,10 +1319,10 @@ def test_a_person_in_bed_and_a_bodily_sound_in_one_clip_is_advice():
     assert check.clip_prompts(bd, cp, 30, 10) == []
     clip = cp.clips[0]
     clip.prompt = clip.prompt.replace(
-        "Malik drops his head onto his arms",
+        "Malik, crushed that the bet looks lost, lowers his head onto his arms",
         "Malik, in bed, startled out of sleep, a wordless groan, a loud wet licking sound",
     )
-    assert f"Advice: c2: {check.NOT_SEXUAL}" in check.clip_prompts(bd, cp, 30, 10)
+    assert f"Advice: c3: {check.NOT_SEXUAL}" in check.clip_prompts(bd, cp, 30, 10)
 
     def flagged(text):
         return bool(check.IN_BED.search(text) and check.BODILY.search(text))
@@ -1343,7 +1350,7 @@ def test_a_brand_names_pronunciation_is_in_the_note_never_the_quote():
     said goes in the how-it's-said note, without quote marks (quotes are speech)."""
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")
-    shot = next(s for sc in bd.scenes for s in sc.shots if s.id == "2.3")
+    shot = next(s for sc in bd.scenes for s in sc.shots if s.id == "2.2")
     clip, was = cp.clips[0], 'Malik (in English, quiet, stubborn): "Come on. One more."'
     assert was in clip.prompt
     shot.line = "Come on. Get fomo."
@@ -1352,7 +1359,7 @@ def test_a_brand_names_pronunciation_is_in_the_note_never_the_quote():
     )
     assert check.clip_prompts(bd, cp, 30, 10) == []
     clip.prompt = clip.prompt.replace('"Come on. Get fomo."', '"Come on. Get FOMO."')
-    assert "c2: shot 2.3's line isn't there once, word for word" in check.clip_prompts(
+    assert "c3: shot 2.2's line isn't there once, word for word" in check.clip_prompts(
         bd, cp, 30, 10
     )
     assert "saying fomo as FOH-moh" in prompts.system("clip_prompts")
@@ -1370,7 +1377,7 @@ def test_a_breakdown_names_a_screens_figure_for_the_server_to_draw():
     """Next-Server draws `screen_figure` onto the shot's first real screen (Producer, 30 Oct)."""
     _, bd = example("breakdown")
     figs = {s.id: s.screen_figure for sc in bd.scenes for s in sc.shots if s.screen_figure}
-    assert figs["2.4"].change == "+$420" and figs["3.2"].balance == "$512,400"
+    assert figs["2.3"].change == "+$420" and figs["3.1"].balance == "$512,400"
     assert (
         schemas.Shot.model_validate(
             {k: v for k, v in bd.scenes[0].shots[0].model_dump().items() if k != "screen_figure"}
