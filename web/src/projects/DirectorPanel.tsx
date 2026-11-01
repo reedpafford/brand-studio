@@ -1,42 +1,58 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Square, Wand2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, Dialog, buttonClass, creditsText } from "../components";
 import { useToast } from "../toast";
-import { useProjectVideo } from "./useProgress";
+import { ReviewChip } from "./Checks";
+import { useProjectClips, useProjectVideo } from "./useProgress";
 
-// What the run says (Next-Server #1087). `credits` (up to), `start_blocked` and an editor's null `spent_usd` are agreed and may land after.
+// What the run says (Next-Server #1087). `credits` (up to), `start_blocked` and an editor's null `spent_usd` are agreed and come in its next push.
 type Run = components["schemas"]["DirectorOut"] & { credits?: number; start_blocked?: string; spent_usd?: number | null };
 type Turn = Run["turns"][number];
 
-/** The director on a video made from a script (director-chat.md, first slice): Make it, what it's doing as it goes, Stop,
- *  and the finished cut with its note. The step screens below stay as they are, to look inside. */
-export function DirectorPanel({ projectId, aspect, name }: { projectId: number; aspect: string; name: string }) {
+// What it's doing, from its newest move (ux-audit §8.5's progress line).
+const DOING: Record<string, string> = {
+  plan: "Making the plan",
+  make_looks: "Making the looks",
+  storyboard: "Making the storyboard",
+  stills: "Drawing the stills",
+  clip_prompts: "Writing the clip prompts",
+  make_take: "Making clips",
+  pick_take: "Making clips",
+  final_cut: "Making the cut",
+  deliver: "Making the cut",
+};
+
+/** The Director view of a video (ux-audit §8.5, director-chat.md first slice): the cut, a progress line, the delivery card
+ *  with what it redid and why, Make it and Stop. Look inside has the steps, as they are. Chat and locks come later: the right
+ *  column on desktop is kept free for them. */
+export function DirectorPanel({ projectId, aspect, name, onLookInside }: { projectId: number; aspect: string; name: string; onLookInside: () => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const owner = useMe().data?.role === "owner";
   const [stopping, setStopping] = useState(false);
   const run = useQuery({
     queryKey: ["director", projectId],
-    queryFn: async () => (await api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } })).data as Run | undefined ?? null,
+    queryFn: async () => ((await api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } })).data as Run | undefined) ?? null,
     refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : false),
   });
+  const clips = useProjectClips(projectId);
+  const video = useProjectVideo(projectId);
   const r = run.data;
   const status = r?.status ?? "none";
-  // When a move finishes, the steps below have new work: refresh them.
+  // When a move finishes, the steps have new work: refresh them, and the waiting banner for a held move.
   const moves = r?.turns.length ?? 0;
   useEffect(() => {
     if (!moves) return;
     void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "director" && q.queryKey.includes(projectId) });
-    void queryClient.invalidateQueries({ queryKey: ["jobs"] }); // a held move shows in the waiting banner
+    void queryClient.invalidateQueries({ queryKey: ["jobs"] });
   }, [moves, status, projectId, queryClient]);
-  const after = (data: Run | undefined) => {
-    if (data) queryClient.setQueryData(["director", projectId], data);
+  const after = (data: Run) => {
+    queryClient.setQueryData(["director", projectId], data);
     return queryClient.invalidateQueries({ queryKey: ["jobs"] });
   };
   const start = useMutation({
@@ -63,63 +79,95 @@ export function DirectorPanel({ projectId, aspect, name }: { projectId: number; 
   });
   if (run.isPending) return null;
   if (run.isError) return <Banner tone="warning" title="Couldn't load the director." action={<Button variant="secondary" onClick={() => void run.refetch()}>Try again</Button>} />;
-  const cost = r ? spent(r, owner) : "";
-  const blocked = r?.start_blocked || null;
-  const makeIt = (label: string) => (
-    <Button icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
-      {label}
-    </Button>
-  );
 
-  if (status === "running") {
-    const held = r!.turns.some((t) => t.status === "needs_owner_approval");
-    return (
-      <Card className="space-y-3" aria-label="The director">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="type-section">{held ? "The director is waiting for approval" : "The director is making this video"}</h2>
-            {cost && <p className="text-sm text-muted tabular-nums">{cost}</p>}
-          </div>
-          <Button variant="secondary" icon={Square} onClick={() => setStopping(true)}>
-            Stop
-          </Button>
-        </div>
-        <Moves turns={r!.turns} newest={5} />
-        {stopping && (
-          <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => stop.mutate()}>
-            <p>It makes no more moves. What it already started still finishes, and nothing is undone. You can carry on in the steps below.</p>
-          </Dialog>
-        )}
-      </Card>
-    );
-  }
-  if (status === "delivered") return <Delivered run={r!} cost={cost} projectId={projectId} aspect={aspect} name={name} again={makeIt("Make it again")} blocked={blocked} />;
-  if (status === "ended")
-    return (
-      <Banner tone="warning" title={`The director stopped${r!.ended ? `: ${r!.ended}` : "."}`} action={makeIt("Make it again")}>
-        {cost} {blocked ?? "You can carry on in the steps below, or make it again."}
-        <details className="mt-2">
-          <summary className="min-h-11 cursor-pointer py-2 text-sm">What it did ({r!.turns.length})</summary>
-          <Moves turns={r!.turns} />
-        </details>
-      </Banner>
-    );
+  const turns = r?.turns ?? [];
+  const running = status === "running";
+  const held = running && turns.some((t) => t.status === "needs_owner_approval");
+  const blocked = r?.start_blocked || null;
+  const cut = video.data;
+  const list = clips.data ?? [];
+  const doing = [...turns].reverse().find((t) => t.tool && DOING[t.tool])?.tool;
+  const made = list.filter((c) => c.takes.length > 0).length;
+  const phase = held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && list.length ? `Making clips: ${made} of ${list.length}` : DOING[doing];
+  const credits = r?.credits != null ? creditsText(r.credits) : null;
+  const dollars = owner && r?.spent_usd != null ? `the director's own time $${r.spent_usd.toFixed(2)}` : null; // rule 4: the owner only
+  const note = [...turns].reverse().find((t) => t.tool === "deliver")?.why ?? "";
+  const firstTake = turns.findIndex((t) => t.tool === "make_take");
+  const redid = turns.filter((t, i) => t.tool === "make_take" && i > firstTake && t.why);
+  const line =
+    status === "none" ? (blocked ?? "It makes every step from the script, checks each take, and delivers the finished cut. You can stop it any time.")
+    : running ? [phase, credits && `up to ${credits} so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
+    : [status === "ended" && (r!.ended || "It stopped."), credits && `${credits} for this run`, dollars].filter(Boolean).join(" · ");
+  const badge = running ? <Badge tone={held ? "warning" : "neutral"}>{held ? "Waiting for approval" : "Working…"}</Badge> : status === "delivered" ? <Badge tone="success">Delivered</Badge> : status === "ended" ? <Badge tone="warning">Stopped</Badge> : null;
+
   return (
-    <Card className="flex flex-wrap items-center justify-between gap-3" aria-label="The director">
-      <div className="min-w-0 flex-1">
-        <h2 className="type-section">Let the director make it</h2>
-        <p className="text-sm text-muted">{blocked ?? "It makes every step from the script, checks each take, and gives you the finished cut. You can stop it any time."}</p>
-      </div>
-      {makeIt("Make it")}
-    </Card>
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <Card className="min-w-0 space-y-3" aria-label="The director">
+        {cut ? (
+          <video controls src={fileUrl(cut.file_id)} className="mx-auto max-h-[70vh] w-full rounded-lg bg-surface-2 object-contain" style={{ aspectRatio: aspect.replace(":", " / ") }} aria-label="The finished video" />
+        ) : (
+          <div className="mx-auto grid max-h-[50vh] w-full place-items-center rounded-lg bg-surface-2 p-4 text-center text-sm text-muted" style={{ aspectRatio: aspect.replace(":", " / ") }}>
+            {running ? `${phase}…` : "The cut shows here once it's made."}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="type-section">{status === "none" ? "Let the director make it" : "The director's cut"}</h2>
+          {badge}
+          <span className="flex-1" />
+          {cut && !running && (
+            <a className={buttonClass("secondary")} href={fileUrl(cut.file_id)} download={`${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "video"}.mp4`}>
+              <Download aria-hidden className="size-4" />
+              Download MP4
+            </a>
+          )}
+          {running ? (
+            <Button variant="secondary" icon={Square} onClick={() => setStopping(true)}>
+              Stop
+            </Button>
+          ) : (
+            <Button icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
+              {status === "none" ? "Make it" : "Make it again"}
+            </Button>
+          )}
+        </div>
+        {line && <p className="break-words text-sm text-muted tabular-nums">{line}</p>}
+        {status !== "none" && !running && blocked && <p className="text-sm text-muted">{blocked}</p>}
+        {note && <p className="break-words">{note}</p>}
+        {redid.length > 0 && (
+          <Section title={`What it redid (${redid.length})`}>
+            <Moves turns={redid} />
+          </Section>
+        )}
+        {status === "delivered" && <ReviewChip projectId={projectId} />}
+        {turns.length > 0 && (
+          <Section title={`Every move (${turns.length})`} open={running}>
+            <Moves turns={turns} newest={running ? 5 : undefined} />
+          </Section>
+        )}
+        <p className="text-sm text-muted">
+          Advice it leaves stays on Review.{" "}
+          <button type="button" className="min-h-11 font-medium text-accent underline" onClick={onLookInside}>
+            Look inside
+          </button>{" "}
+          for every step.
+        </p>
+      </Card>
+      {stopping && (
+        <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => stop.mutate()}>
+          <p>It makes no more moves. What it already started still finishes, and nothing is undone. You can carry on in Look inside.</p>
+        </Dialog>
+      )}
+    </div>
   );
 }
 
-/** "Up to 42 credits so far", and for the owner only what the director's own thinking cost (rule 4: editors never see dollars). */
-function spent(r: Run, owner: boolean) {
-  const credits = r.credits != null ? `Up to ${creditsText(r.credits)}${r.status === "running" ? " so far" : ""}.` : "";
-  const usd = owner && r.spent_usd != null ? ` The director's own time: $${r.spent_usd.toFixed(2)}.` : "";
-  return (credits + usd).trim();
+function Section({ title, open, children }: { title: string; open?: boolean; children: ReactNode }) {
+  return (
+    <details open={open} className="space-y-2">
+      <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">{title}</summary>
+      {children}
+    </details>
+  );
 }
 
 /** Each move as one plain line, what it did, with its reason under it. While it runs, only the newest few, with Show all. */
@@ -133,53 +181,14 @@ function Moves({ turns, newest }: { turns: Turn[]; newest?: number }) {
           Show all {turns.length} moves
         </Button>
       )}
-      <ol className="space-y-2" aria-label="What the director did">
+      <ol className="space-y-2">
         {shown.map((t) => (
           <li key={t.turn} className="min-w-0 border-l-2 border-line pl-3 text-sm">
-            <p className="break-words">
-              {t.result || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : "Deciding what to do next…")}
-            </p>
+            <p className="break-words">{t.result || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : "Deciding what to do next…")}</p>
             {t.why && <p className="break-words text-muted">{t.why}</p>}
           </li>
         ))}
       </ol>
     </>
-  );
-}
-
-function Delivered({ run, cost, projectId, aspect, name, again, blocked }: { run: Run; cost: string; projectId: number; aspect: string; name: string; again: ReactNode; blocked: string | null }) {
-  const video = useProjectVideo(projectId);
-  const v = video.data;
-  const note = [...run.turns].reverse().find((t) => t.tool === "deliver")?.why ?? "";
-  return (
-    <Card className="grid gap-4 sm:grid-cols-[minmax(0,320px)_1fr]" aria-label="The director's cut">
-      {v ? (
-        <video controls src={fileUrl(v.file_id)} className="w-full rounded-lg bg-surface-2" style={{ aspectRatio: aspect.replace(":", " / ") }} aria-label="The finished video" />
-      ) : (
-        <p className="text-sm text-muted" role="status">The finished cut is on Final cut.</p>
-      )}
-      <div className="min-w-0 space-y-3">
-        <Badge tone="success">Made by the director</Badge>
-        {note && <p className="break-words">{note}</p>}
-        {cost && <p className="text-sm text-muted tabular-nums">{cost}</p>}
-        {blocked && <p className="text-sm text-muted">{blocked}</p>}
-        <div className="flex flex-wrap gap-2">
-          {v && (
-            <a className={buttonClass("primary")} href={fileUrl(v.file_id)} download={`${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "video"}.mp4`}>
-              <Download aria-hidden className="size-4" />
-              Download MP4
-            </a>
-          )}
-          <Link className={buttonClass("secondary")} to="?step=clips">
-            Look inside
-          </Link>
-          {again}
-        </div>
-        <details>
-          <summary className="min-h-11 cursor-pointer py-2 text-sm">What it did ({run.turns.length})</summary>
-          <Moves turns={run.turns} />
-        </details>
-      </div>
-    </Card>
   );
 }

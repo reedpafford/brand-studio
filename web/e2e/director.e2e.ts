@@ -24,15 +24,17 @@ test("at 390, an editor presses Make it and the director delivers the finished c
 
   await ed.goto(`/b/${fomo}/videos/${pid}`);
   await ed.getByRole("button", { name: "Make it" }).click();
-  await expect(ed.getByText(/The director is (making this video|waiting for approval)/)).toBeVisible();
+  await expect(ed.getByRole("tab", { name: "Director" })).toHaveAttribute("aria-selected", "true");
+  await expect(ed.getByText(/ · up to \d+(\.\d)? credits? so far · you can leave this page$/)).toBeVisible();
   await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
-  await expect(ed.getByText("Made by the director")).toBeVisible({ timeout: 200_000 });
+  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   await expect(ed.getByLabel("The finished video")).toBeVisible();
   await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible();
-  await expect(ed.getByText(/^Up to \d+(\.\d)? credits?\.$/)).toBeVisible();
+  await expect(ed.getByText(/^\d+(\.\d)? credits? for this run$/)).toBeVisible();
   expect(await ed.locator("main").textContent()).not.toMatch(/\$\d|ask (Reed|the owner)/i);
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
-  await ed.getByRole("link", { name: "Look inside" }).click();
-  await expect(ed).toHaveURL(/step=clips/);
+  await ed.getByRole("tab", { name: "Look inside" }).click();
+  await expect(ed).toHaveURL(/step=plan/);
+  await expect(ed.getByRole("button", { name: /^Step 1 of 5/ })).toBeVisible(); // the phone step picker
 });

@@ -1492,7 +1492,7 @@ test("Storyboard's counts are said once, in the step heading's line", async () =
 test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "PATCH /projects/9": [200, project] });
-  open("");
+  open("?step=plan"); // the shape row is on Plan (Look inside)
   await userEvent.click(await screen.findByRole("button", { name: "1:1" }));
   const ask = screen.getByRole("alertdialog", { name: "Change to 1:1?" });
   expect(ask).toHaveTextContent("The 1 still was drawn for 9:16 and stays that way.");
@@ -1587,4 +1587,26 @@ test("a link to Clips or Downloads with no storyboard yet lands on Storyboard, n
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, []], "GET /projects/9/clips": [200, []] });
   open("?step=clips");
   expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
+});
+
+test("at 390, a video opens on the Director view; Look inside opens the step picker, and Director comes back (ux-audit §8.5)", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, script_draft_id: 4 }], "GET /projects/9/director": [200, { status: "none", ended: "", turns: [], spent_usd: null, credits: 0, start_blocked: "" }] });
+  open("");
+  expect(await screen.findByRole("button", { name: "Make it" })).toBeEnabled();
+  expect(screen.getByRole("tab", { name: "Director" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.queryByRole("button", { name: /^Step 1 of 5/ })).toBeNull();
+  await userEvent.click(screen.getByRole("tab", { name: "Look inside" }));
+  expect(await screen.findByRole("button", { name: /^Step 1 of 5/ })).toBeInTheDocument(); // the phone step picker
+  expect(screen.queryByRole("button", { name: "Make it" })).toBeNull();
+  await userEvent.click(screen.getByRole("tab", { name: "Director" }));
+  expect(await screen.findByRole("button", { name: "Make it" })).toBeInTheDocument();
+});
+
+test("a video not made from a script version has no Director view: it opens on its steps", async () => {
+  setViewport(1440);
+  fakeServer(base);
+  open("");
+  expect(await screen.findByRole("list", { name: "Steps" })).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: "Director" })).toBeNull();
 });
