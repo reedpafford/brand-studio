@@ -364,18 +364,17 @@ test("the owner gives a product its line and main claim; an empty claim is Advic
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /library/prop/8")?.body).toMatchObject({ short_description: "Grain-free salmon kibble", main_claim: "Dogs finish the bowl" }));
 });
 
-test("an editor sees a product's line and claim read only, and their save leaves them out", async () => {
+test("an editor changes a product's line and claim too, and their save sends them (Reed, 30 Oct)", async () => {
   const calls = fakeServer(propRoutes(editor));
   renderAt("/b/2/library/props/8");
-  expect(await screen.findByText("Only the owner changes the brand.")).toBeInTheDocument();
-  expect(screen.getByLabelText("Main claim")).toHaveAttribute("readonly");
-  await userEvent.type(screen.getByLabelText("Name"), " XL");
+  const claim = await screen.findByLabelText("Main claim");
+  expect(claim).not.toHaveAttribute("readonly");
+  expect(screen.queryByText("Only the owner changes the brand.")).toBeNull();
+  await userEvent.clear(claim);
+  await userEvent.type(claim, "Bowls come back empty");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /library/prop/8")).toBeTruthy());
-  const body = calls.find((c) => c.key === "PATCH /library/prop/8")!.body as Record<string, unknown>;
-  expect(body).toMatchObject({ name: "Salmon bag XL" });
-  expect(body).not.toHaveProperty("main_claim");
-  expect(body).not.toHaveProperty("short_description");
+  expect(calls.find((c) => c.key === "PATCH /library/prop/8")!.body).toMatchObject({ main_claim: "Bowls come back empty" });
 });
 
 const looksList = [{ id: "house", name: "House", blurb: "", on: true }, { id: "pixar", name: "Disney Pixar", blurb: "", on: true }];

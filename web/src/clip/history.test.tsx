@@ -26,6 +26,7 @@ function open(path = "/b/1/clip") {
   renderApp(path);
 }
 afterEach(() => vi.unstubAllGlobals());
+const jobUrls = () => (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.map(([r]) => (typeof r === "string" ? r : r.url)).filter((u) => /\/jobs(\?|$)/.test(u));
 
 test("a finished clip can be removed from history at once, with the words that credits stay used, and Undo brings it back", async () => {
   setViewport(1440);
@@ -43,7 +44,7 @@ test("a finished clip can be removed from history at once, with the words that c
 
 test("a clip removed in this visit shows under Removed straight away, without a reload", async () => {
   setViewport(1440);
-  fakeServer(base({ "DELETE /jobs/12": [204, null], "GET /jobs?removed=true": [200, [job()]] }));
+  fakeServer(base({ "DELETE /jobs/12": [204, null], "GET /jobs?removed=true&mine=true": [200, [job()]] }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for clip 12" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Remove from history" }));
@@ -73,7 +74,7 @@ test("a refused remove says why in a toast and the clip stays", async () => {
 
 test("search goes to the server after typing stops and lives in the address; no match says so with Clear search", async () => {
   setViewport(1440);
-  fakeServer(base({ "GET /jobs?q=salmon": [200, []] }));
+  fakeServer(base({ "GET /jobs?q=salmon&mine=true": [200, []] }));
   open();
   await userEvent.type(await screen.findByRole("searchbox", { name: "Search your clips" }), "salmon");
   expect(await screen.findByText('No clips match "salmon".')).toBeInTheDocument();
@@ -83,7 +84,7 @@ test("search goes to the server after typing stops and lives in the address; no 
 
 test("the Removed filter lists removed clips, muted, each with Restore", async () => {
   setViewport(1440);
-  const calls = fakeServer(base({ "GET /jobs?removed=true": [200, [job({ id: 20, prompt_summary: "Old clip" })]], "POST /jobs/20/restore": [200, {}] }));
+  const calls = fakeServer(base({ "GET /jobs?removed=true&mine=true": [200, [job({ id: 20, prompt_summary: "Old clip" })]], "POST /jobs/20/restore": [200, {}] }));
   open();
   await userEvent.selectOptions(await screen.findByLabelText("Show"), "removed");
   expect(await screen.findByText("Old clip")).toBeInTheDocument();
@@ -120,4 +121,25 @@ test("a run started a few seconds ago counts up in New York, even for a server t
   } finally {
     process.env.TZ = tz;
   }
+});
+
+test("the owner's History opens on Mine (asks for their own), and Everyone's shows the team's clips with who made each, at 390", async () => {
+  setViewport(390);
+  fakeServer(base({ "GET /auth/me": [200, { ...editor, id: 1, name: "Reed", role: "owner" }], "GET /jobs": [200, [job({ id: 14, created_by_id: 2, created_by_name: "Eli" })]] }));
+  open();
+  const mine = await screen.findByRole("button", { name: "Mine" });
+  expect(mine).toHaveAttribute("aria-pressed", "true");
+  await vi.waitFor(() => expect(jobUrls().some((u) => u.includes("mine=true"))).toBe(true));
+  await userEvent.click(screen.getByRole("button", { name: "Everyone's" }));
+  expect(await screen.findByText(/by Eli/)).toBeInTheDocument();
+  expect(jobUrls().at(-1)).not.toContain("mine=");
+});
+
+test("an editor's History always asks for their own clips and has no Mine / Everyone's switch", async () => {
+  setViewport(1440);
+  fakeServer(base());
+  open();
+  await screen.findAllByText("Bo noses the salmon");
+  expect(screen.queryByRole("group", { name: "Whose clips" })).toBeNull();
+  expect(jobUrls().some((u) => u.includes("mine=true"))).toBe(true);
 });

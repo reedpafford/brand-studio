@@ -24,11 +24,12 @@ function open(path = "/approvals") {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("an editor who opens Approvals gets Page not found and no calls for held work", async () => {
-  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor] });
+test("an editor who opens Approvals lands on Home (their Videos), with no held work asked for", async () => {
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []] });
   open();
-  expect(await screen.findByText("Page not found.")).toBeInTheDocument();
-  expect(calls.some((c) => c.key === "GET /jobs")).toBe(false);
+  expect(await screen.findByRole("link", { name: "Videos", current: "page" })).toBeInTheDocument();
+  expect(screen.queryByText("Page not found.")).toBeNull();
+  expect(calls.some((c) => c.key === "GET /jobs/50/detail")).toBe(false);
 });
 
 test("a held job shows what it is, its credits and what it does to the budget, and Approve runs it", async () => {
@@ -145,7 +146,7 @@ test("each row says who asked, and the owner sees the dollars next to the credit
 test("an editor who opens Approvals sees no held work and no dollars", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "GET /jobs/50/detail": [200, held({ cost_usd: 2.36 })] });
   open("/approvals");
-  expect(await screen.findByText("Page not found.")).toBeInTheDocument();
+  expect(await screen.findByRole("link", { name: "Videos", current: "page" })).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
   expect(screen.queryByText(/A new take/)).not.toBeInTheDocument();
 });

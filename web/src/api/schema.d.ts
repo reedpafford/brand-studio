@@ -895,7 +895,7 @@ export interface paths {
          * Cancel Job
          * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
          *     team may cancel any of them, except a video's: whoever made the video, whoever asked for
-         *     the job, or the owner (as every change to a video).
+         *     the job, or the owner (as every change to a video). A Quick clip: its maker or the owner.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
         delete?: never;
@@ -4010,7 +4010,7 @@ export interface paths {
         /**
          * Clip Request
          * @description The full request a clip was made from (prompt, settings, brand pieces), for "Try again"
-         *     and "Reuse prompt". Same visibility as the job itself: the caller's workspace.
+         *     and "Reuse prompt". Same visibility as the job itself: another editor's isn't there.
          */
         get: operations["clip_request_clips__job_id__request_get"];
         put?: never;
@@ -5825,6 +5825,20 @@ export interface components {
             value: string;
             /** Inferred */
             inferred: boolean;
+        };
+        /**
+         * FigureSpot
+         * @description Where a shot's figure is written on this screen (screen_figures.py), in pixels.
+         */
+        FigureSpot: {
+            /** Box */
+            box: number[];
+            /** At */
+            at: number[];
+            /** Size */
+            size: number;
+            /** Chart */
+            chart?: number[] | null;
         };
         /** FileIn */
         FileIn: {
@@ -8042,6 +8056,19 @@ export interface components {
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
+        /** ScreenFigure */
+        ScreenFigure: {
+            /**
+             * Balance
+             * @description The total the screen shows, as it should read on screen, e.g. '$12,900'; or null.
+             */
+            balance: string | null;
+            /**
+             * Change
+             * @description The gain or loss it shows, signed, e.g. '+$1,222' or '-$380'; or null.
+             */
+            change: string | null;
+        };
         /** ScreenIn */
         ScreenIn: {
             /** Name */
@@ -8101,6 +8128,7 @@ export interface components {
             brand_id: number;
             /** Balance */
             balance: string;
+            figure_spot: components["schemas"]["FigureSpot"] | null;
         };
         /** ScreenPatch */
         ScreenPatch: {
@@ -8118,6 +8146,7 @@ export interface components {
             variant?: string | null;
             /** Balance */
             balance?: string | null;
+            figure_spot?: components["schemas"]["FigureSpot"] | null;
         };
         /** ScriptPatch */
         ScriptPatch: {
@@ -8333,12 +8362,12 @@ export interface components {
             line: string | null;
             /**
              * Action
-             * @description What we see happen, concretely, in one sentence.
+             * @description What we see happen, concretely, in one sentence. In a shot nobody speaks in, what the body does ('types back', 'nods'), never says, tells, replies or answers.
              */
             action: string;
             /**
              * Reaction
-             * @description Who reacts, the feeling and its reason, then how it shows at phone size, e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; or null.
+             * @description Who reacts, the feeling and its reason, then how it shows at phone size, e.g. 'Tasha, touched he remembered her: eyes well, a shaky smile'; never words a character could say. Or null.
              */
             reaction: string | null;
             /**
@@ -8371,6 +8400,8 @@ export interface components {
              * @description Brand screens (screen:N) and the project's product (product:N) shown in this shot. Required whenever `moment` is one the brand block lists them for.
              */
             screen_ids: string[];
+            /** @description Only when this shot shows a brand screen with a figure on it: the figure, for the first screen in screen_ids; the server draws it onto that screen. Each winning beat's figure is bigger than the last; a loss is signed '-'. Null otherwise. */
+            screen_figure?: components["schemas"]["ScreenFigure"] | null;
         };
         /** ShotRow */
         ShotRow: {

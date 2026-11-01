@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Check, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Card, creditsText, Dialog, EmptyState, Skeleton } from "../components";
@@ -80,7 +80,7 @@ export function ApprovalsPage() {
       await refresh(); // what did go through leaves the list
     },
   });
-  if (me && me.role !== "owner") return <p className="p-6">Page not found.</p>;
+  if (me && me.role !== "owner") return <Navigate to="/" replace />; // Approvals is the owner's: an editor lands on Home
   if (!me || held.isPending)
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6" aria-label="Loading">

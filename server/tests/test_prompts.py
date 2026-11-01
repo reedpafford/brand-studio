@@ -130,17 +130,26 @@ def test_breakdown_check_wants_the_main_character_in_every_montage_shot():
     assert not lone.line and not lone.character_ids and lone.seconds <= 0.6
 
 
-def test_every_quick_cut_names_a_cast_member():
+def test_one_image_per_shot_and_never_a_split_screen():
+    """Reed's runs (project 46 c3): "two quick cuts" in one shot came out as a split screen."""
+    _, bd = example("breakdown")
     _, cp = example("clip_prompts")
     prompt = cp.clips[0].prompt
-    assert check._cuts_name_someone(prompt) == []
-    empty = prompt.replace("behind Malik as he walks", "as a hand pushes")
-    assert check._cuts_name_someone(empty) == [
-        "shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
-    ]
-    refs = next(line for line in empty.splitlines() if line.startswith("References: "))
-    no_cast = empty.replace(refs, "References: [Image1] is the first frame.")
-    assert check._cuts_name_someone(no_cast) == []
+    assert check._one_image(prompt) == [] and "quick cuts" not in prompt
+    two = prompt.replace(
+        "Shot 9 | 9-10 s. Medium shot,", "Shot 9 | 9-10 s. Two quick cuts: a medium shot,"
+    )
+    flag = (
+        "shot 9: one image per shot; quick cuts inside one shot come out as a split screen, "
+        "so give each its own shot or drop it"
+    )
+    assert check._one_image(two) == [flag]
+    assert check._one_image(prompt.replace("No one speaks.", "Never a split screen.", 1)) == []
+    cp.clips[0].prompt = two
+    assert f"Advice: c2: {flag}" in check.clip_prompts(bd, cp, 30, 10)  # Advice, never a block
+    for step in ("clip_prompts", "breakdown"):
+        assert "split screen" in prompts.system(step), step
+    assert "Two quick cuts" not in prompts.system("improve")
 
 
 def test_breakdown_check_wants_grind_before_the_payoff_and_the_hook_first():
@@ -494,20 +503,6 @@ def test_cast_slots_example_passes_and_each_check_says_what_to_do():
         "Advice: no slot carries the name Malik; use it in that role",
         "Advice: Dre, the rival: “Dre” isn't in version 1",
     ]
-
-
-def test_quick_cut_check_is_advice_and_only_inside_a_montage_clip():
-    _, bd = example("breakdown")
-    _, cp = example("clip_prompts")  # clip c2 holds the montage
-    c = cp.clips[0]
-    c.prompt = c.prompt.replace("behind Malik as he walks", "as a hand pushes")
-    flag = (
-        "Advice: c2: shot 9: a quick cut names nobody (“a wide shot tracking in as a hand pushes”)"
-    )
-    assert flag in check.clip_prompts(bd, cp, 30, 10)
-    for shot in bd.scenes[1].shots:  # slow the montage down: now it's not one
-        shot.seconds = max(shot.seconds, 0.8)
-    assert not [p for p in check.clip_prompts(bd, cp, 30, 10) if "names nobody" in p]
 
 
 def test_an_adapted_draft_keeps_the_reels_lines_unless_new_lines_is_on():
@@ -1360,3 +1355,35 @@ def test_a_brand_names_pronunciation_is_in_the_note_never_the_quote():
         bd, cp, 30, 10
     )
     assert "saying fomo as FOH-moh" in prompts.system("clip_prompts")
+
+
+def test_a_feeling_is_face_and_body_never_words_a_character_could_say():
+    """Reed's runs (project 48 c4): "he can't believe it worked" was spoken aloud."""
+    for step in ("breakdown", "clip_prompts"):
+        text = prompts.system(step)
+        assert "can’t believe she’s being kind" not in text.replace("'", "’"), step
+        assert "never words a character could say" in text, step
+
+
+def test_a_breakdown_names_a_screens_figure_for_the_server_to_draw():
+    """Next-Server draws `screen_figure` onto the shot's first real screen (Producer, 30 Oct)."""
+    _, bd = example("breakdown")
+    figs = {s.id: s.screen_figure for sc in bd.scenes for s in sc.shots if s.screen_figure}
+    assert figs["2.4"].change == "+$420" and figs["3.2"].balance == "$512,400"
+    assert (
+        schemas.Shot.model_validate(
+            {k: v for k, v in bd.scenes[0].shots[0].model_dump().items() if k != "screen_figure"}
+        ).screen_figure
+        is None
+    )  # old ones load
+    assert "`screen_figure`" in prompts.system("breakdown")
+
+
+def test_an_action_never_says_replies_or_answers():
+    """Producer, 30 Oct: "replies" or "answers" in an action is flagged as a line and blocks
+    takes, so the writer, the breakdown and the clip write what the body does."""
+    assert '"replies", "answers"' in prompts.system("clip_prompts")
+    assert "never says, tells, replies or answers" in json.dumps(
+        schemas.Breakdown.model_json_schema()
+    )
+    assert 'never "Mom replies"' in prompts.system("script_draft")

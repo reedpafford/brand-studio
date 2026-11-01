@@ -1,7 +1,7 @@
 {
   "home.png": {"name": "Home", "tags": ["mobile", "home"], "default_for": ["fomo-mention", "app-open"]},
-  "home-rich.png": {"name": "Home (rich)", "tags": ["mobile", "home", "portfolio"], "default_for": ["win", "fomo-mention"], "balance": "$348,920.15"},
-  "token-up.png": {"name": "Token chart up", "tags": ["mobile", "trading", "chart-up"], "default_for": ["trading", "win"]},
-  "token-down.png": {"name": "Token chart down", "tags": ["mobile", "trading", "chart-down"], "default_for": ["trading", "loss"]},
+  "home-rich.png": {"name": "Home (rich)", "tags": ["mobile", "home", "portfolio"], "default_for": ["win", "fomo-mention"], "balance": "$348,920.15", "figure_spot": {"box": [20, 128, 445, 232], "at": [28, 132], "size": 54}},
+  "token-up.png": {"name": "Token chart up", "tags": ["mobile", "trading", "chart-up"], "default_for": ["trading", "win"], "figure_spot": {"box": [0, 96, 603, 640], "at": [24, 104], "size": 60, "chart": [0, 270, 603, 620]}},
+  "token-down.png": {"name": "Token chart down", "tags": ["mobile", "trading", "chart-down"], "default_for": ["trading", "loss"], "figure_spot": {"box": [0, 110, 600, 700], "at": [18, 118], "size": 60, "chart": [0, 290, 600, 690]}},
   "desktop.png": {"name": "Desktop trading", "tags": ["desktop", "trading"], "default_for": ["trading-desktop"]}
 }

@@ -16,10 +16,8 @@ type Brand = components["schemas"]["BrandOut"];
 /** The server has brand setup when the brand carries its CTA lines (#910); without them the page stays as it was. */
 export const setupOf = (b: Brand) => ("cta_lines" in b ? (b as Required<Brand>) : null);
 
-export const OWNER_ONLY = "Only the owner changes the brand.";
-
-/** CTA lines: several, one marked Default; each change saves at once, and every delete has Undo (BR1). Read only for editors. */
-export function CtaLines({ brandId, lines, advice, owner }: { brandId: number; lines: CtaLine[]; advice: string[]; owner: boolean }) {
+/** CTA lines: several, one marked Default; each change saves at once, and every delete has Undo (BR1). Editors change them too (Reed, 30 Oct). */
+export function CtaLines({ brandId, lines, advice }: { brandId: number; lines: CtaLine[]; advice: string[] }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [text, setText] = useState("");
@@ -45,7 +43,6 @@ export function CtaLines({ brandId, lines, advice, owner }: { brandId: number; l
         <h2 className="type-section">Call to action</h2>
         <p className="text-sm text-muted">The last clip of a video says the Default line.</p>
       </div>
-      {!owner && <p className="text-sm text-muted">Only the owner adds or changes these lines. The End line above changes the Default.</p>}
       {advice.map((a) => (
         <p key={a} className="text-sm text-warning">{a}</p>
       ))}
@@ -63,32 +60,29 @@ export function CtaLines({ brandId, lines, advice, owner }: { brandId: number; l
           ) : (
             <li key={l.id} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="min-w-0 flex-1 break-words">{l.text}</span>
-              {l.default ? <Badge tone="success" icon={Star}>Default</Badge> : owner && <Button variant="ghost" dense busy={edit.isPending && edit.variables?.id === l.id} onClick={() => edit.mutate({ id: l.id, default: true })}>Make default</Button>}
-              {owner && <Button variant="ghost" dense aria-label={`Edit "${l.text}"`} onClick={() => setEditing({ id: l.id, text: l.text })}>Edit</Button>}
-              {owner && <Button variant="ghost" dense icon={Trash2} aria-label={`Delete "${l.text}"`} busy={remove.isPending && remove.variables?.id === l.id} onClick={() => remove.mutate(l)} />}
+              {l.default ? <Badge tone="success" icon={Star}>Default</Badge> : <Button variant="ghost" dense busy={edit.isPending && edit.variables?.id === l.id} onClick={() => edit.mutate({ id: l.id, default: true })}>Make default</Button>}
+              <Button variant="ghost" dense aria-label={`Edit "${l.text}"`} onClick={() => setEditing({ id: l.id, text: l.text })}>Edit</Button>
+              <Button variant="ghost" dense icon={Trash2} aria-label={`Delete "${l.text}"`} busy={remove.isPending && remove.variables?.id === l.id} onClick={() => remove.mutate(l)} />
             </li>
           ),
         )}
       </ul>
-      {owner && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1">
-            <Field label="Add a line" value={text} maxLength={500} placeholder="Find us through the link in my bio." onChange={(e) => setText(e.target.value)} />
-          </div>
-          <Button variant="secondary" icon={Plus} busy={add.isPending} disabled={!text.trim()} reason={!text.trim() ? "Write the line first" : null} onClick={() => add.mutate()}>Add line</Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <Field label="Add a line" value={text} maxLength={500} placeholder="Find us through the link in my bio." onChange={(e) => setText(e.target.value)} />
         </div>
-      )}
+        <Button variant="secondary" icon={Plus} busy={add.isPending} disabled={!text.trim()} reason={!text.trim() ? "Write the line first" : null} onClick={() => add.mutate()}>Add line</Button>
+      </div>
     </Card>
   );
 }
 
 /** Default cast: library characters a new script starts with. One deleted since reads "Deleted: pick another" (BR1). */
-export function DefaultCast({ brandId, value, picks, onChange, readOnly }: { brandId: number; value: number[]; picks: CastPick[]; onChange: (ids: number[]) => void; readOnly: boolean }) {
+export function DefaultCast({ brandId, value, picks, onChange }: { brandId: number; value: number[]; picks: CastPick[]; onChange: (ids: number[]) => void }) {
   const [replacing, setReplacing] = useState<number | null>(null);
   const library = useQuery({
     queryKey: ["library", "character", brandId, false],
     queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
-    enabled: !readOnly,
   });
   // Only workspace characters, never a look made for one video or script.
   const workspace = (library.data ?? []).filter((c) => !c.owner_project_id && !c.owner_script_id);
@@ -106,26 +100,26 @@ export function DefaultCast({ brandId, value, picks, onChange, readOnly }: { bra
   return (
     <fieldset className="min-w-0 space-y-2">
       <legend className="text-sm font-medium">Default cast</legend>
-      {value.length === 0 && <p className="text-sm text-muted">{readOnly ? "No default cast." : "New scripts start with nobody picked."}</p>}
+      {value.length === 0 && <p className="text-sm text-muted">New scripts start with nobody picked.</p>}
       <ul className="space-y-2">
         {value.map((id) => (
           <li key={id} className="space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">{gone(id) ? <span className="text-warning">Deleted: pick another</span> : nameOf(id)}</span>
-              {!readOnly && gone(id) && <Button variant="secondary" dense onClick={() => setReplacing(replacing === id ? null : id)} aria-expanded={replacing === id}>Pick another</Button>}
-              {!readOnly && <Button variant="ghost" dense icon={X} aria-label={`Remove ${gone(id) ? "the deleted character" : nameOf(id)}`} onClick={() => onChange(value.filter((x) => x !== id))}>{gone(id) ? "Remove" : ""}</Button>}
+              {gone(id) && <Button variant="secondary" dense onClick={() => setReplacing(replacing === id ? null : id)} aria-expanded={replacing === id}>Pick another</Button>}
+              <Button variant="ghost" dense icon={X} aria-label={`Remove ${gone(id) ? "the deleted character" : nameOf(id)}`} onClick={() => onChange(value.filter((x) => x !== id))}>{gone(id) ? "Remove" : ""}</Button>
             </div>
             {replacing === id && picker("Instead", (pick) => { onChange(value.map((x) => (x === id ? pick : x))); setReplacing(null); })}
           </li>
         ))}
       </ul>
-      {!readOnly && library.data && workspace.length === 0 ? (
+      {library.data && workspace.length === 0 ? (
         <p className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted">No characters yet.</span>
           <Link className={buttonClass("secondary")} to={`/b/${brandId}/library`}>Add one in Cast & places</Link>
         </p>
       ) : (
-        !readOnly && picker("Add to the default cast", (pick) => onChange([...value, pick]))
+        picker("Add to the default cast", (pick) => onChange([...value, pick]))
       )}
     </fieldset>
   );
