@@ -34,7 +34,7 @@ Status: plan for the Producer to publish to Reed. Nothing here is built. Reed's 
 
 Before the director is built, the agents write down what they've learned, so it starts where they are:
 
-- Each agent adds to `docs/next/agent-knowledge.md`, split into **general craft** and **per brand**: FOMO-Producer, Song-Producer, Writer, the Director's own notes, and QA-Live.
+- Each agent writes `docs/next/harvest/<agent>.md` (about a page), split into **general craft** and **per brand**: FOMO-Producer, Song-Producer, Writer, the Director's own notes, and QA-Live.
 - The Director folds the general part into rules.md and the step prompts, and the brand part into each brand's notes.
 - **One story's own logic** (why a fall happens, the stakes, the payoff) stays with that video and never becomes a rule. Reed was explicit about this.
 - After launch, feedback is sorted the same way: craft → rules (via the Director), brand → brand notes, story → that video only.

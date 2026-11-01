@@ -32,7 +32,7 @@ def step_failed(db: Session, job: Job) -> None:
     from app.reel_read import watch_failed
 
     explain(db, job)
-    if job.input.get("step") == "item_check":
+    if job.input.get("step") in ("item_check", "take_words"):
         from app.item_checks import failed
 
         failed(db, job)
@@ -135,6 +135,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.song_takes import save_take as save_song
     from app.song_takes import save_timing
     from app.storyboard import save_frames, save_still
+    from app.take_words import save as save_words
 
     handlers = {
         "enhance": save_suggestions,
@@ -150,6 +151,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "look_fit": save_fit,
         "frame": save_still,
         "item_check": save_check,
+        "take_words": save_words,
         "look_sample": save_sample_still,
         "look_sample_clip": save_sample_clip,
         "clip_prompts": save_clip_prompts,

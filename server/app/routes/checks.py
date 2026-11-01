@@ -55,13 +55,15 @@ def review(project_id: int, user: User = Depends(current_user), db: Session = De
             items.append(FlaggedOut(kind="still", id=f.id, clip_id=f.clip_id, label=label,
                                     findings=n))  # fmt: skip
     seen = item_checks.latest(db, "take", [t.id for t in takes])
+    heard = item_checks.latest(db, "words", [t.id for t in takes])  # what each take says
     paused |= any(r.status == "skipped" for r in seen.values())
     for t in takes:
-        if (out := item_checks.shown(db, seen.get(t.id))) and out.findings:
+        found = [o for c in (seen, heard) if (o := item_checks.shown(db, c.get(t.id)))]
+        if n := sum(len(o.findings) for o in found):
             clip = picked[t.id].clip_id
             items.append(FlaggedOut(kind="take", id=t.id, clip_id=clip,
                                     label=f"Clip {clip} · take {t.number}",
-                                    findings=len(out.findings)))  # fmt: skip
+                                    findings=n))  # fmt: skip
     db.commit()  # a check whose job ended without an answer now reads "failed"
     each, whole = item_checks.price(db, project), item_checks.per_video(db, project)
     return ReviewOut(on=item_checks.on(), items=items, paused=paused,
