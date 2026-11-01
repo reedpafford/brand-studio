@@ -398,6 +398,12 @@ class FakeWriter:
         answer = getattr(self, f"_{step}")(prompt)
         return Result("succeeded", output=SCHEMAS[step].model_validate(answer).model_dump())
 
+    def _director(self, prompt):
+        """The stand-in director: the agents' order, from the video's state (app/director)."""
+        from app.director import choose
+
+        return choose(json.loads(_tag(prompt, "video")))
+
     def _enhance(self, prompt):
         return {"suggestions": [], "notes": []}
 

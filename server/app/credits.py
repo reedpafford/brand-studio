@@ -271,7 +271,9 @@ def needs_approval(db: Session, user: User, project: Project | None, credits: De
     the row locked."""
     if user.is_owner or project is None:
         return False
-    return credits_used(db, project) + credits > project.budget_credits
+    step = Job.input["step"].as_string()  # the director's own turns have their own limit
+    used = _sum_credits(db, Job.project_id == project.id, or_(step.is_(None), step != "director"))
+    return used + credits > project.budget_credits
 
 
 FREE_LANES = ("fake", "local")  # our own server and the tests' fake: never a paid call

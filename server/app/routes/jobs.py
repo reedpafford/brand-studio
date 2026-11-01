@@ -365,6 +365,10 @@ def decline_job(
     db.refresh(job)
     job.input = {**job.input, DECLINE: True}  # not a withdrawal: the editor sees it was a no
     db.commit()
+    if job.project_id:  # the director waited on it: it goes on, told what happened
+        from app import director
+
+        director.wake(db, db.get(Project, job.project_id))
     return job
 
 
@@ -388,6 +392,10 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     if done.rowcount != 1:
         raise HTTPException(409, "This job has already started.")
     db.commit()
+    if job.project_id:  # a press the director waited on was withdrawn: it goes on
+        from app import director
+
+        director.wake(db, db.get(Project, job.project_id))
     db.refresh(job)
     return job
 
