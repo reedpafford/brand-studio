@@ -275,6 +275,7 @@ def failed(db: Session, job: Job) -> None:
 
 
 TAGS = re.compile(r"(\[Image)(\d+)\]")
+TAGS_N = re.compile(r"\[Image(\d+)\]")
 
 
 def _pictures(known: Assets) -> dict[str, tuple[str, list[int]]]:
@@ -338,6 +339,18 @@ def _add(prompt: str, start: str, text: str) -> str:
     return prompt
 
 
+def _forget(prompt: str, gone: set[int]) -> str:
+    """The References and Keep sentences about pictures no longer attached go with them."""
+    lines = prompt.splitlines()
+    for i, line in enumerate(lines):
+        head = next((h for h in ("References: ", "Keep: ") if line.startswith(h)), None)
+        if head and gone:
+            said = re.split(r"(?<=\.)\s+", line[len(head) :])
+            kept = [s for s in said if not ({int(n) for n in TAGS_N.findall(s)} & gone)]
+            lines[i] = head + " ".join(kept)
+    return "\n".join(lines)
+
+
 def with_cast(
     db: Session,
     project: Project,
@@ -354,8 +367,9 @@ def with_cast(
     is attached too, after them, the payoff screen last (the Director, #556: "screen isn't
     attached" never blocks). Every [ImageN] follows its picture; an added character joins the
     References and Keep lines, an added screen the References line. Free; doing it again
-    changes nothing. With trim off (an edit, or a saved clip) nothing already picked is
-    dropped."""
+    changes nothing. A sheet of someone not in the clip's shots is dropped, with its
+    References and Keep sentences (FOMO's Reptilian v4: absent people's sheets blurred c4 and
+    c7). With trim off (an edit, or a saved clip) nothing already picked is dropped."""
     known = known if known is not None else assets(db, project)
     pics = _pictures(known)
     images: list[Reference] = []  # each picture once
@@ -368,6 +382,9 @@ def with_cast(
     lead = hero(db, project, bd, pics)
     cast = [c for c in _cast(bd, clip.clip_id, pics, lead) if pics.get(c, ("", []))[1]]
     missing = [c for c in cast if not any(_same(pics, c, r.id) for r in people)]
+    everyone = _cast(bd, clip.clip_id, pics, lead)  # one with no approved sheet yet counts
+    if trim:  # only who's in the clip
+        people = [r for r in people if any(_same(pics, r.id, c) for c in everyone)]
 
     def rank(r: Reference) -> int:
         return next((i for i, c in enumerate(cast) if _same(pics, r.id, c)), len(cast))
@@ -407,7 +424,9 @@ def with_cast(
     ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
     dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
-    prompt = _renumber(clip.prompt, moved, dropped, TAGS)
+    absent = {i for i in dropped if before[i - 1].startswith(CHAR) and trim
+              and not any(_same(pics, before[i - 1], c) for c in everyone)}  # fmt: skip
+    prompt = _renumber(_forget(clip.prompt, absent), moved, dropped, TAGS)
     for r in (r for r in new if r.id not in before):
         who, tag = _name(pics, r.id), f"[Image{new.index(r) + 1}]"
         if r.id in want:  # the actual screen or product (Reed, 30 Oct)
