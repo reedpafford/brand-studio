@@ -58,8 +58,11 @@ def say(brand: Brand) -> str:
     return brand.name
 
 
-def _finding(kind: str, at: float | None, text: str, note: str, role: str = "") -> dict:
-    return {"kind": kind, "role": role, "at": at, "text": text, "change_note": note}
+def _finding(kind: str, at: float | None, text: str, note: str, role: str = "",
+             span: list[float] | None = None) -> dict:  # fmt: skip
+    """`span`: the stretch the card can offer to mute (take_mute), when muting fixes it."""
+    return {"kind": kind, "role": role, "at": at, "text": text, "change_note": note,
+            **({"span": span} if span else {})}  # fmt: skip
 
 
 def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
@@ -89,12 +92,14 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                         h["start"],
                         f"“{said}” at {at} isn't in the script: the action was spoken. {mute}",
                         SHOW,
+                        span=[h["start"], h["end"]],
                     )
                 )
             else:
                 findings.append(_finding("extra", h["start"], f"“{said}” at {at} isn't in the "
                                          f"script. {mute}", f"Say only the script's lines, "
-                                         f"word for word: no “{said}”."))  # fmt: skip
+                                         f"word for word: no “{said}”.",
+                                         span=[h["start"], h["end"]]))  # fmt: skip
         for word in re.findall(r"[A-Za-z']+", said):
             if word.lower() not in scripted and _off_by_one(word.lower(), brand.lower()):
                 findings.append(_finding("name", h["start"], f"“{word}” at {at}: {brand} may "

@@ -26,6 +26,7 @@ from app import (
     narration_music,
     prompts,
     screen_figures,
+    take_mute,
     video_settings,
 )
 from app.advice import Said
@@ -76,6 +77,7 @@ class TakeOut(BaseModel):
     check: CheckOut | None = None  # P4: the advisory check on this take (Advice only)
     words: CheckOut | None = None  # what it says against the script's lines (Advice only)
     verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
+    mutes: list[list[float]] = []  # stretches silenced in the final cut (app/take_mute)
 
 
 class NarrationOut(BaseModel):
@@ -196,6 +198,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 check=(seen := item_checks.shown(db, checks.get(t.id))),
                 words=(heard := item_checks.shown(db, words.get(t.id))),
                 verdict=item_checks.verdict([seen, heard]),
+                mutes=take_mute.spans(t),
             )  # fmt: skip
             for t in takes
         ],
@@ -621,9 +624,14 @@ def set_insert(
 
 
 def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[str]:
-    return [
-        f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c) if i.on
-    ]
+    """What the final cut puts over its takes: each insert switched on, and each muted stretch
+    (so a new one shows as changes waiting)."""
+    cuts = [f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c)
+            if i.on]  # fmt: skip
+    for c in clips:
+        take = db.get(ClipTake, c.picked_take_id) if c.picked_take_id else None
+        cuts += take_mute.labels(c, take)
+    return cuts
 
 
 @router.post("/clips/{clip_id}/prompt-ok", response_model=ProjectClipOut)
@@ -679,6 +687,61 @@ def unkeep_clip_advice(
     """Undo Keep anyway on this clip's advice or kept problem (?problem=, the text as shown)."""
     project, row = _clip(db, user, project_id, clip_id)
     advice.unkeep(row, problem)
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
+class MuteIn(BaseModel):
+    start: float
+    end: float
+
+
+def _muting(db: Session, user: User, project_id: int, clip_id: int):
+    """The picked take a mute is for: whoever made the video or the owner, never archived."""
+    _mine(db, user, project_id)
+    project, row = _clip(db, user, project_id, clip_id)
+    if project.archived_at is not None:
+        raise HTTPException(409, "This video is archived. Restore it first.")
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    if not take:
+        raise HTTPException(409, "Make a take of this clip first.")
+    return project, row, take
+
+
+@router.post("/clips/{clip_id}/mute", response_model=ProjectClipOut)
+def mute(
+    project_id: int,
+    clip_id: int,
+    body: MuteIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Mute a stretch of the picked take in the final cut (an unscripted line, a gasp). Free;
+    the take and its approval stay as they are. Undo: DELETE …/mute/{index}. A director tool
+    calls this same route."""
+    project, row, take = _muting(db, user, project_id, clip_id)
+    try:
+        take_mute.add(take, body.start, body.end, longest=float(row.seconds))
+    except ValueError as no:
+        raise HTTPException(422, str(no)) from no
+    db.commit()
+    return _out(db, row, _newest_breakdown(db, project))
+
+
+@router.delete("/clips/{clip_id}/mute/{index}", response_model=ProjectClipOut)
+def unmute(
+    project_id: int,
+    clip_id: int,
+    index: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo a mute: the stretch is heard again in the final cut."""
+    project, row, take = _muting(db, user, project_id, clip_id)
+    try:
+        take_mute.remove(take, index)
+    except IndexError:
+        raise HTTPException(404, "That stretch isn't muted.") from None
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 
@@ -833,7 +896,9 @@ def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> 
         for i in cut_in.inserts(db, project, clip)
         if i.on
     ]
-    return cut_in.apply(video, cuts, clip.seconds) if cuts else video
+    video = cut_in.apply(video, cuts, clip.seconds) if cuts else video
+    take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
+    return take_mute.apply(video, take_mute.spans(take))  # stretches muted by hand
 
 
 @router.get("/video", response_model=VideoOut)
