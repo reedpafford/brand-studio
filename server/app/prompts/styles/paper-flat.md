@@ -14,7 +14,7 @@ Flat construction-paper cutout: a jointed paper-puppet character built from simp
 Flat construction-paper cutout: a scene of simple layered flat card shapes with snipped edges and visible paper grain, bold flat colours, soft drop shadows between the layers, the scene filling the entire frame.
 
 ## still_look
-The Flat Paper look, unless the brand block says otherwise: "Flat construction-paper cutout scene — simple layered flat card shapes, snipped edges, visible paper grain, jointed paper puppet characters, soft drop shadows between the layers, bold flat colors, the scene filling the entire frame with the camera inside the paper world. Faces, builds and outfits come from the character sheets. Everything in frame is real physical paper, photographed — visible paper grain and fibers, cut edges showing paper thickness, real cast shadows, soft studio lighting, the paper shot filling the entire frame."
+The Flat Paper look, unless the brand block says otherwise: "Flat construction-paper cutout scene — simple layered flat card shapes, snipped edges, visible paper grain, jointed paper puppet characters, soft drop shadows between the layers, bold flat colors, the scene filling the entire frame with the camera inside the paper world. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Everything in frame is real physical paper, photographed — visible paper grain and fibers, cut edges showing paper thickness, real cast shadows, soft studio lighting, the paper shot filling the entire frame."
 
 ## clip_style
 Flat construction-paper cutout paper stop-motion, snipped card with visible grain, 12 fps judder with slight frame-to-frame jitter and no motion blur

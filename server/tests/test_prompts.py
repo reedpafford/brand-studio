@@ -8,7 +8,7 @@ import pytest
 
 import evals
 from app import prompts
-from app.prompts import check, schemas
+from app.prompts import HERE, check, schemas
 from evals import checks
 
 EXAMPLES = Path(prompts.__file__).parent / "examples"
@@ -196,7 +196,17 @@ def test_the_sheet_owns_the_face_in_every_prompt():
     """Reed (faces, #602), after docs/prompting/seedance-2.5.md §1-2 and nano-banana.md §2."""
     clip = prompts.system("clip_prompts")
     assert "the main character's sheet first" in clip
-    assert "set each face and outfit and override the first frame where they differ" in clip
+    assert "the character sheets set each face, and each outfit unless this video gives" in clip
+    assert "set each face and outfit" not in clip  # the video's own outfit wins (QA-7, #1131)
+    assert "the Keep line names it instead of the sheet's" in clip
+    # QA-7 on #1131: no prompt says the sheet or look alone sets the outfit, rules.md included
+    old = re.compile(r"(face|hair|faces, builds)[^.]{0,20}(and|,) outfits? (come|from)|"
+                     r"set each face and outfit|sets his face and outfit", re.I)  # fmt: skip
+    for path in [*HERE.glob("*.md"), *HERE.glob("styles/*.md"), *HERE.glob("examples/*.json")]:
+        assert not old.search(path.read_text()), path.name
+    assert (
+        "and their outfit too unless this video gives them one" in (HERE / "rules.md").read_text()
+    )
     assert "big glossy eyes" not in clip.split("Style: ", 1)[1].split("\n", 1)[0]
     assert "Keep: Aiden's identity and clothing stable in every shot" in clip
     for step in ("breakdown", "script_draft", "variations"):
@@ -1478,7 +1488,10 @@ def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
     assert "a copy, not a premise" in prompts.system("script_draft")
     assert "Write a montage only when this story" in prompts.system("script_draft")
     director = prompts.system("director")
-    assert "Watch it as a viewer." in director and "garbled or invented screen" in director
+    assert "Judge it as a viewer." in director and "garbled or invented screen" in director
+    # The Producer: the director can't see the cut, so it judges from the notes, never claims it.
+    assert "You can't see the cut" in director and "Never say you watched" in director
+    assert "watch the whole cut" not in director
 
 
 def test_fomo_producers_redo_notes_reach_the_prompts():
@@ -1522,6 +1535,17 @@ def test_clip_lengths_are_suggestions_not_rules():
         assert "s at most" not in text and "up to about 13 s" not in text, step
 
 
+def test_the_director_keeps_to_what_is_locked():
+    """Next-Server's #1129: <video> carries `locked` (and `outfits`); make_looks is refused
+    while the cast is locked, so the director never spends a turn on it."""
+    director = prompts.system("director")
+    assert "**Keep to what's locked.**" in director and "locked: the choices fixed" in director
+    assert "uses the locked screens" in director and "`make_looks` is refused" in director
+    # The Producer, after #1124: a video's own outfit (the cast line's "wears: …") wins.
+    wins = 'their cast line\'s "wears: … (this video)"), which wins'
+    assert wins in prompts.system("storyboard") and wins in prompts.system("clip_prompts")
+
+
 def test_the_director_tries_a_failed_item_again_or_goes_on_without_it():
     """Next-Server's #1087: <video> carries failed_since_last_turn; the server stops an item
     after its third failure and ends the run itself, so the prompt only says retry it or go on."""
@@ -1548,3 +1572,27 @@ def test_no_text_means_no_captions_and_story_text_is_stated_exactly():
         assert "The only text in frame is on the real brand screen" not in text, step
     assert "random or garbled writing, a caption burned in" in prompts.system("director")
     assert "No text, letters" in prompts.sheet_prompt("character", "a man")  # a reference
+
+
+def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
+    """Reed, 1 Nov: "i want it to watch and make those fixes if something is off how we do it
+    in the chat." The contract agreed with Builder-Server-8 and Next-Server: cut seconds only,
+    one fix per finding, never a change to the script's words (rule 19)."""
+    watch = prompts.system("watch_cut")
+    assert prompts.SCHEMAS["watch_cut"] is schemas.CutWatch and "rules.md" not in watch
+    for part in ("the story reads without the words", "a mispronounced name", "rule 32",
+                 "never suggest changing a line", "The ending lands", "never a script word",
+                 "A gasp or a laugh the story motivates is fine"):  # fmt: skip
+        assert part.lower() in watch.lower(), part
+    fixes = schemas.CutFinding.model_fields["fix"].annotation.__args__
+    assert set(fixes) == {"redo", "pick", "mute", "keep"}
+    one = schemas.CutFinding(clip_id="c1", start=0, end=1, says="x", fix="keep")
+    with pytest.raises(ValueError):
+        schemas.CutWatch(lands=True, summary="", findings=[one] * 7)
+    text = prompts.watch_cut_input(
+        "Get <fomo>.", "1. He wins.", [{"clip_id": "c1", "start": 0, "end": 4.2}],
+        [{"word": "Get", "start": 0.1, "end": 0.3, "clip_id": "c1"}],
+        [(1, "c1 at 0.0 s (shot 1.1 starts)")], "House",
+    )  # fmt: skip
+    assert "<script>Get &lt;fomo&gt;.</script>" in text and "[Image1] c1 at 0.0 s" in text
+    assert '"clip_id": "c1"' in text

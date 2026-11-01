@@ -87,7 +87,7 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
   // Assets: looks are made by themselves, then approved
   await state(ed, `${tag} assets`);
   for (let i = 0; i < 8; i++) {
-    if (await btn(ed, /^Next: Storyboard/).isEnabled().catch(() => false)) break;
+    if (await btn(ed, /^Next: Make/).isEnabled().catch(() => false)) break;
     const st = await state(ed, `${tag} assets ${i}`);
     if (/flavour first/.test(st.next)) {
       const flav = ed.getByRole("region", { name: "Products" }).locator('button[aria-pressed="false"]').first();
@@ -101,7 +101,7 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
     if (i >= 3 && (await look.isEnabled().catch(() => false))) { await look.click(); }
     await ed.waitForTimeout(8_000);
   }
-  if (!(await next(ed, /^Next: Storyboard/, `${tag} assets`, 20_000))) return;
+  if (!(await next(ed, /^Next: Make/, `${tag} assets`, 20_000))) return;
   // Storyboard
   await state(ed, `${tag} storyboard`);
   if (!(await clickWhenOn(ed, /^Make storyboard/, 20_000))) { await block(ed, `${tag} storyboard`, "Make storyboard not on"); return; }
