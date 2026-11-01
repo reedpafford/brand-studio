@@ -1330,6 +1330,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/credits/real-budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Real Budget
+         * @description The test site's real-AI budget for the owner (and the Producer during Reed's test):
+         *     how much of it real calls have used so far.
+         */
+        get: operations["real_budget_credits_real_budget_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/estimate": {
         parameters: {
             query?: never;
@@ -7769,6 +7790,17 @@ export interface components {
              */
             url: string;
         };
+        /** RealBudgetOut */
+        RealBudgetOut: {
+            /** On */
+            on: boolean;
+            /** Budget Usd */
+            budget_usd: number;
+            /** Spent Usd */
+            spent_usd: number;
+            /** Since */
+            since: string | null;
+        };
         /** ReelRow */
         ReelRow: {
             /**
@@ -12668,6 +12700,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EditorAllowanceOut"][];
+                };
+            };
+        };
+    };
+    real_budget_credits_real_budget_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RealBudgetOut"];
                 };
             };
         };
