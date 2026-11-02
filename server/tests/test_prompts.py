@@ -1612,7 +1612,10 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
     # QA-10 on #1158: each note comes once; the asks come first, named; the watch fixes only
     # what the change broke, with no unasked extras
     assert "optional <chat> (JSON: [{text, new}]" in director  # Next-Server's #1155 shape
-    assert "Act only on a note with `new` true" in director and "never act on it again" in director
+    # QA-10: one action a turn, so a handled note's unfinished steps still get done, never twice
+    assert "start on all its asks, one action a turn" in director
+    assert "finish any part of it that isn't done yet" in director
+    assert "never repeat a finished step" in director and "never act on it again" not in director
     assert "name the ask in that action's `why`" in director and "not yet read" not in director
     assert "only a real fault the change itself caused" in director
     assert "no other new fixes or extras" in director and "names each ask" in director
