@@ -9,12 +9,19 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
 import { SongRow, useSongLength } from "./SongParts";
-import { beingMade } from "./ScriptsPage";
+import { beingMade } from "./status";
 import { useScript } from "./useScript";
 import { MakeSettings, useMakeEstimate, type Picks } from "./MakeSettings";
 
 const LETTER = ["A", "B", "C"];
 const SHOWN = 8;
+
+/** What pressing Make this version charges: the plan (or the shots from the owner's plan), one paid call; nothing when a
+ *  breakdown is already saved (#941). */
+export function useStartCost(hasBreakdown: boolean | undefined) {
+  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
+  return hasBreakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
+}
 
 /** A ready version before it is made: its words, cast and plan. "Make this version" reserves it and opens the video at Plan,
  *  with the plan being made (#941), or the shots when the owner's plan is approved. */
@@ -33,7 +40,6 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
     },
   });
   const planned = ownerPlan.data?.status === "approved";
-  const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const [all, setAll] = useState(false);
   const [picks, setPicks] = useState<Picks>({}); // the Video settings row's picks (VS1), sent with the press
   const s = script.data;
@@ -57,7 +63,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   });
   // With no saved preview, starting makes the plan, or the shots from an approved owner's plan (one paid call each, #941);
   // with one saved, making the version is free.
-  const cost = v?.has_breakdown ? undefined : rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit;
+  const cost = useStartCost(v?.has_breakdown);
   const songLength = useSongLength(scriptId, s?.kind === "song");
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";

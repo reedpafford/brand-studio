@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Check, ChevronRight, CircleAlert, Clock, FileText, Search } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, Tabs, type Tone } from "../components";
-import { STATUS as SCRIPT_STATUS, age, useDebounced } from "../scripts/ScriptsPage";
+import { STATUS as SCRIPT_STATUS, age, useDebounced } from "../scripts/status";
 import { useRail } from "../useMedia";
 import { Money, lastText, periodWord } from "./parts";
 import { useBrandScripts, useBrandVideos, type Period, type ScriptFilters, type VideoFilters } from "./useUsage";

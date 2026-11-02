@@ -33,7 +33,7 @@ test("a script is made in the library: describe it, write its words, and it is l
   // Back in the library it is listed as Writing.
   await page.getByRole("link", { name: "Scripts", exact: true }).first().click();
   await expect(page.getByRole("link", { name: "Bo tries salmon", exact: true })).toBeVisible();
-  await expect(page.getByText("A · Writing")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Version A, writing" })).toBeVisible();
 
   // Write one variation (stand-in provider, no cost), read it next to the original, approve it.
   await page.getByRole("link", { name: "Bo tries salmon", exact: true }).click();
@@ -74,13 +74,13 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("button", { name: "Publish 2 versions" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByText("Published. 2 versions are ready to make.")).toBeVisible();
-  await expect(page.getByText("A · Ready to make")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Version A, ready to make" })).toBeVisible();
 
   // Published is final, but Reed may still tidy its About (title, what it's for, notes), at 390 too.
   await page.setViewportSize({ width: 390, height: 900 });
   const library = new URL(page.url());
   const href = await page.getByRole("link", { name: "Bo tries salmon", exact: true }).getAttribute("href");
-  await page.goto(href!.replace("step=publish", "step=script"));
+  await page.goto(`${href}?step=script`); // the title opens its Overview; About is on the Script step
   await page.getByText("About this script").click();
   await expect(page.getByText("Reference reel (optional)")).toHaveCount(0);
   await page.getByLabel("Notes (optional)").fill("Warm light, slow pour.");
