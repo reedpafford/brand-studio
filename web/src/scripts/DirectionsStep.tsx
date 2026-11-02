@@ -51,7 +51,7 @@ export function DirectionsStep({ script: s, onAccepted }: { script: Script; onAc
     <div className="mx-auto grid max-w-[1024px] gap-6 lg:grid-cols-[minmax(0,680px)_320px]">
       <section aria-label="Suggested directions" className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
             <h2 className="type-card">Suggested directions</h2>
             <p className="text-sm text-muted">Accept the ones you want, then apply them. Only accepted ones are added.</p>
           </div>
@@ -85,7 +85,7 @@ export function DirectionsStep({ script: s, onAccepted }: { script: Script; onAc
               {live.map((m) => {
                 const on = m.status === "accepted";
                 return (
-                  <li key={m.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-border py-2 sm:min-h-13 sm:grid-cols-[minmax(0,1fr)_112px_196px]">
+                  <li key={m.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-border py-2 sm:min-h-[68px] sm:grid-cols-[minmax(0,1fr)_112px_196px]">
                     <span className="col-span-2 min-w-0 sm:col-span-1">
                       {m.text}
                       {m.reason && <span className="block text-xs text-muted">Why: {m.reason}</span>}

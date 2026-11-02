@@ -200,7 +200,7 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
       <Menu
         title="Project"
         trigger={(p) => (
-          <Button {...p} variant="ghost" dense icon={pick ? undefined : Folder} trailing={ChevronDown} busy={file.isPending} aria-label={pick ? `Project: ${nameOf(folderId)}` : undefined} className={`max-w-full whitespace-nowrap ${pick ? "border border-border" : ""}`}>
+          <Button {...p} variant="ghost" dense icon={pick ? undefined : Folder} trailing={ChevronDown} busy={file.isPending} aria-label={pick ? `Project: ${nameOf(folderId)}` : undefined} className={`max-w-full whitespace-nowrap ${pick ? "border border-border text-sm" : ""}`}>
             {pick ? (
               <>
                 <span className="text-muted">Project</span> {folderId == null ? "None" : nameOf(folderId)}
