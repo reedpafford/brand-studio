@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Check, Sparkles } from "lucide-react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Card, creditsText, Dialog, EmptyState, Field, Skeleton } from "../components";
@@ -26,6 +26,7 @@ export const STEPS: Record<string, string> = {
   clip_take: "A new take",
   sheet: "A character's look",
   improve: "A better prompt",
+  director: "The director's next move",
   song_take: "Songs, narration or music on a script",
   // As the server names them (needs_you.NAMES), for every step an editor's press can be held on (QA-5 on #1114).
   plan: "The scene plan",
@@ -186,6 +187,15 @@ function Preview() {
 }
 
 function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: number }) {
+  // A link from the request's own page (?job=ID, e.g. the director's held move) lands on its row.
+  const [params] = useSearchParams();
+  const asked = params.get("job") === String(job.id);
+  useEffect(() => {
+    if (!asked) return;
+    const row = document.getElementById(`job-${job.id}`);
+    row?.scrollIntoView?.({ block: "center" });
+    row?.focus();
+  }, [asked, job.id]);
   const toast = useToast();
   const refresh = useRefresh();
   const [declining, setDeclining] = useState(false);
@@ -214,14 +224,14 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
   const week = allowances.data?.find((a) => a.user_id === job.created_by_id);
   const after = project && project.budget_credits > 0 ? ((project.credits_used + job.credits) / project.budget_credits) * 100 : null;
   return (
-    <li className="flex gap-3 p-4 text-sm sm:p-5">
+    <li id={`job-${job.id}`} tabIndex={-1} aria-current={asked || undefined} className={`flex gap-3 p-4 text-sm sm:p-5 ${asked ? "outline outline-2 -outline-offset-2 outline-accent" : ""}`}>
       <Preview />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <Where brandId={brandId}>
             {project ? (
               <>
-                <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
+                <Link className="inline-flex min-h-11 items-center underline sm:min-h-0" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
                 <span aria-hidden className="text-muted">·</span>
                 <span>{what}</span>
               </>
@@ -284,7 +294,7 @@ function ProjectRow({ project, heldJobs }: { project: Project; heldJobs: number 
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <Where brandId={project.brand_id}>
-            <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
+            <Link className="inline-flex min-h-11 items-center underline sm:min-h-0" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
             <span aria-hidden className="text-muted">·</span>
             <span>project</span>
           </Where>

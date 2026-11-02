@@ -13,7 +13,7 @@ Friendly stylised 3D animated render: rounded, appealing forms, a readable silho
 Friendly stylised 3D animated render of an infinite bright cyan-blue world with a soft horizon. This world is an infinite canvas: it continues unbroken past every edge of the frame, and the camera is inside it. No ceiling, no roof structure, no walls, and no platform edge or visible boundary where the ground ends. The ground is completely smooth with no grid lines anywhere. Soft even light; only the few props the line needs, resting on the ground with soft contact shadows.
 
 ## still_look
-The Zack D look, unless the brand block says otherwise: "Friendly stylised 3D animated render with rounded, appealing forms and soft even lighting; the product itself is photo-accurate. The environment is an infinite bright cyan-blue world with a soft horizon. This world is an infinite canvas: it continues unbroken past every edge of the frame, and the camera is inside it. No ceiling, no roof structure, no walls, and no platform edge or visible boundary where the ground ends. The ground is completely smooth with no grid lines anywhere. Faces, builds and outfits come from the character sheets. The subject is centred or deliberately placed, with generous clean background in frame and one soft contact shadow; everything rests naturally on the ground, nothing floats. It reads on a phone in under a second: one subject, one idea, clean space."
+The Zack D look, unless the brand block says otherwise: "Friendly stylised 3D animated render with rounded, appealing forms and soft even lighting; the product itself is photo-accurate. The environment is an infinite bright cyan-blue world with a soft horizon. This world is an infinite canvas: it continues unbroken past every edge of the frame, and the camera is inside it. No ceiling, no roof structure, no walls, and no platform edge or visible boundary where the ground ends. The ground is completely smooth with no grid lines anywhere. Faces and builds come from the character sheets, and outfits too unless this video gives its own. The subject is centred or deliberately placed, with generous clean background in frame and one soft contact shadow; everything rests naturally on the ground, nothing floats. It reads on a phone in under a second: one subject, one idea, clean space."
 
 ## clip_style
 Friendly stylised 3D animation, rounded forms and soft even light, one continuous camera move through an infinite bright cyan-blue world, the product photo-accurate. No captions
@@ -58,8 +58,8 @@ on a stage → in the world
 
 ## fixes
 refused: Soften it (a cutaway shows the thing, never an injury), then Make another.
-face: Make another first. If it drifts again, Change this… "the same face as the sheet: same hair, skin tone and outfit, friendly stylised 3D".
-outfit: Change this… naming the sheet's one outfit colour.
+face: Make another first. If it drifts again, Change this… "the same face as the sheet: same hair and skin tone, friendly stylised 3D".
+outfit: Change this… naming the one outfit colour, this video's when it gives one, else the sheet's.
 product: Change this… "the real product from its image on a podium in the blue world, the label facing the camera".
 
 ## sample
