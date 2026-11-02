@@ -2,9 +2,18 @@ import { useRef, useState, type ReactNode } from "react";
 import { Pause, Play } from "lucide-react";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
+import { Link, useParams } from "react-router-dom";
 import { Button } from "../components";
 
 type Item = components["schemas"]["ItemOut"];
+type UsedIn = components["schemas"]["UsedIn"];
+
+// G_Character's Used in: each video with where it is ("Delivered", "Working"), in plain words.
+const USED: Record<UsedIn["status"], { label: string; dot: string }> = {
+  needs_you: { label: "Needs attention", dot: "bg-warning" },
+  making: { label: "Working", dot: "bg-accent" },
+  done: { label: "Delivered", dot: "bg-success" },
+};
 
 /** One section of the item page: a title, an optional quiet press on the right, then its content (v5 G boards). */
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -100,7 +109,32 @@ export function ItemView({ item, kind, shared, brandNames, onEdit }: { item: Ite
           ))}
         </div>
       </Section>}
+      <UsedInSection used={item.used_in ?? []} />
     </div>
+  );
+}
+
+/** The videos that use this item (#1212), each linked, with where it is. */
+function UsedInSection({ used }: { used: UsedIn[] }) {
+  const { brandId } = useParams();
+  return (
+    <Section title="Used in">
+      {used.length === 0 ? (
+        <p className="text-sm text-muted">No videos yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {used.map((u) => (
+            <li key={u.project_id} className="flex flex-wrap items-center justify-between gap-x-3">
+              <Link to={`/b/${brandId}/projects/${u.project_id}`} className="inline-flex min-h-11 min-w-0 items-center break-words text-sm hover:underline lg:min-h-8">{u.name}</Link>
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                <span aria-hidden className={`size-2 rounded-full ${USED[u.status].dot}`} />
+                {USED[u.status].label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
   );
 }
 

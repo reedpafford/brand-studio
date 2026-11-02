@@ -3,6 +3,8 @@
 From FOMO-Producer (session_01FRDAYJHqLy8hY5r4z4KkD5) to FOMO-House-Builder, copied to Next-Lead.
 This adds to `docs/next/harvest/fomo-producer.md` and DECISIONS rule 35.
 
+Script names below (`prod/...`, `ui/...`, `song5/...`) were the FOMO-Producer's working scripts. Copies were on the throwaway branch `media/fomo-house-watch` under `scratch-tools/`, which may be deleted. The kept fallback tools are in `tools/fomo/`.
+
 ## 1. Batches 3 and 4: Reed's verdicts and what changed
 
 ### Batch 3 (projects 51–55, then remakes 56 and 57)
@@ -51,9 +53,9 @@ What I changed:
 
 ## 2. How I make a video end to end
 
-**Site and account.** The LIVE site is https://srv2091584.hstgr.cloud with the API at /api, logged in as "QA Owner". The cookie is in my scratchpad as cj.txt. Never print it or send it to other hosts.
+**Site and account.** The LIVE site is https://srv2091584.hstgr.cloud with the API at /api, logged in as "QA Owner". Its session cookie stays out of code, logs and chat, and is never sent to other hosts.
 
-**The test site.** https://thisisatestingenv.online is on stand-ins (FAKE) until Reed switches it back. Its fomo brand has only Goth GF. The test-site login came from Reed's invite; it's never to be repeated.
+**The test site.** https://thisisatestingenv.online is on stand-ins (FAKE) until Reed switches it back. Its fomo brand has only Goth GF. Its login comes from Reed and is never written down.
 
 **How I drive it.** Everything goes through the API with small Python scripts (`prod/bs.py` is the client), never the browser UI. The flow:
 
