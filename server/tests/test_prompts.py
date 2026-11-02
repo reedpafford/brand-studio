@@ -1615,6 +1615,9 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
     # QA-10: one action a turn, so a handled note's unfinished steps still get done, never twice
     assert "start on all its asks, one action a turn" in director
     assert "finish any part of it that isn't done yet" in director
+    # the Producer: an ask stays open until made and named or answered; no delivery before
+    assert "Every ask in <chat> stays open, turn after turn" in director
+    assert "never deliver while an ask is open" in director
     assert "never repeat a finished step" in director and "never act on it again" not in director
     assert "name the ask in that action's `why`" in director and "not yet read" not in director
     assert "only a real fault the change itself caused" in director
