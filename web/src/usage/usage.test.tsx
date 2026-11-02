@@ -320,6 +320,21 @@ test("My credits shows no waiting figure until the server counts every held send
   setViewport(1440);
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, mine], "GET /jobs": [200, []] });
   open("/usage/mine");
-  expect(await screen.findByRole("heading", { name: "This week" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Your allowance this week" })).toBeInTheDocument();
   expect(screen.queryByText(/Waiting for the owner/)).toBeNull();
+});
+
+test("My credits shows a video's credits without the director's own time, that time apart, and a director-run video against what was approved (#1216, QA-3 on #1218)", async () => {
+  setViewport(1440);
+  const videos = [
+    { project_id: 9, title: "Garden scene", status: "in_production", credits: 97.33, director_credits: 70.4, budget_credits: 729, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Bo at the beach", status: "in_production", credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+  ];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, videos }] });
+  open("/usage/mine");
+  const list = await screen.findByRole("list", { name: "My videos" });
+  const garden = within(list).getByRole("link", { name: /Garden scene/ });
+  expect(garden).toHaveTextContent("27 credits of 729 credits") // 97.33 less 70.4, rounded up as credits are;
+  expect(garden).toHaveTextContent("70.4 credits of director time");
+  expect(within(list).getByRole("link", { name: /Bo at the beach/ })).toHaveTextContent("30 credits used of up to 204 credits approved");
 });

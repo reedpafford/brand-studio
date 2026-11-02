@@ -3,7 +3,7 @@ import { Check, ChevronDown, CircleAlert, Clapperboard, Clock, Film, Search, Tri
 import { Link, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, EmptyState, PageTop, Select, Sheet, Skeleton, Tabs, type Tone } from "../components";
+import { Badge, Banner, Button, EmptyState, PageTop, Select, Sheet, Skeleton, Tabs, creditsText, type Tone } from "../components";
 import { useDebounced } from "../scripts/status";
 import { VideoMenu, useVideoActions, type VideoTarget } from "../projects/ReleaseVideo";
 import { useBrands } from "../shell/useBrands";
@@ -120,9 +120,13 @@ function FlagLine({ r }: { r: Row }) {
 
 function Credits({ r }: { r: Row }) {
   return (
-    <span title={nearBudget(r) ? CLOSE : undefined} className={nearBudget(r) ? "text-warning" : undefined}>
-      {Math.round(budgetUsed(r))} of {Math.round(r.budget_credits)}
-    </span>
+    <>
+      <span title={nearBudget(r) ? CLOSE : undefined} className={nearBudget(r) ? "text-warning" : undefined}>
+        {Math.round(budgetUsed(r))} of {Math.round(r.budget_credits)}
+      </span>
+      {/* The director's own time, apart from the budget (#1216, QA-3 on #1218). */}
+      {(r.director_credits ?? 0) > 0 && <span className="block text-xs text-muted">{creditsText(r.director_credits)} of director time</span>}
+    </>
   );
 }
 

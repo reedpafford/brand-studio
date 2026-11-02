@@ -162,6 +162,7 @@ test("In production: a video's credits leave the director's own time out, so a d
   open();
   const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
   expect(within(link).getByText("100 of 420")).not.toHaveAttribute("title"); // 400 used, 300 of it the director's
+  expect(within(link).getByText("300 credits of director time")).toBeInTheDocument(); // shown apart (#1216, QA-3 on #1218)
 });
 
 test("In production: a row's credits and budget are rounded alike (20 of 32, never 20 of 32.06)", async () => {

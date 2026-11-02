@@ -7,6 +7,8 @@ import { lastBrand, useBrands } from "../shell/useBrands";
 import { PeriodControl, periodWord } from "./parts";
 import { periodFrom } from "./useUsage";
 
+const director = (v: { director_credits?: number }) => v.director_credits ?? 0;
+const used = (v: { credits: number; director_credits?: number }) => Math.max(0, v.credits - director(v));
 const VIDEO_STATUS = { in_production: "Being made", done: "Finished", failed: "Didn't finish" } as const;
 
 /** An editor's own credits (flows OR4): this week as the allowance counts it, then their videos, quick clips
@@ -44,7 +46,7 @@ export function MinePage() {
       {mine.isError && <Banner title="Couldn't load your credits." action={<Button variant="secondary" onClick={() => void mine.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       <div>
       <Card className="space-y-2">
-        <h2 className="type-section">This week</h2>
+        <h2 className="type-section">Your allowance this week</h2>
         {!week ? (
           <Skeleton className="h-16" />
         ) : (
@@ -92,8 +94,13 @@ export function MinePage() {
                       <span className="min-w-0 break-words font-medium">{v.title}</span>
                       <span className="flex items-center gap-2 text-sm">
                         <Badge tone={v.status === "failed" ? "danger" : v.status === "done" ? "success" : "neutral"}>{VIDEO_STATUS[v.status]}</Badge>
-                        <span className="tabular-nums text-muted">
-                          {creditsText(v.credits)} of {creditsText(v.budget_credits)}
+                        <span className="text-right tabular-nums text-muted">
+                          {/* The director's own time is apart from the budget (#1216, QA-3 on #1218): a director-run video
+                              reads against what the owner approved, the rest against the budget. */}
+                          {v.approved_up_to != null
+                            ? `${creditsText(used(v))} used of up to ${creditsText(v.approved_up_to)} approved`
+                            : `${creditsText(used(v))} of ${creditsText(v.budget_credits)}`}
+                          {director(v) > 0 && <span className="block text-xs">{creditsText(director(v))} of director time</span>}
                         </span>
                       </span>
                     </Link>
