@@ -44,15 +44,16 @@ Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or
 - **Parked (credit cuts; small, not regressions):** a queued song take's "Waiting to start" counts from page open and resets on reload (needs the job's `created_at` on SongTakeOut plus one line in TakesStep; QA-3 on #1043). After Split and Rewrite the cost bar reads a little high (19) until a reload (16); above the charge, never below (QA-3 on #1013). An editor's character sheets and look samples made outside a video have no limit (cheap images, trusted team; Producer, 1 Nov): add a hold or an allowance if abused (QA on #1068).
 - **After Reed's test, in this order (Producer and Reed, 1 Nov):**
   1. **Word splice, first** (Reed: "First thing after my test"): when a take says a word wrong ("fogo" for "fomo"), the director cuts a correctly spoken copy of the word, in the same voice, from another take or clip over the bad one, with a short crossfade, using the words check's timestamps. If no clean copy exists, it redoes the clip with a pronunciation note. A director fix alongside watch_cut's findings.
-  2. **Export director:** one .md file the site builds from its current files: director.md, the rules and craft, every look and format guide (lanes included), watch_cut.md, and a blank brand-notes template. Never a brand's own notes.
-  3. The best_take swap, and stand-ins keep Advice-only takes (Next-Server, saved locally).
-  4. #1104's Advice: outfit text to one plain line; the screens lock only accepts the brand's screens (Next-Server, saved locally).
-  5. #1116's Advice: when the dropped person is named first in a shared Keep line, the remaining person keeps "identity and clothing stable".
-  6. Skeleton's opener reads "Usually opens on…" (the Director).
-  7. #1114's older notes: Plan's own button refreshes the held banner without a reload; over budget it reads "Send for approval", not "Make the plan".
-  8. #1140's leftover Advice: FrameCard's "Redo storyboard first" wording, and videoHold shared with the old page instead of copied. #1125's leftover Advice is listed on that PR.
-  9. #1141's Advice: a style's card says "No sheet yet" even when one of its lanes has a sheet.
-  10. settings.py's item_check_scope comment still says "one frame each"; a take check uses 6 frames under every scope.
+  2. **Freestyle Song and Narrated (3c):** server tools for a song take and a narration, plus the Director's prompt lines, so the director makes the song or narration first and times the plan to it (Producer, 2 Nov). Until then Freestyle Song and Narrated read "coming next".
+  3. **Export director:** one .md file the site builds from its current files: director.md, the rules and craft, every look and format guide (lanes included), watch_cut.md, and a blank brand-notes template. Never a brand's own notes.
+  4. The best_take swap, and stand-ins keep Advice-only takes (Next-Server, saved locally).
+  5. #1104's Advice: outfit text to one plain line; the screens lock only accepts the brand's screens (Next-Server, saved locally).
+  6. #1116's Advice: when the dropped person is named first in a shared Keep line, the remaining person keeps "identity and clothing stable".
+  7. Skeleton's opener reads "Usually opens on…" (the Director).
+  8. #1114's older notes: Plan's own button refreshes the held banner without a reload; over budget it reads "Send for approval", not "Make the plan".
+  9. #1140's leftover Advice: FrameCard's "Redo storyboard first" wording, and videoHold shared with the old page instead of copied. #1125's leftover Advice is listed on that PR.
+  10. #1141's Advice: a style's card says "No sheet yet" even when one of its lanes has a sheet.
+  11. settings.py's item_check_scope comment still says "one frame each"; a take check uses 6 frames under every scope.
 - **Next director slice, near the top (Producer, 1 Nov):** "Remake this" makes reel import → script the default path when an editor asks to remake a reel. Reed's main complaint on FOMO batch 3 was remakes that weren't copies; FOMO-Producer found reel import → script is the path that works (Director, 1 Nov).
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
 - **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song is a format in any look (30 Oct, #1031).
