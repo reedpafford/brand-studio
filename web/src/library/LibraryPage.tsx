@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, NavLink, useParams } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
@@ -24,18 +24,21 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   const { data: brands } = useBrands();
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState(false);
   const { data: me } = useMe();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const key = ["library", kind, brandId, archived];
-  const items = useQuery({
-    queryKey: key,
+  const load = (k: typeof kind, gone: boolean) => ({
+    queryKey: ["library", k, brandId, gone],
     queryFn: async () => {
-      const { data } = await api.GET("/library/{kind}", { params: { path: { kind }, query: { brand_id: brandId, archived } } });
+      const { data } = await api.GET("/library/{kind}", { params: { path: { kind: k }, query: { brand_id: brandId, archived: gone } } });
       if (!data) throw new Error("load");
       return data;
     },
   });
+  const items = useQuery(load(kind, archived));
+  // Each kind tab shows how many there are (W10); the same reads the kinds' own pages use.
+  const counts = useQueries({ queries: Object.values(KINDS).map((k) => load(k.kind, false)) });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
   const unarchive = useMutation({
     mutationFn: (item_id: number) => must(api.POST("/library/{kind}/{item_id}/unarchive", { params: { path: { kind, item_id } } })),
@@ -56,13 +59,20 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
 
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <PageTop title="Cast & places" line="The studio's reusable characters and places. Looks made for a video stay with that video." />
+      <PageTop title="Cast & places" line="The studio's reusable characters and places. Looks made for a video stay with that video.">
+        {!archived && !adding && (
+          <button className={`${btnPrimary} min-h-control`} onClick={() => setAdding(true)}>
+            New {one}
+          </button>
+        )}
+      </PageTop>
       {/* One bar: the kinds, then search and Show archived on the right (v4 board). */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border pb-2">
         <nav aria-label="Kinds" className="flex flex-wrap items-center gap-1">
-          {Object.entries(KINDS).map(([s, k]) => (
+          {Object.entries(KINDS).map(([s, k], n) => (
             <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>
               {k.title}
+              {counts[n].data && <span className="ml-2 tabular-nums text-muted">{counts[n].data.length}</span>}
             </NavLink>
           ))}
         </nav>
@@ -73,7 +83,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
           Show archived
         </label>
       </div>
-      {!archived && <NewItem brandId={brandId} kind={kind} one={one} onDone={refresh} />}
+      {!archived && adding && <NewItem brandId={brandId} kind={kind} one={one} onDone={refresh} onClose={() => setAdding(false)} />}
       {items.isError && <p role="alert" className={errorClass}>Could not load the library. Try again.</p>}
       {(unarchive.isError || purge.isError) && (
         <p role="alert" className={errorClass}>
@@ -144,8 +154,7 @@ function Thumb({ id, name, faded }: { id?: number; name: string; faded?: boolean
 /** The picture on a card: the approved or latest sheet, else the source photo, else the first picture. */
 const cover = (i: { sheet_file_id?: number | null; source_photo_file_id?: number | null; image_file_ids?: number[] }) => i.sheet_file_id ?? i.source_photo_file_id ?? i.image_file_ids?.[0];
 
-function NewItem(props: { brandId: number; kind: "character" | "place" | "prop"; one: string; onDone: () => void }) {
-  const [open, setOpen] = useState(false);
+function NewItem(props: { brandId: number; kind: "character" | "place" | "prop"; one: string; onDone: () => void; onClose: () => void }) {
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const create = useMutation({
@@ -162,7 +171,7 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
     onSuccess: () => {
       setName("");
       setFile(null);
-      setOpen(false);
+      props.onClose();
       props.onDone();
     },
   });
@@ -170,12 +179,6 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
     e.preventDefault();
     create.mutate();
   };
-  if (!open)
-    return (
-      <button className={`${btnPrimary} min-h-control`} onClick={() => setOpen(true)}>
-        New {props.one}
-      </button>
-    );
   return (
     <form onSubmit={submit} className={`${card} space-y-3`}>
       <label className="block text-sm">
@@ -191,7 +194,7 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
         <button className={`${btnPrimary} min-h-control`} disabled={create.isPending}>
           Create {props.one}
         </button>
-        <button type="button" className={btnSecondary} onClick={() => setOpen(false)}>
+        <button type="button" className={btnSecondary} onClick={props.onClose}>
           Cancel
         </button>
       </div>

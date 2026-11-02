@@ -29,6 +29,16 @@ test("lists characters for the brand and searches by name", async () => {
   expect(screen.getByText(/Nothing matches "zzz"/)).toBeInTheDocument();
 });
 
+test("each kind tab shows its count, and New character sits in the page top (W10)", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [mia, { ...mia, id: 6, name: "Dex" }]], "GET /library/place": [200, []], "GET /library/prop": [200, [{ ...mia, id: 7, kind: "prop", name: "Bowl" }]] });
+  renderAt("/b/1/library/characters");
+  const kinds = await screen.findByRole("navigation", { name: "Kinds" });
+  expect(await within(kinds).findByRole("link", { name: /^Characters\s*2$/ })).toBeInTheDocument();
+  expect(await within(kinds).findByRole("link", { name: /^Places\s*0$/ })).toBeInTheDocument();
+  expect(await within(kinds).findByRole("link", { name: /^Props\s*1$/ })).toBeInTheDocument();
+  expect(within(screen.getByRole("main").querySelector("header")!).getByRole("button", { name: "New character" })).toBeInTheDocument();
+});
+
 test("a new character is created in the current brand", async () => {
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, []], "POST /library/character": [201, mia] });
   renderAt("/b/1/library/characters");

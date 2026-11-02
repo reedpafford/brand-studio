@@ -89,14 +89,21 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
     setForm({ ...form, brand_ids: form.brand_ids.includes(id) ? form.brand_ids.filter((b) => b !== id) : [...form.brand_ids, id] });
 
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+    <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">
       <Link to={backTo ?? `/b/${brandId}/library/${slug}`} className={backLink}>
         {backTo ? "← Back to your video" : `← ${title}`}
       </Link>
       <PageTop title={item.name} line={others.length > 0 ? `Shared with ${others.join(", ")}. Changes apply there too.` : undefined} />
-      {kind !== "prop" && <SheetPanel item={item} kind={kind} ensureSaved={async () => changed && form.brand_ids.length > 0 && (await save.mutateAsync())} />}
-      {kind === "character" && <LookSheets item={item} />}
-      {kind !== "prop" && <SheetVersions item={item} kind={kind} />}
+      {/* Full width like the other library pages (W10): the sheets on the left, the details on the right. */}
+      <div className={kind === "prop" ? "max-w-3xl space-y-6" : "grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-10"}>
+      {kind !== "prop" && (
+        <div className="min-w-0 space-y-6">
+          <SheetPanel item={item} kind={kind} ensureSaved={async () => changed && form.brand_ids.length > 0 && (await save.mutateAsync())} />
+          {kind === "character" && <LookSheets item={item} />}
+          <SheetVersions item={item} kind={kind} />
+        </div>
+      )}
+      <div className="min-w-0 space-y-6">
       <form onSubmit={submit} className={`${card} space-y-4`}>
         {kind === "prop" && (
         <div className="space-y-2">
@@ -182,6 +189,8 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
       >
         Archive {one}
       </button>
+      </div>
+      </div>
     </main>
   );
 }
