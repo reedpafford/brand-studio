@@ -35,6 +35,7 @@ function open(at = "/b/1/videos") {
   ); // as in the app: StrictMode renders twice
 }
 afterEach(() => vi.unstubAllGlobals());
+const row = (name: RegExp) => screen.getByRole("link", { name }).closest("li") as HTMLElement;
 
 test("Videos lists the brand's videos with their status, who, and where each opens", async () => {
   setViewport(1440);
@@ -44,10 +45,11 @@ test("Videos lists the brand's videos with their status, who, and where each ope
   expect(screen.getByRole("link", { name: /Bo tries tuna · A/ })).toHaveAttribute("href", "/b/1/videos/10?step=downloads"); // a done video opens at Downloads
   const old = screen.getByRole("link", { name: /Old video/ });
   expect(old).toHaveAttribute("href", "/b/1/projects/11");
-  expect(within(old).getByText(/\(earlier way\)/)).toBeInTheDocument();
-  expect(within(old).getByText("Archived")).toBeInTheDocument();
-  expect(screen.getAllByText("In production").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("Finished").length).toBeGreaterThan(0);
+  expect(within(row(/Old video/)).getByText("(earlier way)")).toBeInTheDocument();
+  expect(within(row(/Old video/)).getByText("Archived")).toBeInTheDocument();
+  expect(within(row(/Bo tries salmon · B/)).getByText("Eli")).toBeInTheDocument(); // made by
+  expect(within(row(/Bo tries salmon · B/)).getByText(/120 \/ 600/)).toBeInTheDocument(); // credits used of budget
+  expect(within(row(/Bo tries tuna · A/)).getByText("Finished")).toBeInTheDocument();
   expect(screen.getByText("3 videos")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Videos" })).toBeInTheDocument();
   expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page"); // its own section in the menu (audit M6)
@@ -57,29 +59,28 @@ test("a finished video whose clips changed since says Finished · changes waitin
   setViewport(390);
   fakeServer(base(editor, [video({ id: 10, name: "Bo tries tuna · A", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: true }), video({ id: 12, name: "Bo tries cod · C", finished_at: "2026-10-24T10:00:00Z", final_out_of_date: false })]));
   open();
-  const changed = await screen.findByRole("link", { name: /Bo tries tuna · A/ });
-  expect(changed).toHaveAttribute("href", "/b/1/videos/10?step=clips");
-  expect(within(changed).getByText("Finished · changes waiting")).toBeInTheDocument();
-  expect(within(changed).queryByText("Finished")).toBeNull();
-  const done = screen.getByRole("link", { name: /Bo tries cod · C/ });
-  expect(done).toHaveAttribute("href", "/b/1/videos/12?step=downloads");
-  expect(within(done).getByText("Finished")).toBeInTheDocument(); // the badge
-  expect(within(done).getByText(/· Finished · /)).toBeInTheDocument(); // the meta line
+  expect(await screen.findByRole("link", { name: /Bo tries tuna · A/ })).toHaveAttribute("href", "/b/1/videos/10?step=clips");
+  expect(within(row(/Bo tries tuna · A/)).getByText("Finished · changes waiting")).toBeInTheDocument();
+  expect(within(row(/Bo tries tuna · A/)).queryByText("Finished")).toBeNull();
+  expect(screen.getByRole("link", { name: /Bo tries cod · C/ })).toHaveAttribute("href", "/b/1/videos/12?step=downloads");
+  expect(within(row(/Bo tries cod · C/)).getByText("Finished")).toBeInTheDocument();
 });
 
-test("a row shows its newest still as the poster and the step it is at, or when it was done", async () => {
+test("a row shows its newest still as the poster, its step as four bars (Plan · Cast · Clips · Final cut), and its script", async () => {
   setViewport(1440);
-  fakeServer(base(editor, [video({ step: "storyboard", poster_file_id: 77 }), video({ id: 10, name: "Bo tries tuna · A", step: "done", finished_at: "2026-10-24T10:00:00Z" }), video({ id: 12, name: "No stills yet", step: "breakdown" }), video({ id: 13, name: "Earlier way", script_draft_id: null, step: "breakdown" })]));
+  const scripts = [{ id: 4, title: "Bo tries salmon", versions: [{ slot: 1, status: "in_production", project_id: 9 }] }];
+  fakeServer(base(editor, [video({ step: "storyboard", poster_file_id: 77 }), video({ id: 10, name: "Bo tries tuna · A", step: "done", finished_at: "2026-10-24T10:00:00Z" }), video({ id: 12, name: "No stills yet", step: "breakdown" }), video({ id: 13, name: "Earlier way", script_draft_id: null, step: "breakdown" })], { "GET /scripts": [200, scripts] }));
   open();
-  const row = (await screen.findByRole("link", { name: /Bo tries salmon · B/ })) as HTMLElement;
-  expect(within(row).getByText(/At Storyboard/)).toBeInTheDocument();
-  expect(row.querySelector("img")?.getAttribute("src")).toContain("/files/77");
-  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).getByText(/Finished · /)).toBeInTheDocument();
-  const bare = screen.getByRole("link", { name: /No stills yet/ });
-  expect(within(bare).getByText(/At Plan/)).toBeInTheDocument();
-  expect(bare.querySelector("img")).toBeNull();
-  // A video from before scripts has no such steps: it says credits, not "At Plan".
-  expect(within(screen.getByRole("link", { name: /Earlier way/ })).queryByText(/At Plan/)).toBeNull();
+  await screen.findByRole("link", { name: /Bo tries salmon · B/ });
+  const salmon = row(/Bo tries salmon · B/);
+  expect(within(salmon).getByRole("img", { name: "Step 3 of 4: Clips" })).toBeInTheDocument(); // a storyboard counts as Clips
+  expect(salmon.querySelector("img")?.getAttribute("src")).toContain("/files/77");
+  expect(await within(salmon).findByRole("link", { name: /Bo tries salmon › B/ })).toHaveAttribute("href", "/b/1/scripts/4");
+  expect(within(row(/Bo tries tuna · A/)).getByRole("img", { name: "All 4 steps done" })).toBeInTheDocument();
+  expect(within(row(/No stills yet/)).getByRole("img", { name: "Step 1 of 4: Plan" })).toBeInTheDocument();
+  expect(row(/No stills yet/).querySelector("img[src]")).toBeNull();
+  // A video from before scripts has no such steps.
+  expect(within(row(/Earlier way/)).queryByRole("img")).toBeNull();
 });
 
 test("an editor only ever asks for their own videos; Reed sees everyone's and can turn Mine on", async () => {
@@ -104,7 +105,7 @@ test("status, Archived and search are sent to the server; filtered shows 'x of y
   setViewport(1440);
   fakeServer(base(owner, [video({}), video({ id: 10 })]));
   open("/b/1/scripts?view=videos&status=making&archived=1"); // an old link lands on Videos with its filters
-  await screen.findAllByText(/of 2 videos|2 videos/);
+  await screen.findAllByText("2 videos");
   await vi.waitFor(() => expect(urls().some((u) => u.includes("status=making") && u.includes("archived=true"))).toBe(true));
   expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
   await userEvent.type(screen.getByRole("searchbox", { name: "Search videos" }), "salm");
@@ -143,7 +144,7 @@ test("with no status picked, the videos are grouped Needs you, Making, Done; a v
   ]));
   open();
   const needs = await screen.findByRole("region", { name: "Needs you" });
-  expect(within(needs).getByRole("link", { name: /Waits on me · A/ })).toHaveTextContent("2 stills and 1 clip ready to check");
+  expect(within(needs).getByRole("link", { name: /Waits on me · A/ }).closest("li")).toHaveTextContent("2 stills and 1 clip ready to check");
   expect(within(screen.getByRole("region", { name: "Making" })).getByRole("link", { name: /Being made · B/ })).toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "Done" })).getByRole("link", { name: /All done · C/ })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Needs you · 1" })).toBeInTheDocument();
@@ -156,7 +157,21 @@ test("Status: Needs you asks the server for just those, in one list", async () =
   expect(await screen.findByText("Approve 2 looks")).toBeInTheDocument();
   await vi.waitFor(() => expect(urls().some((u) => u.includes("status=needs_you"))).toBe(true));
   expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
-  expect(screen.getByLabelText("Status")).toHaveValue("needs_you");
+  expect(screen.getByRole("tab", { name: /Needs you/ })).toHaveAttribute("aria-selected", "true");
+});
+
+test("the tabs count All, Needs you, Making, Done and Archived; Archived asks for the archive", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, [video({ needs_you: true, waiting_on: "Approve 2 looks" }), video({ id: 10 }), video({ id: 11, finished_at: "2026-10-24T10:00:00Z" })], { "GET /projects?brand_id=1&archived=true": [200, [video({ id: 12, archived_at: "2026-10-25T10:00:00Z" })]] }));
+  open();
+  expect(await screen.findByRole("tab", { name: "All 3" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", { name: "Needs you 1" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Making 1" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Done 1" })).toBeInTheDocument();
+  expect(await screen.findByRole("tab", { name: "Archived 1" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: "Archived 1" }));
+  await vi.waitFor(() => expect(screen.getByText("1 video")).toBeInTheDocument());
+  expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
 });
 
 test("a video with my request waiting says so on its row: 1 request waiting for the owner", async () => {
@@ -164,14 +179,14 @@ test("a video with my request waiting says so on its row: 1 request waiting for 
   const waiting = { id: 50, kind: "video", project_id: 9, script_id: null, credits: 27, status: "needs_owner_approval", created_at: new Date().toISOString(), step: "clip_take", declined: false };
   fakeServer(base(editor, [video({}), video({ id: 10, name: "Bo tries tuna · A" })], { "GET /jobs?mine=true": [200, [waiting]] }));
   open();
-  const row = await screen.findByRole("link", { name: /Bo tries salmon · B/ });
-  expect(await within(row).findByText("1 request waiting for the owner")).toBeInTheDocument();
-  expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).queryByText(/waiting for the owner/)).toBeNull();
+  await screen.findByRole("link", { name: /Bo tries salmon · B/ });
+  expect(await within(row(/Bo tries salmon · B/)).findByText("1 request waiting for the owner")).toBeInTheDocument();
+  expect(within(row(/Bo tries tuna · A/)).queryByText(/waiting for the owner/)).toBeNull();
 });
 
 test("an earlier-style video's row counts its budget without the director's own time (DECISIONS #1066)", async () => {
   setViewport(390);
   fakeServer(base(editor, [video({ script_draft_id: null, credits_used: 500, budget_credits: 600, director_credits: 380 })]));
   open();
-  expect(await screen.findByText(/120 of 600 credits/)).toBeInTheDocument();
+  expect(await screen.findByText(/120 \/ 600/)).toBeInTheDocument();
 });
