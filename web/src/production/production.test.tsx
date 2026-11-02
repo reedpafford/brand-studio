@@ -38,7 +38,7 @@ function open(path = "/production", client = new QueryClient()) {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("In production: a row per video links to it, flagged rows say why, and the rail badge counts what needs attention", async () => {
+test("In production: a row per video links to it, flagged rows say why, and the rail's Needs you counts what needs attention", async () => {
   setViewport(1440);
   fakeServer(base());
   open();
@@ -52,7 +52,8 @@ test("In production: a row per video links to it, flagged rows say why, and the 
   expect(within(link).getByText("380 of 420")).toHaveAttribute("title", "Close to the budget. Going over needs your approval.");
   expect(screen.getByText("96 of 210")).not.toHaveAttribute("title");
   const rail = screen.getByRole("navigation", { name: "Main" });
-  expect(within(rail).getByRole("link", { name: /^In production/ })).toHaveTextContent("3 need attention");
+  expect(await within(rail).findByRole("link", { name: /^Needs you/ })).toHaveTextContent("3 waiting"); // no held requests here, so only the videos
+  expect(within(rail).getByRole("link", { name: "In production" })).toBeInTheDocument(); // its own count went to Needs you
 });
 
 test("In production: filters go in the address and to the server; the Brand column goes when one brand is chosen", async () => {

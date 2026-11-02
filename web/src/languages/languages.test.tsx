@@ -8,7 +8,6 @@ import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 
 const owner = { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 };
-const editor = { ...owner, id: 2, role: "editor" };
 const english = { id: "en", name: "English", on: true };
 const spanish = { id: "es", name: "Spanish", on: false };
 const sample = (o: object = {}) => ({ status: "none", text: null, reason: null, credits: 3, language: spanish, test_site: null, ...o });
@@ -96,9 +95,3 @@ test("a card whose test couldn't load says why with Try again", async () => {
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /languages/es/sample").length).toBeGreaterThan(1));
 });
 
-test("editors don't get the Languages page", async () => {
-  setViewport(1440);
-  fakeServer(routes({ "GET /auth/me": [200, editor] }));
-  open();
-  expect(await screen.findByText("Only the owner manages languages.")).toBeInTheDocument();
-});

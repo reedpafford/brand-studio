@@ -139,7 +139,7 @@ test("a failed remove tells you", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't remove that person.");
 });
 
-test("on a phone there are five tabs (Videos first), no More, and Reed gets an Approvals bell with the count", async () => {
+test("on a phone there are five tabs (Videos first), no More, and Reed gets a Needs you bell with the count, and Settings in the account menu", async () => {
   setViewport(390);
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
@@ -149,11 +149,15 @@ test("on a phone there are five tabs (Videos first), no More, and Reed gets an A
   expect(within(tabs).getByRole("link", { name: "Cast" })).toHaveAttribute("href", "/b/1/library");
   expect(within(tabs).getByRole("link", { name: "Brand" })).toHaveAttribute("href", "/b/1/brand");
   expect(within(tabs).queryByRole("button", { name: "More" })).not.toBeInTheDocument();
-  expect(await screen.findByRole("link", { name: "Approvals, 1 waiting" })).toHaveAttribute("href", "/approvals");
+  expect(await screen.findByRole("link", { name: "Needs you, 1 waiting" })).toHaveAttribute("href", "/approvals");
+  await userEvent.click(screen.getByRole("button", { name: "Account menu" }));
+  const account = await screen.findByRole("dialog", { name: "Account" }); // a sheet on a phone
+  expect(within(account).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  expect(within(account).queryByRole("link", { name: /^(Looks|Languages)$/ })).toBeNull();
   expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
 });
 
-test("with nothing waiting, Reed sees no Approvals in the top bar or the rail, at 390 and on desktop (Reed, 30 Oct)", async () => {
+test("with nothing waiting, Reed sees no Needs you in the top bar or the rail, at 390 and on desktop (Reed, 30 Oct)", async () => {
   for (const width of [390, 1440]) {
     setViewport(width);
     const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []] });
@@ -162,18 +166,31 @@ test("with nothing waiting, Reed sees no Approvals in the top bar or the rail, a
     if (width === 1440) await within(screen.getByRole("navigation", { name: "Main" })).findByRole("link", { name: "In production" });
     await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /jobs")).toBe(true));
     await new Promise((r) => setTimeout(r, 50)); // the answer is drawn
-    expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Needs you/ })).not.toBeInTheDocument();
     cleanup();
     vi.unstubAllGlobals();
   }
 });
 
-test("an editor has no Approvals bell", async () => {
+test("when only a changed video waits, Reed still reaches Needs you: the bell and the rail row count it (QA-9 on #1154)", async () => {
+  for (const width of [390, 1440]) {
+    setViewport(width);
+    fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 1 }] });
+    renderAt("/b/1/projects");
+    const needsYou = await screen.findByRole("link", { name: width === 390 ? "Needs you, 1 waiting" : /^Needs you/ });
+    expect(needsYou).toHaveAttribute("href", "/approvals");
+    if (width === 1440) expect(needsYou).toHaveTextContent("1");
+    cleanup();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("an editor has no Needs you bell", async () => {
   setViewport(390);
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   await screen.findByRole("navigation", { name: "Tabs" });
-  expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Needs you/ })).not.toBeInTheDocument();
 });
 
 test("the account menu (bottom of the rail) has the theme choices and Sign out; Team is a rail row, not in the menu; Escape closes it", async () => {
@@ -214,13 +231,13 @@ test("on desktop one rail (nav A): the brand switcher, Make and Library, Studio 
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Scripts", "Videos", "Quick clip", "Cast & places", "Media", "Brand", "Approvals", "In production", "Usage", "Team", "Looks", "Languages"]);
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Scripts", "Videos", "Quick clip", "Cast & places", "Media", "Brand", "Needs you", "In production", "Usage", "Team", "Settings"]);
   expect(within(rail).getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "Account menu" })).toBeInTheDocument();
   expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   expect(within(rail).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page");
-  expect(await within(rail).findByRole("link", { name: /Approvals/ })).toHaveTextContent("1");
-  expect(screen.getAllByRole("link", { name: /Approvals/ })).toHaveLength(1); // only the rail row: no top bar on desktop
+  expect(await within(rail).findByRole("link", { name: /Needs you/ })).toHaveTextContent("1");
+  expect(screen.getAllByRole("link", { name: /Needs you/ })).toHaveLength(1); // only the rail row: no top bar on desktop
   expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
 });
 
@@ -230,7 +247,7 @@ test("an editor's rail has no Studio group", async () => {
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(within(rail).getAllByRole("link")).toHaveLength(6);
-  expect(within(rail).queryByRole("link", { name: /Approvals|Team/ })).not.toBeInTheDocument();
+  expect(within(rail).queryByRole("link", { name: /Needs you|Team|Settings/ })).not.toBeInTheDocument();
   expect(screen.queryByText("STUDIO")).not.toBeInTheDocument();
 });
 
