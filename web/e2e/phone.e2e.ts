@@ -28,19 +28,27 @@ test("on a phone, the five bottom tabs reach every brand section and there is no
   expect(widths.scroll).toBeLessThanOrEqual(widths.window);
 });
 
-test("on a phone, with nothing waiting Reed sees no Approvals bell (the page still opens), and reaches Team from the account menu", async ({ page }) => {
+test("on a phone, with nothing waiting Reed sees no Needs you bell (the page still opens), and reaches Team and Settings from the account menu", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
-  const waiting = (await (await page.request.get("/api/jobs?status=needs_owner_approval")).json()).length;
-  if (waiting === 0) await expect(page.getByRole("link", { name: /^Approvals/ })).toHaveCount(0);
-  else await expect(page.getByRole("link", { name: /^Approvals/ })).toBeVisible();
+  // The bell counts held requests and videos that need attention.
+  const held = (await (await page.request.get("/api/jobs?status=needs_owner_approval")).json()).length;
+  const waiting = held + (await (await page.request.get("/api/production/summary")).json()).needs_attention;
+  if (waiting === 0) await expect(page.getByRole("link", { name: /^Needs you/ })).toHaveCount(0);
+  else await expect(page.getByRole("link", { name: /^Needs you/ })).toBeVisible();
   await page.goto("/approvals");
-  await expect(page.getByRole("heading", { name: /^Approvals/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs you", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("link", { name: "Team" }).click();
   await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("dialog", { name: "Account" }).getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Looks" })).toHaveAttribute("aria-selected", "true");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("on a phone, the brand menu opens as a sheet and switches brand", async ({ page }) => {

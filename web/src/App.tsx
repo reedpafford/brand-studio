@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { ApprovalsPage } from "./approvals/ApprovalsPage";
+import { NeedsYouPage } from "./approvals/NeedsYouPage";
 import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
@@ -19,8 +19,7 @@ import { BrandPage, ToBrand } from "./brand/BrandPage";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
 import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
-import { LanguagesPage } from "./languages/LanguagesPage";
-import { LooksPage } from "./looks/LooksPage";
+import { SettingsPage } from "./settings/SettingsPage";
 import { UsageBrandPage } from "./usage/UsageBrandPage";
 import { MinePage } from "./usage/MinePage";
 import { UsagePage } from "./usage/UsagePage";
@@ -58,9 +57,11 @@ export function App() {
           <Route path="freestyle" element={<FreestylePage />} />
           <Route path="freestyle/:freestyleId" element={<FreestylePage />} />
           <Route path="team" element={<TeamPage />} />
-          <Route path="looks" element={<LooksPage />} />
-          <Route path="languages" element={<LanguagesPage />} />
-          <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="looks" element={<Navigate to="/settings?tab=looks" replace />} />
+          <Route path="languages" element={<Navigate to="/settings?tab=languages" replace />} />
+          {/* Needs you keeps the old address, so links to one request (/approvals?job=ID) still land on it. */}
+          <Route path="approvals" element={<NeedsYouPage />} />
           <Route path="production" element={<ProductionPage />} />
           <Route path="usage" element={<UsagePage />} />
           <Route path="usage/mine" element={<MinePage />} />

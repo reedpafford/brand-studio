@@ -15,7 +15,7 @@ const fs = (o: object = {}) => ({
   id: 9, title: SCRIPT, type: "one_clip", look: "pixar", shape: "9:16", brand_id: 1, status: "working", created_by_name: "Reed", created_at: at, credits: 27, file_id: null,
   thread: [said("Reed", SCRIPT), move("Making the clip.", "running")], ...o,
 });
-const held = fs({ status: "waiting", created_by_name: "Eli", thread: [said("Eli", SCRIPT), move("Waiting for Reed's OK.", "held")] });
+const held = fs({ status: "waiting", created_by_name: "Eli", thread: [said("Eli", SCRIPT), move("Waiting for the owner's OK.", "held")] });
 function server(me: object, routes: Record<string, [number, unknown]> = {}) {
   return fakeServer({
     "GET /auth/me": [200, me],

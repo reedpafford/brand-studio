@@ -31,7 +31,10 @@ def test_an_editors_sends_wait_for_the_owner_and_a_decline_says_why(app, owner, 
     fs = r.json()
     assert (fs["title"], fs["status"], fs["file_id"]) == ("MIA: The market opened at nine.",
                                                           "waiting", None)  # fmt: skip
-    assert _moves(fs) == [("message", None, SCRIPT), ("move", "held", "Waiting for Reed's OK.")]
+    assert _moves(fs) == [
+        ("message", None, SCRIPT),
+        ("move", "held", "Waiting for the owner's OK."),
+    ]
     assert fs["thread"][0]["who"] == "Ed" and fs["credits"] > 0
     (job,) = db.query(Job).all()
     assert job.status == "needs_owner_approval" and job.input["held"]
@@ -57,7 +60,7 @@ def test_an_editors_sends_wait_for_the_owner_and_a_decline_says_why(app, owner, 
     assert r.status_code == 200
     fs = editor.get(f"/freestyles/{fs['id']}").json()
     assert fs["status"] == "declined" and fs["file_id"]  # the first take is still there
-    assert _moves(fs)[-1] == ("move", "refused", "Reed declined: Too dark for the brand.")
+    assert _moves(fs)[-1] == ("move", "refused", "The owner declined: Too dark for the brand.")
 
 
 def test_the_owners_run_at_once_and_only_the_maker_and_owner_see_one(
@@ -99,3 +102,25 @@ def test_the_estimate_is_free_and_the_director_types_are_coming_next(owner, edit
     r = editor.post("/freestyles", json={**HOUSE, "look": "nope", "text": SCRIPT})
     assert r.status_code == 422
     assert db.query(Job).count() == 0
+
+
+def test_a_freestyle_is_one_video_under_the_cap_and_a_failed_take_costs_nothing(app, owner, db):
+    one = owner.get("/freestyles/estimate", params={**HOUSE, "text": SCRIPT}).json()["credits"]
+    limits = owner.get("/credits/limits").json()
+    cap = int(one * 2) + 1  # room for two takes, not three
+    owner.put("/credits/limits", json={**limits, "per_video_max_credits": cap})
+    fs = owner.post("/freestyles", json={**HOUSE, "text": SCRIPT}).json()
+    _run(app, db)
+    url = f"/freestyles/{fs['id']}/messages"
+    assert owner.post(url, json={"text": "Brighter."}).status_code == 201
+    _run(app, db)
+    r = owner.post(url, json={"text": "Warmer."})
+    assert r.status_code == 409, r.text  # the third take would pass the cap, owner or not
+    assert db.query(Job).count() == 2
+
+    other = owner.post("/freestyles", json={**HOUSE, "text": "A cat trades at dawn."}).json()
+    job = db.query(Job).order_by(Job.id.desc()).first()
+    job.status, job.error = "failed", "The model refused it."
+    db.commit()
+    out = owner.get(f"/freestyles/{other['id']}").json()
+    assert (out["status"], out["credits"]) == ("failed", 0)
