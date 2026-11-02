@@ -94,10 +94,18 @@ export function Composer({ brandId, owner, onCreated, below }: { brandId: number
   const pick = (p: Partial<Settings>) => setPicked({ ...picked, ...p });
   const empty = !text.trim() || !settings.look; // never before the looks have loaded
   const go = () => !empty && !create.isPending && create.mutate({ text: text.trim(), settings }, { onSuccess: onCreated });
+  const chips = (
+    <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-1.5">
+      <Pick label="Type" value={settings.type} options={TYPES.map((t) => ({ id: t.id, name: t.name, off: t.soon ? "coming next" : undefined }))} onPick={(type) => pick({ type })} />
+      <Pick label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name }))} onPick={(look) => pick({ look })} />
+      <Pick label="Brand" value={settings.brand_id ?? 0} options={[...brands.map((b) => ({ id: b.id, name: b.name })), { id: 0, name: "None" }]} onPick={(b) => pick({ brand_id: b || null })} />
+      <Pick label="Shape" value={settings.shape} options={shapeOptions} onPick={(shape) => pick({ shape })} />
+    </div>
+  );
   return (
     <form
       aria-label="New video"
-      className="space-y-4"
+      className="space-y-3 lg:space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
         go();
@@ -115,18 +123,16 @@ export function Composer({ brandId, owner, onCreated, below }: { brandId: number
           placeholder="Paste a script, or describe the video"
           onChange={(e) => setText(e.target.value)}
           onKeyDown={sendKey(go)}
-          className="min-h-[180px] resize-none bg-transparent font-script text-script text-text outline-none! placeholder:text-faint"
+          className="min-h-[180px] resize-none bg-transparent font-script text-base text-text outline-none! placeholder:text-faint lg:text-script"
         />
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid grid-cols-2 gap-1.5 lg:flex lg:flex-wrap">
-            <Pick label="Type" value={settings.type} options={TYPES.map((t) => ({ id: t.id, name: t.name, off: t.soon ? "coming next" : undefined }))} onPick={(type) => pick({ type })} />
-            <Pick label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name }))} onPick={(look) => pick({ look })} />
-            <Pick label="Brand" value={settings.brand_id ?? 0} options={[...brands.map((b) => ({ id: b.id, name: b.name })), { id: 0, name: "None" }]} onPick={(b) => pick({ brand_id: b || null })} />
-            <Pick label="Shape" value={settings.shape} options={shapeOptions} onPick={(shape) => pick({ shape })} />
+        {rail && (
+          <div className="flex items-center justify-between gap-3">
+            {chips}
+            <SendPress owner={owner} price={estimate.data} busy={create.isPending} disabled={empty} />
           </div>
-          {rail && <SendPress owner={owner} price={estimate.data} busy={create.isPending} disabled={empty} />}
-        </div>
+        )}
       </div>
+      {!rail && chips /* a phone: a 2×2 grid under the box (B_PhoneNew) */}
       {create.isError && (
         <p role="alert" className="text-sm text-danger">
           {create.error.message}

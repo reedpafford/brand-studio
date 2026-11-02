@@ -37,7 +37,8 @@ export function MakeVideoPanel({ scriptId, onClose }: { scriptId: number; onClos
               const on = v.slot === m.version?.slot;
               return (
                 <label key={v.slot} className={`flex min-h-control cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 ${on ? "border-accent bg-accent-soft" : "border-border hover:bg-surface-2"}`}>
-                  <input type="radio" name="version" checked={on} onChange={() => m.pick(v.slot)} className="size-4 accent-(--accent)" />
+                  {/* The panel opens on the version picker, not Close (E_ScriptMakeVideo): marked for the overlay, or focused once loaded. */}
+                  <input type="radio" name="version" checked={on} onChange={() => m.pick(v.slot)} data-autofocus={on || undefined} autoFocus={on} className="size-4 accent-(--accent)" />
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium">{letterOf(v.slot)}</span>
                     <span className="block text-sm text-muted">{[v.seconds > 0 && mmss(v.seconds), v.project_id && "has a video"].filter(Boolean).join(" · ")}</span>

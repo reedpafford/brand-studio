@@ -141,16 +141,18 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
   return (
     <div className="flex h-[calc(100dvh-var(--tabbar-h))] flex-col lg:h-screen">
       <VideoTop brandId={p.brand_id} fs={fs} title={title} stepsTo={stepsTo} actions={rail ? top : null} />
+      {state === "working" && rail && ( // pinned under the header while the thread scrolls (B_VideoRunning)
+        <div className="px-8 pt-3">
+          <div className="mx-auto w-full max-w-[736px] space-y-2">
+            <p className="text-sm text-muted tabular-nums">{[phaseOf(run?.turns ?? [], clips, false), `${creditsLabel(wholeCredits(fs.credits))} spent so far`, "you can leave this page"].join(" · ")}</p>
+            <div className="flex items-center gap-2 text-sm text-muted">
+              Locked <LockChips projectId={p.id} />
+            </div>
+          </div>
+        </div>
+      )}
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-8">
         <div className="mx-auto w-full max-w-[736px] space-y-6">
-          {state === "working" && rail && (
-            <div className="-mt-3 space-y-2">
-              <p className="text-sm text-muted tabular-nums">{[phaseOf(run?.turns ?? [], clips, false), `${creditsLabel(wholeCredits(fs.credits))} spent so far`, "you can leave this page"].join(" · ")}</p>
-              <div className="flex items-center gap-2 text-sm text-muted">
-                Locked <LockChips projectId={p.id} />
-              </div>
-            </div>
-          )}
           <Thread
             fs={fs}
             items={items.map((t) => (t.id === delivered ? { ...t, text: "Delivered." } : t))}

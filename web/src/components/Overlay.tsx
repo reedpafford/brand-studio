@@ -22,7 +22,7 @@ function useOverlay(onClose: () => void) {
     const el = panel.current;
     const me = {};
     open.push(me);
-    (el?.querySelector<HTMLElement>(FOCUSABLE) ?? el)?.focus();
+    (el?.querySelector<HTMLElement>("[data-autofocus]") ?? el?.querySelector<HTMLElement>(FOCUSABLE) ?? el)?.focus(); // a marked first field, else the first control
     const onKey = (e: KeyboardEvent) => {
       if (open.at(-1) !== me) return;
       if (e.key === "Escape") return close.current();

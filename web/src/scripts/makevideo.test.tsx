@@ -30,6 +30,7 @@ test("an editor's ready row has Make a video: the panel picks a version (its pla
   const panel = await screen.findByRole("dialog", { name: "Make a video from Bo tries salmon" });
   expect(await within(panel).findByText("about 177 credits (planned)")).toBeInTheDocument();
   expect(within(panel).getByText("0:38 · has a video")).toBeInTheDocument();
+  expect(within(panel).getByRole("radio", { name: /^A/ })).toHaveFocus(); // it opens on the version picker, not Close
   await userEvent.click(within(panel).getByRole("radio", { name: /^B/ }));
   await userEvent.click(within(panel).getByRole("radio", { name: "1:1" }));
   await userEvent.click(await within(panel).findByRole("button", { name: "Send for approval · up to 188 credits" }));
