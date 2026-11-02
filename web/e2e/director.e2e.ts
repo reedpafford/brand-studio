@@ -25,15 +25,16 @@ test("at 390, an editor presses Make it and the director delivers the finished c
 
   await ed.goto(`/b/${fomo}/videos/${pid}`);
   await ed.getByRole("button", { name: "Make it" }).click();
-  await expect(ed.getByRole("tab", { name: "Director" })).toHaveAttribute("aria-selected", "true");
+  await expect(ed.getByRole("button", { name: "Step 1 of 5 · Director" })).toBeVisible(); // at 390 the tabs are one step button
   await expect(ed.getByText(/ · up to \d+(\.\d)? credits? so far · you can leave this page$/)).toBeVisible();
   await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
   await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   await expect(ed.getByLabel("The finished video")).toBeVisible();
   await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible();
   await expect(ed.getByText(/^\d+ s · up to \d+(\.\d)? credits? for this run$/)).toBeVisible();
-  await ed.getByText(/^Every move \(\d+\)$/).click();
-  const moves = await ed.locator("details", { hasText: /^Every move/ }).locator("ol").textContent();
+  await expect(ed.getByText(/^Every move \(\d+\)$/)).toBeVisible();
+  await expect(ed.getByRole("list", { name: "Locked" })).toBeVisible(); // the locks it builds around, above the moves
+  const moves = await ed.getByRole("complementary", { name: "Locks and moves" }).locator("ol").textContent();
   expect(moves).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words only: no tool names, clip codes or JSON
   expect(moves).toContain("Watching the cut."); // it watched its cut (#1145)
   expect((moves ?? "").match(/Made the cut\./g)?.length ?? 0).toBeGreaterThanOrEqual(2); // and cut again after its fixes
@@ -42,7 +43,8 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   expect(await ed.locator("main").textContent()).not.toMatch(/\$\d|ask (Reed|the owner)/i);
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
-  await ed.getByRole("tab", { name: "Look inside" }).click();
+  await ed.getByRole("button", { name: "Step 1 of 5 · Director" }).click(); // the phone keeps its step sheet, the Director first
+  await ed.getByRole("dialog").getByRole("button", { name: /Plan/ }).click();
   await expect(ed).toHaveURL(/step=plan/);
-  await expect(ed.getByRole("button", { name: /^Step 1 of 4/ })).toBeVisible(); // the phone step picker
+  await expect(ed.getByRole("button", { name: /^Step 2 of 5 · Plan/ })).toBeVisible();
 });

@@ -1,14 +1,17 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Square, Wand2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Card, Dialog, buttonClass, creditsText } from "../components";
+import { Badge, Banner, Button, Dialog, buttonClass, creditsText } from "../components";
+import { linkText } from "../ui";
 import { useToast } from "../toast";
 import { ReviewChip } from "./Checks";
 import { useProjectClips, useProjectVideo } from "./useProgress";
+import { useFrames } from "./StoryboardPane";
+import { LockChips } from "./LockChips";
 
 type Run = components["schemas"]["DirectorOut"];
 // `said` is the server's own plain line for a move (Next-Server's follow-up to #1087); until it lands, `result`.
@@ -43,10 +46,9 @@ const DOING: Record<string, string> = {
   deliver: "Making the cut",
 };
 
-/** The Director view of a video (ux-audit §8.5, director-chat.md first slice): the cut, a progress line, the delivery card
- *  with what it redid and why, Make it and Stop. Look inside has the steps, as they are. Chat and locks come later: the right
- *  column on desktop is kept free for them. */
-export function DirectorPanel({ projectId, aspect, name, onLookInside }: { projectId: number; aspect: string; name: string; onLookInside: () => void }) {
+/** The Director tab (ux-audit §8.5, v4): the cut and the delivery note with what it redid and why, Make it and Stop, the
+ *  clips in the cut; on the right the locks it builds around and every move it made. Talking to it comes later. */
+export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projectId: number; aspect: string; name: string; onOpenClips: () => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const owner = useMe().data?.role === "owner";
@@ -117,77 +119,114 @@ export function DirectorPanel({ projectId, aspect, name, onLookInside }: { proje
     : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `up to ${credits} for this run`, dollars].filter(Boolean).join(" · ");
   const badge = running ? <Badge tone={held ? "warning" : "neutral"}>{held ? "Waiting for approval" : "Working…"}</Badge> : status === "delivered" ? <Badge tone="success">Delivered</Badge> : status === "ended" ? <Badge tone="warning">Stopped</Badge> : null;
 
+  const ratio = aspect.replace(":", " / ");
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <Card className="min-w-0 space-y-3" aria-label="The director">
-        {cut ? (
-          <video controls src={fileUrl(cut.file_id)} className="mx-auto max-h-[70vh] w-full rounded-lg bg-surface-2 object-contain" style={{ aspectRatio: aspect.replace(":", " / ") }} aria-label="The finished video" />
-        ) : (
-          <div className="mx-auto grid max-h-[50vh] w-full place-items-center rounded-lg bg-surface-2 p-4 text-center text-sm text-muted" style={{ aspectRatio: aspect.replace(":", " / ") }}>
-            {running ? `${phase}…` : "The cut shows here once it's made."}
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <section className="min-w-0 space-y-6" aria-label="The director">
+        <div className="flex flex-col gap-6 sm:flex-row">
+          {cut ? (
+            <video controls src={fileUrl(cut.file_id)} className="w-full shrink-0 rounded-md bg-surface-2 object-contain sm:w-56" style={{ aspectRatio: ratio }} aria-label="The finished video" />
+          ) : (
+            <div className="grid w-full shrink-0 place-items-center rounded-md bg-surface-2 p-4 text-center text-sm text-muted sm:w-56" style={{ aspectRatio: ratio }}>
+              {running ? `${phase}…` : "The cut shows here once it's made."}
+            </div>
+          )}
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="type-section">{status === "none" ? "Let the director make it" : status === "delivered" ? "Delivery note" : "The director's cut"}</h2>
+              {badge}
+            </div>
+            {line && <p className="break-words text-sm text-muted tabular-nums">{line}</p>}
+            {status !== "none" && !running && blocked && <p className="text-sm text-muted">{blocked}</p>}
+            {note && <p className="max-w-prose break-words">{note}</p>}
+            {redid.length > 0 && (
+              <div className="space-y-2 border-t border-border pt-3">
+                <p className="text-sm text-muted">What it redid on its own ({redid.length})</p>
+                <ul className="space-y-1 text-sm">
+                  {redid.map((t) => (
+                    <li key={t.turn} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3">
+                      <span className="text-muted">Redid</span>
+                      <span className="break-words">{plain(t.why, list)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {status === "delivered" && <ReviewChip projectId={projectId} />}
+            <div className="flex flex-wrap items-center gap-2">
+              {running ? (
+                <Button variant="secondary" icon={Square} onClick={() => setStopping(true)}>
+                  Stop
+                </Button>
+              ) : (
+                <Button variant={cut ? "secondary" : "primary"} icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
+                  {status === "none" ? "Make it" : "Make it again"}
+                </Button>
+              )}
+              {cut && !running && (
+                <a className={buttonClass("primary")} href={fileUrl(cut.file_id)} download={`${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "video"}.mp4`}>
+                  <Download aria-hidden className="size-4" />
+                  Download MP4
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+        {list.length > 0 && <InTheCut clips={list} projectId={projectId} onOpenClips={onOpenClips} />}
+        <p className="text-sm text-muted">Advice it leaves stays on Review.</p>
+      </section>
+      <aside className="min-w-0 space-y-4 lg:border-l lg:border-border lg:pl-6" aria-label="Locks and moves">
+        <div className="space-y-2">
+          <p className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="font-medium">Locked</span>
+            <span className="text-sm text-muted">It builds around these</span>
+          </p>
+          <LockChips projectId={projectId} />
+        </div>
+        {/* Talking to the director comes once the server has it: no message box until then. */}
+        {turns.length > 0 && (
+          <div className="space-y-2 border-t border-border pt-4">
+            <h3 className="font-medium">Every move ({turns.length})</h3>
+            <Moves turns={turns} newest={running ? 5 : undefined} clips={list} />
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="type-section">{status === "none" ? "Let the director make it" : "The director's cut"}</h2>
-          {badge}
-          <span className="flex-1" />
-          {cut && !running && (
-            <a className={buttonClass("secondary")} href={fileUrl(cut.file_id)} download={`${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "video"}.mp4`}>
-              <Download aria-hidden className="size-4" />
-              Download MP4
-            </a>
-          )}
-          {running ? (
-            <Button variant="secondary" icon={Square} onClick={() => setStopping(true)}>
-              Stop
-            </Button>
-          ) : (
-            <Button icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
-              {status === "none" ? "Make it" : "Make it again"}
-            </Button>
-          )}
-        </div>
-        {line && <p className="break-words text-sm text-muted tabular-nums">{line}</p>}
-        {status !== "none" && !running && blocked && <p className="text-sm text-muted">{blocked}</p>}
-        {note && <p className="break-words">{note}</p>}
-        {redid.length > 0 && (
-          <Section title={`What it redid (${redid.length})`}>
-            <Moves turns={redid} clips={list} />
-          </Section>
-        )}
-        {status === "delivered" && <ReviewChip projectId={projectId} />}
-        {turns.length > 0 && (
-          <Section title={`Every move (${turns.length})`} open={running}>
-            <Moves turns={turns} newest={running ? 5 : undefined} clips={list} />
-          </Section>
-        )}
-        <p className="text-sm text-muted">
-          Advice it leaves stays on Review.{" "}
-          <button type="button" className="min-h-11 font-medium text-accent underline" onClick={onLookInside}>
-            Look inside
-          </button>{" "}
-          for every step.
-        </p>
-      </Card>
+      </aside>
       {stopping && (
         <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => stop.mutate()}>
-          <p>It makes no more moves. What it already started still finishes, and nothing is undone. You can carry on in Look inside.</p>
+          <p>It makes no more moves. What it already started still finishes, and nothing is undone. You can carry on in the other tabs.</p>
         </Dialog>
       )}
     </div>
   );
 }
 
-function Section({ title, open, children }: { title: string; open?: boolean; children: ReactNode }) {
+/** The clips in the cut, as a strip: each as wide as it is long, its still as the picture. "All clips" opens the Clips tab. */
+function InTheCut({ clips, projectId, onOpenClips }: { clips: Clip[]; projectId: number; onOpenClips: () => void }) {
+  const frames = useFrames(projectId);
   return (
-    <details open={open} className="space-y-2">
-      <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">{title}</summary>
-      {children}
-    </details>
+    <div className="space-y-2">
+      <p className="flex items-baseline justify-between gap-2 text-sm">
+        <span className="text-muted">In the cut</span>
+        <button type="button" className={`${linkText} min-h-11 sm:min-h-9`} onClick={onOpenClips}>
+          All clips
+        </button>
+      </p>
+      <ol className="flex h-20 gap-0.5" aria-label="In the cut">
+        {clips.map((c) => {
+          const still = frames.data?.find((f) => f.clip_id === c.clip_id)?.file_id;
+          return (
+            <li key={c.id} className="relative min-w-0 overflow-hidden rounded-sm bg-surface-2" style={{ flex: Math.max(1, c.seconds) }} aria-label={`Clip ${c.clip_id.replace(/^c/, "")}, ${c.seconds} s`}>
+              {still != null && <img src={fileUrl(still)} alt="" className="h-full w-full object-cover" />}
+              <span aria-hidden className="absolute bottom-1 left-1 rounded-sm bg-surface/80 px-1 text-xs tabular-nums">{c.clip_id.replace(/^c/, "")}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
-/** Each move as one plain line, what it did, with its reason under it. While it runs, only the newest few, with Show all. */
+/** Each move as a message from the director, what it did, with its reason under it. While it runs, only the newest few, with Show all. */
 function Moves({ turns, newest, clips }: { turns: Turn[]; newest?: number; clips: Clip[] }) {
   const [all, setAll] = useState(false);
   const shown = newest && !all ? turns.slice(-newest) : turns;
@@ -198,14 +237,19 @@ function Moves({ turns, newest, clips }: { turns: Turn[]; newest?: number; clips
           Show all {turns.length} moves
         </Button>
       )}
-      <ol className="space-y-2">
+      <ol className="space-y-3">
         {shown.map((t) => {
           const said = plain(t.said || t.result, clips) || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : t.tool && DOING[t.tool] ? `${DOING[t.tool]}.` : "Deciding what to do next…");
           const why = plain(t.why, clips);
+          const when = new Date(t.created_at);
           return (
-            <li key={t.turn} className="min-w-0 border-l-2 border-line pl-3 text-sm">
-              <p className="break-words">{said}</p>
-              {why && <p className="break-words text-muted">{why}</p>}
+            <li key={t.turn} className="flex min-w-0 gap-2.5 text-sm">
+              <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent-text">D</span>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-xs text-muted tabular-nums">Director{Number.isNaN(when.getTime()) ? "" : ` · ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</p>
+                <p className="break-words">{said}</p>
+                {why && <p className="break-words text-muted">{why}</p>}
+              </div>
             </li>
           );
         })}

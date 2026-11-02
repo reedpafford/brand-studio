@@ -2,12 +2,13 @@ import type { StepState } from "../components";
 import { isDone, isStale, lockReason, type Progress, type StepId } from "./steps";
 
 /** A video made from a library version has four steps: Plan (Scenes | Shots, Shots being the breakdown), Cast (the looks;
- *  the library stays "Cast & places"), Make (Stills | Clips, kept here as two ids), Final cut. The old six-step page keeps `steps.ts`. */
+ *  the library stays "Cast & places"), Clips (each clip with its still and takes; kept here as two ids), Final cut.
+ *  The old six-step page keeps `steps.ts`. */
 export const VIDEO_STEPS = [
   { id: "plan", label: "Plan", old: "shots" },
   { id: "cast", label: "Cast", old: "shots" },
-  { id: "storyboard", label: "Stills", old: "storyboard" }, // Make's first tab
-  { id: "clips", label: "Clips", old: "clips" }, // Make's second tab
+  { id: "storyboard", label: "Stills", old: "storyboard" }, // the stills part of Clips
+  { id: "clips", label: "Clips", old: "clips" }, // the takes part of Clips
   { id: "downloads", label: "Final cut", old: "final" }, // the address keeps "downloads", so old links still land here
 ] as const satisfies readonly { id: string; label: string; old: StepId }[];
 type VideoStepId = (typeof VIDEO_STEPS)[number]["id"];
@@ -79,15 +80,15 @@ export function videoStepStates(current: VideoStepId, p: VideoProgress): { id: V
 
 export const videoNext = (step: VideoStepId) => VIDEO_STEPS[VIDEO_STEPS.findIndex((s) => s.id === step) + 1] ?? null;
 
-/** The picker shows four steps (Reed, 30 Oct; DECISIONS rule 21): Storyboard and Clips are one step, Make, with Stills and
- *  Clips as its tabs. The addresses keep ?step=storyboard and ?step=clips, so the locks and old links stay as they are. */
-export const isMake = (step: VideoStepId) => step === "storyboard" || step === "clips";
-export function videoPickerStates(current: VideoStepId, p: VideoProgress) {
+/** The tab row shows four steps (v4): the stills and the takes are one tab, Clips, as they are one place per clip. The
+ *  addresses keep ?step=storyboard and ?step=clips, so the locks and old links stay as they are. */
+export const isClips = (step: VideoStepId) => step === "storyboard" || step === "clips";
+export function videoTabStates(current: VideoStepId, p: VideoProgress) {
   const all = videoStepStates(current, p);
   const [stills, clips] = [all[2], all[3]];
-  // Make's mark: where you are, locked until Stills opens, out of date if either tab is, done once the clips are.
-  const state: StepState = isMake(current) ? "current" : stills.state === "todo" ? "todo" : stills.state === "stale" || clips.state === "stale" ? "stale" : clips.state === "done" ? "done" : "open";
-  // Opening Make lands on Clips once clips exist, else on Stills.
-  const make = { id: clips.state !== "todo" && p.clips.total > 0 ? "clips" : "storyboard", label: "Make", state, reason: stills.reason };
-  return [all[0], all[1], make, all[4]];
+  // Its mark: where you are, locked until the stills can be made, out of date if either part is, done once the clips are.
+  const state: StepState = isClips(current) ? "current" : stills.state === "todo" ? "todo" : stills.state === "stale" || clips.state === "stale" ? "stale" : clips.state === "done" ? "done" : "open";
+  // Opening it lands on the takes once clips exist, else on the stills.
+  const tab = { id: clips.state !== "todo" && p.clips.total > 0 ? "clips" : "storyboard", label: "Clips", state, reason: stills.reason };
+  return [all[0], all[1], tab, all[4]];
 }

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { clipCard, pickClip } from "../test/clips";
 import { renderApp } from "../test/render";
 import { editor } from "../test/people";
 
@@ -68,8 +69,8 @@ test("a still with Advice shows a quiet notes chip; Change this… fills the cha
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/checks/7/findings/1/restore")).toBe(true));
   await userEvent.click(within(notes).getAllByRole("button", { name: "Change this…" })[0]);
-  expect(screen.getByLabelText("Change this… c1")).toHaveValue("Make Bo's face match his sheet");
-  await vi.waitFor(() => expect(screen.getByLabelText("Change this… c1")).toHaveFocus());
+  expect(screen.getByLabelText("Change this… still c1")).toHaveValue("Make Bo's face match his sheet");
+  await vi.waitFor(() => expect(screen.getByLabelText("Change this… still c1")).toHaveFocus());
   expect(screen.queryByLabelText("Notes for clip c1")).toBeNull();
 });
 
@@ -91,11 +92,11 @@ test("a clean check is only ✓ checked in the chip; checking and a failed check
   ];
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips] }));
   open("?step=clips");
-  const c1 = await screen.findByLabelText("Clip c1");
+  const c1 = await clipCard("c1");
   expect(within(c1).getByText("Approved · ✓ checked")).toBeInTheDocument();
-  expect(within(screen.getByLabelText("Clip c2")).getByText("Checking…")).toBeInTheDocument();
-  expect(within(screen.getByLabelText("Clip c2")).getByRole("button", { name: "Approve take" })).toBeEnabled();
-  expect(within(screen.getByLabelText("Clip c3")).getByText("Couldn't check this one.")).toBeInTheDocument();
+  expect(within(await clipCard("c2")).getByText("Checking…")).toBeInTheDocument();
+  expect(within(await clipCard("c2")).getByRole("button", { name: "Approve take 1" })).toBeEnabled();
+  expect(within(await clipCard("c3")).getByText("Couldn't check this one.")).toBeInTheDocument();
 });
 
 test("the Clips header has the Review chip and the summary line; a row goes to its card", async () => {
@@ -164,10 +165,12 @@ test("the look's own fixes: Fixed for the look with Undo before the still is dra
     "PUT /projects/9/storyboard/frames/1": [200, { ...frame, file_id: null, prompt: fixed.before }],
   }));
   open("?step=storyboard");
+  await pickClip("c1");
   const note = await screen.findByRole("note", { name: "Fixed for the look" });
   expect(within(note).getByText("Fixed for the look: stage → world.")).toBeInTheDocument();
   await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: fixed.before }));
+  await pickClip("c2");
   await userEvent.click(screen.getByRole("button", { name: "1 note on clip c2" }));
   expect(within(screen.getByRole("dialog")).getByText("For this look: Make another first.")).toBeInTheDocument();
 });
@@ -193,7 +196,7 @@ test("a refused take shows the look's fix beside its own press", async () => {
   const clips = [clip({ id: 4, clip_id: "c2", take_warning: "The video model refused this prompt.", look_fix: "Take out any studio or film name, then Make another take." })];
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips] }));
   open("?step=clips");
-  expect(await within(await screen.findByLabelText("Clip c2")).findByText("For this look: Take out any studio or film name, then Make another take.")).toBeInTheDocument();
+  expect(await within(await clipCard("c2")).findByText("For this look: Take out any studio or film name, then Make another take.")).toBeInTheDocument();
 });
 
 test("a take's words check has its own chip: what's off and when, Change this… fills the change box, Looks fine dismisses it", async () => {
@@ -219,7 +222,7 @@ test("while a take's words are heard it says so, apart from the picture check", 
   const picked = { ...take(2, 1, { id: 7, status: "checking", findings: [] }), words: { id: 8, status: "checking", findings: [] } };
   fakeServer(routes({ "GET /projects/9/clips": [200, [clip({ takes: [picked], picked_take_id: 2 })]] }));
   open("?step=clips");
-  const card = await screen.findByLabelText("Clip c1");
+  const card = await clipCard("c1");
   expect(await within(card).findByText("Checking the words…")).toBeInTheDocument();
   expect(within(card).getByText("Checking…")).toBeInTheDocument();
 });
@@ -231,7 +234,7 @@ test("a clean take that approved itself says so; one a person approved just says
   const byPerson = { ...take(4, 1, clean), approved_by: null };
   fakeServer(routes({ "GET /projects/9/clips": [200, [clip({ takes: [byCheck], picked_take_id: 2, approved: true }), clip({ id: 4, clip_id: "c2", takes: [byPerson], picked_take_id: 4, approved: true })]] }));
   open("?step=clips");
-  expect(await within(await screen.findByLabelText("Clip c1")).findByText(/^Approved by the check/)).toBeInTheDocument();
-  const other = screen.getByLabelText("Clip c2");
+  expect(await within(await clipCard("c1")).findByText(/^Approved by the check/)).toBeInTheDocument();
+  const other = await clipCard("c2");
   expect(within(other).getByText(/^Approved/)).not.toHaveTextContent("by the check");
 });

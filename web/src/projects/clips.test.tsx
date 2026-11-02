@@ -200,12 +200,11 @@ test("takes can be picked, and Approve take approves the picked one", async () =
   open();
   const card = await screen.findByLabelText("Clip c1");
   expect(within(card).getByText("Take 2 · ready to check")).toBeInTheDocument();
-  await userEvent.click(within(card).getByText("Other takes (1)"));
   expect(within(card).getByLabelText("Take 1")).toHaveTextContent("Not checked");
   expect(within(card).getByRole("link", { name: "Download take 1" })).toHaveAttribute("download", "Mia buys the dip-c1-take1.mp4");
   await userEvent.click(within(card).getByRole("button", { name: "Use take 1" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/takes/5/pick")).toBe(true));
-  await userEvent.click(within(card).getByRole("button", { name: "Approve take" }));
+  await userEvent.click(within(card).getByRole("button", { name: /^Approve take \d/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/1/approve")).toBe(true));
   expect(within(card).getByRole("link", { name: "Download" })).toHaveAttribute("download", "Mia buys the dip-c1-take2.mp4");
 });
@@ -434,11 +433,11 @@ test("pressing Approve take shows Approved with Undo approval at once, before th
   });
   open();
   const card = await screen.findByLabelText("Clip c1");
-  await userEvent.click(within(card).getByRole("button", { name: "Approve take" }));
+  await userEvent.click(within(card).getByRole("button", { name: "Approve take 1" }));
   expect(await within(card).findByRole("button", { name: "Undo approval" })).toBeInTheDocument();
   expect(within(card).getByText("Approved")).toBeInTheDocument();
   release(new Response(JSON.stringify({ detail: "Pick a take first." }), { status: 409, headers: { "content-type": "application/json" } }));
-  expect(await within(card).findByRole("button", { name: "Approve take" })).toBeInTheDocument(); // refused: back as it was
+  expect(await within(card).findByRole("button", { name: "Approve take 1" })).toBeInTheDocument(); // refused: back as it was
 });
 
 test("a grey Make clip always says why, on the line under it", async () => {
