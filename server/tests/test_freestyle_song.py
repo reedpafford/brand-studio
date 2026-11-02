@@ -69,6 +69,74 @@ def test_a_narrated_freestyle_makes_the_narration_first(app, db, owner):
     assert any(m.startswith("Making the narration") for m in moves)
 
 
+def test_the_brands_name_heard_wrong_in_a_narration_is_found_once_timed():
+    words = [{"word": w, "start": float(n)} for n, w in enumerate(["Get", "Foma.", "fomo", "now"])]
+    assert director_song.misheard(None, "fomo") is None  # not timed yet
+    assert director_song.misheard({"words": words}, "fomo") == [
+        {"word": "fomo", "heard": "Foma.", "at": 1.0}
+    ]
+
+
+def test_a_narration_sentence_with_one_word_lost_is_missing():
+    from app.models.songs import SongTake
+
+    said = "Packed with probiotics and greens. Get it today."
+    heard = [{"word": w, "start": 0.0} for w in "Packed with and greens. Get it today.".split()]
+    take = SongTake(kind="narration", timing={"words": heard})
+    lines = [{"text": "Packed with probiotics and greens.", "heard": 0.8},
+             {"text": "Get it today.", "heard": 1.0}]  # fmt: skip
+    assert director_song._missing(take, lines) == ["Packed with probiotics and greens."]
+    take.timing = {"words": [{"word": w, "start": 0.0} for w in said.split()]}
+    assert director_song._missing(take, lines) == []
+    song = SongTake(kind="song", timing={"words": heard})  # a song keeps its 60 %
+    assert director_song._missing(song, lines) == []
+
+
+def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app, db, owner):
+    from app.models.songs import SongTake
+
+    fs = _sent(owner, "narrated", "Every morning starts the same. Get fake:misheard fomo today.")
+    _run(app, db, ticks=120)
+    out = owner.get(f"/freestyles/{fs['id']}").json()
+    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    assert out["status"] == "delivered", moves
+    again = next(i for i, m in enumerate(moves) if m.startswith("Making the narration (Say"))
+    plan = next(i for i, m in enumerate(moves) if m.startswith("Making the plan"))
+    assert again < plan, moves
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    state = director_song.state(db, video)
+    first, second = state["takes"]
+    assert first["misheard"] and first["misheard"][0]["word"] == "fomo"
+    assert second["used"] and second["misheard"] == []  # the plan follows the good one
+    draft = db.get(ScriptDraft, video.script_draft_id)
+    assert "[" not in draft.text  # the note went to the voice, never into the version's words
+    redo = db.get(Job, db.get(SongTake, second["id"]).job_id)
+    assert redo.input["input"]["prompt"].startswith("[Say ")
+    assert db.get(SongTake, second["id"]).voice == "Sarah"  # no voice picked: the default
+
+
+def test_the_director_picks_the_narrators_voice_from_ours(app, db, owner):
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.songs import SongTake
+
+    fs = _sent(owner, "narrated", NARRATION)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+
+    def tool(voice):
+        decision = {"tool": "narration", "note": "warmer", "voice": voice}
+        return director_tools.run(db, me, video, decision, app.state.storage, {})
+
+    assert tool("Morgan").startswith("Refused: the narrator's voice is one of Sarah")
+    assert tool("Jane") == "Making the narration (warmer)."
+    newest = max(director_song.state(db, video)["takes"], key=lambda t: t["id"])
+    assert db.get(SongTake, newest["id"]).voice == "Jane"
+
+
 def test_a_song_runs_price_holds_its_song_and_one_remake(app, db, owner):
     fs = _sent(owner, "song", LYRICS)
     video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
@@ -90,7 +158,8 @@ def test_a_song_is_made_again_once_a_run_and_never_in_another_kind(app, db, owne
 
     def tool(name, note="", made=0):
         decision = {"tool": name, "note": note}
-        return director_tools.run(db, me, video, decision, app.state.storage, {"songs": made})
+        return director_tools.run(db, me, video, decision, app.state.storage,
+                                  {director_song.REMADE: made})  # fmt: skip
 
     assert tool("narration") == director_song.NO_NARRATOR
     full = director_song.REMAKES
@@ -142,7 +211,7 @@ def test_a_song_the_service_failed_is_tried_again_free_once_and_a_refusal_says_s
     songs()
     assert director_song.state(db, video)["state"] == "failed"
     assert tool() == "Trying the song again: the service failed, nothing was charged."
-    assert run["song_retries"] == 1 and "songs" not in run  # not a remake
+    assert run["song_retries"] == 1 and director_song.REMADE not in run  # not a remake
     songs()  # the same request again, its style line too: it fails again here
     assert tool().startswith("Refused: the song didn't come out")  # once; then a note
     job = max(db.query(Job).filter(Job.kind == "music"), key=lambda j: j.id)

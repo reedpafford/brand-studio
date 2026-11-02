@@ -4,19 +4,23 @@ treatment and before the plan. `song` makes the version's song takes (the versio
 line; a remake's note is added to that one request, never to the frozen version) and uses one
 once they're timed; `narration` makes the narrator's read and uses it. Each is remade once a
 run at most. The director judges a timed take without listening: when its first line is
-sung (`hook_at`) and which lines weren't heard as written (`missing`)."""
+sung (`hook_at`), which lines weren't heard as written (`missing`) and, in a narration, where
+the brand's name was heard wrong (`misheard`), so it's read again with a note before the plan."""
 
+import re
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app import music, narration, song_takes, song_timing
+from app import music, narration, song_takes, song_timing, take_words
 from app.models.accounts import User
+from app.models.brands import Brand
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
 
+REMADE = "audio_remakes"  # the run's count of them, a song's or a narration's alike
 REMAKES = 2  # a run's song (or narration) made again, with a note (Song-Producer: 2)
 HEARD = 0.6  # a line counts as heard as written from this share of its words (take words)
 HOOK = 0.5  # the first line sung: half its words heard
@@ -33,7 +37,30 @@ def kind(db: Session, project: Project) -> str | None:
     return found if found in narration.TIMED else None
 
 
-def _take(db: Session, take: SongTake, used: int | None) -> dict:
+def misheard(timing: dict | None, brand: str) -> list[dict] | None:
+    """The brand's name heard wrong in a timed narration ("Fobo" for fomo), from its words on
+    the trimmed track, as the words check finds it in a take; None until it's timed."""
+    if timing is None:
+        return None
+
+    def wrong(word: str) -> bool:
+        return take_words._off_by_one(re.sub(r"[^a-z0-9']", "", word.lower()), brand.lower())
+
+    return [{"word": brand, "heard": w["word"], "at": w["start"]}
+            for w in timing.get("words") or [] if wrong(w["word"])]  # fmt: skip
+
+
+def _missing(take: SongTake, lines: list[dict]) -> list[str]:
+    """Lines not heard as written. A song's: under HEARD of its words. A narration's: any word
+    lost, by its letters against everything heard, as the trim check compares (one dropped
+    "probiotics" is a miss)."""
+    if take.kind != narration.KIND:
+        return [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
+    heard = narration.letters((take.timing or {}).get("words") or [])
+    return [x["text"] for x in lines if narration.letters([{"word": x["text"]}]) not in heard]
+
+
+def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dict:
     status = song_takes.state(db, take)[0]
     timing = take.timing or {}
     lines = timing.get("lines") or []
@@ -46,9 +73,9 @@ def _take(db: Session, take: SongTake, used: int | None) -> dict:
             "hook_at": sung[0]["start"] if sung else None,
             "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
-            "missing": [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
-            if take.timing is not None else None,
-            **({"extras": _extras(take)} if take.kind == "song" else {})}  # fmt: skip
+            "missing": _missing(take, lines) if take.timing is not None else None,
+            **({"misheard": misheard(take.timing, brand)} if take.kind == narration.KIND
+               else {"extras": _extras(take)})}  # fmt: skip
 
 
 def _extras(take: SongTake) -> list[dict] | None:
@@ -67,8 +94,9 @@ def state(db: Session, project: Project) -> dict | None:
     found = kind(db, project)
     if found is None:
         return None
+    brand = db.get(Brand, project.brand_id)
     made = song_takes.for_video(db, project)
-    takes = [_take(db, t, project.song_take_id) for t in made]
+    takes = [_take(db, t, project.song_take_id, brand.name) for t in made]
     states = {t["state"] for t in takes}
     now = ("none" if not takes else "making" if states & {"making", "timing"}
            else "ready" if "ready" in states else "failed")  # fmt: skip
@@ -80,7 +108,17 @@ def state(db: Session, project: Project) -> dict | None:
         out["style"] = (music.sung_style(db.get(Job, take.job_id).input) if take
                         else draft.style_line.strip())  # fmt: skip
         out["recent_styles"] = music.recent_styles(db, project.brand_id)
+    if found == "narrated":  # the note a narration with the name wrong is read with
+        out["say"] = say(brand)
     return out
+
+
+def say(brand: Brand) -> str:
+    """The pronunciation note for the narrator ("Say fomo as FOH-moh.")."""
+    said_as = take_words.say(brand)
+    if said_as == brand.name:
+        return f"Say the name {brand.name} clearly, as it's written."
+    return f"Say {brand.name} as {said_as}."
 
 
 def _on(db: Session, draft: ScriptDraft) -> bool:
@@ -113,7 +151,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if ready and not note:
         if project.song_take_id in {t.id for t in ready}:
             return f"The {what} is set: take {_number(db, project.song_take_id)}."
-        best = next((t for t in ready if t.preferred), None) or min(ready, key=_pick)
+        best = next((t for t in ready if t.preferred), None) or min(
+            ready, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
     if takes and not note:
@@ -124,31 +163,32 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again
             return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
         last = run.get("song_note", "")  # the same request again: its style line too
-        song_takes.make(db, user, draft, project, kie=_real(db, found), note=last)
+        voice = run.get("song_voice") or narration.VOICE  # a narration keeps its voice
+        song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice)
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made
         return f"Trying the {what} again: the service failed, nothing was charged."
-    if takes and run.get("songs", 0) >= REMAKES:
+    if takes and run.get(REMADE, 0) >= REMAKES:
         return AGAIN.format(what=what)
     if not _on(db, draft):
         return OFF
-    song_takes.make(db, user, draft, project, kie=_real(db, found), note=note)
-    run["song_note"] = note
+    voice = (decision.get("voice") if found == "narrated" else None) or narration.VOICE
+    if voice not in narration.VOICES:  # the Director's pick (None: the default)
+        return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
+    song_takes.make(db, user, draft, project, kie=_real(db, found), note=note, voice=voice)
+    run["song_note"], run["song_voice"] = note, voice
     if takes:  # a remake; the first song's note is its style line, not a remake
-        run["songs"] = run.get("songs", 0) + 1
+        run[REMADE] = run.get(REMADE, 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
-
-
-def _pick(take: SongTake) -> tuple:
-    """The automatic pick (no take_id, none preferred): the fewest lyric lines missing, then
-    the shorter take (fewer seconds to film), then the older."""
-    lines = (take.timing or {}).get("lines") or []
-    missing = sum(1 for x in lines if (x.get("heard") or 0) < HEARD)
-    return missing, take.seconds or (take.timing or {}).get("seconds") or 0, take.id
 
 
 def _real(db: Session, found: str) -> float:
     """A real song through KIE's price (song_takes.real_songs); a narration is never one."""
     return 0.0 if found == "narrated" else song_takes.real_songs(db, _settings())
+
+
+def _rank(take: dict, take_id: int) -> tuple:
+    """The best take first: fewest lines missing, then the shorter (cheaper to film)."""
+    return (len(take["missing"] or []), take["seconds"] or 0, take_id)
 
 
 def _settings():

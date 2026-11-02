@@ -1791,9 +1791,11 @@ def test_the_director_checks_the_brand_word_in_a_fresh_narration_before_the_plan
     name is judged right after the narration is made, and remade with a pronunciation note
     before the plan, never spliced."""
     director = prompts.system("director")
-    for part in ("misheard: brand words heard wrong in it", "as soon as the narration is timed,"
-                 " before the plan", "a pronunciation note from the brand's notes",
-                 "a narration is never spliced"):  # fmt: skip
+    for part in ("misheard: the brand's name heard wrong [{word, heard, at}]", "say: the "
+                 "pronunciation note", "as soon as the narration is timed, before the plan",
+                 "with `say` as the note", "a narration is never spliced", "`voice` is Sarah",
+                 "`longest_gap`"):  # fmt: skip
         assert part in director, part
-    turn = schemas.DirectorTurn(tool="narration", note="say fomo as FOH-moh", why="misheard")
-    assert turn.note == "say fomo as FOH-moh"
+    turn = schemas.DirectorTurn(tool="narration", note="Say fomo as FOH-moh.", why="misheard")
+    assert turn.note == "Say fomo as FOH-moh." and turn.voice is None  # null keeps Sarah
+    assert schemas.DirectorTurn(tool="narration", voice="Hope", why="the brief").voice == "Hope"
