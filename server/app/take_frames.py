@@ -54,3 +54,18 @@ def starts(db: Session, take_id: int | None, src: Path) -> list[float]:
         return [h["start"] for h in heard]
     log = _ffmpeg(["-i", str(src), "-af", "silencedetect=noise=-30dB:d=0.3", "-vn"])
     return [float(t) for t in re.findall(r"silence_end: ([\d.]+)", log)]
+
+
+def length(src: Path) -> float:
+    """A video's length in seconds."""
+    probe = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+             str(src)]  # fmt: skip
+    done = subprocess.run(probe, capture_output=True, text=True, timeout=60, check=True)  # noqa: S603
+    return float(done.stdout.strip() or 0)
+
+
+def grab(src: Path, at: float, dst: Path) -> None:
+    """One JPEG frame of a video at `at` seconds."""
+    command = ["ffmpeg", "-v", "error", "-y", "-ss", f"{at:.2f}", "-i", str(src),
+               "-frames:v", "1", "-q:v", "4", str(dst)]  # fmt: skip
+    subprocess.run(command, timeout=60, check=True)  # noqa: S603

@@ -136,6 +136,8 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.song_takes import save_timing
     from app.storyboard import save_frames, save_still
     from app.take_words import save as save_words
+    from app.watch_cut import heard_cut
+    from app.watch_cut import save as save_watch_cut
 
     handlers = {
         "enhance": save_suggestions,
@@ -152,6 +154,8 @@ def save_step_result(db: Session, job: Job) -> None:
         "frame": save_still,
         "item_check": save_check,
         "take_words": save_words,
+        "cut_listen": heard_cut,
+        "watch_cut": save_watch_cut,
         "look_sample": save_sample_still,
         "look_sample_clip": save_sample_clip,
         "clip_prompts": save_clip_prompts,

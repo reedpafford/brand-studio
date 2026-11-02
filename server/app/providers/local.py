@@ -32,12 +32,16 @@ class LocalProvider:
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
         read_site: Callable[[str], dict] = site_fetch.switched_off,
         hear_take: Callable[[Path, dict], list[dict]] = lambda path, _: reel.transcribe(path, True),
+        hear_cut: Callable[[Path, dict], list[dict]] = lambda path, _: reel.transcribe(
+            path, words=True
+        ),
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
         self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study
         self.fetch_study = fetch_study  # a song-ad study's link (the stand-ins give a clip)
         self.read_site = read_site  # Import from website (BR2): off unless switched on
         self.hear_take = hear_take  # a take's words, for its words check (app/take_words.py)
+        self.hear_cut = hear_cut  # a cut's words and when, for its watch (app/watch_cut.py)
         self.root = Path(tempfile.mkdtemp(prefix="bs-local-"))
 
     def run(self, kind: str, input: dict) -> Result:
@@ -54,6 +58,8 @@ class LocalProvider:
                 return Result("succeeded", output={"problem": str(no)})
         if kind == "take_listen":
             return self._hear_take(input)
+        if kind == "cut_listen":
+            return self._hear_cut(input)
         if kind != "reel_prepare":
             raise ValueError(f"Unknown local job {kind!r}.")
         folder = Path(tempfile.mkdtemp(dir=self.root))
@@ -102,6 +108,38 @@ class LocalProvider:
             take = Path(folder) / "take.mp4"
             take.write_bytes(self.storage.get(input["video_key"]))
             return Result("succeeded", output={"heard": self.hear_take(take, input)})
+
+    def _hear_cut(self, input: dict) -> Result:
+        """A cut's watch, free: its words, where each clip sits, and the frames to look at
+        (app/watch_cut.py), handed over as files."""
+        from app import take_frames, watch_cut
+
+        folder = Path(tempfile.mkdtemp(dir=self.root))
+        cut = folder / "cut.mp4"
+        cut.write_bytes(self.storage.get(input["video_key"]))
+        length = take_frames.length(cut)
+        lengths = []
+        for c in input["clips"]:
+            seconds = c.get("seconds")
+            if seconds is None:
+                take = folder / f"take-{c['take_id']}.mp4"
+                take.write_bytes(self.storage.get(c["key"]))
+                seconds = take_frames.length(take)
+                take.unlink()
+            lengths.append((c["clip_id"], c["take_id"], float(seconds)))
+        spans = watch_cut.spans_of(lengths, length)
+        words = [{**w, "clip_id": watch_cut.clip_at(spans, w["start"])}
+                 for line in self.hear_cut(cut, input) for w in line.get("words", [])]  # fmt: skip
+        frames = watch_cut.frames_at(length, take_frames.cuts(cut), words, spans,
+                                     watch_cut.count_for(length))  # fmt: skip
+        files = []
+        for n, f in enumerate(frames):
+            dst = folder / f"frame-{n}.jpg"
+            take_frames.grab(cut, f["t"], dst)
+            files.append(f"local://{dst}")
+        cut.unlink()
+        return Result("succeeded", output={"spans": spans, "words": words, "frames": frames},
+                      files=files)  # fmt: skip
 
     def _study(self, input: dict) -> Result:
         """A song ad's study and its frames; a plain reason when it can't be read. An
