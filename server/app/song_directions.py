@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import prompts, song_study
+from app import music, prompts, song_study
 from app.db import utcnow
 from app.enhance import escape, project_context
 from app.models.jobs import Job, JobStatus
@@ -75,6 +75,7 @@ def job_input(
         brief, cast, seconds=draft.target_seconds, note=escape(note),
         source=escape(source), sounds_like=escape(sounds_like),
         reference=escape(prompts.song_study_block(study)) if study else "",
+        recent_styles=[escape(x) for x in music.recent_styles(db, script.brand_id)],
     )  # fmt: skip
     return {"step": STEP, "script_id": script.id, "slot": draft.slot, "system": system,
             "prompt": message, "sounds_like": sounds_like, "brand": script_brand(db, script),

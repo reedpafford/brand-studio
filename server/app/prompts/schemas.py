@@ -638,7 +638,8 @@ class DirectorTurn(BaseModel):
     )
     voice: Literal["Sarah", "Alexandra", "Hope", "Jane"] | None = Field(
         default=None,
-        description="For narration being made: the narrator's voice; null keeps Sarah. Else null.",
+        description="For narration being made: the narrator's voice; null gives Sarah on the "
+        "first narration and keeps the voice in use on a remake. Else null.",
     )
     word: str | None = Field(
         default=None,
