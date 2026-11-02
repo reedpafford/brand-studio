@@ -34,13 +34,7 @@ def test_one_media_item_reads_as_the_list_shows_it(db, owner, editor):
     assert hidden.status_code == 404
 
 
-def test_the_owner_takes_quick_clips_and_final_cuts_off_media_never_a_videos_part(
-    db,
-    owner,
-    editor,
-    setup,
-    clip,  # noqa: F811
-):
+def test_owner_takes_items_off_media_never_a_videos_part(db, owner, editor, setup, clip):  # noqa: F811
     from app.models.brands import Brand
     from app.models.clips import FinalVideo, ProjectClip
     from app.models.library import LibraryItem
