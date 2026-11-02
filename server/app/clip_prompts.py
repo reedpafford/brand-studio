@@ -231,6 +231,10 @@ def job_input(
             f"<breakdown>\n{escape(json.dumps(bd.data, ensure_ascii=False))}\n</breakdown>",
         ]
     )
+    from app.director import treatment_block
+
+    if told := treatment_block(db, project):  # the story it serves (the director's treatment)
+        prompt = f"{prompt}\n{told.rstrip()}"
     return {
         "step": "clip_prompts",
         "project_id": project.id,

@@ -32,10 +32,12 @@ STEP = "director"
 RUN = "director_run"
 MAX_TURNS = 40  # a run's turns at most
 MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
+MAX_REPLANS = 1  # plans made again from the watch ("Re-plan: …"), a run
 MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
 OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
+UNWATCHED = "Refused: watch the cut first."
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -333,6 +335,10 @@ def _act(db: Session, job: Job, storage) -> None:
     run = dict(job.input[RUN])
     tool = decision.get("tool")
     if tool == "deliver":
+        watch = _watch(db, project)
+        if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
+                and not watch.get("current")):  # fmt: skip
+            return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
         named = {int(n) for n in NOTE.findall(decision.get("why") or "")}
         given = max((t.input.get(READ, 0) for t in turns(db, project)
                      if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
@@ -532,11 +538,13 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": j.input.get("result")} for j in turns(db, project)[-8:]]  # fmt: skip
+             "result": j.input.get("result")} for j in turns(db, project)
+            if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
-               "own_time_limit_usd": float(MAX_USD)}  # fmt: skip
+               "own_time_limit_usd": float(MAX_USD),
+               "replans_left": MAX_REPLANS - run.get("replans", 0)}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
     closed = answered(db, run["id"])
@@ -546,7 +554,41 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
     parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed),
              *((("chat", asked),) if asked else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
-    return {"system": system, "prompt": f"{brief}\n{tagged}", READ: len(asked)}
+    return {"system": system, "prompt": f"{brief}\n{story(db, project)}{tagged}",
+            READ: len(asked)}  # fmt: skip
+
+
+def story(db: Session, project: Project) -> str:
+    """What the video is (the Director, on Reed's first real run: it never read the words):
+    its script, numbered; its plan's beats; its treatment, when there is one."""
+    from app import plans, prompts
+    from app.watch_cut import _plan
+
+    version = plans.script(db, project)
+    if version is None:
+        return ""
+    parts = [f"<script>\n{prompts.number_lines(version.text)}\n</script>"]
+    if beats := _plan(plans.current(db, project), version):
+        parts.append(f"<plan>\n{beats}\n</plan>")
+    return "\n".join(parts) + "\n" + treatment_block(db, project)
+
+
+def treatment(db: Session, project: Project) -> dict | None:
+    """The video's newest treatment (the Director's step: hook, logline, why it holds, beats,
+    ending), or None."""
+    job = db.scalar(select(Job).where(Job.project_id == project.id,
+                                      Job.input["step"].as_string() == "treatment",
+                                      Job.status == JobStatus.succeeded)
+                    .order_by(Job.id.desc()).limit(1))  # fmt: skip
+    return (job.output or None) if job else None
+
+
+def treatment_block(db: Session, project: Project) -> str:
+    """<treatment> for a step's user message (plan, breakdown, clip prompts, watch), or ""."""
+    from app.enhance import escape
+
+    made = treatment(db, project)
+    return f"<treatment>\n{escape(json.dumps(made, indent=1))}\n</treatment>\n" if made else ""
 
 
 def video_state(db: Session, project: Project) -> dict:
@@ -559,6 +601,9 @@ def video_state(db: Session, project: Project) -> dict:
     bd = newest(db, project)
     frames = [f for f in db.scalars(select(StoryboardFrame).where(
         StoryboardFrame.project_id == project.id)) if bd and f.breakdown_id == bd.id]  # fmt: skip
+    data = bd.data if bd else {}  # what each clip shows and says (the Director: not only verdicts)
+    shots = {x["id"]: x for sc in data.get("scenes", []) for x in sc.get("shots", [])}
+    ids_of = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
     clips = []
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                           .order_by(ProjectClip.id)):  # fmt: skip
@@ -573,6 +618,9 @@ def video_state(db: Session, project: Project) -> dict:
             out.append({"id": t.id, "number": t.number, "verdict": verdict(checks),
                         "notes": notes})  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
+                      "shots": [{"id": i, "action": shots[i].get("action", ""),
+                                 "line": shots[i].get("line")}
+                                for i in ids_of.get(row.clip_id, []) if i in shots],
                       "picked_take_id": row.picked_take_id, "takes": out,
                       "muted": take_mute.spans(db.get(ClipTake, row.picked_take_id)
                                                if row.picked_take_id else None)})  # fmt: skip
@@ -665,8 +713,8 @@ def choose(state: dict) -> dict:
         return go("final_cut", f"Every clip has its take.{said}")
     if watch.get("state") == "watching":
         return go("wait", "It's watching the cut.")
-    left = state.get("allowed", {}).get("watches_left", 0)  # it watches twice (the server: 3)
-    if not watch.get("current") and left > MAX_WATCHES - 2:
+    left = state.get("allowed", {}).get("watches_left", 0)
+    if not watch.get("current") and left > 0:  # it delivers only a cut it watched (UNWATCHED)
         return go("watch_cut", "The cut is made: it watches it as a viewer would.")
     keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
     done = _answers(state)

@@ -405,10 +405,10 @@ def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, e
     out = editor.get(f"/projects/{pid}/director").json()
     tools = [t["tool"] for t in out["turns"]]
     assert out["status"] == "delivered", (out["ended"], tools)
-    assert tools.count("watch_cut") == 2  # the stand-in watches twice (the server allows 3)
+    assert tools.count("watch_cut") == 3, tools  # it delivers only a cut it watched (3 at most)
     redos = [t for t in out["turns"] if t["tool"] == "make_take" and "watch found" in t["why"]]
     assert len(redos) == 1  # the stand-in remakes a clip once for a watch
-    assert tools.count("final_cut") == 3 and tools[-2:] == ["final_cut", "deliver"]
+    assert tools.count("final_cut") == 3 and tools[-2:] == ["watch_cut", "deliver"]
     last = db.query(ProjectClip).filter_by(project_id=pid).order_by(ProjectClip.id.desc()).first()
     muted = f"Muted a stretch of clip {last.clip_id.removeprefix('c')} instead of remaking it."
     assert [t["result"] for t in out["turns"] if t["tool"] == "mute"] == [muted]
