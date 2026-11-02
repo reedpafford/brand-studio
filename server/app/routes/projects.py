@@ -301,7 +301,7 @@ def list_projects(
     from app.routes.project_clips import out_of_date
 
     old = out_of_date(db, list(found))
-    waits = needs_you.waiting_on(db, list(found), old)
+    waits = needs_you.waiting_on(db, list(found), old, owner=user.is_owner)
     out = [_out(db, p, user, old) for p in found]
     for row, project in zip(out, found, strict=True):
         row.poster_file_id = (frames.get(project.id) or (None, None))[1]

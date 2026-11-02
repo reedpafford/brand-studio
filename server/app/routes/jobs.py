@@ -50,6 +50,8 @@ class FreestyleRef(BaseModel):
     up_to: float | None = None  # a director-run freestyle: this send's price, "up to"
     total: float | None = None  # and the running total approved, less refused sends (credits)
     spent: float = 0  # what the freestyle has spent so far (credits)
+    script_id: int | None = None  # its script and version (slot 0 the original), for the
+    slot: int | None = None  # owner's request row: "Make a video" from a version, or pasted
 
 
 class JobOut(BaseModel):
@@ -151,11 +153,24 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
     if fs is None:
         return None
     said = job.input.get(SAID, "")
+    draft = _draft(db, fs)
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
+                        script_id=draft and draft.script_id, slot=draft and draft.slot,
                         up_to=Decimal(job.input[PRICE]) if PRICE in job.input else fs.up_to,
                         total=approved(db, fs) if fs.up_to is not None else None,
                         spent=_spent(db, fs),
                         said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
+
+
+def _draft(db: Session, fs: Freestyle):
+    """The version a freestyle's video was made from (its video is hidden until the OK)."""
+    from app import hidden
+    from app.models.projects import Project
+    from app.models.script_library import ScriptDraft
+
+    video = fs.project_id and db.get(Project, fs.project_id,
+                                     execution_options={hidden.SEE: True})  # fmt: skip
+    return video and video.script_draft_id and db.get(ScriptDraft, video.script_draft_id)
 
 
 def _with_check(db: Session, job: Job) -> Decimal:
