@@ -422,6 +422,34 @@ def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owne
     room = project.budget_credits - budget  # what the hold still lets through
     assert not credits.needs_approval(db, ed, project, room)  # exactly fits
     assert credits.needs_approval(db, ed, project, room + Decimal("0.01"))  # one cent past
+    db.commit()
+
+
+def test_every_budget_check_counts_as_the_hold_does(app, db, owner, editor, monkeypatch):
+    """QA-6: the hold left the director's spend out, but the take retry's check (fits), the
+    settings preview and the cost bar's percent still counted it. All read budget_used now;
+    the per-video cap still counts everything."""
+    from decimal import Decimal
+
+    from app import credits
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    used = credits.budget_used(db, project)
+    assert credits.director_credits(db, project) > 0 and used < credits.credits_used(db, project)
+    room, cent = project.budget_credits - used, Decimal("0.01")
+    assert credits.fits(db, project, ed, room) == ""
+    assert credits.fits(db, project, ed, room + cent) == "would go over this video's budget."
+    got = editor.get(f"/projects/{pid}").json()
+    assert got["budget_pct"] == round(float(used / project.budget_credits * 100), 1)
+    db.commit()
+    for cost, over in ((room, False), (room + cent, True)):
+        monkeypatch.setattr("app.video_settings.to_finish", lambda db, p, cost=cost: cost)
+        seen = editor.post(f"/projects/{pid}/settings/preview", json={"aspect_ratio": "1:1"})
+        assert seen.json()["over_budget"] is over, (cost, seen.json())
 
 
 def test_the_owners_release_counts_the_budget_as_the_hold_does(app, db, owner, editor):

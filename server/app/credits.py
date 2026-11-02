@@ -252,7 +252,7 @@ def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
     cap = get_limits(db, project.workspace_id).per_video_max_credits
     if credits_used(db, project) + total > cap:
         return "would go over this video's limit."
-    if credits_used(db, project) + total <= project.budget_credits:
+    if budget_used(db, project) + total <= project.budget_credits:  # as the hold counts it
         return ""
     return "would go over this video's budget."
 
