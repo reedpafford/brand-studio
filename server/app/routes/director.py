@@ -64,7 +64,8 @@ def _out(db: Session, user: User, project) -> DirectorOut:
     status = ("none" if not last else "running" if director.active(db, project)
               else "delivered" if delivered else "ended")  # fmt: skip
     turns = [TurnOut(turn=j.input[director.RUN]["turn"], tool=(j.output or {}).get("tool"),
-                     why=(j.output or {}).get("why", ""), result=j.input.get("result", ""),
+                     why=director.named((j.output or {}).get("why") or ""),
+                     result=director.named(j.input.get("result", "")),
                      status=j.status, created_at=j.created_at) for j in rows]  # fmt: skip
     spent = director.spent(db, last.input[director.RUN]["id"]) if last else 0
     try:

@@ -131,7 +131,7 @@ def thread(db: Session, project: Project) -> list[dict]:
             j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
         )
         why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
-        text, why = _named(text), _named(why)
+        text, why = named(text), named(why)
         status = ("held" if j.status == JobStatus.needs_owner_approval
                   else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
                   else "refused" if result.startswith("Refused") else "done")  # fmt: skip
@@ -141,7 +141,7 @@ def thread(db: Session, project: Project) -> list[dict]:
     return sorted(out, key=lambda m: m["at"])
 
 
-def _named(text: str) -> str:
+def named(text: str) -> str:
     """Clips as people see them ("clip 1"), never their ids ("c1")."""
     return re.sub(r"\bc(\d+)\b", r"clip \1", text)
 
@@ -531,6 +531,11 @@ def choose(state: dict) -> dict:
 
     clips, watch = state["clips"], state.get("watch") or {"state": "none"}
     found = watch.get("findings") or [] if watch.get("current") else []
+    notes = state.get("chat") or []  # a run with notes: only what was asked
+    wanted = {f"c{n}" for m in notes for n in re.findall(r"\bclip (\d+)\b", m["text"], re.I)}
+    # It can't tell whether the change caused a fault, so it fixes none: each is mentioned
+    older = [f for f in found if notes and f.get("fix") != "keep"]
+    found = [f for f in found if f not in older]
     picked_by_watch = {f["clip_id"]: f.get("take_id") for f in found if f.get("fix") == "pick"}
     if state["being_made"] or state["held_for_owner"]:
         return go("wait", "Something is still being made or waits for the owner.")
@@ -552,7 +557,8 @@ def choose(state: dict) -> dict:
         last = c["takes"][-1]
         if last["verdict"] == "checking":
             return go("wait", f"{c['clip_id']}'s take is being checked.")
-        if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS:
+        mine = not notes or c["clip_id"] in wanted
+        if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS and mine:
             note = "; ".join(last["notes"]) or "Fix what the take check found."
             return go("make_take", f"The take check flagged {c['clip_id']}.",
                       clip_id=c["clip_id"], note=note[:500])  # fmt: skip
@@ -579,7 +585,10 @@ def choose(state: dict) -> dict:
     if not watch.get("current") and left > MAX_WATCHES - 2:
         return go("watch_cut", "The cut is made: it watches it as a viewer would.")
     keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
-    return go("deliver", f"The cut is made with each clip's best take. {keep}".strip())
+    done = " ".join(f"You asked: {m['text']} Done." for m in notes)
+    noticed = " ".join(f"I also noticed: {f['says']} Want me to fix it?" for f in older)
+    said = " ".join(x for x in (done, keep, noticed) if x)
+    return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
 
 
 def _asked(state: dict) -> dict | None:

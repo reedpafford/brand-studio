@@ -740,6 +740,14 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
     assert out["status"] == "delivered", (out["ended"], [t["tool"] for t in out["turns"]])
     remade = next(t for t in out["turns"] if t["tool"] == "make_take")
     assert remade["why"] == "You asked: Make clip 1 slower and warmer."
+    note = out["turns"][-1]["why"]  # the revision names the ask, fixes nothing it wasn't asked
+    assert "You asked: Make clip 1 slower and warmer. Done." in note
+    project = db.get(Project, pid)
+    run = director.turns(db, project)
+    touched = {(j.output or {}).get("clip_id") for j in run
+               if (j.output or {}).get("tool") in ("make_take", "mute", "pick_take")}  # fmt: skip
+    assert touched <= {"c1"}, touched
+    assert "Muted" not in note and "I also noticed:" in note and "Want me to fix it?" in note
     kinds = [m["kind"] for m in out["thread"]]
     said = kinds.index("message")
     assert "move" in kinds[:said] and "move" in kinds[said + 1 :]  # between the two runs
