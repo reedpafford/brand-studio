@@ -65,6 +65,8 @@ class KieSuno:
             "lyrics": song["lyrics"], "style": song["style"],
             "negative_tags": song.get("exclude_styles", ""),
         }}  # fmt: skip
+        if song.get("vocal_gender") in ("f", "m"):  # from the style line; else Suno picks
+            body["input"]["vocalGender"] = song["vocal_gender"]
         return self._call("POST", "/jobs/createTask", json=body)["taskId"]
 
     def poll(self, ref: str) -> Result:

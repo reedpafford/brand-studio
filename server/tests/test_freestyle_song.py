@@ -4,11 +4,12 @@ follow it. Stand-ins only."""
 
 import pytest
 
-from app import director_song
+from app import director_song, music
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
+from app.models.songs import SongTake
 from app.routes.estimate import run_price
 from tests.conftest import first_brand
 from tests.test_freestyle_dialogue import _run
@@ -47,6 +48,13 @@ def test_a_song_freestyle_makes_the_song_first_then_the_video_to_it(app, db, own
     state = director_song.state(db, video)
     (picked,) = [t for t in state["takes"] if t["used"]]
     assert picked["timed"] and picked["hook_at"] is not None and picked["missing"] == []
+    assert picked["extras"] == []  # the stand-in sings the lyrics as written
+    assert state["style"] == "" and state["recent_styles"] == []  # the stand-in gave none
+    job = db.get(Job, db.get(SongTake, video.song_take_id).job_id)
+    job.input = music.job(LYRICS, "breezy pop, warm female vocal")  # as the request sung it
+    db.commit()
+    state = director_song.state(db, video)
+    assert state["style"] == "breezy pop, warm female vocal" == state["recent_styles"][0]
 
 
 def test_a_narrated_freestyle_makes_the_narration_first(app, db, owner):

@@ -10,8 +10,9 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app import music, narration, song_takes
+from app import music, narration, song_takes, song_timing
 from app.models.accounts import User
+from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
@@ -46,18 +47,40 @@ def _take(db: Session, take: SongTake, used: int | None) -> dict:
             "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
             "missing": [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
-            if take.timing is not None else None}  # fmt: skip
+            if take.timing is not None else None,
+            **({"extras": _extras(take)} if take.kind == "song" else {})}  # fmt: skip
+
+
+def _extras(take: SongTake) -> list[dict] | None:
+    """Sung but not in the lyrics (ad-libs, an extra chorus); None until timed. Timings read
+    before extras were saved work them out from their words."""
+    if take.timing is None:
+        return None
+    if "extras" in take.timing:
+        return take.timing["extras"]
+    return song_timing.extras(take.lyrics, take.timing.get("words") or [])
 
 
 def state(db: Session, project: Project) -> dict | None:
-    """What the director reads: {state none | making | ready | failed, takes, used_take_id}."""
-    if kind(db, project) is None:
+    """What the director reads: {state none | making | ready | failed, takes, used_take_id};
+    a song's also has the `style` it's sung in and the brand's `recent_styles`."""
+    found = kind(db, project)
+    if found is None:
         return None
-    takes = [_take(db, t, project.song_take_id) for t in song_takes.for_video(db, project)]
+    made = song_takes.for_video(db, project)
+    takes = [_take(db, t, project.song_take_id) for t in made]
     states = {t["state"] for t in takes}
     now = ("none" if not takes else "making" if states & {"making", "timing"}
            else "ready" if "ready" in states else "failed")  # fmt: skip
-    return {"state": now, "takes": takes, "used_take_id": project.song_take_id}
+    out = {"state": now, "takes": takes, "used_take_id": project.song_take_id}
+    if found == "song":
+        used = [t for t in made if t.id == project.song_take_id]
+        take = (used or sorted(made, key=lambda t: t.id))[-1] if made else None
+        draft = db.get(ScriptDraft, project.script_draft_id)
+        out["style"] = (music.sung_style(db.get(Job, take.job_id).input) if take
+                        else draft.style_line.strip())  # fmt: skip
+        out["recent_styles"] = music.recent_styles(db, project.brand_id)
+    return out
 
 
 def _on(db: Session, draft: ScriptDraft) -> bool:
