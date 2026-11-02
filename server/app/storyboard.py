@@ -675,7 +675,8 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     shots = [s for sc in breakdown.data["scenes"] for s in sc["shots"] if s["id"] == frame.shot_id]
     drawn = screen_figures.for_job(db, frame.reference_ids, shots)
     return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id,
-            "made_with": made, "screen_figures": drawn}  # fmt: skip
+            "made_with": made, "screen_figures": drawn,
+            **({"note": note} if note else {})}  # fmt: skip  # the editor's own words
 
 
 def save_still(db: Session, job: Job) -> None:

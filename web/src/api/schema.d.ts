@@ -6531,6 +6531,18 @@ export interface components {
             script_id?: number | null;
             /** Slot */
             slot?: number | null;
+            /**
+             * Script Title
+             * @default
+             */
+            script_title: string;
+            /** Brand Id */
+            brand_id?: number | null;
+            /**
+             * Hidden
+             * @default true
+             */
+            hidden: boolean;
         };
         /** FreestyleRow */
         FreestyleRow: {
@@ -7005,6 +7017,11 @@ export interface components {
              */
             auto: boolean;
             freestyle?: components["schemas"]["FreestyleRef"] | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -7104,6 +7121,11 @@ export interface components {
              */
             auto: boolean;
             freestyle?: components["schemas"]["FreestyleRef"] | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** JobState */
         JobState: {

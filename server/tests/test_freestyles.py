@@ -180,7 +180,9 @@ def test_needs_you_says_which_freestyle_and_what_it_asks(owner, editor, db):
     assert row["freestyle"] == {"id": fs["id"], "title": fs["title"], "type": "one_clip",
                                 "said": "Make it night.", "change": True,
                                 "up_to": None, "total": None, "spent": 4.0,
-                                "script_id": None, "slot": None}  # one clip: no script  # fmt: skip
+                                "script_id": None, "slot": None, "script_title": "",
+                                "brand_id": None, "hidden": True}  # one clip: pasted  # fmt: skip
+    assert row["note"] == ""  # a freestyle's change is in `said`, not a redo note
     assert row["prompt_summary"] == "Make it night."
     first = owner.get(f"/jobs/{job.id}").json()["freestyle"]
     assert (first["said"], first["change"]) == (SCRIPT, False)

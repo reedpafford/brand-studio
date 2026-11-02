@@ -68,6 +68,8 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
         0,
         "Ed",
     )
+    assert (asked["hidden"], asked["script_title"], asked["brand_id"]) == (
+        True, "", first_brand(owner))  # fmt: skip  # pasted: the web never reads its script
     assert owner.post(f"/jobs/{held['id']}/approve").status_code == 200
     assert fs["script_id"] in [s["id"] for s in owner.get("/scripts").json()]  # in Scripts
     assert fs["project_id"] in [p["id"] for p in owner.get("/projects").json()]  # in Videos
@@ -96,6 +98,8 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
     held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
                 if j["freestyle"]["id"] == mine["id"])  # fmt: skip
     assert (held["freestyle"]["script_id"], held["freestyle"]["slot"]) == (made["id"], 0)
+    assert (held["freestyle"]["hidden"], held["freestyle"]["script_title"]) == (
+        False, script.title)  # fmt: skip  # from a script: its own title
     owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not this one."})
     db.expire_all()
     assert not db.get(Script, made["id"]).published
