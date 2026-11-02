@@ -18,6 +18,7 @@ KIND = "narration"
 TIMED = ("song", "narrated")  # script kinds whose videos are timed to a take
 MODEL = "elevenlabs-v3"
 VOICE = "Sarah"
+VOICES = (VOICE, "Alexandra", "Hope", "Jane")  # natural v3 voices (song-ad-workflow.md)
 # Silence only: a quiet stretch (below -40 dB) longer than this is shortened to it
 PAUSE, QUIET = 0.25, "-40dB"
 
@@ -44,11 +45,16 @@ def sentences(text: str) -> list[str]:
     return [s for line in text.splitlines() for s in re.split(r"(?<=[.!?…])\s+", line) if s]
 
 
-def job(script: str, voice: str = VOICE) -> dict:
+def job(script: str, voice: str = VOICE, note: str = "") -> dict:
+    """The voice call. A remake's note ("Say fomo as FOH-moh.") goes in as a v3 delivery tag
+    on this request only, never into the version's words; the voice is the Director's pick."""
     text = check.narration_text(script)  # the Director's: what the narrator reads
     if not text:
         raise ValueError(NO_WORDS)
-    return {"model": MODEL, "input": {"prompt": text, "voice": voice}}
+    if voice not in VOICES:
+        raise ValueError(f"The narrator's voice is one of {', '.join(VOICES)}.")
+    tag = re.sub(r"[\[\]\s]+", " ", note).strip()
+    return {"model": MODEL, "input": {"prompt": f"[{tag}] {text}" if tag else text, "voice": voice}}
 
 
 def characters(job_input: dict) -> int:

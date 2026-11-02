@@ -58,6 +58,37 @@ def test_a_narrated_freestyle_makes_the_narration_first(app, db, owner):
     assert any(m.startswith("Making the narration") for m in moves)
 
 
+def test_the_brands_name_heard_wrong_in_a_narration_is_found_once_timed():
+    words = [{"word": w, "start": float(n)} for n, w in enumerate(["Get", "Foma.", "fomo", "now"])]
+    assert director_song.misheard(None, "fomo") is None  # not timed yet
+    assert director_song.misheard({"words": words}, "fomo") == [
+        {"word": "fomo", "heard": "Foma.", "at": 1.0}
+    ]
+
+
+def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app, db, owner):
+    from app.models.songs import SongTake
+
+    fs = _sent(owner, "narrated", "Every morning starts the same. Get fake:misheard fomo today.")
+    _run(app, db, ticks=120)
+    out = owner.get(f"/freestyles/{fs['id']}").json()
+    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    assert out["status"] == "delivered", moves
+    again = next(i for i, m in enumerate(moves) if m.startswith("Making the narration (Say"))
+    plan = next(i for i, m in enumerate(moves) if m.startswith("Making the plan"))
+    assert again < plan, moves
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    state = director_song.state(db, video)
+    first, second = state["takes"]
+    assert first["misheard"] and first["misheard"][0]["word"] == "fomo"
+    assert second["used"] and second["misheard"] == []  # the plan follows the good one
+    draft = db.get(ScriptDraft, video.script_draft_id)
+    assert "[" not in draft.text  # the note went to the voice, never into the version's words
+    redo = db.get(Job, db.get(SongTake, second["id"]).job_id)
+    assert redo.input["input"]["prompt"].startswith("[Say ")
+
+
 def test_a_song_runs_price_holds_its_song_and_one_remake(app, db, owner):
     fs = _sent(owner, "song", LYRICS)
     video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,

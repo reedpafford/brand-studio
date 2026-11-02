@@ -851,10 +851,16 @@ def choose(state: dict) -> dict:
 
 def _audio_move(state: dict, go) -> dict | None:
     """The stand-in's song or narration: make it, wait for it, then use its best take; a
-    failed one is tried again (free when the service failed; refused, it says so)."""
+    failed one is tried again (free when the service failed; refused, it says so). A narration
+    that says the brand's name wrong is read again with the pronunciation note (while
+    narrations are left), and the plan follows one that says it right."""
     tool = "song" if "song" in state else "narration" if "narration" in state else None
     audio = state.get(tool) if tool else None
-    if audio is None or audio.get("used_take_id"):
+    if audio is None:
+        return None
+    if tool == "narration" and (said := _say_it_right(audio, state, go)):
+        return said
+    if audio.get("used_take_id"):
         return None
     what = "song" if tool == "song" else "narration"
     if audio["state"] == "none":
@@ -864,6 +870,28 @@ def _audio_move(state: dict, go) -> dict | None:
     if audio["state"] == "ready":
         return go(tool, f"The {what} is made and timed: use its best take.")
     return go(tool, f"The {what} didn't come out: try it again.")  # free once; then a note
+
+
+def _say_it_right(audio: dict, state: dict, go) -> dict | None:
+    """A narration that says the brand's name wrong, before the plan: read again with the
+    pronunciation note while narrations are left, then the one that says it right is used."""
+    if audio["state"] not in ("ready", "making") or state["shots"] != "none":
+        return None
+    timed = [t for t in audio["takes"] if t["state"] == "ready" and t["timed"]]
+    used = next((t for t in timed if t["used"]), None)
+    good = [t for t in timed if not t.get("misheard")]
+    if used and not used.get("misheard") or not timed:
+        return None
+    if audio["state"] == "making":
+        return go("wait", "The narration is being read again.")
+    if good:
+        return go("narration", "This narration says the brand's name right: use it.",
+                  take_id=good[-1]["id"])  # fmt: skip
+    wrong = timed[-1]["misheard"][0]
+    if state.get("allowed", {}).get("narrations_left", 0) > 0:
+        return go("narration", f"The narration says “{wrong['heard']}” for {wrong['word']} at "
+                  f"{wrong['at']:.1f} s: read it again.", note=audio["say"])  # fmt: skip
+    return None
 
 
 # Rule 19, not here: an ask to change the script's words ("change the line to ...", "make her

@@ -81,6 +81,7 @@ def _request(
     free: bool = False,
     kie: float = 0.0,
     note: str = "",
+    voice: str = narration.VOICE,
 ) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason.
@@ -90,7 +91,7 @@ def _request(
 
     if narrated(db, draft):  # one voice call (flows N1)
         try:
-            job_input = narration.job(draft.text)
+            job_input = narration.job(draft.text, voice, note)  # a remake's note: this one only
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
         job_input = {**job_input, "step": "song_take", "on_script": draft.script_id}
@@ -120,13 +121,14 @@ def make(
     project: Project | None = None,
     kie=0.0,
     note: str = "",
+    voice: str = narration.VOICE,
 ) -> list[SongTake]:
     """Make 2 takes (one request) of the version's lyrics and style line. `kie`: a real
     song through KIE (KieSuno sings only those, never a request queued before)."""
-    voice = {"kind": narration.KIND, "voice": narration.VOICE} if narrated(db, draft) else {}
-    if voice and any(state(db, t)[0] in ("making", "timing") for t in takes(db, draft, project)):
+    reads = {"kind": narration.KIND, "voice": voice} if narrated(db, draft) else {}
+    if reads and any(state(db, t)[0] in ("making", "timing") for t in takes(db, draft, project)):
         raise HTTPException(409, narration.MAKING)  # one at a time: never two charged at once
-    job = _request(db, user, draft, project, kie=kie, note=note)
+    job = _request(db, user, draft, project, kie=kie, note=note, voice=voice)
     numbered = select(func.max(SongTake.number)).where(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )
@@ -134,8 +136,8 @@ def make(
     made = [
         SongTake(draft_id=draft.id, project_id=project.id if project else None,
                  number=number + k + 1, track=k, job_id=job.id, created_by_id=user.id,
-                 **_sings(draft), **voice)
-        for k in range(1 if voice else music.TAKES)
+                 **_sings(draft), **reads)
+        for k in range(1 if reads else music.TAKES)
     ]  # fmt: skip
     db.add_all(made)
     db.commit()
@@ -392,7 +394,8 @@ def try_again(db: Session, user: User, take: SongTake, kie: float = 0.0) -> None
     project = db.get(Project, take.project_id) if take.project_id else None
     old = db.get(Job, take.job_id)
     short = old.status == JobStatus.succeeded  # it gave fewer songs than asked
-    job = _request(db, user, draft, project, free=_free_retry(old), kie=kie)
+    voice = take.voice or narration.VOICE  # a narration keeps its voice
+    job = _request(db, user, draft, project, free=_free_retry(old), kie=kie, voice=voice)
     for pair in _by_job(db, SongTake.job_id, old):
         if short and pair.file_id is not None:  # a song that did arrive is kept as it is
             continue

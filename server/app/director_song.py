@@ -4,14 +4,17 @@ treatment and before the plan. `song` makes the version's song takes (the versio
 line; a remake's note is added to that one request, never to the frozen version) and uses one
 once they're timed; `narration` makes the narrator's read and uses it. Each is remade once a
 run at most. The director judges a timed take without listening: when its first line is
-sung (`hook_at`) and which lines weren't heard as written (`missing`)."""
+sung (`hook_at`), which lines weren't heard as written (`missing`) and, in a narration, where
+the brand's name was heard wrong (`misheard`), so it's read again with a note before the plan."""
 
+import re
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app import music, narration, song_takes
+from app import music, narration, song_takes, take_words
 from app.models.accounts import User
+from app.models.brands import Brand
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
@@ -32,7 +35,20 @@ def kind(db: Session, project: Project) -> str | None:
     return found if found in narration.TIMED else None
 
 
-def _take(db: Session, take: SongTake, used: int | None) -> dict:
+def misheard(timing: dict | None, brand: str) -> list[dict] | None:
+    """The brand's name heard wrong in a timed narration ("Fobo" for fomo), from its words on
+    the trimmed track, as the words check finds it in a take; None until it's timed."""
+    if timing is None:
+        return None
+
+    def wrong(word: str) -> bool:
+        return take_words._off_by_one(re.sub(r"[^a-z0-9']", "", word.lower()), brand.lower())
+
+    return [{"word": brand, "heard": w["word"], "at": w["start"]}
+            for w in timing.get("words") or [] if wrong(w["word"])]  # fmt: skip
+
+
+def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dict:
     status = song_takes.state(db, take)[0]
     timing = take.timing or {}
     lines = timing.get("lines") or []
@@ -46,18 +62,34 @@ def _take(db: Session, take: SongTake, used: int | None) -> dict:
             "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
             "missing": [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
-            if take.timing is not None else None}  # fmt: skip
+            if take.timing is not None else None,
+            **({"misheard": misheard(take.timing, brand)} if take.kind == narration.KIND
+               else {})}  # fmt: skip
 
 
 def state(db: Session, project: Project) -> dict | None:
     """What the director reads: {state none | making | ready | failed, takes, used_take_id}."""
-    if kind(db, project) is None:
+    found = kind(db, project)
+    if found is None:
         return None
-    takes = [_take(db, t, project.song_take_id) for t in song_takes.for_video(db, project)]
+    brand = db.get(Brand, project.brand_id)
+    takes = [_take(db, t, project.song_take_id, brand.name)
+             for t in song_takes.for_video(db, project)]  # fmt: skip
     states = {t["state"] for t in takes}
     now = ("none" if not takes else "making" if states & {"making", "timing"}
            else "ready" if "ready" in states else "failed")  # fmt: skip
-    return {"state": now, "takes": takes, "used_take_id": project.song_take_id}
+    out = {"state": now, "takes": takes, "used_take_id": project.song_take_id}
+    if found == "narrated":  # the note a narration with the name wrong is read with
+        out["say"] = say(brand)
+    return out
+
+
+def say(brand: Brand) -> str:
+    """The pronunciation note for the narrator ("Say fomo as FOH-moh.")."""
+    said_as = take_words.say(brand)
+    if said_as == brand.name:
+        return f"Say the name {brand.name} clearly, as it's written."
+    return f"Say {brand.name} as {said_as}."
 
 
 def _on(db: Session, draft: ScriptDraft) -> bool:

@@ -37,6 +37,14 @@ def test_the_narrator_reads_the_directors_narration_text():
     ]  # fmt: skip
 
 
+def test_a_remakes_note_reaches_the_voice_as_a_tag_and_the_voice_is_one_of_ours():
+    made = narration.job(WORDS, "Jane", note="Say fomo as FOH-moh.")
+    assert made["input"] == {"prompt": f"[Say fomo as FOH-moh.] {check.narration_text(WORDS)}",
+                             "voice": "Jane"}  # fmt: skip
+    with pytest.raises(ValueError, match="voice"):
+        narration.job(WORDS, "Morgan Freeman")
+
+
 def test_a_narration_is_made_trimmed_timed_and_used(app, db, owner, narrated):
     before = owner.get(f"{narrated}/songs").json()
     assert before["songs_on"] and before["estimate_credits"] > 0
