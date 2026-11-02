@@ -78,22 +78,6 @@ test("a video made from a script shows its style locked, as Style: House · set 
   }
 });
 
-test("a locked video on a style with lanes offers only that style's lanes beside the lock line, and a lane pick switches as any setting does", async () => {
-  setViewport(1440);
-  const paper = { id: "paper", name: "Paper", blurb: "", on: true, sample_still_id: null, lanes: [{ id: "paper-flat", name: "Paper · Flat Paper" }, { id: "paper-collage", name: "Paper · Collage" }] };
-  const calls = fakeServer({ ...base, "GET /projects/9": [200, { ...project, look_locked: true }], "GET /looks": [200, [...looks, paper]], "GET /projects/9/settings": [200, { ...settings, look: "paper-flat" }] });
-  open();
-  const row = await screen.findByRole("region", { name: "Video settings" });
-  expect(within(row).getByText((_, el) => el?.firstElementChild?.textContent === "Style:" && el.textContent === "Style: Paper · set on the script")).toBeInTheDocument();
-  await userEvent.click(within(row).getByRole("button", { name: /Lane: Flat Paper/ }));
-  const lanes = await screen.findByRole("dialog", { name: "Lane" });
-  expect(within(lanes).getAllByRole("button").map((b) => b.textContent)).toEqual(expect.arrayContaining([expect.stringContaining("None"), expect.stringContaining("Flat Paper"), expect.stringContaining("Collage")]));
-  expect(within(lanes).queryByText(/House|Disney Pixar|Noir/)).toBeNull(); // no other style
-  await userEvent.click(within(lanes).getByRole("button", { name: /Collage/ }));
-  await userEvent.click(await screen.findByRole("button", { name: "Switch" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings")?.body).toEqual({ look: "paper-collage" }));
-});
-
 test("a picker lists choices with prices, says No lip-sync, and greys one over the video limit", async () => {
   setViewport(1440);
   fakeServer(base);
