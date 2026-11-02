@@ -1598,3 +1598,15 @@ def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
     )  # fmt: skip
     assert "<script>Get &lt;fomo&gt;.</script>" in text and "[Image1] c1 at 0.0 s" in text
     assert '"clip_id": "c1"' in text
+
+
+def test_the_director_revises_from_the_chat_and_never_changes_the_words():
+    """Next-Server's #1155: a run started from the chat carries <chat>, a revision of the
+    delivered video; the script's words still never change (rule 19)."""
+    director = prompts.system("director")
+    assert (
+        "optional <chat> (JSON: [{text}]" in director
+        and "**When people ask for changes.**" in director
+    )
+    assert "the published script's words can't change here" in director
+    assert "Do only what they asked, and keep everything else as it was" in director
