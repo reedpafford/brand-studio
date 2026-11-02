@@ -89,6 +89,8 @@ class Project(Filed, Entity, Base):
     # This video's outfit per character ({"char:12": "mustard trench coat"}): its stills and
     # Keep lines use it over the sheet's outfit. None: the sheet's, as before.
     outfits: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+    # What people asked of the director here (director-chat.md §1 item 4): {by, text, at, run}.
+    director_chat: Mapped[list[dict]] = mapped_column(JSON, default=list)
     reference_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # a video
     # A reference reel to adapt: its breakdown (app/reference.py shape) and what to rebuild.
     product_variants: Mapped[dict] = mapped_column(JSON, default=dict)  # product -> variant

@@ -2,8 +2,10 @@
 published script, read what it did (its log), stop it. Whoever may change the video may run
 it; every action it takes is checked as that person's own press (app/director_tools)."""
 
+from typing import Annotated, Literal
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from sqlalchemy.orm import Session
 
 from app import director
@@ -29,6 +31,20 @@ class TurnOut(BaseModel):
     created_at: UtcTime
 
 
+class ThreadItem(BaseModel):
+    id: str  # stable: "m3" a message, "t41" a move
+    kind: Literal["message", "move"]  # what a person said, or one of the director's moves
+    at: UtcTime
+    who: str  # the person's name, or "Director"
+    text: str  # plain words; the deliver move's is the delivery note
+    status: Literal["queued", "running", "held", "done", "refused"] | None  # moves only
+    why: str = ""  # a move's reason, as the director gave it; "" for messages and deliveries
+
+
+class MessageIn(BaseModel):
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
 class DirectorOut(BaseModel):
     status: str  # none, running, delivered or ended
     ended: str  # why it ended, in plain words ("" while running)
@@ -36,6 +52,8 @@ class DirectorOut(BaseModel):
     credits: float  # the run's cost "up to": its turns and every press its tools made
     spent_usd: float | None  # the owner only: its own Claude time this run (to measure)
     start_blocked: str  # "" when this person can press Make it now; else why (the 409's words)
+    thread: list[ThreadItem] = []  # the whole chat on the video, every run, oldest first
+    unread: int = 0  # notes waiting for the next Make it ("Start again with this note")
 
 
 def _out(db: Session, user: User, project) -> DirectorOut:
@@ -46,7 +64,8 @@ def _out(db: Session, user: User, project) -> DirectorOut:
     status = ("none" if not last else "running" if director.active(db, project)
               else "delivered" if delivered else "ended")  # fmt: skip
     turns = [TurnOut(turn=j.input[director.RUN]["turn"], tool=(j.output or {}).get("tool"),
-                     why=(j.output or {}).get("why", ""), result=j.input.get("result", ""),
+                     why=director.named((j.output or {}).get("why") or ""),
+                     result=director.named(j.input.get("result", "")),
                      status=j.status, created_at=j.created_at) for j in rows]  # fmt: skip
     spent = director.spent(db, last.input[director.RUN]["id"]) if last else 0
     try:
@@ -57,7 +76,8 @@ def _out(db: Session, user: User, project) -> DirectorOut:
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,
-                       start_blocked=blocked)  # fmt: skip
+                       start_blocked=blocked, thread=director.thread(db, project),
+                       unread=len(director.leftover(db, project)))  # fmt: skip
 
 
 @router.get("", response_model=DirectorOut)
@@ -72,6 +92,24 @@ def start(project_id: int, user: User = Depends(current_user), db: Session = Dep
     first turn is paid from the video's budget, held for the owner past it."""
     project = get_project(db, user, project_id)
     director.start(db, user, project)
+    return _out(db, user, project)
+
+
+@router.post("/messages", response_model=DirectorOut, status_code=201,
+             dependencies=[Depends(generation_on)])  # fmt: skip
+def message(
+    project_id: int,
+    body: MessageIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Tell the director what to change. While a run goes on, its next turn reads it. It never
+    starts a run: after Stop or a delivery it waits (`unread`) for the next Make it, which
+    reads every unread note and spends as Make it does. Who may: as Make it. At most one
+    note a person every 3 s and 30 a run (429). Nothing is charged for a note."""
+    project = get_project(db, user, project_id)
+    _mine(db, user, project.id)  # as Make it: the video's maker or the owner
+    director.say(db, user, project, body.text)
     return _out(db, user, project)
 
 
