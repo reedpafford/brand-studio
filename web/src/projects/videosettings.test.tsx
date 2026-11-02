@@ -58,10 +58,24 @@ test("the Video settings row shows each choice and its price, and the language r
   expect(within(row).getByRole("button", { name: /Video model: Auto.*· 1 credit a second/ })).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: /Picture model: Auto.*· 1.2 credits a still/ })).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: /Flavour: Chicken/ })).toBeInTheDocument(); // the bag is on its default
-  expect(within(row).getByRole("button", { name: /Look: House/ })).toBeInTheDocument();
+  expect(within(row).getByRole("button", { name: /Style: House/ })).toBeInTheDocument();
   expect(within(row).getByText("Language: Spanish (from the script)")).toBeInTheDocument();
   expect(within(row).queryByRole("button", { name: /Language/ })).toBeNull(); // read only
   expect(document.body.textContent).not.toMatch(/\$/);
+});
+
+test("a video made from a script shows its style locked, as Style: House · set on the script, with no picker, at 390 and desktop (Reed's walk item 7)", async () => {
+  for (const width of [1440, 390]) {
+    setViewport(width);
+    fakeServer({ ...base, "GET /projects/9": [200, { ...project, look_locked: true }] });
+    const { unmount } = renderApp("/b/1/videos/9?step=cast");
+    if (width === 390) await userEvent.click(await screen.findByRole("button", { name: /^Settings: / }));
+    const where = width === 390 ? await screen.findByRole("dialog", { name: "Video settings" }) : await screen.findByRole("region", { name: "Video settings" });
+    expect(within(where).getByText((_, el) => el?.firstElementChild?.textContent === "Style:" && el.textContent === "Style: House · set on the script")).toBeInTheDocument();
+    expect(within(where).queryByRole("button", { name: /Look:/ })).toBeNull();
+    expect(within(where).getByRole("button", { name: /Shape: 9:16/ })).toBeInTheDocument(); // the others still switch
+    unmount();
+  }
 });
 
 test("a picker lists choices with prices, says No lip-sync, and greys one over the video limit", async () => {
@@ -82,10 +96,10 @@ test("the look picks from the existing look picker, where an off look is greyed 
   setViewport(1440);
   const calls = fakeServer(base);
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
   expect(await screen.findByRole("heading", { name: "Noir" })).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "Use this look" }).filter((b) => b.hasAttribute("disabled"))).toHaveLength(1);
-  await userEvent.click(screen.getAllByRole("button", { name: "Use this look" })[0]);
+  expect(screen.getAllByRole("button", { name: "Use this style" }).filter((b) => b.hasAttribute("disabled"))).toHaveLength(1);
+  await userEvent.click(screen.getAllByRole("button", { name: "Use this style" })[0]);
   await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
   expect(calls.find((c) => c.key === "POST /projects/9/settings/preview")?.body).toEqual({ look: "disney-pixar" });
 });
@@ -178,8 +192,8 @@ test("a look switch names the roles that need a new look in it (ST1)", async () 
   setViewport(1440);
   fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, roles_needing_look: ["Nate", "Mia"], sung_to_broll: 0 }] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
-  await userEvent.click((await screen.findAllByRole("button", { name: "Use this look" }))[0]);
+  await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
+  await userEvent.click((await screen.findAllByRole("button", { name: "Use this style" }))[0]);
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
   expect(await within(ask).findByText("Nate and Mia need a new look, made in Cast.")).toBeInTheDocument();
 });
@@ -192,7 +206,7 @@ test("at 390, a video on a lane shows the lane's own name; the picker lists styl
   fakeServer({ ...base, "GET /looks": [200, [...looks, { ...paper, lanes: [{ id: "paper-flat", name: "Paper · Flat Paper" }, { id: "paper-origami", name: "Paper · Origami" }] }]], "GET /projects/9/settings": [200, { ...settings, look: "paper-flat" }] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Settings: 9:16 · Chicken · Paper · Flat Paper · Auto · Auto" })); // the phone's one row
-  await userEvent.click(within(await screen.findByRole("dialog", { name: "Video settings" })).getByRole("button", { name: /Look: Paper · Flat Paper/ }));
+  await userEvent.click(within(await screen.findByRole("dialog", { name: "Video settings" })).getByRole("button", { name: /Style: Paper · Flat Paper/ }));
   expect(await screen.findByRole("heading", { name: "Paper" })).toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: /Paper · / })).toBeNull(); // lanes aren't offered
   const card = screen.getByRole("heading", { name: "Paper" }).closest("li")!;
@@ -204,6 +218,6 @@ test("a lane the looks list doesn't carry yet reads as its style and its words, 
   setViewport(1440);
   fakeServer({ ...base, "GET /looks": [200, [...looks, paper]], "GET /projects/9/settings": [200, { ...settings, look: "paper-flat" }] });
   open();
-  expect(await screen.findByRole("button", { name: /Look: Paper · Flat/ })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Style: Paper · Flat/ })).toBeInTheDocument();
   expect(document.body.textContent).not.toContain("paper-flat");
 });

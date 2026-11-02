@@ -117,7 +117,7 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Dialogue/ }));
   // The script page's header shows at once (Reed's walk item 1): format, Look, Project and the steps, later ones locked.
-  expect(await screen.findByText("Not saved yet · saved when you type, or pick a look or project")).toBeInTheDocument();
+  expect(await screen.findByText("Not saved yet · saved when you type, or pick a style or project")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Format: Dialogue" })).toBeInTheDocument();
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write the script first");
   // No dead press: every later step is locked with its reason, Variations too (QA-3 on #1191).
@@ -143,9 +143,9 @@ test("New script at 390 and desktop: the header shows on load and opening saves 
     setViewport(width);
     const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { was_folder_id: null }] });
     const { unmount } = renderApp("/b/1/scripts/new?kind=story");
-    await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
     expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
-    await userEvent.click(within(await screen.findByRole("dialog", { name: "Look" })).getAllByRole("button", { name: "Use this look" })[0]);
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Style" })).getAllByRole("button", { name: "Use this style" })[0]);
     await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", look: "noir" }));
     unmount();
   }
@@ -1406,13 +1406,16 @@ const makeServer = (o: Record<string, [number, unknown]> = {}) => ({
 
 test("Make this version shows the video's settings, and a pick moves the price line", async () => {
   setViewport(1440);
-  fakeServer(makeServer());
+  fakeServer(makeServer({ "GET /looks": [200, [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }]] }));
   open();
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   const row = await within(panel).findByRole("region", { name: "Video settings" });
   expect(within(row).getByText("Language: English (from the script)")).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: /Flavour: Auto/ })).toBeInTheDocument(); // no default, no pick
+  // The video keeps the script's style (Reed's walk item 7): a locked line, no Look pick.
+  expect(within(row).getByText((_, el) => el?.firstElementChild?.textContent === "Style:" && el.textContent === "Style: House · set on the script")).toBeInTheDocument();
+  expect(within(row).queryByRole("button", { name: /Look:/ })).toBeNull();
   // The estimate for the new pick; Kling can't lip-sync, and says so in the picker.
   fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 34, over_cap: false, reason: null }] }));
   await userEvent.click(within(row).getByRole("button", { name: /Video model: Auto/ }));

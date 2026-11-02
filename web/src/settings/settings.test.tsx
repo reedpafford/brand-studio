@@ -86,7 +86,7 @@ test("Settings has four tabs, Looks first; /looks and /languages land on their t
   fakeServer(base({ "GET /looks": [200, []], "GET /languages": [200, []] }));
   renderApp("/languages");
   const tabs = await screen.findByRole("tablist", { name: "Settings" });
-  expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Looks", "Languages", "Studio name", "Credit limits"]);
+  expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Styles", "Languages", "Studio name", "Credit limits"]);
   expect(within(tabs).getByRole("tab", { name: "Languages" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByRole("region", { name: "Languages" })).toBeInTheDocument();
   await userEvent.click(within(tabs).getByRole("tab", { name: "Credit limits" }));

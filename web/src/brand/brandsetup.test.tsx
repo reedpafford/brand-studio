@@ -41,7 +41,7 @@ test("the owner edits voice and tone and the defaults; one save sends them, neve
   expect(await screen.findByText("Changes apply to work from now on. Nothing already made changes.")).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Audience"), ", busy ones");
   await userEvent.type(screen.getByLabelText("Add to do"), "Show the bag{Enter}");
-  await userEvent.selectOptions(screen.getByLabelText("Look"), "pixar");
+  await userEvent.selectOptions(screen.getByLabelText("Style for new scripts"), "pixar");
   expect(screen.getByText("Off for editors: new scripts will start on House until it's on.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")).toBeTruthy());
@@ -130,7 +130,7 @@ test("an editor edits the whole brand as the owner does: audience, Do and Don't,
   const audience = await screen.findByLabelText("Audience");
   expect(audience).not.toHaveAttribute("readonly");
   expect(screen.queryByText("Only the owner changes the brand.")).toBeNull();
-  expect(await screen.findByLabelText("Look")).toBeEnabled();
+  expect(await screen.findByLabelText("Style for new scripts")).toBeEnabled();
   expect(screen.getByRole("button", { name: "Add line" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Import from website/ })).toBeNull(); // reading the site stays the owner's
   await userEvent.type(audience, " and their vets");
@@ -156,7 +156,7 @@ test("a brand whose default look is a lane shows the lane's name; the list offer
   const withLane = [...looks, { id: "paper", name: "Paper", blurb: "", on: true, lanes: [{ id: "paper-flat", name: "Paper · Flat Paper" }, { id: "paper-origami", name: "Paper · Origami" }] }];
   fakeServer({ ...routes(owner, { ...brand, default_look: "paper-flat" }), "GET /looks": [200, withLane] });
   renderAt("/b/1/brand");
-  const look = (await screen.findByLabelText("Look")) as HTMLSelectElement;
+  const look = (await screen.findByLabelText("Style for new scripts")) as HTMLSelectElement;
   expect(look.selectedOptions[0].textContent).toBe("Paper · Flat Paper");
   expect([...look.options].map((o) => o.textContent)).toEqual(["House", "Disney Pixar (off for editors)", "Paper", "Paper · Flat Paper"]); // not Origami: lanes are chosen per video
   expect(document.body.textContent).not.toContain("paper-flat");

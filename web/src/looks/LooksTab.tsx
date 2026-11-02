@@ -16,8 +16,8 @@ export function LooksTab() {
   const [picked, setPicked] = useState<number | null>(null);
   const brandId = picked ?? brands[0]?.id ?? null;
   return (
-    <section aria-label="Looks" className="space-y-4">
-      <p className="text-sm text-muted">How the pictures are drawn. A look is on for editors once you've seen its sample.</p>
+    <section aria-label="Styles" className="space-y-4">
+      <p className="text-sm text-muted">How the pictures are drawn. A style is on for editors once you've seen its sample.</p>
       {brands.length > 1 && (
         <div className="max-w-xs">
           <Select label="Sample with" hint="The sample uses this brand's hero." value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
@@ -28,8 +28,8 @@ export function LooksTab() {
         </div>
       )}
       {looks.isPending && <Skeleton className="h-40" />}
-      {looks.isError && <Banner title="Couldn't load the looks." action={<Button variant="secondary" onClick={() => void looks.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-      {looks.data === null && <p className="text-sm text-muted">Looks aren't switched on here yet.</p>}
+      {looks.isError && <Banner title="Couldn't load the styles." action={<Button variant="secondary" onClick={() => void looks.refetch()}>Try again</Button>}>Check your connection.</Banner>}
+      {looks.data === null && <p className="text-sm text-muted">Styles aren't switched on here yet.</p>}
       <ul className="grid gap-4 sm:grid-cols-2">
         {(looks.data ?? []).map((l) => (
           <li key={l.id} aria-label={l.name}>
@@ -76,7 +76,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
     <>
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
       {house ? (
-        <p className="text-sm text-muted">The house look is always on.</p>
+        <p className="text-sm text-muted">The House style is always on.</p>
       ) : l.on ? (
         <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(false)}>Switch off</Button>
       ) : brandId === null ? null : !s ? (
@@ -96,10 +96,10 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
           {s.hero ? (
             <p className="text-sm text-muted">One still and one 5 s clip of {s.hero.name}, the brand's hero.</p>
           ) : s.look.own_sample ? (
-            <p className="text-sm text-muted">One still and one 5 s clip of the look's own sample character.</p>
+            <p className="text-sm text-muted">One still and one 5 s clip of the style's own sample character.</p>
           ) : (
             <Select label="Who's in the sample?" value={who} onChange={(e) => setWho(e.target.value === "sample" ? "sample" : Number(e.target.value))}>
-              <option value="sample">A sample character (from the look)</option>
+              <option value="sample">A sample character (from the style)</option>
               {s.characters.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
