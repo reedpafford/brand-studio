@@ -170,6 +170,16 @@ SCENES["song3d"] = [
 DOGS["song3d"] = DOGS["song3"]
 REUSE3D = {"v3": {"c3": 0.4, "c6": 0.7, "c9": 0.2, "c12": 0.8}, "v2": {"c18": 0.0, "c19": 0.0, "c21": 0.0, "c24": 0.2}}
 
+# Song 3 hook v5 (Reed, 2 Nov: the vlog had too much going on; redo the game show's hook). One clear action per sung line,
+# on the v3 set, the owner in it; cut in front of v3 from 15.6 s.
+SCENES["song3e"] = [
+  ((0.0, 3.34), SET, [f"Wide on {SETLOOK}.", "{The dog} stands at his gold host podium, grinning, as the giant meter beside him lights up step by step from 1 at the bottom to 10 at the top."]),
+  ((3.34, 7.06), SET, ["His owner stands at the contestant podium, relaxed, and waves it off with an easy smile and a shrug, as if it's all perfectly normal."]),
+  ((7.06, 12.24), SET, ["The giant meter flashes red and an alarm light spins; his owner's smile drops and she stares up at it, shocked."]),
+  ((12.24, 15.6), SET, ["{The dog} fans out four scorecards toward the camera in his paw and gives a slow, knowing look."]),
+]
+DOGS["song3e"] = DOGS["song3"]
+
 def script(song):
     dog = DOGS[song][0]; the, The = f"the {dog}", f"The {dog}"; out = []
     for n, (first, place, lines) in enumerate([x for x in SCENES[song] if not x[1].startswith("REUSE")], 1):
