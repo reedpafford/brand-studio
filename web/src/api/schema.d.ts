@@ -6442,6 +6442,13 @@ export interface components {
             change: boolean;
             /** Up To */
             up_to?: number | null;
+            /** Total */
+            total?: number | null;
+            /**
+             * Spent
+             * @default 0
+             */
+            spent: number;
         };
         /** FreestyleRow */
         FreestyleRow: {
@@ -9510,6 +9517,8 @@ export interface components {
              * @default
              */
             why: string;
+            /** Answered */
+            answered?: boolean | null;
         };
         /** TitleIn */
         TitleIn: {

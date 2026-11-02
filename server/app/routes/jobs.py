@@ -47,7 +47,9 @@ class FreestyleRef(BaseModel):
     type: str  # dialogue, song, narrated or one_clip
     said: str  # this send's own words, the first send's script or the change asked (excerpt)
     change: bool  # a change asked in the thread, not the first send
-    up_to: float | None = None  # a director-run freestyle: the price the owner's OK covers
+    up_to: float | None = None  # a director-run freestyle: this send's price, "up to"
+    total: float | None = None  # and the freestyle's running total with it (credits)
+    spent: float = 0  # what the freestyle has spent so far (credits)
 
 
 class JobOut(BaseModel):
@@ -148,7 +150,8 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
         return None
     said = job.input.get(SAID, "")
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
-                        up_to=fs.up_to,
+                        up_to=Decimal(job.input[PRICE]) if PRICE in job.input else fs.up_to,
+                        total=fs.up_to, spent=_spent(db, fs),
                         said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
 
 
@@ -167,6 +170,16 @@ def _with_check(db: Session, job: Job) -> Decimal:
         return job.credits
     clip, project = db.get(ProjectClip, clip_id), db.get(Project, job.project_id)
     return job.credits + item_checks.rides(db, project, clip) if clip and project else job.credits
+
+
+def _spent(db: Session, fs: Freestyle) -> Decimal:
+    """A freestyle's spend so far: its video's jobs, or its own takes (One clip)."""
+    from app.credits import COUNTED
+
+    mine = (Job.project_id == fs.project_id if fs.project_id
+            else Job.id.in_([m["job"] for m in fs.chat if m.get("job")]))  # fmt: skip
+    total = db.scalar(select(func.sum(Job.credits)).where(mine, Job.status.in_(COUNTED)))
+    return Decimal(total or 0)
 
 
 def _usd(db: Session, job: Job) -> float:
@@ -191,7 +204,11 @@ ON_SCRIPT = "on_script"  # a song take's or narration music's script (outside an
 DECLINED = "The owner said no this time. Nothing was charged."
 HELD = "held"  # in a held job's input: why it waits for the owner (plain words)
 DECLINE = "declined"  # in its input once the owner said no
-SAID, CHANGE = "said", "change"  # in a Freestyle job's input: the send's words; a change?
+SAID, CHANGE, PRICE = (
+    "said",
+    "change",
+    "price",
+)  # in a Freestyle job's input: the send's words; a change?
 WITHDRAWN = "withdrawn"  # in a freestyle job's input: its maker took it back before the OK
 NOT_APPROVED = "This video's length isn't approved yet, so nothing can be made."
 
@@ -433,6 +450,7 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     project = db.get(Project, job.project_id) if job.project_id else None
     if project and not (user.is_owner or user.id in (job.created_by_id, project.created_by_id)):
         raise HTTPException(403, "Only whoever made this video, or the owner, can do that.")
+    held = job.status == JobStatus.needs_owner_approval  # before the cancel: Withdrawn or not
     done = db.execute(  # conditional, so it can't race the worker picking the job up
         update(Job)
         .where(
@@ -443,7 +461,7 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job has already started.")
-    if FREESTYLE in job.input:  # its thread says Withdrawn, as Freestyle's own Withdraw does
+    if FREESTYLE in job.input and held:  # taken back before the OK: its thread says Withdrawn
         db.refresh(job)
         job.input = {**job.input, WITHDRAWN: True}
     db.commit()
