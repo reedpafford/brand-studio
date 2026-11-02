@@ -100,6 +100,33 @@ SCENES["song3b"] = [
 ]
 DOGS["song3b"] = DOGS["song3"]
 
+# Song 3 v3 (Reed, 2 Nov: the cards came before the sung score; "more emotion, more comedy"). Only the rounds and the
+# pre-chorus are remade; each round follows the lyrics: the replay on the mega screen ("Number one, eating grass…"),
+# the card landing on the sung number, then into the real world for the "because" lines. Spans are song seconds;
+# the card clips start just before the sung number (four 19.14, six 29.72, eight 42.14, nine 54.74).
+def CARD(n, extra=""):
+    return ["Close-up on {the dog} at his gold host podium: he slams a white scorecard down facing the camera, one big bold black number " + n +
+            " on it, clearly readable, and holds it there; the giant meter behind him jumps to " + n + extra + "."]
+def REPLAY(replay, react):
+    return ["Over the shoulder of {the dog} at his gold host podium: the game show mega screen plays a replay of " + replay, react]
+SCENES["song3c"] = [
+  ((15.6, 18.85), SET, REPLAY("him on a walk grazing on grass like a cow, while two real cows in the next field stare at him.", "{The dog} turns back to the camera, cringes and slowly facepalms with one paw.")),
+  ((18.85, 20.08), SET, CARD("4")),
+  ((20.08, 25.06), "EXT. PARK PATH — DAY", [INTO + "on a walk, {the dog} munches grass, his belly gurgles and he freezes, queasy and guilty, a blade of grass hanging from his mouth; his owner on the other end of the leash stares at him, baffled, palms up."]),
+  ((25.06, 28.92), SET, REPLAY("him waking up with his eyes crusted shut and walking straight into the bedroom door frame with a bonk.", "{The dog} winces and covers his eyes with both paws.")),
+  ((28.92, 30.30), SET, CARD("6")),
+  ((30.30, 38.0), "INT. BEDROOM — SUNNY MORNING", [INTO + "his owner sits on the bed and gently wipes {the dog}'s crusty eyes with a warm cloth; he leans into her hand, eyes closed, comforted.", "Little grey specks drift away from the corners of his eyes."]),
+  ((38.0, 41.2), SET, REPLAY("him licking his paws so fast his tongue is a blur, the rug soaked around him.", "{The dog} slowly hides both paws behind the podium and looks away, all innocence.")),
+  ((41.2, 42.44), SET, CARD("8", ", and a red alarm light flashes")),
+  ((42.44, 51.5), "INT. LIVING ROOM — NIGHT", [INTO + "at 2 a.m. his owner, in pajamas, flicks on a lamp and catches {the dog} mid-lick on the rug, tongue out, frozen like a burglar caught in the act.", "An angry red glow spreads under the fur of his paws and across his skin."]),
+  ((51.5, 54.06), SET, REPLAY("his owner leaning in to kiss him and dramatically fainting backward onto the couch.", "Under a drumroll spotlight, {the dog} breathes into his paw, sniffs it, and his eyes water.")),
+  ((54.06, 55.62), SET, CARD("9", ", red lights flash and a siren light spins")),
+  ((55.62, 64.36), "INT. KITCHEN — DAY", [INTO + "{the dog} pants happily and his breath puffs a green stink cloud that wilts the houseplant on the counter; his owner pinches her nose with one hand but pulls him into a hug with the other, laughing."]),
+  ((64.36, 73.18), SET, ["His owner stands alone at the contestant podium under the red glow of the meter, presses her buzzer and gives a guilty, embarrassed shrug.", "Then she covers her face with her hands, mortified, her shoulders slumping."]),
+  ((73.18, 81.54), SET, ["{The dog} trots across the stage to her podium, rests his head on her hand and holds up a scorecard with a big red heart on it.", "Her eyes well up; she kneels and hugs him tight as warm golden light floods the stage."]),
+]
+DOGS["song3c"] = DOGS["song3"]
+
 def script(song):
     dog = DOGS[song][0]; the, The = f"the {dog}", f"The {dog}"; out = []
     for n, (first, place, lines) in enumerate(SCENES[song], 1):
