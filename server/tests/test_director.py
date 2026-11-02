@@ -961,3 +961,15 @@ def test_stand_in_wording_a_script_word_ask_the_noticed_line_and_the_take_picked
     pick = {"tool": "pick_take", "clip_id": row.clip_id, "take_id": take.id}
     said = director_tools.run(db, who, project, pick, app.state.storage)
     assert said == f"Picked take {take.number} for {row.clip_id}."  # its number, never its id
+
+
+def test_a_note_about_the_scripts_words_is_an_ask_to_change_them_not_any_says():
+    """Rule 19's match: an ask to change the words, never a note that mentions "says"."""
+    asks = ("Change the line to 'Buy now'.", "Rewrite clip 2.", "Make her say 'Buy now'.",
+            "Cut the line about price in clip 1.", "Rename the product in clip 3.")  # fmt: skip
+    notes = ("Clip 2 brighter, the owner says.", "Clip 1: she said it too fast.",
+             "Clip 3: change the lighting.", "Clip 2: the sign says SALE, keep it.")  # fmt: skip
+    for ask in asks:
+        assert director.WORDS.search(ask), ask
+    for note in notes:
+        assert not director.WORDS.search(note), note

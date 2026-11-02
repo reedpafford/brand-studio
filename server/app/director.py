@@ -632,7 +632,13 @@ def choose(state: dict) -> dict:
     return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
 
 
-WORDS = re.compile(r"\b(words?|lines?|says?|said|script|rename)\b", re.I)  # rule 19: not here
+# Rule 19, not here: an ask to change the script's words ("change the line to ...", "make her
+# say 'Buy now'", "rewrite clip 2"), never a note that only mentions what someone says or said.
+WORDS = re.compile(
+    r"\b(?:rename|re-?word|rewrite|(?:change|edit|replace|swap|cut|drop)\b[^.]{0,30}?\b"
+    r"(?:words?|lines?|script|dialogue|wording)\b|say\s+['\"“‘])",
+    re.I,
+)
 
 
 def _clip_of(note: dict) -> str | None:

@@ -85,6 +85,8 @@ def test_a_change_past_the_cap_is_refused_and_a_declined_one_frees_its_price(
     out = editor.get(f"/freestyles/{fs['id']}").json()
     assert out["status"] == "declined" and out["file_id"]  # the first cut is still there
     assert credits.approved(db, db.get(Freestyle, fs["id"])) == before  # nothing ran on it
+    shown = owner.get(f"/jobs/{held['id']}").json()["freestyle"]
+    assert Decimal(str(shown["total"])) == before  # QA-3: the total drops it at once
     limits = owner.get("/credits/limits").json()
     owner.put("/credits/limits", json={**limits, "per_video_max_credits": int(before) + 1})
     r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": "Warmer."})

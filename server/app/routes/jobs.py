@@ -48,7 +48,7 @@ class FreestyleRef(BaseModel):
     said: str  # this send's own words, the first send's script or the change asked (excerpt)
     change: bool  # a change asked in the thread, not the first send
     up_to: float | None = None  # a director-run freestyle: this send's price, "up to"
-    total: float | None = None  # and the freestyle's running total with it (credits)
+    total: float | None = None  # and the running total approved, less refused sends (credits)
     spent: float = 0  # what the freestyle has spent so far (credits)
 
 
@@ -145,13 +145,16 @@ class JobOut(BaseModel):
 
 
 def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
+    from app.credits import approved  # the total drops a declined or withdrawn change at once
+
     fs = db.get(Freestyle, job.input[FREESTYLE]) if FREESTYLE in job.input else None
     if fs is None:
         return None
     said = job.input.get(SAID, "")
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
                         up_to=Decimal(job.input[PRICE]) if PRICE in job.input else fs.up_to,
-                        total=fs.up_to, spent=_spent(db, fs),
+                        total=approved(db, fs) if fs.up_to is not None else None,
+                        spent=_spent(db, fs),
                         said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
 
 
