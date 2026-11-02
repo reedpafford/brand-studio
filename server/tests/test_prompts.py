@@ -1493,6 +1493,7 @@ def test_reeds_batch_3_rules_are_in_every_step_that_makes_the_video():
     assert "Never say you watched anything `watch_cut` didn't" in director
     assert "- `watch_cut` (paid" in director and "It never mutes a script word" in director
     assert "watches_left" in director and "`pick_take` with its `take_id`" in director
+    assert "muted: the picked take's muted spans" in director and "don't mute it again" in director
 
 
 def test_fomo_producers_redo_notes_reach_the_prompts():
