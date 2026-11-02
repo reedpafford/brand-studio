@@ -1,4 +1,4 @@
-export { Badge, type Tone } from "./Badge";
+export { Badge, Dot, StepBars, type Tone } from "./Badge";
 export { Button, buttonClass, type ButtonProps, type Variant } from "./Button";
 export { Card, MediaCard } from "./Card";
 export { creditsLabel, creditsText, pressLabel, roundUp, wholeCredits, type Charge } from "./credits";

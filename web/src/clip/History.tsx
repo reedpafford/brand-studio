@@ -7,7 +7,7 @@ import { fileUrl } from "../api/upload";
 import { Clapperboard, Download, Ellipsis, Search, Trash2, Zap } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Badge, Banner, Button, EmptyState, MediaCard, Menu, MenuItem, Sheet, Skeleton, buttonClass, type Tone } from "../components";
-import { useDebounced } from "../scripts/ScriptsPage";
+import { useDebounced } from "../scripts/status";
 import { useToast } from "../toast";
 import { useMedia } from "../useMedia";
 import { serverTime } from "../time";
