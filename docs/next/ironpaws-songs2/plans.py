@@ -64,6 +64,42 @@ SCENES = {
  ],
 }
 
+# Song 3 v2 (Reed, 2 Nov: "more uniform" game show): every moment is rated on the set, then the camera pans to the show's
+# mega screen and pushes through it into the real world. One set, described the same way every time. No x-ray.
+SET = "INT. GAME SHOW SET — BRIGHT"
+SETLOOK = ("the same bright game show studio: a glossy blue-and-gold stage ringed with marquee bulbs, the dog's gold host podium on the left, "
+           "a second contestant podium on the right, a giant vertical one-to-ten meter glowing green to red at the side, and a huge curved mega screen behind")
+SCREEN = "The camera pans to the mega screen behind him and pushes in until the screen fills the frame."
+INTO = "We come through the glowing edge of the game show mega screen, which falls away as we land in the real world: "
+SCENES["song3b"] = [
+  (1,  SET, [f"Wide on {SETLOOK}.", "{The dog} stands at his host podium like a game show host, grinning, and the giant one-to-ten meter lights up behind him.", "On the mega screen, a crowd of dog owners shrug and smile, unbothered."]),
+  (3,  SET, ["The meter flashes red and the marquee bulbs blink like an alarm.", "{The dog} fans out four blank scorecards in his paw and gives the camera a knowing look."]),
+  (5,  SET, ["Round one: {the dog} at his podium slaps down a scorecard; close-up of the card showing a big number 4, and the meter jumps to 4.", SCREEN]),
+  (7,  "EXT. PARK PATH — DAY", [INTO + "on a walk, {the dog} grazes on the grass like a lawnmower, his belly gurgling, looking queasy, then munches even more to settle it."]),
+  (9,  SET, ["Round two: {the dog} squints at the camera from his podium and slaps down a scorecard; close-up of the card showing a big number 6, and the meter jumps to 6.", SCREEN]),
+  (11, "INT. BEDROOM — MORNING", [INTO + "{the dog} wakes up in bed with crusty, glued-shut eyes and pries one open with his paw.", "Little grey specks drift out from the corners of his eyes."]),
+  (13, SET, ["Round three: {the dog} slaps down a scorecard; close-up of the card showing a big number 8, and the meter jumps to 8 with a flash.", SCREEN]),
+  (15, "INT. LIVING ROOM — DAY", [INTO + "{the dog} licks his paws in a tongue-blur frenzy on the rug.", "An angry red glow spreads under the fur of his paws and across his skin."]),
+  (17, SET, ["Round four, the big one: a drumroll spotlight on {the dog}, who slaps down a scorecard; close-up of the card showing a big number 9, and the meter shoots up to 9, flashing red.", SCREEN]),
+  (19, "INT. KITCHEN — DAY", [INTO + "his owner leans in to kiss {the dog}; his breath puffs out a green stink cloud that wilts the houseplant on the counter, and she reels back."]),
+  (21, SET, ["His owner stands at the contestant podium, looking sheepish and confused, as the meter glows red behind her."]),
+  (23, SET, ["{The dog} trots over to her podium and rests his head on her hand to comfort her.", "He holds up a scorecard with a big heart on it, and she smiles."]),
+  (25, SET, ["The studio lights dim to a single spotlight on {the dog}, who leans toward the camera as if sharing a secret."]),
+  (26, SET, ["The mega screen shows four glowing symptom icons — grass, an eye, a paw and a stink cloud — sliding together and merging into one glowing gut.", "{The dog} points up at the screen from his podium."]),
+  (29, SET, ["A little conveyor belt rolls across the stage carrying dry kibble, a glass of tap water and artificial treats; each one gets a big red X on the mega screen.", "Then a healthy golden glow sweeps across the mega screen."]),
+  (31, SET, ["★ Peanut butter bag — the grand prize: the stage turntable spins to reveal the bag under a spotlight, with golden five-star shapes sparkling on the mega screen and his owner clapping at her podium."]),
+  (33, SET, ["The show's doors slide open and three cute ingredient heroes march onto the stage: a green chlorella wave buddy who splashes, tiny probiotic buddies carrying bricks, and a spirulina hero who flexes.", "{The dog} cheers from his podium."]),
+  (36, "INSIDE THE DOG'S GUT — A CUTE ANIMATED WORLD", ["Through the mega screen into a cute animated world inside the dog's gut: the probiotic buddies set the last bricks, the green wave washes it clean and twenty little ingredient sparkles light it up a healthy gold."]),
+  (37, "INT. KITCHEN — DAY", [INTO + "★ Peanut butter bag — his owner scoops the green powder from the bag into {the dog}'s bowl, and he digs in happily."]),
+  (38, SET, ["Back on the set, weeks later: {the dog} tosses his old scorecards over his shoulder one by one as the meter drops segment by segment from red down to green."]),
+  (40, "EXT. PARK — DAY, WEEKS LATER", [INTO + "{the dog} trots right past the grass and runs happily beside his owner, clean paws, tail wagging."]),
+  (41, SET, ["The meter glows all green; {the dog} at his host podium gives the camera a wink, and confetti begins to fall."]),
+  (43, SET, ["★ Peanut butter bag — the bag sits on the spinning turntable under a spotlight while the mega screen fills with a crowd of happy dogs and their owners."]),
+  (44, "INT. LIVING ROOM — GOLDEN HOUR", [INTO + "{the dog} and his owner cuddle on the couch, both relaxed and happy; he's himself again."]),
+  (45, SET, ["★ Peanut butter bag — {the dog} nudges the bag toward the camera with his nose from his podium as confetti falls; his owner smiles beside him."]),
+]
+DOGS["song3b"] = DOGS["song3"]
+
 def script(song):
     dog = DOGS[song][0]; the, The = f"the {dog}", f"The {dog}"; out = []
     for n, (first, place, lines) in enumerate(SCENES[song], 1):
