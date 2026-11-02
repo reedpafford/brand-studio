@@ -5,7 +5,7 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Dialog, buttonClass, creditsText } from "../components";
+import { Badge, Banner, Button, Dialog, buttonClass, creditsLabel, creditsText } from "../components";
 import { linkText } from "../ui";
 import { useToast } from "../toast";
 import { ReviewChip } from "./Checks";
@@ -169,6 +169,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
               ) : (
                 <Button variant={cut && !noted ? "secondary" : "primary"} icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
                   {status === "none" ? "Make it" : status === "ended" && noted ? "Start again with this note" : "Make it again"}
+                  {(r?.run_price ?? 0) > 0 && ` · up to ${creditsLabel(r!.run_price)}` /* the cap this run can spend (rule 34) */}
                 </Button>
               )}
               {cut && !running && (
