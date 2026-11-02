@@ -668,10 +668,10 @@ def test_a_stop_while_the_next_turn_is_made_holds(app, db, owner, editor, monkey
     real_turn, providers = director._turn, get_providers(app.state.settings, app.state.storage)
     real_run = providers["claude"].run
 
-    def turn(db, user, project, run):  # the next turn is made just as Stop lands
+    def turn(db, user, project, run, **kw):  # the next turn is made just as Stop lands
         if run["turn"] == 1 and not made:
             made.append(editor.post(f"/projects/{pid}/director/stop").json()["status"])
-        return real_turn(db, user, project, run)
+        return real_turn(db, user, project, run, **kw)
 
     def asked(kind, input):
         if input.get("step") == director.STEP:

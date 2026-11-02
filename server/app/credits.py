@@ -126,12 +126,19 @@ def budget(db: Session, project: Project) -> Decimal:
     from app.cast_roles import all_slots
     from app.prompts.schemas import Breakdown
 
+    cap = Decimal(get_limits(db, project.workspace_id).per_video_max_credits)
+    if project.hidden:  # a freestyle's video: the owner's OK covers the price shown, no more
+        from app.models.freestyles import Freestyle
+
+        fs = db.scalar(select(Freestyle).where(Freestyle.project_id == project.id))
+        if fs is not None and fs.up_to is not None:
+            return min(fs.up_to, cap)
     row = clip_prompts.newest(db, project)
     bd = Breakdown.model_validate(row.data) if row else None
     roles = sum(s.library_item_id is None for s in all_slots(db, project))
     ws, seconds = project.workspace_id, int(project.estimate_credits)
     cost = max(plan_cost(db, ws, seconds, bd, roles), plan_cost(db, ws, seconds, None, roles))
-    return min(cost * BUDGET_MULTIPLIER, Decimal(get_limits(db, ws).per_video_max_credits))
+    return min(cost * BUDGET_MULTIPLIER, cap)
 
 
 def usd_to_credits(usd: Decimal) -> Decimal:
@@ -194,7 +201,10 @@ def director_credits(db: Session, project: Project) -> Decimal:
 
 def budget_used(db: Session, project: Project) -> Decimal:
     """What counts against the video's budget: all of it but the director's own turns. The
-    hold and the owner's release both read this, so they always agree."""
+    hold and the owner's release both read this, so they always agree. A freestyle's video
+    counts everything, its director's turns too: the owner's OK covers its whole price."""
+    if project.hidden:
+        return credits_used(db, project)
     return credits_used(db, project) - director_credits(db, project)
 
 
@@ -266,6 +276,16 @@ def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
 
 
 WAIT_OK = "Waiting for the owner's OK: "  # a held press says why it waits, never "ask Reed"
+PAST_APPROVED = f"{WAIT_OK}this goes past the price approved."  # a freestyle's next step
+
+
+def past_approved(db: Session, project: Project, user: User, credits: Decimal) -> str:
+    """A freestyle's step the owner's OK doesn't cover (its turns and watches too, not only
+    its takes): PAST_APPROVED, and it waits for the owner; else "". A video page's turns stay
+    on the director's own limit (DECISIONS #1066)."""
+    if not project.hidden or user.is_owner:
+        return ""
+    return PAST_APPROVED if budget_used(db, project) + credits > budget(db, project) else ""
 
 
 def over_allowance(db: Session, user: User, credits: Decimal) -> str:

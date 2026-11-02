@@ -36,6 +36,7 @@ class Script(Filed, Entity, Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     # Roles kept apart for good ("They're different"): [[slot id, slot id], …] (merge-roles.md)
     cast_apart: Mapped[list] = mapped_column(JSON, default=list)
+    hidden: Mapped[bool] = mapped_column(default=False)  # a freestyle's own (app/hidden.py)
 
 
 @event.listens_for(Script, "before_insert")

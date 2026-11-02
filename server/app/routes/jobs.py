@@ -8,11 +8,12 @@ from pydantic import BaseModel, model_validator
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import folders
+from app import folders, hidden
 from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     FREESTYLE,
+    PAST_APPROVED,
     USD_PER_CREDIT,
     check_clip_cap,
     check_video_cap,
@@ -46,6 +47,7 @@ class FreestyleRef(BaseModel):
     type: str  # dialogue, song, narrated or one_clip
     said: str  # this send's own words, the first send's script or the change asked (excerpt)
     change: bool  # a change asked in the thread, not the first send
+    up_to: float | None = None  # a director-run freestyle: the price the owner's OK covers
 
 
 class JobOut(BaseModel):
@@ -146,6 +148,7 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
         return None
     said = job.input.get(SAID, "")
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
+                        up_to=fs.up_to,
                         said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
 
 
@@ -239,7 +242,7 @@ def enqueue(
         if is_quick_clip(kind, input, project):
             wait = over_allowance(db, user, whole)
         elif needs_approval(db, user, project, whole):
-            wait = OVER_BUDGET
+            wait = PAST_APPROVED if project.hidden else OVER_BUDGET
         elif project is None and input.get(ON_SCRIPT):
             wait = SCRIPT_MEDIA
     job = Job(
@@ -369,6 +372,7 @@ def read_job_detail(job_id: int, owner: User = Depends(owner_only), db: Session 
 @router.post("/jobs/{job_id}/approve", response_model=JobOut)
 def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)):
     """Owner lets a job that goes over its project budget run."""
+    hidden.see(db)  # a freestyle's turn is on its hidden video
     job = _get_job(db, owner, job_id)
     if job.project_id is not None and job.status == JobStatus.needs_owner_approval:
         project = db.get(Project, job.project_id)
@@ -399,6 +403,7 @@ def decline_job(
 ):
     """Owner says no to a held job: it never runs and nothing was charged; the reason is its
     error, for whoever asked."""
+    hidden.see(db)
     job = _get_job(db, owner, job_id)
     reason = (body.reason.strip() if body else "") or DECLINED
     done = db.execute(
@@ -423,6 +428,7 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     """Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
     team may cancel any of them, except a video's: whoever made the video, whoever asked for
     the job, or the owner (as every change to a video). A Quick clip: its maker or the owner."""
+    hidden.see(db)
     job = _seen_job(db, user, job_id)
     project = db.get(Project, job.project_id) if job.project_id else None
     if project and not (user.is_owner or user.id in (job.created_by_id, project.created_by_id)):

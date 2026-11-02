@@ -49,6 +49,7 @@ class Project(Filed, Entity, Base):
     script_draft_id: Mapped[int | None] = mapped_column(
         ForeignKey("script_drafts.id", use_alter=True), unique=True
     )
+    hidden: Mapped[bool] = mapped_column(default=False)  # a freestyle's own (app/hidden.py)
 
     # Song ads: the take this video is timed to (starts as its version's Preferred, rule 31)
     song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id", use_alter=True))

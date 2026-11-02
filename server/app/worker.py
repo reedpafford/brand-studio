@@ -23,7 +23,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import director, music, screen_figures
+from app import director, hidden, music, screen_figures
 from app.clip_takes import still_wanted
 from app.credits import USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -484,6 +484,7 @@ def run_once(
     allow_paid: bool = True,
     only: set[str] | None = None,
 ) -> None:
+    hidden.see(db)  # the worker works on every job, a freestyle's hidden video's too
     check_running(db, providers, storage, only)
     # At most one start per queued job per tick, so a requeued job waits for the next tick.
     queued = db.scalar(

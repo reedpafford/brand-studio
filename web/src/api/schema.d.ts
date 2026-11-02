@@ -6423,6 +6423,8 @@ export interface components {
             credits: number;
             /** File Id */
             file_id: number | null;
+            /** Up To */
+            up_to?: number | null;
             /** Thread */
             thread: components["schemas"]["FreestyleItem"][];
         };
@@ -6438,6 +6440,8 @@ export interface components {
             said: string;
             /** Change */
             change: boolean;
+            /** Up To */
+            up_to?: number | null;
         };
         /** FreestyleRow */
         FreestyleRow: {
@@ -9797,6 +9801,11 @@ export interface components {
             in_progress: number;
             /** Unassigned Spend Usd */
             unassigned_spend_usd: number;
+            /**
+             * Freestyle Spend Usd
+             * @default 0
+             */
+            freestyle_spend_usd: number;
         };
         /** UsageVideo */
         UsageVideo: {

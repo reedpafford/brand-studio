@@ -2,8 +2,10 @@
 brand, changed by chatting. It replaces Quick clip. An editor's every send (the first and each
 change) waits for the owner before anything is spent; the owner's own run straight away. Not
 charged to any video's budget, never gated by the Quick clip week; each job carries its
-freestyle (`FREESTYLE`) for Usage. One clip works now: a single take, no plan or cut. The
-director-run types (dialogue, song, narrated) come next."""
+freestyle (`FREESTYLE`) for Usage. One clip is a single take, no plan or cut. Dialogue is run
+by the director on the freestyle's own hidden script and video (app/hidden.py): an editor's
+send waits for the owner as the run's first turn, and the owner's OK covers the price shown
+(`up_to`, the video's budget), no more. Song and Narrated come next."""
 
 import math
 from datetime import datetime, timedelta
@@ -15,17 +17,33 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app import looks, prompts
+from app import director, hidden, looks, prompts
 from app.auth import current_user
 from app.catalogue import get_model
-from app.credits import COUNTED, FREESTYLE, WAIT_OK, estimate, get_limits, lock, over_cap
+from app.credits import (
+    COUNTED,
+    FREESTYLE,
+    PAST_APPROVED,
+    WAIT_OK,
+    estimate,
+    get_limits,
+    lock,
+    over_cap,
+    usd_to_credits,
+)
 from app.db import get_db, utcnow
 from app.models.accounts import User
+from app.models.brands import Brand
+from app.models.clips import FinalVideo
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus
+from app.models.projects import Project
+from app.models.script_library import Script, ScriptDraft
+from app.models.scripts import ScriptVersion
 from app.references import LONG_SIDE
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
+from app.routes.estimate import version_cost
 from app.routes.jobs import CHANGE, DECLINE, SAID, WITHDRAWN, enqueue, stop_jobs
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
@@ -36,7 +54,9 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Change = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 MODEL, RESOLUTION = "seedance-2.5", "480p"  # Quick clip's defaults
-NOT_YET = "Dialogue, Song and Narrated are coming next; One clip works now."
+NOT_YET = "Song and Narrated are coming next; One clip and Dialogue work now."
+DIRECTED = {"dialogue": "story"}  # the types the director makes: the script kind it reads
+NO_CHANGES_YET = "Changes to a Dialogue freestyle come next. Start a new one for now."
 HELD = f"{WAIT_OK}every freestyle send is checked first."
 BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
@@ -86,7 +106,8 @@ class FreestyleOut(FreestyleRow):
     shape: Shape
     brand_id: int | None
     credits: float  # everything asked so far that wasn't declined, withdrawn or stopped unstarted
-    file_id: int | None  # the delivered take, for the player and Download MP4
+    file_id: int | None  # the delivered take or cut, for the player and Download MP4
+    up_to: float | None = None  # a director-run freestyle: the price the owner's OK covers
     thread: list[FreestyleItem]
 
 
@@ -120,8 +141,63 @@ def _job_input(fs: Freestyle, texts: list[str]) -> dict:
     }
 
 
+def _db(db: Session = Depends(get_db)) -> Session:
+    """Freestyle's routes work on its hidden script and video."""
+    return hidden.see(db)
+
+
+def _freestyle_brand(db: Session, workspace_id: int) -> Brand:
+    """The workspace's hidden "Freestyle" brand, for a freestyle with no brand picked."""
+    found = db.scalar(select(Brand).where(Brand.workspace_id == workspace_id, Brand.hidden))
+    if found is None:
+        found = Brand(workspace_id=workspace_id, name="Freestyle", slug="_freestyle", hidden=True)
+        db.add(found)
+        db.flush()
+    return found
+
+
+def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, ScriptDraft]:
+    """The freestyle's own hidden script (published, its one version approved) and video."""
+    brand_id = fs.brand_id or _freestyle_brand(db, user.workspace_id).id
+    script = Script(workspace_id=user.workspace_id, brand_id=brand_id, title=fs.title,
+                    kind=DIRECTED[fs.type], look=fs.look, published=True, hidden=True,
+                    created_by_id=user.id)  # fmt: skip
+    db.add(script)
+    db.flush()
+    draft = ScriptDraft(script_id=script.id, slot=0, text=text, status="approved",
+                        approved_at=utcnow(), approved_by_id=user.id)  # fmt: skip
+    db.add(draft)
+    db.flush()
+    project = Project(workspace_id=user.workspace_id, brand_id=brand_id, hidden=True,
+                      name=f"{fs.title[:100]} · freestyle {fs.id}", created_by_id=user.id,
+                      script_draft_id=draft.id, look=fs.look, aspect_ratio=fs.shape)  # fmt: skip
+    db.add(project)
+    db.flush()
+    db.add(ScriptVersion(project_id=project.id, version=1, text=text, source="library",
+                         created_by_id=user.id))  # fmt: skip
+    return project, draft
+
+
+def _start(db: Session, user: User, fs: Freestyle, text: str) -> None:
+    """A Dialogue send: its video, then the director's first turn (held for an editor's)."""
+    at = utcnow().isoformat()  # the message comes before the moves it starts
+    project, draft = _video(db, user, fs, text)
+    # the video's whole price and the director's own limit: everything the run may spend
+    own = usd_to_credits(director.MAX_USD)
+    fs.project_id, fs.up_to = project.id, version_cost(db, draft, video=project) + own
+    cap = get_limits(db, user.workspace_id).per_video_max_credits
+    if fs.up_to > cap:
+        db.rollback()
+        raise over_cap(user, cap)
+    db.flush()
+    turn = director.start(db, user, project, wait="" if user.is_owner else HELD,
+                          extra={FREESTYLE: fs.id, SAID: text, CHANGE: False})  # fmt: skip
+    fs.chat = [{"by": user.id, "text": text, "at": at, "job": turn.id}]
+    db.commit()
+
+
 def _check(db: Session, user: User, type: str, look: str, brand_id: int | None) -> None:
-    if type != "one_clip":
+    if type != "one_clip" and type not in DIRECTED:
         raise HTTPException(422, NOT_YET)
     looks.pick(db, user, look)  # an editor: only a look that's on
     if brand_id is not None:
@@ -157,6 +233,8 @@ def _send(db: Session, user: User, fs: Freestyle, text: str) -> None:
         db.rollback()
         raise over_cap(user, cap)
     input = {**input, SAID: text, CHANGE: bool(fs.chat)}  # for Needs you: what this send asks
+    if fs.brand_id is None:  # charged to the hidden Freestyle brand: Usage shows it as such
+        input["brand_id"] = _freestyle_brand(db, user.workspace_id).id
     job = enqueue(db, user, "video", input, units=input["input"]["duration"],
                   provider="replicate", wait="" if user.is_owner else HELD)  # fmt: skip
     message = {"by": user.id, "text": text, "at": utcnow().isoformat(), "job": job.id}
@@ -203,9 +281,44 @@ def _out(db: Session, fs: Freestyle) -> FreestyleOut:
             file_id = ((job.output or {}).get("file_ids") or [None])[0]
         if job.status in (*COUNTED, JobStatus.needs_owner_approval):
             credits += job.credits  # never a failed, declined, withdrawn or stopped one
+    if fs.project_id:  # the director's run: its moves, cut and cost
+        status, thread, file_id, credits = _directed(db, fs, jobs, thread)
     return FreestyleOut(**_row(fs, names, status).model_dump(), look=fs.look, shape=fs.shape,
                         brand_id=fs.brand_id, credits=credits, file_id=file_id,
-                        thread=thread)  # fmt: skip
+                        up_to=fs.up_to, thread=thread)  # fmt: skip
+
+
+def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
+    """(status, thread, file id, credits) of a director-run freestyle, from its video's run."""
+    project = db.get(Project, fs.project_id)
+    first = jobs.get(fs.chat[0]["job"])
+    words = {}
+    if first is not None and first.input.get(DECLINE):
+        status, words = "declined", {f"t{first.id}": f"The owner declined: {first.error}"}
+    elif first is not None and first.input.get(WITHDRAWN):
+        status, words = "withdrawn", {f"t{first.id}": "Withdrawn."}
+    elif first is not None and first.status == JobStatus.needs_owner_approval:
+        status = "waiting"
+    elif director.active(db, project):  # paused for a new OK, past the price approved
+        held = select(Job.id).where(Job.project_id == project.id,
+                                    Job.status == JobStatus.needs_owner_approval)  # fmt: skip
+        status = "waiting" if db.scalar(held.limit(1)) else "working"
+    else:
+        rows = director.turns(db, project)
+        status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
+    moves = [FreestyleItem(**{**m, "text": words.get(m["id"], m["text"])})
+             for m in director.thread(db, project) if m["kind"] == "move"]  # fmt: skip
+    held = db.scalars(select(Job).where(  # a take or a watch past the price, waiting mid-run
+        Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval,
+        Job.input["step"].as_string() != director.STEP)).all()  # fmt: skip
+    moves += [FreestyleItem(id=f"j{j.id}", kind="move", at=j.created_at, who="Director",
+                            text=j.input.get("held") or PAST_APPROVED, status="held")
+              for j in held]  # fmt: skip
+    cut = db.scalar(select(FinalVideo.file_id).where(FinalVideo.project_id == project.id)
+                    .order_by(FinalVideo.id.desc()))  # fmt: skip
+    file_id = cut if status == "delivered" else None
+    thread = sorted([*(m for m in said if m.kind == "message"), *moves], key=lambda m: m.at)
+    return status, thread, file_id, director.credits(db, project)
 
 
 def _row(fs: Freestyle, names: dict[int, str], status: str) -> FreestyleRow:
@@ -221,10 +334,18 @@ def estimate_freestyle(
     shape: Shape,
     text: Text,
     user: User = Depends(current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(_db),
 ):
     """What a send would cost, at most. Free: nothing is queued and nothing is asked of a model."""
     _check(db, user, type, look, None)
+    if type in DIRECTED:  # the video's own price, from a draft never kept
+        fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title="Estimate",
+                       type=type, look=look, shape=shape, chat=[])  # fmt: skip
+        db.add(fs)
+        db.flush()
+        cost = version_cost(db, _video(db, user, fs, text)[1]) + usd_to_credits(director.MAX_USD)
+        db.rollback()
+        return EstimateOut(credits=cost)
     fs = Freestyle(id=0, look=look, shape=shape, brand_id=None)
     input = _job_input(fs, [text])
     units = Decimal(input["input"]["duration"])
@@ -234,7 +355,7 @@ def estimate_freestyle(
 @router.post("", response_model=FreestyleOut, status_code=201,
              dependencies=[Depends(generation_on)])  # fmt: skip
 def create_freestyle(
-    body: FreestyleIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+    body: FreestyleIn, user: User = Depends(current_user), db: Session = Depends(_db)
 ):
     _check(db, user, body.type, body.look, body.brand_id)
     lock(db, User, user.id)  # a double tap waits here, then finds the first one
@@ -252,13 +373,13 @@ def create_freestyle(
                    chat=[])  # fmt: skip
     db.add(fs)
     db.flush()
-    _send(db, user, fs, body.text)
+    (_start if body.type in DIRECTED else _send)(db, user, fs, body.text)
     return _out(db, fs)
 
 
 @router.get("", response_model=list[FreestyleRow])
 def list_freestyles(
-    everyone: bool = False, user: User = Depends(current_user), db: Session = Depends(get_db)
+    everyone: bool = False, user: User = Depends(current_user), db: Session = Depends(_db)
 ):
     """The caller's freestyles, newest first; `everyone`: the whole team's (owner only)."""
     if everyone and not user.is_owner:
@@ -274,7 +395,7 @@ def list_freestyles(
 
 @router.get("/{freestyle_id}", response_model=FreestyleOut)
 def get_freestyle(
-    freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(_db)
 ):
     return _out(db, _get(db, user, freestyle_id))
 
@@ -285,13 +406,15 @@ def send_message(
     freestyle_id: int,
     body: MessageIn,
     user: User = Depends(current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(_db),
 ):
     """A change: a new take with every change asked so far, held like the first send. Only its
     maker sends (the owner reads anyone's)."""
     fs = _get(db, user, freestyle_id)
     if fs.created_by_id != user.id:
         raise HTTPException(403, "Only whoever made this freestyle can change it.")
+    if fs.type in DIRECTED:
+        raise HTTPException(409, NO_CHANGES_YET)
     if any(j.status in (JobStatus.needs_owner_approval, JobStatus.queued, JobStatus.running)
            for j in _jobs(db, fs).values()):  # fmt: skip
         raise HTTPException(409, BUSY)
@@ -301,7 +424,7 @@ def send_message(
 
 @router.post("/{freestyle_id}/withdraw", response_model=FreestyleOut)
 def withdraw_freestyle(
-    freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(_db)
 ):
     """The maker takes back a send still waiting for the owner. Nothing was spent."""
     fs = _get(db, user, freestyle_id)
@@ -321,12 +444,14 @@ def withdraw_freestyle(
 
 @router.post("/{freestyle_id}/stop", response_model=FreestyleOut)
 def stop_freestyle(
-    freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+    freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(_db)
 ):
     """Stop what's waiting or being made, by its maker or the owner. A take already at the
     provider is discarded when it lands."""
     fs = _get(db, user, freestyle_id)
     fs.stopped_at = utcnow()  # when it was last stopped
+    if fs.project_id:  # the director's run: no more turns
+        director.stop(db, db.get(Project, fs.project_id))
     stop_jobs(db, Job.id.in_(list(_jobs(db, fs))))
     db.commit()
     return _out(db, fs)
@@ -337,7 +462,7 @@ def rename_freestyle(
     freestyle_id: int,
     body: TitleIn,
     user: User = Depends(current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(_db),
 ):
     fs = _get(db, user, freestyle_id)
     if fs.created_by_id != user.id and not user.is_owner:

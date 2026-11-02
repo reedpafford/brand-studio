@@ -12,6 +12,7 @@ and logged."""
 
 import logging
 import re
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -150,16 +151,13 @@ def heard_cut(db: Session, job: Job) -> None:
             "fit_images_to": 1024, "director_run": job.input.get("director_run"),
             "cut": cut, "words": out.get("words", []), "script": version.text if version else "",
             "files": {"reference_images": out.get("file_ids", [])}}  # fmt: skip
-    enqueue(
-        db,
-        user,
-        KIND,
-        data,
-        units=len(frames) + 1,
-        project=project,
-        provider="claude",
-        prepaid=True,
-    )  # "up to": a look a frame, and the words; the director's own limit
+    from app.credits import estimate, past_approved
+
+    units = len(frames) + 1  # "up to": a look a frame, and the words; the director's own limit
+    wait = past_approved(db, project, user, estimate(db, project.workspace_id, KIND,
+                                                     Decimal(units), data))  # fmt: skip
+    enqueue(db, user, KIND, data, units=units, project=project, provider="claude",
+            prepaid=not wait, wait=wait)  # fmt: skip  # a freestyle past its price: an OK first
 
 
 def _plan(plan: dict | None, version) -> str:
