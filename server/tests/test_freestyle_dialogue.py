@@ -118,17 +118,19 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
 def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
     app, owner, editor, db, monkeypatch
 ):
-    """QA-3 on #1171 (MAX_USD 0.50): turns, takes and the watch of the cut all wait for the
-    owner past the price; checks are skipped, never queued unheld. Each step held mid-run
-    shows in the thread."""
+    """QA-3 on #1171 (a price the run reaches): turns, takes and the watch of the cut all wait
+    for the owner past the price; checks are skipped, never queued unheld. Each step held
+    mid-run shows in the thread."""
     from decimal import Decimal
 
     from app.credits import COUNTED, PAST_APPROVED
 
-    monkeypatch.setattr(director, "MAX_USD", Decimal("0.50"))
     fs = editor.post("/freestyles", json=BODY).json()
-    up_to, released = Decimal(str(fs["up_to"])), Decimal(0)
-    pid = db.get(Freestyle, fs["id"]).project_id
+    up_to, released = Decimal(40), Decimal(0)  # about the video's own price: its turns pass it
+    row = db.get(Freestyle, fs["id"])
+    row.up_to, row.chat = up_to, [{**row.chat[0], "price": str(up_to)}]
+    db.commit()
+    pid = row.project_id
     holds = 0
     for _ in range(12):  # the owner releases each step that waits, one at a time
         db.expire_all()
@@ -150,3 +152,43 @@ def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
                      if j.status in COUNTED), Decimal(0))  # fmt: skip
         assert spent <= up_to + released, (spent, up_to, released)
     assert holds > 1  # the price ran out mid-run, and it waited
+
+
+def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
+    app, owner, editor, db, monkeypatch
+):
+    """QA on #1176: 80.898 shown, 82.03 charged, and an approved run held at the end. The price
+    is the most one run may charge under its own limits: every turn, every redo with its
+    check and every watch, at what this run was charged for each."""
+    from decimal import Decimal
+
+    from app.credits import COUNTED
+
+    monkeypatch.setattr("app.item_checks.on", lambda: True)  # as on the test site's stand-ins
+    monkeypatch.setattr("app.item_checks.verdict", lambda checks: "flagged")  # every redo used
+    fs = editor.post("/freestyles", json=BODY).json()
+    (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    owner.post(f"/jobs/{held['id']}/approve")
+    _run(app, db)
+    assert editor.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered"
+    assert owner.get("/jobs", params={"status": "needs_owner_approval"}).json() == []  # no hold
+    row = db.get(Freestyle, fs["id"])
+    jobs = [j for j in db.query(Job).filter(Job.project_id == row.project_id)
+            if j.status in COUNTED]  # fmt: skip
+
+    def of(step):
+        return [j.credits for j in jobs if j.input.get("step") == step]
+
+    firsts, takes = {}, [j for j in jobs if j.input.get("step") == "clip_take"]
+    for j in sorted(takes, key=lambda j: j.id):
+        firsts.setdefault(j.input["project_clip_id"], j.credits)
+    assert len(takes) == len(firsts) * (1 + director.MAX_REDOS)  # every redo was made
+    check = max(of("item_check"))
+    spent = sum((j.credits for j in jobs), Decimal(0))
+    redos = sum((j.credits for j in takes), Decimal(0)) - sum(firsts.values())
+    redos += check * (len(takes) - len(firsts))
+    once = spent - sum(of("director")) - sum(of("watch_cut")) - redos  # the video made once
+    most = (once + director.MAX_TURNS * max(of("director"))
+            + director.MAX_WATCHES * max(of("watch_cut"))
+            + director.MAX_REDOS * (sum(firsts.values()) + check * len(firsts)))  # fmt: skip
+    assert spent <= most <= row.up_to, (spent, most, row.up_to)
