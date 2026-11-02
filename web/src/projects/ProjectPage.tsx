@@ -88,7 +88,7 @@ export function ProjectPage() {
   const label = STEPS.find((s) => s.id === step)?.label;
   const next = nextOf(step);
   const nextReason = next ? (step === "shots" && dirty ? "Save your changes first." : lockReason(next.id, progress)) : null;
-  // While directions are accepted but not added yet, "Add N directions" is the amber button, so Next steps aside.
+  // While directions are accepted but not added yet, "Apply N accepted" is the amber button, so Next steps aside.
   const adding = step === "script" && enhance.marks.some((m) => m.status === "accepted");
   const nextButton = next && !(step === "brief" && editingBrief) && !adding && !(step === "shots" && dirty && !rail) && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => pick(next.id)}>
