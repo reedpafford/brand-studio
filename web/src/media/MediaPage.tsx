@@ -22,11 +22,11 @@ const KINDS: { id: Kind; label: string; one: string }[] = [
   { id: "song", label: "Songs", one: "Song" },
   { id: "final", label: "Final videos", one: "Final video" },
 ];
-const kindName = (k: Kind) => KINDS.find((x) => x.id === k)!.one;
+export const kindName = (k: Kind) => KINDS.find((x) => x.id === k)!.one;
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** Where an item is opened, and the step's name for "Open in {step}". */
-function opens(m: Item, brandId: number): { to: string; step: string } {
+export function opens(m: Item, brandId: number): { to: string; step: string } {
   const video = (step: string) => `/b/${brandId}/videos/${m.project_id}?step=${step}`;
   if (m.open_step === "quick") return { to: m.freestyle_id ? `/freestyle/${m.freestyle_id}` : "/freestyle", step: "Freestyle" }; // Freestyle replaced Quick clip
   if (m.open_step === "song" && m.script_id) return { to: `/b/${brandId}/scripts/${m.script_id}?step=takes`, step: "Takes" };
@@ -70,6 +70,8 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
         video={!m.poster_file_id && isVideo ? fileUrl(m.file_id) : null}
         playable={isVideo}
         icon={m.kind === "song" ? Music : m.kind === "sheet" ? Users : Images}
+        to={`/b/${brandId}/media/${encodeURIComponent(m.key)}`} // its own page (v5 G_MediaItem)
+        label={`Open ${title}, ${meta}`}
         badge={m.from_deleted_video ? <Badge tone="warning">{!gone ? "From a deleted video" : gone.id === meId ? "From your deleted video" : `From ${gone.name}'s deleted video`}</Badge> : undefined}
       >
         {m.kind === "song" && <audio controls preload="none" src={fileUrl(m.file_id)} aria-label={`Play ${title}`} className="w-full" />}

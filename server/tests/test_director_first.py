@@ -62,6 +62,12 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
     assert fs["script_id"] not in [s["id"] for s in owner.get("/scripts").json()]  # not yet
     assert fs["project_id"] not in [p["id"] for p in owner.get("/projects").json()]
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    asked = held["freestyle"]  # v5: Needs you lists it as a request, before the video shows
+    assert (asked["script_id"], asked["slot"], held["created_by_name"]) == (
+        fs["script_id"],
+        0,
+        "Ed",
+    )
     assert owner.post(f"/jobs/{held['id']}/approve").status_code == 200
     assert fs["script_id"] in [s["id"] for s in owner.get("/scripts").json()]  # in Scripts
     assert fs["project_id"] in [p["id"] for p in owner.get("/projects").json()]  # in Videos
@@ -89,6 +95,7 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
         assert edit.status_code == 409 and "waiting for the owner's OK" in edit.text, edit.text
     held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
                 if j["freestyle"]["id"] == mine["id"])  # fmt: skip
+    assert (held["freestyle"]["script_id"], held["freestyle"]["slot"]) == (made["id"], 0)
     owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not this one."})
     db.expire_all()
     assert not db.get(Script, made["id"]).published

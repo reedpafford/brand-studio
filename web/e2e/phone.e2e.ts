@@ -21,7 +21,7 @@ test("on a phone, the five bottom tabs reach every brand section and there is no
   await page.goBack(); // New video has its own title bar in place of the tabs' top bar
 
   await tabs.getByRole("link", { name: "Brand" }).click();
-  await expect(page.getByRole("heading", { name: "Brand", exact: true })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Brand" })).toBeVisible(); // v5: the page's heading is the brand's own name
 
   await tabs.getByRole("link", { name: "Scripts", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();

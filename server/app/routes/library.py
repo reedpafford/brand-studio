@@ -98,12 +98,19 @@ class LookSheetOut(BaseModel):
     status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
 
 
+class UsedIn(BaseModel):
+    project_id: int
+    name: str
+    status: Literal["needs_you", "making", "done"]  # as the Videos tabs group it
+
+
 class ItemOut(ItemIn):
     id: int
     kind: Kind
     version: int
     sheet_file_id: int | None  # the house-style sheet; only an approved one is used in videos
     sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
+    voice_file_name: str | None = None  # a character's voice sample, as it was uploaded
     owner_project_id: int | None = None  # "This video only"
     owner_script_id: int | None = None  # "This script only"
     look_fit: LookFitOut | None = None  # the sheet doesn't read as its role: advice, Redo it
@@ -112,6 +119,7 @@ class ItemOut(ItemIn):
     change_credits: int = 0  # Change this…: the sheet and its check (never redone by itself)
     advice: list[str] = []  # a product with no main claim: "Scripts won't mention…" (BR1)
     look_sheets: dict[str, LookSheetOut] = {}  # ST2: the owner's sheets in other looks
+    used_in: list[UsedIn] = []  # the videos that use it (the item's own page only)
 
 
 class VersionOut(BaseModel):
@@ -203,12 +211,21 @@ def _out(item: LibraryItem) -> ItemOut:
         sheet_status=sheet_status(item),
         owner_project_id=item.owner_project_id,
         owner_script_id=item.owner_script_id,
+        voice_file_name=_voice_name(item),
         look_fit=item.look_fit,
         advice=[NO_CLAIM] if item.kind == Kind.prop and not item.main_claim.strip() else [],
         look_sheets=looks,
         **_prices(item),
         **data,
     )
+
+
+def _voice_name(item: LibraryItem) -> str | None:
+    from app.models.files import StoredFile
+
+    db = object_session(item)
+    file = db.get(StoredFile, item.voice_file_id) if db and item.voice_file_id else None
+    return file.filename if file else None
 
 
 def get_item(
@@ -335,7 +352,45 @@ def create_item(
 def read_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    return _out(get_item(db, user, kind, item_id))
+    item = get_item(db, user, kind, item_id)
+    return _out(item).model_copy(update={"used_in": used_in(db, item)})
+
+
+def used_in(db: Session, item: LibraryItem) -> list[UsedIn]:
+    """The live videos that use the item: in the cast (a character), named by the newest
+    breakdown's shots, or pictured in a clip. Every editor may open these (Videos lists them)."""
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+    from app.models.projects import Project
+    from app.storyboard import PREFIX
+
+    key = f"{PREFIX[item.kind]}:{item.id}"
+    videos = db.scalars(select(Project).where(Project.workspace_id == item.workspace_id,
+                                              Project.archived_at.is_(None))
+                        .order_by(func.lower(Project.name))).all()  # fmt: skip
+    ids = [v.id for v in videos]
+    used = {v.id for v in videos
+            if item.id in v.cast_ids or item.id in (v.slot_cast or {}).values()}  # fmt: skip
+    newest: dict[int, dict] = {}
+    for pid, data in db.execute(select(BreakdownVersion.project_id, BreakdownVersion.data)
+                                .where(BreakdownVersion.project_id.in_(ids))
+                                .order_by(BreakdownVersion.id)):  # fmt: skip
+        newest[pid] = data
+    for pid, data in newest.items():
+        shots = [s for sc in (data or {}).get("scenes", []) for s in sc.get("shots", [])]
+        if any(key in (s.get("character_ids") or []) or s.get("place_id") == key for s in shots):
+            used.add(pid)
+    clips = select(ProjectClip.project_id, ProjectClip.references).where(
+        ProjectClip.project_id.in_(ids))  # fmt: skip
+    used |= {pid for pid, refs in db.execute(clips) if any(r.get("id") == key for r in refs)}
+    from app import needs_you
+    from app.routes.project_clips import out_of_date
+
+    shown = [v for v in videos if v.id in used]
+    waits = needs_you.waiting_on(db, shown, out_of_date(db, shown))
+    return [UsedIn(project_id=v.id, name=v.name,
+                   status="needs_you" if v.id in waits else "done" if v.finished_at else "making")
+            for v in shown]  # fmt: skip
 
 
 @router.patch("/{item_id}", response_model=ItemOut)

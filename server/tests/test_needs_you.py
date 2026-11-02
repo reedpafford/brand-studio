@@ -81,3 +81,17 @@ def test_a_failed_narration_is_named_as_the_narration(owner, editor, db):
         db.commit()
         name = "The narration's timing" if kind == "narration_timing" else "The narration"
         assert _row(editor, pid)["waiting_on"] == f"{name} didn't finish"
+
+
+def test_a_held_step_needs_the_owner_not_its_editor(owner, editor, db):
+    """v5 (Next-Lead): a step held for the owner's OK puts the video in the owner's Needs you,
+    first; its editor has nothing to do until then."""
+    from app.needs_you import HELD
+
+    pid = _video(owner, editor, db)
+    _job(db, pid, JobStatus.needs_owner_approval, step="change")
+    mine = _row(owner, pid)
+    assert (mine["needs_you"], mine["waiting_on"]) == (True, HELD)
+    assert [p["id"] for p in owner.get("/projects?status=needs_you").json()] == [pid]
+    theirs = _row(editor, pid)
+    assert (theirs["needs_you"], theirs["waiting_on"]) == (False, None)

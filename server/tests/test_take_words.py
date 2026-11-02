@@ -57,7 +57,8 @@ def test_the_brand_said_wrong_is_flagged_with_how_to_say_it(misheard):
     found = compare(LINES, _heard(f"{misheard} made me rich!", "No way."), "fomo", "FOH-moh", [])
     assert _kinds(found) == [("name", 0.5)]
     assert "Listen first: the transcript can mishear." in found[0]["text"]
-    assert found[0]["change_note"] == f"Say fomo as FOH-moh, never “{misheard}”."
+    # never quoting the word misheard: a Redo note may quote only what the clip says
+    assert found[0]["change_note"] == "Say fomo as FOH-moh."
 
 
 def test_words_near_the_brand_that_arent_it_are_left_alone():
