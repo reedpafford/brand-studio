@@ -80,6 +80,15 @@ def test_wrong_brand_is_spliced_from_same_voice(app, db, editor, setup, clip, mo
     assert after["can_splice"] == []
     assert _splice(app, db, setup, "fomo") == word_splice.NOTHING.format(w="fomo", c="c1")
     assert word_splice.labels(row, db.get(ClipTake, second.id)) == ["c1/splice:1.37-1.8"]
+    db.get(ProjectClip, row.id).approved = True  # the clip's take, approved as a person would
+    db.commit()
+    cut = editor.post(f"/projects/{setup['project']}/video")  # the stitch runs with it
+    assert cut.status_code == 201, cut.text
+    db.expire_all()
+    from app.models.clips import FinalVideo
+
+    (final,) = db.query(FinalVideo).filter_by(project_id=setup["project"]).all()
+    assert "c1/splice:1.37-1.8" in final.cut_ins  # a new splice shows as changes waiting
 
 
 def test_no_clean_copy_is_refused(app, db, editor, setup, clip, monkeypatch):  # noqa: F811

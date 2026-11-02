@@ -164,6 +164,13 @@ def apply(video: bytes, splices: list[dict], source) -> bytes:
     return video
 
 
+def _sound(folder: Path, name: str) -> bool:
+    probe = ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+             "-of", "csv=p=0", name]  # fmt: skip
+    return bool(subprocess.run(probe, cwd=folder, capture_output=True, text=True,  # noqa: S603
+                               timeout=60).stdout.strip())  # fmt: skip
+
+
 def _one(video: bytes, other: bytes, at: list[float], copy: list[float]) -> bytes:
     start, end = at
     a, b = copy
@@ -180,6 +187,8 @@ def _one(video: bytes, other: bytes, at: list[float], copy: list[float]) -> byte
         folder = Path(tmp)
         (folder / "in.mp4").write_bytes(video)
         (folder / "copy.mp4").write_bytes(other)
+        if not (_sound(folder, "in.mp4") and _sound(folder, "copy.mp4")):
+            return video  # nothing to splice (a take with no sound)
         command = ["ffmpeg", "-v", "error", "-y", "-i", "in.mp4", "-i", "copy.mp4",
                    "-filter_complex", graph, "-map", "0:v", "-map", "[out]", "-c:v", "copy",
                    "-c:a", "aac", "out.mp4"]  # fmt: skip
