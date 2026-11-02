@@ -93,10 +93,10 @@ export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: stri
 
 export type Tab = { id: string; label: string; count?: number };
 
-/** Underline tabs with counts: Characters 5 · Places 2 · Props 3. */
+/** Pill tabs with counts (v4 boards): Characters 5 · Places 2 · Props 3. */
 export function Tabs({ tabs, value, onChange, label }: { tabs: Tab[]; value: string; onChange: (id: string) => void; label: string }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-border">
+    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto">
       {tabs.map((t) => {
         const on = t.id === value;
         return (
@@ -106,7 +106,7 @@ export function Tabs({ tabs, value, onChange, label }: { tabs: Tab[]; value: str
             role="tab"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className={`-mb-px inline-flex min-h-control shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 font-medium ${on ? "border-accent text-text" : "border-transparent text-muted hover:text-text"}`}
+            className={`inline-flex min-h-control shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 font-medium ${on ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text"}`}
           >
             {t.label}
             {t.count !== undefined && (
