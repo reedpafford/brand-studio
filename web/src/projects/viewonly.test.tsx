@@ -70,7 +70,7 @@ for (const [step, ready] of [
     await vi.waitFor(() => expect(presses().length).toBeGreaterThan(3));
     expect(live().map((b) => b.textContent?.trim() || b.getAttribute("aria-label")).filter((n) => CHANGES.test(n ?? ""))).toEqual([]);
     for (const f of within(screen.getByRole("main")).queryAllByRole("textbox")) expect(f.matches("[readonly], :disabled")).toBe(true);
-    for (const b of within(screen.getByRole("list", { name: "Steps" })).getAllByRole("button")) expect(b).toBeEnabled(); // moving between steps is looking
+    for (const b of within(screen.getByRole("tablist", { name: "Steps" })).getAllByRole("tab")) expect(b).toBeEnabled(); // moving between steps is looking
     expect(screen.getByRole("button", { name: "Show script" })).toBeEnabled();
     const bar = screen.getByRole("region", { name: "Cost" });
     for (const b of within(bar).queryAllByRole("button").filter((b) => !/^Next:/.test(b.textContent ?? ""))) {

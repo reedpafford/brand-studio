@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, FileText } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import { Banner, Button, Skeleton, StepPicker, Tabs, ViewOnly } from "../components";
+import { Banner, Button, Skeleton, ViewOnly, type Step } from "../components";
 import { useRail } from "../useMedia";
 import { useFreshProject } from "./useFreshProject";
 import { AssetsPane, useAssets } from "./AssetsPane";
@@ -12,7 +12,7 @@ import { BreakdownPane } from "./BreakdownPane";
 import { PlanStep } from "./PlanStep";
 import { CheckSummary } from "./Checks";
 import { useBriefChoices } from "./BriefPickers";
-import { ClipsPane } from "./ClipsPane";
+import { ClipsStep } from "./ClipsStep";
 import { DownloadsPane } from "./DownloadsPane";
 
 import { WaitingBadge } from "./Meter";
@@ -23,16 +23,16 @@ import { ShapeRow } from "./ShapeRow";
 import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
 import { ProjectPicker } from "../folders/Projects";
-import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
-import { VIDEO_STEPS, isMake, videoBlocker, videoHold, videoLock, videoNext, videoPickerStates, videoStepFromParams, type VideoProgress } from "./videoSteps";
+import { VIDEO_STEPS, isClips, videoBlocker, videoHold, videoLock, videoNext, videoStepFromParams, videoTabStates, type VideoProgress } from "./videoSteps";
+import { VideoTabs } from "./VideoTabs";
 import { HeldRequests, WaitingCount } from "../approvals/HeldRequests";
 import { budgetPct, budgetUsed, directorTime } from "./budget";
 import { DirectorPanel } from "./DirectorPanel";
 
-/** A video made from a library version: Plan · Cast · Make (Stills | Clips) · Final cut. */
+/** A video made from a library version: Director · Plan · Cast · Clips · Final cut, one row of tabs (v4). */
 export function VideoPage() {
   const { brandId = "", projectId } = useParams();
   const id = Number(projectId);
@@ -88,7 +88,7 @@ export function VideoPage() {
   const asked = params.get("step");
   if (asked === "breakdown") return <Navigate to="?step=plan&view=shots" replace />;
   if (asked === "assets") return <Navigate to="?step=cast" replace />;
-  if (asked === "make") return <Navigate to={`?step=${videoPickerStates(step, all)[2].id}`} replace />;
+  if (asked === "make") return <Navigate to={`?step=${videoTabStates(step, all)[2].id}`} replace />;
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
   const pick = (to: string) => {
@@ -100,7 +100,7 @@ export function VideoPage() {
     setLine(null);
     setPanel(true);
   };
-  const label = isMake(step) ? "Make" : VIDEO_STEPS.find((s) => s.id === step)?.label;
+  const label = isClips(step) ? "Clips" : VIDEO_STEPS.find((s) => s.id === step)?.label;
   const clipsLock = videoLock("clips", all);
   // Made work whose earlier step changed stays viewable; its paid presses wait, and the banner says where to go (audit M14).
   const held = videoHold(step, all);
@@ -108,10 +108,10 @@ export function VideoPage() {
   const updateAction = update.action && held?.at === "cast" ? { ...update.action, reason: held.why } : update.action;
   const hold = held?.why ?? null;
   const fixAt = held ? VIDEO_STEPS.find((s) => s.id === held.at) : undefined;
-  const next = videoNext(step);
+  const next = videoNext(step === "storyboard" ? "clips" : step); // the stills and the takes are one tab: next is Final cut
   const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
-  const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.id === "storyboard" ? "Make" : next.label}`, reason, onPress: () => pick(next.id) } : null;
+  const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.id === "storyboard" ? "Clips" : next.label}`, reason, onPress: () => pick(next.id) } : null;
   // Release while it is being made; Archive once it is done. An archived video is read-only until it is restored.
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used, released: p.released };
@@ -119,12 +119,17 @@ export function VideoPage() {
   // Only its maker or the owner may change a video (the server refuses the rest): anyone else can look, with every press greyed out.
   const maker = p.created_by_name || "someone else";
   const lookOnly = !mayManage(p) && !p.archived_at ? `Only ${maker} or the owner can change this video.` : null;
-  // Two views (ux-audit §8.5): the Director first, and Look inside for the steps (any ?step= address). Only whoever may change the video directs it.
+  // The Director is the first tab (ux-audit §8.5, v4); any ?step= address opens a step. Only whoever may change the video directs it.
   const mayDirect = p.script_draft_id != null && !p.archived_at && !lookOnly; // made from a (published) script version
   const directing = mayDirect && !params.get("step");
   // Until Assets' own read lands, the step picker, the heading line and Next wait under one skeleton: no counts from an older read.
   const waiting = step === "cast" && assetsLoading;
   const count = (n: number, noun: string, ok: number) => `${n} ${noun}${n === 1 ? "" : "s"} · ${ok} approved`;
+  // One row of tabs: the Director (when it can direct), then the steps. A locked step says why and doesn't open.
+  const steps: Step[] = [
+    ...(mayDirect ? [{ id: "director", label: "Director", state: directing ? "current" : "open" } as Step] : []),
+    ...videoTabStates(step, all).map((s) => (directing && s.state === "current" ? { ...s, state: "open" as const } : s)),
+  ];
   const meta =
     step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : step === "clips" && all.clips.total > 0 ? count(all.clips.total, "clip", all.clips.approved) : null;
 
@@ -166,34 +171,37 @@ export function VideoPage() {
           It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
         </Banner>
       )}
-      {mayDirect && <Tabs label="View" value={directing ? "director" : "inside"} onChange={(v) => (v === "director" ? setParams({}) : pick("plan"))} tabs={[{ id: "director", label: "Director" }, { id: "inside", label: "Look inside" }]} />}
+      {waiting ? (
+        <Skeleton className="h-control" />
+      ) : (
+        <VideoTabs
+          steps={steps}
+          onPick={(to) => (to === "director" ? setParams({}) : pick(to))}
+          end={
+            !directing && (
+              <Button variant="ghost" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Show script">
+                {rail ? "Script" : ""}
+              </Button>
+            )
+          }
+        />
+      )}
       {directing ? (
-        <DirectorPanel projectId={id} aspect={p.aspect_ratio} name={p.name} onLookInside={() => pick("plan")} />
+        <DirectorPanel projectId={id} aspect={p.aspect_ratio} name={p.name} onOpenClips={() => pick("clips")} />
       ) : (
       <>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          {waiting ? <Skeleton className="h-control" /> : <StepPicker steps={videoPickerStates(step, all)} onPick={pick} />}
-        </div>
-        <Button variant="secondary" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Show script">
-          {rail ? "Script" : ""}
-        </Button>
-      </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="type-section">{label}</h2>
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
-          {/* While Clips is locked (the stills aren't approved), its tab says why rather than opening. */}
-          {isMake(step) && clipsLock && <p className="text-sm text-muted">Clips: {clipsLock}</p>}
-          {(step === "storyboard" || step === "clips" || step === "downloads") && <CheckSummary projectId={id} />}
+          {/* While the takes are locked (the stills aren't approved), it says why. */}
+          {isClips(step) && clipsLock && <p className="text-sm text-muted">Takes: {clipsLock}</p>}
+          {(isClips(step) || step === "downloads") && <CheckSummary projectId={id} />}
         </div>
       </div>
-      {isMake(step) && (
-        <Tabs label="Make" value={step} onChange={(to) => to !== step && (to !== "clips" || !clipsLock) && pick(to)} tabs={[{ id: "storyboard", label: "Stills", count: all.frames.total || undefined }, { id: "clips", label: "Clips", count: all.clips.total || undefined }]} />
-      )}
       {hold && !update.stopped && ( // a stopped update says where, with that step's own press
-        <Banner tone="warning" title={held?.at === "cast" ? "Waiting on the cast" : "Out of date"} action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
+        <Banner tone="warning" title={held?.at === "cast" ? "Waiting on the cast" : "Out of date"} action={fixAt && !(isClips(step) && isClips(fixAt.id)) && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
           {hold}
         </Banner>
       )}
@@ -212,8 +220,23 @@ export function VideoPage() {
         />
       )}
       {step === "cast" && <AssetsPane bar projectId={id} brandId={p.brand_id} variants={p.product_variants ?? {}} />}
-      {step === "storyboard" && <StoryboardPane barTaken={!!update.action} hold={hold} castRedraw={p.cast_redraw} oneStep clips={media.clips} projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "clips" && <ClipsPane barTaken={!!update.action} hold={hold} review projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
+      {isClips(step) && (
+        <ClipsStep
+          projectId={id}
+          brandId={p.brand_id}
+          aspect={p.aspect_ratio}
+          projectName={p.name}
+          used={p.credits_used}
+          budget={p.budget_credits}
+          scriptVersion={script.data?.version ?? 0}
+          castRedraw={p.cast_redraw}
+          clipCount={media.clips}
+          clipsLock={clipsLock}
+          stillsHold={videoHold("storyboard", all)?.why ?? null}
+          clipsHold={videoHold("clips", all)}
+          barTaken={!!update.action}
+        />
+      )}
       {step === "downloads" && <DownloadsPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       </ViewOnly>
       </>
