@@ -17,7 +17,7 @@ test("at 1440, Reed makes a One clip freestyle from the rail and it delivers, wi
   await expect(page).toHaveURL(/\/freestyle$/);
   const line = `MIA: The market opened at nine ${Date.now()}.`;
   await page.getByLabel("Paste a script, or describe the clip").fill(line);
-  await expect(page.getByText(/^up to \d+ credits?$/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Send · up to \d+ credits?$/ })).toBeVisible(); // the price rides on Reed's send
   await page.getByLabel("Paste a script, or describe the clip").press("Enter");
   await expect(page).toHaveURL(/\/freestyle\/\d+$/);
   const top = page.getByRole("region", { name: "This freestyle" });
@@ -65,4 +65,24 @@ test("at 390, an editor's freestyle waits for approval, Reed approves it in Appr
   await expect(top.getByText("Delivered")).toBeVisible({ timeout: 60_000 });
   await expect(top.getByRole("link", { name: "Download MP4" })).toBeVisible();
   await noSidewaysScroll(ed);
+});
+
+test("at 1440, Reed sends a Dialogue: the director makes it on the stand-ins, its moves read plainly, and the cut plays", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.goto("/freestyle");
+  await page.getByLabel("Type").selectOption({ label: "Dialogue" });
+  const script = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in. I'm buying ${Date.now()}.`, "NATE: Download fomo through the link in my bio."].join("\n");
+  await page.getByLabel("Paste a script, or describe the clip").fill(script);
+  await page.getByRole("button", { name: /^Send · up to \d+ credits?$/ }).click();
+  await expect(page).toHaveURL(/\/freestyle\/\d+$/);
+  const top = page.getByRole("region", { name: "This freestyle" });
+  await expect(top.getByText("Delivered")).toBeVisible({ timeout: 200_000 });
+  await expect(page.getByLabel("The freestyle")).toBeVisible();
+  await expect(top.getByRole("link", { name: "Download MP4" })).toBeVisible();
+  const thread = page.getByRole("list", { name: "Thread" });
+  await expect(thread.getByText(/Made the cut\./).first()).toBeVisible();
+  expect(await thread.textContent()).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // no tool names, clip codes or JSON  await noSidewaysScroll(page);
 });

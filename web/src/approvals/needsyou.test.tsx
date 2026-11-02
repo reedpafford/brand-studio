@@ -161,6 +161,13 @@ test("a held Freestyle row says Freestyle, its type and title, who asked, quotes
   expect(screen.queryByText(/quick clips this week/)).toBeNull();
 });
 
+test("a held Dialogue freestyle says the whole price Reed's OK covers, in credits", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", up_to: 33.2 })]] });
+  open();
+  expect(await screen.findByText("Freestyle · Dialogue · Bo at the beach")).toBeInTheDocument();
+  expect(screen.getByText("Up to 34 credits · your OK covers the whole run")).toBeInTheDocument();
+});
+
 test("a held change in a Freestyle thread says Change asked", async () => {
   fakeServer({ ...base, "GET /jobs": [200, [freestyle({ change: true, said: "Make it sunset" })]] });
   open();

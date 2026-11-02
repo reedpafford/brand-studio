@@ -96,8 +96,9 @@ export function Composer({ fs, owner, maker, onCreated }: { fs?: Freestyle; owne
         }}
       />
       <div className="flex flex-wrap items-center justify-end gap-3">
-        {estimate.data !== undefined && <span className="text-sm tabular-nums text-muted">{pressLabel(estimate.data, "estimate")}</span>}
-        <Button type="submit" busy={send.isPending} disabled={empty}>
+        {!owner && estimate.data !== undefined && <span className="text-sm tabular-nums text-muted">{pressLabel(estimate.data, "estimate")}</span>}
+        {/* The owner's send spends at once, so its price rides on it: "Send · up to 34 credits". */}
+        <Button type="submit" busy={send.isPending} disabled={empty} price={owner ? estimate.data : undefined} charge="estimate">
           {owner ? "Send" : "Send for approval"}
         </Button>
       </div>

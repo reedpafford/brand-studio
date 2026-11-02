@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import type { Tone } from "../components";
+import { plain } from "../projects/DirectorPanel";
 import { serverTime } from "../time";
 import { STATUS, type Freestyle } from "./useFreestyle";
 
@@ -22,9 +23,11 @@ export const Tag = ({ children }: { children: string }) => <span className="roun
 const clock = (iso: string) => serverTime(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 /** The thread, oldest first, newest at the bottom: people's messages on the right, the director's moves on the left with
- *  why under them. The first message carries the freestyle's settings as tags. */
+ *  why under them. The first message carries the freestyle's settings as tags. A director-run freestyle's (Dialogue's)
+ *  moves are made plain the way a video's director thread is: no tool names, codes or JSON on screen. */
 export function Thread({ fs, tags }: { fs: Freestyle; tags: string[] }) {
   const first = fs.thread.find((t) => t.kind === "message")?.id;
+  const say = (text: string) => (fs.type === "one_clip" ? text : plain(text, []));
   return (
     <ol aria-label="Thread" className="flex flex-col gap-5">
       {fs.thread.map((t) =>
@@ -51,8 +54,8 @@ export function Thread({ fs, tags }: { fs: Freestyle; tags: string[] }) {
               <p>
                 <span className="font-medium">{t.who}</span> <span className="text-muted">{clock(t.at)}</span>
               </p>
-              <p className="break-words">{t.text}</p>
-              {t.why && <p className="break-words text-muted">{t.why}</p>}
+              <p className="break-words">{say(t.text) || "Deciding what to do next."}</p>
+              {say(t.why) && <p className="break-words text-muted">{say(t.why)}</p>}
             </div>
           </li>
         ),

@@ -42,8 +42,7 @@ test("Reed makes a One clip freestyle: Enter sends it with the picked settings a
   await userEvent.selectOptions(screen.getByLabelText("Brand"), "fomo");
   expect(within(screen.getByLabelText("Style")).queryByRole("option", { name: "Zack D" })).toBeNull(); // only the switched-on looks
   await write();
-  expect(await screen.findByText("up to 27 credits")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Send · up to 27 credits" })).toBeInTheDocument(); // the price rides on Reed's send
   await userEvent.keyboard("{Enter}");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toEqual({ type: "one_clip", look: "pixar", shape: "9:16", brand_id: 1, text: SCRIPT }));
   const top = await screen.findByRole("region", { name: "This freestyle" });
@@ -61,6 +60,7 @@ test("an editor's send reads Send for approval, waits for Reed, and Withdraw tak
   expect(await screen.findByText("Each send goes to the owner first. Nothing is spent until they say yes.")).toBeInTheDocument();
   expect(screen.queryByRole("group", { name: "Whose" })).toBeNull(); // Mine | Everyone's is Reed's
   await write();
+  expect(await screen.findByText("up to 27 credits")).toBeInTheDocument(); // beside the button, which keeps its words
   await userEvent.click(screen.getByRole("button", { name: "Send for approval" }));
   const top = await screen.findByRole("region", { name: "This freestyle" });
   expect(await within(top).findByText("Waiting for approval")).toBeInTheDocument();
@@ -84,15 +84,50 @@ test("a later change: the settings are read-only, Shift+Enter makes a new line, 
   expect(await screen.findByRole("alert")).toHaveTextContent("Wait for the last send to finish, or stop it.");
 });
 
-test("Dialogue, Song and Narrated are offered but off, with the line that One clip works now", async () => {
+test("Song and Narrated are offered but off; Dialogue and One clip work, with the line that says so", async () => {
   setViewport(390);
   server(editor);
   renderApp("/freestyle");
   const type = await screen.findByLabelText("Type");
-  for (const name of ["Dialogue", "Song", "Narrated"]) expect(within(type).getByRole("option", { name })).toBeDisabled();
-  expect(within(type).getByRole("option", { name: "One clip" })).toBeEnabled();
+  for (const name of ["Song", "Narrated"]) expect(within(type).getByRole("option", { name })).toBeDisabled();
+  for (const name of ["Dialogue", "One clip"]) expect(within(type).getByRole("option", { name })).toBeEnabled();
   expect(type).toHaveValue("one_clip");
-  expect(screen.getByText("Dialogue, Song and Narrated are coming next; One clip works now.")).toBeInTheDocument();
+  expect(screen.getByText("Song and Narrated are coming next; One clip and Dialogue work now.")).toBeInTheDocument();
+});
+
+const dialogue = (o: object = {}) =>
+  fs({ type: "dialogue", up_to: 34, credits: 0, thread: [said("Reed", SCRIPT), move("Made the plan: 3 clips.", "done"), { ...move("make_take {\"clip\": \"c2\"}", "done"), id: "t6" }, { ...move("Redid c2: the face drifted.", "done"), id: "t7" }], ...o });
+
+test("Reed sends a Dialogue: the whole price is on Send, it runs, and the director's moves read in plain words", async () => {
+  setViewport(1440);
+  const calls = server(owner, { "GET /freestyles/estimate": [200, { credits: 34 }], "POST /freestyles": [201, dialogue()], "GET /freestyles/9": [200, dialogue()] });
+  renderApp("/freestyle");
+  await screen.findByRole("option", { name: "Disney Pixar" });
+  await userEvent.selectOptions(screen.getByLabelText("Type"), "Dialogue");
+  await write();
+  await userEvent.click(await screen.findByRole("button", { name: "Send · up to 34 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toMatchObject({ type: "dialogue", text: SCRIPT }));
+  const top = await screen.findByRole("region", { name: "This freestyle" });
+  expect(within(top).getByText("up to 34 credits")).toBeInTheDocument(); // what the run may spend, not the 0 spent so far
+  const thread = screen.getByRole("list", { name: "Thread" });
+  expect(within(thread).getByText("Made the plan: 3 clips.")).toBeInTheDocument();
+  expect(within(thread).getByText("Redid clip 2: the face drifted.")).toBeInTheDocument();
+  expect(within(thread).getByText("Deciding what to do next.")).toBeInTheDocument(); // a tool name and JSON never show
+  expect(thread).not.toHaveTextContent(/make_take|\{/);
+});
+
+test("a delivered Dialogue plays its cut, and a change the server turns down shows the server's own words", async () => {
+  setViewport(1440);
+  const done = dialogue({ status: "delivered", file_id: 8 });
+  const calls = server(owner, { "GET /freestyles/9": [200, done], "POST /freestyles/9/messages": [409, { detail: "Changes to a Dialogue freestyle come next. Start a new one for now." }] });
+  renderApp("/freestyle/9");
+  expect(await screen.findByLabelText("The freestyle")).toHaveAttribute("src", "/api/files/8");
+  expect(screen.getByRole("link", { name: "Download MP4" })).toHaveAttribute("href", "/api/files/8");
+  const box = screen.getByLabelText("Ask for a change");
+  expect(screen.queryByRole("alert")).toBeNull(); // nothing is said before the server answers
+  await userEvent.type(box, "Make it night.{Enter}");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/messages")).toBe(true));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Changes to a Dialogue freestyle come next. Start a new one for now.");
 });
 
 test("Stop shows while it's being made and stops it", async () => {
