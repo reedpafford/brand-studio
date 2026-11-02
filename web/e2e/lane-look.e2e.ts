@@ -3,7 +3,7 @@ import { onBrand, signIn } from "./helpers";
 
 // One look per style (#1139): a video on one of a style's lanes shows the lane by its name, never its raw id, and the look
 // picker offers the styles only, with the lane's style In use. On the stand-ins; nothing paid.
-test("at 390, a video on the Paper · Flat Paper lane says so in its settings; the picker lists styles, Paper In use", async ({ page }) => {
+test("at 390, a video on a Paper lane (paper-flat) shows the lane's name in its settings; the picker lists styles, Paper In use", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
