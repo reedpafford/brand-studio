@@ -185,3 +185,14 @@ def bulk_scripts(client, rows: list[dict]):
     """Create several scripts at once, all in the first brand."""
     brand = first_brand(client)
     return client.post("/scripts/bulk", json={"scripts": [{"brand_id": brand, **r} for r in rows]})
+
+
+@pytest.fixture
+def roomy(monkeypatch):
+    """Room under the director's own limit for a whole stand-in run (its turns and watches come
+    to about 58 credits), for tests about something else; test_director_limit.py tests it."""
+    from decimal import Decimal
+
+    from app import director
+
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(200))

@@ -2,6 +2,8 @@
 on its own hidden script and video. An editor's send waits for the owner as the run's first
 turn; the OK covers the price shown, no more; nothing hidden shows in any list or count."""
 
+import pytest
+
 from app import credits, director
 from app.models.brands import Brand
 from app.models.freestyles import Freestyle
@@ -38,6 +40,7 @@ def _hidden_nowhere(owner, editor):
     assert owner.get("/usage/summary").json()["in_progress"] == 0
 
 
+@pytest.mark.usefixtures("roomy")
 def test_an_editors_dialogue_waits_then_the_director_delivers_it_hidden(app, owner, editor, db):
     est = editor.get("/freestyles/estimate", params=BODY).json()["credits"]
     r = editor.post("/freestyles", json=BODY)

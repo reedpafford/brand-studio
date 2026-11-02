@@ -5,6 +5,8 @@ new run reads every unread note. During a run it's only a note, read at the next
 
 from decimal import Decimal
 
+import pytest
+
 from app import credits
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
@@ -27,6 +29,7 @@ def _delivered(app, owner, editor, db) -> dict:
     return out
 
 
+@pytest.mark.usefixtures("roomy")
 def test_an_editors_change_waits_for_the_owner_then_a_new_run_makes_it(app, owner, editor, db):
     fs = _delivered(app, owner, editor, db)
     first_cut, first_price = fs["file_id"], Decimal(str(fs["up_to"]))
@@ -72,6 +75,7 @@ def test_the_owners_change_runs_at_once_and_one_during_a_run_is_only_a_note(
     assert r.json()["status"] == "working" and _held(owner) == []  # the owner's: at once
 
 
+@pytest.mark.usefixtures("roomy")
 def test_a_change_past_the_cap_is_refused_and_a_declined_one_frees_its_price(
     app, owner, editor, db
 ):
