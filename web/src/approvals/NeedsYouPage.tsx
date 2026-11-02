@@ -90,7 +90,7 @@ export function NeedsYouPage() {
     );
   const stuckRows = stuck.data ?? [];
   const counts: Record<TabId, number> = { all: held.count + stuckRows.length + changes.rows.length, requests: held.count, stuck: stuckRows.length, changes: changes.rows.length };
-  const credits = held.heldJobs.reduce((n, j) => n + j.credits, 0);
+  const credits = held.heldJobs.reduce((n, j) => n + (j.freestyle?.up_to ?? j.credits), 0); // what approving commits to: a Freestyle run its cap (rules 32, 34)
   const known = held.heldJobs.every((j) => usd.get(j.id) !== undefined);
   const totalUsd = held.heldJobs.reduce((n, j) => n + (usd.get(j.id) ?? 0), 0);
   const money = known && held.heldJobs.length > 0 ? ` (${dollars(totalUsd)})` : "";

@@ -25,12 +25,12 @@ export const NOT_PLAIN = /\b[a-z]+_[a-z_]+\b|[{}[\]<>]|"\w+"\s*:|\b[a-z]\d+\b|\b
 /** The server's words for a move, made plain: "c3" is clip 3 and "take 12" is that clip's take number. */
 export function plain(line: string, clips: Clip[]): string {
   const out = line
-    .replace(/^Refused:\s*(.)/, (_all, first: string) => first.toUpperCase()) // the server's "Refused:" is for the director; the status says it couldn't
+    .replace(/^Refused(?: again)?:\s*(.)/, (_all, first: string) => first.toUpperCase()) // the server's "Refused:" is for the director; the status says it couldn't
     .replace(/\btake (\d+) for c(\d+)\b/g, (_all, id: string, n: string) => {
       const t = clips.find((c) => c.clip_id === `c${n}`)?.takes.find((k) => k.id === Number(id));
       return t ? `take ${t.number} for clip ${n}` : `a take for clip ${n}`;
     })
-    .replace(/\bc(\d+)\b/g, "clip $1");
+    .replace(/\b(?:clip )?c(\d+)\b/g, "clip $1"); // "clip c9" reads "clip 9", not "clip clip 9"
   return NOT_PLAIN.test(out) ? "" : out;
 }
 

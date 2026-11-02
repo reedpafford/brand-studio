@@ -196,9 +196,10 @@ test("each note says whether a move has answered it yet", async () => {
 });
 
 test("a refused move reads as plain words, without the server's Refused: prefix (Advice on #1176)", async () => {
-  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: [turn(1, { result: "Refused: the cast is locked, so it stays." })] })] }));
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: [turn(1, { result: "Refused: the cast is locked, so it stays." }), turn(2, { result: "Refused again: there's no clip c9." })] })] }));
   show();
   expect(await screen.findByText("The cast is locked, so it stays.")).toBeInTheDocument();
+  expect(screen.getByText("There's no clip 9.")).toBeInTheDocument(); // the run's last refusal too, and never "clip clip 9"
   expect(screen.queryByText(/Refused:/)).toBeNull();
 });
 

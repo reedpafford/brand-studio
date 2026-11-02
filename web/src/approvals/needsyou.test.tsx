@@ -208,6 +208,13 @@ test("a held Freestyle row shows credits only, even to the owner: no dollars bes
   expect(row.textContent).not.toMatch(/\$/); // the page's owner total at the top keeps its dollars
 });
 
+test("the top total counts what approving commits to: a held Freestyle's up to, not its first charge (rules 32, 34)", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [{ ...freestyle({ type: "dialogue", up_to: 204 }), credits: 3 }]], "GET /credits/allowances": allowances });
+  open();
+  expect(await screen.findByText(/1 request worth 204 credits/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Approve all · up to 204 credits/ })).toBeInTheDocument();
+});
+
 test("an editor who opens Needs you sees no held work and no dollars", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "GET /jobs/50/detail": [200, held({ cost_usd: 2.36 })] });
   open("/approvals");
