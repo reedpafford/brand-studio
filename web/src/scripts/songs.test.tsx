@@ -292,7 +292,7 @@ test("lyrics over the video limit: Make gives way to Keep the first N lines (fre
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([], { video_estimate_credits: 812, keep_lines: 1 })], "PUT /scripts/7/drafts/0": [200, song()] });
   open("/b/1/scripts/7?step=takes");
-  expect(await screen.findByText(/A song this long would go over the video limit \(about 812 credits to make\)/)).toBeInTheDocument();
+  expect(await screen.findByText(/A song this long would go over the video limit \(about 812 credits to make, planned\)/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Make 2 takes/ })).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Keep the first 1 line · free" }));
   const ask = screen.getByRole("alertdialog", { name: "Keep the first 1 line?" });
