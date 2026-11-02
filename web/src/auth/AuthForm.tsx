@@ -56,6 +56,10 @@ export function AuthForm(props: {
   footer?: ReactNode;
   intro?: ReactNode;
   welcome?: (values: Record<string, string>) => string;
+  /** A small line over the title. */
+  eyebrow?: string;
+  /** No wordmark and no card: the form alone in the middle of the page (v5 A_Setup). */
+  bare?: boolean;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [throttled, setThrottled] = useState(false);
@@ -95,26 +99,36 @@ export function AuthForm(props: {
   };
   const set = (name: string, v: string) => setValues({ ...values, [name]: v });
 
+  const content = (
+    <>
+          {props.eyebrow && <p className="text-sm text-muted">{props.eyebrow}</p>}
+          <h1 className="type-page">{props.title}</h1>
+          {props.intro}
+          <form ref={form} onSubmit={onSubmit} className="flex flex-col gap-4">
+            {props.fields.map((f) =>
+              f.type === "password" && f.name !== "setup_token" ? (
+                <PasswordField key={f.name} field={f} value={values[f.name] ?? ""} onChange={(v) => set(f.name, v)} disabled={mutation.isPending} />
+              ) : (
+                <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
+              ),
+            )}
+            {mutation.isError && !(mutation.error instanceof Throttled) && <Banner title={mutation.error.message} />}
+            <Button type="submit" busy={mutation.isPending} disabled={throttled} reason={throttled ? "Too many tries. Wait a minute and try again." : undefined} className="w-full">
+              {mutation.isPending ? (props.busyLabel ?? props.submitLabel) : props.submitLabel}
+            </Button>
+          </form>
+          {props.footer}
+    </>
+  );
+  if (props.bare)
+    return (
+      <main className="grid min-h-screen place-items-center p-4">
+        <div className="w-full max-w-[400px] space-y-4">{content}</div>
+      </main>
+    );
   return (
     <AuthShell>
-      <Card className="space-y-4 p-5 sm:p-6">
-        <h1 className="type-page">{props.title}</h1>
-        {props.intro}
-        <form ref={form} onSubmit={onSubmit} className="flex flex-col gap-4">
-          {props.fields.map((f) =>
-            f.type === "password" && f.name !== "setup_token" ? (
-              <PasswordField key={f.name} field={f} value={values[f.name] ?? ""} onChange={(v) => set(f.name, v)} disabled={mutation.isPending} />
-            ) : (
-              <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
-            ),
-          )}
-          {mutation.isError && !(mutation.error instanceof Throttled) && <Banner title={mutation.error.message} />}
-          <Button type="submit" busy={mutation.isPending} disabled={throttled} reason={throttled ? "Too many tries. Wait a minute and try again." : undefined} className="w-full">
-            {mutation.isPending ? (props.busyLabel ?? props.submitLabel) : props.submitLabel}
-          </Button>
-        </form>
-        {props.footer}
-      </Card>
+      <Card className="space-y-4 p-5 sm:p-6">{content}</Card>
     </AuthShell>
   );
 }

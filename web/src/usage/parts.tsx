@@ -45,23 +45,24 @@ export function Money({ value, estimated }: { value: number; estimated: boolean 
   );
 }
 
-function Stat({ label, children, note }: { label: string; children: ReactNode; note?: string | null }) {
+export function Stat({ label, children, note, link }: { label: string; children: ReactNode; note?: string | null; /** Shown on phones too, unlike the note. */ link?: ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
       <p className="text-sm text-muted">{label}</p>
       <p className="text-lg font-bold tabular-nums lg:text-2xl">{children}</p>
       {note && <p className="hidden text-sm text-muted lg:block">{note}</p>}
+      {link && <p className="text-sm">{link}</p>}
     </div>
   );
 }
 
 /** Spent, Finished, Cost per finished video, In progress. The comparison with the period before is plain text. */
-export function Stats({ figures: f, period }: { figures?: Figures; period: Period }) {
+export function Stats({ figures: f, period, children }: { figures?: Figures; period: Period; /** More cards after these (Usage: what waits for the owner's OK). */ children?: ReactNode }) {
   const last = period === "week" ? "on last week" : "on last month";
   const p = f?.previous;
   const dollars = (now: number, before: number) => (now === before ? null : `${signed(now - before, money(Math.abs(now - before)))} ${last}`);
   return (
-    <div role="group" aria-label="Totals" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div role="group" aria-label="Totals" className="grid grid-cols-2 gap-3 lg:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
       {!f ? (
         [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)
       ) : (
@@ -78,6 +79,7 @@ export function Stats({ figures: f, period }: { figures?: Figures; period: Perio
           <Stat label="In progress">
             {f.in_progress} {f.in_progress === 1 ? "video" : "videos"}
           </Stat>
+          {children}
         </>
       )}
     </div>
