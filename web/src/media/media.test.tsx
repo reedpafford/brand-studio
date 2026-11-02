@@ -61,12 +61,12 @@ test("each tile shows its picture, kind, when and who, with Open in {step} and D
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
-test("with nothing made yet it says so and offers a freestyle", async () => {
+test("with nothing made yet it says so and offers New video", async () => {
   setViewport(1440);
   fakeServer(base(editor, page([])));
   open();
   expect(await screen.findByRole("heading", { name: "Nothing made yet in Iron Paws." })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Make a freestyle" })).toHaveAttribute("href", "/freestyle");
+  expect(within(screen.getByRole("main")).getByRole("link", { name: "New video" })).toHaveAttribute("href", expect.stringMatching(/^\/b\/\d+\/videos\/new$/));
 });
 
 test("the kind and who-made-it filters ask the server, and Clear filters puts them back", async () => {

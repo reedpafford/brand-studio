@@ -41,11 +41,13 @@ export type ButtonProps = Priced & Omit<ButtonHTMLAttributes<HTMLButtonElement>,
   /** It only shows something, so it stays live on a view-only page. A Button that opens and closes a part of the page
    *  (aria-expanded, no price) counts as one unless this says false. */
   reads?: boolean;
+  /** Its keyboard shortcut, after the label and price ("⌘↵"); desktop only. */
+  kbd?: string;
   className?: string;
   children?: ReactNode;
 };
 
-export function Button({ variant = "primary", dense, busy, price, charge, usually, reason, icon: Icon, trailing: Trailing, spread, reads, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "primary", dense, busy, price, charge, usually, reason, icon: Icon, trailing: Trailing, spread, reads, kbd, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
   const why = useId();
   const lookOnly = useViewOnly() && !(reads ?? (rest["aria-expanded"] !== undefined && price === undefined));
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
@@ -80,6 +82,11 @@ export function Button({ variant = "primary", dense, busy, price, charge, usuall
           </>
         )}
       </span>
+      {kbd && (
+        <kbd aria-hidden className="hidden rounded-sm border border-current/30 px-1.5 font-sans text-xs leading-4 opacity-80 lg:inline">
+          {kbd}
+        </kbd>
+      )}
       {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />}
     </button>
   );

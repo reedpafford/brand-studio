@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, Lock, Pencil } from "lucide-react";
+import { ChevronLeft, Clapperboard, Lock, Pencil } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Dialog, Field, Skeleton, StepPicker } from "../components";
@@ -26,6 +26,8 @@ import { FormatAdvice, FormatSetting } from "./Format";
 import { HeldRequests } from "../approvals/HeldRequests";
 import { ScriptOverview } from "./ScriptOverview";
 import { VersionPanel } from "./VersionPanel";
+import { MakeVideoPanel } from "./MakeVideoPanel";
+import { finished } from "../freestyle/FromScript";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -173,12 +175,17 @@ export function ScriptFlowPage() {
         <FormatSetting script={s} />
         <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
         {(mine || me?.role === "owner") && <ProjectPicker brandId={s.brand_id} kind="script" id={s.id} folderId={s.folder_id} />}
-        {mayDelete(s) && (
-          <div className="ml-auto">
-            <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Any finished version becomes a video from here; publishing isn't needed (E_ScriptMakeVideo). */}
+          {s.kind === "story" && s.versions.some(finished) && (
+            <Button variant="secondary" icon={Clapperboard} onClick={() => setParams({ video: "1" })}>
+              Make a video
+            </Button>
+          )}
+          {mayDelete(s) && <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />}
+        </div>
       </div>
+      {params.get("video") && <MakeVideoPanel scriptId={s.id} onClose={() => setParams({})} />}
       {del.dialog}
       <HeldRequests where={{ scriptId: s.id }} />
       {leaving && (
