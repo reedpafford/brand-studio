@@ -128,6 +128,24 @@ def _cast(ref: str, line: str) -> str:
     return f"{name} ({', '.join(x for x in (ref, plays.removeprefix('plays ')) if x)})"
 
 
+def _outfits(project: Project, shots: list[dict], known: dict) -> list[str]:
+    """This video's own outfit for each character in the shot, said as their cast line says
+    it ("Mia wears: mustard trench coat (this video)."), so a take in it is judged against it,
+    never flagged for missing the sheet's clothes (the Director's #1131)."""
+    import re
+
+    from app.locks import outfit
+
+    out = []
+    for ref in dict.fromkeys(c for s in shots for c in s.get("character_ids") or []):
+        line = known.get(ref, (ref, []))[0]
+        item = re.match(r"char:(\d+)", line) or re.match(r"char:(\d+)", ref)
+        if item and (worn := outfit(project, int(item[1]))):
+            parts = [*line.split(" | "), "", "", ""]
+            out.append(f"{parts[2] or ref} wears: {worn} (this video).")
+    return out
+
+
 def _screen_rules(db: Session, project: Project) -> list[str]:
     """The brand's own rules for its screens, from its notes (fomo: "fomo only ever wins")."""
     from app.models.brands import Brand
@@ -178,7 +196,8 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
         images.append(known[product][1][0])
         pair = (f"product:{product.split(':')[1]}", known[product][0])
     images += [known[i][1][0] for i in screens]  # numbered after the product's
-    text = prompts.item_check_input(" ".join(s["action"] for s in shots),
+    said = " ".join([*(s["action"] for s in shots), *_outfits(project, shots, known)])
+    text = prompts.item_check_input(said,
                                     [(r, known[r][0]) for r in sheets], pair,
                                     frames=FRAMES if target == "take" else 1, cast=cast or None,
                                     screens=[(i, known[i][0]) for i in screens] or None,

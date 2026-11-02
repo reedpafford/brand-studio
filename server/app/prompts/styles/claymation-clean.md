@@ -1,6 +1,7 @@
 # Clean Claymation
 <!-- Reed's claymation skill (docs/next/skills/claymation.md, #1095), its "Clean & simple" lane: minimal brands, calm explainers, shots where the product out-details the world. The style block is the skill's, word for word. -->
-kind: look
+kind: lane
+parent: claymation
 order: 5.2
 on: no
 image_model: auto

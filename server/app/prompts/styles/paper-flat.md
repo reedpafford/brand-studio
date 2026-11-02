@@ -1,6 +1,7 @@
 # Flat Paper
 <!-- Reed's paper skill (docs/next/skills/paper.md, #1095; first from Starpop's paper-animation-ads, docs/research/starpop-2026-10-28, rule 20), its "Flat construction-paper cutout" lane. The style and physicality blocks are the skill's, word for word. -->
-kind: look
+kind: lane
+parent: paper
 order: 7.1
 on: no
 image_model: auto

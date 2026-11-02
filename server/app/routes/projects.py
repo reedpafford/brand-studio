@@ -404,6 +404,7 @@ def update_project(
         project.name = body.name
     if body.look is not None:
         project.look = looks.pick(db, user, body.look)
+        looks.picked_by_person(project)  # a plan's lane leaves it as they chose
     if "planned_seconds" in body.model_fields_set:  # null clears it: the breakdown decides
         _set_length(db, user, project, body.planned_seconds)
     _set_brief(db, user, project, body.model_dump(exclude_unset=True))

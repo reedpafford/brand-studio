@@ -276,6 +276,7 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
 
         follow_model(db, project)
     if "look" in values:
+        looks.picked_by_person(project)  # a plan's lane leaves it as they chose
         follow_own_looks(db, project)
     db.commit()
     return was

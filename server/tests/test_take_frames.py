@@ -111,3 +111,20 @@ def test_a_cast_finding_is_dropped_when_no_cast_was_sent(app, db, editor, setup,
     run_writer(app, db)
     (take,) = editor.get(clips).json()[0]["takes"]
     assert "cast" not in [f["kind"] for f in (take["check"] or {}).get("findings", [])]
+
+
+def test_a_videos_own_outfit_goes_into_the_shot_the_check_reads(app, db, editor, setup, clip):  # noqa: F811
+    """QA-7 and the Director's #1131: a take in this video's outfit is judged against it, so
+    the sheet's clothes being missing is never a finding."""
+    project = db.get(Project, setup["project"])
+    mom = project.cast_ids[0]
+    project.outfits = {f"char:{mom}": "mustard trench coat"}
+    db.commit()
+    _, job = _check(app, db, editor, setup, clip)
+    shot = re.search(r"<shot>(.*?)</shot>", job.input["prompt"], re.S)[1]
+    assert "Mom wears: mustard trench coat (this video)." in shot
+
+
+def test_with_no_outfit_of_its_own_the_shot_is_as_before(app, db, editor, setup, clip):  # noqa: F811
+    _, job = _check(app, db, editor, setup, clip)
+    assert "(this video)" not in job.input["prompt"]

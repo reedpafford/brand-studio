@@ -35,6 +35,13 @@ a hand-sculpted claymation look with large almond eyes and matte clay skin
 - One gesture and one camera move per shot: stacked actions drift. Repeat the clay words in the action ("the clay dog's ears flop"), so the material survives the motion.
 - Clay can turn into the next shot: the scene melts into a swirled plasticine pool while the product stays standing, kneads and reshapes into the next scene, rolls into a clay ball and unfolds as the next, or a clay smear wipes the frame; clay coils and pellets roll in and build the product. Name the one visible action that carries one shot into the next.
 
+## lanes
+This look has lanes, ways of making it; choose one for this video in `lane`:
+- "" (the default, Cinematic claymation): hand-sculpted plasticine on a miniature set with real fabric and warm light; for most stories.
+- "claymation-goofy": Goofy Claymation: oversized heads, huge googly eyes, wonky handmade sets; for slapstick and broad comedy.
+- "claymation-clean": Clean Claymation: soft matte clay in clean rounded forms with dot eyes, tidy calm scenes; for a simple explainer or a calm, friendly brand.
+- "claymation-puppet": Clay Puppet: stop-motion puppets with thread hair, fabric scraps and wire, in moody light; for drama, mystery or a darker tale.
+
 ## fixes
 refused: Soften it, then Make another.
 face: Make another first. If it drifts again, Change this… "the white of the eye clearly visible around a deeply coloured iris, thick sculpted brows, exactly as the sheet".

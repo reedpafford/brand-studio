@@ -6753,6 +6753,13 @@ export interface components {
          * @enum {string}
          */
         Kind: "character" | "place" | "prop";
+        /** LaneOut */
+        LaneOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** LanguageOut */
         LanguageOut: {
             /** Id */
@@ -6978,6 +6985,11 @@ export interface components {
              * @default false
              */
             own_sample: boolean;
+            /**
+             * Lanes
+             * @default []
+             */
+            lanes: components["schemas"]["LaneOut"][];
         };
         /** LookSheetOut */
         LookSheetOut: {

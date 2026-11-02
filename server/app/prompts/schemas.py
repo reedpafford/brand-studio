@@ -488,6 +488,11 @@ class Structure(BaseModel):
     based_on: Literal["reference", "pattern"] = Field(
         description="'reference' when it follows the <reference> or <study>, else 'pattern'."
     )
+    lane: str = Field(
+        default="",
+        description="When the Style section lists lanes: the chosen lane's id, or '' for the "
+        "look's default. Else ''.",
+    )
 
 
 class ScenePlan(BaseModel):

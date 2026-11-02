@@ -30,6 +30,14 @@ a layered papercraft look built from cardstock
 - Repeat the paper words in the action ("the cardstock sun pivots", "the paper waves slide"), so the texture survives the motion. Paper moves as flat planes that slide, pivot and parallax, never squashing, stretching or moving organically; the strongest move is a slow push in through the layered paper planes. One move per shot.
 - Between settings the paper can carry the cut: the whole scene lifts and turns like a storybook page, the camera pushes into a cutout opening and the next shot lies inside it, the top layer peels back to show the next shot beneath, the pieces slide apart and the next shot's pieces slide in and settle with their shadows, the scene folds flat and the next rises like a pop-up spread, a torn edge sweeps across to show the next shot behind it, or the camera passes a large foreground paper cloud and comes out in the next scene. Name the one visible action; keep hard cuts inside one setting.
 
+## lanes
+This look has lanes, ways of making it; choose one for this video in `lane`:
+- "" (the default, Layered papercraft): stacked cardstock with visible edges and deep layered shadows in strong colour; for most stories.
+- "paper-flat": Flat Paper: flat construction-paper cutouts and jointed paper puppets in bold flat colour; for a simple, punchy, playful story.
+- "paper-handmade": Handmade Paper: torn edges, glue seams and hand-placed imperfection in warm practical light; for a warm, personal or nostalgic story.
+- "paper-collage": Paper Collage: photo-cutout faces, patterned paper scraps and ink lines in one deep scene; for an editorial, witty or surprising story.
+- "paper-origami": Origami: everything folded from soft pastel paper; for a gentle, calm or dreamy story.
+
 ## banned
 diorama → paper scene
 shadow box → paper scene

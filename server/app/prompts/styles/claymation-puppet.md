@@ -1,6 +1,7 @@
 # Clay Puppet
 <!-- Reed's claymation skill (docs/next/skills/claymation.md, #1095), its "Stop-motion puppet" lane: story-driven ads, darker or more cinematic tones. The style block is the skill's, word for word. -->
-kind: look
+kind: lane
+parent: claymation
 order: 5.3
 on: no
 image_model: auto
