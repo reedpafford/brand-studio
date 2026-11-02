@@ -98,7 +98,7 @@ test("with nothing accepted Apply 0 accepted waits with its reason, and Next jus
   expect(screen.getByRole("button", { name: "Apply 0 accepted" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Apply 0 accepted" })).toHaveAccessibleDescription("Accept a suggestion first");
   await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
-  expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument(); // the Variations step, no question asked
+  expect(await screen.findByRole("heading", { name: "Variations" })).toBeInTheDocument(); // the Variations step, no question asked
 });
 
 test("with accepted directions waiting, leaving by the steps asks once, Stay keeps you here, Leave goes on", async () => {
@@ -115,5 +115,5 @@ test("with accepted directions waiting, leaving by the steps asks once, Stay kee
   expect(screen.getByRole("button", { name: "Apply 2 accepted" })).toBeInTheDocument();
   await userEvent.click(within(steps).getByRole("button", { name: /Variations/ }));
   await userEvent.click(screen.getByRole("button", { name: "Leave" }));
-  expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Variations" })).toBeInTheDocument();
 });

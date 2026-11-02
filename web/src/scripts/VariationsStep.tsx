@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Ellipsis, Lock, Pencil, RotateCcw, Undo2 } from "lucide-react";
+import { Check, Ellipsis, Pencil, RotateCcw, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { GOING, useJobs } from "../clip/History";
-import { Badge, Banner, Button, Card, Dialog, Menu, MenuItem, Skeleton, Tabs, TextArea } from "../components";
+import { Banner, Button, Dialog, Dot, Menu, MenuItem, Skeleton, Tabs, TextArea } from "../components";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
-import { useApproveAllWith, type ApproveAllResult } from "../projects/ApproveAll";
 import type { Script } from "./useScript";
 import { serverTime } from "../time";
 import { refreshJobs } from "../jobs/refresh";
 
 const LETTER = ["A", "B", "C"];
-const NAME = ["Original", "Variation", "Variation"];
 
 type Version = Script["versions"][number];
 
@@ -142,7 +140,8 @@ function useVariations(s: Script) {
   return { write, edit, approve, unapprove, remove, writing, failed, slots: run?.slots ?? [1, 2], retry: () => remember(null) };
 }
 
-/** Step 4: choose how many variations, write them at one price, then read them next to the original and approve each. */
+/** Step 3 (v5 G_Variations): how many more to write in the header, then the versions side by side, each with its own
+ *  status and presses at its foot. Optional: most scripts go out as one version. */
 export function VariationsStep({ script: s, own }: { script: Script; own: boolean }) {
   const rail = useRail();
   const { data: me } = useMe();
@@ -151,96 +150,76 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
   const written = writtenVariations(s);
   const original = s.versions.find((v) => v.slot === 0)?.text ?? "";
   const price = useQuery({ queryKey: ["variations-estimate", s.id], queryFn: async () => (await api.GET("/scripts/{script_id}/variations/estimate", { params: { path: { script_id: s.id } } })).data?.credits });
-  const [count, setCount] = useState<0 | 1 | 2>(0);
+  // Slots B and C that have no words yet (and aren't being written) can still be written.
+  const free = ([1, 2] as const).filter((n) => !written.some((v) => v.slot === n) && !(act.writing && act.slots.includes(n)));
+  const [count, setCount] = useState(free.length);
+  const n = Math.min(count, free.length) || free.length;
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(1);
-  const [changesOnly, setChangesOnly] = useState(false);
   const error = act.write.error ?? act.edit.error ?? act.approve.error ?? act.unapprove.error ?? act.remove.error;
-  const queryClient = useQueryClient();
-  const drafts = written.filter((v) => v.status === "draft").length;
-  const approveAll = useApproveAllWith({
-    noun: "version",
-    ready: drafts,
-    waiting: s.versions.filter((v) => v.slot > 0 && v.status === "draft").length, // one still being written is waiting too, so the button says "Approve 1"
-    press: async () => {
-      const { data, error } = await api.POST("/scripts/{script_id}/drafts/approve-all", { params: { path: { script_id: s.id } } });
-      if (!data) throw new Error(errorText(error));
-      return data as ApproveAllResult;
-    },
-    undo: async (ids) => {
-      const back = await api.POST("/scripts/{script_id}/drafts/approve-all/undo", { params: { path: { script_id: s.id } }, body: { ids } });
-      if (back.data) queryClient.setQueryData(["script-lib", s.id], back.data);
-      return back;
-    },
-    refresh: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] }), queryClient.invalidateQueries({ queryKey: ["scripts"] })]),
-    name: (k) => k.label ?? "",
-    target: (k) => `Version ${k.label}`,
-  });
+  const writeLabel = `Write ${n}${written.length > 0 ? " more" : ` variation${n === 1 ? "" : "s"}`}`;
+
+  const header = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h2 className="type-card">Variations</h2>
+        <p className="text-xs text-muted">{own ? "Optional. Most scripts go out as one version. " : ""}Writing variations makes A's words final.</p>
+      </div>
+      {!s.published && free.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            How many?
+            <select value={n} onChange={(e) => setCount(Number(e.target.value))} className="min-h-control rounded-sm border border-border bg-transparent px-2 text-sm text-text lg:min-h-control-dense">
+              {free.map((_, i) => (
+                <option key={i} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button variant="secondary" dense busy={act.write.isPending} disabled={act.writing} charge="estimate" price={price.data} onClick={() => act.write.mutate({ slots: free.slice(0, n), note })}>
+            {writeLabel}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   if (act.writing && written.length === 0)
     return (
-      <div className="space-y-3" role="status" aria-label="Writing variations">
-        <p className="text-muted">Writing {act.slots.length === 1 ? "1 variation" : "variations"}… This takes a little while.</p>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
+      <div className="space-y-4">
+        {header}
+        <div className="space-y-3" role="status" aria-label="Writing variations">
+          <p className="text-muted">Writing {act.slots.length === 1 ? "1 variation" : "variations"}… This takes a little while.</p>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+          </div>
         </div>
       </div>
     );
 
-  if (written.length === 0)
-    return (
-      <div className="max-w-[680px] space-y-4">
-        {act.failed && (
-          <Banner title="The variations didn't finish. Nothing was charged." action={<Button variant="secondary" onClick={act.retry}>Try again</Button>}>
-            Check your connection and try again.
-          </Banner>
-        )}
-        {own && <p className="text-sm text-muted">Optional. Most scripts go out as one version.</p>}
-        <fieldset className="space-y-2">
-          <legend className="font-medium">How many variations?</legend>
-          <div role="radiogroup" aria-label="How many variations?" className="inline-flex rounded-md border border-border">
-            {([0, 1, 2] as const).map((n) => (
-              <button key={n} type="button" role="radio" aria-checked={count === n} onClick={() => setCount(n)} className={`min-h-control min-w-16 px-4 font-medium lg:min-h-control-dense ${count === n ? "bg-accent-soft text-text" : "text-muted hover:bg-surface-2"}`}>
-                {n === 0 ? "None" : n}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        {count > 0 && (
-          <>
-            <TextArea label="Direction (optional)" rows={2} maxLength={2000} placeholder="e.g. swap the altar for a car showroom; keep the payoff about money" value={note} onChange={(e) => setNote(e.target.value)} />
-            {error && <p role="alert" className={errorClass}>{error.message}</p>}
-            <p className="text-sm text-muted">Writing variations makes A's words final.</p>
-            <Button busy={act.write.isPending} charge="estimate" price={price.data} onClick={() => act.write.mutate({ slots: count === 1 ? [1] : [1, 2], note })}>
-              Write {count} variation{count === 1 ? "" : "s"}
-            </Button>
-          </>
-        )}
-      </div>
-    );
-
   const all = [s.versions.find((v) => v.slot === 0), ...written].filter((v): v is Version => !!v);
-  const visible = rail ? all : all.filter((v) => v.slot === shown);
+  const visible = rail ? all : all.filter((v) => v.slot === (all.some((x) => x.slot === shown) ? shown : all[0]?.slot));
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-sm text-muted">
-          {written.length} variation{written.length === 1 ? "" : "s"} · {written.filter((v) => v.status !== "draft").length} approved
-        </p>
-        <label className="inline-flex min-h-control items-center gap-2 text-sm lg:min-h-control-dense">
-          <input type="checkbox" role="switch" checked={changesOnly} onChange={(e) => setChangesOnly(e.target.checked)} className="size-5" />
-          Changes only
-        </label>
-        <span className="ml-auto flex w-full sm:w-auto">{approveAll.button}</span>
-      </div>
-      {approveAll.line}
-      {!rail && <Tabs label="Version" value={String(shown)} onChange={(id) => setShown(Number(id))} tabs={all.map((v) => ({ id: String(v.slot), label: `${LETTER[v.slot]}${v.status !== "draft" && v.slot > 0 ? " ✓" : ""}` }))} />}
+      {header}
+      {act.failed && (
+        <Banner title="The variations didn't finish. Nothing was charged." action={<Button variant="secondary" onClick={act.retry}>Try again</Button>}>
+          Check your connection and try again.
+        </Banner>
+      )}
+      {written.length === 0 && !s.published && free.length > 0 && (
+        <div className="max-w-[680px]">
+          <TextArea label="Direction (optional)" rows={2} maxLength={2000} placeholder="e.g. swap the altar for a car showroom; keep the payoff about money" value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+      )}
       {error && <p role="alert" className={errorClass}>{error.message}</p>}
-      <ul className={`grid gap-4 ${rail ? (all.length === 3 ? "grid-cols-3" : "grid-cols-2") : ""}`}>
+      {!rail && all.length > 1 && <Tabs label="Version" value={String(visible[0]?.slot ?? 0)} onChange={(id) => setShown(Number(id))} tabs={all.map((v) => ({ id: String(v.slot), label: `${LETTER[v.slot]}${v.status !== "draft" && v.slot > 0 ? " ✓" : ""}` }))} />}
+      <ul className="grid gap-4 lg:grid-cols-3">
         {visible.map((v) => (
           <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`} className="min-w-0">
-            <Column version={v} mayReadEarlier={mayReadEarlier} scriptId={s.id} published={s.published} original={original} changesOnly={changesOnly} act={act} writing={act.writing && act.slots.includes(v.slot)} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
+            <Column version={v} mayReadEarlier={mayReadEarlier} scriptId={s.id} published={s.published} original={original} act={act} writing={act.writing && act.slots.includes(v.slot)} regenerate={(note) => act.write.mutate({ slots: [v.slot as 1 | 2], note })} price={price.data} />
           </li>
         ))}
       </ul>
@@ -248,7 +227,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
   );
 }
 
-function Column({ version: v, mayReadEarlier, scriptId, published, original, changesOnly, act, writing, regenerate, price }: { version: Version; mayReadEarlier: boolean; scriptId: number; published: boolean; original: string; changesOnly: boolean; act: ReturnType<typeof useVariations>; writing: boolean; regenerate: (note: string) => void; price?: number }) {
+function Column({ version: v, mayReadEarlier, scriptId, published, original, act, writing, regenerate, price }: { version: Version; mayReadEarlier: boolean; scriptId: number; published: boolean; original: string; act: ReturnType<typeof useVariations>; writing: boolean; regenerate: (note: string) => void; price?: number }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -262,114 +241,33 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
   });
   const before = (earlier.data ?? []).filter((e) => e.text !== v.text);
   const marks = v.slot > 0 ? changedLines(original, v.text) : [];
-  const lines = v.text.split("\n");
-  const hidden = changesOnly && v.slot > 0;
-  const rows: { n: number; text: string; changed: boolean }[] = [];
-  let quiet = 0;
-  lines.forEach((text, i) => {
-    if (hidden && !marks[i]) {
-      quiet += 1;
-      return;
-    }
-    if (quiet) rows.push({ n: -1, text: `· ${quiet} unchanged line${quiet === 1 ? "" : "s"} ·`, changed: false });
-    quiet = 0;
-    rows.push({ n: i + 1, text, changed: !!marks[i] });
-  });
-  if (quiet) rows.push({ n: -1, text: `· ${quiet} unchanged line${quiet === 1 ? "" : "s"} ·`, changed: false });
   const approved = v.status !== "draft";
+  const draft = v.slot > 0 && !approved && !final;
   return (
-    <Card className="flex h-full flex-col gap-3 p-4">
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-display text-md font-bold">
-            {letter} · {NAME[v.slot]}
-          </h3>
-          <div className="flex items-center gap-1">
-            {v.slot === 0 ? <Badge icon={Lock}>Words final</Badge> : approved ? <Badge tone="success" icon={Check}>Approved</Badge> : <Badge>Draft</Badge>}
-            {v.slot > 0 && !approved && !final && (
-              <Menu
-                title={`Version ${letter}`}
-                align="right"
-                trigger={(p) => (
-                  <button type="button" {...p} aria-label={`More for version ${letter}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
-                    <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
-                  </button>
-                )}
-              >
-                {(close) => (
-                  <MenuItem
-                    danger
-                    onClick={() => {
-                      close();
-                      setRemoving(true);
-                    }}
-                  >
-                    Remove variation {letter}
+    <article className="flex h-full flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-medium">Version {letter}</h3>
+        <span className="flex items-center gap-1 text-xs">
+          {v.slot === 0 ? <Dot tone="success">Words final</Dot> : approved ? <Dot tone="success">Approved</Dot> : <Dot tone="warning">Draft</Dot>}
+          {draft && editing === null && (
+            <Menu
+              title={`Version ${letter}`}
+              align="right"
+              trigger={(p) => (
+                <button type="button" {...p} aria-label={`More for version ${letter}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
+                  <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  <MenuItem onClick={() => { close(); setEditing(v.text); }}>
+                    <Pencil size={20} strokeWidth={1.75} aria-hidden /> Edit the words
                   </MenuItem>
-                )}
-              </Menu>
-            )}
-          </div>
-        </div>
-        {v.slot > 0 && v.changes.length > 0 && <p className="line-clamp-2 text-sm text-muted">What changed: {v.changes.join("; ")}</p>}
-      </div>
-      {editing !== null ? (
-        <div className="space-y-2">
-          <TextArea label={`Words of version ${letter}`} rows={14} maxLength={50000} value={editing} onChange={(e) => setEditing(e.target.value)} />
-          <div className="flex gap-2">
-            <Button busy={act.edit.isPending} disabled={!editing.trim()} onClick={() => act.edit.mutate({ slot: v.slot, text: editing }, { onSuccess: () => setEditing(null) })}>
-              Save
-            </Button>
-            <Button variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <ol aria-label={`Script text of version ${letter}`} className="flex-1 rounded-md border border-border bg-surface p-3 font-script text-sm leading-[1.6] [overflow-wrap:anywhere]">
-          {rows.map((r, i) => (
-            <li key={i} className={r.n < 0 ? "py-1 text-center text-xs text-faint" : "grid grid-cols-[1.75rem_1fr] gap-2"}>
-              {r.n >= 0 && <span className="text-right text-xs text-faint">{r.n}</span>}
-              <span className={r.changed ? "bg-mark underline decoration-mark-line decoration-2 underline-offset-2" : ""}>{r.text}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-      {v.slot === 0 ? (
-        <p className="flex items-center gap-1 text-sm text-muted">
-          <Lock size={16} strokeWidth={1.75} aria-hidden /> Your script · words final
-        </p>
-      ) : approved ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="flex items-center gap-1 text-sm text-muted">
-            <Lock size={16} strokeWidth={1.75} aria-hidden /> Approved · words final
-          </p>
-          {!final && (
-            <Button variant="ghost" icon={Undo2} busy={act.unapprove.isPending} onClick={() => act.unapprove.mutate(v.slot)}>
-              Undo approval
-            </Button>
-          )}
-        </div>
-      ) : editing === null ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" icon={Check} busy={act.approve.isPending} onClick={() => act.approve.mutate(v.slot)}>
-              Approve
-            </Button>
-            <Button variant="ghost" icon={Pencil} onClick={() => setEditing(v.text)}>
-              Edit
-            </Button>
-            {before.length > 0 && (
-              <Menu
-                title={`Earlier texts of version ${letter}`}
-                trigger={(p) => (
-                  <Button variant="ghost" {...p}>
-                    Earlier: {before.length}
-                  </Button>
-                )}
-              >
-                {(close) =>
-                  before.map((e) => (
+                  <MenuItem onClick={() => { close(); setAsking(""); }}>
+                    <RotateCcw size={20} strokeWidth={1.75} aria-hidden /> Write it again…
+                  </MenuItem>
+                  {before.map((e) => (
                     <MenuItem
                       key={e.id}
                       onClick={() => {
@@ -378,40 +276,75 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, cha
                       }}
                     >
                       <span className="block">
-                        {serverTime(e.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {e.source === "variations" ? "written" : "edited"} · {e.words} words
+                        Bring back {serverTime(e.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {e.source === "variations" ? "written" : "edited"} · {e.words} words
+                        <span className="block max-w-64 truncate text-xs text-muted">{firstDifference(v.text, e.text)}</span>
                       </span>
-                      <span className="block max-w-64 truncate text-xs text-muted">{firstDifference(v.text, e.text)}</span>
                     </MenuItem>
-                  ))
-                }
-              </Menu>
-            )}
-            {asking === null && (
-              <Button variant="ghost" icon={RotateCcw} charge="estimate" price={price} busy={writing} disabled={act.writing} onClick={() => setAsking("")}>
-                Regenerate
-              </Button>
-            )}
-          </div>
-          {asking !== null && (
-            <div className="space-y-2">
-              <TextArea label="What should change? (optional)" rows={2} maxLength={2000} value={asking} onChange={(e) => setAsking(e.target.value)} />
-              <div className="flex gap-2">
-                <Button icon={RotateCcw} busy={act.write.isPending || writing} disabled={act.writing} charge="estimate" price={price} onClick={() => regenerate(asking)}>
-                  Regenerate
-                </Button>
-                <Button variant="ghost" onClick={() => setAsking(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
+                  ))}
+                </>
+              )}
+            </Menu>
           )}
+        </span>
+      </div>
+      {v.slot > 0 && v.changes.length > 0 && <p className="line-clamp-2 text-xs text-muted">What changed: {v.changes.join("; ")}</p>}
+      {editing !== null ? (
+        <div className="space-y-2">
+          <TextArea label={`Words of version ${letter}`} rows={12} maxLength={50000} value={editing} onChange={(e) => setEditing(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button busy={act.edit.isPending} disabled={!editing.trim()} onClick={() => act.edit.mutate({ slot: v.slot, text: editing }, { onSuccess: () => setEditing(null) })}>
+              Save
+            </Button>
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <div aria-label={`Script text of version ${letter}`} className={`type-script flex-1 whitespace-pre-line text-[13px] text-text/80 [overflow-wrap:anywhere] ${writing ? "opacity-50" : ""}`}>
+          {v.text.split("\n").map((line, i) => (
+            <span key={i} className={`block ${marks[i] ? "bg-mark shadow-[inset_0_-2px_0_var(--color-mark-line)]" : ""}`}>
+              {line || " "}
+            </span>
+          ))}
+        </div>
+      )}
+      {asking !== null && (
+        <div className="space-y-2">
+          <TextArea label="What should change? (optional)" rows={2} maxLength={2000} value={asking} onChange={(e) => setAsking(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setAsking(null)}>
+              Cancel
+            </Button>
+            <Button variant="secondary" icon={RotateCcw} busy={act.write.isPending || writing} disabled={act.writing} charge="estimate" price={price} onClick={() => { regenerate(asking); setAsking(null); }}>
+              Write it again
+            </Button>
+          </div>
+        </div>
+      )}
+      {v.slot > 0 && !final && editing === null && asking === null && (
+        approved ? (
+          <div className="mt-auto flex justify-end">
+            <Button variant="secondary" dense icon={Undo2} busy={act.unapprove.isPending} onClick={() => act.unapprove.mutate(v.slot)}>
+              Undo approval
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-auto flex flex-wrap justify-between gap-2">
+            <Button variant="secondary" dense onClick={() => setRemoving(true)}>
+              Remove
+            </Button>
+            <Button icon={Check} busy={act.approve.isPending} disabled={writing} onClick={() => act.approve.mutate(v.slot)}>
+              Approve {letter}
+            </Button>
+          </div>
+        )
+      )}
       {removing && (
         <Dialog title={`Remove variation ${letter}?`} cancelLabel="Keep it" actionLabel="Remove" danger busy={act.remove.isPending} onCancel={() => setRemoving(false)} onConfirm={() => act.remove.mutate(v.slot, { onSuccess: () => setRemoving(false), onError: () => setRemoving(false) })}>
           It won't be made.
         </Dialog>
       )}
-    </Card>
+    </article>
   );
 }
