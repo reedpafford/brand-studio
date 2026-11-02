@@ -1605,13 +1605,14 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
     delivered video; the script's words still never change (rule 19)."""
     director = prompts.system("director")
     assert (
-        "optional <chat> (JSON: [{text}]" in director
+        "optional <chat> (JSON: [{text, new}]" in director
         and "**When people ask for changes.**" in director
     )
     assert "the published script's words can't change here" in director
     # QA-10 on #1158: each note comes once; the asks come first, named; the watch fixes only
     # what the change broke, with no unasked extras
-    assert "new notes from people since your last turn, in their words" in director
+    assert "optional <chat> (JSON: [{text, new}]" in director  # Next-Server's #1155 shape
+    assert "Act only on a note with `new` true" in director and "never act on it again" in director
     assert "name the ask in that action's `why`" in director and "not yet read" not in director
     assert "only a real fault the change itself caused" in director
     assert "no other new fixes or extras" in director and "names each ask" in director
