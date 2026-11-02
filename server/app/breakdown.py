@@ -132,6 +132,10 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
         parts.append(escape_block(ref))
     parts.append(f"<script>\n{escape(prompts.number_lines(version.text))}\n</script>")
+    from app.director import treatment_block
+
+    if told := treatment_block(db, project):  # the story it serves (the director's treatment)
+        parts.append(told.rstrip())
     if take:
         parts.append(escape_block(prompts.song_block(song_breakdown.timing_used(take))))
     return {

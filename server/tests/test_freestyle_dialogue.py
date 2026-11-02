@@ -143,7 +143,7 @@ def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
             assert job.input["held"] == PAST_APPROVED
             moves = editor.get(f"/freestyles/{fs['id']}").json()["thread"]
             assert any(m["status"] == "held" and m["text"] == PAST_APPROVED for m in moves)
-            released += job.credits
+            released += Decimal(str(owner.get(f"/jobs/{job.id}").json()["credits"]))  # as shown
         holds += 1
         assert owner.post(f"/jobs/{job.id}/approve").status_code == 200
         _run(app, db, ticks=40)

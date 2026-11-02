@@ -146,8 +146,12 @@ def heard_cut(db: Session, job: Job) -> None:
         labels,
         project.look or "house",
     )
+    from app.director import treatment_block
+
+    text = treatment_block(db, project) + text  # what the story is meant to be (the Director)
     data = {"step": STEP, "project_id": project.id, "final_video_id": job.input["final_video_id"],
-            "system": [prompts.system(STEP)], "prompt": text, "effort": "low", "max_tokens": 3000,
+            "system": [prompts.system(STEP, project.look or "house")], "prompt": text,
+            "effort": "high", "max_tokens": 8000,
             "fit_images_to": 1024, "director_run": job.input.get("director_run"),
             "cut": cut, "words": out.get("words", []), "script": version.text if version else "",
             "files": {"reference_images": out.get("file_ids", [])}}  # fmt: skip

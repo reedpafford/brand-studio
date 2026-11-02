@@ -40,6 +40,7 @@ class ThreadItem(BaseModel):
     status: Literal["queued", "running", "held", "done", "refused"] | None  # moves only
     why: str = ""  # a move's reason, as the director gave it; "" for messages and deliveries
     answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
+    treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
 
 
 class MessageIn(BaseModel):
