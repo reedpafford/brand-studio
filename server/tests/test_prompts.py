@@ -1601,25 +1601,19 @@ def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
 
 
 def test_the_director_revises_from_the_chat_and_never_changes_the_words():
-    """Next-Server's #1155: a run started from the chat carries <chat>, a revision of the
-    delivered video; the script's words still never change (rule 19)."""
+    """Next-Server's #1155: <chat> is the run's notes, each open until answered as "Note N";
+    the asks come first, the watch fixes only what the change broke, and the script's words
+    never change (rule 19)."""
     director = prompts.system("director")
-    assert (
-        "optional <chat> (JSON: [{text, new}]" in director
-        and "**When people ask for changes.**" in director
-    )
-    assert "the published script's words can't change here" in director
-    # QA-10 on #1158: each note comes once; the asks come first, named; the watch fixes only
-    # what the change broke, with no unasked extras
-    assert "optional <chat> (JSON: [{text, new}]" in director  # Next-Server's #1155 shape
-    # QA-10: one action a turn, so a handled note's unfinished steps still get done, never twice
-    assert "start on all its asks, one action a turn" in director
-    assert "finish any part of it that isn't done yet" in director
-    # the Producer: an ask stays open until made and named or answered; no delivery before
-    assert "Every ask in <chat> stays open, turn after turn" in director
-    assert "never deliver while an ask is open" in director
-    assert "never repeat a finished step" in director and "never act on it again" not in director
-    assert "name the ask in that action's `why`" in director and "not yet read" not in director
+    assert "optional <chat> (JSON: [{note, text, new, answered}]" in director
+    assert "**When people ask for changes.**" in director
+    assert "A note is open while `answered` is false" in director
+    assert 'write "Note N" in the `why` of every action that works on note N' in director
+    assert "never repeat one, so one ask is still one paid redo" in director
     assert "only a real fault the change itself caused" in director
-    assert "no other new fixes or extras" in director and "names each ask" in director
+    assert "no other new fixes or extras" in director
     assert "is left alone and offered in the delivery note as a question" in director
+    assert "Deliver only when every note is answered" in director
+    assert "the published script's words can't change here" in director
+    for gone in ("not yet read", "never act on it again", "[{text}]", "[{text, new}]"):
+        assert gone not in director, gone
