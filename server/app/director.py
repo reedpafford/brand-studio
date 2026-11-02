@@ -373,6 +373,12 @@ def _act(db: Session, job: Job, storage) -> None:
         return _record(db, job, run, IDLE if idle else "Waiting.")
     if (refused := _refused_again(db, job, decision)) is not None:
         return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
+    if tool == "redraw_still":  # the review's redraws: twice a still, a run
+        from app.still_review import REDRAWS
+
+        sid = decision.get("shot_id") or ""
+        if run.get("redraws", {}).get(sid, 0) >= REDRAWS:
+            return _record(db, job, run, f"Refused: shot {sid} was drawn again {REDRAWS} times.")
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
@@ -389,6 +395,9 @@ def _act(db: Session, job: Job, storage) -> None:
         run["watches"] = run.get("watches", 0) + 1
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
+    if tool == "redraw_still" and not result.startswith("Refused"):
+        sid = decision.get("shot_id") or ""
+        run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
     _record(db, job, run, result)
 
 
@@ -398,6 +407,12 @@ def _mutes(db: Session, job: Job, run: dict) -> list[str]:
     return [j.input["result"] for j in rows if j.input[RUN]["id"] == run["id"]
             and (j.output or {}).get("tool") == "mute"
             and j.input.get("result", "").startswith("Muted")]  # fmt: skip
+
+
+def _stills_review(db: Session, project: Project) -> dict:
+    from app import still_review
+
+    return still_review.state(db, project)
 
 
 def _watch(db: Session, project: Project) -> dict:
@@ -558,7 +573,8 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD),
-               "replans_left": MAX_REPLANS - run.get("replans", 0)}  # fmt: skip
+               "replans_left": MAX_REPLANS - run.get("replans", 0),
+               "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
     closed = answered(db, run["id"])
@@ -700,6 +716,7 @@ def video_state(db: Session, project: Project) -> dict:
                            if j.status == JobStatus.needs_owner_approval],
         "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
         "watch": _watch(db, project),  # its last watch of the cut, and its findings
+        "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
 
 
@@ -733,6 +750,16 @@ def choose(state: dict) -> dict:
         return go("storyboard", "The shots are ready; the storyboard is next.")
     if state["stills"]["drawn"] < state["stills"]["frames"]:
         return go("stills", "Some frames have no still yet.")
+    review = state.get("stills_review") or {"state": "done"}  # (a hand-made state: none asked)
+    if review["state"] == "none":  # its own look at the stills before any take
+        return go("review_stills", "The stills are drawn: check them against the treatment.")
+    if review["state"] == "reviewing":
+        return go("wait", "It's looking at the stills.")
+    used = state.get("allowed", {}).get("redraws_used", {})
+    for f in review.get("findings") or [] if review.get("current") else []:
+        if not used.get(f["shot_id"]):
+            return go("redraw_still", f"{f['problem']} Drawing it again.",
+                      shot_id=f["shot_id"], note=f["note"])  # fmt: skip
     if asked := _asked(state):
         return asked  # a new note: what the person asked, once; then cut and deliver again
     if not clips or any(c["stale"] for c in clips):

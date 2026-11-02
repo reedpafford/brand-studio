@@ -97,3 +97,60 @@ def test_the_treatment_is_the_first_move_and_is_posted_in_the_chat(app, db, owne
     written = [i for i in steps if i.get("step") in ("clip_prompts", "watch_cut")]
     assert written and all("<treatment>" in i["prompt"] for i in written)  # each read it
     assert any(i.get("step") == "treatment" and i.get(director.RUN) for i in steps)  # its own
+
+
+def test_it_looks_at_its_stills_against_the_treatment_and_redraws_one_before_takes(
+    app, db, owner, editor, monkeypatch
+):
+    import re
+
+    from app import still_review
+    from app.providers.fake_local import FakeWriter
+
+    def off_story(self, prompt):  # the first still misses the treatment's hook, once
+        first = re.search(r"\[Image1\] shot (\S+):", prompt)[1]
+        return {"ready": False, "findings": [{
+            "shot_id": first, "problem": "The hook still doesn't show what the treatment opens on.",
+            "note": "Open on the treatment's hook: the subject close."}]}  # fmt: skip
+
+    monkeypatch.setattr(FakeWriter, "_review_stills", off_story)
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=150)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    tools = [t["tool"] for t in out["turns"]]
+    assert tools.index("review_stills") < tools.index("redraw_still") < tools.index("make_take")
+    (redraw,) = [t for t in out["turns"] if t["tool"] == "redraw_still"]
+    assert redraw["result"].startswith("Drawing shot ") and "treatment's hook" in redraw["result"]
+    step = Job.input["step"].as_string()
+    (review,) = db.query(Job).filter(Job.project_id == pid, step == "review_stills").all()
+    drawn = review.input["files"]["reference_images"]
+    assert (
+        drawn
+        and "<treatment>" in review.input["prompt"]
+        and "[Image1] shot" in review.input["prompt"]
+    )
+    assert review.input.get(director.RUN)  # on the director's own limit
+    assert still_review.state(db, db.get(Project, pid))["current"] is False  # one was redrawn
+
+
+def test_a_still_is_redrawn_twice_at_most_a_run(app, db, owner, editor, monkeypatch):
+    real = director.choose
+
+    def again(state):  # a director that keeps redrawing the same still
+        if state["stills"]["frames"] and state["stills"]["drawn"] == state["stills"]["frames"]:
+            if not state["being_made"]:
+                return {"tool": "redraw_still", "shot_id": "1.1", "note": "Closer.",
+                        "why": "Again.", "clip_id": None, "take_id": None}  # fmt: skip
+        return real(state)
+
+    monkeypatch.setattr(director, "choose", again)
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=60)
+    results = [t["result"] for t in editor.get(f"/projects/{pid}/director").json()["turns"]
+               if t["why"] == "Again."]  # fmt: skip
+    assert sum(r.startswith("Drawing shot 1.1") for r in results) == 2
+    assert "Refused: shot 1.1 was drawn again 2 times." in results

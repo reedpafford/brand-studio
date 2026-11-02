@@ -413,6 +413,11 @@ class FakeWriter:
         asked = json.loads(_tag(prompt, "chat") or "[]")
         return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked})
 
+    def _review_stills(self, prompt):
+        """The stand-in look at the stills: they tell the treatment (a test that walks a
+        redraw gives its own finding)."""
+        return {"ready": True, "findings": []}
+
     def _treatment(self, prompt):
         """The stand-in treatment: one beat a spoken line (the Director's)."""
         from app import prompts

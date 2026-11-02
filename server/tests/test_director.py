@@ -85,7 +85,7 @@ def test_a_flagged_take_is_made_again_with_its_notes_at_most_twice(
 def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor, monkeypatch):
     """A director that keeps asking for a redo of one clip: refused past MAX_REDOS, and the
     run stops at MAX_TURNS."""
-    monkeypatch.setattr(director, "MAX_TURNS", 9)
+    monkeypatch.setattr(director, "MAX_TURNS", 16)  # room past the treatment and the stills
     real = director.choose
 
     def stubborn(state):
@@ -99,8 +99,8 @@ def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor,
     owner.post(f"/projects/{pid}/director")  # never held: the limits alone
     _run(app, db)
     out = editor.get(f"/projects/{pid}/director").json()
-    assert out["status"] == "ended" and out["ended"] == "It stopped after 9 turns."
-    assert len(out["turns"]) == 9
+    assert out["status"] == "ended" and out["ended"] == "It stopped after 16 turns."
+    assert len(out["turns"]) == 16
     results = [t["result"] for t in out["turns"] if t["why"] == "Once more."]
     made = [r for r in results if r.startswith("Making")]
     assert len(made) == director.MAX_REDOS

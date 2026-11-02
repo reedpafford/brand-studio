@@ -159,11 +159,14 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
 
 
 def _with_check(db: Session, job: Job) -> Decimal:
-    """A held take's price as the owner approves it: with the take check that rides along
-    while checks are on (`item_checks.rides`), so the OK is never for less than it costs."""
+    """A held job's price as the owner approves it: a take with the take check that rides
+    along while checks are on (`item_checks.rides`), a Change it… with the redraw it starts
+    (`then`), so the OK is never for less than it costs."""
     from app import item_checks
     from app.models.clips import ProjectClip
 
+    if job.status == JobStatus.needs_owner_approval and job.input.get("then"):
+        return job.credits + Decimal(job.input["then"])  # Change it…: its redraw rides along
     clip_id = job.input.get("project_clip_id")
     if (
         job.status != JobStatus.needs_owner_approval
