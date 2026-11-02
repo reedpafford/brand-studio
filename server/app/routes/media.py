@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app import folders
 from app.auth import current_user
+from app.credits import FREESTYLE
 from app.db import get_db
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -49,6 +50,7 @@ class MediaItem(BaseModel):
     folder_id: int | None  # its project (OR1): its video's, or a quick clip's own
     video_name: str | None
     script_id: int | None = None  # a script's own song
+    freestyle_id: int | None = None  # a Freestyle take's freestyle (open it at /freestyle/<id>)
     open_step: Step
     from_deleted_video: bool = False
     deleted_video_by: Maker | None = None  # that deleted video's maker: they or the owner restore
@@ -104,7 +106,7 @@ def _rows(db: Session, user: User, brand_id: int, kind: str | None) -> list[dict
         for n, file_id in enumerate((job.output or {}).get("file_ids") or []):
             what = "take" if job.kind.startswith("video") else "still"
             add(what, f"quick:{job.id}:{n}", file_id, by=job.created_by_id, step="quick",
-                folder_id=job.live_folder_id)  # fmt: skip
+                folder_id=job.live_folder_id, freestyle_id=job.input.get(FREESTYLE))  # fmt: skip
     songs = select(SongTake, Script.id).select_from(SongTake).join(
         ScriptDraft, ScriptDraft.id == SongTake.draft_id).join(
         Script, Script.id == ScriptDraft.script_id).where(
