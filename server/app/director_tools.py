@@ -19,7 +19,8 @@ from app.models.storyboards import StoryboardFrame
 
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
-         "pick_take", "mute", "song", "narration", "final_cut", "watch_cut")  # fmt: skip
+         "pick_take", "mute", "splice_word", "song", "narration", "final_cut",
+         "watch_cut")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -96,6 +97,13 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
                                    **me)  # fmt: skip
             what = "a stretch" if len(spans) == 1 else f"{len(spans)} stretches"
             return f"Muted {what} of {clip} instead of remaking it."
+        if tool == "splice_word":  # free: a clean copy the server found (word_splice)
+            from app import word_splice
+
+            (row,) = _clips(db, pid, decision.get("clip_id"))
+            said = word_splice.splice(db, project, row, decision.get("word") or "")
+            db.commit()
+            return said
         if tool in ("song", "narration"):  # the audio first in a song or narrated video
             from app import director_song
 
