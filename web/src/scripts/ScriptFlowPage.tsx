@@ -140,7 +140,7 @@ export function ScriptFlowPage() {
     // C_Breakdown: the version and the shape (read only: each video picks its own).
     <>
       <VersionPick script={s} value={slot} onChange={(v) => setParams({ step: "breakdown", ...(v ? { v: String(v) } : {}) })} />
-      <ShapeChip />
+      <ShapeChip value="9:16" />
     </>
   ) : (
     <>

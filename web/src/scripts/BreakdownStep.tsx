@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Ellipsis, MapPin, Pencil, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
@@ -9,7 +9,8 @@ import { useMe } from "../auth/useMe";
 import { Banner, Button, Dialog, Dot, Menu, MenuItem, Skeleton, useToast, wholeCredits } from "../components";
 import { BreakdownView } from "../projects/BreakdownView";
 import { Scenes, call, usePlan } from "../projects/PlanStep";
-import { refName } from "../projects/names";
+import { plainWords, refName } from "../projects/names";
+import { useBreakdownFixes } from "../projects/BreakdownFixes";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
 import type { Script } from "./useScript";
@@ -130,6 +131,18 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
 
 
 
+  const fixes = useBreakdownFixes({
+    offered: (p as { fixes?: unknown[] } | null | undefined)?.fixes,
+    open: (p?.problems ?? []).filter((x) => !(p?.kept ?? []).includes(x)),
+    was: (p?.breakdown ?? { hook: "", scenes: [], clips: [] }) as Breakdown,
+    run: async (problems) => {
+      const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix", { params: { path }, body: { problems } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    put: async (bd) => api.PUT("/scripts/{script_id}/drafts/{slot}/breakdown", { params: { path }, body: bd }),
+    refresh: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["preview", scriptId, slot] }), queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] })]),
+  });
   const approvePlan = useMutation({
     mutationFn: () => call("POST", `${home.base}/approve`),
     onSuccess: async () => {
@@ -222,10 +235,10 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
           </div>
           {!readOnly && (
             <div className="flex items-center gap-2">
-              {menu}
               <Button variant="secondary" dense icon={failed ? RotateCcw : Sparkles} charge="estimate" price={price} busy={run.isPending} onClick={() => run.mutate()}>
                 {failed ? "Try again" : "Plan the shots"}
               </Button>
+              {menu}
               {approveButton}
             </div>
           )}
@@ -294,6 +307,31 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
     .map((sc) => ({ scene: sc, clips: plan.clips.filter((c) => shotById.get(c.shot_ids[0])?.scene.id === sc.id) }))
     .filter((g) => g.clips.length > 0);
   const who = (ids: string[]) => [...new Set(ids.map((id) => (id.startsWith("slot:") ? roles.get(id) || "A role" : refName(id, pieces, roles))))].join(", ") || "—";
+  // A problem that names a shot ("shot 2.1") sits under that shot's clip, with a warning dot on the row (C_Breakdown).
+  const open = p!.problems.filter((x) => !p!.kept.includes(x));
+  const clipOf = (problem: string) => {
+    const shot = /\bshot (\d+\.\d+)/i.exec(problem)?.[1];
+    return shot ? plan.clips.find((c) => c.shot_ids.includes(shot))?.id : undefined;
+  };
+  const loose = open.filter((x) => !clipOf(x));
+  const problemBox = (problem: string) => (
+    <div key={problem} role="status" className="my-2 flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft px-3.5 py-2.5">
+      <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
+      <span className="min-w-0 flex-1">{plainWords(problem, (id) => (id.startsWith("slot:") ? roles.get(id) || "A role" : refName(id, pieces, roles)))}</span>
+      {!readOnly && (
+        <span className="flex flex-wrap gap-2">
+          <Button variant="secondary" dense busy={keep.isPending} onClick={() => keep.mutate({ problem })}>
+            Keep as is
+          </Button>
+          {fixes.beside(problem) ?? (
+            <Button variant="secondary" dense onClick={() => setMode("shots")}>
+              Open the shots
+            </Button>
+          )}
+        </span>
+      )}
+    </div>
+  );
   const number = new Map(groups.flatMap((g) => g.clips).map((c, i) => [c.id, i + 1]));
   const credits = v?.estimate_credits ? ` · about ${wholeCredits(v.estimate_credits)} credits to make (planned)` : "";
   const by = v?.planned_by?.name ? ` · planned by ${v.planned_by.name}` : "";
@@ -310,10 +348,10 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
         </div>
         {!readOnly && (
           <div className="flex flex-wrap items-center gap-2">
-            {menu}
             <Button variant="secondary" dense charge="estimate" price={price} disabled={running} onClick={() => setAsking(true)}>
               Plan again
             </Button>
+            {menu}
             {approveButton}
             {sceneApproved && <Dot tone="success">Plan approved</Dot>}
           </div>
@@ -329,11 +367,8 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
           The words changed after these shots were planned.
         </Banner>
       )}
-      {p!.problems.length > 0 && !readOnly && (
-        <Banner tone="warning" title={`${p!.problems.length} thing${p!.problems.length === 1 ? "" : "s"} to check in the shots.`} action={<Button variant="secondary" onClick={() => setMode("shots")}>Open the shots</Button>}>
-          {p!.problems[0]}
-        </Banner>
-      )}
+      {loose.map(problemBox)}
+      {fixes.all}
       {errors.map((e) => <p key={e.message} role="alert" className={errorClass}>{e.message}</p>)}
       <div role="table" aria-label="Clips">
         <div role="row" className={`${cols} h-[34px] items-center border-b border-border px-3 text-xs text-muted`}>
@@ -360,7 +395,10 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
               const people = who(shots.flatMap((sh) => sh.character_ids));
               const cells = (
                 <>
-                  <span role="cell" className="tabular-nums">Clip {n}</span>
+                  <span role="cell" className="tabular-nums">
+                    Clip {n}
+                    {open.some((x) => clipOf(x) === c.id) && <span aria-label="Has a problem" className="ml-1.5 inline-block size-2 rounded-full bg-warning align-middle" />}
+                  </span>
                   <span role="cell" className="type-script min-w-0 text-[13px] text-text/80">
                     {said}
                     <span className="block font-sans text-xs text-muted sm:hidden">{people}</span>
@@ -369,14 +407,19 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
                   <span role="cell" className="text-right tabular-nums">{Math.round(c.seconds)} s</span>
                 </>
               );
-              return readOnly ? (
-                <div role="row" key={c.id} className={`${cols} min-h-12 items-center border-b border-border px-3 py-1.5`}>
-                  {cells}
-                </div>
-              ) : (
-                <button type="button" role="row" key={c.id} aria-label={`Clip ${n}: open the shots`} onClick={() => setMode("shots")} className={`${cols} min-h-12 w-full items-center border-b border-border px-3 py-1.5 text-left hover:bg-surface-2`}>
-                  {cells}
-                </button>
+              return (
+                <Fragment key={c.id}>
+                  {readOnly ? (
+                    <div role="row" className={`${cols} min-h-12 items-center border-b border-border px-3 py-1.5`}>
+                      {cells}
+                    </div>
+                  ) : (
+                    <button type="button" role="row" aria-label={`Clip ${n}: open the shots`} onClick={() => setMode("shots")} className={`${cols} min-h-12 w-full items-center border-b border-border px-3 py-1.5 text-left hover:bg-surface-2`}>
+                      {cells}
+                    </button>
+                  )}
+                  {open.filter((x) => clipOf(x) === c.id).map(problemBox)}
+                </Fragment>
               );
             })}
           </div>

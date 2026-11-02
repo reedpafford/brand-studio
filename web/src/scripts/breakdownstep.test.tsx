@@ -75,8 +75,10 @@ test("a planned version is a clip table grouped by scene, with the summary, Plan
   expect(clip).toHaveTextContent("Mia");
   expect(clip).toHaveTextContent("4 s");
   expect(screen.getByRole("combobox", { name: "Version" })).toHaveValue("0");
-  expect(screen.getByTitle("Each video picks its shape")).toBeInTheDocument();
-  expect(screen.getByText("1 thing to check in the shots.")).toBeInTheDocument();
+  expect(screen.getByTitle("Each video picks its shape")).toHaveTextContent("Shape 9:16 · each video picks its shape");
+  // The advice names shot 1.1, so it sits under clip 1, with a dot on that row.
+  expect(within(clip).getByLabelText("Has a problem")).toBeInTheDocument();
+  expect(clip.nextElementSibling).toHaveTextContent("a slow hook");
   await userEvent.click(screen.getByRole("button", { name: "Plan again · up to 6 credits" }));
   expect(await screen.findByRole("alertdialog", { name: "Plan again?" })).toBeInTheDocument();
 });
@@ -136,7 +138,7 @@ test("a plan made for older words says so with Plan again; in the shots its advi
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/drafts/0/breakdown/keep")).toBe(true));
 });
 
-test("Keep anyway on a plan's advice, from Open the shots, calls the plan's keep route", async () => {
+test("Keep as is under a clip's problem calls the plan's keep route; Open the shots opens the editor", async () => {
   setViewport(1440);
   const calls = fakeServer(base({
     "GET /scripts/7/drafts/0/breakdown": [200, plan],
@@ -144,9 +146,10 @@ test("Keep anyway on a plan's advice, from Open the shots, calls the plan's keep
     "POST /scripts/7/drafts/0/breakdown/keep": [200, plan],
   }));
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Open the shots" }));
-  await userEvent.click(await screen.findByRole("button", { name: /Keep anyway/, hidden: true }));
+  await userEvent.click(await screen.findByRole("button", { name: "Keep as is" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/breakdown/keep")?.body).toEqual({ problem: plan.problems[0] }));
+  await userEvent.click(screen.getByRole("button", { name: "Open the shots" }));
+  expect(await screen.findByText("Advice (1)")).toBeInTheDocument();
 });
 
 // S6 (#934): the owner's scene plan on a version, behind the breakdown's ⋯ menu.
