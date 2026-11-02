@@ -13,6 +13,7 @@ import { useProjectClips, useProjectVideo } from "./useProgress";
 import { useFrames } from "./StoryboardPane";
 import { LockChips } from "./LockChips";
 import { DirectorChat } from "./DirectorChat";
+import { refreshJobs } from "../jobs/refresh";
 
 type Run = components["schemas"]["DirectorOut"];
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -66,11 +67,11 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   useEffect(() => {
     if (!moves) return;
     void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "director" && q.queryKey.includes(projectId) });
-    void queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    void refreshJobs(queryClient);
   }, [moves, status, projectId, queryClient]);
   const after = (data: Run) => {
     queryClient.setQueryData(["director", projectId], data);
-    return queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    return refreshJobs(queryClient);
   };
   const start = useMutation({
     mutationFn: async () => {

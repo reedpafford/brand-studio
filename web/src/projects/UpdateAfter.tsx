@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { Banner, Button } from "../components";
 import type { CostAction } from "./CostBar";
+import { refreshJobs } from "../jobs/refresh";
 
 const STEP = { storyboard: { label: "Stills", go: "storyboard" }, stills: { label: "Stills", go: "storyboard" }, clip_prompts: { label: "Clips", go: "clips" } } as const;
 
@@ -26,7 +27,8 @@ export function useUpdateAfter(projectId: number, on: boolean, stopFor: (cost: n
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["update-after", projectId], data);
-      for (const key of ["jobs", "storyboard", "project-clips", "project"]) void queryClient.invalidateQueries({ queryKey: [key] });
+      void refreshJobs(queryClient);
+      for (const key of ["storyboard", "project-clips", "project"]) void queryClient.invalidateQueries({ queryKey: [key] });
     },
   });
   const d = on ? plan.data : null;

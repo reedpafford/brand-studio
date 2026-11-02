@@ -6,6 +6,7 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Button } from "../components";
 import { serverTime } from "../time";
+import { refreshJobs } from "../jobs/refresh";
 
 type Item = components["schemas"]["ThreadItem"] & { why?: string }; // `why`: the move's reason, when the server sends it
 type Run = components["schemas"]["DirectorOut"];
@@ -34,7 +35,7 @@ export function DirectorChat({ projectId, thread, plain, canAsk, owner, waiting 
     onSuccess: (data: Run) => {
       setText("");
       queryClient.setQueryData(["director", projectId], data);
-      return queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      return refreshJobs(queryClient);
     },
   });
   const last = thread.at(-1)?.id;

@@ -14,6 +14,7 @@ import { serverTime } from "../time";
 import { typeName, type Kind } from "../freestyle/useFreestyle";
 import { STEPS } from "./steps";
 import type { Job, Project } from "./useHeld";
+import { refreshJobs } from "../jobs/refresh";
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const whole = (n: number) => Math.round(n * 10) / 10;
@@ -80,7 +81,7 @@ function Row({ id, status, where, children, ...rest }: { id?: string; status: Re
 
 export function useRefresh() {
   const queryClient = useQueryClient();
-  return () => Promise.all(["held-jobs", "projects", "jobs", "library"].map((k) => queryClient.invalidateQueries({ queryKey: [k] })));
+  return () => Promise.all([refreshJobs(queryClient), ...["held-jobs", "projects", "library"].map((k) => queryClient.invalidateQueries({ queryKey: [k] }))]);
 }
 
 export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: number }) {
