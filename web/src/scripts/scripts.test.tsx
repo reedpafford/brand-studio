@@ -1382,13 +1382,16 @@ const makeServer = (o: Record<string, [number, unknown]> = {}) => ({
 
 test("Make this version shows the video's settings, and a pick moves the price line", async () => {
   setViewport(1440);
-  fakeServer(makeServer());
+  fakeServer(makeServer({ "GET /looks": [200, [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }]] }));
   open();
   await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
   const row = await within(panel).findByRole("region", { name: "Video settings" });
   expect(within(row).getByText("Language: English (from the script)")).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: /Flavour: Auto/ })).toBeInTheDocument(); // no default, no pick
+  // The video keeps the script's style (Reed's walk item 7): a locked line, no Look pick.
+  expect(within(row).getByText((_, el) => el?.firstElementChild?.textContent === "Style:" && el.textContent === "Style: House · set on the script")).toBeInTheDocument();
+  expect(within(row).queryByRole("button", { name: /Look:/ })).toBeNull();
   // The estimate for the new pick; Kling can't lip-sync, and says so in the picker.
   fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 34, over_cap: false, reason: null }] }));
   await userEvent.click(within(row).getByRole("button", { name: /Video model: Auto/ }));

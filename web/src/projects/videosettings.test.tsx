@@ -64,14 +64,14 @@ test("the Video settings row shows each choice and its price, and the language r
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
-test("a video made from a script shows its look locked, with the reason and no picker, at 390 and desktop (Reed's walk item 7)", async () => {
+test("a video made from a script shows its style locked, as Style: House · set on the script, with no picker, at 390 and desktop (Reed's walk item 7)", async () => {
   for (const width of [1440, 390]) {
     setViewport(width);
-    fakeServer({ ...base, "GET /projects/9/settings": [200, { ...settings, look_locked: "Set by the script." }] });
+    fakeServer({ ...base, "GET /projects/9": [200, { ...project, look_locked: true }] });
     const { unmount } = renderApp("/b/1/videos/9?step=cast");
     if (width === 390) await userEvent.click(await screen.findByRole("button", { name: /^Settings: / }));
     const where = width === 390 ? await screen.findByRole("dialog", { name: "Video settings" }) : await screen.findByRole("region", { name: "Video settings" });
-    expect(within(where).getByLabelText("Look: House, locked. Set by the script.")).toBeInTheDocument();
+    expect(within(where).getByText((_, el) => el?.firstElementChild?.textContent === "Style:" && el.textContent === "Style: House · set on the script")).toBeInTheDocument();
     expect(within(where).queryByRole("button", { name: /Look:/ })).toBeNull();
     expect(within(where).getByRole("button", { name: /Shape: 9:16/ })).toBeInTheDocument(); // the others still switch
     unmount();

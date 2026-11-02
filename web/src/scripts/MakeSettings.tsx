@@ -5,7 +5,7 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Panel } from "../components";
-import { ChoicePanel, fieldsOf, languageName, type Choice, type Field } from "../projects/VideoSettings";
+import { ChoicePanel, fieldsOf, languageName, LockedSetting, type Choice, type Field } from "../projects/VideoSettings";
 import { useRail } from "../useMedia";
 import { LookPicker, useLooks } from "./Looks";
 import type { Script } from "./useScript";
@@ -64,7 +64,8 @@ export function MakeSettings({ script, defaults, picks, onPick }: { script: Scri
   const [picking, setPicking] = useState<Field | null>(null);
   if (!settings) return null;
   // A product with no flavour (none picked, no default) is Auto: the server picks, as on a video.
-  const fields = fieldsOf(settings, looks.data).map((f) => {
+  // The video keeps the script's style (item 7): it shows here as a locked line, never a pick.
+  const fields = fieldsOf(settings, looks.data, true).map((f) => {
     const product = f.key.startsWith("flavour:") ? f.key.slice("flavour:".length) : null;
     if (!product || !settings.auto.includes(product)) return f;
     const picked = product in settings.product_variants;
@@ -80,12 +81,15 @@ export function MakeSettings({ script, defaults, picks, onPick }: { script: Scri
     const { product_variants, ...one } = c.body;
     onPick(product_variants ? { ...picks, product_variants: { ...picks.product_variants, ...product_variants } } : { ...picks, ...one });
   };
-  const chip = (f: Field) => (
+  const chip = (f: Field) =>
+    f.locked ? (
+      <LockedSetting key={f.key} field={f} />
+    ) : (
     <Button key={f.key} variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setPicking(f)}>
       <span className="text-muted">{f.label}:</span> {f.valueLabel}
       {f.price && <>{" "}<span className="text-xs text-muted tabular-nums">· {f.price}</span></>}
     </Button>
-  );
+    );
   const items = (
     <>
       {fields.map(chip)}
