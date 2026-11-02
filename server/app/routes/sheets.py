@@ -40,7 +40,7 @@ class SheetIn(BaseModel):
     look_id: str | None = None  # ST2: the owner's "{look} sheet" on a Cast & places item
 
 
-OWNER_LOOKS = "Only the owner adds a sheet in another look to Cast & places."
+OWNER_LOOKS = "Only the owner adds a sheet in another style to Cast & places."
 OWN_LOOK = "This look is this video's own: it's drawn in the video's style already."
 
 
@@ -317,7 +317,7 @@ def _approved(item: LibraryItem, look: str | None, value: bool) -> None:
 # --- OR3: the Preferred look -----------------------------------------------------------------
 
 OWNER_PREFERRED = "Only the owner picks which sheet Cast & places uses."
-NOT_A_SHEET = "That isn't one of this look's approved sheets."
+NOT_A_SHEET = "That isn't one of this style's approved sheets."
 
 
 class SheetVersionOut(BaseModel):
