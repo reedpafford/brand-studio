@@ -41,7 +41,7 @@ class SheetIn(BaseModel):
 
 
 OWNER_LOOKS = "Only the owner adds a sheet in another look to Cast & places."
-OWN_LOOK = "This look is this video's own: it's drawn in the video's look already."
+OWN_LOOK = "This look is this video's own: it's drawn in the video's style already."
 
 
 def _look(user: User, item: LibraryItem, look_id: str | None) -> str | None:
