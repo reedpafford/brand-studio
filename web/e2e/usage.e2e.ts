@@ -1,5 +1,18 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { onBrand, signIn } from "./helpers";
+
+/** A fomo script of its own, published, with version A started (Make this version), so a test never depends on what
+ *  another spec left behind. Returns its title. */
+async function startVersion(page: Page, name: string): Promise<string> {
+  const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
+  const fomo = brands.find((b) => b.name === "fomo")!.id;
+  const title = `${name} ${Date.now()}`;
+  const s = await (await page.request.post("/api/scripts", { data: { brand_id: fomo, title, description: "", notes: "", reference_replace: "", text: "SCENE 1 — INT. KITCHEN — DAY\nNATE: The dip is in." } })).json();
+  expect((await page.request.post(`/api/scripts/${s.id}/drafts/0/approve`)).ok()).toBe(true);
+  expect((await page.request.post(`/api/scripts/${s.id}/publish`)).ok()).toBe(true);
+  expect((await page.request.post(`/api/scripts/${s.id}/drafts/0/produce`)).ok()).toBe(true);
+  return title;
+}
 
 // Runs after shell.e2e.ts; Reed is the owner. Nothing here costs anything.
 test("Reed opens Usage: the totals, a row for every brand, and one brand's page", async ({ page }) => {
@@ -20,19 +33,19 @@ test("Reed opens Usage: the totals, a row for every brand, and one brand's page"
   await expect(page).toHaveURL(/tab=scripts/);
 });
 
-// scripts.e2e.ts started a version of "Bo tries salmon" (Make this version), so it is being made.
 test("Reed opens In production from the rail and sees the version being made, with no sideways scroll on a phone", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
+  const title = await startVersion(page, "Being made");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^In production/ }).click();
   await expect(page.getByRole("heading", { name: "In production", level: 1 })).toBeVisible();
-  const row = page.getByRole("link", { name: /^Bo tries salmon, version A, .*, at [A-Z][a-z]+/ });
+  const row = page.getByRole("link", { name: new RegExp(`^${title}, version A, .*, at [A-Z][a-z]+`) });
   await expect(row).toBeVisible();
   await row.click();
   await expect(page).toHaveURL(/\/projects\/\d+/);
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/production");
-  await expect(page.getByRole("link", { name: /^Bo tries salmon/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: new RegExp(`^${title}, version A, `) })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -54,17 +67,21 @@ test("Reed changes the editors' weekly allowance in Settings, and Undo puts it b
 test("Reed releases a version he started by mistake, and it leaves In production", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
+  const title = await startVersion(page, "Started by mistake");
   await page.goto("/production");
-  const row = page.getByRole("link", { name: /^Bo tries salmon, version A, / });
+  const row = page.getByRole("link", { name: new RegExp(`^${title}, version A, `) });
   await expect(row).toBeVisible();
   await row.click();
-  await page.getByRole("button", { name: /^More for Bo tries salmon/ }).click();
+  await expect(page).toHaveURL(/\/projects\/\d+/);
+  // The video page's own menu, by its exact name: In production's row menu ("More for <title> · A") can still be on screen
+  // while the navigation finishes, and opening that one instead was the intermittent timeout.
+  await page.getByRole("button", { name: `More for ${title}`, exact: true }).click();
   await page.getByRole("menuitem", { name: "Release this version" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Release", exact: true }).click();
   await expect(page.getByText("The version is ready to make again.")).toBeVisible();
   await expect(page).toHaveURL(/\/scripts$/);
   await page.goto("/production");
-  await expect(page.getByRole("link", { name: /^Bo tries salmon, version A, / })).toBeHidden();
+  await expect(page.getByRole("link", { name: new RegExp(`^${title}, version A, `) })).toBeHidden();
 });
 
 test("Reed adds a brand from the brand menu and lands on its Look page", async ({ page }) => {

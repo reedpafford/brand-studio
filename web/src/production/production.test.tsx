@@ -61,11 +61,21 @@ test("In production: filters go in the address and to the server; the Brand colu
   fakeServer(base());
   open("/production?brand=2&attention=1");
   await screen.findByRole("link", { name: /Bo tries salmon/ });
-  expect(screen.getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("tab", { name: /^Needs attention/ })).toHaveAttribute("aria-selected", "true"); // v5 D_Production: Making and Needs attention are tabs
+  expect(screen.getByRole("combobox", { name: "Brand" })).toHaveValue("2");
   expect(screen.queryByText("Brand", { selector: "span" })).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
   expect(await screen.findByText("Brand", { selector: "span" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("tab", { name: /^Making/ })).toHaveAttribute("aria-selected", "true");
+});
+
+test("In production on a computer (v5 D_Production): each row shows its step as bars and what it's doing now", async () => {
+  setViewport(1440);
+  fakeServer(base());
+  open();
+  const link = await screen.findByRole("link", { name: /Midnight snack/ });
+  expect(within(link).getByRole("img", { name: /: step \d of 5$/ })).toBeInTheDocument();
+  expect(within(link).getByText(/^(Making the plan|Casting|Drawing the storyboard|Making clips|Making the final cut)/)).toBeInTheDocument();
 });
 
 test("In production: on a phone the rows are cards and the filters are in a sheet", async () => {
@@ -152,6 +162,7 @@ test("In production: a video's credits leave the director's own time out, so a d
   open();
   const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
   expect(within(link).getByText("100 of 420")).not.toHaveAttribute("title"); // 400 used, 300 of it the director's
+  expect(within(link).getByText("300 credits of director time")).toBeInTheDocument(); // shown apart (#1216, QA-3 on #1218)
 });
 
 test("In production: a row's credits and budget are rounded alike (20 of 32, never 20 of 32.06)", async () => {
@@ -159,4 +170,12 @@ test("In production: a row's credits and budget are rounded alike (20 of 32, nev
   open();
   const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
   expect(within(link).getByText("20 of 32")).toBeInTheDocument();
+});
+
+test("In production on a phone: the director's time follows the whole spend line, never inside it (QA-3 on #1218)", async () => {
+  setViewport(390);
+  fakeServer(base([{ ...failed, credits_used: 21, budget_credits: 729, director_credits: 15, spent_usd: 0 }]));
+  open();
+  const card = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
+  expect(card).toHaveTextContent(/6 of 729 credits · \$0\.00\s*15 credits of director time/);
 });
