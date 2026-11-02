@@ -39,6 +39,7 @@ class ThreadItem(BaseModel):
     text: str  # plain words; the deliver move's is the delivery note
     status: Literal["queued", "running", "held", "done", "refused"] | None  # moves only
     why: str = ""  # a move's reason, as the director gave it; "" for messages and deliveries
+    answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
 
 
 class MessageIn(BaseModel):

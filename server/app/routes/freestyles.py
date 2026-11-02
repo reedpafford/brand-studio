@@ -14,7 +14,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, StringConstraints
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import director, hidden, looks, prompts
@@ -25,6 +25,7 @@ from app.credits import (
     FREESTYLE,
     PAST_APPROVED,
     WAIT_OK,
+    approved,
     estimate,
     get_limits,
     lock,
@@ -44,7 +45,7 @@ from app.references import LONG_SIDE
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
 from app.routes.estimate import version_cost
-from app.routes.jobs import CHANGE, DECLINE, SAID, WITHDRAWN, enqueue, stop_jobs
+from app.routes.jobs import CHANGE, DECLINE, PRICE, SAID, WITHDRAWN, enqueue, stop_jobs
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
 Type = Literal["dialogue", "song", "narrated", "one_clip"]
@@ -56,7 +57,10 @@ Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, ma
 MODEL, RESOLUTION = "seedance-2.5", "480p"  # Quick clip's defaults
 NOT_YET = "Song and Narrated are coming next; One clip and Dialogue work now."
 DIRECTED = {"dialogue": "story"}  # the types the director makes: the script kind it reads
-NO_CHANGES_YET = "Changes to a Dialogue freestyle come next. Start a new one for now."
+PAST_CAP = (
+    "That change would take this freestyle past its limit of {cap} credits. Start a new "
+    "freestyle from here."
+)
 HELD = f"{WAIT_OK}every freestyle send is checked first."
 BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
@@ -191,8 +195,37 @@ def _start(db: Session, user: User, fs: Freestyle, text: str) -> None:
         raise over_cap(user, cap)
     db.flush()
     turn = director.start(db, user, project, wait="" if user.is_owner else HELD,
-                          extra={FREESTYLE: fs.id, SAID: text, CHANGE: False})  # fmt: skip
-    fs.chat = [{"by": user.id, "text": text, "at": at, "job": turn.id}]
+                          extra={FREESTYLE: fs.id, SAID: text, CHANGE: False,
+                                 PRICE: str(fs.up_to)})  # fmt: skip
+    fs.chat = [{"by": user.id, "text": text, "at": at, "job": turn.id, "price": str(fs.up_to)}]
+    db.commit()
+
+
+def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
+    """A change to a Dialogue freestyle (the Producer, 3b). While a run goes on it's a note,
+    read at the director's next turn, inside the price already approved. Otherwise the send
+    is the press: quoted "up to" the whole video's price again, and the running total stays
+    under the per-video cap; a new run reads every unread note, an editor's after the
+    owner's OK, the owner's at once."""
+    project = db.get(Project, fs.project_id)
+    at = utcnow().isoformat()
+    if director.active(db, project):
+        director.say(db, user, project, text)
+        fs.chat = [*fs.chat, {"by": user.id, "text": text, "at": at, "job": None}]
+        db.commit()
+        return
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    price = version_cost(db, draft, video=project) + usd_to_credits(director.MAX_USD)
+    total, cap = approved(db, fs) + price, get_limits(db, user.workspace_id).per_video_max_credits
+    if total > cap:
+        raise HTTPException(409, PAST_CAP.format(cap=cap))
+    director.say(db, user, project, text)  # unread: the new run reads it
+    turn = director.start(db, user, project, wait="" if user.is_owner else HELD,
+                          extra={FREESTYLE: fs.id, SAID: text, CHANGE: True,
+                                 PRICE: str(price)})  # fmt: skip
+    fs.chat = [*fs.chat, {"by": user.id, "text": text, "at": at, "job": turn.id,
+                          "price": str(price)}]  # fmt: skip
+    fs.up_to = total
     db.commit()
 
 
@@ -291,13 +324,15 @@ def _out(db: Session, fs: Freestyle) -> FreestyleOut:
 def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
     """(status, thread, file id, credits) of a director-run freestyle, from its video's run."""
     project = db.get(Project, fs.project_id)
-    first = jobs.get(fs.chat[0]["job"])
-    words = {}
-    if first is not None and first.input.get(DECLINE):
-        status, words = "declined", {f"t{first.id}": f"The owner declined: {first.error}"}
-    elif first is not None and first.input.get(WITHDRAWN):
-        status, words = "withdrawn", {f"t{first.id}": "Withdrawn."}
-    elif first is not None and first.status == JobStatus.needs_owner_approval:
+    sends = [jobs[m["job"]] for m in fs.chat if m.get("job") in jobs]
+    last = sends[-1] if sends else None  # the newest send: the first, or a change's new run
+    words = {f"t{j.id}": f"The owner declined: {j.error}" for j in sends if j.input.get(DECLINE)}
+    words |= {f"t{j.id}": "Withdrawn." for j in sends if j.input.get(WITHDRAWN)}
+    if last is not None and last.input.get(DECLINE):
+        status = "declined"
+    elif last is not None and last.input.get(WITHDRAWN):
+        status = "withdrawn"
+    elif last is not None and last.status == JobStatus.needs_owner_approval:
         status = "waiting"
     elif director.active(db, project):  # paused for a new OK, past the price approved
         held = select(Job.id).where(Job.project_id == project.id,
@@ -314,9 +349,13 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
     moves += [FreestyleItem(id=f"j{j.id}", kind="move", at=j.created_at, who="Director",
                             text=j.input.get("held") or PAST_APPROVED, status="held")
               for j in held]  # fmt: skip
-    cut = db.scalar(select(FinalVideo.file_id).where(FinalVideo.project_id == project.id)
-                    .order_by(FinalVideo.id.desc()))  # fmt: skip
-    file_id = cut if status == "delivered" else None
+    delivered = db.scalar(select(func.max(Job.created_at)).where(  # the last delivery
+        Job.project_id == project.id, Job.input["step"].as_string() == director.STEP,
+        Job.input["result"].as_string() == "Delivered."))  # fmt: skip
+    file_id = delivered and db.scalar(  # the cut it delivered, until another is delivered
+        select(FinalVideo.file_id).where(FinalVideo.project_id == project.id,
+                                         FinalVideo.created_at <= delivered)
+        .order_by(FinalVideo.id.desc()))  # fmt: skip
     thread = sorted([*(m for m in said if m.kind == "message"), *moves], key=lambda m: m.at)
     return status, thread, file_id, director.credits(db, project)
 
@@ -364,7 +403,11 @@ def create_freestyle(
                                                  Freestyle.created_at >= since)):  # fmt: skip
         same = (fs.type, fs.look, fs.shape, fs.brand_id) == (body.type, body.look, body.shape,
                                                              body.brand_id)  # fmt: skip
-        if same and fs.chat and fs.chat[0]["text"] == body.text:
+        first = db.get(Job, fs.chat[0]["job"]) if fs.chat and fs.chat[0].get("job") else None
+        waiting = first is not None and first.status in (JobStatus.needs_owner_approval,
+                                                         JobStatus.queued)  # fmt: skip
+        if same and waiting and fs.chat[0]["text"] == body.text:  # a repeat sent on purpose
+            # (the first done or gone) is a new freestyle
             db.rollback()
             return _out(db, fs)  # the same send twice: one freestyle, one held take
     title = next(line.strip() for line in body.text.splitlines() if line.strip())[:60]
@@ -414,7 +457,8 @@ def send_message(
     if fs.created_by_id != user.id:
         raise HTTPException(403, "Only whoever made this freestyle can change it.")
     if fs.type in DIRECTED:
-        raise HTTPException(409, NO_CHANGES_YET)
+        _change(db, user, fs, body.text)
+        return _out(db, fs)
     if any(j.status in (JobStatus.needs_owner_approval, JobStatus.queued, JobStatus.running)
            for j in _jobs(db, fs).values()):  # fmt: skip
         raise HTTPException(409, BUSY)

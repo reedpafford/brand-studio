@@ -115,6 +115,24 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
             + estimate(db, ws, "video", Decimal(seconds), clip) + checks)  # fmt: skip
 
 
+def approved(db: Session, fs) -> Decimal:
+    """What a freestyle's OKs cover: each send's quoted price ("price" on its message), but
+    for one declined or withdrawn (nothing ran). A freestyle from before prices were kept on
+    its messages: its `up_to`."""
+    priced = [m for m in fs.chat if "price" in m]
+    if not priced:
+        return fs.up_to or Decimal(0)
+    jobs = {j.id: j for j in db.scalars(select(Job).where(Job.id.in_([m["job"] for m in priced])))}
+    total = Decimal(0)
+    for m in priced:
+        job = jobs.get(m["job"])
+        refused = job is not None and job.status == JobStatus.cancelled and (
+            job.input.get("declined") or job.input.get("withdrawn"))  # fmt: skip
+        if not refused:
+            total += Decimal(str(m["price"]))
+    return total
+
+
 def budget(db: Session, project: Project) -> Decimal:
     """Twice the video's whole estimate (rule 3): every step at its plan, so the steps before
     its takes never use up the budget (QA-2: a 12 s video's fixed steps came to 12.73 of a
@@ -132,7 +150,7 @@ def budget(db: Session, project: Project) -> Decimal:
 
         fs = db.scalar(select(Freestyle).where(Freestyle.project_id == project.id))
         if fs is not None and fs.up_to is not None:
-            return min(fs.up_to, cap)
+            return min(approved(db, fs), cap)
     row = clip_prompts.newest(db, project)
     bd = Breakdown.model_validate(row.data) if row else None
     roles = sum(s.library_item_id is None for s in all_slots(db, project))
