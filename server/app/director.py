@@ -373,6 +373,9 @@ def _act(db: Session, job: Job, storage) -> None:
         return _record(db, job, run, IDLE if idle else "Waiting.")
     if (refused := _refused_again(db, job, decision)) is not None:
         return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
+    replan = tool == "plan" and bool((decision.get("note") or "").strip())
+    if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
+        return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
         watch = _watch(db, project)
         if run.get("watches", 0) >= MAX_WATCHES:
@@ -384,6 +387,8 @@ def _act(db: Session, job: Job, storage) -> None:
     result = director_tools.run(db, user, project, decision, storage, run)
     if tool == "watch_cut" and not result.startswith("Refused"):
         run["watches"] = run.get("watches", 0) + 1
+    if replan and not result.startswith("Refused"):
+        run["replans"] = run.get("replans", 0) + 1
     _record(db, job, run, result)
 
 

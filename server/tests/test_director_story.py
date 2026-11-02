@@ -65,3 +65,20 @@ def test_it_delivers_only_a_cut_it_watched(app, db, owner, editor, monkeypatch):
     _run(app, db, ticks=40)
     results = [t["result"] for t in editor.get(f"/projects/{pid}/director").json()["turns"]]
     assert director.UNWATCHED in results  # "Refused: watch the cut first."
+
+
+def test_planning_again_takes_the_watchs_note_once_a_run(app, db, owner, editor):
+    from app import director_tools, plans
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    assert plans.status(db, project) != "none"
+    note = "Re-plan: b2 lands flat; give the payoff its own shot."
+    said = director_tools.run(db, user, project, {"tool": "plan", "note": note}, None, {})
+    assert said == f"Planning again: {note}"
+    job = db.query(Job).filter(Job.project_id == pid).order_by(Job.id.desc()).first()
+    assert job.input["step"] == plans.STEP and "give the payoff its own shot" in job.input["prompt"]

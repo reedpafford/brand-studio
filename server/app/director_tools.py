@@ -36,6 +36,9 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
     try:
         if tool == "plan":  # the video's plan first when it needs one, as the Plan step does
             status = plans.status(db, project)
+            if (note := (decision.get("note") or "").strip()) and status != "none":
+                plan_route.make(body=plan_route.NoteIn(note=note[:500]), **me)  # Make a new plan
+                return f"Planning again: {note}"  # the watch's "Re-plan:" (once a run)
             if status == "none":
                 plan_route.make(body=None, **me)
                 return "Making the plan."
