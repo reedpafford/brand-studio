@@ -34,7 +34,7 @@ export function plain(line: string, clips: Clip[]): string {
 }
 
 // What it's doing, from its newest move (ux-audit §8.5's progress line).
-const DOING: Record<string, string> = {
+export const DOING: Record<string, string> = {
   plan: "Making the plan",
   make_looks: "Making the looks",
   storyboard: "Making the storyboard",
@@ -46,6 +46,32 @@ const DOING: Record<string, string> = {
   deliver: "Making the cut",
 };
 
+/** The video's director run (its moves, price and notes), asked again every 5 s while it runs. */
+export function useDirectorRun(projectId: number) {
+  return useQuery({
+    queryKey: ["director", projectId],
+    queryFn: async () => (await api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } })).data ?? null,
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : false),
+  });
+}
+
+/** What the run is doing now, in words: "Making clips: 4 of 6". */
+export function phaseOf(turns: Run["turns"], clips: Clip[], held: boolean) {
+  const doing = [...turns].reverse().find((t) => t.tool && DOING[t.tool])?.tool;
+  const made = clips.filter((c) => c.takes.length > 0).length;
+  return held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && clips.length ? `Making clips: ${made} of ${clips.length}` : DOING[doing];
+}
+
+/** When a move finishes, the steps have new work: refresh them, and the waiting banner for a held move. */
+export function useMovesRefresh(projectId: number, moves: number, status: string) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!moves) return;
+    void queryClient.invalidateQueries({ predicate: (q) => !["director", "freestyle"].includes(String(q.queryKey[0])) && q.queryKey.includes(projectId) });
+    void refreshJobs(queryClient);
+  }, [moves, status, projectId, queryClient]);
+}
+
 /** The Director tab (ux-audit §8.5, v4): the cut and the delivery note with what it redid and why, Make it and Stop, the
  *  clips in the cut; on the right the locks it builds around and every move it made. Talking to it comes later. */
 export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projectId: number; aspect: string; name: string; onOpenClips: () => void }) {
@@ -53,22 +79,12 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const toast = useToast();
   const owner = useMe().data?.role === "owner";
   const [stopping, setStopping] = useState(false);
-  const run = useQuery({
-    queryKey: ["director", projectId],
-    queryFn: async () => (await api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } })).data ?? null,
-    refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : false),
-  });
+  const run = useDirectorRun(projectId);
   const clips = useProjectClips(projectId);
   const video = useProjectVideo(projectId);
   const r = run.data;
   const status = r?.status ?? "none";
-  // When a move finishes, the steps have new work: refresh them, and the waiting banner for a held move.
-  const moves = r?.turns.length ?? 0;
-  useEffect(() => {
-    if (!moves) return;
-    void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "director" && q.queryKey.includes(projectId) });
-    void refreshJobs(queryClient);
-  }, [moves, status, projectId, queryClient]);
+  useMovesRefresh(projectId, r?.turns.length ?? 0, status);
   const after = (data: Run) => {
     queryClient.setQueryData(["director", projectId], data);
     return refreshJobs(queryClient);
@@ -112,9 +128,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const thread = r?.thread?.length
     ? r.thread
     : turns.map((t) => ({ id: `t${t.turn}`, kind: "move" as const, at: t.created_at, who: "Director", text: plain((t as Said).said || t.result, list) || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : t.tool && DOING[t.tool] ? `${DOING[t.tool]}.` : ""), status: t.status === "needs_owner_approval" ? ("held" as const) : null, why: t.why }));
-  const doing = [...turns].reverse().find((t) => t.tool && DOING[t.tool])?.tool;
-  const made = list.filter((c) => c.takes.length > 0).length;
-  const phase = held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && list.length ? `Making clips: ${made} of ${list.length}` : DOING[doing];
+  const phase = phaseOf(turns, list, held);
   const credits = r ? creditsText(r.credits) : null;
   const dollars = owner && r?.spent_usd != null ? `the director's own time $${r.spent_usd.toFixed(2)}` : null; // rule 4: the owner only
   const note = plain([...turns].reverse().find((t) => t.tool === "deliver")?.why ?? "", list);
@@ -207,15 +221,17 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
 }
 
 /** The clips in the cut, as a strip: each as wide as it is long, its still as the picture. "All clips" opens the Clips tab. */
-function InTheCut({ clips, projectId, onOpenClips }: { clips: Clip[]; projectId: number; onOpenClips: () => void }) {
+export function InTheCut({ clips, projectId, onOpenClips }: { clips: Clip[]; projectId: number; onOpenClips?: () => void }) {
   const frames = useFrames(projectId);
   return (
     <div className="space-y-2">
       <p className="flex items-baseline justify-between gap-2 text-sm">
         <span className="text-muted">In the cut</span>
-        <button type="button" className={`${linkText} min-h-11 sm:min-h-9`} onClick={onOpenClips}>
-          All clips
-        </button>
+        {onOpenClips && (
+          <button type="button" className={`${linkText} min-h-11 sm:min-h-9`} onClick={onOpenClips}>
+            All clips
+          </button>
+        )}
       </p>
       <ol className="flex h-20 gap-0.5" aria-label="In the cut">
         {clips.map((c) => {

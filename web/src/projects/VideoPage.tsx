@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, FileText } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
 import { Banner, Button, Skeleton, ViewOnly, type Step } from "../components";
 import { useRail } from "../useMedia";
 import { useFreshProject } from "./useFreshProject";
@@ -31,6 +29,9 @@ import { VideoTabs } from "./VideoTabs";
 import { HeldRequests, WaitingCount } from "../approvals/HeldRequests";
 import { budgetPct, budgetUsed, directorTime } from "./budget";
 import { DirectorPanel } from "./DirectorPanel";
+import { useFreestyle } from "../freestyle/useFreestyle";
+import { VideoTop } from "../videos/VideoTop";
+import { useVideoProject } from "../videos/VideoTop";
 
 /** A video made from a library version: Director · Plan · Cast · Clips · Final cut, one row of tabs (v4). */
 export function VideoPage() {
@@ -47,13 +48,11 @@ export function VideoPage() {
   const mayManage = useMayManageVideo();
   const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`)); // a released version is ready to make again in Scripts; an archived video is under Videos
   useFreshProject(id);
-  const project = useQuery({
-    queryKey: ["project", id],
-    queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
-  });
+  const project = useVideoProject(id);
   const { progress, loading, script, media } = useProgress(id);
   const assets = useAssets(id);
   const p = project.data;
+  const fs = useFreestyle(p?.freestyle_id ?? null).data; // a director-made video: its steps sit under its chat's top bar
   const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
   const settings = useVideoSettings(id); // the row has Shape once the server offers settings
   // The storyboard is out of date and the shots are current: one press brings it and the clip prompts up to date (audit M14 part 2).
@@ -138,7 +137,10 @@ export function VideoPage() {
   return (
     // One cost bar at the bottom: the budget, what finishing costs, and the step's press (audit M1).
     <CostBarProvider projectId={id} used={budgetUsed(p)} budget={p.budget_credits} pct={budgetPct(p)} director={directorTime(p)} lookOnly={lookOnly} fallback={waiting ? null : directing ? cutAction : lookOnly ? nextAction : (updateAction ?? nextAction)}>
+    {fs && <VideoTop brandId={p.brand_id} fs={fs} steps />}
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
+      {!fs && (
+      <>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}
         <Link to={`/b/${brandId}/videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline sm:min-h-control-dense">
@@ -157,12 +159,14 @@ export function VideoPage() {
           {mayManage(p) && <ProjectPicker brandId={p.brand_id} kind="video" id={id} folderId={p.folder_id} />}
         </div>
       </div>
+      </>
+      )}
       {video.dialog}
       {/* Every per-video choice in one row (flows VS1); an archived video is read only. Plan has its own song strip, with the player. */}
       {lookOnly && (
         <Banner tone="info" title={`This is ${p.created_by_name ? `${maker}'s` : "someone else's"} video. You can look, but only ${maker} or the owner can change it.`} />
       )}
-      {!p.archived_at && (
+      {!p.archived_at && !fs && ( // a director-made video's settings are the director's (B_VideoSteps)
         <ViewOnly on={!!lookOnly}>
           <VideoSettings project={p} finished={finished} song={step !== "plan"} />
         </ViewOnly>

@@ -9,6 +9,7 @@ type ScriptPatch = components["schemas"]["ScriptPatch"];
 export function useScript(id: number) {
   return useQuery({
     queryKey: ["script-lib", id],
+    enabled: id > 0,
     queryFn: async () => {
       const { data, response } = await api.GET("/scripts/{script_id}", { params: { path: { script_id: id } } });
       if (response.status === 404) return null;

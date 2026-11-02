@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Pencil, Plus, Square } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Button, Field, buttonClass, pressLabel } from "../components";
 import { serverTime } from "../time";
-import { Composer, useSettingsWords } from "./Composer";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../api/client";
+import { lastBrand, useBrands } from "../shell/useBrands";
+import { ChangeBox, useSettingsWords } from "./Composer";
+import { VideoChat } from "../videos/VideoChat";
 import { Status, Thread } from "./Thread";
 import { busy, useFreestyle, useFreestyleActions, useFreestyles, type Freestyle } from "./useFreestyle";
 
@@ -14,12 +18,18 @@ const day = (iso: string) => {
   return d.toDateString() === new Date().toDateString() ? "today" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 };
 
-/** Freestyle (/freestyle, not under a brand; V3Freestyle board): your freestyles on the left, newest first; the open one's
- *  header, thread and composer on the right. /freestyle with no id is a new one. */
+/** /freestyle is New video now (v5): it opens in the brand you were last in. */
+export function ToNewVideo() {
+  const brands = useBrands().data;
+  const brand = brands?.find((b) => b.id === lastBrand()) ?? brands?.[0];
+  return brands ? <Navigate to={brand ? `/b/${brand.id}/videos/new` : "/"} replace /> : null;
+}
+
+/** An older freestyle (/freestyle/:id; V3Freestyle board): your freestyles on the left, newest first; the open one's
+ *  header, thread and change box on the right. One the director made is a video: its address opens that video. */
 export function FreestylePage() {
-  const raw = useParams().freestyleId;
-  const id = raw ? Number(raw) : null;
-  const navigate = useNavigate();
+  const { freestyleId, brandId } = useParams();
+  const id = Number(freestyleId);
   const me = useMe().data;
   const owner = me?.role === "owner";
   const open = useFreestyle(id);
@@ -27,22 +37,29 @@ export function FreestylePage() {
   const maker = !!fs && fs.created_by_name === me?.name;
   const words = useSettingsWords();
   const scroller = useRef<HTMLDivElement>(null);
+  const video = useQuery({
+    queryKey: ["project-of-freestyle", fs?.project_id, fs?.status], // asked again once the owner's OK makes it readable
+    retry: false,
+    enabled: !!fs?.project_id,
+    queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: fs!.project_id! } } })).data ?? null,
+  });
   // Newest at the bottom: keep the latest move (and the delivered clip under it) in view as they arrive.
   useEffect(() => {
     scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
   }, [fs?.thread.length, fs?.file_id]);
+  if (video.data) return <Navigate to={`/b/${video.data.brand_id}/videos/${video.data.id}`} replace />;
+  if (fs?.project_id && fs.brand_id && !brandId) return <Navigate to={`/b/${fs.brand_id}/freestyle/${fs.id}`} replace />; // in its brand
+  // An editor's send before the owner's OK: its video isn't theirs to read yet, so its chat opens here, by the freestyle.
+  if (fs?.project_id) return video.isPending ? null : <VideoChat p={{ id: fs.project_id, brand_id: fs.brand_id ?? 0 }} freestyleId={fs.id} />;
   return (
     <div className="lg:grid lg:min-h-screen lg:grid-cols-[260px_minmax(0,1fr)]">
-      <List owner={owner} current={id} className={id ? "hidden lg:flex" : "flex"} />
+      <List owner={owner} current={id} className="hidden lg:flex" />
       <main className="flex min-w-0 flex-col lg:h-screen">
-        {id && (
-          <Link to="/freestyle" className="flex min-h-control items-center self-start px-4 text-sm text-muted underline lg:hidden">
-            All freestyles
-          </Link>
-        )}
+        <Link to="/freestyle" className="flex min-h-control items-center self-start px-4 text-sm text-muted underline lg:hidden">
+          New video
+        </Link>
         {fs && <Header fs={fs} maker={maker} />}
         <div ref={scroller} className="mx-auto w-full max-w-[760px] flex-1 space-y-6 overflow-y-auto p-4 lg:p-8">
-          {id === null && <p className="text-sm text-muted">{owner ? "Your sends run at once." : "The owner approves every freestyle before anything is spent."}</p>}
           {open.isError && <p role="alert" className="text-danger">{open.error.message}</p>}
           {fs && <Thread fs={fs} tags={words(fs)} />}
           {fs?.file_id && (
@@ -50,7 +67,7 @@ export function FreestylePage() {
           )}
         </div>
         <div className="mx-auto w-full max-w-[760px] px-4 pb-6 lg:px-8">
-          {(id === null || fs) && <Composer key={id ?? "new"} fs={fs} owner={owner} maker={maker} onCreated={(n) => navigate(`/freestyle/${n}`)} />}
+          {fs && (maker ? <ChangeBox fs={fs} status={owner ? "Your change runs at once." : "Each change goes to the owner first. Nothing is spent until they say yes."} /> : <p className="text-sm text-muted">Only whoever made this freestyle can change it.</p>)}
         </div>
       </main>
     </div>
@@ -65,7 +82,7 @@ function List({ owner, current, className }: { owner: boolean; current: number |
     <aside aria-label="Your freestyles" className={`${className} min-w-0 flex-col border-border lg:sticky lg:top-0 lg:h-screen lg:border-r`}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h1 className="type-section">Freestyle</h1>
-        <Link to="/freestyle" aria-label="New freestyle" title="New freestyle" className="grid size-control place-items-center rounded-md border border-border hover:bg-surface-2 lg:size-control-dense">
+        <Link to="/freestyle" aria-label="New video" title="New video" className="grid size-control place-items-center rounded-md border border-border hover:bg-surface-2 lg:size-control-dense">
           <Plus size={16} strokeWidth={1.75} aria-hidden />
         </Link>
       </div>

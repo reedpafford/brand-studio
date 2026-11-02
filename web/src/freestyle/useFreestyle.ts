@@ -19,7 +19,8 @@ export const TYPES: { id: Kind; name: string; soon?: boolean }[] = [
   { id: "narrated", name: "Narrated", soon: true },
   { id: "one_clip", name: "One clip" },
 ];
-export const SOON = "Song and Narrated are coming next; One clip and Dialogue work now.";export const SHAPES: Shape[] = ["9:16", "1:1", "16:9"];
+export const SOON = "One clip and Dialogue work now. Song and Narrated are coming next.";
+export const SHAPES: Shape[] = ["9:16", "1:1", "16:9"];
 export const typeName = (t: Kind) => TYPES.find((x) => x.id === t)?.name ?? t;
 
 /** A status as a dot and words: the colour is the second signal. */
@@ -34,11 +35,37 @@ export const STATUS: Record<Freestyle["status"], { words: string; tone: Tone }> 
 };
 export const busy = (s: Freestyle["status"] | undefined) => s === "waiting" || s === "working";
 
+/** Where a send lands: the owner's on its video; an editor's (out of the lists until the owner's OK, #1190) by its
+ *  freestyle, under its brand. */
+export const sentTo = (fs: Freestyle, owner: boolean, brandId: number) =>
+  owner && fs.project_id && fs.brand_id ? `/b/${fs.brand_id}/videos/${fs.project_id}` : `/b/${fs.brand_id ?? brandId}/freestyle/${fs.id}`;
+
+/** A refused send, with the server's words and, for "this version already has a video" (409), that video and the price
+ *  of making another (the Producer, #1190). */
+export class SendError extends Error {
+  constructor(
+    message: string,
+    readonly hasVideo?: { project_id: number; up_to: number | null },
+  ) {
+    super(message);
+  }
+}
+
 async function call<T>(p: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
   const { data, error, response } = await p;
-  if (!response.ok || data === undefined) throw new Error(errorText(error));
-  return data;
+  if (response.ok && data !== undefined) return data;
+  const detail = (error as { detail?: unknown } | undefined)?.detail;
+  if (detail && typeof detail === "object" && "project_id" in detail) {
+    const d = detail as { project_id: number; up_to?: number | null; text?: string; message?: string };
+    throw new SendError(d.text ?? d.message ?? "This version already has a video.", { project_id: d.project_id, up_to: d.up_to ?? null });
+  }
+  throw new SendError(errorText(error));
 }
+
+/** What a send is made from: pasted words (with their settings), or a script's version, whose type, look and brand are
+ *  the script's (#1190). `make_another`: a second video from a version that has one. */
+export type Source = { text: string; settings: Settings } | { script_id: number; slot: number; shape: Shape; make_another?: boolean };
+const body = (s: Source) => ("text" in s ? { ...s.settings, text: s.text } : { type: "dialogue" as const, ...s });
 
 /** Yours, newest first; `everyone` (Reed only): the whole team's. Refreshed while any of them is waiting or working. */
 export function useFreestyles(everyone: boolean) {
@@ -75,15 +102,15 @@ function useSettled<T>(value: T, ms = 400) {
   return settled;
 }
 
-/** What a send would cost, at most. Free: the server queues nothing and asks no model. */
-export function useEstimate(s: Settings, text: string) {
-  const query = useSettled({ type: s.type, look: s.look, shape: s.shape, text: text.trim() });
+/** What a send would cost, at most, in whole credits. Free: the server queues nothing and asks no model. */
+export function useEstimate(source: Source | null) {
+  const query = useSettled(!source ? null : "text" in source ? { type: source.settings.type, look: source.settings.look, shape: source.settings.shape, text: source.text.trim() } : { script_id: source.script_id, slot: source.slot, shape: source.shape });
   return useQuery({
     queryKey: ["freestyle-estimate", query],
-    enabled: !!query.text && !!query.look,
+    enabled: !!query && ("script_id" in query || (!!query.text && !!query.look)),
     retry: false,
     placeholderData: keepPreviousData,
-    queryFn: async () => (await call(api.GET("/freestyles/estimate", { params: { query } }))).credits,
+    queryFn: async () => (await call(api.GET("/freestyles/estimate", { params: { query: query! } }))).credits,
   });
 }
 
@@ -97,7 +124,7 @@ export function useFreestyleActions(id: number | null) {
   const path = { params: { path: { freestyle_id: id ?? 0 } } };
   const fresh = { onSuccess: done };
   return {
-    create: useMutation({ mutationFn: (body: Settings & { text: string }) => call(api.POST("/freestyles", { body })), ...fresh }),
+    create: useMutation({ mutationFn: (s: Source) => call(api.POST("/freestyles", { body: body(s) })), ...fresh }),
     change: useMutation({ mutationFn: (text: string) => call(api.POST("/freestyles/{freestyle_id}/messages", { ...path, body: { text } })), ...fresh }),
     rename: useMutation({ mutationFn: (title: string) => call(api.PATCH("/freestyles/{freestyle_id}", { ...path, body: { title } })), ...fresh }),
     withdraw: useMutation({ mutationFn: () => call(api.POST("/freestyles/{freestyle_id}/withdraw", path)), ...fresh }),

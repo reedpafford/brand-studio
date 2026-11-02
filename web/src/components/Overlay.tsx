@@ -49,7 +49,9 @@ function useOverlay(onClose: () => void) {
   return panel;
 }
 
-function Frame({ title, onClose, className, grabber, children }: { title: string; onClose: () => void; className: string; grabber?: boolean; children: ReactNode }) {
+type Props = { title: string; onClose: () => void; children: ReactNode; /** Pinned under the scrolling body: the panel's one press. */ footer?: ReactNode };
+
+function Frame({ title, onClose, className, grabber, footer, children }: Props & { className: string; grabber?: boolean }) {
   const heading = useId();
   const panel = useOverlay(onClose);
   // Rendered into the page body, so a sticky bar or tab bar can never sit on top of it.
@@ -58,7 +60,7 @@ function Frame({ title, onClose, className, grabber, children }: { title: string
       <div aria-hidden onClick={onClose} className="fixed inset-0 z-50 bg-scrim" />
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className={`fixed z-50 flex flex-col bg-surface shadow-overlay ${className}`}>
         {grabber && <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-border-strong" />}
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className={`flex items-center justify-between gap-3 px-4 py-3 ${footer ? "mb-4 border-b border-border" : ""}`}>
           <h2 id={heading} className="font-display text-md font-bold">
             {title}
           </h2>
@@ -66,7 +68,8 @@ function Frame({ title, onClose, className, grabber, children }: { title: string
             <X size={20} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">{children}</div>
+        <div className={`min-h-0 flex-1 overflow-y-auto px-4 ${footer ? "pb-4" : "pb-[calc(1rem+env(safe-area-inset-bottom))]"}`}>{children}</div>
+        {footer && <div className="space-y-3 border-t border-border px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">{footer}</div>}
       </div>
     </>,
     document.body,
@@ -74,13 +77,13 @@ function Frame({ title, onClose, className, grabber, children }: { title: string
 }
 
 /** A bottom sheet (phones): up to 90dvh, scrolls inside, radius 20 on top. */
-export function Sheet(props: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet(props: Props) {
   return <Frame {...props} grabber className="inset-x-0 bottom-0 max-h-[90dvh] rounded-t-xl" />;
 }
 
-/** A side panel (desktop): 380px from the right, full height below the top bar. */
-export function SidePanel(props: { title: string; onClose: () => void; children: ReactNode }) {
-  return <Frame {...props} className="bottom-0 right-0 top-topbar w-[380px] max-w-full border-l border-border" />;
+/** A side panel (desktop): 380px from the right (`wide`: 480, E_ScriptMakeVideo), full height below the top bar. */
+export function SidePanel({ wide, ...props }: Props & { wide?: boolean }) {
+  return <Frame {...props} className={`bottom-0 right-0 top-topbar ${wide ? "w-[480px]" : "w-[380px]"} max-w-full border-l border-border`} />;
 }
 
 /** For confirmations only. A destructive action says what is lost and uses the danger button. */
@@ -131,6 +134,7 @@ export function Dialog({
 }
 
 /** A side panel on desktop (from 1024), a bottom sheet on a phone. For forms that belong beside the page. */
-export function Panel(props: { title: string; onClose: () => void; children: ReactNode }) {
-  return useRail() ? <SidePanel {...props} /> : <Sheet {...props} />;
+export function Panel(props: Props & { wide?: boolean }) {
+  const { wide, ...rest } = props;
+  return useRail() ? <SidePanel wide={wide} {...rest} /> : <Sheet {...rest} />;
 }

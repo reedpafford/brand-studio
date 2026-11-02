@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp } from "lucide-react";
-import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Button } from "../components";
-import { serverTime } from "../time";
 import { refreshJobs } from "../jobs/refresh";
+import { Item, type Said } from "../freestyle/Thread";
 
-type Item = components["schemas"]["ThreadItem"] & { why?: string }; // `why`: the move's reason; `answered` on a note: a move has named it
 type Run = components["schemas"]["DirectorOut"];
 
 const SHOWN = 8; // the newest few, with Show earlier
@@ -17,7 +15,7 @@ const SHOWN = 8; // the newest few, with Show earlier
  *  first, then a box to ask for a change. During a run the director reads it on its next turn; after a delivery or a stop
  *  it's saved, and Make it again (or Start again with this note) makes it: a message never starts a run by itself
  *  (the Producer, 2 Nov). Spending is as ever: inside the budget it goes ahead, past it the owner says. */
-export function DirectorChat({ projectId, thread, plain, canAsk, owner, waiting }: { projectId: number; thread: Item[]; plain: (text: string) => string; canAsk: boolean; owner?: boolean; waiting?: string | null }) {
+export function DirectorChat({ projectId, thread, plain, canAsk, owner, waiting }: { projectId: number; thread: Said[]; plain: (text: string) => string; canAsk: boolean; owner?: boolean; waiting?: string | null }) {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [all, setAll] = useState(false);
@@ -52,44 +50,10 @@ export function DirectorChat({ projectId, thread, plain, canAsk, owner, waiting 
         </Button>
       )}
       {thread.length > 0 && (
-        <ol className="max-h-[28rem] space-y-3 overflow-y-auto pr-1" aria-label="Conversation with the director">
-          {shown.map((t) => {
-            const words = t.kind === "move" ? plain(t.text) || "Deciding what to do next." : t.text;
-            const when = serverTime(t.at); // a server time without a zone is UTC (time.ts)
-            const time = Number.isNaN(when.getTime()) ? "" : ` · ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-            return t.kind === "message" ? (
-              <li key={t.id} ref={t.id === last ? end : undefined} className="flex min-w-0 flex-col items-end gap-0.5 text-sm">
-                <p className="text-xs text-muted tabular-nums">
-                  {t.who}
-                  {time}
-                  {t.answered === true && " · Answered"}
-                  {t.answered === false && " · Open"}
-                </p>
-                <p className="max-w-[90%] whitespace-pre-line break-words rounded-lg bg-surface-2 px-3 py-2">{words}</p>
-              </li>
-            ) : (
-              <li key={t.id} ref={t.id === last ? end : undefined} className="flex min-w-0 gap-2.5 text-sm">
-                <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent-text">D</span>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-xs text-muted tabular-nums">
-                    Director{time}
-                    {t.status === "running" && " · working"}
-                    {t.status === "refused" && " · couldn't do it"}
-                  </p>
-                  <p className="whitespace-pre-line break-words">{words}</p>
-                  {t.why && plain(t.why) && <p className="break-words text-muted">{plain(t.why)}</p>}
-                  {t.status === "held" &&
-                    (owner ? (
-                      <Link to="/approvals" className="text-sm text-accent-text underline-offset-2 hover:underline">
-                        See it in Needs you
-                      </Link>
-                    ) : (
-                      <p className="text-muted">Waiting for approval.</p>
-                    ))}
-                </div>
-              </li>
-            );
-          })}
+        <ol className="flex max-h-[28rem] flex-col gap-5 overflow-y-auto pr-1" aria-label="Conversation with the director">
+          {shown.map((t) => (
+            <Item key={t.id} ref={t.id === last ? end : undefined} t={t} owner={owner} words={t.kind === "move" ? plain(t.text) || "Deciding what to do next." : t.text} why={t.why ? plain(t.why) : undefined} />
+          ))}
         </ol>
       )}
       {waiting && <p className="text-sm text-muted" role="status">{waiting}</p>}

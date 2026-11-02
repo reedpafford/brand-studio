@@ -15,7 +15,7 @@ type Version = Row["versions"][number];
 type Project = components["schemas"]["ProjectOut"];
 
 // One grid for the header and every row on desktop; on a phone a row is the title with its details wrapped under it.
-export const COLS = "lg:grid lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_6rem_2.25rem] lg:items-center lg:gap-4";
+export const COLS = "lg:grid lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_6rem_7.5rem] lg:items-center lg:gap-4";
 
 export function TableHead() {
   return (
@@ -69,10 +69,12 @@ type Props = {
   restoring?: boolean;
   selected?: boolean;
   onSelect?: (on: boolean) => void;
+  /** An editor's ready-to-make row: "Make a video" opens the panel (E_EditorScripts). */
+  onMakeVideo?: () => void;
 };
 
 /** One script: picker, poster, title and format, its versions in words, who it waits on, who wrote it, when, and its menu. */
-export function ScriptRow({ row: r, brandName, refName, refThumb, narrow, mayOpen, ownScript, panelTo, ownVideo, meId, waiting, onDelete, removed, onRestore, restoring, selected, onSelect }: Props) {
+export function ScriptRow({ row: r, brandName, refName, refThumb, narrow, mayOpen, ownScript, panelTo, ownVideo, meId, waiting, onDelete, removed, onRestore, restoring, selected, onSelect, onMakeVideo }: Props) {
   const brandId = r.brand_id;
   // A script archived because a video was made from it keeps its videos and is never removed for good.
   const kept = r.removed ? r.removed === "archived" : r.versions.some((v) => !!v.project_id);
@@ -159,6 +161,11 @@ export function ScriptRow({ row: r, brandName, refName, refThumb, narrow, mayOpe
       <div className={cell}>{r.created_by_name && <Who name={r.created_by_name} />}</div>
       <div className={`${cell} tabular-nums`}>{age(r.created_at)}</div>
       <div className="ml-auto flex shrink-0 items-center justify-end gap-2 lg:ml-0">
+        {onMakeVideo && (
+          <Button variant="secondary" dense onClick={onMakeVideo} aria-label={`Make a video from ${r.title}`}>
+            Make a video
+          </Button>
+        )}
         {onDelete && <ScriptMenu title={r.title} onDelete={onDelete} />}
       </div>
     </li>
