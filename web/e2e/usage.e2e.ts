@@ -53,15 +53,15 @@ test("Reed changes the editors' weekly allowance in Settings, and Undo puts it b
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("tab", { name: "Credit limits" }).click();
-  const weekly = page.getByLabel("Editors' weekly allowance");
+  await page.getByRole("tab", { name: "Limits" }).click();
+  const weekly = page.getByLabel("Each editor's own week");
   const before = await weekly.inputValue();
   await weekly.fill(String(Number(before) + 5));
-  await page.getByRole("button", { name: "Save limits" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Limits saved.")).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await page.reload();
-  await expect(page.getByLabel("Editors' weekly allowance")).toHaveValue(before);
+  await expect(page.getByLabel("Each editor's own week")).toHaveValue(before);
 });
 
 test("Reed releases a version he started by mistake, and it leaves In production", async ({ page }) => {

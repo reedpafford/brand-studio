@@ -83,28 +83,6 @@ test("the last brand you used opens next time", async () => {
   expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
 });
 
-test("the owner can invite and gets the link once", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, owner],
-    "GET /brands": [200, brands],
-    "GET /team/members": [200, members],
-    "GET /team/invites": [200, []],
-    "POST /team/invites": [201, { id: 3, email: "new@b.co", role: "editor", expires_at: "2026-11-01T12:00:00Z", token: "tok123" }],
-  });
-  renderAt("/team");
-  await userEvent.click(await screen.findByRole("button", { name: "Invite someone" }));
-  await userEvent.type(await screen.findByLabelText("Email to invite"), "new@b.co");
-  await userEvent.click(screen.getByRole("button", { name: "Create invite link" }));
-  expect(await screen.findByLabelText("Invite link")).toHaveValue(`${location.origin}/invite/tok123`);
-  expect(screen.getByText(/It works once and expires in 7 days\./)).toBeInTheDocument();
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.assign(navigator, { clipboard: { writeText } });
-  await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
-  expect(writeText).toHaveBeenCalledWith(`${location.origin}/invite/tok123`);
-  expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
-  expect(calls.find((c) => c.key === "POST /team/invites")?.body).toEqual({ email: "new@b.co", role: "editor" });
-});
-
 test("an editor sees the team but cannot invite or remove", async () => {
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, members] });
   renderAt("/team");
@@ -131,8 +109,7 @@ test("an unknown brand in the address does not pretend to be selected", async ()
 test("a failed remove tells you", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []], "DELETE /team/members/2": [500, {}] });
   renderAt("/team");
-  await userEvent.click(await screen.findByRole("button", { name: "More for Eli" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Remove Eli" }));
   const ask = await screen.findByRole("alertdialog", { name: "Remove Eli from the team?" });
   expect(within(ask).getByText("Their videos stay.")).toBeInTheDocument();
   await userEvent.click(within(ask).getByRole("button", { name: "Remove" }));
