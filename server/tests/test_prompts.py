@@ -1743,3 +1743,32 @@ def test_reeds_batch_4_craft_notes_reach_the_steps():
     assert "**Show what a line points at.**" in prompts.system("breakdown")
     assert "an insert of the phone in a hand" in prompts.system("item_check")  # not a fault
     assert 'never "two quick cuts" inside a shot' in clip
+
+
+def test_the_director_splices_a_wrong_brand_word_or_redoes_with_a_note():
+    """Reed's "First thing after my test": a take that says "fogo" for fomo gets a clean copy of
+    the word from another take, free, or a redo with the brand's note on how it's said. Brand
+    name only; never a sung line; the server finds the times, never the director."""
+    director = prompts.system("director")
+    for part in ("- `splice_word` (free, `clip_id`, `word`)", "can_splice:", "no_copy:",
+                 "Never splice a sung line", "You never give or guess a time",
+                 "from the brand's notes", "said right in the same voice",
+                 "no clean copy in that voice anywhere in the video",
+                 "make it again and watch it before delivering"):  # fmt: skip
+        assert part in director, part
+    turn = schemas.DirectorTurn(tool="splice_word", clip_id="c3", word="fomo", why="b2: fomo")
+    assert (turn.clip_id, turn.word) == ("c3", "fomo")
+    assert "names the word and its time in the cut" in prompts.system("watch_cut")
+
+
+def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
+    """Freestyle Song and Narrated (Reed's list): after the treatment and before the plan, the
+    director makes the song or narration, judges the hook, the lyrics, the length and the mood
+    without hearing it, and remakes once with a note in the music's words; never a lyric."""
+    director = prompts.system("director")
+    for part in ("- `song` (paid, `note`)", "- `narration` (paid)", "songs_left",
+                 "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
+                 "never change a lyric (rule 19)", "Sung shots follow the song's own sections",
+                 "Treatment, then the song or the narration"):  # fmt: skip
+        assert part in director, part
+    assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"
