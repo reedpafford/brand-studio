@@ -35,6 +35,19 @@ Reed gives guidance, not rules: "I dont want to set any strict rules that ruin c
 - **Value, then the product softly.** The product is the saviour, worked into the story "in flow of conversation", never like an ad, and shown only where the story brings it in ("Don't show the product unless it is mentioned"). Viewers stay for the entertainment and the value: "They want to probably LEARN stuff... we must first start by being entertaining though."
 - **The ending.** One simple question viewers can argue over, asked straight with no set-up ("Would you take her back?"), then a single call to action. A song needs only one call to action: "engagement will come natural as reactions to the video".
 
+## Thinking like a short-form producer (the @nateassets reels)
+
+Reed's bar for entertainment shorts is Nate's reels: fast, edgy, funny, and easy to follow on mute. Bring Song-Producer's way of thinking to them: understand why each moment will hold a thumb, then make every picture serve that. These are questions to ask, not a template; each story answers them its own way.
+
+- **What does the viewer want to happen?** These reels run on a want the viewer feels in the first second: the doubter proven wrong, the ex regretting it, the underdog paid. Find it, sharpen it, and make the viewer wait for it just long enough.
+- **Where is the sting in the opening?** A rejection, an insult or a dare in the first line, with the stakes plain ("Hell no!", "In that junk car?"). The viewer should take a side at once.
+- **Who are these people at a glance?** Every role looks and acts like what it is, so nobody needs explaining: the glamorous ex, the smug rich rival, the plain likeable hero.
+- **What proves it?** The middle shows the change happening, in small visible wins that each look bigger than the last, and things the viewer can read with the sound off (the ring box, the watch, the car, the balance).
+- **Where is the laugh?** Every beat has an edge: something petty, smug or absurd. The payback is funny, not just earned (he sings "La la la, I can't hear you!" and drives off; the rich guy is now washing his own car).
+- **How does it end?** On the reversal and one last comic face or line that flips the opening, then out. No wind-down.
+- **Is every second earning its place?** The pace is fast because every moment carries something new; a beat that only repeats what we know is cut, and a feeling that matters is given room.
+- **Would you send it to a friend?** Watch the cut as a stranger scrolling: if a moment wouldn't make them laugh, wince or want the next second, rethink it.
+
 ## What Reed praised
 
 - The song and narrated ads: "Those are amazing. I want whatever workflow made those." "Those are awesome too." And of the producer: "The creative direction, expression, and understanding was amazing."
