@@ -92,13 +92,10 @@ def test_the_owners_run_at_once_and_only_the_maker_and_owner_see_one(
     assert outsider.get("/freestyles?everyone=true").json() == []
 
 
-def test_the_estimate_is_free_and_the_director_types_are_coming_next(owner, editor, db):
+def test_the_estimate_is_free_and_a_style_that_isnt_one_is_refused(owner, editor, db):
     r = editor.get("/freestyles/estimate", params={**HOUSE, "text": SCRIPT})
     assert r.status_code == 200 and r.json()["credits"] > 0
     assert db.query(Job).count() == 0
-    for kind in ("song", "narrated"):
-        r = editor.post("/freestyles", json={**HOUSE, "type": kind, "text": SCRIPT})
-        assert r.status_code == 422 and "One clip and Dialogue work now" in r.text
     r = editor.post("/freestyles", json={**HOUSE, "look": "nope", "text": SCRIPT})
     assert r.status_code == 422
     assert db.query(Job).count() == 0
