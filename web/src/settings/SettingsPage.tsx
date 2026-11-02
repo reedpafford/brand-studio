@@ -1,33 +1,47 @@
 import { useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
-import { Tabs } from "../components";
+import { PageTop, Tabs } from "../components";
 import { LanguagesTab } from "../languages/LanguagesTab";
 import { LooksTab } from "../looks/LooksTab";
 import { CreditLimits } from "./CreditLimits";
+import type { SettingsTop } from "./SettingRow";
 import { StudioName } from "./StudioName";
 
+// v5 D_Settings: Studio · Limits · Looks · Languages ("Styles", Reed's word everywhere, #1196).
 const TABS = [
+  { id: "studio", label: "Studio" },
+  { id: "limits", label: "Limits" },
   { id: "looks", label: "Styles" },
   { id: "languages", label: "Languages" },
-  { id: "name", label: "Studio name" },
-  { id: "limits", label: "Credit limits" },
 ];
+const OLD: Record<string, string> = { name: "studio" }; // links made before v5
 
 /** The owner's settings for the whole studio, one tab each; the tab lives in the address (/looks and /languages land here). */
 export function SettingsPage() {
   const { data: me } = useMe();
   const [params, setParams] = useSearchParams();
-  const tab = TABS.find((t) => t.id === params.get("tab"))?.id ?? "looks";
+  const asked = params.get("tab") ?? "";
+  const tab = TABS.find((t) => t.id === (OLD[asked] ?? asked))?.id ?? "studio";
   if (!me) return null;
   if (me.role !== "owner") return <p className="p-6">Only the owner manages settings.</p>;
-  return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className="type-page">Settings</h1>
-        <p className="text-sm text-muted">For the whole studio. Editors pick from what's switched on here.</p>
-      </div>
+  const top: SettingsTop = (save) => (
+    <>
+      <PageTop title="Settings">{save}</PageTop>
       <Tabs label="Settings" value={tab} onChange={(id) => setParams({ tab: id }, { replace: true })} tabs={TABS} />
-      {tab === "looks" ? <LooksTab /> : tab === "languages" ? <LanguagesTab /> : <div className="max-w-[720px]">{tab === "name" ? <StudioName owner={me.name} /> : <CreditLimits />}</div>}
+    </>
+  );
+  return (
+    <main className="space-y-4 p-4 sm:p-6">
+      {tab === "studio" ? (
+        <StudioName owner={me.name} top={top} />
+      ) : tab === "limits" ? (
+        <CreditLimits top={top} />
+      ) : (
+        <>
+          {top()}
+          {tab === "looks" ? <LooksTab /> : <LanguagesTab />}
+        </>
+      )}
     </main>
   );
 }

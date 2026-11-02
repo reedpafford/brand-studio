@@ -483,3 +483,13 @@ test("at 390 a character reads name and sections, then the House-style sheet, th
   expect(others.closest(".order-3")).not.toBeNull(); // after the sheet column (order-2), which follows the name (order-1)
   expect(screen.getAllByRole("region", { name: "Sheets in other styles" })).toHaveLength(1);
 });
+
+test("a character's page lists the videos that use it, each linked, with where it is (#1212)", async () => {
+  setViewport(1440);
+  fakeServer({ ...charRoutes(owner, {}), "GET /library/character/5": [200, { ...mia, look_sheets: {}, used_in: [{ project_id: 11, name: "Bo tries salmon · A", status: "done" }, { project_id: 12, name: "Gym bro tries yoga", status: "making" }] }] });
+  renderAt("/b/1/library/characters/5");
+  const used = await screen.findByRole("region", { name: "Used in" });
+  expect(within(used).getByRole("link", { name: "Bo tries salmon · A" })).toHaveAttribute("href", "/b/1/projects/11");
+  expect(within(used).getByText("Delivered")).toBeInTheDocument();
+  expect(within(used).getByText("Working")).toBeInTheDocument();
+});

@@ -140,3 +140,6 @@ Code notes for Next-Server (not tables):
 ## Brand: import from website (BR2)
 
 No storage: the found items wait in the read's own job output until Save or Cancel; Save writes only the ticked ones through BR1's brand writes (#971).
+
+- **New brand's Website (F_BrandNew):** `POST /brands` takes an optional `website`; the brand is made first, then its site is read as above. The answer carries `site_read_job_id` (the page opens on that review) or `site_read_problem` (why the read didn't start; the brand is made all the same). The price before the press: `GET /brands/site-read/estimate`. The website isn't stored on the brand, only on the read.
+- **The review (F_BrandImport):** a read answers with its `id` and the `url` it read; `GET /brands/{id}/site-read/latest` reopens the newest one. Each found product has a `mark`: new, fills (an empty description gets this one) or have ("Already in your products", no tick). `GET …/{read}/logo` shows the found logo: fetched once with the same checks, kept on the read (`logo_file_id` in its output), and Save uses that same file.

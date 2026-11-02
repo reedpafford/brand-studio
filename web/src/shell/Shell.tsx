@@ -8,7 +8,6 @@ import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { useMedia } from "../useMedia";
 import { AccountMenu, STUDIO } from "./AccountMenu";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
-import { NewBrand } from "./NewBrand";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
@@ -196,7 +195,6 @@ function TopBar({ brands, brand, current, waiting }: { brands: Brand[]; brand?: 
 function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: Brand[]; brand?: Brand; current: number | null; inRail?: boolean; iconOnly?: boolean }) {
   const navigate = useNavigate();
   const owner = useMe().data?.role === "owner";
-  const [creating, setCreating] = useState(false);
   const { pathname } = useLocation();
   const go = (id: number) => {
     const section = sectionOf(pathname);
@@ -240,7 +238,7 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
                 <MenuItem
                   onClick={() => {
                     close();
-                    setCreating(true);
+                    navigate("/brands/new");
                   }}
                 >
                   <Plus size={20} strokeWidth={1.75} aria-hidden />
@@ -251,7 +249,6 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
           </>
         )}
       </Menu>
-      {creating && <NewBrand onClose={() => setCreating(false)} />}
     </div>
   );
 }

@@ -15,7 +15,7 @@ import { useMe } from "../auth/useMe";
 import { lookName, useLooks } from "../scripts/Looks";
 import { useLanguages } from "../languages/useLanguages";
 import { CtaLines, DefaultCast, setupOf } from "./BrandSetup";
-import { SiteImport, stored } from "./SiteImport";
+import { SiteImport } from "./SiteImport";
 
 type Brand = components["schemas"]["BrandOut"];
 
@@ -36,24 +36,26 @@ export function KitPage({ part = "look" }: { part?: Part }) {
 function KitWithImport({ brand, part }: { brand: Brand; part: Part }) {
   const owner = useMe().data?.role === "owner";
   const { importing, setImporting } = useBrandFrame();
-  // Import from website shows once it's pressed in the top bar (or while a read is on its way), on the Look tab (F_BrandImport).
-  const showImport = owner && part === "look" && (importing || stored(brand.id) !== null);
+  // Import from website opens from the top bar (or New brand) as its own view on the Look tab (F_BrandImport). The form
+  // stays mounted underneath, so anything typed in it is kept.
+  const showImport = owner && part === "look" && importing;
   const [round, setRound] = useState(0);
   const [changed, setChanged] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
   return (
     <div className="space-y-4">
       {showImport ? (
-        <SiteImport brandId={brand.id} waitFor={changed ? "Save or undo your changes below first" : null} onSaved={() => { setRound((n) => n + 1); setImporting(false); }} onReviewing={setReviewing} />
+        <SiteImport brandId={brand.id} waitFor={changed ? "Cancel, then save or undo your changes to the Look first" : null} onSaved={() => { setRound((n) => n + 1); setImporting(false); }} onCancel={() => setImporting(false)} />
       ) : (
         part === "look" && <SetUp brand={brand} owner={owner} onImport={() => setImporting(true)} />
       )}
-      <KitForm key={`${brand.id}:${round}`} brand={brand} part={part} onChanged={setChanged} quiet={reviewing} />
+      <div hidden={showImport}>
+        <KitForm key={`${brand.id}:${round}`} brand={brand} part={part} onChanged={setChanged} quiet={showImport} />
+      </div>
     </div>
   );
 }
 
-/** `quiet`: an import review holds the page's one press, so an untouched form's Save changes steps aside. */
+/** `quiet`: Import from website is open and holds the bottom bar, so the form's Save changes steps aside. */
 function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; onChanged: (changed: boolean) => void; quiet: boolean }) {
   const setup = setupOf(brand); // BR1, once the server has it
   const looks = useLooks().data;
@@ -117,7 +119,7 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
         if (changed && valid) save.mutate();
       }}
     >
-      {!(quiet && !changed) && <BrandAction>
+      {!quiet && <BrandAction>
         <Button type="button" busy={save.isPending} disabled={!changed || !valid} reason={!changed ? "No changes yet" : !valid ? "Fix the colour codes first" : undefined} onClick={() => save.mutate()}>
           Save changes
         </Button>

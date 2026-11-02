@@ -5,7 +5,7 @@ import hashlib
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.orm import Session
 
@@ -24,9 +24,10 @@ from app.routes import library
 from app.routes.brands import _apply as apply_brand
 from app.routes.brands import brand_owner, get_brand
 from app.routes.clips import generation_on
-from app.routes.jobs import JobOut, enqueue
+from app.routes.jobs import JobOut
 
 router = APIRouter(prefix="/brands/{brand_id}/site-read", tags=["brands"])
+new_brand = APIRouter(prefix="/brands/site-read", tags=["brands"])  # before a brand exists
 
 
 class EstimateOut(BaseModel):
@@ -40,6 +41,9 @@ class ReadIn(BaseModel):
 class Product(BaseModel):
     name: str
     short_description: str
+    # new | fills (an empty description in the library gets this one) | have (already
+    # described: "Already in your products", no tick; Save leaves it as it is)
+    mark: str = "new"
 
 
 class Found(BaseModel):
@@ -49,6 +53,8 @@ class Found(BaseModel):
 
 
 class ReadOut(BaseModel):
+    id: int  # the read's job: Save, Undo and the logo go by it
+    url: str  # the address read: the box stays filled for "Read it again"
     status: str  # reading | done | failed | empty | saved
     reason: SaidText  # failed / empty: the words to show
     found: Found
@@ -81,27 +87,54 @@ def _brand(db: Session, owner: User, brand_id: int) -> Brand:
     return get_brand(db, owner, brand_id)
 
 
+def _estimate(db: Session, owner: User) -> EstimateOut:
+    return EstimateOut(credits=float(estimate(db, owner.workspace_id, sr.KIND, Decimal(1), {})))
+
+
+@new_brand.get("/estimate", response_model=EstimateOut)
+def new_brand_estimate(owner: User = Depends(brand_owner), db: Session = Depends(get_db)):
+    """New brand's "Make the brand · about 3 credits" once a website is typed (F_BrandNew)."""
+    return _estimate(db, owner)
+
+
 @router.get("/estimate", response_model=EstimateOut)
 def read_estimate(brand_id: int, owner: User = Depends(brand_owner),
                   db: Session = Depends(get_db)):  # fmt: skip
     _brand(db, owner, brand_id)
-    return EstimateOut(credits=float(estimate(db, owner.workspace_id, sr.KIND, Decimal(1), {})))
+    return _estimate(db, owner)
 
 
 @router.post("", response_model=JobOut, status_code=201, dependencies=[Depends(generation_on)])
 def start_read(brand_id: int, body: ReadIn, owner: User = Depends(brand_owner),
                db: Session = Depends(get_db)):  # fmt: skip
     """Read the site: a free fetch, then the paid read only if the page had something."""
+    return sr.start(db, owner, _brand(db, owner, brand_id), str(body.url))
+
+
+def _out(db: Session, brand: Brand, fetch: Job) -> dict:
+    now = sr.state(db, brand, fetch)
+    have = sr.products(db, brand)
+    for p in now["found"]["products"]:
+        item = have.get(sr.key(p["name"]))
+        p["mark"] = "new" if item is None else "have" if item.short_description.strip() else "fills"
+    return {**now, "id": fetch.id, "url": fetch.input.get("url", ""), "have_colours": brand.colours}
+
+
+@router.get("/latest", response_model=ReadOut)
+def latest_read(brand_id: int, owner: User = Depends(brand_owner), db: Session = Depends(get_db)):
+    """The brand's newest read, so Import from website reopens on it (F_BrandImport)."""
     brand = _brand(db, owner, brand_id)
-    return enqueue(db, owner, "site_fetch", sr.fetch_input(brand, str(body.url)), units=0,
-                   provider="local")  # fmt: skip
+    fetch = sr.latest(db, brand)
+    if fetch is None:
+        raise HTTPException(404, "This brand's site hasn't been read yet.")
+    return _out(db, brand, fetch)
 
 
 @router.get("/{job_id}", response_model=ReadOut)
 def read_state(brand_id: int, job_id: int, owner: User = Depends(brand_owner),
                db: Session = Depends(get_db)):  # fmt: skip
     brand = _brand(db, owner, brand_id)
-    return {**sr.state(db, brand, _read(db, brand, job_id)), "have_colours": brand.colours}
+    return _out(db, brand, _read(db, brand, job_id))
 
 
 def _logo(db: Session, request: Request, owner: User, url: str) -> StoredFile:
@@ -126,6 +159,34 @@ def _logo(db: Session, request: Request, owner: User, url: str) -> StoredFile:
     return stored
 
 
+def _found_logo(db: Session, request: Request, owner: User, fetch: Job, url: str) -> StoredFile:
+    """The found logo, fetched once and kept on the read: the review shows it and Save uses
+    the same file."""
+    if (kept := (fetch.output or {}).get("logo_file_id")) and (stored := db.get(StoredFile, kept)):
+        return stored
+    stored = _logo(db, request, owner, url)
+    fetch.output = {**(fetch.output or {}), "logo_file_id": stored.id}
+    return stored
+
+
+@router.get("/{job_id}/logo")
+def found_logo(brand_id: int, job_id: int, request: Request, owner: User = Depends(brand_owner),
+               db: Session = Depends(get_db)):  # fmt: skip
+    """The logo the read found, as a picture for the review's logo row. Nothing is saved to
+    the brand; a logo that can't be fetched is a 404 with the words to show."""
+    brand = _brand(db, owner, brand_id)
+    fetch = _read(db, brand, job_id)
+    url = sr.state(db, brand, fetch)["found"]["logo_url"]
+    if not url:
+        raise HTTPException(404, sr.NO_LOGO)
+    try:
+        stored = _found_logo(db, request, owner, fetch, url)
+    except site_fetch.Refused:
+        raise HTTPException(404, sr.NO_LOGO) from None
+    db.commit()
+    return Response(request.app.state.storage.get(stored.key), media_type=stored.content_type)
+
+
 @router.post("/{job_id}/save", response_model=SaveOut)
 def save_ticked(brand_id: int, job_id: int, body: SaveIn, request: Request,
                 owner: User = Depends(brand_owner), db: Session = Depends(get_db)):  # fmt: skip
@@ -146,7 +207,7 @@ def save_ticked(brand_id: int, job_id: int, body: SaveIn, request: Request,
     values: dict = {"colours": [*brand.colours, *added]} if added else {}
     if body.logo and found["logo_url"]:
         try:
-            values["logo_file_id"] = _logo(db, request, owner, found["logo_url"]).id
+            values["logo_file_id"] = _found_logo(db, request, owner, fetch, found["logo_url"]).id
         except site_fetch.Refused:
             problems.append(sr.NO_LOGO)
     if values:

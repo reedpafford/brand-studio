@@ -48,7 +48,7 @@ test("on a phone, with nothing waiting Reed sees no Needs you bell (the page sti
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("dialog", { name: "Account" }).getByRole("link", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Styles" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Studio" })).toHaveAttribute("aria-selected", "true"); // v5: Studio is the first tab
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

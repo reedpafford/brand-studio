@@ -23,17 +23,21 @@ export function LoginPage() {
   );
 }
 
+/** v5 A_Setup: the first run, once. Reed becomes the owner. */
 export function SetupPage() {
   return (
     <AuthForm
-      title="Set up the studio"
-      submitLabel="Create owner account"
+      bare
+      eyebrow="First run · this page shows once"
+      title="Set up your studio"
+      intro={<p className="text-muted">You'll be the owner: you approve what editors spend and set the budgets.</p>}
+      submitLabel="Create the studio"
       fields={[
-        { name: "setup_token", label: "Setup code (from your server settings)", type: "password" },
-        { name: "workspace_name", label: "Studio name", hint: "What your team sees when they're invited, e.g. Northside Studio." },
+        { name: "workspace_name", label: "Studio name" },
         { name: "name", label: "Your name", autoComplete: "name" },
         { name: "email", label: "Email", type: "email", autoComplete: "email" },
         { name: "password", label: "Password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
+        { name: "setup_token", label: "Setup code (from the server's environment)", type: "password" },
       ]}
       submit={(v) =>
         api.POST("/auth/setup", {
@@ -48,7 +52,7 @@ export function SetupPage() {
       }
       footer={
         <p className="text-sm text-muted">
-          Already set up? <Link className={`${linkText} inline-flex min-h-control items-center`} to="/login">Sign in</Link>
+          Already set up? <Link className={`${linkText} inline-flex min-h-control min-w-11 items-center justify-center`} to="/login">Sign in</Link>
         </p>
       }
     />
