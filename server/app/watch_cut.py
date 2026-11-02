@@ -152,10 +152,14 @@ def heard_cut(db: Session, job: Job) -> None:
             "cut": cut, "words": out.get("words", []), "script": version.text if version else "",
             "files": {"reference_images": out.get("file_ids", [])}}  # fmt: skip
     from app.credits import estimate, past_approved
+    from app.director import GRANT, past_own
 
     units = len(frames) + 1  # "up to": a look a frame, and the words; the director's own limit
-    wait = past_approved(db, project, user, estimate(db, project.workspace_id, KIND,
-                                                     Decimal(units), data))  # fmt: skip
+    look = estimate(db, project.workspace_id, KIND, Decimal(units), data)
+    run = (data["director_run"] or {}).get("id")
+    wait = past_own(db, project, run, look)
+    data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
+    wait = wait or past_approved(db, project, user, look)
     enqueue(db, user, KIND, data, units=units, project=project, provider="claude",
             prepaid=not wait, wait=wait)  # fmt: skip  # a freestyle past its price: an OK first
 
