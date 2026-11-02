@@ -973,3 +973,19 @@ def test_a_note_about_the_scripts_words_is_an_ask_to_change_them_not_any_says():
         assert director.WORDS.search(ask), ask
     for note in notes:
         assert not director.WORDS.search(note), note
+
+
+def test_make_it_shows_the_most_one_run_may_charge(app, db, owner, editor):
+    """Rule 34 (the Producer): a run on a video is quoted as a freestyle's, the planned cost and
+    every clip made again with its check and the director's own limit; not while it runs."""
+    from app.models.script_library import ScriptDraft
+    from app.routes.estimate import run_price, version_cost
+
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    project = db.get(Project, pid)
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    shown = editor.get(url).json()["run_price"]
+    assert shown == float(run_price(db, draft, project)) > float(version_cost(db, draft, project))
+    editor.post(url)
+    assert editor.get(url).json()["run_price"] == 0  # running: its "so far" is what it shows

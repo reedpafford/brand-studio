@@ -6027,6 +6027,11 @@ export interface components {
              * @default 0
              */
             unread: number;
+            /**
+             * Run Price
+             * @default 0
+             */
+            run_price: number;
         };
         /** DraftIn */
         DraftIn: {
