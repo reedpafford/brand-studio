@@ -15,6 +15,13 @@ name: deploy-next
 # Real language tests (Reed, 2026-10-29: test site only, with a test budget): set repo variable
 # NEXT_REAL_LANGUAGE_SAMPLES to true and NEXT_LANGUAGE_SAMPLES_BUDGET_USD to the budget; they use
 # the STUDIO_ANTHROPIC_KEY secret. Only a language's sample script is written for real.
+# With the stand-ins off, each other paid path stays off until its repo variable is true, and
+# every call it makes counts against NEXT_REAL_BUDGET_USD: NEXT_ITEM_CHECKS_PAID (the take
+# check on stills and takes: eyes, screens, cast, which self-approval, best take and the
+# director's redos read), NEXT_NARRATION_MUSIC_PAID with NEXT_NARRATION_MUSIC_BUDGET_USD (a
+# narration's music bed), and NEXT_SITE_READ_REAL (Import from website reads the real site).
+# NEXT_ITEM_CHECK_SCOPE (key_takes, all_takes or everything; default key_takes) sets which
+# items the take check looks at. All default off.
 on:
   push:
     branches: [next]
@@ -93,9 +100,15 @@ jobs:
           # Real AI (stand-ins off): one budget for every paid call, from its start time.
           REAL_BUDGET: ${{ vars.NEXT_REAL_BUDGET_USD || '0' }}
           REAL_SINCE: ${{ vars.NEXT_REAL_BUDGET_SINCE || '' }}
+          # Paid paths, each off until a real test is approved (they count against the budget).
+          ITEM_CHECKS_PAID: ${{ vars.NEXT_ITEM_CHECKS_PAID || 'false' }}
+          ITEM_CHECK_SCOPE: ${{ vars.NEXT_ITEM_CHECK_SCOPE || 'key_takes' }}
+          NARRATION_MUSIC_PAID: ${{ vars.NEXT_NARRATION_MUSIC_PAID || 'false' }}
+          NARRATION_MUSIC_BUDGET: ${{ vars.NEXT_NARRATION_MUSIC_BUDGET_USD || '0' }}
+          SITE_READ_REAL: ${{ vars.NEXT_SITE_READ_REAL || 'false' }}
         run: |
           {
-            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET REAL_BUDGET REAL_SINCE; do
+            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET REAL_BUDGET REAL_SINCE ITEM_CHECKS_PAID ITEM_CHECK_SCOPE NARRATION_MUSIC_PAID NARRATION_MUSIC_BUDGET SITE_READ_REAL; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat deploy/next/remote-deploy.sh

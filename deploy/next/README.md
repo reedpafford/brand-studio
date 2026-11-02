@@ -35,5 +35,13 @@ starts counting at its new start time. Past it, a press says "The test site's re
 charged." and queued work isn't sent. Spent so far: the owner's `GET /api/credits/real-budget`,
 or the worker's log lines "real budget: $X of $Y since …".
 
+Other paid switches for a paid test, all off by default and all inside the same real budget
+(they only matter with `NEXT_FAKE_PROVIDERS=false`):
+- `NEXT_ITEM_CHECKS_PAID=true`: the take checks (eyes, screens, cast, words). Self-approval, the
+  director's redos and best take need them. `NEXT_ITEM_CHECK_SCOPE` says how much they cover:
+  `key_takes` (default), `all_takes` or `everything`.
+- `NEXT_NARRATION_MUSIC_PAID=true` with `NEXT_NARRATION_MUSIC_BUDGET_USD`: a narration's music bed.
+- `NEXT_SITE_READ_REAL=true`: "Import from website" reads the real site.
+
 **Start over:** `docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml down -v`
 then run deploy-next. This wipes only the test site.
