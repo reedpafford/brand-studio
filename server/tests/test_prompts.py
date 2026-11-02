@@ -1460,8 +1460,10 @@ def test_the_director_names_every_tool_it_can_choose_and_never_writes_prompts():
     text = prompts.system("director")
     tools = get_args(schemas.DirectorTurn.model_fields["tool"].annotation)
     assert set(tools) == set(re.findall(r"^- `(\w+)`", text, re.M)), tools
-    assert "never write a plan, a still prompt or a clip prompt" in text
-    assert "The script's words are never changed" in text and "2 redos at most" in text
+    # the Producer, 2 Nov: it leads through the treatment; the steps still write the prompts
+    assert "**You lead through the treatment.**" in text and "writes its own prompts" in text
+    assert "never write a plan" not in text and "Story is not yours" not in text
+    assert "the words are never changed (rule 19)" in text and "2 redos at most" in text
     assert "**Be engaging.**" in text  # the rules come with it, to judge the takes
     turn = schemas.DirectorTurn.model_validate({"tool": "plan", "why": "There is no plan yet."})
     assert (turn.clip_id, turn.take_id, turn.note) == (None, None, "")
@@ -1617,3 +1619,68 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
     assert "the published script's words can't change here" in director
     for gone in ("not yet read", "never act on it again", "[{text}]", "[{text, new}]"):
         assert gone not in director, gone
+
+
+def test_the_director_reads_the_story_and_never_delivers_a_weak_cut_as_good():
+    """Reed, 2 Nov, on the first real director video: "didn't watch it for engaging content
+    and story telling... made no sense". It reads the script and plan as the story, a clean
+    take isn't proof of the story, it delivers only a watched cut, and a cut that doesn't land
+    is said plainly."""
+    director = prompts.system("director")
+    assert (
+        "<script> (the published script, numbered" in director
+        and "<plan> (the approved" in director
+    )
+    assert "the take check sees faces, outfits, screens and words, never the story" in director
+    assert "read <script> and <plan> as the story" in director
+    assert "`watch` is done and `current` for this cut" in director
+    assert "never deliver it as good" in director
+    watch = prompts.system("watch_cut")
+    assert "does the video make sense, and does it hold a viewer from the first second" in watch
+
+
+def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
+    """The Producer and Reed, 2 Nov: "The point was the flow we have used in the chats where it
+    understands WHY and what makes these shorts engaging and has creative leeway"; "Reed wrote
+    those skills to be the brain". A treatment first, the whole skill at runtime, the stills
+    reviewed before takes, the watch judged against the treatment, with one re-plan."""
+    docs = Path(prompts.__file__).parents[3] / "docs" / "next" / "skills"
+    for path in (HERE / "skills").glob("*.md"):  # word for word, so nothing of Reed's is lost
+        assert path.read_text() == (docs / path.name).read_text(), path.name
+    expect = {"house": None, "watercolor": None, "wool-crochet": None,
+              "disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
+              "claymation-goofy": "claymation", "paper-collage": "paper",
+              "skeleton-xray": "skeleton-ad", "skeleton": "skeleton-ad"}  # fmt: skip
+    for look, name in expect.items():
+        text = prompts.skill(look)
+        assert text == ((HERE / "skills" / f"{name}.md").read_text() if name else ""), look
+    assert prompts.skill("house", "song") == (HERE / "skills" / "song-ad.md").read_text()
+    for step in ("treatment", "plan", "director", "review_stills", "watch_cut"):
+        text = prompts.system(step, "claymation-goofy")
+        assert "## The team's craft" in text and "## The look's skill" in text, step
+        assert (HERE / "skills" / "claymation.md").read_text() in text, step
+    assert "## The look's skill" not in prompts.system("storyboard", "claymation-goofy")
+    assert prompts.SCHEMAS["treatment"] is schemas.Treatment
+    assert prompts.SCHEMAS["review_stills"] is schemas.StillsReview
+    treatment = prompts.system("treatment")
+    for part in ("the first 2 seconds", "The words are final (rule 19)", "why_it_holds",
+                 "A beat with nothing happening in it is a beat to rethink"):  # fmt: skip
+        assert part in treatment, part
+    canned = prompts.stand_in_treatment("Mom: Hi.\n\nDad: Bye.")
+    assert [b.lines for b in schemas.Treatment.model_validate(canned).beats] == [[1], [3]]
+    assert "<script>\n1| Mom: Hi." in prompts.treatment_input("Mom: Hi.")
+    assert prompts.treatment_block(None) == "" and "<treatment>" in prompts.treatment_block(canned)
+    for step in ("plan", "breakdown", "storyboard", "clip_prompts", "song_breakdown",
+                 "narrated_clip_prompts"):  # fmt: skip
+        assert "**The treatment (<treatment>, when given)** is the director's" in prompts.system(
+            step
+        ), step
+    director = prompts.system("director")
+    for part in ("**You lead through the treatment.**", "**Story and engagement are yours.**",
+                 "names the beat it serves", "- `treatment` (paid", "- `review_stills` (paid",
+                 "- `redraw_still` (paid, `shot_id`", "re-plan those beats once"):  # fmt: skip
+        assert part in director, part
+    assert "Re-plan:" in prompts.system("watch_cut")
+    assert "is the hook there by 2 seconds" in director
+    turn = schemas.DirectorTurn(tool="redraw_still", shot_id="3.1", note="x", why="b3: x")
+    assert turn.shot_id == "3.1"
