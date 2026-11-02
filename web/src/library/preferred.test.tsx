@@ -55,7 +55,7 @@ test("with one sheet, or a server without versions, there's no list", async () =
   setViewport(1440);
   fakeServer(server(owner, { "GET /library/character/5/sheet/versions": [404, { detail: "Not Found" }] }));
   open();
-  expect(await screen.findByDisplayValue("Mia")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Mia", level: 1 })).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Sheets" })).toBeNull();
 });
 

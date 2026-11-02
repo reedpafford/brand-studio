@@ -13,7 +13,7 @@ test("at 390: Cast & places' tabs and New character are 44 px presses, and the B
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   await page.goto(`/b/${brandId}/brand`);
-  await expect(page.getByRole("main").getByRole("heading", { name: "Brand", level: 1 })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Touch Co", level: 1 })).toBeVisible();
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
@@ -48,7 +48,7 @@ test("at 390, a script row's title is a 44 px press and the stage tabs stay on o
   expect((await ready.boundingBox())!.height).toBeLessThanOrEqual(48); // one line, not three
 });
 
-test("at 390, a character page's Add outfit, Save and Archive character are 44 px presses (QA-3 on #1163)", async ({ page }) => {
+test("at 390, a character page's Edit, More, Archive character, Add outfit, Save and Cancel are 44 px presses (QA-3 on #1163)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
@@ -58,7 +58,13 @@ test("at 390, a character page's Add outfit, Save and Archive character are 44 p
   await page.getByLabel("Name").fill("Pip");
   await page.getByRole("button", { name: "Create character" }).click();
   await page.getByRole("link", { name: "Pip" }).click();
-  for (const press of [page.getByRole("button", { name: "Add outfit" }), page.getByRole("button", { name: "Save", exact: true }), page.getByRole("button", { name: "Archive character" })]) {
+  // v5: the page reads first, with Edit and More at the top; Archive is in More.
+  for (const press of [page.getByRole("button", { name: "Edit", exact: true }), page.getByRole("button", { name: "More" })]) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.getByRole("button", { name: "More" }).click();
+  expect((await page.getByRole("menuitem", { name: "Archive character" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  for (const press of [page.getByRole("button", { name: "Add outfit" }), page.getByRole("button", { name: "Save", exact: true }), page.getByRole("button", { name: "Cancel" })]) {
     await press.scrollIntoViewIfNeeded();
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }

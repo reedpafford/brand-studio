@@ -42,17 +42,20 @@ test("a character is not in another brand's library", async ({ page }) => {
 
 test("editing keeps history, and an old version can be restored", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click(); // the page reads first; Edit opens the form (v5)
   await page.getByLabel("Notes").fill("Tough but fair.");
   await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Tough but fair.")).toBeVisible(); // saved: the page reads again
   await expect(page.getByRole("button", { name: "Restore v1" })).toBeVisible();
 
   await page.getByRole("button", { name: "Restore v1" }).click();
-  await expect(page.getByLabel("Notes")).toHaveValue("");
+  await expect(page.getByText("No description yet.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Restore v2" })).toBeVisible();
 });
 
 test("a character always keeps at least one brand", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("fomo", { exact: true }).uncheck();
   await expect(page.getByText("Pick at least one brand.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -60,6 +63,7 @@ test("a character always keeps at least one brand", async ({ page }) => {
 
 test("outfits and a voice sample are saved on a character", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
+  await page.getByRole("button", { name: "Add outfit" }).click(); // the page's Add outfit opens Edit (v5)
   await page.getByRole("button", { name: "Add outfit" }).click();
   await page.getByLabel("Outfit 1 name").fill("Gym kit");
   await page.getByLabel("Add picture to outfit 1").setInputFiles(image("gym.png"));
@@ -69,14 +73,15 @@ test("outfits and a voice sample are saved on a character", async ({ page }) => 
   await page.getByRole("button", { name: "Save" }).click();
 
   await page.reload();
-  await expect(page.getByLabel("Outfit 1 name")).toHaveValue("Gym kit");
+  await expect(page.getByRole("region", { name: "Outfits" }).getByText("Gym kit")).toBeVisible(); // the page lists it
   await expect(page.getByRole("img", { name: "Gym kit" })).toBeVisible();
-  await expect(page.getByLabel("Voice sample")).toBeVisible();
+  await expect(page.getByLabel("Play the voice sample")).toBeVisible();
 });
 
 test("archiving hides a character, and unarchiving brings it back", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
-  await page.getByRole("button", { name: "Archive character" }).click();
+  await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: "Archive character" }).click();
   await expect(page.getByText("Max", { exact: true })).toHaveCount(0);
 
   await page.getByLabel("Show archived").check();
@@ -87,7 +92,8 @@ test("archiving hides a character, and unarchiving brings it back", async ({ pag
 
 test("archiving shows a message with Undo that puts the character back", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
-  await page.getByRole("button", { name: "Archive character" }).click();
+  await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: "Archive character" }).click();
   await expect(page.getByRole("status")).toContainText("Max archived.");
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Max", { exact: true })).toBeVisible();
@@ -96,7 +102,8 @@ test("archiving shows a message with Undo that puts the character back", async (
 test("the owner can delete an archived character for good", async ({ page }) => {
   // Rex has no image, so the card's link is named "No image" (reported to the builder).
   await page.getByRole("listitem").filter({ hasText: "Rex" }).getByRole("link").click();
-  await page.getByRole("button", { name: "Archive character" }).click();
+  await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: "Archive character" }).click();
 
   await page.getByLabel("Show archived").check();
   page.once("dialog", (dialog) => dialog.accept());
