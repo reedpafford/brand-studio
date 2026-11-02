@@ -8,7 +8,7 @@ type LocksIO = components["schemas"]["LocksIO"];
 type Flag = "cast" | "look" | "length" | "song" | "end_line";
 const FLAGS: { id: Flag; label: string }[] = [
   { id: "cast", label: "Cast" },
-  { id: "look", label: "Look" },
+  { id: "look", label: "Style" },
   { id: "length", label: "Length" },
   { id: "song", label: "Song" },
   { id: "end_line", label: "End line" },

@@ -154,7 +154,7 @@ export function NewScriptPage() {
       </Link>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="type-page">{UNTITLED}</h1>
-        <Badge tone="neutral">Not saved yet · saved when you type, or pick a look or project</Badge>
+        <Badge tone="neutral">Not saved yet · saved when you type, or pick a style or project</Badge>
         <Menu title="Format" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} aria-label={`Format: ${KINDS[kind]}`} {...t}>{KINDS[kind]}</Button>}>
           {(close) =>
             (Object.keys(KINDS) as Kind[]).map((k) => (
@@ -166,7 +166,7 @@ export function NewScriptPage() {
         </Menu>
         {looks.data && (
           <Button variant="ghost" dense icon={Palette} trailing={ChevronDown} aria-haspopup="dialog" disabled={make.isPending} onClick={() => setPicking(true)}>
-            Look: {lookName(looks.data, look)}
+            Style: {lookName(looks.data, look)}
           </Button>
         )}
         {folders.data && me && (

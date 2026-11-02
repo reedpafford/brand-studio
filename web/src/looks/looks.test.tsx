@@ -31,7 +31,7 @@ test("an Off look offers Make a sample of the brand's hero at its price; House i
   expect(await within(card).findByText(/One still and one 5 s clip of Bo/)).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: /Make a sample · up to 6 credits/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /looks/pixar/sample")?.body).toEqual({ brand_id: 1, character_id: 5 }));
-  expect(within(screen.getByLabelText("House")).getByText("The house look is always on.")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("House")).getByText("The House style is always on.")).toBeInTheDocument();
 });
 
 test("on the test site, the sample says before the press whether it's real or a stand-in", async () => {
@@ -43,7 +43,7 @@ test("on the test site, the sample says before the press whether it's real or a 
   expect(await within(card).findByText(note)).toBeInTheDocument();
 });
 
-test("with no hero, Who's in the sample? offers the brand's characters or the look's own sample character", async () => {
+test("with no hero, Who's in the sample? offers the brand's characters or the style's own sample character", async () => {
   setViewport(390);
   const calls = fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ hero: null, characters: [{ id: 7, name: "Mia" }] })], "POST /looks/pixar/sample": [201, sample({ status: "making" })] }));
   open();
@@ -62,7 +62,7 @@ test("a look with its own sample character offers no hero and no Who's in the sa
   const calls = fakeServer(routes({ "GET /looks/pixar/sample": [200, sample({ hero: null, look: skeleton })], "POST /looks/pixar/sample": [201, sample({ status: "making", hero: null, look: skeleton })] }));
   open();
   const card = await screen.findByLabelText("Disney Pixar");
-  expect(await within(card).findByText(/of the look's own sample character/)).toBeInTheDocument();
+  expect(await within(card).findByText(/of the style's own sample character/)).toBeInTheDocument();
   expect(within(card).queryByLabelText("Who's in the sample?")).toBeNull();
   await userEvent.click(within(card).getByRole("button", { name: /Make a sample/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /looks/pixar/sample")?.body).toEqual({ brand_id: 1, character_id: null }));
