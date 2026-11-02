@@ -80,6 +80,7 @@ def _request(
     project: Project | None,
     free: bool = False,
     kie: float = 0.0,
+    note: str = "",
 ) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason.
@@ -96,7 +97,8 @@ def _request(
         return enqueue(db, user, "speech", job_input, project=project,
                        provider="replicate", units=_units(job_input))  # fmt: skip
     try:
-        job_input = music.job(draft.text, draft.style_line)
+        style = " ".join(x for x in (draft.style_line.strip(), note.strip()) if x)
+        job_input = music.job(draft.text, style)  # a director's remake note: this request only
     except music.NotReady as no:
         raise HTTPException(422, str(no)) from None
     job_input = {**job_input, "step": "song_take", "on_script": draft.script_id,
@@ -112,14 +114,19 @@ def _request(
 
 
 def make(
-    db: Session, user: User, draft: ScriptDraft, project: Project | None = None, kie=0.0
+    db: Session,
+    user: User,
+    draft: ScriptDraft,
+    project: Project | None = None,
+    kie=0.0,
+    note: str = "",
 ) -> list[SongTake]:
     """Make 2 takes (one request) of the version's lyrics and style line. `kie`: a real
     song through KIE (KieSuno sings only those, never a request queued before)."""
     voice = {"kind": narration.KIND, "voice": narration.VOICE} if narrated(db, draft) else {}
     if voice and any(state(db, t)[0] in ("making", "timing") for t in takes(db, draft, project)):
         raise HTTPException(409, narration.MAKING)  # one at a time: never two charged at once
-    job = _request(db, user, draft, project, kie=kie)
+    job = _request(db, user, draft, project, kie=kie, note=note)
     numbered = select(func.max(SongTake.number)).where(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )

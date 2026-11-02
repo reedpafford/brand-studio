@@ -19,7 +19,7 @@ from app.models.storyboards import StoryboardFrame
 
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
-         "pick_take", "mute", "final_cut", "watch_cut")  # fmt: skip
+         "pick_take", "mute", "song", "narration", "final_cut", "watch_cut")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -96,6 +96,13 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
                                    **me)  # fmt: skip
             what = "a stretch" if len(spans) == 1 else f"{len(spans)} stretches"
             return f"Muted {what} of {clip} instead of remaking it."
+        if tool in ("song", "narration"):  # the audio first in a song or narrated video
+            from app import director_song
+
+            note, made = decision.get("note") or "", (run or {}).get("songs", 0)
+            said = director_song.run(db, user, project, tool, note, made)
+            db.commit()
+            return said
         if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget
             return watch_cut.start(db, user, project, run)
         if tool == "review_stills":  # its own look at the stills before any take, own limit

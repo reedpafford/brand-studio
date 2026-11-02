@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_tools, take_mute
+from app import director_song, director_tools, take_mute
 from app.credits import COUNTED, lock
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -426,6 +426,9 @@ def _act(db: Session, job: Job, storage) -> None:
         run["watches"] = run.get("watches", 0) + 1
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
+    remade = bool((decision.get("note") or "").strip()) and result.startswith("Making")
+    if tool in ("song", "narration") and remade:
+        run["songs"] = run.get("songs", 0) + 1  # a remake with a note (director_song.REMAKES)
     if tool == "redraw_still" and not result.startswith("Refused"):
         sid = decision.get("shot_id") or ""
         run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
@@ -605,6 +608,8 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
+               "songs_left": director_song.REMAKES - run.get("songs", 0),
+               "narrations_left": director_song.REMAKES - run.get("songs", 0),
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
@@ -692,6 +697,10 @@ def treatment_block(db: Session, project: Project) -> str:
     return f"{told}\n" if told else ""
 
 
+def _audio_key(db: Session, project: Project) -> str:
+    return "song" if director_song.kind(db, project) == "song" else "narration"
+
+
 def video_state(db: Session, project: Project) -> dict:
     """Where the video is, as the director reads it (and `choose` on the stand-ins)."""
     from app.clip_prompts import newest
@@ -733,8 +742,10 @@ def video_state(db: Session, project: Project) -> dict:
         Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
     from app.plans import status
 
+    audio = director_song.state(db, project)  # a song or narrated video's song or narration
     return {
         "plan": status(db, project),  # none, ready (waits for approval) or approved
+        **({_audio_key(db, project): audio} if audio else {}),  # the clock its shots follow
         # choices fixed for it (director-chat.md §1), kept as is; a person's own look pick isn't
         "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
@@ -775,6 +786,8 @@ def choose(state: dict) -> dict:
         return go("wait", "Something is still being made or waits for the owner.")
     if state.get("treatment") == "none":  # the story first, on every run (the Director)
         return go("treatment", "The story first: what holds a viewer, beat by beat.")
+    if audio := _audio_move(state, go):  # a song or narrated video: its audio is the clock
+        return audio
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
     if state["missing_looks"]:
@@ -837,6 +850,26 @@ def choose(state: dict) -> dict:
     )
     said = " ".join(x for x in (done, keep, noticed) if x)
     return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
+
+
+def _audio_move(state: dict, go) -> dict | None:
+    """The stand-in's song or narration: make it, wait for it, then use its best take; a
+    failed one is made once more (that run's one remake)."""
+    tool = "song" if "song" in state else "narration" if "narration" in state else None
+    audio = state.get(tool) if tool else None
+    if audio is None or audio.get("used_take_id"):
+        return None
+    what = "song" if tool == "song" else "narration"
+    if audio["state"] == "none":
+        return go(tool, f"The {what} first: its timing is what the shots follow.")
+    if audio["state"] == "making":
+        return go("wait", f"The {what} is being made.")
+    if audio["state"] == "ready":
+        return go(tool, f"The {what} is made and timed: use its best take.")
+    left = state.get("allowed", {}).get("songs_left", 0)
+    if left > 0:
+        return go(tool, f"The {what} didn't come out: make it again.", note="Make it again.")
+    return None
 
 
 # Rule 19, not here: an ask to change the script's words ("change the line to ...", "make her

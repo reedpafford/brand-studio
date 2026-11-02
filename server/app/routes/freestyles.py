@@ -60,7 +60,7 @@ ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a style."
 HAS_VIDEO = "This version already has a video."
 FREEZE = "freeze"  # an editor's first turn: what the owner's OK makes real (`freeze`)
-DIRECTED = {"dialogue": "story"}  # the types the director makes: the script kind it reads
+DIRECTED = {"dialogue": "story", "song": "song", "narrated": "narrated"}  # type: script kind
 PAST_CAP = (
     "That change would take this freestyle past its limit of {cap} credits. Start a new "
     "freestyle from here."
