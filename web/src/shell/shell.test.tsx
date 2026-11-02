@@ -367,7 +367,7 @@ test("New brand with a website says what reading it costs, and opens on Import f
   expect(calls.some((c) => c.key === "POST /brands")).toBe(false);
   await userEvent.clear(within(form).getByLabelText("Website (optional)"));
   await userEvent.type(within(form).getByLabelText("Website (optional)"), "https://calm.co");
-  await userEvent.click(await within(form).findByRole("button", { name: "Make the brand · about 3 credits" }));
+  await userEvent.click(await within(form).findByRole("button", { name: "Make the brand · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ website: "https://calm.co" }));
   expect(await screen.findByText("Calm Co. is ready. Reading its site…")).toBeInTheDocument();
 });

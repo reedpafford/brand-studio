@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import { ImagePicker } from "../brand/ImagePicker";
-import { Button, Field, PageTop, buttonClass, creditsLabel } from "../components";
+import { Button, Field, PageTop, buttonClass, pressLabel } from "../components";
 import { useToast } from "../toast";
 import { useMe } from "../auth/useMe";
 
@@ -75,9 +75,9 @@ export function NewBrandPage() {
         </div>
         <ImagePicker label="Logo (optional)" fileId={logo} onChange={setLogo} inline="Change logo" />
         <div className="flex justify-end pt-2">
-          {/* "about": the read's usual cost, as Import from website says it (F_BrandNew, F_BrandImport). */}
+          {/* Rule 32: the most the read can charge, "up to", as Import from website says it. */}
           <Button type="submit" busy={make.isPending || (!!site && !badSite && price.isPending)} disabled={reason !== null} reason={reason} className="w-full sm:w-auto">
-            {site && !badSite && price.data !== undefined ? `Make the brand · about ${creditsLabel(price.data)}` : "Make the brand"}
+            {site && !badSite && price.data !== undefined ? `Make the brand · ${pressLabel(price.data, "estimate")}` : "Make the brand"}
           </Button>
         </div>
       </form>

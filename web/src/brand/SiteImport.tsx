@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Globe, Image } from "lucide-react";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Banner, Button, Field, creditsLabel, useToast } from "../components";
+import { Banner, Button, Field, pressLabel, useToast } from "../components";
 import { BrandAction } from "./BrandPage";
 
 type Read = components["schemas"]["app__routes__site_read__ReadOut"];
@@ -83,7 +83,7 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
   const count = reviewing ? Number(tick.logo && !noLogo) + tick.colours.length + tick.products.length : 0;
   const reading = r?.status === "reading" || start.isPending || (jobId !== null && one.isPending);
   const refused = start.isError ? start.error.message : null;
-  const priceText = price.data !== undefined ? ` · about ${creditsLabel(price.data)}` : "";
+  const priceText = price.data !== undefined ? ` · ${pressLabel(price.data, "estimate")}` : ""; // rule 32: a press says "up to"
 
   let found: ReactNode = null;
   if (reading) {

@@ -13,12 +13,12 @@ for (const width of [1440, 390]) {
     const card = page.getByRole("region", { name: "Import from website" });
 
     await card.getByLabel("Paste the brand's website").fill("https://example.com/fail");
-    await card.getByRole("button", { name: /^Read the site · about/ }).click();
+    await card.getByRole("button", { name: /^Read the site · up to/ }).click();
     await expect(card.getByText("Couldn't read that site. Nothing was charged.")).toBeVisible();
 
     // The address stays in the box; Read it again reads the corrected one.
     await card.getByLabel("Paste the brand's website").fill("https://example.com");
-    await card.getByRole("button", { name: /^Read it again · about/ }).click();
+    await card.getByRole("button", { name: /^Read it again · up to/ }).click();
     await expect(card.getByText(/Nothing is saved yet/)).toBeVisible({ timeout: 20_000 });
     await expect(card.getByRole("checkbox").first()).toBeChecked();
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));

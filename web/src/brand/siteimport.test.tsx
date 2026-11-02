@@ -37,11 +37,11 @@ async function open(at = "/b/1/brand") {
 const section = () => screen.findByRole("region", { name: "Import from website" });
 async function readSite(url = "https://fomo.app") {
   await userEvent.type(await screen.findByLabelText("Paste the brand's website"), url);
-  await userEvent.click(await screen.findByRole("button", { name: "Read the site · about 3 credits" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Read the site · up to 3 credits" }));
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("the owner pastes the site and reads it for about 3 credits; a bad address says so and nothing runs (flows BR2)", async () => {
+test("the owner pastes the site and reads it for up to 3 credits; a bad address says so and nothing runs (flows BR2)", async () => {
   setViewport(1440);
   const calls = fakeServer(base());
   await open();
@@ -68,7 +68,7 @@ test("while it reads it says so, then the review ticks what's new: the logo (sho
   expect(within(card).getByText("Fills an empty description")).toBeInTheDocument();
   expect(within(card).getByText("Already in your products")).toBeInTheDocument();
   expect(within(card).getByText(/Nothing is saved yet/)).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: "Read it again · about 3 credits" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Read it again · up to 3 credits" })).toBeInTheDocument();
   expect(card.textContent).not.toMatch(/\$/);
 });
 
@@ -106,7 +106,7 @@ test("a site that couldn't be read says nothing was charged, and keeps the addre
   await readSite();
   expect(await screen.findByText("Couldn't read that site. Nothing was charged.")).toBeInTheDocument();
   expect(screen.getByLabelText("Paste the brand's website")).toHaveValue("https://fomo.app");
-  expect(screen.getByRole("button", { name: "Read it again · about 3 credits" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Read it again · up to 3 credits" })).toBeInTheDocument();
 });
 
 test("a page with nothing useful says to try the home page", async () => {
@@ -170,6 +170,6 @@ test("a read already saved says so, and Read it again is one press", async () =>
   const calls = fakeServer(base(owner, { "GET /brands/1/site-read/latest": [200, read("saved")] }));
   await open();
   expect(await screen.findByText("The last read is saved. Read it again to see what's on the site now.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Read it again · about 3 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Read it again · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/site-read")?.body).toEqual({ url: "https://fomo.app" }));
 });
