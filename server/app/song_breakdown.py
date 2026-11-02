@@ -113,18 +113,18 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
     """A new row without a song part (an edit, a fix, a recast) takes the newest row's, its
     shots packed back to back over the same song, free (rule 22: an edit never leaves a gap
     to fix by hand): see `repack`. A shot an edit brings back (Undo) gets its earlier times
-    from the rows before, so an Undo is exact."""
-    if "song" not in row.data:
-        order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
-        with Session(bind=connection) as db:
-            song = carried(db, row.project_id, order)
-        if song:
-            row.data = {**row.data, "song": song}
-    if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
-        with Session(bind=connection) as db:
+    from the rows before, so an Undo is exact. Only a row that brings its own song part (the
+    AI's plan, a new take) is word-snapped: an edit never moves another shot's time."""
+    with Session(bind=connection) as db:
+        if row.data.get("song"):
             take = db.get(SongTake, row.data["song"].get("take_id") or 0)
-            timing = timing_used(take) if take else {}
-        row.data = fit(snap(row.data, timing))
+            row.data = snap(row.data, timing_used(take) if take else {})
+        else:
+            order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
+            if song := carried(db, row.project_id, order):
+                row.data = {**row.data, "song": song}
+    if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
+        row.data = fit(row.data)
 
 
 LEAD = 0.1  # seconds: a shot that shows what a word names lands just before it's sung

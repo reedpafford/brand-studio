@@ -325,7 +325,13 @@ def test_word_snap_keeps_shots_at_least_a_second_and_leaves_sung_and_first_shots
     assert snap(data, timing) == data
 
 
-def test_a_saved_song_plan_is_word_snapped_to_its_take(app, db, owner, editor, song):  # noqa: F811
+def test_a_new_song_plan_is_word_snapped_and_an_edit_never_moves_a_time(
+    app,
+    db,
+    owner,
+    editor,
+    song,  # noqa: F811
+):
     video = _video(app, db, owner, editor, song)
     row = _rows(db, video)[-1]
     take = db.get(SongTake, row.data["song"]["take_id"])
@@ -333,7 +339,7 @@ def test_a_saved_song_plan_is_word_snapped_to_its_take(app, db, owner, editor, s
     clip = next(c for c in row.data["clips"] if len(c["shot_ids"]) > 1)
     first, second = clip["shot_ids"][:2]
     at = round(times[second]["start"] + 0.6, 2)  # the word is sung 0.6 s into the shot
-    assert times[second]["end"] - at >= 1 and at - times[first]["start"] >= 1.1
+    assert times[second]["end"] - at >= 1
     take.timing = {**take.timing, "words": [{"word": "scorecard", "start": at, "end": at + 0.4}]}
     db.commit()
     plan = editor.get(f"{video}/breakdown").json()["breakdown"]
@@ -342,5 +348,17 @@ def test_a_saved_song_plan_is_word_snapped_to_its_take(app, db, owner, editor, s
             if shot["id"] == second:
                 shot["action"] = "The scorecard fills the frame"
     assert editor.put(f"{video}/breakdown", json=plan).status_code == 200
+    edited = _rows(db, video)[-1]
+    assert edited.data["song"]["shots"] == times  # an edit keeps every time as it was
+    db.add(
+        BreakdownVersion(
+            project_id=row.project_id,
+            script_version=row.script_version,
+            source="claude",
+            data=copy.deepcopy(edited.data),
+            created_by_id=row.created_by_id,
+        )
+    )  # a new plan with its song part
+    db.commit()
     snapped = _rows(db, video)[-1].data["song"]["shots"]
     assert snapped[second]["start"] == snapped[first]["end"] == round(at - 0.1, 2)
