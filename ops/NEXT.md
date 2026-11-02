@@ -51,6 +51,8 @@ Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or
   6. Skeleton's opener reads "Usually opens on…" (the Director).
   7. #1114's older notes: Plan's own button refreshes the held banner without a reload; over budget it reads "Send for approval", not "Make the plan".
   8. #1140's leftover Advice: FrameCard's "Redo storyboard first" wording, and videoHold shared with the old page instead of copied. #1125's leftover Advice is listed on that PR.
+  9. #1141's Advice: a style's card says "No sheet yet" even when one of its lanes has a sheet.
+  10. settings.py's item_check_scope comment still says "one frame each"; a take check uses 6 frames under every scope.
 - **Next director slice, near the top (Producer, 1 Nov):** "Remake this" makes reel import → script the default path when an editor asks to remake a reel. Reed's main complaint on FOMO batch 3 was remakes that weren't copies; FOMO-Producer found reel import → script is the path that works (Director, 1 Nov).
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
 - **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song is a format in any look (30 Oct, #1031).
