@@ -27,6 +27,7 @@ from app.routes.clips import generation_on
 from app.routes.jobs import JobOut
 
 router = APIRouter(prefix="/brands/{brand_id}/site-read", tags=["brands"])
+STILL_READING = "Still reading the site."
 new_brand = APIRouter(prefix="/brands/site-read", tags=["brands"])  # before a brand exists
 
 
@@ -138,7 +139,8 @@ def read_state(brand_id: int, job_id: int, owner: User = Depends(brand_owner),
 
 
 def _logo(db: Session, request: Request, owner: User, url: str) -> StoredFile:
-    """The found logo, fetched now (only when ticked) with the same checks and caps."""
+    """The found logo, fetched with the same checks and caps: by the review's logo row, or at
+    Save when it's ticked and wasn't fetched yet (`_found_logo` keeps it on the read)."""
     settings = request.app.state.settings
     if settings.fake_providers:
         data, kind = sr.stand_in_logo(url)
@@ -176,7 +178,10 @@ def found_logo(brand_id: int, job_id: int, request: Request, owner: User = Depen
     the brand; a logo that can't be fetched is a 404 with the words to show."""
     brand = _brand(db, owner, brand_id)
     fetch = _read(db, brand, job_id)
-    url = sr.state(db, brand, fetch)["found"]["logo_url"]
+    now = sr.state(db, brand, fetch)
+    if now["status"] == "reading":
+        raise HTTPException(409, STILL_READING)
+    url = now["found"]["logo_url"]
     if not url:
         raise HTTPException(404, sr.NO_LOGO)
     try:
