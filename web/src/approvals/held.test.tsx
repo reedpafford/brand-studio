@@ -206,3 +206,12 @@ test("the owner approving a request on this video never sees the editor's 'The o
   await vi.waitFor(() => expect(screen.queryByText("Waiting for your OK")).toBeNull());
   expect(screen.queryByText(/The owner said yes/)).toBeNull();
 });
+
+test("a held Freestyle send is never shown as Your Quick clip (QA-9 on #1161)", async () => {
+  const fs = job({ id: 63, project_id: null, script_id: null, step: null, held: "That's more than this week's 5 credits.", freestyle: { id: 4, title: "Bo at the beach", type: "one_clip", said: "Bo runs", change: false } });
+  fakeServer({ "GET /jobs": [200, [fs, clip]] });
+  show({ quick: true });
+  expect(await screen.findByText(/97 credits/)).toBeInTheDocument();
+  expect(screen.getAllByText("Waiting for approval")).toHaveLength(1);
+  expect(screen.queryByText(/5 credits\./)).toBeNull();
+});

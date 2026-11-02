@@ -13,6 +13,7 @@ import { DescriptionForm } from "./DescriptionForm";
 import { ReelBlock, useReelImport } from "./ReelImport";
 import { usePatchScript, useWriteWords, type Script } from "./useScript";
 import { SCRIPT_BOX, useTypingOn } from "./NewScriptButton";
+import { refreshJobs } from "../jobs/refresh";
 
 const GOING = ["queued", "running"];
 
@@ -37,7 +38,7 @@ function WriteWithClaude({ script: s, text, hasUnsaved, onWritten }: { script: S
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => refreshJobs(queryClient),
   });
   // Just started: it counts as writing until the job list has caught up and says otherwise.
   const startedId = write.data?.id;

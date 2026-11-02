@@ -140,6 +140,35 @@ test("a Quick clip row says Quick clip once", async () => {
   expect(within(screen.getByRole("list")).getAllByText("Quick clip")).toHaveLength(1);
 });
 
+const freestyle = (f: object = {}) =>
+  held({ id: 70, project_id: null, step: null, created_by_id: 7, created_by_name: "Sam", prompt_summary: "Bo runs", freestyle: { id: 4, title: "Bo at the beach", type: "one_clip", said: "Bo runs\ninto the sea", change: false, ...f } });
+const allowances: [number, unknown] = [200, [{ user_id: 7, name: "Sam", quick_clip_credits_used: 10, quick_clip_credits_allowed: 1 }]];
+
+test("a held Freestyle row says Freestyle, its type and title, who asked, quotes the send and opens it (QA-9 on #1161)", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [freestyle()]], "GET /credits/allowances": allowances });
+  open();
+  const list = await screen.findByRole("list");
+  expect(await within(list).findByText("Freestyle · One clip · Bo at the beach")).toBeInTheDocument();
+  expect(within(list).getByText(/asked by Sam, /)).toBeInTheDocument();
+  expect(within(list).getByText("First send")).toBeInTheDocument();
+  const said = within(list).getByText(/Bo runs/);
+  expect(said.textContent).toBe('"Bo runs\ninto the sea"');
+  expect(said).toHaveClass("whitespace-pre-line");
+  expect(within(list).getByRole("link", { name: /^Open freestyle/ })).toHaveAttribute("href", "/freestyle/4");
+  expect(within(list).getByRole("button", { name: "Approve freestyle" })).toBeInTheDocument();
+  expect(within(list).getByRole("button", { name: "Decline freestyle" })).toBeInTheDocument();
+  expect(list).not.toHaveTextContent("Quick clip");
+  expect(screen.queryByText(/quick clips this week/)).toBeNull();
+});
+
+test("a held change in a Freestyle thread says Change asked", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ change: true, said: "Make it sunset" })]] });
+  open();
+  expect(await screen.findByText("Change asked")).toBeInTheDocument();
+  expect(screen.getByText('"Make it sunset"')).toBeInTheDocument();
+  expect(screen.queryByText("First send")).toBeNull();
+});
+
 test("each row says who asked, and the owner sees the dollars next to the credits", async () => {
   fakeServer({
     ...base,

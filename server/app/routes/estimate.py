@@ -125,6 +125,12 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     else:
         seconds_left = sum(c["seconds"] for c in planned) or int(project.estimate_credits)
     clips_done = bool(clips) and not seconds_left
+    from app import item_checks  # each take's check rides along while checks are on
+
+    ws = project.workspace_id
+    checks = (sum((item_checks.rides(db, project, c) for c in clips if not c.picked_take_id),
+                  Decimal(0)) + item_checks.per_take(db, ws) * len(
+        [c for c in planned if c["id"] not in {r.clip_id for r in clips}]))  # fmt: skip
     rewrite = clip_prompts.to_rewrite(db, project) if clips else []
     rows = [
         ("script", script is not None, claude, "one Claude call to draft it"),
@@ -150,7 +156,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
         (
             "clips",
             clips_done,
-            _video(db, project.workspace_id, seconds_left, project),
+            _video(db, project.workspace_id, seconds_left, project) + checks,
             f"{seconds_left} s of video at 480p, one take each",
         ),
         ("video", False, Decimal(0), "putting the clips together is free"),

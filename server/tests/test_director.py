@@ -925,3 +925,36 @@ def test_a_note_on_a_clip_not_ready_is_carried_until_it_is():
     made = director.choose(state)
     assert (made["tool"], made["clip_id"]) == ("make_take", "c1")
     assert made["why"].startswith("Note 1:")
+
+
+def test_stand_in_wording_a_script_word_ask_the_noticed_line_and_the_take_picked(
+    app, db, owner, editor
+):
+    """QA-11 on #1160: an ask to change the script's words is answered as rule 19 says, never
+    "which clip"; "I also noticed" lines end in a full stop; a pick names the take's number."""
+    note = {"note": 1, "text": "Change the line to 'Buy now'.", "new": True, "answered": False}
+    take = {"id": 41, "number": 1, "verdict": "clean", "notes": []}
+    clip = {"clip_id": "c1", "stale": False, "takes": [take], "picked_take_id": 41, "muted": []}
+    state = {"being_made": False, "held_for_owner": False, "shots": "ready", "missing_looks": [],
+             "stills": {"frames": 1, "drawn": 1}, "clips": [clip], "cut": "made", "chat": [note],
+             "watch": {"state": "done", "current": True,
+                       "findings": [{"clip_id": "c1", "says": "a stray sound", "fix": "mute"}]},
+             "allowed": {"redos_used": {}, "watches_left": 1}}  # fmt: skip
+    out = director.choose(state)
+    assert out["tool"] == "deliver", out  # the words aren't changed here: nothing to make
+    assert "Note 1: the script's words stay as written here." in out["why"]
+    assert "I also noticed: a stray sound. Want me to fix it?" in out["why"]
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.clips import ClipTake, ProjectClip
+
+    project = db.get(Project, pid)
+    row = db.query(ProjectClip).filter_by(project_id=pid).first()
+    take = db.query(ClipTake).filter_by(clip_id=row.id).order_by(ClipTake.id.desc()).first()
+    who = db.query(User).filter_by(email="ed@example.com").one()
+    pick = {"tool": "pick_take", "clip_id": row.clip_id, "take_id": take.id}
+    said = director_tools.run(db, who, project, pick, app.state.storage)
+    assert said == f"Picked take {take.number} for {row.clip_id}."  # its number, never its id

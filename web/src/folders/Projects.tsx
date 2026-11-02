@@ -30,7 +30,7 @@ export function useFolderFilter(): string | null {
 export const folderQuery = (folder: string | null) => (folder ? { folder } : {});
 
 const count = (f: FolderOut) => f.items.scripts + f.items.videos + f.items.clips;
-const LISTS = ["scripts", "videos", "clip", "media"]; // the lists a project filters
+const LISTS = ["scripts", "videos", "media"]; // the lists a project filters
 
 function useRefresh(brandId: number) {
   const queryClient = useQueryClient();
@@ -89,7 +89,7 @@ function ProjectMenu({ folder, brandId }: { folder: FolderOut; brandId: number }
 }
 
 /** The brand's projects as a list (the left tab on desktop, a sheet on a phone): All, each project with its count, No project, New project.
- *  Picking one filters Scripts, Videos and Quick clips (?folder=); off those lists it opens Videos. */
+ *  Picking one filters Scripts, Videos and Media (?folder=); off those lists it opens Videos. */
 export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?: () => void }) {
   const folders = useFolders(brandId);
   const navigate = useNavigate();

@@ -4,6 +4,7 @@ import { fileUrl } from "../api/upload";
 import { Button, Panel, Skeleton, creditsLabel } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useBrandCharacters, type Slot } from "./useCast";
+import { refreshJobs } from "../jobs/refresh";
 
 type Character = NonNullable<ReturnType<typeof useBrandCharacters>["data"]>[number];
 const MODEL = "nano-banana-pro";
@@ -22,7 +23,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
       const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: path(c) }, body: { model_id: MODEL, change: "" } });
       if (!data) throw new Error(errorText(error));
     },
-    onSuccess: () => Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["jobs"] })]),
+    onSuccess: () => Promise.all([refresh(), refreshJobs(queryClient)]),
   });
   const approve = useMutation({
     mutationFn: async (c: Character) => {

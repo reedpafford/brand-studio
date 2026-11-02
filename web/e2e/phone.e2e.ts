@@ -16,8 +16,8 @@ test("on a phone, the five bottom tabs reach every brand section and there is no
   await tabs.getByRole("link", { name: "Cast" }).click();
   await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();
 
-  await tabs.getByRole("link", { name: "Quick clip" }).click();
-  await expect(page.getByRole("heading", { name: "Quick clip", exact: true })).toBeVisible();
+  await tabs.getByRole("link", { name: "Freestyle" }).click();
+  await expect(page.getByRole("heading", { name: "Freestyle", exact: true })).toBeVisible();
 
   await tabs.getByRole("link", { name: "Brand" }).click();
   await expect(page.getByRole("heading", { name: "Brand", exact: true })).toBeVisible();

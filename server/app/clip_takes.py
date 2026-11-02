@@ -318,9 +318,13 @@ def _with_note(prompt: str, note: str) -> str:
 
 
 def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
-    """What one more take costs, the same estimate `enqueue` charges."""
+    """What one more take costs: the estimate `enqueue` charges, and the take check that rides
+    along while checks are on (`item_checks.rides`)."""
+    from app import item_checks
+
     job = {"model": video_model(project).id, "input": {"resolution": RESOLUTION}}
-    return estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
+    take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
+    return take + item_checks.rides(db, project, clip)
 
 
 def save_take(db: Session, job: Job) -> None:

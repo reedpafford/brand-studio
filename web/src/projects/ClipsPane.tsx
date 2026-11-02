@@ -17,6 +17,7 @@ import { ReviewChip } from "./Checks";
 import { RewriteNote, RewriteOne, useRewritePrice } from "./RewriteClips";
 import { ClipCard } from "./ClipCard";
 import { BarAction } from "./BarAction";
+import { refreshJobs } from "../jobs/refresh";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 
@@ -100,7 +101,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
     onSuccess: (job) => {
       setWriting(job.id);
       pressed.press();
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
       queryClient.invalidateQueries({ queryKey: ["rewrite-price", projectId] });
     },
   });
@@ -113,7 +114,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => refreshJobs(queryClient),
   });
   const review = useMutation({
     onMutate: (act: { clip: Clip; take?: number; undo?: boolean }) => (act.take === undefined ? showNow(act.clip.id, { approved: !act.undo }) : Promise.resolve({ before: undefined })),
@@ -154,7 +155,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
       setFixSaid((m) => Object.fromEntries(Object.entries(m).filter(([id]) => Number(id) !== clip.id)));
       if (r.job) setFixing((f) => ({ ...f, [clip.id]: r.job!.id }));
       if (r.fixed === false) setFixSaid((m) => ({ ...m, [clip.id]: r.reason }));
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
       await refresh();
       if (r.fixed === true) toast(`Fixed clip ${clip.clip_id}'s prompt.`, () => void undoFix(clip, r.before));
     },

@@ -11,6 +11,7 @@ import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { serverTime } from "../time";
+import { typeName, type Kind } from "../freestyle/useFreestyle";
 import { STEPS } from "./steps";
 import type { Job, Project } from "./useHeld";
 
@@ -97,7 +98,8 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
   const [declining, setDeclining] = useState(false);
   const [why, setWhy] = useState("");
   const project = projects.find((p) => p.id === job.project_id);
-  const what = job.step ? (STEPS[job.step] ?? job.step) : "Quick clip";
+  const fs = job.freestyle;
+  const what = fs ? "Freestyle" : job.step ? (STEPS[job.step] ?? job.step) : "Quick clip";
   const who = job.created_by_name;
   const act = useMutation({
     mutationFn: async (yes: boolean) => {
@@ -127,25 +129,35 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
             <span aria-hidden className="text-muted">·</span>
           </>
         )}
-        <span>{what}</span>
+        <span>{fs ? `Freestyle · ${typeName(fs.type as Kind)} · ${fs.title}` : what}</span>
       </Where>
       <span className="text-muted">{who ? `asked by ${who}, ` : ""}{ago(job.created_at)}</span>
     </div>
   );
   return (
     <Row id={`job-${job.id}`} tabIndex={-1} aria-current={asked || undefined} className={asked ? "outline outline-2 -outline-offset-2 outline-accent" : ""} status={<Status tone="accent">Request</Status>} where={where}>
-      {job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>}
+      {fs ? (
+        <>
+          <p className="text-muted">{fs.change ? "Change asked" : "First send"}</p>
+          {fs.said && <p className="line-clamp-6 whitespace-pre-line text-muted">"{fs.said}"</p>}
+        </>
+      ) : (
+        job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>
+      )}
       <p className="tabular-nums">
         {creditsText(job.credits)}{usd !== undefined && ` (${dollars(usd)})`}{after !== null && ` · takes the video to ${Math.round(after)}% of its budget`}
       </p>
-      {!project && !job.step && week && (
+      {!project && !job.step && !fs && week && (
         <p className="text-muted tabular-nums">
           {who ? `${who}'s` : "The editor's"} quick clips this week: {whole(week.quick_clip_credits_used)} of {whole(week.quick_clip_credits_allowed)} credit{week.quick_clip_credits_allowed === 1 ? "" : "s"}
         </p>
       )}
       {project && after !== null && <Meter used={budgetUsed(project) + job.credits} budget={project.budget_credits} pct={after} />}
       {act.isError && <p role="alert" className={errorClass}>{act.error.message}</p>}
-      <div className="flex gap-2 pt-1">
+      <div className="flex flex-wrap gap-2 pt-1">
+        {fs && (
+          <Link className={buttonClass("ghost")} to={`/freestyle/${fs.id}`} aria-label={`Open freestyle ${fs.title}`}>Open</Link>
+        )}
         <Button variant="ghost" className="flex-1 sm:flex-none" disabled={act.isPending} aria-label={`Decline ${lower(what)}`} onClick={() => setDeclining(true)}>
           Decline
         </Button>

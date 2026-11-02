@@ -10,6 +10,7 @@ import { errorText as errorClass } from "../ui";
 import { lookFitNote, useSheetPrice } from "../library/SheetPanel";
 import { RoleFacts } from "./RoleFacts";
 import { RoleTextFit } from "./RoleTextFit";
+import { refreshJobs } from "../jobs/refresh";
 
 type Asset = components["schemas"]["AssetOut"];
 
@@ -149,7 +150,7 @@ export function AssetCard({
     },
     onSuccess: async () => {
       setChange("");
-      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refreshJobs(queryClient);
       await refresh();
     },
   });
@@ -175,7 +176,7 @@ export function AssetCard({
   const copy = useMutation({
     mutationFn: () => must(api.POST("/projects/{project_id}/assets/looks/{item_id}/copy", { params: { path: { project_id: projectId, item_id: id! } } })),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refreshJobs(queryClient);
       await refresh();
     },
   });
@@ -183,7 +184,7 @@ export function AssetCard({
   const drawCopy = useMutation({
     mutationFn: () => must(api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind: "character", item_id: copyId! } }, body: { model_id: model, change: "" } })),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refreshJobs(queryClient);
       await refresh();
     },
   });

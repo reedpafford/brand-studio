@@ -45,7 +45,12 @@ def _then(db: Session, project: Project, row: Row) -> Decimal:
     """What making it again costs once the prompt is rewritten (0 for a clip with no take)."""
     if isinstance(row, StoryboardFrame) or _has_take(db, row):
         kind, data, units = _draw(db, project, row)
-        return estimate(db, project.workspace_id, kind, Decimal(units), data)
+        made = estimate(db, project.workspace_id, kind, Decimal(units), data)
+        if isinstance(row, StoryboardFrame):
+            return made
+        from app import item_checks
+
+        return made + item_checks.rides(db, project, row)  # its take check, while checks are on
     return Decimal(0)
 
 

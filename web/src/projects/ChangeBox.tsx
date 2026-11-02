@@ -5,6 +5,7 @@ import { api, errorText } from "../api/client";
 import { Button, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { refreshJobs } from "../jobs/refresh";
 
 /** What the server keeps of the last note on a still or a clip. */
 export type ChangeState = { note: string; job_id?: number; status: "changing" | "done" | "unchanged" | "failed"; before?: string; after?: string; unchanged?: boolean; error?: string } | null;
@@ -83,6 +84,8 @@ export function ChangeBox(props: {
   label: string;
   /** What the button says (a clip with a take: "Change it and make a new take"; with none: "Change the prompt"). */
   action?: string;
+  /** The box's label (a clip's: "Note for the next take"). */
+  title?: string;
   /** A ready note to put in the box (an AI check's "Change this…"); a new n puts it in again. */
   seed?: { text: string; n: number };
 }) {
@@ -142,7 +145,7 @@ export function ChangeBox(props: {
     onSuccess: () => {
       setNote("");
       setEdited(false);
-      void queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      void refreshJobs(queryClient);
       void queryClient.invalidateQueries({ queryKey: [kind === "frame" ? "storyboard" : "project-clips", projectId] });
     },
   });
@@ -164,7 +167,7 @@ export function ChangeBox(props: {
   const snippets = change && change.status === "done" && change.before !== undefined && change.after !== undefined ? changedSnippets(change.before, change.after) : [];
   return (
     <div ref={box} className="space-y-2">
-      <TextArea label="Change this…" rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : text} readOnly={changing} onChange={(e) => { setNote(e.target.value); setEdited(true); press.reset(); }} aria-label={`Change this… ${props.label}`} />
+      <TextArea label={props.title ?? "Change this…"} rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : text} readOnly={changing} onChange={(e) => { setNote(e.target.value); setEdited(true); press.reset(); }} aria-label={`${props.title ?? "Change this…"} ${props.label}`} />
       <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} charge="estimate" price={changing ? undefined : price.isPending ? null : credits} reason={reason} disabled={!changing && !!reason} onClick={() => { was.current = props.snapshot ?? null; press.mutate(text.trim()); }}>
         {changing ? "Changing…" : failed && text.trim() === change?.note ? "Try again" : props.action ?? "Change it"}
       </Button>

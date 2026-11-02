@@ -9,6 +9,7 @@ import { Sheet } from "../projects/Sheet";
 import { useMedia } from "../useMedia";
 import { useToast } from "../toast";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
+import { refreshJobs } from "../jobs/refresh";
 
 type Item = components["schemas"]["ItemOut"];
 const MODEL = "nano-banana-pro" as const;
@@ -71,7 +72,7 @@ export function SheetPanel(props: { item: Item; kind: "character" | "place"; ens
     },
     onSuccess: () => {
       setRedoing(null);
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
       refresh();
     },
   });

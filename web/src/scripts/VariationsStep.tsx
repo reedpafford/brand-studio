@@ -11,6 +11,7 @@ import { useRail } from "../useMedia";
 import { useApproveAllWith, type ApproveAllResult } from "../projects/ApproveAll";
 import type { Script } from "./useScript";
 import { serverTime } from "../time";
+import { refreshJobs } from "../jobs/refresh";
 
 const LETTER = ["A", "B", "C"];
 const NAME = ["Original", "Variation", "Variation"];
@@ -95,7 +96,7 @@ function useVariations(s: Script) {
     },
     onSuccess: async (data, a) => {
       remember({ id: data.id, slots: a.slots });
-      await queryClient.invalidateQueries({ queryKey: ["jobs"] }); // the job list polls while anything is going
+      await refreshJobs(queryClient); // the job list polls while anything is going
     },
   });
   const edit = useMutation({

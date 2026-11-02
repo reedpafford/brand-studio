@@ -8,11 +8,12 @@ import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { PLURAL, STEPS } from "./steps";
 import type { Job } from "./useHeld";
+import { refreshJobs } from "../jobs/refresh";
 
 /** Which of my requests belong on this page: a video's, a script's, or my Quick clips (no video, no script). */
 export type HeldWhere = { projectId: number } | { scriptId: number } | { quick: true };
 // A Quick clip is a video or an image with no step, video or script; never just "not on a video or script" (QA on #1088).
-const quick = (j: Job) => (j.kind === "video" || j.kind === "image") && !j.step && j.project_id == null && j.script_id == null;
+const quick = (j: Job) => (j.kind === "video" || j.kind === "image") && !j.step && j.project_id == null && j.script_id == null && !j.freestyle;
 const here = (j: Job, w: HeldWhere) =>
   "projectId" in w ? j.project_id === w.projectId : "scriptId" in w ? j.script_id === w.scriptId && j.project_id == null : quick(j);
 // The server words a decline without a reason itself ("The owner said no this time…"); only a reason the owner typed is shown.
@@ -86,7 +87,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
     },
     onSuccess: () => {
       toast("Withdrawn. Nothing was charged.");
-      return queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      return refreshJobs(queryClient);
     },
     onError: (e: Error) => toast(e.message, undefined, "error"),
   });

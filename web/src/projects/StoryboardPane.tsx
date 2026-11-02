@@ -21,6 +21,7 @@ import { StoryboardVersions, useMayChangeVideo } from "./VersionLists";
 import { type Softened } from "./Soften";
 import { FrameCard } from "./FrameCard";
 import { BarAction } from "./BarAction";
+import { refreshJobs } from "../jobs/refresh";
 
 type Frame = components["schemas"]["FrameOut"];
 
@@ -100,7 +101,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       setWriting(job.id);
       pressed.press();
       auto.current = !!props.oneStep;
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
     },
   });
   const render = useMutation({
@@ -112,7 +113,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
     onSuccess: ({ frame, job }) => {
       setDrawing((d) => ({ ...d, [frame.id]: job.id }));
       stillPressed.press();
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
     },
   });
   // Save prompt: a frame that has a still is drawn again from the new prompt (the button says so, with the price).
@@ -338,8 +339,9 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       )}
     </>
   );
+  const thumb = (f: Frame) => !!props.into && f.approved && !f.still_stale && !f.stale && blocking(f.problems).length === 0; // on the clip's card: a thumbnail
   const cards = (
-      <ul className={props.only === undefined ? "grid gap-4 sm:grid-cols-2" : "max-w-xs"}>
+      <ul className={props.only === undefined ? "grid gap-4 sm:grid-cols-2" : list.some((f) => f.clip_id === props.only && thumb(f)) ? "" : "w-80 max-w-full"}>
         {list.filter((f) => props.only === undefined || f.clip_id === props.only).map((f) => {
           const frameJobs = (jobs.data ?? []).filter((j) => j.step === "frame" && j.frame_id === f.id).sort((a, b) => b.id - a.id);
           const mine = drawing[f.id] !== undefined ? jobOf(drawing[f.id]) : undefined;
@@ -363,7 +365,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
               cost={imageCost}
               stopped={!!stopFor(imageCost)}
               stopFor={stopFor}
-              oneStep={!!props.oneStep}
+              oneStep={!!props.oneStep} thumb={thumb(f)}
               onPick={(file) => pick.mutate({ frame: f, file })}
               onPrefer={mayChange ? (file) => pick.mutateAsync({ frame: f, file }) : undefined}
               onRender={(note) => render.mutate({ frame: f, note })}

@@ -136,6 +136,7 @@ class JobOut(BaseModel):
             else "",
             "held": job.input.get(HELD, "") if job.status == JobStatus.needs_owner_approval else "",
             "declined": bool(job.input.get(DECLINE)),
+            "credits": _with_check(db, job) if db else job.credits,
             "freestyle": _freestyle(db, job) if db else None,
             **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
         }
@@ -149,6 +150,23 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
                         up_to=fs.up_to,
                         said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
+
+
+def _with_check(db: Session, job: Job) -> Decimal:
+    """A held take's price as the owner approves it: with the take check that rides along
+    while checks are on (`item_checks.rides`), so the OK is never for less than it costs."""
+    from app import item_checks
+    from app.models.clips import ProjectClip
+
+    clip_id = job.input.get("project_clip_id")
+    if (
+        job.status != JobStatus.needs_owner_approval
+        or not clip_id
+        or not job.kind.startswith("video")
+    ):
+        return job.credits
+    clip, project = db.get(ProjectClip, clip_id), db.get(Project, job.project_id)
+    return job.credits + item_checks.rides(db, project, clip) if clip and project else job.credits
 
 
 def _usd(db: Session, job: Job) -> float:
