@@ -1782,6 +1782,7 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     assert "one framing device" in prompts.system("treatment")
     assert "a comic action and a felt reaction" in prompts.system("plan")
     assert "`extras`" in director and "while `songs_left`" in director
+    assert "not the same sound as `recent_styles`" in director
     assert 'When `style` is "", the first `song`\'s `note` is the style line' in director
     assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"
 
@@ -1793,9 +1794,9 @@ def test_the_director_checks_the_brand_word_in_a_fresh_narration_before_the_plan
     director = prompts.system("director")
     for part in ("misheard: the brand's name heard wrong [{word, heard, at}]", "say: the "
                  "pronunciation note", "as soon as the narration is timed, before the plan",
-                 "with `say` as the note", "a narration is never spliced", "`voice` is Sarah",
-                 "`longest_gap`"):  # fmt: skip
+                 "with `say` as the note", "a narration is never spliced",
+                 "`voice` is Sarah for the first", "`longest_gap`"):  # fmt: skip
         assert part in director, part
     turn = schemas.DirectorTurn(tool="narration", note="Say fomo as FOH-moh.", why="misheard")
-    assert turn.note == "Say fomo as FOH-moh." and turn.voice is None  # null keeps Sarah
+    assert turn.note == "Say fomo as FOH-moh." and turn.voice is None  # Sarah first, else as is
     assert schemas.DirectorTurn(tool="narration", voice="Hope", why="the brief").voice == "Hope"
