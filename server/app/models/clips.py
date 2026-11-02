@@ -1,6 +1,8 @@
 """A project's clips: one video prompt per clip of the breakdown (Claude writes it, the editor
 can edit it), and later the generated video."""
 
+from datetime import datetime
+
 from sqlalchemy import JSON, ForeignKey, String, Text, event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -68,3 +70,4 @@ class FinalVideo(Entity, Base):
     cut_ins: Mapped[list[str]] = mapped_column(JSON, default=list)  # "c1/1.2" for each one used
     song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id"))  # laid under
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    off_media_at: Mapped[datetime | None]  # the owner took it off Media; its video keeps it
