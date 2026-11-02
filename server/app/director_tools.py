@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.accounts import User
-from app.models.clips import ProjectClip
+from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 
@@ -77,7 +77,8 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
             project_clips.pick_take(clip_id=row.id, take_id=decision["take_id"], **me)
-            return f"Picked take {decision['take_id']} for {row.clip_id}."
+            take = db.get(ClipTake, decision["take_id"])  # its number, as the page shows it
+            return f"Picked take {take.number} for {row.clip_id}."
         if tool == "mute":  # free: the found stretches, through the Mute button (#1091)
             (row,) = _clips(db, pid, decision.get("clip_id"))
             spans, clip = to_mute(db, row), f"clip {row.clip_id.removeprefix('c')}"

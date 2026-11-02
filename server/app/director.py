@@ -605,9 +605,14 @@ def choose(state: dict) -> dict:
         return go("watch_cut", "The cut is made: it watches it as a viewer would.")
     keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
     done = _answers(state)
-    noticed = " ".join(f"I also noticed: {f['says']} Want me to fix it?" for f in older)
+    noticed = " ".join(
+        f"I also noticed: {f['says'].rstrip('.')}. Want me to fix it?" for f in older
+    )
     said = " ".join(x for x in (done, keep, noticed) if x)
     return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
+
+
+WORDS = re.compile(r"\b(words?|lines?|says?|said|script|rename)\b", re.I)  # rule 19: not here
 
 
 def _clip_of(note: dict) -> str | None:
@@ -624,7 +629,12 @@ def _asked(state: dict) -> dict | None:
     used = state.get("allowed", {}).get("redos_used", {})
     for m in state.get("chat") or []:
         clip = _clip_of(m)
-        if m.get("answered") or clip not in clips or clips[clip]["stale"]:
+        if (
+            m.get("answered")
+            or WORDS.search(m["text"])
+            or clip not in clips
+            or clips[clip]["stale"]
+        ):
             continue
         if used.get(clip, 0) >= MAX_REDOS:
             continue  # it can't be made again: the delivery note says so
@@ -642,6 +652,9 @@ def _answers(state: dict) -> str:
         clip, n = _clip_of(m), m["note"]
         if m.get("answered"):
             out.append(f"Note {n}: done, as you asked ({m['text']}).")
+        elif WORDS.search(m["text"]):
+            out.append(f"Note {n}: the script's words stay as written here. I can change how a "
+                       "line is delivered, the pictures or the pacing instead.")  # fmt: skip
         elif clip is None:
             out.append(f"Note {n}: I couldn't tell which clip you meant. Name the clip "
                        "(for example \"clip 2\") and send it again.")  # fmt: skip
