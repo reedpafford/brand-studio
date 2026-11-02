@@ -33,6 +33,9 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n16 | One editor allowance (Reed, 30 Oct; DECISIONS rule 5): no new column. Workspace limits still on the old default (145 or 150 credits) move to 97 ($10); a custom figure stays. The allowance counts Quick clips only (a video or image job outside any video, with no step) | Next-Server | #1053 |
 | n17 | Screen figures (#1057's `Shot.screen_figure`): `brand_screens.figure_spot` JSON, nullable, no default (null = the screen is never drawn on): `{box [x0,y0,x1,y1], at [x,y], size px, chart [x0,y0,x1,y1] optional}`. Sets the spots for fomo's Home (rich), Token chart up and Token chart down | Next-Server | #1059 |
 | n18 | Locks and per-video outfits (director-chat.md §1): `projects.locks` JSON not null default `{}` (the choices fixed for the director: cast, look, length, song, end_line as true; screens as a list of ids) and `projects.outfits` JSON not null default `{}` (this video's outfit per character, keyed `char:<id>`, ≤200 chars; empty = the sheet's outfit). Downgrade drops both | Next-Server | #1104 |
+| n20 | Freestyle (Reed's v4): new `freestyles` {workspace_id, created_by_id, title, type, look, shape, brand_id (nullable), chat JSON default `[]` (the thread), stopped_at}, indexed by workspace | Next-Server | #1159 |
+| n19 | The director's chat (director-chat.md §1 item 4): `projects.director_chat` JSON not null default `[]`, each `{by, text, at, run}` | Next-Server | #1155 |
+| n21 | Hidden rows (Freestyle 3a): `hidden` bool default false on `projects`, `scripts` and `brands` (a freestyle's own script, video and the workspace's "Freestyle" brand; app/hidden.py leaves them out of every list); `freestyles.project_id` (FK projects, nullable) and `freestyles.up_to` (numeric, the price the owner approved) | Next-Server | #1171 |
 
 ## Merge order (the chain on `next`)
 
@@ -57,7 +60,10 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 14 | n15 | #1031 | n14 | On `next` (9f72273b) |
 | 15 | n16 | #1053 | n15 | On `next` |
 | 16 | n17 | #1059 | n16 | On `next` (08d2dce5) |
-| 17 | n18 | #1104 | n17 | Open, testing |
+| 17 | n18 | #1104 | n17 | On `next` |
+| 18 | n20 | #1159 | n18 | On `next` (ce0fe386) |
+| 19 | n19 | #1155 | n20 | On `next` (28f3e729) |
+| 20 | n21 | #1171 | n19 | On `next` (ae65863f) |
 
 ## 1. Song ads
 
