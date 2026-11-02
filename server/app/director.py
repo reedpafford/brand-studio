@@ -34,6 +34,7 @@ MAX_TURNS = 40  # a run's turns at most
 MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
 MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
+OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
@@ -143,7 +144,13 @@ def thread(db: Session, project: Project) -> list[dict]:
         out.append({"id": f"m{n}", "kind": "message", "at": m["at"],
                     "who": user_name(db, m["by"]), "text": m["text"], "status": None, "why": "",
                     "answered": place[m.get("run")] in done.get(m.get("run"), set())})  # fmt: skip
+    from app.credits import price
+
     for j in rows:
+        if j.input.get(GRANT) and j.status in COUNTED:  # the owner's OK at the director's limit
+            out.append({"id": f"g{j.id}", "kind": "move", "at": j.created_at.isoformat(),
+                        "who": "Director", "text": GRANTED.format(n=price(own_limit())),
+                        "status": "done", "why": "", "answered": None})  # fmt: skip
         result = j.input.get("result") or ""
         tool = (j.output or {}).get("tool")
         text = (
@@ -240,6 +247,42 @@ def spent(db: Session, run_id: str) -> Decimal:
     ids = select(Job.id).where(Job.input[RUN]["id"].as_string() == run_id)
     return Decimal(db.scalar(select(func.coalesce(func.sum(Usage.cost_usd), 0))
                              .where(Usage.job_id.in_(ids))))  # fmt: skip
+
+
+OWN_LIMIT = "Waiting for the owner's OK: the director has used its own limit of {n} credits."
+GRANTED = "OK'd: up to {n} more credits of the director's time."
+GRANT = "own_grant"  # in a run's job's input: held at the director's own limit (`past_own`)
+
+
+def own_limit() -> Decimal:
+    """The director's own limit a run, in credits, as the quote shows it: OWN_CREDITS (MAX_USD
+    stays the real-cost backstop)."""
+    return OWN_CREDITS
+
+
+def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
+    """What the run's own jobs (its turns and its watches of the cut) were charged, at the
+    flat price each was charged (not their real cost, `spent`), and how many OKs the owner
+    gave at its limit."""
+    mine = (Job.input[RUN]["id"].as_string() == run_id, Job.status.in_(COUNTED))
+    charged = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(*mine))
+    oks = db.scalar(select(func.count()).where(*mine, Job.input[GRANT].as_boolean()))
+    return Decimal(charged), oks
+
+
+def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal) -> str:
+    """A run's next turn or watch that would take its charges past the director's own limit
+    (the Producer): it waits for the owner, the owner's own run too, with a freestyle's
+    reason for a step past its price, else OWN_LIMIT. Each OK grants another limit's worth,
+    not one step. "" if it fits."""
+    from app.credits import PAST_APPROVED, price
+
+    if not run_id:
+        return ""
+    charged, oks = own_charged(db, run_id)
+    if charged + credits <= own_limit() * (1 + oks):
+        return ""
+    return PAST_APPROVED if project.hidden else OWN_LIMIT.format(n=price(own_limit()))
 
 
 def after(db: Session, job: Job, storage) -> None:
@@ -445,11 +488,13 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
-    if not wait:  # a freestyle: its turns count too; past its price the run pauses for an OK
+    if not wait:  # past its own limit, or a freestyle's price, the run pauses for an OK
         from app.credits import estimate, past_approved
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
-        wait = past_approved(db, project, user, turn)
+        wait = past_own(db, project, run["id"], turn)
+        data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
+        wait = wait or past_approved(db, project, user, turn)
     try:
         return enqueue(db, user, "write-claude", data, project=project, provider="claude",
                        prepaid=not wait, wait=wait)  # fmt: skip

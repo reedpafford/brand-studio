@@ -107,7 +107,7 @@ test("once roles would need a new look, the change asks first with what it takes
   const picker = await screen.findByRole("dialog", { name: "Look" });
   await userEvent.click(within(picker).getAllByRole("button", { name: "Use this look" })[0]);
   const ask = await screen.findByRole("alertdialog", { name: "Change to Disney Pixar?" });
-  expect(ask).toHaveTextContent("2 roles need a new look (Mom, Bo). To finish: up to 12 credits (was 0).");
+  expect(ask).toHaveTextContent("2 roles need a new look (Mom, Bo). To finish: about 12 credits (planned; was 0).");
   expect(calls.some((c) => c.key === "PATCH /scripts/7")).toBe(false);
   await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ look: "pixar" }));

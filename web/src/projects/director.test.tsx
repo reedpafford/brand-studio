@@ -203,6 +203,13 @@ test("a refused move reads as plain words, without the server's Refused: prefix 
   expect(screen.queryByText(/Refused:/)).toBeNull();
 });
 
+test("Make it names the cap a run can spend, up to N credits, in credits only (rule 34)", async () => {
+  fakeServer(routes({ "GET /auth/me": [200, editor], "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "", run_price: 119.4 })] }));
+  show();
+  expect(await screen.findByRole("button", { name: "Make it · up to 120 credits" })).toBeEnabled();
+  expect(screen.queryByText(/\$/)).toBeNull();
+});
+
 test("before the first run there's no message box: Make it starts the director", async () => {
   fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "" })] }));
   show();

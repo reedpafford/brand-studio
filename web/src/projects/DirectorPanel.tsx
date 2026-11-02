@@ -170,6 +170,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
               ) : (
                 <Button variant={cut && !noted ? "secondary" : "primary"} icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
                   {status === "none" ? "Make it" : status === "ended" && noted ? "Start again with this note" : "Make it again"}
+                  {(r?.run_price ?? 0) > 0 && ` · up to ${creditsLabel(r!.run_price)}` /* the cap this run can spend (rule 34) */}
                 </Button>
               )}
               {cut && !running && (

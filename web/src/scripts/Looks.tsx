@@ -132,7 +132,7 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
       {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} />}
       {asking && (
         <Dialog title={`Change to ${asking.look.name}?`} cancelLabel="Not yet" actionLabel="Change" busy={save.isPending} holdReason={asking.change.over_budget ? asking.change.reason || "That would go over this week's credits." : null} onCancel={() => setAsking(null)} onConfirm={() => change(asking.look)}>
-          {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: up to {asking.change.to_finish_credits} credits (was {asking.change.was_credits}).
+          {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: about {asking.change.to_finish_credits} credits (planned; was {asking.change.was_credits}).
         </Dialog>
       )}
     </>

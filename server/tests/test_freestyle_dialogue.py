@@ -95,11 +95,11 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     step that would pass it waits for the owner again."""
     from decimal import Decimal
 
-    from app.credits import COUNTED, PAST_APPROVED, usd_to_credits
+    from app.credits import COUNTED, PAST_APPROVED
 
     est = Decimal(str(editor.get("/freestyles/estimate", params=BODY).json()["credits"]))
     fs = editor.post("/freestyles", json=BODY).json()
-    assert Decimal(str(fs["up_to"])) == est >= usd_to_credits(director.MAX_USD)  # its turns too
+    assert Decimal(str(fs["up_to"])) == est >= director.OWN_CREDITS  # its turns too
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     row = db.get(Freestyle, fs["id"])
     row.up_to = Decimal(3)  # a small approved price, so the run reaches it
@@ -158,8 +158,8 @@ def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
     app, owner, editor, db, monkeypatch
 ):
     """QA on #1176: 80.898 shown, 82.03 charged, and an approved run held at the end. The price
-    is the most one run may charge under its own limits: every turn, every redo with its
-    check and every watch, at what this run was charged for each."""
+    is the most one run may charge under its own limits: every redo with its check, at what
+    this run was charged, and the director's own limit for its turns and watches."""
     from decimal import Decimal
 
     from app.credits import COUNTED
@@ -188,7 +188,8 @@ def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
     redos = sum((j.credits for j in takes), Decimal(0)) - sum(firsts.values())
     redos += check * (len(takes) - len(firsts))
     once = spent - sum(of("director")) - sum(of("watch_cut")) - redos  # the video made once
-    most = (once + director.MAX_TURNS * max(of("director"))
-            + director.MAX_WATCHES * max(of("watch_cut"))
+    own = sum(of("director")) + sum(of("watch_cut"))
+    assert own <= director.OWN_CREDITS  # the director's own: turns and watches, under its limit
+    most = (once + director.OWN_CREDITS
             + director.MAX_REDOS * (sum(firsts.values()) + check * len(firsts)))  # fmt: skip
     assert spent <= most <= row.up_to, (spent, most, row.up_to)
