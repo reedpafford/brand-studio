@@ -11,7 +11,15 @@ from sqlalchemy.orm import Session
 
 from app import brand_setup, folders, looks, narration, needs_you, plans, reference
 from app.auth import current_user, owner_only, user_name
-from app.credits import credits_used, get_limits, lock, over_cap, price
+from app.credits import (
+    budget_used,
+    credits_used,
+    director_credits,
+    get_limits,
+    lock,
+    over_cap,
+    price,
+)
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
@@ -90,7 +98,8 @@ class ProjectOut(BaseModel):
     reference_replace: str
     estimate_credits: float
     budget_credits: float
-    credits_used: float
+    credits_used: float  # everything, the director's turns too (Usage and My credits read it)
+    director_credits: float  # the director's own turns: the budget and its hold leave them out
     budget_pct: float
     created_by_id: int | None  # who asked (for the owner's Approvals list)
     created_by_name: str
@@ -173,7 +182,8 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         estimate_credits=project.estimate_credits,
         budget_credits=project.budget_credits,
         credits_used=used,
-        budget_pct=round(float(used / project.budget_credits * 100), 1),
+        director_credits=director_credits(db, project),
+        budget_pct=round(float(budget_used(db, project) / project.budget_credits * 100), 1),
         created_by_id=project.created_by_id,
         created_by_name=user_name(db, project.created_by_id),
         script_draft_id=project.script_draft_id,
@@ -425,7 +435,7 @@ def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
     """Approving a project also releases the jobs held in it, oldest first, while they fit
     in its budget. Any that don't fit stay held for a separate decision."""
     lock(db, Project, project.id)
-    used = credits_used(db, project)
+    used = budget_used(db, project)  # as the hold reads it, so the two always agree
     held = db.scalars(
         select(Job)
         .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
