@@ -193,7 +193,7 @@ test("each row says who asked, and the owner sees the dollars next to the credit
   open();
   expect(await screen.findByText(/asked by Sam, /)).toBeInTheDocument();
   expect(await screen.findByText(/27 credits \(\$2\.36\) · takes the video to/)).toBeInTheDocument();
-  expect(screen.getByText("asked by Jo")).toBeInTheDocument();
+  expect(screen.getByText(/asked by Jo$/)).toBeInTheDocument();
   expect(screen.getByText("To decline, ask Jo to shorten the plan.")).toBeInTheDocument();
 });
 
@@ -301,4 +301,21 @@ test("the brands' video lists are read only when the summary says changes wait; 
   open("/approvals?tab=stuck");
   expect(await screen.findByText("Nothing is stuck.")).toBeInTheDocument();
   expect(calls.some((c) => c.key.startsWith("GET /usage/"))).toBe(false);
+});
+
+test("on a phone the tabs fit (Changes, not Changes waiting) and who asked sits on the status line; on a computer it follows the title (v5 D_NeedsYou)", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]] });
+  open();
+  expect(await screen.findByText(/^Request · asked by Sam, just now$/)).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /^Changes 0$/ })).toBeInTheDocument();
+});
+
+test("on a computer who asked follows the title and the tab says Changes waiting", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]] });
+  open();
+  expect(await screen.findByText("asked by Sam, just now")).toBeInTheDocument();
+  expect(screen.getByText("Request")).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /^Changes waiting 0$/ })).toBeInTheDocument();
 });
