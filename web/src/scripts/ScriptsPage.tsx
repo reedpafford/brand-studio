@@ -4,12 +4,12 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { Archive, FileText, Layers } from "lucide-react";
 import { BulkCreate } from "./BulkCreate";
 import { VersionPanel } from "./VersionPanel";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useToast } from "../toast";
 import type { components } from "../api/schema";
 import { ImportReelLink, NewScriptButton } from "./NewScriptButton";
-import { Banner, Button, EmptyState, Skeleton } from "../components";
+import { Banner, Button, EmptyState, Skeleton, buttonClass } from "../components";
 import { useMe } from "../auth/useMe";
 import { useReferences } from "../projects/BriefPickers";
 import { useBrands } from "../shell/useBrands";
@@ -22,6 +22,8 @@ import { ScriptRow, waitingOn, type Row } from "./list/ScriptRow";
 import { ProjectGroups, ScriptTable } from "./list/ScriptTable";
 import { ScriptFilters, StageTabs } from "./list/ScriptFilters";
 import { BulkBar } from "./list/BulkBar";
+import { MakeVideoPanel } from "./MakeVideoPanel";
+import { finished } from "../freestyle/FromScript";
 
 type Version = Row["versions"][number];
 type Project = components["schemas"]["ProjectOut"];
@@ -172,6 +174,7 @@ export function ScriptsPage() {
       restoring={restoring === r.id}
       selected={picked.has(r.id)}
       onSelect={mayPick(r) ? (on) => pick(r.id, on) : undefined}
+      onMakeVideo={!owner && !removed && r.kind === "story" && r.versions.some((v) => finished(v) && !v.project_id) ? () => set("video", String(r.id)) : undefined}
     />
   );
   const newScript = (
@@ -191,6 +194,11 @@ export function ScriptsPage() {
           <h1 className="type-page">Scripts</h1>
         </div>
         <div className="flex items-center gap-2">
+          {!owner && rail && (
+            <Link to={`/b/${brandId}/videos/new?from=script`} className={buttonClass("secondary")}>
+              New video from a script
+            </Link>
+          )}
           <Button variant="secondary" icon={Layers} onClick={() => setBulk(true)} aria-label={rail ? undefined : "Bulk create"}>
             {rail ? "Bulk create" : ""}
           </Button>
@@ -263,6 +271,7 @@ export function ScriptsPage() {
       <LegacyVideos brandId={brandId} />
       {del.dialog}
       {making && <VersionPanel scriptId={Number(making[1])} slot={Number(making[2])} brandId={brandId} onClose={() => set("make", "")} />}
+      {Number(params.get("video")) > 0 && <MakeVideoPanel scriptId={Number(params.get("video"))} onClose={() => set("video", "")} />}
     </main>
   );
 }

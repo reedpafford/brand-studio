@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Clapperboard } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
 import { Button, Dialog, Skeleton, StepPicker } from "../components";
@@ -27,6 +27,8 @@ import { FormatAdvice, FormatSetting } from "./Format";
 import { HeldRequests } from "../approvals/HeldRequests";
 import { ScriptOverview } from "./ScriptOverview";
 import { VersionPanel } from "./VersionPanel";
+import { MakeVideoPanel } from "./MakeVideoPanel";
+import { finished } from "../freestyle/FromScript";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -147,12 +149,19 @@ export function ScriptFlowPage() {
             Back to overview
           </Button>
         )}
+        {/* Any finished version becomes a video from here; publishing isn't needed (E_ScriptMakeVideo, #1194). */}
+        {s.kind === "story" && s.versions.some(finished) && (
+          <Button variant="secondary" dense icon={Clapperboard} onClick={() => setParams({ video: "1" })}>
+            Make a video
+          </Button>
+        )}
         {mayDelete(s) && <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />}
         {!overview && rail && nextButton}
       </ScriptTop>
       <SettingsRow steps={<StepPicker flat steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...barSteps] : barSteps} onPick={(to) => go(to)} />}>
         {settings}
       </SettingsRow>
+      {params.get("video") && <MakeVideoPanel scriptId={s.id} onClose={() => setParams({})} />}
       <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
       {del.dialog}
       <HeldRequests where={{ scriptId: s.id }} />

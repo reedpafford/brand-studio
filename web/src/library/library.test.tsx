@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
+import { setViewport } from "../test/viewport";
 import { owner } from "../test/people";
 
 const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
@@ -62,6 +63,7 @@ test("saving a character sends its changes, and history can restore an old versi
     "POST /library/character/5/versions/2/restore": [200, { ...mia, version: 4 }],
   });
   renderAt("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   const name = await screen.findByLabelText("Name");
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   await userEvent.clear(name);
@@ -112,6 +114,7 @@ test("a character's outfits and voice are saved; places don't send them", async 
     "POST /files": [201, { id: 21, filename: "v.mp3", content_type: "audio/mpeg", size: 3, created_at: "2026-10-23T00:00:00Z" }],
   });
   renderAt("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Add outfit" })); // the page's Add outfit opens Edit
   await userEvent.click(await screen.findByRole("button", { name: "Add outfit" }));
   await userEvent.type(screen.getByLabelText("Outfit 2 name"), "Office");
   await userEvent.upload(screen.getByLabelText("Voice file"), new File(["x"], "v.mp3", { type: "audio/mpeg" }));
@@ -127,6 +130,7 @@ test("a character's outfits and voice are saved; places don't send them", async 
 test("places have no outfits or voice", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe" }], "GET /library/place/7/versions": [200, []] });
   renderAt("/b/1/library/places/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   await screen.findByLabelText("Name");
   expect(screen.queryByRole("button", { name: "Add outfit" })).not.toBeInTheDocument();
 });
@@ -143,7 +147,8 @@ test("archiving happens at once with a toast, and Undo brings the item back", as
     "POST /library/character/5/unarchive": [200, mia],
   });
   renderAt("/b/1/library/characters/5");
-  await userEvent.click(await screen.findByRole("button", { name: "Archive character" }));
+  await userEvent.click(await screen.findByRole("button", { name: "More" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Archive character" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Mia archived.");
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/unarchive")).toBe(true));
@@ -159,6 +164,7 @@ test("shared items show their brands, and Save needs at least one brand", async 
   });
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByText("Shared with Iron Paws. Changes apply there too.")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   await userEvent.click(screen.getByLabelText("fomo"));
   expect(screen.getByText("This will remove Mia from fomo's library.")).toBeInTheDocument();
   await userEvent.click(screen.getByLabelText("Iron Paws"));
@@ -285,7 +291,8 @@ test("Open Mia from a video comes back to the same stage", async () => {
 test("a back link to somewhere else is ignored", async () => {
   fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
   renderAt("/b/1/library/characters/5?back=https%3A%2F%2Fevil.example");
-  expect(await screen.findByRole("link", { name: "← Characters" })).toHaveAttribute("href", "/b/1/library/characters");
+  expect(await screen.findByRole("link", { name: "Characters" })).toHaveAttribute("href", "/b/1/library/characters");
+  expect(screen.queryByRole("link", { name: /Back to your video/ })).toBeNull();
 });
 
 test("a sheet held from before the limits changed says Not started, not Drawing, and offers nothing to press", async () => {
@@ -361,6 +368,7 @@ test("the owner gives a product its line and main claim; an empty claim is Advic
   const calls = fakeServer(propRoutes(owner));
   renderAt("/b/2/library/props/8");
   expect(await screen.findByText("Scripts won't mention a claim for this product.")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   await userEvent.type(screen.getByLabelText("What it is, in a line"), "Grain-free salmon kibble");
   await userEvent.type(screen.getByLabelText("Main claim"), "Dogs finish the bowl");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -370,6 +378,7 @@ test("the owner gives a product its line and main claim; an empty claim is Advic
 test("an editor changes a product's line and claim too, and their save sends them (Reed, 30 Oct)", async () => {
   const calls = fakeServer(propRoutes(editor));
   renderAt("/b/2/library/props/8");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   const claim = await screen.findByLabelText("Main claim");
   expect(claim).not.toHaveAttribute("readonly");
   expect(screen.queryByText("Only the owner changes the brand.")).toBeNull();
@@ -444,4 +453,43 @@ test("a look starting with a vowel reads Make an …", async () => {
   fakeServer({ ...charRoutes(owner, {}), "GET /looks": [200, [...looksList, { id: "anime", name: "Anime comic", blurb: "", on: true }]] });
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByRole("button", { name: /Make an Anime comic sheet/ })).toBeInTheDocument();
+});
+
+test("v5 pages (QA-3 on #1204): a character's voice is one Play press and it has no Brands section; a place shows its pictures; a prop's crumb is Props & products; no History until there's an earlier version", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/character/5": [200, { ...mia, voice_file_id: 21 }], "GET /library/character/5/versions": [200, [{ version: 3, snapshot: mia, saved_by_id: 2, created_at: "2026-10-23T10:00:00Z" }]] });
+  const { unmount } = renderApp("/b/1/library/characters/5");
+  expect(await screen.findByRole("button", { name: "Play the voice sample" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Brands" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "History" })).toBeNull();
+  unmount();
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe", image_file_ids: [9] }], "GET /library/place/7/versions": [200, []] });
+  const place = renderApp("/b/1/library/places/7");
+  expect(await within(await screen.findByRole("region", { name: "Pictures" })).findByRole("img", { name: "Cafe 1" })).toBeInTheDocument();
+  place.unmount();
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/prop/8": [200, { ...mia, id: 8, kind: "prop", name: "Bag", short_description: "Grain-free salmon kibble", main_claim: "" }], "GET /library/prop/8/versions": [200, []] });
+  renderApp("/b/1/library/props/8");
+  expect(await screen.findByRole("link", { name: "Props & products" })).toHaveAttribute("href", "/b/1/library/props");
+  expect(screen.getByText("Grain-free salmon kibble")).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "What it is" })).toBeNull();
+});
+
+test("at 390 a character reads name and sections, then the House-style sheet, then sheets in other styles (QA-3 on #1204)", async () => {
+  setViewport(390);
+  fakeServer(charRoutes(owner, {}));
+  renderAt("/b/1/library/characters/5");
+  const others = await screen.findByRole("region", { name: "Sheets in other styles" });
+  const house = screen.getByRole("region", { name: "House-style sheet" });
+  expect(house.compareDocumentPosition(others) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(others.closest(".order-3")).not.toBeNull(); // after the sheet column (order-2), which follows the name (order-1)
+  expect(screen.getAllByRole("region", { name: "Sheets in other styles" })).toHaveLength(1);
+});
+
+test("a character's page lists the videos that use it, each linked, with where it is (#1212)", async () => {
+  setViewport(1440);
+  fakeServer({ ...charRoutes(owner, {}), "GET /library/character/5": [200, { ...mia, look_sheets: {}, used_in: [{ project_id: 11, name: "Bo tries salmon · A", status: "done" }, { project_id: 12, name: "Gym bro tries yoga", status: "making" }] }] });
+  renderAt("/b/1/library/characters/5");
+  const used = await screen.findByRole("region", { name: "Used in" });
+  expect(within(used).getByRole("link", { name: "Bo tries salmon · A" })).toHaveAttribute("href", "/b/1/projects/11");
+  expect(within(used).getByText("Delivered")).toBeInTheDocument();
+  expect(within(used).getByText("Working")).toBeInTheDocument();
 });

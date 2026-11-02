@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_tools, take_mute
+from app import director_tools, take_mute, word_splice
 from app.credits import COUNTED, lock
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -166,18 +166,30 @@ def thread(db: Session, project: Project) -> list[dict]:
                         "status": "done", "why": "", "answered": None})  # fmt: skip
         result = j.input.get("result") or ""
         tool = (j.output or {}).get("tool")
+        # The worker keeps a turn's answer (succeeded) before its tool runs and its result is
+        # written (`after`): until then it is still going, never "Stopped." (QA on #1194).
+        acting = (
+            j.status == JobStatus.succeeded and "result" not in j.input and "ended" not in j.input
+        )
         text = (
-            ((j.output or {}).get("why") if tool == "deliver" else result)
-            or (
-                j.input.get("held")  # a held turn says why it waits
-                if j.status == JobStatus.needs_owner_approval
-                else ""
+            PENDING[JobStatus.running]
+            if acting
+            else (
+                ((j.output or {}).get("why") if tool == "deliver" else result)
+                or (
+                    j.input.get("held")  # a held turn says why it waits
+                    if j.status == JobStatus.needs_owner_approval
+                    else ""
+                )
+                or PENDING.get(
+                    j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
+                )
             )
-            or PENDING.get(j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped.")
         )
         why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
         text, why = named(text), named(why)
         status = ("held" if j.status == JobStatus.needs_owner_approval
+                  else "running" if acting
                   else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
                   else "refused" if result.startswith("Refused") else "done")  # fmt: skip
         out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
@@ -724,7 +736,8 @@ def video_state(db: Session, project: Project) -> dict:
                                 for i in ids_of.get(row.clip_id, []) if i in shots],
                       "picked_take_id": row.picked_take_id, "takes": out,
                       "muted": take_mute.spans(db.get(ClipTake, row.picked_take_id)
-                                               if row.picked_take_id else None)})  # fmt: skip
+                                               if row.picked_take_id else None),
+                      **word_splice.state(db, row)})  # splice_word  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
     acted = [j for j in turns(db, project) if "result" in j.input]
@@ -799,12 +812,18 @@ def choose(state: dict) -> dict:
         return go("clip_prompts", "The clips need their prompts.")
     if any(not c["takes"] for c in clips):
         return go("make_take", "Some clips have no take yet.")
+    for c in clips:  # the brand said wrong, with a clean copy in the same voice (word_splice)
+        if c.get("can_splice"):
+            word = c["can_splice"][0]["word"]
+            return go("splice_word", f"{c['clip_id']} says “{word}” wrong; a clean copy is "
+                      "spliced in.", clip_id=c["clip_id"], word=word)  # fmt: skip
     for c in clips:
         last = c["takes"][-1]
         if last["verdict"] == "checking":
             return go("wait", f"{c['clip_id']}'s take is being checked.")
         mine = not notes or c["clip_id"] in wanted
-        if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS and mine:
+        spliced = c.get("splices")  # the wrong word is covered: no take made again for it
+        if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS and mine and not spliced:
             note = "; ".join(last["notes"]) or "Fix what the take check found."
             return go("make_take", f"The take check flagged {c['clip_id']}.",
                       clip_id=c["clip_id"], note=note[:500])  # fmt: skip

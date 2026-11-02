@@ -16,11 +16,12 @@ test("on a phone, the five bottom tabs reach every brand section and there is no
   await tabs.getByRole("link", { name: "Cast" }).click();
   await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();
 
-  await tabs.getByRole("link", { name: "Freestyle" }).click();
-  await expect(page.getByRole("heading", { name: "Freestyle", exact: true })).toBeVisible();
+  await tabs.getByRole("link", { name: "New" }).click();
+  await expect(page.getByRole("heading", { name: "New video", exact: true })).toBeVisible();
+  await page.goBack(); // New video has its own title bar in place of the tabs' top bar
 
   await tabs.getByRole("link", { name: "Brand" }).click();
-  await expect(page.getByRole("heading", { name: "Brand", exact: true })).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Brand" })).toBeVisible(); // v5: the page's heading is the brand's own name
 
   await tabs.getByRole("link", { name: "Scripts", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
@@ -47,7 +48,7 @@ test("on a phone, with nothing waiting Reed sees no Needs you bell (the page sti
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("dialog", { name: "Account" }).getByRole("link", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Styles" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Studio" })).toHaveAttribute("aria-selected", "true"); // v5: Studio is the first tab
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

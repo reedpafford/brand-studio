@@ -91,7 +91,7 @@ test("setup tells you when the studio already exists", async () => {
     [/Password/, "correct horse battery"],
   ];
   for (const [label, value] of entries) await userEvent.type(await screen.findByLabelText(label), value);
-  await userEvent.click(screen.getByRole("button", { name: "Create owner account" }));
+  await userEvent.click(screen.getByRole("button", { name: "Create the studio" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Already set up.");
 });
 
@@ -176,8 +176,13 @@ test("an invite to a studio stored as a slug says Join {owner}'s studio, in the 
   expect(screen.queryByText(/owner-reed/)).toBeNull();
 });
 
-test("the setup page says what the studio name is for", async () => {
+test("the setup page says it shows once and who you'll be, and asks for the code last (v5 A_Setup)", async () => {
   fakeServer({ "GET /auth/me": [401, {}] });
   renderAt("/setup");
-  expect(await screen.findByText("What your team sees when they're invited, e.g. Northside Studio.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Set up your studio" })).toBeInTheDocument();
+  expect(screen.getByText("First run · this page shows once")).toBeInTheDocument();
+  expect(screen.getByText("You'll be the owner: you approve what editors spend and set the budgets.")).toBeInTheDocument();
+  const labels = [...document.querySelectorAll("form label")].map((l) => l.textContent);
+  expect(labels.at(0)).toBe("Studio name");
+  expect(labels.at(-1)).toBe("Setup code (from the server's environment)");
 });

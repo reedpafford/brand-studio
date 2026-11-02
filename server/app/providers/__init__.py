@@ -71,12 +71,11 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             hear_take,
             hear_voice,
             read_site,
-            refuse_link,
             study_link,
             transcript,
         )
 
-        local = LocalProvider(storage, transcribe=transcript, fetch_link=refuse_link,
+        local = LocalProvider(storage, transcribe=transcript, fetch_link=study_link,
                               hear_song=hear_song, hear_voice=hear_voice,
                               hear_study=hear_study, fetch_study=study_link,
                               read_site=read_site, hear_take=hear_take,

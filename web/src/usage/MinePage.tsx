@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
-import { Badge, Banner, Button, Card, Select, Skeleton, creditsText } from "../components";
+import { Badge, Banner, Button, Card, PageTop, Select, Skeleton, creditsText } from "../components";
 import { lastBrand, useBrands } from "../shell/useBrands";
 import { PeriodControl, periodWord } from "./parts";
 import { periodFrom } from "./useUsage";
 
+const director = (v: { director_credits?: number }) => v.director_credits ?? 0;
+const used = (v: { credits: number; director_credits?: number }) => Math.max(0, v.credits - director(v));
 const VIDEO_STATUS = { in_production: "Being made", done: "Finished", failed: "Didn't finish" } as const;
 
 /** An editor's own credits (flows OR4): this week as the allowance counts it, then their videos, quick clips
@@ -24,15 +26,27 @@ export function MinePage() {
   });
   const m = mine.data;
   const week = m?.week;
+  const filters = (
+    <>
+      {brands.length > 1 && (
+        <div className="lg:w-48">
+          <Select label="Brand" value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </Select>
+        </div>
+      )}
+      <PeriodControl value={period} onChange={(p) => setParams((s) => (s.set("period", p), s), { replace: true })} />
+    </>
+  );
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className="type-page">My credits</h1>
-        <p className="text-sm text-muted">What your work has used, in credits.</p>
-      </div>
+      <PageTop title="My credits" line="What your work has used, in credits." />
       {mine.isError && <Banner title="Couldn't load your credits." action={<Button variant="secondary" onClick={() => void mine.refetch()}>Try again</Button>}>Check your connection.</Banner>}
+      <div>
       <Card className="space-y-2">
-        <h2 className="type-section">This week</h2>
+        <h2 className="type-section">Your allowance this week</h2>
         {!week ? (
           <Skeleton className="h-16" />
         ) : (
@@ -56,18 +70,10 @@ export function MinePage() {
           </>
         )}
       </Card>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-        {brands.length > 1 && (
-          <div className="lg:w-64">
-            <Select label="Brand" value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </Select>
-          </div>
-        )}
-        <PeriodControl value={period} onChange={(p) => setParams((s) => (s.set("period", p), s), { replace: true })} />
+      {/* D_MyCredits' "Waiting for the owner's OK" waits for the server's count of my held sends: today's list leaves out
+          sends on hidden Freestyle videos, and an undercount is worse than none (QA-3 on #1218). */}
       </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">{filters}</div>
       {!m ? (
         !mine.isError && <Skeleton className="h-40" />
       ) : (
@@ -88,8 +94,13 @@ export function MinePage() {
                       <span className="min-w-0 break-words font-medium">{v.title}</span>
                       <span className="flex items-center gap-2 text-sm">
                         <Badge tone={v.status === "failed" ? "danger" : v.status === "done" ? "success" : "neutral"}>{VIDEO_STATUS[v.status]}</Badge>
-                        <span className="tabular-nums text-muted">
-                          {creditsText(v.credits)} of {creditsText(v.budget_credits)}
+                        <span className="text-right tabular-nums text-muted">
+                          {/* The director's own time is apart from the budget (#1216, QA-3 on #1218): a director-run video
+                              reads against what the owner approved, the rest against the budget. */}
+                          {v.approved_up_to != null
+                            ? `${creditsText(used(v))} used of up to ${creditsText(v.approved_up_to)} approved`
+                            : `${creditsText(used(v))} of ${creditsText(v.budget_credits)}`}
+                          {director(v) > 0 && <span className="block text-xs">{creditsText(director(v))} of director time</span>}
                         </span>
                       </span>
                     </Link>

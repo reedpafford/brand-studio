@@ -651,6 +651,8 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 | F | "Couldn't read that site. Nothing was charged." (also a private or internal address, a page too big or too slow, or too many redirects). | **Try again**, or fill it in by hand. |
 | Bad address | "Paste a web address (https://…)" | — |
 | Nothing found | "Nothing useful on that page. Try the home page." Nothing is charged. | — |
+| From New brand (F_BrandNew) | Website is optional beside Name, Colour and Logo; once typed, the press reads "Make the brand · about 3 credits". The brand is made, then the page opens on this read (Reading, then Done). If the read can't start, the brand is still made and the reason shows on its page. | **Make the brand**. |
+| Back later | Import from website reopens on the brand's last read: the address box filled, "Read it again · about N credits" above the list. | **Read it again**, or Save / Cancel. |
 
 The price shown is the most it costs. On the test site the read is a stand-in unless its real switch is on.
 

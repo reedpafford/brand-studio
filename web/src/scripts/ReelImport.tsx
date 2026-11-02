@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, FileVideoCamera, Film, Link as LinkIcon, LoaderCircle, RotateCcw, Upload } from "lucide-react";
+import { Check, CircleAlert, FileVideoCamera, Film, LoaderCircle, RotateCcw, Upload } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -35,7 +35,7 @@ function postUpload(path: "/scripts/import/upload", form: Record<string, string>
 }
 
 /** New script, Import a reel: a link or a video file. Getting it is free; the script is made at once and opens at its Script while the reel is prepared. */
-export function ReelPicker({ brandId }: { brandId: number }) {
+export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?: string }) {
   const [url, setUrl] = useState("");
   const [bad, setBad] = useState<string | null>(null);
   const [newLines, setNewLines] = useState(false);
@@ -64,45 +64,72 @@ export function ReelPicker({ brandId }: { brandId: number }) {
     onSuccess: (d) => made(d.script_id),
   });
   const err = fromLink.error ?? fromFile.error;
+  const [over, setOver] = useState(false); // a file is being dragged over the drop zone
+  const busy = fromLink.isPending || fromFile.isPending;
   return (
-    <Card className="max-w-[680px] space-y-4">
-      <form
-        className="flex flex-col gap-3 sm:flex-row sm:items-end"
-        onSubmit={(e) => {
+    <form
+      aria-label="Import a reel"
+      className="flex max-w-[640px] flex-col gap-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!LINK.test(url.trim())) return setBad("That isn't an Instagram reel link.");
+        setBad(null);
+        fromLink.mutate();
+      }}
+    >
+      <p className="text-text/80">We read the reel's lines and shots and turn them into a script you can adapt.</p>
+      <Field label="Link to the reel" inputMode="url" placeholder="https://www.instagram.com/reel/…" value={url} error={bad} onChange={(e) => setUrl(e.target.value)} />
+      <div className="flex items-center gap-3" aria-hidden>
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted">or</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <div
+        onDragOver={(e) => {
           e.preventDefault();
-          if (!LINK.test(url.trim())) return setBad("That isn't an Instagram reel link.");
-          setBad(null);
-          fromLink.mutate();
+          setOver(true);
         }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f && !busy) fromFile.mutate(f);
+        }}
+        className={`flex flex-col gap-3 rounded-lg border border-dashed p-4 sm:min-h-24 sm:flex-row sm:items-center ${over ? "border-accent bg-accent-soft" : "border-border-strong"}`}
       >
-        <div className="min-w-0 flex-1">
-          <Field label="Paste an Instagram reel link" inputMode="url" placeholder="https://www.instagram.com/reel/…" value={url} error={bad} onChange={(e) => setUrl(e.target.value)} trailing={<LinkIcon size={20} strokeWidth={1.75} aria-hidden className="text-muted" />} />
-        </div>
-        <Button type="submit" variant="secondary" busy={fromLink.isPending} disabled={!url.trim() || fromFile.isPending} className="w-full sm:w-auto">
-          Get the reel
-        </Button>
-      </form>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-muted">or</span>
+        <Upload size={20} strokeWidth={1.75} aria-hidden className="hidden shrink-0 text-muted sm:block" />
+        <span className="flex-1">Drop an MP4 or MOV, up to {MAX_SECONDS} seconds</span>
         <input ref={file} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a video file" className="sr-only" onChange={(e) => {
             const f = e.target.files?.[0];
             e.target.value = ""; // so the same file can be chosen again
             if (f) fromFile.mutate(f);
           }} />
-        <Button variant="secondary" icon={Upload} busy={fromFile.isPending} disabled={fromLink.isPending} onClick={() => file.current?.click()} className="w-full sm:w-auto">
+        <Button variant="secondary" dense busy={fromFile.isPending} disabled={fromLink.isPending} onClick={() => file.current?.click()} className="w-full sm:w-auto">
           Upload a video
         </Button>
-        <span className="text-sm text-muted">MP4 or MOV, up to {MAX_SECONDS} seconds and {MAX_MB} MB</span>
       </div>
+      {brandName && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium">Brand</p>
+          <span className="inline-flex h-[26px] items-center rounded-sm border border-border-strong px-2 text-xs">{brandName}</span>
+        </div>
+      )}
       <div className="space-y-1">
-        <label className="flex min-h-control items-center gap-3">
+        <label className="flex min-h-control items-center gap-3 lg:min-h-control-dense">
           <input type="checkbox" role="switch" className="size-5" checked={newLines} onChange={(e) => setNewLines(e.target.checked)} />
           Write new lines in the same style
         </label>
-        <p className="text-sm text-muted">Off: keep the reel's lines and rewrite only what the brand swap needs.</p>
+        <p className="text-xs text-muted">Keeps the reel's beats and timing, with fresh words</p>
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
-    </Card>
+      <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-xs text-muted">Getting the reel is free and takes about a minute.</span>
+        <Button type="submit" busy={fromLink.isPending} disabled={!url.trim() || fromFile.isPending} reason={!url.trim() ? "Paste a link to the reel first, or upload a video above" : null} className="w-full sm:w-auto">
+          Get the reel
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -339,7 +366,7 @@ export function ReelBlock({ scriptId, published }: { scriptId: number; published
             </p>
             <p className="text-sm text-muted">{facts}</p>
             {r.url && <p className="truncate text-sm text-muted">{r.url.replace(/^https?:\/\/(www\.)?/, "")}</p>}
-            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs about ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.${tried >= 2 ? ` It has been tried ${tried} times already.` : ""}` : `Reading it costs about ${wholeCredits(r.estimate.credits)} credits.`}</p>}
+            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs up to ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.${tried >= 2 ? ` It has been tried ${tried} times already.` : ""}` : `Reading it costs up to ${wholeCredits(r.estimate.credits)} credits.`}</p>}
           </div>
         </div>
         {r.status === "failed" && (

@@ -138,9 +138,9 @@ test("Takes: Preferred in words; one being made, one still being timed (can't be
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, list] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("Preferred")).toBeInTheDocument();
-  expect(screen.getAllByText("0:31 · a video of about 34 credits")).toHaveLength(4); // every take with a length says what its video would cost
+  expect(screen.getAllByText("A video of about 34 credits")).toHaveLength(4); // every take with a length says what its video would cost
   expect(screen.getByText((_, el) => el?.tagName === "P" && /^Making the song… 1:1\d$/.test(el.textContent ?? ""))).toBeInTheDocument(); // flows S4: from when its job started (#1033), so a reload keeps it
-  expect(screen.getAllByRole("button", { name: "Make this Preferred" })[0]).toBeDisabled();
+  expect(screen.getAllByRole("button", { name: "Make Preferred" })[0]).toBeDisabled();
   expect(screen.getByText("This take's file can't be read, so its timing can't be measured.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
   expect(screen.getByRole("button", { name: "Make take 4 Preferred" })).toBeInTheDocument();
@@ -211,7 +211,7 @@ test("a press the server refuses says why on the Takes step (never silent)", asy
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true }), take({ id: 2, number: 2 })])], "POST /songs/2/preferred": [409, { detail: "This take sings older words. Make 2 takes of the lyrics as they are now." }] });
   open("/b/1/scripts/7?step=takes");
-  await userEvent.click(await screen.findByRole("button", { name: "Make this Preferred" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Make Preferred" }));
   expect(await screen.findByText("This take sings older words. Make 2 takes of the lyrics as they are now.")).toBeInTheDocument();
 });
 
@@ -238,7 +238,7 @@ test("a take too long for the video limit can't be Preferred yet and offers Use 
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true }), take({ id: 2, number: 2, seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/2/trim": [200, take({ id: 2, number: 2, seconds: 72, over_cap: false, trim_to: 55 })], "DELETE /songs/2/trim": [200, take({ id: 2, number: 2, seconds: 72, over_cap: true, fits_until: 55 })] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("This take is 1:12: a video of it would go over the limit.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make this Preferred" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Make Preferred" })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: /Use the first 0:55 · free/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/2/trim")).toBe(true));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
@@ -263,13 +263,14 @@ test("a request that came back short is asked again free, so its Try again says 
   expect(screen.queryByRole("button", { name: /Try again · \d/ })).toBeNull();
 });
 
-test("a failed take that isn't a refusal leads with Try again; the Edit link comes after it", async () => {
+test("a failed take that isn't a refusal offers Try again on its row; Edit lyrics or music style stays in the header", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", retry_credits: 1, file_id: null, seconds: null, failed_reason: "Suno took too long. Nothing was charged." })])] });
   open("/b/1/scripts/7?step=takes");
-  const retry = await screen.findByRole("button", { name: /Try again · 1 credit/ });
-  const editLink = screen.getByRole("link", { name: "Edit lyrics or music style" });
-  expect(retry.compareDocumentPosition(editLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const row = within(await screen.findByRole("listitem", { name: "Take 1" }));
+  expect(await row.findByRole("button", { name: /Try again · 1 credit/ })).toBeInTheDocument();
+  expect(row.queryByRole("link", { name: /Edit/ })).toBeNull();
+  expect(screen.getAllByRole("link", { name: "Edit lyrics or music style" })).toHaveLength(1);
 });
 
 test("trimming a take when nothing else is Preferred makes it the Preferred one", async () => {
@@ -350,4 +351,17 @@ test("at 390, an editor's Make 2 takes reads Send for approval, and once pressed
   expect(await screen.findByText("Waiting for approval")).toBeInTheDocument();
   expect(document.body).toHaveTextContent("Your song or music · 1 credit · Asked just now. Songs, narration and music on a script wait for the owner's OK.");
   expect(document.body.textContent).not.toMatch(/ask (Reed|the owner)/i);
+});
+
+test("Takes (v5): the takes are rows under the header's Edit and Make 2 more, and the card under them says what a video costs and the song's last line", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: true, trim_to: 25 }), take({ id: 3, number: 3 })])] });
+  open("/b/1/scripts/7?step=takes");
+  const list = await screen.findByRole("list", { name: "Takes" });
+  expect(within(list).getAllByRole("listitem").map((r) => r.getAttribute("aria-label"))).toEqual(["Take 2", "Take 1", "Take 3"]); // the Preferred one first
+  expect(within(list).getByText("0:25 of 0:31 · Trimmed")).toBeInTheDocument();
+  expect(screen.getByText("Pick the Preferred take; the video is cut to it.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Make 2 more/ })).toBeInTheDocument();
+  expect(screen.getByText("A video this long: about 40 credits to make (planned).")).toBeInTheDocument();
+  expect(screen.getByText('The song then ends on: "Now he licks it clean"')).toBeInTheDocument();
 });

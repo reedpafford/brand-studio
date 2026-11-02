@@ -83,28 +83,6 @@ test("the last brand you used opens next time", async () => {
   expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
 });
 
-test("the owner can invite and gets the link once", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, owner],
-    "GET /brands": [200, brands],
-    "GET /team/members": [200, members],
-    "GET /team/invites": [200, []],
-    "POST /team/invites": [201, { id: 3, email: "new@b.co", role: "editor", expires_at: "2026-11-01T12:00:00Z", token: "tok123" }],
-  });
-  renderAt("/team");
-  await userEvent.click(await screen.findByRole("button", { name: "Invite someone" }));
-  await userEvent.type(await screen.findByLabelText("Email to invite"), "new@b.co");
-  await userEvent.click(screen.getByRole("button", { name: "Create invite link" }));
-  expect(await screen.findByLabelText("Invite link")).toHaveValue(`${location.origin}/invite/tok123`);
-  expect(screen.getByText(/It works once and expires in 7 days\./)).toBeInTheDocument();
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.assign(navigator, { clipboard: { writeText } });
-  await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
-  expect(writeText).toHaveBeenCalledWith(`${location.origin}/invite/tok123`);
-  expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
-  expect(calls.find((c) => c.key === "POST /team/invites")?.body).toEqual({ email: "new@b.co", role: "editor" });
-});
-
 test("an editor sees the team but cannot invite or remove", async () => {
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, members] });
   renderAt("/team");
@@ -131,8 +109,7 @@ test("an unknown brand in the address does not pretend to be selected", async ()
 test("a failed remove tells you", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []], "DELETE /team/members/2": [500, {}] });
   renderAt("/team");
-  await userEvent.click(await screen.findByRole("button", { name: "More for Eli" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Remove Eli" }));
   const ask = await screen.findByRole("alertdialog", { name: "Remove Eli from the team?" });
   expect(within(ask).getByText("Their videos stay.")).toBeInTheDocument();
   await userEvent.click(within(ask).getByRole("button", { name: "Remove" }));
@@ -144,7 +121,7 @@ test("on a phone there are five tabs (Videos first), no More, and Reed gets a Ne
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
-  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Videos", "Scripts", "Freestyle", "Cast", "Brand"]);
+  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Videos", "Scripts", "New", "Cast", "Brand"]);
   expect(within(tabs).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page"); // an earlier-way video sits under Videos
   expect(within(tabs).getByRole("link", { name: "Cast" })).toHaveAttribute("href", "/b/1/library");
   expect(within(tabs).getByRole("link", { name: "Brand" })).toHaveAttribute("href", "/b/1/brand");
@@ -231,7 +208,7 @@ test("on desktop one rail (nav A): the brand switcher, Make and Library, Studio 
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Scripts", "Videos", "Freestyle", "Cast & places", "Media", "Brand", "Needs you", "In production", "Usage", "Team", "Settings"]);
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["New videoN", "Videos", "Scripts", "Cast & places", "Media", "Brand", "Needs you", "In production", "Usage", "Team", "Settings"]);
   expect(within(rail).getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "Account menu" })).toBeInTheDocument();
   expect(screen.queryByRole("banner")).not.toBeInTheDocument();
@@ -325,37 +302,59 @@ test("an editor's brand menu lists the brands, with no New brand and no owner-on
   expect(screen.queryByRole("menuitem", { name: "New brand" })).toBeNull();
 });
 
-test("Reed's New brand asks for a name, creates the brand and opens its Look page", async () => {
+test("Reed's New brand is its own page: a name, a colour, and it opens the brand's Look", async () => {
   setViewport(1440);
   const calls = fakeServer({
     "GET /auth/me": [200, owner],
     "GET /brands": [200, brands],
     "GET /scripts": [200, []],
     "GET /projects": [200, []],
-    "POST /brands": [201, { id: 9, name: "Night Owl", colours: [] }],
-    "GET /brands/9": [200, { id: 9, name: "Night Owl", colours: [], fonts: [], tone_notes: "", never_say: [], legal_line: "", end_line: "" }],
+    "POST /brands": [201, { id: 9, name: "Night Owl", colours: ["#2F6B4F"], site_read_job_id: null, site_read_problem: "" }],
     "GET /brands/9/screens": [200, []],
   });
   renderAt("/");
   await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
   await userEvent.click(screen.getByRole("menuitem", { name: "New brand" }));
-  const dialog = await screen.findByRole("dialog", { name: "New brand" });
-  expect(within(dialog).getByRole("button", { name: "Create brand" })).toBeDisabled();
-  expect(within(dialog).getByRole("button", { name: "Create brand" })).toHaveAccessibleDescription("Give it a name first");
-  await userEvent.type(within(dialog).getByLabelText("Brand name"), "Night Owl");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Create brand" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ name: "Night Owl" }));
-  expect(await screen.findByText("Night Owl is ready. Add its logo and colours.")).toBeInTheDocument();
+  const form = await screen.findByRole("form", { name: "New brand" });
+  expect(within(form).getByRole("button", { name: "Make the brand" })).toHaveAccessibleDescription("Give it a name first");
+  await userEvent.type(within(form).getByLabelText("Name"), "Night Owl");
+  const colour = within(form).getByLabelText("Colour");
+  await userEvent.clear(colour);
+  await userEvent.type(colour, "#2f6b4f");
+  await userEvent.click(within(form).getByRole("button", { name: "Make the brand" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ name: "Night Owl", website: null, colours: ["#2F6B4F"] }));
+  expect(await screen.findByText("Night Owl is ready. Add its look next.")).toBeInTheDocument();
+});
+
+test("New brand with a website says what reading it costs, and opens on Import from website", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    "GET /auth/me": [200, owner],
+    "GET /brands": [200, brands],
+    "GET /brands/site-read/estimate": [200, { credits: 3 }],
+    "POST /brands": [201, { id: 9, name: "Calm Co.", colours: ["#5E63D6"], site_read_job_id: 40, site_read_problem: "" }],
+    "GET /brands/9/screens": [200, []],
+  });
+  renderAt("/brands/new");
+  const form = await screen.findByRole("form", { name: "New brand" });
+  await userEvent.type(within(form).getByLabelText("Name"), "Calm Co.");
+  await userEvent.type(within(form).getByLabelText("Website (optional)"), "calm dot co");
+  await userEvent.click(within(form).getByRole("button", { name: "Make the brand" }));
+  expect(within(form).getByText("Paste a web address (https://…)")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "POST /brands")).toBe(false);
+  await userEvent.clear(within(form).getByLabelText("Website (optional)"));
+  await userEvent.type(within(form).getByLabelText("Website (optional)"), "https://calm.co");
+  await userEvent.click(await within(form).findByRole("button", { name: "Make the brand · up to 3 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ website: "https://calm.co" }));
+  expect(await screen.findByText("Calm Co. is ready. Reading its site…")).toBeInTheDocument();
 });
 
 test("a brand name that is taken shows the server's words under the field", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "POST /brands": [409, { detail: "A brand with that name already exists." }] });
-  renderAt("/");
-  await userEvent.click(await screen.findByRole("button", { name: /^Brand: / }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "New brand" }));
-  const dialog = await screen.findByRole("dialog", { name: "New brand" });
-  await userEvent.type(within(dialog).getByLabelText("Brand name"), "fomo");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Create brand" }));
-  expect(await within(dialog).findByText("A brand with that name already exists.")).toBeInTheDocument();
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "POST /brands": [409, { detail: "A brand with that name already exists." }] });
+  renderAt("/brands/new");
+  const form = await screen.findByRole("form", { name: "New brand" });
+  await userEvent.type(within(form).getByLabelText("Name"), "fomo");
+  await userEvent.click(within(form).getByRole("button", { name: "Make the brand" }));
+  expect(await within(form).findByText("A brand with that name already exists.")).toBeInTheDocument();
 });

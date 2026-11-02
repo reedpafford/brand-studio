@@ -916,13 +916,14 @@ test("New script: Import a reel takes a reel link or a video, checks the link fi
   setViewport(1440);
   const calls = fakeServer({ ...base, "POST /scripts/import/link": [201, reelOut({ status: "preparing" })], "GET /scripts/7": [200, full({ id: 7 })], "GET /scripts/7/import": [200, reelOut({ status: "preparing" })] });
   open("/b/1/scripts/import");
-  await userEvent.type(await screen.findByLabelText("Paste an Instagram reel link"), "https://example.com/video");
+  expect(await screen.findByRole("button", { name: "Get the reel" })).toHaveAccessibleDescription("Paste a link to the reel first, or upload a video above"); // greyed out, and says why
+  await userEvent.type(await screen.findByLabelText("Link to the reel"), "https://example.com/video");
   await userEvent.click(screen.getByRole("button", { name: "Get the reel" }));
   expect(await screen.findByText("That isn't an Instagram reel link.")).toBeInTheDocument();
   expect(calls.some((c) => c.key === "POST /scripts/import/link")).toBe(false);
-  await userEvent.clear(screen.getByLabelText("Paste an Instagram reel link"));
-  await userEvent.type(screen.getByLabelText("Paste an Instagram reel link"), "https://www.instagram.com/p/Abc123/");
-  expect(screen.getByText("Off: keep the reel's lines and rewrite only what the brand swap needs.")).toBeInTheDocument();
+  await userEvent.clear(screen.getByLabelText("Link to the reel"));
+  await userEvent.type(screen.getByLabelText("Link to the reel"), "https://www.instagram.com/p/Abc123/");
+  expect(screen.getByText("Keeps the reel's beats and timing, with fresh words")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("switch", { name: "Write new lines in the same style" }));
   await userEvent.click(screen.getByRole("button", { name: "Get the reel" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/import/link")?.body).toMatchObject({ brand_id: 1, url: "https://www.instagram.com/p/Abc123/", new_lines: true }));
@@ -975,7 +976,7 @@ test("a prepared reel shows its price and the one amber Read this reel · N cred
     "POST /scripts/7/import/read": [201, reelOut({ status: "reading", steps_done: [], estimate: est(7) })],
   });
   open("/b/1/scripts/7");
-  expect(await screen.findByText("Reading it costs about 7 credits.")).toBeInTheDocument();
+  expect(await screen.findByText("Reading it costs up to 7 credits.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Read this reel.*7 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/import/read")).toBe(true));
   const rows = await screen.findByRole("list", { name: "Reading the reel" });
@@ -1046,7 +1047,7 @@ test("the estimate in words rounds up like the button's price", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ estimate: est(6.4) })] });
   open("/b/1/scripts/7");
-  expect(await screen.findByText("Reading it costs about 7 credits.")).toBeInTheDocument();
+  expect(await screen.findByText("Reading it costs up to 7 credits.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Read this reel.*7 credits/ })).toBeInTheDocument();
 });
 
@@ -1213,32 +1214,31 @@ const review = (o: object = {}) => ({
   ...o,
 });
 
-test("Review the breakdown: the player and logline, each shot with its time, framing, action and line, dropped live action muted, a montage that opens, and the filter", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [200, review()] });
-  open("/b/1/scripts/7/reel");
-  expect(await screen.findByText("A groom is dumped at the altar for a richer man.")).toBeInTheDocument();
-  expect(screen.getByLabelText("The reel")).toHaveAttribute("src", expect.stringContaining("/files/3"));
-  expect(screen.getByText(/Hook · 0:00–0:04.9: Cold open/)).toBeInTheDocument();
-  expect(screen.getByText("5 shots · 1 dropped (live action) · 2 lines")).toBeInTheDocument();
-  const shots = screen.getByLabelText("Shots");
-  expect(within(shots).getByText("GROOM: I do.")).toBeInTheDocument();
-  expect(within(shots).getByText("0:00–0:00.4")).toBeInTheDocument();
-  expect(within(shots).getByText("Dropped · live action")).toBeInTheDocument();
-  expect(within(shots).getByText(/Shots 3–4 · montage · 0.8 s/).closest("summary")!.querySelector("svg")).not.toBeNull(); // the chevron says it opens
-  await userEvent.click(within(shots).getByRole("radio", { name: "Lines only" }));
-  expect(within(shots).queryByText("Action 3")).toBeNull();
-  expect(within(shots).getByText("BRIDE: HELL NO!")).toBeInTheDocument();
-  await userEvent.click(within(shots).getByRole("radio", { name: "Dropped" }));
-  expect(within(shots).getByText("Handheld phone clips")).toBeInTheDocument();
-  expect(within(shots).queryByText("GROOM: I do.")).toBeNull();
-});
-
-test("Use this reel goes to the Script step with the toast", async () => {
+test("Review the breakdown: the reel, each shot with its time, a still and what happens, dropped live action muted, a montage that opens, Lines only, and the script filled from it", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [200, review()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
   open("/b/1/scripts/7/reel");
-  await userEvent.click(await screen.findByRole("button", { name: "Use this reel" }));
+  const shots = await screen.findByRole("region", { name: "Shots" });
+  expect(screen.getByLabelText("The reel")).toHaveAttribute("src", expect.stringContaining("/files/3"));
+  expect(screen.getByText("From instagram.com/reel/Abc123/")).toBeInTheDocument();
+  expect(within(shots).getByText(/I do\."$/)).toBeInTheDocument();
+  expect(within(shots).getByRole("button", { name: "Shot 1, 0:00 to 0:00.4" })).toBeInTheDocument();
+  expect(within(shots).getByText("Dropped · live action")).toBeInTheDocument();
+  expect(within(shots).getByText(/shots 3–4 · montage · 0.8 s/).closest("summary")!.querySelector("svg")).not.toBeNull(); // the chevron says it opens
+  expect(within(shots).queryByRole("tab", { name: "Dropped" })).toBeNull();
+  await userEvent.click(within(shots).getByRole("tab", { name: "Lines only" }));
+  expect(within(shots).queryByText(/^Action 3/)).toBeNull();
+  expect(within(shots).getByText(/HELL NO!"$/)).toBeInTheDocument();
+  const filled = screen.getByRole("region", { name: "Script filled from the reel" });
+  expect(within(filled).getByText("Adapt it to Iron Paws before you go on.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Start over" })).toHaveAttribute("href", "/b/1/scripts/import");
+});
+
+test("Use this script goes to the Script step with the toast", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import/breakdown": [200, review()], "GET /scripts/7/import": [200, reelOut({ status: "done", steps_done: ["watch", "write", "cast"] })] });
+  open("/b/1/scripts/7/reel");
+  await userEvent.click(await screen.findByRole("button", { name: "Use this script" }));
   expect(await screen.findByText(/Script filled from the reel\. Adapt it for/)).toBeInTheDocument();
 });
 

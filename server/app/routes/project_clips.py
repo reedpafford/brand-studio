@@ -29,6 +29,7 @@ from app import (
     take_approval,
     take_mute,
     video_settings,
+    word_splice,
 )
 from app.advice import Said
 from app.auth import current_user
@@ -640,7 +641,7 @@ def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[st
             if i.on]  # fmt: skip
     for c in clips:
         take = db.get(ClipTake, c.picked_take_id) if c.picked_take_id else None
-        cuts += take_mute.labels(c, take)
+        cuts += take_mute.labels(c, take) + word_splice.labels(c, take)
     return cuts
 
 
@@ -909,6 +910,11 @@ def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> 
     ]
     video = cut_in.apply(video, cuts, clip.seconds) if cuts else video
     take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
+
+    def source(take_id: int) -> bytes:  # the take a spliced word is copied from
+        return storage.get(db.get(StoredFile, db.get(ClipTake, take_id).file_id).key)
+
+    video = word_splice.apply(video, word_splice.spliced(take), source)  # the brand said right
     return take_mute.apply(video, take_mute.spans(take))  # stretches muted by hand
 
 
