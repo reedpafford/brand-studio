@@ -72,7 +72,7 @@ def test_the_owners_dialogue_starts_at_once_and_stop_stops_it(app, owner, editor
     stopped = owner.post(f"/freestyles/{fs['id']}/stop").json()
     assert stopped["status"] == "stopped"
     r = owner.post(f"/freestyles/{fs['id']}/messages", json={"text": "Slower."})
-    assert r.status_code == 409 and "come next" in r.text
+    assert r.status_code == 201 and r.json()["status"] == "working"  # the owner's: at once
 
 
 def test_a_declined_or_withdrawn_dialogue_says_so_and_spends_nothing(app, owner, editor, db):
@@ -103,6 +103,7 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     row = db.get(Freestyle, fs["id"])
     row.up_to = Decimal(3)  # a small approved price, so the run reaches it
+    row.chat = [{**row.chat[0], "price": "3"}]
     db.commit()
     owner.post(f"/jobs/{held['id']}/approve")
     _run(app, db)

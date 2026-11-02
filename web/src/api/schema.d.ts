@@ -6442,6 +6442,8 @@ export interface components {
             change: boolean;
             /** Up To */
             up_to?: number | null;
+            /** Total */
+            total?: number | null;
         };
         /** FreestyleRow */
         FreestyleRow: {
