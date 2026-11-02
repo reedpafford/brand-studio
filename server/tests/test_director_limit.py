@@ -1,5 +1,5 @@
 """The director's own limit in credits (the Producer): a run's turns and watches are charged at
-a flat price, so past the limit the quote shows (MAX_USD in credits) the next one waits for
+a flat price, so past the limit the quote shows (OWN_CREDITS) the next one waits for
 the owner, the owner's own run too. One OK grants another limit's worth, not one step."""
 
 from decimal import Decimal
@@ -72,7 +72,10 @@ def test_an_ok_grants_a_limits_worth_then_it_waits_again(app, db, owner, editor,
     assert len(_held(db, pid)) == 1  # and once that's spent, it waits again
 
 
-def test_a_freestyles_director_waits_at_its_limit_as_past_its_price(app, owner, editor, db):
+def test_a_freestyles_director_waits_at_its_limit_as_past_its_price(
+    app, owner, editor, db, monkeypatch
+):
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(30))  # its run's own is about 58
     from app.models.freestyles import Freestyle
     from tests.test_freestyle_dialogue import BODY
 
@@ -80,7 +83,7 @@ def test_a_freestyles_director_waits_at_its_limit_as_past_its_price(app, owner, 
     (first,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     owner.post(f"/jobs/{first['id']}/approve")
     pid = db.get(Freestyle, fs["id"]).project_id
-    _run_fakes(app, db)  # its whole run's own comes to about 58
+    _run_fakes(app, db)
     (held,) = _held(db, pid)
     assert held.input["held"] == PAST_APPROVED  # a freestyle's own words for a step past its price
     charged, _ = _own(db, pid)

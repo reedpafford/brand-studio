@@ -34,6 +34,7 @@ MAX_TURNS = 40  # a run's turns at most
 MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
 MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
+OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
@@ -254,10 +255,9 @@ GRANT = "own_grant"  # in a run's job's input: held at the director's own limit 
 
 
 def own_limit() -> Decimal:
-    """The director's own limit a run, in credits, as the quote shows it (MAX_USD)."""
-    from app.credits import usd_to_credits
-
-    return usd_to_credits(MAX_USD)
+    """The director's own limit a run, in credits, as the quote shows it: OWN_CREDITS (MAX_USD
+    stays the real-cost backstop)."""
+    return OWN_CREDITS
 
 
 def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:

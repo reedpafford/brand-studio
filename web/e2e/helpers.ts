@@ -68,20 +68,3 @@ export async function switchBrand(page: Page, name: string) {
   await page.getByRole("button", { name: /^Brand: / }).click();
   await page.getByRole("menuitemradio", { name }).click();
 }
-
-/** Waits for the director's run on video `pid` to end, the owner OKing it each time it waits at the director's own limit
- * (the Producer, 2 Nov: past it a run waits, and an OK grants another limit's worth). */
-export async function runToEnd(owner: Page, pid: number): Promise<void> {
-  const held = async () =>
-    ((await (await owner.request.get("/api/jobs?status=needs_owner_approval")).json()) as { id: number; project_id: number | null; held: string }[])
-      .filter((j) => j.project_id === pid);
-  for (let oks = 0; oks < 3; oks++) {
-    await expect.poll(async () => (await (await owner.request.get(`/api/projects/${pid}/director`)).json()).status === "delivered" || (await held()).length > 0, { timeout: 200_000 }).toBe(true);
-    const waiting = await held();
-    if (!waiting.length) return;
-    for (const j of waiting) {
-      expect(j.held).toMatch(/^Waiting for the owner's OK: the director has used its own limit of \d+ credits\.$/);
-      expect((await owner.request.post(`/api/jobs/${j.id}/approve`)).ok()).toBe(true);
-    }
-  }
-}

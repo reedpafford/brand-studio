@@ -2,8 +2,6 @@
 on its own hidden script and video. An editor's send waits for the owner as the run's first
 turn; the OK covers the price shown, no more; nothing hidden shows in any list or count."""
 
-import pytest
-
 from app import credits, director
 from app.models.brands import Brand
 from app.models.freestyles import Freestyle
@@ -40,7 +38,6 @@ def _hidden_nowhere(owner, editor):
     assert owner.get("/usage/summary").json()["in_progress"] == 0
 
 
-@pytest.mark.usefixtures("roomy")
 def test_an_editors_dialogue_waits_then_the_director_delivers_it_hidden(app, owner, editor, db):
     est = editor.get("/freestyles/estimate", params=BODY).json()["credits"]
     r = editor.post("/freestyles", json=BODY)
@@ -98,11 +95,11 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     step that would pass it waits for the owner again."""
     from decimal import Decimal
 
-    from app.credits import COUNTED, PAST_APPROVED, usd_to_credits
+    from app.credits import COUNTED, PAST_APPROVED
 
     est = Decimal(str(editor.get("/freestyles/estimate", params=BODY).json()["credits"]))
     fs = editor.post("/freestyles", json=BODY).json()
-    assert Decimal(str(fs["up_to"])) == est >= usd_to_credits(director.MAX_USD)  # its turns too
+    assert Decimal(str(fs["up_to"])) == est >= director.OWN_CREDITS  # its turns too
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     row = db.get(Freestyle, fs["id"])
     row.up_to = Decimal(3)  # a small approved price, so the run reaches it
@@ -121,14 +118,14 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
 def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
     app, owner, editor, db, monkeypatch
 ):
-    """QA-3 on #1171 (MAX_USD 0.50): turns, takes and the watch of the cut all wait for the
+    """QA-3 on #1171 (a 5-credit own limit): turns, takes and the watch of the cut all wait for the
     owner past the price; checks are skipped, never queued unheld. Each step held mid-run
     shows in the thread."""
     from decimal import Decimal
 
     from app.credits import COUNTED, PAST_APPROVED
 
-    monkeypatch.setattr(director, "MAX_USD", Decimal("0.50"))
+    monkeypatch.setattr(director, "OWN_CREDITS", Decimal(5))
     fs = editor.post("/freestyles", json=BODY).json()
     up_to, released = Decimal(str(fs["up_to"])), Decimal(0)
     pid = db.get(Freestyle, fs["id"]).project_id

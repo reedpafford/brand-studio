@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { onBrand, runToEnd, signIn } from "./helpers";
+import { onBrand, signIn } from "./helpers";
 
 // The director (first slice, #1087), on the stand-ins: an editor on a video from a published script presses Make it, sees
 // each move as it goes (it watches its cut, fixes what it found and cuts again, #1145), and gets the finished cut with
@@ -28,8 +28,7 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await expect(ed.getByRole("button", { name: "Step 1 of 5 · Director" })).toBeVisible(); // at 390 the tabs are one step button
   await expect(ed.getByText(/ · up to \d+(\.\d)? credits? so far · you can leave this page$/)).toBeVisible();
   await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
-  await runToEnd(page, pid); // past the director's own limit it waits, and the owner OKs it
-  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   await expect(ed.getByLabel("The finished video")).toBeVisible();
   await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible();
   await expect(ed.getByText(/^\d+ s · up to \d+(\.\d)? credits? for this run$/)).toBeVisible();
@@ -40,7 +39,6 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   const moves = await thread.textContent();
   expect(moves).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words only: no tool names, clip codes or JSON
   expect(moves).toContain("Watching the cut."); // it watched its cut (#1145)
-  expect(moves).toMatch(/OK'd: up to \d+ more credits of the director's time\./); // the owner's OK at its limit
   expect((moves ?? "").match(/Made the cut\./g)?.length ?? 0).toBeGreaterThanOrEqual(2); // and cut again after its fixes
   const noted = /^The cut is made\b.*Muted a stretch of clip \d+ instead of remaking it\./; // the delivery note names the mute
   await expect(ed.locator("p").filter({ hasText: noted }).first()).toBeVisible();
@@ -54,8 +52,7 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await expect(ed.getByText("Saved. Press Make it again to make this change.").or(ed.getByRole("button", { name: "Stop" }))).toBeVisible();
   if (await again.isVisible()) await again.click();
   await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
-  await runToEnd(page, pid);
-  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
   await ed.getByRole("button", { name: "Step 1 of 5 · Director" }).click(); // the phone keeps its step sheet, the Director first

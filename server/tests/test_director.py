@@ -5,8 +5,6 @@ its turns are its log. All on the stand-ins: the fake Claude answers each turn w
 
 import json
 
-import pytest
-
 from app import director
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
@@ -192,7 +190,6 @@ def test_a_wait_with_nothing_being_made_reads_the_video_again(app, db, owner, ed
     assert out["ended"] == "It stopped: it waited twice with nothing being made."
 
 
-@pytest.mark.usefixtures("roomy")
 def test_a_video_with_no_shots_gets_its_plan_made_and_approved_first(app, db, owner, editor):
     """QA on #1087: a video whose script has no shots waits on its own plan; `plan` makes the
     plan, then approves it (which makes the shots), as the Plan step does."""
@@ -425,7 +422,6 @@ def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, e
     assert again == "Refused: nothing to mute in clip 1."  # only what was found is silenced
 
 
-@pytest.mark.usefixtures("roomy")
 def test_it_never_watches_before_a_cut_or_the_same_cut_twice(app, db, owner, editor, monkeypatch):
     from app import director_tools
     from app.models.accounts import User
