@@ -1779,4 +1779,7 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     assert "**One voice in a song or a narration:**" in prompts.system("watch_cut")
     assert "a song is usually one world" in prompts.system("review_stills")
     assert "lands on the word that names it" in prompts.system("song_breakdown")
+    assert "one framing device" in prompts.system("treatment")
+    assert "a comic action and a felt reaction" in prompts.system("plan")
+    assert "`extras`" in director and "while `songs_left`" in director
     assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"

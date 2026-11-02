@@ -468,7 +468,9 @@ def sheet_prompt(
     return " ".join(out)
 
 
-SUNG_RATE = (2.0, 2.4)  # words a second Suno sang Reed's Iron Paws songs (365 words, 2:38–2:59)
+# Words a second Suno sings (Song-Producer, 2 Nov: about 2.3, ±15%; Iron Paws rounds 1 and 2
+# ran 2.0–2.65). The slow end gives the longest a take is likely to run, for its cost.
+SUNG_RATE = (2.0, 2.65)
 
 
 def song_directions_input(
@@ -480,17 +482,21 @@ def song_directions_input(
     source: str = "",
     sounds_like: str = "",
     reference: str = "",
+    recent_styles: list[str] | None = None,
 ) -> str:
     """The user message for the song_directions step (with brand_block in the system prompt).
     `music_style` is the brand's genre line; `seconds` only when the editor asked for a length;
     `source` a script or voice-over to adapt into lyrics; `sounds_like` a song or artist the
     editor wants it to feel like (the style line describes it, never names it); `reference` a
-    winning song ad's study (its transcript, tempo and sections) whose shape to follow."""
+    winning song ad's study (its transcript, tempo and sections) whose shape to follow;
+    `recent_styles` the style lines of the brand's latest songs, so a set doesn't sound alike."""
     parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
     if music_style:
         parts.append(f"<music_style>{music_style}</music_style>")
     if sounds_like:
         parts.append(f"<sounds_like>{sounds_like}</sounds_like>")
+    if recent_styles:
+        parts.append("<recent_styles>\n" + "\n".join(recent_styles) + "\n</recent_styles>")
     if reference.strip():
         parts.append(f"<reference>\n{reference.strip()}\n</reference>")
     if source.strip():
@@ -556,18 +562,26 @@ SUNO_PACE = (
 )
 
 
+RAPPED = re.compile(r"\b(rap|rapped|hip-hop|hip hop|trap|drill|grime)\b", re.I)
+VOCALS = (("f", re.compile(r"\b(female|woman|women|girl)\b", re.I)),
+          ("m", re.compile(r"\b(male|man|men|boy)\b", re.I)))  # fmt: skip
+
+
 def song_request(lyrics: str, style_line: str) -> dict:
     """What the music provider (Suno) is sent for a picked direction: the lyrics word for word
     with our [Lip-sync] marks taken out (they're for the breakdown, never sung), opened and
     closed so the vocals start at once and end tight; the style line plus the pacing, outside
-    its 25 words; and the styles to avoid (Starpop's measured Suno settings)."""
+    its 25 words; the styles to avoid (Starpop's measured Suno settings, plus rap unless the
+    style is rapped); and the vocal gender the style line names ("f", "m" or "")."""
     from app.prompts.check import LIP_SYNC
 
     sung = "\n".join(LIP_SYNC.sub("", x).rstrip() for x in lyrics.strip().splitlines())
     return {
         "lyrics": f"[Intro: vocals start immediately]\n{sung}\n[End]",
         "style": style_line.strip().rstrip(".") + SUNO_PACE,
-        "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word",
+        "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word"
+        + ", rap" * (not RAPPED.search(style_line)),
+        "vocal_gender": next((g for g, w in VOCALS if w.search(style_line)), ""),
     }
 
 

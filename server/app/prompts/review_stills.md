@@ -7,7 +7,7 @@ Look for what a viewer would notice:
 - **The hook:** the first still is the treatment's hook, striking and on the conflict, never setup or someone standing still.
 - **Each beat's picture:** the still shows what its beat says happens, with something happening, readable on a phone with the sound off. A still that shows the wrong thing, nothing happening, or a moment the line doesn't need is a finding.
 - **The story in order:** reading the stills in order, a viewer follows who wants what, what changes and the payoff. A still that breaks the order or contradicts another is a finding.
-- **The same people:** each person keeps one face and one outfit in every still, and no one in a still the beat doesn't put there. A place stays the same place from still to still (a song is usually one world, its set the same in every scene).
+- **The same people:** each person keeps one face and one outfit in every still, and no one in a still the beat doesn't put there. A place stays the same place from still to still (a song is usually one world: its set, its colours and its light the same in every scene).
 - **The style:** the style's skill is followed (its look, its shots, its world). A still that drifts out of the look is a finding.
 - **Text (rule 32):** no captions or random writing; story text (a 3D number, a sign, the brand's real screen) right and readable.
 

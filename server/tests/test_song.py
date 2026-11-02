@@ -95,7 +95,7 @@ def test_song_block_lists_sections_beats_and_timed_lines():
     assert "2| 2.10–3.80 Then the green goes on (times guessed)" in block
     assert "   words: 0.10 Bowl\n2|" in block  # a picture can land on its word
     assert "peaks" not in block and "0.40" not in block  # peaks and word ends stay out
-    assert "<length>30 s (about 66 sung words)</length>" in prompts.song_directions_input(
+    assert "<length>30 s (about 70 sung words)</length>" in prompts.song_directions_input(
         "Goal: x", ["char:1 Biscuit"], "folk", 30
     )
 
@@ -193,10 +193,10 @@ def test_a_sounds_like_song_becomes_a_style_line_without_its_name():
 def test_the_length_is_shown_before_the_lyrics_are_locked():
     lyrics = "[Verse]\n" + "\n".join(["one two three four five"] * 73)  # the pilot's 365 words
     words, short, long = check.sung_length(lyrics)
-    assert words == 365 and 150 <= short <= 160 and 180 <= long <= 185
-    assert check.length_note(lyrics) == "365 sung words: a song of about 2:32–3:02."
+    assert words == 365 and 135 <= short <= 140 and 180 <= long <= 185  # 2.3 a second ±15%
+    assert check.length_note(lyrics) == "365 sung words: a song of about 2:18–3:02."
     near = "\n".join(["one two three four five six seven eight nine ten eleven"] * 13)
-    assert check.length_note(near) == "143 sung words: a song of about 1:00–1:12."  # not 0:60
+    assert check.length_note(near) == "143 sung words: a song of about 0:54–1:12."
 
 
 def test_each_shot_plays_while_its_line_is_sung():
@@ -355,3 +355,20 @@ def test_reeds_song_skill_is_folded_in():
     assert sent["lyrics"].startswith("[Intro: vocals start immediately]\n")
     assert sent["lyrics"].endswith("\n[End]") and "spoken word" in sent["exclude_styles"]
     assert sent["style"].endswith("continuous singing, tight ending")
+
+
+def test_song_producer_review_the_hook_first_the_rate_the_vocal_and_a_set_that_varies():
+    """Song-Producer's review (2 Nov): [Hook] is the first tag, about 2.3 sung words a second
+    (±15%), the vocal gender and "no rap" (unless it's rapped) go to Suno, and a brand's set
+    of songs doesn't sound alike."""
+    directions = prompts.system("song_directions")
+    assert "The first tag is always [Hook]" in directions
+    assert "about 2.3 words a second" in directions and "<recent_styles>" in directions
+    sung = prompts.song_request("[Hook]\nWe sing.", "breezy pop, warm female vocal, 100 BPM")
+    assert sung["vocal_gender"] == "f" and sung["exclude_styles"].endswith(", rap")
+    rap = prompts.song_request("[Hook]\nWe rap.", "hip-hop, male rap, 92 BPM")
+    assert rap["vocal_gender"] == "m" and "rap" not in rap["exclude_styles"]
+    assert prompts.song_request("x", "choir, 80 BPM")["vocal_gender"] == ""
+    message = prompts.song_directions_input("Goal: x", [], recent_styles=["folk, 90 BPM"])
+    assert "<recent_styles>\nfolk, 90 BPM\n</recent_styles>" in message
+    assert round(400 / prompts.SUNG_RATE[0]) == 200  # 400 words: costed at about 3:20
