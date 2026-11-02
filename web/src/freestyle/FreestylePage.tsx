@@ -7,7 +7,7 @@ import { Button, Field, buttonClass, pressLabel } from "../components";
 import { serverTime } from "../time";
 import { Composer, useSettingsWords } from "./Composer";
 import { Status, Thread } from "./Thread";
-import { useFreestyle, useFreestyleActions, useFreestyles, type Freestyle } from "./useFreestyle";
+import { busy, useFreestyle, useFreestyleActions, useFreestyles, type Freestyle } from "./useFreestyle";
 
 const day = (iso: string) => {
   const d = serverTime(iso);
@@ -122,7 +122,8 @@ function Header({ fs, maker }: { fs: Freestyle; maker: boolean }) {
         </form>
       )}
       <Status status={fs.status} />
-      <span className="text-sm tabular-nums text-muted">{pressLabel(fs.credits, "estimate")}</span>
+      {/* A Dialogue still running or waiting: the whole price its OK covers, not the little spent so far. */}
+      <span className="text-sm tabular-nums text-muted">{pressLabel(fs.up_to != null && busy(fs.status) ? fs.up_to : fs.credits, "estimate")}</span>
       <span className="flex-1" />
       {fs.status === "working" && (
         <Button variant="secondary" dense icon={Square} busy={actions.stop.isPending} onClick={() => actions.stop.mutate()}>

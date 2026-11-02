@@ -123,6 +123,7 @@ export function UsagePage() {
           </Button>
         )}
         {summary.data && summary.data.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {money(summary.data.unassigned_spend_usd)} · character looks used by several brands</p>}
+        {summary.data && summary.data.freestyle_spend_usd > 0 && <p className="text-sm text-muted">Freestyle: {money(summary.data.freestyle_spend_usd)} · sends with no brand picked (a brand's own are in its row)</p>}
       </section>
       <Charges />
       {sheet && (

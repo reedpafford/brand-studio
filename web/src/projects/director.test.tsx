@@ -185,6 +185,16 @@ test("during a run a note says the director reads it on its next move; a double 
   expect(within(thread).queryByRole("link", { name: "See it in Needs you" })).toBeNull();
 });
 
+test("each note says whether a move has answered it yet", async () => {
+  setViewport(1440);
+  const thread = [{ id: "m0", kind: "message", at, who: "Olu", text: "Warmer light.", status: null, why: "", answered: true }, item("t1", { text: "Warmed the light.", answered: null }), { id: "m1", kind: "message", at, who: "Olu", text: "Shorter.", status: null, why: "", answered: false }];
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ thread })] }));
+  show();
+  const list = await screen.findByRole("list", { name: "Conversation with the director" });
+  expect(within(list).getAllByText(/· Answered$/)).toHaveLength(1);
+  expect(within(list).getAllByText(/· Open$/)).toHaveLength(1); // and never on a move
+});
+
 test("before the first run there's no message box: Make it starts the director", async () => {
   fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "" })] }));
   show();

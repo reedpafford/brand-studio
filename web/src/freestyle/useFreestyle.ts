@@ -5,7 +5,8 @@ import type { components } from "../api/schema";
 import type { Tone } from "../components";
 
 /** Freestyle (Reed's redesign, replaces Quick clip): a video from a pasted script or a described clip, changed by chatting.
- *  Every editor send waits for Reed before anything is spent; Reed's own run at once. Next-Server's /freestyles (#1159). */
+ *  Every editor send waits for Reed before anything is spent; Reed's own run at once. Next-Server's /freestyles (#1159).
+ *  Dialogue is made by the director; the owner's OK covers its whole price (`up_to`, #1171). */
 export type Freestyle = components["schemas"]["FreestyleOut"];
 export type Row = components["schemas"]["FreestyleRow"];
 export type Kind = Freestyle["type"];
@@ -13,13 +14,12 @@ export type Shape = Freestyle["shape"];
 export type Settings = { type: Kind; look: string; shape: Shape; brand_id: number | null };
 
 export const TYPES: { id: Kind; name: string; soon?: boolean }[] = [
-  { id: "dialogue", name: "Dialogue", soon: true },
+  { id: "dialogue", name: "Dialogue" },
   { id: "song", name: "Song", soon: true },
   { id: "narrated", name: "Narrated", soon: true },
   { id: "one_clip", name: "One clip" },
 ];
-export const SOON = "Dialogue, Song and Narrated are coming next; One clip works now.";
-export const SHAPES: Shape[] = ["9:16", "1:1", "16:9"];
+export const SOON = "Song and Narrated are coming next; One clip and Dialogue work now.";export const SHAPES: Shape[] = ["9:16", "1:1", "16:9"];
 export const typeName = (t: Kind) => TYPES.find((x) => x.id === t)?.name ?? t;
 
 /** A status as a dot and words: the colour is the second signal. */
