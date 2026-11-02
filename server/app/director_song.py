@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app import narration, song_takes
+from app import music, narration, song_takes
 from app.models.accounts import User
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
@@ -23,6 +23,7 @@ NO_SONG = "Refused: this video has no song."
 NO_NARRATOR = "Refused: this video has no narrator."
 AGAIN = f"Refused: the {{what}} was made again {REMAKES} times this run."
 OFF = "Refused: songs aren't switched on here yet."
+REFUSED = (music.REFUSED, music.REFUSED_IN_VIDEO)  # the words or style refused: never as is
 
 
 def kind(db: Session, project: Project) -> str | None:
@@ -94,16 +95,28 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
     if takes and not note:
-        return f"Refused: the {what} is still being made, or failed: make it again with a note."
+        failed = [t for t in takes if song_takes.state(db, t)[0] == "failed"]
+        if len(failed) != len(takes):
+            return f"Refused: the {what} is still being made."
+        reason = song_takes.state(db, failed[0])[1] or ""
+        if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again
+            return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
+        song_takes.try_again(db, user, failed[0], kie=_real(db, found))  # free unless made
+        run["song_retries"] = run.get("song_retries", 0) + 1
+        return f"Trying the {what} again: the service failed, nothing was charged."
     if takes and run.get("songs", 0) >= REMAKES:
         return AGAIN.format(what=what)
     if not _on(db, draft):
         return OFF
-    real = 0.0 if found == "narrated" else song_takes.real_songs(db, _settings())
-    song_takes.make(db, user, draft, project, kie=real, note=note)
+    song_takes.make(db, user, draft, project, kie=_real(db, found), note=note)
     if takes:  # a remake; the first song's note is its style line, not a remake
         run["songs"] = run.get("songs", 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
+
+
+def _real(db: Session, found: str) -> float:
+    """A real song through KIE's price (song_takes.real_songs); a narration is never one."""
+    return 0.0 if found == "narrated" else song_takes.real_songs(db, _settings())
 
 
 def _settings():

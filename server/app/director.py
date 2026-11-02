@@ -851,7 +851,7 @@ def choose(state: dict) -> dict:
 
 def _audio_move(state: dict, go) -> dict | None:
     """The stand-in's song or narration: make it, wait for it, then use its best take; a
-    failed one is made once more (that run's one remake)."""
+    failed one is tried again (free when the service failed; refused, it says so)."""
     tool = "song" if "song" in state else "narration" if "narration" in state else None
     audio = state.get(tool) if tool else None
     if audio is None or audio.get("used_take_id"):
@@ -863,10 +863,7 @@ def _audio_move(state: dict, go) -> dict | None:
         return go("wait", f"The {what} is being made.")
     if audio["state"] == "ready":
         return go(tool, f"The {what} is made and timed: use its best take.")
-    left = state.get("allowed", {}).get("songs_left", 0)
-    if left > 0:
-        return go(tool, f"The {what} didn't come out: make it again.", note="Make it again.")
-    return None
+    return go(tool, f"The {what} didn't come out: try it again.")  # free once; then a note
 
 
 # Rule 19, not here: an ask to change the script's words ("change the line to ...", "make her
