@@ -67,6 +67,7 @@ test("while it reads it says so, then the review ticks what's new: the logo (sho
   expect(within(card).getByText("New product")).toBeInTheDocument();
   expect(within(card).getByText("Fills an empty description")).toBeInTheDocument();
   expect(within(card).getByText("Already in your products")).toBeInTheDocument();
+  expect(within(card).queryByText("A metal card")).toBeNull(); // the board shows names only
   expect(within(card).getByText(/Nothing is saved yet/)).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Read it again · up to 3 credits" })).toBeInTheDocument();
   expect(card.textContent).not.toMatch(/\$/);

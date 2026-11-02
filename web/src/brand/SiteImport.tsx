@@ -134,7 +134,7 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
                     <span aria-hidden className="size-6 shrink-0 rounded-sm border border-border" style={{ background: c }} />
                     <label className="flex min-h-control items-center gap-2.5 lg:min-h-9">
                       {have ? <span className="size-5 sm:size-4" aria-hidden /> : <input type="checkbox" className="size-5 sm:size-4" checked={tick.colours.includes(c)} onChange={() => setTicks({ ...tick, colours: toggle(tick.colours, c) })} />}
-                      <span className="font-mono text-sm">{c}</span>
+                      <span className="text-sm">{c}</span>
                       {have && <span className="text-xs text-muted">Already in your colours</span>}
                     </label>
                   </li>
@@ -155,7 +155,6 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
                       {mark === "have" ? <span className="mt-0.5 size-5 shrink-0 sm:size-4" aria-hidden /> : <input type="checkbox" className="mt-0.5 size-5 shrink-0 sm:size-4" checked={tick.products.includes(i)} onChange={() => setTicks({ ...tick, products: toggle(tick.products, i) })} />}
                       <span className="min-w-0 flex-1">
                         <span className="break-words">{p.name}</span> <span className="text-xs text-muted">{MARK[mark]}</span>
-                        {p.short_description && <span className="block break-words text-xs text-muted">{p.short_description}</span>}
                       </span>
                     </label>
                   </li>
