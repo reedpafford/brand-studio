@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
+import { setViewport } from "../test/viewport";
 import { owner } from "../test/people";
 
 const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
@@ -470,4 +471,15 @@ test("v5 pages (QA-3 on #1204): a character's voice is one Play press and it has
   expect(await screen.findByRole("link", { name: "Props & products" })).toHaveAttribute("href", "/b/1/library/props");
   expect(screen.getByText("Grain-free salmon kibble")).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "What it is" })).toBeNull();
+});
+
+test("at 390 a character reads name and sections, then the House-style sheet, then sheets in other styles (QA-3 on #1204)", async () => {
+  setViewport(390);
+  fakeServer(charRoutes(owner, {}));
+  renderAt("/b/1/library/characters/5");
+  const others = await screen.findByRole("region", { name: "Sheets in other styles" });
+  const house = screen.getByRole("region", { name: "House-style sheet" });
+  expect(house.compareDocumentPosition(others) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(others.closest(".order-3")).not.toBeNull(); // after the sheet column (order-2), which follows the name (order-1)
+  expect(screen.getAllByRole("region", { name: "Sheets in other styles" })).toHaveLength(1);
 });

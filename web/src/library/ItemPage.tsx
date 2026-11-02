@@ -15,6 +15,7 @@ import { LookSheets } from "./LookSheets";
 import { SheetVersions } from "./SheetVersions";
 import { KINDS, isKindSlug } from "./kinds";
 import { serverTime } from "../time";
+import { useRail } from "../useMedia";
 
 type Item = components["schemas"]["ItemOut"];
 
@@ -53,6 +54,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
   const [form, setForm] = useState(start);
   // v5 (G_Character, G_Place, G_Prop): the item reads as a page; Edit opens the form in its place. A save shows the page again.
   const [editing, setEditing] = useState(false);
+  const rail = useRail();
   const changed = JSON.stringify(form) !== JSON.stringify(start);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
   const path = { kind, item_id: item.id };
@@ -129,6 +131,11 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
             </>
           )}
         </div>
+        {kind === "character" && !rail && (
+          <div className="order-3 min-w-0">
+            <LookSheets item={item} />
+          </div>
+        )}
         {/* On a phone the name and its sections come first, the sheet after (QA-3 on #1204: not 1,500 px down). */}
         <div className="order-1 min-w-0 max-w-[720px] space-y-0 lg:order-2">
       {!editing ? (
@@ -215,8 +222,9 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
         </div>
       </form>
       )}
-          {/* A character's sheets in other styles: a full-width row here, not squeezed under the house sheet. */}
-          {kind === "character" && (
+          {/* A character's sheets in other styles: a full-width row here, not squeezed under the house sheet. On a phone
+              they come after the House sheet instead (QA-3 on #1204: name, sections, House sheet, other styles). */}
+          {kind === "character" && rail && (
             <div className="border-t border-border pt-4">
               <LookSheets item={item} />
             </div>
