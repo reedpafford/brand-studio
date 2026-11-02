@@ -192,7 +192,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
         </div>
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-medium">Talk to the director</h3>
-          <DirectorChat projectId={projectId} thread={thread} plain={(t) => plain(t, list)} canAsk={status !== "none"} waiting={noted ? (status === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : null} />
+          <DirectorChat projectId={projectId} thread={thread} plain={(t) => plain(t, list)} canAsk={status !== "none"} owner={owner} waiting={noted ? (status === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : running && thread.at(-1)?.kind === "message" ? "The director will read this on its next move." : null} />
         </div>
       </aside>
       {stopping && (

@@ -16,16 +16,20 @@ const SHOWN = 8; // the newest few, with Show earlier
  *  first, then a box to ask for a change. During a run the director reads it on its next turn; after a delivery or a stop
  *  it's saved, and Make it again (or Start again with this note) makes it: a message never starts a run by itself
  *  (the Producer, 2 Nov). Spending is as ever: inside the budget it goes ahead, past it the owner says. */
-export function DirectorChat({ projectId, thread, plain, canAsk, waiting }: { projectId: number; thread: Item[]; plain: (text: string) => string; canAsk: boolean; waiting?: string | null }) {
+export function DirectorChat({ projectId, thread, plain, canAsk, owner, waiting }: { projectId: number; thread: Item[]; plain: (text: string) => string; canAsk: boolean; owner?: boolean; waiting?: string | null }) {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [all, setAll] = useState(false);
   const end = useRef<HTMLLIElement>(null);
+  const sending = useRef(false); // one press, one note: a second click before the first returns does nothing
   const send = useMutation({
     mutationFn: async (body: string) => {
       const { data, error } = await api.POST("/projects/{project_id}/director/messages", { params: { path: { project_id: projectId } }, body: { text: body } });
       if (!data) throw new Error(errorText(error));
       return data;
+    },
+    onSettled: () => {
+      sending.current = false;
     },
     onSuccess: (data: Run) => {
       setText("");
@@ -71,11 +75,14 @@ export function DirectorChat({ projectId, thread, plain, canAsk, waiting }: { pr
                   </p>
                   <p className="whitespace-pre-line break-words">{words}</p>
                   {t.why && plain(t.why) && <p className="break-words text-muted">{plain(t.why)}</p>}
-                  {t.status === "held" && (
-                    <Link to="/approvals" className="text-sm text-accent-text underline-offset-2 hover:underline">
-                      See it in Needs you
-                    </Link>
-                  )}
+                  {t.status === "held" &&
+                    (owner ? (
+                      <Link to="/approvals" className="text-sm text-accent-text underline-offset-2 hover:underline">
+                        See it in Needs you
+                      </Link>
+                    ) : (
+                      <p className="text-muted">Waiting for approval.</p>
+                    ))}
                 </div>
               </li>
             );
@@ -88,7 +95,9 @@ export function DirectorChat({ projectId, thread, plain, canAsk, waiting }: { pr
           className="flex items-end gap-2 rounded-lg border border-border-strong bg-surface p-2 focus-within:border-focus"
           onSubmit={(e) => {
             e.preventDefault();
-            if (ask && !send.isPending) send.mutate(ask);
+            if (!ask || sending.current) return;
+            sending.current = true;
+            send.mutate(ask);
           }}
         >
           <label htmlFor={`ask-${projectId}`} className="sr-only">
@@ -112,7 +121,7 @@ export function DirectorChat({ projectId, thread, plain, canAsk, waiting }: { pr
             placeholder="Tell the director what to change"
             className="min-h-10 flex-1 resize-none bg-transparent px-1 py-1 text-base outline-none placeholder:text-faint"
           />
-          <Button type="submit" variant="secondary" dense icon={ArrowUp} busy={send.isPending} disabled={!ask} aria-label="Send to the director" />
+          <Button type="submit" variant="secondary" dense icon={ArrowUp} busy={send.isPending} disabled={!ask || send.isPending} aria-label="Send to the director" />
         </form>
       )}
       {send.isError && (

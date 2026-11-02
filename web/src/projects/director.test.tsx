@@ -169,6 +169,22 @@ test("after a Stop the press reads Start again with this note; too many messages
   expect(await screen.findByRole("alert")).toHaveTextContent("Too many messages; wait a moment");
 });
 
+test("during a run a note says the director reads it on its next move; a double press sends one note; an editor's held move says it waits for approval, with no owner link (QA-11)", async () => {
+  setViewport(390);
+  const going = run({ thread: [item("t1", { text: "Made the plan." })] });
+  const sent = run({ thread: [item("t1", { text: "Made the plan." }), item("t2", { text: "Waiting for the owner's OK.", status: "held" }), { id: "m0", kind: "message", at, who: "Olu", text: "Warmer light.", status: null, why: "" }] });
+  const calls = fakeServer(routes({ "GET /auth/me": [200, editor], "GET /projects/9/director": [200, going], "POST /projects/9/director/messages": [201, sent] }));
+  show();
+  await userEvent.type(await screen.findByLabelText("Tell the director what to change"), "Warmer light.");
+  await userEvent.dblClick(screen.getByRole("button", { name: "Send to the director" }));
+  expect(await screen.findByText("The director will read this on its next move.")).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /projects/9/director/messages")).toHaveLength(1);
+  expect(screen.queryByRole("alert")).toBeNull();
+  const thread = screen.getByRole("list", { name: "Conversation with the director" });
+  expect(within(thread).getByText("Waiting for approval.")).toBeInTheDocument();
+  expect(within(thread).queryByRole("link", { name: "See it in Needs you" })).toBeNull();
+});
+
 test("before the first run there's no message box: Make it starts the director", async () => {
   fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "" })] }));
   show();
