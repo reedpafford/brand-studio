@@ -266,6 +266,7 @@ def list_jobs(
     removed: bool = False,  # true: the Quick clips taken off the history, to bring back
     folder: str | None = None,  # OR1: a project's id, or "none" for No project
     mine: bool = False,  # only the caller's own; an editor never gets others' Quick clips anyway
+    freestyle: bool = False,  # include Freestyle takes (they live on Freestyle and Media)
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -277,6 +278,8 @@ def list_jobs(
         quick = and_(Job.project_id.is_(None), Job.input["step"].as_string().is_(None),
                      or_(Job.kind.startswith("video"), Job.kind.startswith("image")))  # fmt: skip
         query = query.where(or_(Job.created_by_id == user.id, ~quick))
+    if not freestyle and status != JobStatus.needs_owner_approval:  # Needs you lists them all
+        query = query.where(Job.input[FREESTYLE].as_integer().is_(None))
     if status:
         query = query.where(Job.status == status)
     if (filed := folders.where(Job.folder_id, folder)) is not None:

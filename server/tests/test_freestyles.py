@@ -182,3 +182,21 @@ def test_needs_you_says_which_freestyle_and_what_it_asks(owner, editor, db):
     assert row["prompt_summary"] == "Make it night."
     first = owner.get(f"/jobs/{job.id}").json()["freestyle"]
     assert (first["said"], first["change"]) == (SCRIPT, False)
+
+
+def test_freestyle_takes_stay_out_of_the_quick_clip_history(owner, editor, db):
+    """QA-10 on #1165: Freestyle takes show on Freestyle and Media only. Needs you still lists
+    a held one; `freestyle=true` asks for them anyway."""
+    fs = editor.post("/freestyles", json={**HOUSE, "text": SCRIPT}).json()
+    job = db.query(Job).one()
+    for who in (editor, owner):
+        assert (
+            who.get("/jobs").json() == [] and who.get("/jobs", params={"mine": True}).json() == []
+        )
+    held = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    assert [j["id"] for j in held] == [job.id]
+    owner.post(f"/jobs/{job.id}/approve")
+    assert owner.get("/jobs").json() == []  # running or done: still not a Quick clip
+    assert [
+        j["freestyle"]["id"] for j in editor.get("/jobs", params={"freestyle": True}).json()
+    ] == [fs["id"]]

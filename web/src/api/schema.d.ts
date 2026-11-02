@@ -12504,6 +12504,7 @@ export interface operations {
                 removed?: boolean;
                 folder?: string | null;
                 mine?: boolean;
+                freestyle?: boolean;
             };
             header?: never;
             path?: never;
