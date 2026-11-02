@@ -69,9 +69,10 @@ GUIDES = {
     "script": ["script_draft", "enhance", "variations"],
     "lanes": ["plan"],  # a look's lanes: the plan picks one per video
 }
-# Reed's skill files (docs/next/skills, copied here word for word: a test keeps them equal), the
-# brain of the steps that judge a story (the Producer, 2 Nov: "Reed wrote those skills to be the
-# brain"), with the team's craft from the harvest (#1075).
+# Reed's skill files (docs/next/skills, copied here word for word: a test keeps them equal). Every
+# video's story comes from producer-craft.md; a style's own skill (below) is its look, camera,
+# shots and format rules (Reed, 2 Nov: "the skill should really just be the visual style, and how
+# the cameras and stuff move").
 SKILLS = {"disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
           "claymation": "claymation", "paper": "paper", "skeleton": "skeleton-ad"}  # fmt: skip
 SKILLED = {"treatment", "plan", "plan_scene", "director", "review_stills", "watch_cut"}
@@ -217,13 +218,22 @@ def system(step: str, style_id: str = "house", fmt: str = "") -> str:
             f"{chosen['name']} look: these add to the look, never change it.\n\n"
             + _styled("\n\n".join(guide), style_id)
         )
-    if step in SKILLED:
-        parts.append((HERE / "craft.md").read_text())
+    if step in SKILLED:  # Reed, 2 Nov: the story from producer craft, the pictures from the style
+        parts.append(
+            "## Producer craft (Reed's: the story, for every video)\nHow the team makes a short "
+            "people watch to the end: the why, the hook, something happening, review and "
+            "rewatch.\n\n" + (HERE / "skills" / "producer-craft.md").read_text()
+        )
         if text := skill(style_id, fmt):
             parts.append(
-                "## The look's skill (Reed's, for this video)\nHow this look's videos are made and "
-                "why they hold a viewer. Follow it; where the steps above are more specific about "
-                "the site's own fields and limits, they win.\n\n" + text
+                "## The style's skill (Reed's: the look, the camera and the shots)\nHow this "
+                "style looks and how its camera, shots, motion and transitions work, with its "
+                "format rules. Where it and the producer craft differ on anything visual, the "
+                "style's skill wins; where the steps above are more specific about the site's own "
+                "fields and limits, they win. This video's look is the one named above: where a "
+                "skill names a studio or a render style that isn't this video's look (a song "
+                "skill's \"Pixar\" on a Claymation song), follow this video's look, and never "
+                "write a studio's name.\n\n" + text
             )
     return "\n\n".join(parts)
 
@@ -833,9 +843,12 @@ def treatment_block(treatment: dict | None) -> str:
 
 
 def stand_in_treatment(script: str) -> dict:
-    """A canned treatment for the stand-ins (no paid call): one beat per spoken line, the first
+    """A canned treatment for the stand-ins (no paid call): one beat per line but the scene
+    headings, the first
     the hook, the last the payoff; it validates as schemas.Treatment."""
-    lines = [n for n, line in enumerate(script.splitlines(), 1) if line.strip()] or [1]
+    heading = re.compile(r"^\s*(SCENE\b|INT\.|EXT\.)", re.I)
+    lines = [n for n, line in enumerate(script.splitlines(), 1)
+             if line.strip() and not heading.match(line)] or [1]  # fmt: skip
     last = len(lines)
     beats = [{"id": f"b{i}", "lines": [n],
               "purpose": "hook" if i == 1 else "payoff" if i == last else "escalate",

@@ -590,7 +590,9 @@ class Treatment(BaseModel):
     hook: str = Field(description="The first 2 seconds: what we see and hear.")
     logline: str = Field(description="The story in one plain sentence.")
     why_it_holds: str = Field(description="Why a viewer of this look keeps watching.")
-    beats: list[Beat] = Field(description="The video in order; together every line, once.")
+    beats: list[Beat] = Field(
+        description="The video in order; together every line but the scene headings, once."
+    )
     ending: str = Field(description="The payoff and the call to action, and why they land.")
 
 

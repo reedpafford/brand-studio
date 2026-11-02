@@ -1657,9 +1657,16 @@ def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
     assert prompts.skill("house", "song") == (HERE / "skills" / "song-ad.md").read_text()
     for step in ("treatment", "plan", "director", "review_stills", "watch_cut"):
         text = prompts.system(step, "claymation-goofy")
-        assert "## The team's craft" in text and "## The look's skill" in text, step
+        assert "## Producer craft" in text and "## The style's skill" in text, step
+        assert (HERE / "skills" / "producer-craft.md").read_text() in text, step
         assert (HERE / "skills" / "claymation.md").read_text() in text, step
-    assert "## The look's skill" not in prompts.system("storyboard", "claymation-goofy")
+    assert "## The style's skill" not in prompts.system("storyboard", "claymation-goofy")
+    house = prompts.system("treatment", "house")  # no style skill: producer craft only
+    assert "## Producer craft" in house and "## The style's skill" not in house
+    # Reed: producer craft is the story only; the camera is each style's own
+    craft = (HERE / "skills" / "producer-craft.md").read_text().lower()
+    for word in ("camera", "close-up", "push in", "pan ", "transition", "lighting", "framing"):
+        assert word not in craft, word
     assert prompts.SCHEMAS["treatment"] is schemas.Treatment
     assert prompts.SCHEMAS["review_stills"] is schemas.StillsReview
     treatment = prompts.system("treatment")
