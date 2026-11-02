@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app import looks, plans, prompts
 from app.models.breakdowns import BreakdownVersion
+from app.models.jobs import Job
 from app.models.looks import LookSwitch
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -20,7 +21,7 @@ LANES = {s["id"] for s in prompts.styles() if s["kind"] == "lane"}
 def test_a_lane_is_found_named_by_its_style_and_follows_its_switch(db, owner, editor):
     assert {"paper-flat", "claymation-goofy", "skeleton-xray"} <= LANES
     flat = looks.get("paper-flat")
-    assert (flat["name"], flat["parent"]) == ("Paper · Flat Paper", "paper")
+    assert (flat["name"], flat["parent"]) == ("Paper · Flat", "paper")
     assert looks.base("paper-flat") == "paper" and looks.base("paper") == "paper"
     with pytest.raises(HTTPException):
         looks.get("song")  # a format is neither
@@ -28,7 +29,7 @@ def test_a_lane_is_found_named_by_its_style_and_follows_its_switch(db, owner, ed
     assert not LANES & set(cards) and {"paper", "claymation", "skeleton"} <= set(cards)
     assert len(cards) == len(set(cards))  # one card per style
     paper = next(c for c in editor.get("/looks").json() if c["id"] == "paper")
-    assert {"id": "paper-flat", "name": "Paper · Flat Paper"} in paper["lanes"]  # to name a video
+    assert {"id": "paper-flat", "name": "Paper · Flat"} in paper["lanes"]  # to name a video
     assert next(c for c in editor.get("/looks").json() if c["id"] == "house")["lanes"] == []
     ws = owner.get("/auth/me").json()["workspace_id"]
     assert not looks.is_on(db, ws, "paper-flat")
@@ -76,6 +77,13 @@ def test_a_drawn_still_or_a_persons_pick_keeps_the_look(app, db, owner, editor, 
     plans._set(project, plan, "by_hand", None, "")
     assert project.look == "paper"  # a still in the look: changing it would leave it out of date
     db.query(StoryboardFrame).delete()
+    drawing = Job(workspace_id=project.workspace_id, kind="image", provider="fake",
+                  project_id=project.id, status="running", input={"step": "sheet"})  # fmt: skip
+    db.add(drawing)
+    db.commit()
+    plans._set(project, plan, "by_hand", None, "")
+    assert project.look == "paper"  # a role's look still being drawn in it
+    db.delete(drawing)
     db.commit()
     picked = owner.patch(f"/projects/{project.id}", json={"look": "paper"})  # a person's pick
     assert picked.status_code == 200, picked.text

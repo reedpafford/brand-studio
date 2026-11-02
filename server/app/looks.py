@@ -4,6 +4,8 @@ Director's paragraphs); the formats there are not looks. A look is On for editor
 the owner switches it on, and that needs its sample first (ST3); with no switch, the file's
 own `on:` applies (House alone). The owner may try an Off look on their own drafts."""
 
+import re
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -33,7 +35,9 @@ def get(look_id: str) -> dict:
         raise HTTPException(422, UNKNOWN)
     parent = every.get(found.get("parent") or "")
     if found["kind"] == "lane" and parent:
-        return {**found, "name": f"{parent['name']} · {found['name']}", "on": parent["on"]}
+        own = re.sub(rf"\s*\b{re.escape(parent['name'])}\b\s*", " ", found["name"], flags=re.I)
+        name = f"{parent['name']} · {own.strip() or found['name']}"  # not "Paper · Flat Paper"
+        return {**found, "name": name, "on": parent["on"]}
     return found
 
 
@@ -106,7 +110,8 @@ def picked_by_person(project) -> None:
 def follow_lane(db: Session, project) -> str | None:
     """A saved plan's lane (`structure.lane`, the Director's) becomes the video's look when it
     belongs to it: never once a still, sheet or take is in the look, nor when a person picked
-    the look themselves (or locked it). The look it set, or None."""
+    the look themselves (or locked it), nor while a role's look is being drawn. The look it
+    set, or None."""
     from app.models.clips import ClipTake, ProjectClip
     from app.models.storyboards import StoryboardFrame
     from app.sheets import sheet_for
@@ -131,7 +136,12 @@ def follow_lane(db: Session, project) -> str | None:
                       .where(ProjectClip.project_id == project.id, ClipTake.look == look)
                       .limit(1))  # fmt: skip
     sheets = look != DEFAULT and any(sheet_for(db, project, c) for c in cast_looks(db, project))
-    if stills or takes or sheets:
+    from app.models.jobs import Job, JobStatus
+
+    making = db.scalar(select(Job.id).where(  # a role's look still being drawn in this look
+        Job.project_id == project.id, Job.input["step"].as_string() == "sheet",
+        Job.status.in_((JobStatus.queued, JobStatus.running))).limit(1))  # fmt: skip
+    if stills or takes or sheets or making:
         return None
     project.look = lane
     return lane

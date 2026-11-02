@@ -282,7 +282,8 @@ def video_state(db: Session, project: Project) -> dict:
 
     return {
         "plan": status(db, project),  # none, ready (waits for approval) or approved
-        "locked": project.locks or {},  # choices fixed for it (director-chat.md §1): kept as is
+        # choices fixed for it (director-chat.md §1), kept as is; a person's own look pick isn't
+        "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
         "shots": "ready" if bd else "none",
         "missing_looks": [s.role for s in _missing(db, project)] if bd else [],

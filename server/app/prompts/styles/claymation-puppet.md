@@ -14,7 +14,7 @@ Stop-motion clay puppet: a clay character detailed with tiny real craft material
 Stop-motion clay puppet: a fully sculpted clay set with tiny craft-material props, cinematic stop-motion film lighting with gentle shadows, a moody palette of deep teal shadows and warm amber practical light, real cast shadows.
 
 ## still_look
-The Clay Puppet look, unless the brand block says otherwise: "Stop-motion clay puppet scene — clay characters detailed with tiny craft materials: thread-wrapped hair, fabric details, wire accents, on a fully sculpted clay set, cinematic stop-motion film lighting with gentle shadows, the scene filling the entire frame with the camera inside the puppet world. Faces, builds and outfits come from the character sheets. Deep teal shadows and warm amber practical light; no photographic skin, no real human hands."
+The Clay Puppet look, unless the brand block says otherwise: "Stop-motion clay puppet scene — clay characters detailed with tiny craft materials: thread-wrapped hair, fabric details, wire accents, on a fully sculpted clay set, cinematic stop-motion film lighting with gentle shadows, the scene filling the entire frame with the camera inside the puppet world. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Deep teal shadows and warm amber practical light; no photographic skin, no real human hands."
 
 ## clip_style
 Handmade stop-motion claymation throughout: matte plasticine, visible fingerprints and tool marks, slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI. Non cartoon. Animation must start at the first frame

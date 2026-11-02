@@ -178,3 +178,12 @@ test("if Approve all stops part way, the page refreshes and says how many went t
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Approve all" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("1 of 2 went through. Over this week's limit.");
 });
+
+test("a link to one request (?job=51, from the page it waits on) lands on that row, marked and focused", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [held({}), held({ id: 51, step: "frame", credits: 3 })]] });
+  open("/approvals?job=51");
+  const row = (await screen.findByRole("button", { name: "Approve a new still" })).closest("li")!;
+  await vi.waitFor(() => expect(row).toHaveFocus());
+  expect(row).toHaveAttribute("aria-current", "true");
+  expect(screen.getByRole("button", { name: "Approve a new take" }).closest("li")).not.toHaveAttribute("aria-current");
+});
