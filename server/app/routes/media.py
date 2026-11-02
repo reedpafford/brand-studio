@@ -12,9 +12,9 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app import folders
-from app.auth import current_user
+from app.auth import current_user, owner_only
 from app.credits import FREESTYLE
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.files import StoredFile
@@ -155,9 +155,7 @@ def list_media(
 ):
     get_brand(db, user, brand_id)
     rows = _rows(db, user, brand_id, kind)
-    files = {f.id: f for f in db.scalars(select(StoredFile).where(
-        StoredFile.id.in_({r["file_id"] for r in rows}),
-        StoredFile.workspace_id == user.workspace_id))}  # fmt: skip
+    files = _files(db, user, rows)
     rows = [r for r in rows if r["file_id"] in files and (by is None or r["by"] == by)]
     if folder is not None:  # the brand's own sheets are in no project: listed only unfiltered
         want = None if folder == folders.NONE else _folder_id(folder)
@@ -174,6 +172,18 @@ def list_media(
             raise HTTPException(422, "That page link is out of date. Start from the top.") from None
         rows = [r for r in rows if (r["made_at"], r["key"]) < mark]
     page = rows[:PAGE]
+    items = _items(db, page, files)
+    last = page[-1] if len(rows) > PAGE else None
+    return MediaPage(items=items, next=last and _cursor(last["made_at"], last["key"]))
+
+
+def _files(db: Session, user: User, rows: list[dict]) -> dict[int, StoredFile]:
+    return {f.id: f for f in db.scalars(select(StoredFile).where(
+        StoredFile.id.in_({r["file_id"] for r in rows}),
+        StoredFile.workspace_id == user.workspace_id))}  # fmt: skip
+
+
+def _items(db: Session, page: list[dict], files: dict[int, StoredFile]) -> list[MediaItem]:
     videos = {p.id: p for p in db.scalars(select(Project).where(
         Project.id.in_({r["project_id"] for r in page if r["project_id"]})))}  # fmt: skip
     people = {r["by"] for r in page if r["by"]} | {v.created_by_id for v in videos.values()}
@@ -186,12 +196,58 @@ def list_media(
     for r in page:
         video = videos.get(r["project_id"])
         gone = bool(video and video.archived_at)
-        by_id = r.pop("by")
         items.append(MediaItem(
-            **r, content_type=files[r["file_id"]].content_type, made_by=maker(by_id),
-            video_name=video.name if video else None,
+            **{k: v for k, v in r.items() if k not in ("by", "made_at")},
+            content_type=files[r["file_id"]].content_type, made_by=maker(r["by"]),
+            made_at=files[r["file_id"]].created_at, video_name=video.name if video else None,
             from_deleted_video=gone,
             deleted_video_by=maker(video.created_by_id) if gone else None,
             deleted_video_released=gone and video.released_draft_id is not None))  # fmt: skip
-    last = page[-1] if len(rows) > PAGE else None
-    return MediaPage(items=items, next=last and _cursor(last["made_at"], last["key"]))
+    return items
+
+
+NOT_FOUND = "That's no longer in Media."
+
+
+def _one(db: Session, user: User, brand_id: int, key: str) -> tuple[dict, StoredFile]:
+    get_brand(db, user, brand_id)
+    rows = [r for r in _rows(db, user, brand_id, None) if r["key"] == key]
+    files = _files(db, user, rows)
+    if not rows or rows[0]["file_id"] not in files:
+        raise HTTPException(404, NOT_FOUND)
+    return rows[0], files[rows[0]["file_id"]]
+
+
+@router.get("/brands/{brand_id}/media/{key}", response_model=MediaItem)
+def read_media(
+    brand_id: int, key: str, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """One item of Media (its own page), as the list shows it: only what the caller may see."""
+    row, file = _one(db, user, brand_id, key)
+    return _items(db, [row], {file.id: file})[0]
+
+
+SHEET = "This is a sheet in Cast & places. Change it there."
+
+
+@router.delete("/brands/{brand_id}/media/{key}", status_code=204)
+def remove_media(
+    brand_id: int, key: str, owner: User = Depends(owner_only), db: Session = Depends(get_db)
+) -> None:
+    """Owner only: a Quick clip or a script's own song leaves Media (Undo: the clip's or the
+    song's restore). What a video is made of, or a Cast & places sheet, is removed where it's
+    used, so the video never loses a part without its maker seeing it."""
+    from app import song_takes
+
+    row, _ = _one(db, owner, brand_id, key)
+    what, rest = key.split(":", 1)
+    if row["project_id"]:
+        video = db.get(Project, row["project_id"])
+        raise HTTPException(409, f"This is part of {video.name}. Remove it from the video instead.")
+    if what == "quick":
+        db.get(Job, int(rest.split(":")[0])).removed_at = utcnow()
+        db.commit()
+    elif what == "song":
+        song_takes.remove(db, db.get(SongTake, int(rest)))
+    else:
+        raise HTTPException(409, SHEET)

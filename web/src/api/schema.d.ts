@@ -5138,6 +5138,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands/{brand_id}/media/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Media
+         * @description One item of Media (its own page), as the list shows it: only what the caller may see.
+         */
+        get: operations["read_media_brands__brand_id__media__key__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Media
+         * @description Owner only: a Quick clip or a script's own song leaves Media (Undo: the clip's or the
+         *     song's restore). What a video is made of, or a Cast & places sheet, is removed where it's
+         *     used, so the video never loses a part without its maker seeing it.
+         */
+        delete: operations["remove_media_brands__brand_id__media__key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/brands/{brand_id}/site-read/estimate": {
         parameters: {
             query?: never;
@@ -20859,6 +20885,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MediaPage"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_media_brands__brand_id__media__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_media_brands__brand_id__media__key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
