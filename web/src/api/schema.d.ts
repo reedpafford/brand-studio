@@ -3679,9 +3679,10 @@ export interface paths {
         put?: never;
         /**
          * Message
-         * @description Tell the director what to change: read at its next turn while a run goes on, else it
-         *     starts a revision run and delivers again (409 on a video it can't run on). Who may: as
-         *     Make it. It spends inside the video's budget; past it, the owner approves.
+         * @description Tell the director what to change. While a run goes on, its next turn reads it. It never
+         *     starts a run: after Stop or a delivery it waits (`unread`) for the next Make it, which
+         *     reads every unread note and spends as Make it does. Who may: as Make it. At most one
+         *     note a person every 3 s and 30 a run (429). Nothing is charged for a note.
          */
         post: operations["message_projects__project_id__director_messages_post"];
         delete?: never;
@@ -5900,6 +5901,11 @@ export interface components {
              * @default []
              */
             thread: components["schemas"]["ThreadItem"][];
+            /**
+             * Unread
+             * @default 0
+             */
+            unread: number;
         };
         /** DraftIn */
         DraftIn: {

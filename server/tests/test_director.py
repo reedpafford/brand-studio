@@ -727,7 +727,11 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
     assert editor.get(url).json()["status"] == "delivered"
     sent = editor.post(f"{url}/messages", json={"text": "Make clip 1 slower and warmer."})
     assert sent.status_code == 201, sent.text
-    assert sent.json()["status"] == "running"
+    assert (sent.json()["status"], sent.json()["unread"]) == ("delivered", 1)  # never starts one
+    _run(app, db)
+    assert editor.get(url).json()["status"] == "delivered"
+    assert editor.post(url).status_code == 201  # Make it again: it reads the note
+    assert editor.get(url).json()["unread"] == 0
     _run(app, db)
     out = editor.get(url).json()
     assert out["status"] == "delivered", (out["ended"], [t["tool"] for t in out["turns"]])
@@ -775,11 +779,11 @@ def test_chat_while_it_runs_is_read_at_its_next_turn_and_only_the_maker_may(app,
         assert other.post(f"{url}/messages", json={"text": "Hi"}).status_code == 403
 
 
-def test_a_message_sent_during_the_last_turn_starts_the_revision_once(
+def test_a_note_sent_during_the_last_turn_waits_for_the_next_make_it(
     app, db, owner, editor, monkeypatch
 ):
-    """QA-10: a message sent while the run's last turn delivers is never lost. The delivery
-    moves it to a revision run, which makes it and delivers again, exactly once."""
+    """The Producer: a note sent while the run's last turn delivers is never lost and never
+    starts a run. It stays unread; the next Make it reads it, once."""
     pid = _made(app, owner, editor, db)
     url = f"/projects/{pid}/director"
     act, sent = director._act, []
@@ -794,35 +798,36 @@ def test_a_message_sent_during_the_last_turn_starts_the_revision_once(
     _run(app, db)
     assert sent[0].status_code == 201, sent[0].text
     out = editor.get(url).json()
-    assert out["status"] == "delivered", out["ended"]
-    whys = [t["why"] for t in out["turns"]]
-    assert whys.count("You asked: Make clip 1 brighter.") == 1
-    project = db.get(Project, pid)
-    db.refresh(project)
-    every = [
-        j for j in db.query(Job).filter_by(project_id=pid) if j.input.get("step") == director.STEP
-    ]
-    assert sum((t.output or {}).get("tool") == "deliver" for t in every) == 2  # and again
-    (said,) = project.director_chat
-    runs = {t.input[director.RUN]["id"] for t in every}
-    assert (
-        len(runs) == 2 and said["run"] in runs and director.unread(db, project, said["run"]) == []
-    )
+    assert (out["status"], out["unread"]) == ("delivered", 1)
+    steps = lambda: [j for j in db.query(Job).filter_by(project_id=pid)  # noqa: E731
+                     if j.input.get("step") == director.STEP]  # fmt: skip
+    first = len(steps())
+    _run(app, db, ticks=5)
+    assert len(steps()) == first  # it started nothing by itself
+    assert editor.post(url).status_code == 201
+    _run(app, db)
+    out = editor.get(url).json()
+    assert (out["status"], out["unread"]) == ("delivered", 0), out["ended"]
+    assert [t["why"] for t in out["turns"]].count("You asked: Make clip 1 brighter.") == 1
     assert not any(
         "c1" in m["text"] + m["why"] for m in out["thread"]
     )  # "clip 1", as people see it
 
 
-def test_messages_have_a_limit_a_minute_and_while_unread(app, db, owner, editor):
+def test_notes_one_every_3_seconds_a_person_and_30_a_run(app, db, owner, editor, monkeypatch):
+    from datetime import timedelta
+
     pid = _made(app, owner, editor, db)
     url = f"/projects/{pid}/director"
     editor.post(url)
-    codes = [
-        editor.post(f"{url}/messages", json={"text": f"Ask {n}"}).status_code for n in range(4)
-    ]
-    assert codes == [201, 201, 201, 429]  # 3 waiting unread at most
-    r = editor.post(f"{url}/messages", json={"text": "One more"})
-    assert r.status_code == 429 and "hasn't read" in r.json()["detail"]
+    assert editor.post(f"{url}/messages", json={"text": "One"}).status_code == 201
+    r = editor.post(f"{url}/messages", json={"text": "Two"})
+    assert r.status_code == 429 and r.json()["detail"] == "Too many messages; wait a moment."
+    monkeypatch.setattr(director, "GAP", timedelta(0))
+    codes = [editor.post(f"{url}/messages", json={"text": f"Ask {n}"}).status_code
+             for n in range(30)]  # fmt: skip
+    assert codes.count(201) == 29 and codes[-1] == 429  # 30 a run at most
     project = db.get(Project, pid)
     db.refresh(project)
-    assert len(project.director_chat) == 3
+    assert len(project.director_chat) == 30
+    assert db.query(Job).filter(Job.kind != "write-claude").count() == 0  # nothing charged
