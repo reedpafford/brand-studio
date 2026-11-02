@@ -135,9 +135,14 @@ def thread(db: Session, project: Project) -> list[dict]:
     rows = db.scalars(select(Job).where(Job.project_id == project.id,
                                         Job.input["step"].as_string() == STEP)
                       .order_by(Job.id)).all()  # fmt: skip
-    out = [{"id": f"m{n}", "kind": "message", "at": m["at"], "who": user_name(db, m["by"]),
-            "text": m["text"], "status": None, "why": ""}
-           for n, m in enumerate(project.director_chat or [])]  # fmt: skip
+    done = {r: answered(db, r) for r in {m.get("run") for m in project.director_chat or []} if r}
+    place: dict[str | None, int] = {}  # a note's number in its run ("Note N"), as `answered` reads
+    out = []
+    for n, m in enumerate(project.director_chat or []):
+        place[m.get("run")] = place.get(m.get("run"), 0) + 1
+        out.append({"id": f"m{n}", "kind": "message", "at": m["at"],
+                    "who": user_name(db, m["by"]), "text": m["text"], "status": None, "why": "",
+                    "answered": place[m.get("run")] in done.get(m.get("run"), set())})  # fmt: skip
     for j in rows:
         result = j.input.get("result") or ""
         tool = (j.output or {}).get("tool")
@@ -157,7 +162,7 @@ def thread(db: Session, project: Project) -> list[dict]:
                   else "refused" if result.startswith("Refused") else "done")  # fmt: skip
         out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                     "who": "Director",
-                    "text": text, "status": status, "why": why})  # fmt: skip
+                    "text": text, "status": status, "why": why, "answered": None})  # fmt: skip
     return sorted(out, key=lambda m: m["at"])
 
 

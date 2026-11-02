@@ -38,6 +38,7 @@ def test_an_editors_change_waits_for_the_owner_then_a_new_run_makes_it(app, owne
     price = Decimal(str(held["freestyle"]["up_to"]))
     assert held["freestyle"]["change"] and held["freestyle"]["said"] == CHANGE
     assert Decimal(str(held["freestyle"]["total"])) == first_price + price  # running total
+    assert Decimal(str(held["freestyle"]["spent"])) == Decimal(str(fs["credits"])) > 0  # so far
     owner.post(f"/jobs/{held['id']}/approve")
     _run(app, db)
     out = editor.get(f"/freestyles/{fs['id']}").json()

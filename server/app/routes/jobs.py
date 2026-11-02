@@ -49,6 +49,7 @@ class FreestyleRef(BaseModel):
     change: bool  # a change asked in the thread, not the first send
     up_to: float | None = None  # a director-run freestyle: this send's price, "up to"
     total: float | None = None  # and the freestyle's running total with it (credits)
+    spent: float = 0  # what the freestyle has spent so far (credits)
 
 
 class JobOut(BaseModel):
@@ -150,7 +151,7 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
     said = job.input.get(SAID, "")
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
                         up_to=Decimal(job.input[PRICE]) if PRICE in job.input else fs.up_to,
-                        total=fs.up_to,
+                        total=fs.up_to, spent=_spent(db, fs),
                         said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
 
 
@@ -169,6 +170,16 @@ def _with_check(db: Session, job: Job) -> Decimal:
         return job.credits
     clip, project = db.get(ProjectClip, clip_id), db.get(Project, job.project_id)
     return job.credits + item_checks.rides(db, project, clip) if clip and project else job.credits
+
+
+def _spent(db: Session, fs: Freestyle) -> Decimal:
+    """A freestyle's spend so far: its video's jobs, or its own takes (One clip)."""
+    from app.credits import COUNTED
+
+    mine = (Job.project_id == fs.project_id if fs.project_id
+            else Job.id.in_([m["job"] for m in fs.chat if m.get("job")]))  # fmt: skip
+    total = db.scalar(select(func.sum(Job.credits)).where(mine, Job.status.in_(COUNTED)))
+    return Decimal(total or 0)
 
 
 def _usd(db: Session, job: Job) -> float:

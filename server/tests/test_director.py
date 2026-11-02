@@ -910,6 +910,9 @@ def test_every_open_note_is_answered_and_delivery_waits_for_them(
     whys = [t["why"] for t in out["turns"]]
     assert whys.count("Note 1: you asked: Make clip 1 warmer.") == 1  # the older note is made
     assert "Note 2: there's no clip 9 in this video." in whys[-1]
+    notes = [m for m in out["thread"] if m["kind"] == "message"]
+    assert [m["answered"] for m in notes] == [True, True]  # each answered, as the delivery said
+    assert all(m["answered"] is None for m in out["thread"] if m["kind"] == "move")
     assert "Note 1: done, as you asked" in whys[-1]
 
 
