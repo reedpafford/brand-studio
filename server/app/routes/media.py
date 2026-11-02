@@ -55,6 +55,9 @@ class MediaItem(BaseModel):
     from_deleted_video: bool = False
     deleted_video_by: Maker | None = None  # that deleted video's maker: they or the owner restore
     deleted_video_released: bool = False  # it went by Release: Undo of Restore releases it again
+    source: Literal["director", "person"] = "person"  # made during a director run of its video
+    library_item_id: int | None = None  # a sheet's character, place or prop (Open in Cast)
+    library_kind: Kind | None = None
 
 
 class MediaPage(BaseModel):
@@ -128,8 +131,23 @@ def _rows(db: Session, user: User, brand_id: int, kind: str | None) -> list[dict
         others = [(s or {}).get("file_id") for s in item.look_sheets.values()]
         sheets = [item.sheet_file_id, *others]
         for n, file_id in enumerate(sheets):
-            add("sheet", f"sheet:{item.id}:{n}", file_id, item.owner_project_id, step="cast")
+            add("sheet", f"sheet:{item.id}:{n}", file_id, item.owner_project_id, step="cast",
+                library_item_id=item.id, library_kind=item.kind)  # fmt: skip
     return out
+
+
+def _director_runs(db: Session, video_ids: list[int]) -> dict[int, list[tuple]]:
+    """Each video's director runs, first turn to last: what was made in one is the
+    director's ("Made by the director")."""
+    from app.director import RUN, STEP
+
+    out: dict[int, dict[str, list]] = {}
+    turns = select(Job.project_id, Job.input, Job.created_at, Job.finished_at).where(
+        Job.project_id.in_(video_ids), Job.input["step"].as_string() == STEP)  # fmt: skip
+    for pid, data, made, done in db.execute(turns):
+        span = out.setdefault(pid, {}).setdefault((data.get(RUN) or {}).get("id"), [made, made])
+        span[0], span[1] = min(span[0], made), max(span[1], done or made)
+    return {pid: [tuple(s) for s in runs.values()] for pid, runs in out.items()}
 
 
 def _folder_id(folder: str) -> int:
@@ -182,13 +200,16 @@ def list_media(
     def maker(user_id: int | None) -> Maker | None:
         return Maker(id=user_id, name=names[user_id]) if user_id in names else None
 
+    runs = _director_runs(db, list(videos))
     items = []
     for r in page:
         video = videos.get(r["project_id"])
         gone = bool(video and video.archived_at)
         by_id = r.pop("by")
+        directed = any(s <= r["made_at"] <= e for s, e in runs.get(r["project_id"], []))
         items.append(MediaItem(
             **r, content_type=files[r["file_id"]].content_type, made_by=maker(by_id),
+            source="director" if directed else "person",
             video_name=video.name if video else None,
             from_deleted_video=gone,
             deleted_video_by=maker(video.created_by_id) if gone else None,
