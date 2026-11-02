@@ -48,18 +48,46 @@ def test_make_a_video_from_a_scripts_version_freezes_it_and_reuses_its_shots(
     assert owner.put(f"{base}/drafts/0", json={"text": SCRIPT + "\nMIA: More."}).status_code == 409
 
 
-def test_pasted_words_with_a_brand_make_a_visible_script_and_video_an_editors_waits(
+def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothing(
     owner, editor, db
 ):
+    """Next-Lead: an editor's held send freezes nothing and shows nothing; the owner's OK makes
+    the script and video real; a decline (or a withdraw) leaves the version as it was."""
     r = editor.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)})
     assert r.status_code == 201, r.text
     fs = r.json()
     assert fs["status"] == "waiting" and fs["project_id"] and fs["script_id"]
+    assert fs["script_id"] not in [s["id"] for s in owner.get("/scripts").json()]  # not yet
+    assert fs["project_id"] not in [p["id"] for p in owner.get("/projects").json()]
+    (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    assert owner.post(f"/jobs/{held['id']}/approve").status_code == 200
     assert fs["script_id"] in [s["id"] for s in owner.get("/scripts").json()]  # in Scripts
     assert fs["project_id"] in [p["id"] for p in owner.get("/projects").json()]  # in Videos
-    shown = owner.get(f"/projects/{fs['project_id']}/breakdown")
-    assert shown.status_code == 404 or shown.json()["needs_you"]["action"] == "approvals"
-    again = owner.post("/freestyles", json={**BODY, "text": None, "script_id": fs["script_id"]})
-    assert again.status_code == 409  # one version, one video
     both = editor.post("/freestyles", json={**BODY, "script_id": fs["script_id"]})
     assert both.status_code == 422 and "not both" in both.text
+
+    made = _make(editor, text=f"{SCRIPT}\nLEO: Again.")  # the editor's own draft
+    pick = {"shape": "9:16", "script_id": made["id"]}
+    sent = editor.post("/freestyles", json=pick)
+    assert sent.status_code == 201, sent.text
+    mine = sent.json()
+    assert mine["status"] == "waiting", mine["thread"]
+    db.expire_all()
+    script, draft = (
+        db.get(Script, made["id"]),
+        (db.query(ScriptDraft).filter_by(script_id=made["id"], slot=0).one()),
+    )
+    assert not script.published and draft.status == "draft"  # nothing frozen while it waits
+    held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+                if j["freestyle"]["id"] == mine["id"])  # fmt: skip
+    owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not this one."})
+    db.expire_all()
+    assert not db.get(Script, made["id"]).published
+    assert db.get(ScriptDraft, draft.id).status == "draft"
+    assert mine["project_id"] not in [p["id"] for p in owner.get("/projects").json()]
+    again = owner.post("/freestyles", json=pick)  # the version is free to make again
+    assert again.status_code == 201, again.text
+    twice = editor.post("/freestyles", json=pick)  # (the owner's own twice is a double tap)
+    assert twice.status_code == 409  # one version, one video, and which one
+    assert twice.json()["detail"] == {"text": "This version already has a video.",
+                                      "project_id": again.json()["project_id"]}  # fmt: skip

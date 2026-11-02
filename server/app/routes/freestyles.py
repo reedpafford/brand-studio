@@ -57,6 +57,8 @@ MODEL, RESOLUTION = "seedance-2.5", "480p"  # Quick clip's defaults
 NOT_YET = "Song and Narrated are coming next; One clip and Dialogue work now."
 ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a look."
+HAS_VIDEO = "This version already has a video."
+FREEZE = "freeze"  # an editor's first turn: what the owner's OK makes real (`freeze`)
 DIRECTED = {"dialogue": "story"}  # the types the director makes: the script kind it reads
 PAST_CAP = (
     "That change would take this freestyle past its limit of {cap} credits. Start a new "
@@ -173,7 +175,7 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
     brand's Scripts and Videos when a brand is picked (P3: the director-first video), else
     hidden under the Freestyle brand."""
     brand_id = fs.brand_id or _freestyle_brand(db, user.workspace_id).id
-    hide = fs.brand_id is None
+    hide = fs.brand_id is None or not user.is_owner  # an editor's shows once the owner OKs it
     script = Script(workspace_id=user.workspace_id, brand_id=brand_id, title=fs.title,
                     kind=DIRECTED[fs.type], look=fs.look, published=True, hidden=hide,
                     created_by_id=user.id)  # fmt: skip
@@ -201,11 +203,38 @@ def _from_script(db: Session, user: User, request: Request, fs: Freestyle, scrip
     landed free when they follow its plan (#934, Reed's item 8)."""
     from app.routes.script_produce import make_video
 
-    if draft.status != "approved":
-        draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), user.id
-    script.published = True
+    if had := db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
+        raise HTTPException(409, {"text": HAS_VIDEO, "project_id": had})  # "Open it"
     project, _, _ = make_video(db, user, request, script, draft, {"aspect_ratio": fs.shape})
+    if user.is_owner:
+        freeze(db, {"project": project.id, "draft": draft.id, "show": True}, user)
+    else:  # an editor's: nothing changes, nothing shows, until the owner's OK
+        project.hidden = True
     return project, draft
+
+
+def freeze(db: Session, what: dict, owner: User) -> None:
+    """A director-first video becomes real when its run starts (the owner's at once, an
+    editor's on the owner's OK; Next-Lead): its version frozen, approved and the script
+    published (rule 31), and, with a brand, its script and video shown."""
+    project = db.get(Project, what["project"])
+    draft = db.get(ScriptDraft, what["draft"])
+    script = db.get(Script, draft.script_id)
+    if draft.status != "approved":
+        draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), owner.id
+    script.published = True
+    if what["show"]:
+        project.hidden = script.hidden = False
+
+
+def release(db: Session, what: dict) -> None:
+    """An editor's send declined or withdrawn before it ran: nothing is left behind. Its video
+    stays hidden and lets go of the version, which stays as it was, free to make again."""
+    project = db.get(Project, what["project"])
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    project.script_draft_id = None
+    if draft is not None:
+        draft.reserved_by_id = None
 
 
 def _start(db: Session, user: User, fs: Freestyle, text: str, made=None) -> None:
@@ -213,15 +242,19 @@ def _start(db: Session, user: User, fs: Freestyle, text: str, made=None) -> None
     (held for an editor's)."""
     at = utcnow().isoformat()  # the message comes before the moves it starts
     project, draft = made or _video(db, user, fs, text)
+    what = {"project": project.id, "draft": draft.id, "show": fs.brand_id is not None}
     fs.project_id, fs.up_to = project.id, run_price(db, draft, project)  # all a run may spend
     cap = get_limits(db, user.workspace_id).per_video_max_credits
     if fs.up_to > cap:
         db.rollback()
         raise over_cap(user, cap)
     db.flush()
-    turn = director.start(db, user, project, wait="" if user.is_owner else HELD,
+    if user.is_owner:
+        freeze(db, what, user)
+    turn = director.start(db, user, project, wait="" if user.is_owner else HELD, frozen=False,
                           extra={FREESTYLE: fs.id, SAID: text, CHANGE: False,
-                                 PRICE: str(fs.up_to)})  # fmt: skip
+                                 PRICE: str(fs.up_to),
+                                 **({} if user.is_owner else {FREEZE: what})})  # fmt: skip
     fs.chat = [{"by": user.id, "text": text, "at": at, "job": turn.id, "price": str(fs.up_to)}]
     db.commit()
 
@@ -543,6 +576,8 @@ def withdraw_freestyle(
         raise HTTPException(409, "Nothing is waiting to withdraw.")
     for job in db.scalars(select(Job).where(Job.id.in_(ids))):
         job.input = {**job.input, WITHDRAWN: True}
+        if job.input.get(FREEZE):
+            release(db, job.input[FREEZE])
     db.commit()
     return _out(db, fs)
 
