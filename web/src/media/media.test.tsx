@@ -234,7 +234,7 @@ test("the owner deletes a final cut from its page, after a check that says its v
   renderApp("/b/1/media/final%3A3");
   expect(await screen.findByText("Deleting removes it from Media. Its video keeps its own copy.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Delete" }));
-  const ask = await screen.findByRole("alertdialog", { name: "Delete this final video?" });
+  const ask = await screen.findByRole("alertdialog", { name: "Delete this final cut?" });
   await userEvent.click(within(ask).getByRole("button", { name: "Delete" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /brands/1/media/final%3A3")).toBe(true));
   expect(await screen.findByText("Deleted from Media.")).toBeInTheDocument();
@@ -246,7 +246,7 @@ test("a refused delete says why in plain words; a still has no Delete, and an ed
   fakeServer({ ...base(owner, page([song])), "GET /brands/1/media/song%3A4": [200, song], "DELETE /brands/1/media/song%3A4": [409, { detail: "A video still uses this song." }] });
   const first = renderApp("/b/1/media/song%3A4");
   await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
-  await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Delete this song?" })).getByRole("button", { name: "Delete" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("A video still uses this song.");
   first.unmount();
   const still = item({ key: "still:5", kind: "still", content_type: "image/png", open_step: "storyboard" });
@@ -259,4 +259,13 @@ test("a refused delete says why in plain words; a still has no Delete, and an ed
   renderApp("/b/1/media/song%3A4");
   await screen.findByRole("link", { name: /^Download MP3/ });
   expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+});
+
+test("a quick clip's Delete asks about a clip, not a take (QA-3 on #1225)", async () => {
+  setViewport(1440);
+  const clip = item({ key: "take:7", kind: "take", content_type: "video/mp4", video_name: null, open_step: "quick" });
+  fakeServer({ ...base(owner, page([clip])), "GET /brands/1/media/take%3A7": [200, clip] });
+  renderApp("/b/1/media/take%3A7");
+  await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+  expect(await screen.findByRole("alertdialog", { name: "Delete this clip?" })).toBeInTheDocument();
 });
