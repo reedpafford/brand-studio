@@ -46,7 +46,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
         <ul className="grid grid-cols-2 gap-3">
           {(chars.data ?? []).map((c) => {
             const status = c.sheet_status;
-            const picture = status === "needs_approval" && c.sheet_file_id ? c.sheet_file_id : c.image_file_ids?.[0];
+            const picture = c.sheet_file_id ?? c.image_file_ids?.[0]; // the sheet whenever there is one, approved or waiting
             return (
               <li key={c.id} className="space-y-2">
                 <button

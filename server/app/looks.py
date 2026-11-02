@@ -100,6 +100,27 @@ def pick(db: Session, user: User, look_id: str) -> str:
 
 
 PICKED = "look_picked"  # in Project.locks: a person chose this video's look themselves
+STYLE_KEPT = ("This video keeps its script's style, {}. The style is chosen on the script "
+              "before it's published.")  # fmt: skip
+
+
+def script_style(db: Session, project) -> str | None:
+    """The style a video made from a published script keeps (Reed's walk, item 7): the
+    script's look; None for a video made otherwise. A lane of the same style may still follow
+    its plan (`follow_lane`)."""
+    from app.models.script_library import Script, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    script = db.get(Script, draft.script_id) if draft else None
+    return script.look if script and script.published and script.look else None
+
+
+def keep_style(db: Session, project, look_id: str) -> None:
+    """A person's look for a video that keeps its script's style: another style is refused
+    in plain words (409); the same style, or one of its lanes, is fine."""
+    style = script_style(db, project)
+    if style and base(look_id) != base(style):
+        raise HTTPException(409, STYLE_KEPT.format(get(base(style))["name"]))
 
 
 def picked_by_person(project) -> None:

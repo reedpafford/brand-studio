@@ -10,6 +10,7 @@ from app.models.script_library import Script, ScriptDraft
 from app.routes.estimate import run_price
 from tests.conftest import first_brand
 from tests.test_breakdown import BREAKDOWN
+from tests.test_flavours import _brand_flavours
 from tests.test_freestyle_dialogue import BODY, SCRIPT, _run
 from tests.test_script_library import _make
 
@@ -67,6 +68,7 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
     both = editor.post("/freestyles", json={**BODY, "script_id": fs["script_id"]})
     assert both.status_code == 422 and "not both" in both.text
 
+    _brand_flavours(db, owner)
     made = _make(editor, text=f"{SCRIPT}\nLEO: Again.")  # the editor's own draft
     pick = {"shape": "9:16", "script_id": made["id"]}
     sent = editor.post("/freestyles", json=pick)
@@ -79,6 +81,12 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
         (db.query(ScriptDraft).filter_by(script_id=made["id"], slot=0).one()),
     )
     assert not script.published and draft.status == "draft"  # nothing frozen while it waits
+    words = f"/scripts/{made['id']}/drafts/0"
+    for edit in (editor.put(words, json={"text": f"{SCRIPT}\nLEO: Changed."}),  # QA-10: every
+                 editor.put(f"{words}/breakdown", json=BREAKDOWN),  # write on what it's made of
+                 editor.put(f"{words}/flavours", json={"bag": "Peanut butter"}),
+                 editor.post(f"/scripts/{made['id']}/cast", json={"role": "Leo"})):  # fmt: skip
+        assert edit.status_code == 409 and "waiting for the owner's OK" in edit.text, edit.text
     held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
                 if j["freestyle"]["id"] == mine["id"])  # fmt: skip
     owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not this one."})
@@ -86,10 +94,13 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
     assert not db.get(Script, made["id"]).published
     assert db.get(ScriptDraft, draft.id).status == "draft"
     assert mine["project_id"] not in [p["id"] for p in owner.get("/projects").json()]
+    assert editor.put(words, json={"text": f"{SCRIPT}\nLEO: Again."}).status_code == 200
+    assert editor.put(f"{words}/breakdown", json=BREAKDOWN).status_code == 200  # free again
     again = owner.post("/freestyles", json=pick)  # the version is free to make again
     assert again.status_code == 201, again.text
     twice = editor.post("/freestyles", json=pick)  # (the owner's own twice is a double tap)
     assert twice.status_code == 409  # one version, one video, and which one
+    db.expire_all()  # the breakdown saved since
     up_to = float(run_price(db, db.get(ScriptDraft, draft.id)))
     assert twice.json()["detail"] == {"text": "This version already has a video.", "up_to": up_to,
                                       "project_id": again.json()["project_id"]}  # fmt: skip
