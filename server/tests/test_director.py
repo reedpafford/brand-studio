@@ -714,3 +714,58 @@ def test_the_production_page_counts_the_budget_as_the_hold_does(app, db, owner, 
     assert rows[plain]["director_credits"] == 0
     order = [r["project_id"] for r in owner.get("/production?sort=budget").json()]
     assert order.index(plain) < order.index(ran)  # counting all spend would put ran first
+
+
+def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, editor):
+    """Director chat (director-chat.md §1 item 4): after a delivery, the editor asks for a
+    change; it starts a revision run that reads it, remakes that clip, cuts and delivers
+    again. The thread has both people's words and every move, oldest first."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db)
+    assert editor.get(url).json()["status"] == "delivered"
+    sent = editor.post(f"{url}/messages", json={"text": "Make clip 1 slower and warmer."})
+    assert sent.status_code == 201, sent.text
+    assert sent.json()["status"] == "running"
+    _run(app, db)
+    out = editor.get(url).json()
+    assert out["status"] == "delivered", (out["ended"], [t["tool"] for t in out["turns"]])
+    remade = next(t for t in out["turns"] if t["tool"] == "make_take")
+    assert remade["why"] == "You asked: Make clip 1 slower and warmer."
+    kinds = [m["kind"] for m in out["thread"]]
+    said = kinds.index("message")
+    assert "move" in kinds[:said] and "move" in kinds[said + 1 :]  # between the two runs
+    assert out["thread"][said] == {
+        **out["thread"][said],
+        "who": "Ed",
+        "text": "Make clip 1 slower and warmer.",
+        "status": None,
+    }
+    assert [m["at"] for m in out["thread"]] == sorted(m["at"] for m in out["thread"])
+    ids = [m["id"] for m in out["thread"]]
+    assert len(set(ids)) == len(ids) and out["thread"][said]["id"] == "m0"
+    assert out["thread"][-1]["text"] == out["turns"][-1]["why"]  # ends on the new delivery note
+
+
+def test_chat_while_it_runs_is_read_at_its_next_turn_and_only_the_maker_may(app, db, owner, editor):
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import PASSWORD
+
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    editor.post(f"{url}/messages", json={"text": "Keep the end line short."})
+    project = db.get(Project, pid)
+    db.refresh(project)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    assert director.chat(project, run["id"]) == [{"text": "Keep the end line short."}]
+    asked = director.turn_input(db, project, run)["prompt"]
+    assert "<chat>" in asked and "Keep the end line short." in asked
+    assert editor.post(f"{url}/messages", json={"text": "   "}).status_code == 422
+    db.commit()
+    token = owner.post("/team/invites", json={"email": "bo@example.com"}).json()["token"]
+    with TestClient(app) as other:  # another editor may read the video but not direct it
+        other.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
+        assert other.post(f"{url}/messages", json={"text": "Hi"}).status_code == 403
