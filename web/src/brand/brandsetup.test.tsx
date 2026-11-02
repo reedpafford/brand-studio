@@ -153,7 +153,7 @@ test("without brand setup on the server the page is as before", async () => {
 
 test("a brand whose default look is a lane shows the lane's name; the list offers the styles, never the raw id (one look per style)", async () => {
   setViewport(390);
-  const withLane = [...looks, { id: "paper", name: "Paper", blurb: "", on: true }, { id: "paper-flat", name: "Paper · Flat Paper", parent: "paper", blurb: "", on: true }, { id: "paper-origami", name: "Paper · Origami", parent: "paper", blurb: "", on: true }];
+  const withLane = [...looks, { id: "paper", name: "Paper", blurb: "", on: true, lanes: [{ id: "paper-flat", name: "Paper · Flat Paper" }, { id: "paper-origami", name: "Paper · Origami" }] }];
   fakeServer({ ...routes(owner, { ...brand, default_look: "paper-flat" }), "GET /looks": [200, withLane] });
   renderAt("/b/1/brand");
   const look = (await screen.findByLabelText("Look")) as HTMLSelectElement;

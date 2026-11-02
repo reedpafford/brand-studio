@@ -12,25 +12,24 @@ import { errorText as errorClass } from "../ui";
 /** A look: how the pictures are drawn (flows ST1; Next-Server's GET /looks, #873). House first, then Reed's order. */
 export type Look = components["schemas"]["LookOut"];
 
-// A look can be a lane of a style ("paper-flat", one look per style): the server may list it with its parent's id and a name
-// like "Paper · Flat Paper". Pickers offer only the styles themselves; a lane is chosen per video.
-type WithParent = Look & { parent?: string | null };
-export const pickable = (looks: Look[]): Look[] => looks.filter((l) => !(l as WithParent).parent);
-
-/** A look's name wherever it's shown: its own (a lane's "Paper · Flat Paper"), else, for a lane the list doesn't carry, its
- *  style's name and the lane's own words ("Paper · Flat"). Never a raw id like "paper-flat". */
+// One look per style: GET /looks lists one card per style, each with its lanes ({id, name}: "paper-flat", "Paper · Flat
+// Paper"; #1139). A video, brand or sheet may be on a lane; pickers offer the styles only, and a lane is chosen per video.
+/** A look's name wherever it's shown: a style's own, or a lane's ("Paper · Flat Paper"); for a lane the list doesn't name,
+ *  its style's name and the lane's own words ("Paper · Flat"). Never a raw id like "paper-flat". */
 export function lookName(looks: Look[] | null | undefined, id: string | null | undefined): string {
   if (!id || id === "house") return looks?.find((l) => l.id === "house")?.name ?? "House";
   const own = looks?.find((l) => l.id === id);
   if (own) return own.name;
+  const lane = looks?.flatMap((l) => l.lanes ?? []).find((x) => x.id === id);
+  if (lane) return lane.name;
   const parent = looks?.find((l) => id.startsWith(`${l.id}-`));
   const words = (t: string) => t.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   return parent ? `${parent.name} · ${words(id.slice(parent.id.length + 1))}` : words(id);
 }
 
-/** The style a look belongs to: a lane's parent, or the look itself (a picker marks it In use). */
+/** The style a look belongs to: the card a lane sits in, or the look itself (a picker marks it In use). */
 export const styleOf = (looks: Look[] | null | undefined, id: string): string =>
-  ((looks?.find((l) => l.id === id) as WithParent | undefined)?.parent ?? looks?.find((l) => id.startsWith(`${l.id}-`))?.id ?? id);
+  looks?.find((l) => (l.lanes ?? []).some((x) => x.id === id))?.id ?? looks?.find((l) => id.startsWith(`${l.id}-`))?.id ?? id;
 
 /** The looks, or null where the server doesn't offer them (the pickers stay hidden: never a press with nothing behind it). */
 export function useLooks() {
@@ -54,7 +53,7 @@ export function LookPicker({ current, looks, onPick, busy, error, onClose }: { c
       <p className="mb-3 text-sm text-muted">How the pictures are drawn. Any look goes with any format.</p>
       {error && <p role="alert" className={`mb-3 ${errorClass}`}>{error}</p>}
       <ul className="grid gap-3 sm:grid-cols-2 [&>li]:min-w-0">
-        {pickable(looks).map((l) => {
+        {looks.map((l) => {
           const inUse = l.id === styleOf(looks, current);
           const closed = !l.on && !owner;
           return (

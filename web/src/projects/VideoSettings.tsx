@@ -5,7 +5,7 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
 import { useMe } from "../auth/useMe";
-import { LookPicker, lookName, pickable, useLooks, type Look } from "../scripts/Looks";
+import { LookPicker, lookName, useLooks, type Look } from "../scripts/Looks";
 import { SongSetting } from "../scripts/VideoSong";
 import { useRail } from "../useMedia";
 import { errorText as errorClass } from "../ui";
@@ -54,7 +54,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       const now = s.product_variants[product] ?? options[0]; // a product missing from the picks is on its default
       return { key: `flavour:${product}`, label: Object.keys(s.flavours).length > 1 ? `Flavour (${product})` : "Flavour", current: now, valueLabel: now, choices: options.map((o) => ({ id: o, label: o, body: { product_variants: { [product]: o } } })) };
     }),
-    ...(looks ? [{ key: "look", label: "Look", current: s.look, valueLabel: lookName(looks as Look[], s.look), choices: pickable(looks as Look[]).map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }] : []),
+    ...(looks ? [{ key: "look", label: "Look", current: s.look, valueLabel: lookName(looks as Look[], s.look), choices: looks.map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }] : []),
     {
       key: "video_model",
       label: "Video model",
