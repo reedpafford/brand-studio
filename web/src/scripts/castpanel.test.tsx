@@ -86,6 +86,19 @@ test("a sheet that needs approval is approved in the panel, and approving locks 
   expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true);
 });
 
+test("in Lock to a look, an approved character shows its sheet, and one without a sheet shows its first picture", async () => {
+  setViewport(1440);
+  fakeServer(base({
+    "GET /scripts/7/cast": [200, [slot]],
+    "GET /library/character": [200, [char({ sheet_status: "approved", sheet_file_id: 12, image_file_ids: [40] }), char({ id: 6, name: "Mo", image_file_ids: [41] })]],
+  }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Lock Mia to a look" }));
+  const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
+  expect(within(panel).getByRole("button", { name: "Lock to Bo" }).querySelector("img")?.getAttribute("src")).toMatch(/\/12\b/);
+  expect(within(panel).getByRole("button", { name: "Mo has no approved sheet yet" }).querySelector("img")?.getAttribute("src")).toMatch(/\/41\b/);
+});
+
 test("Find roles waits for the script to be approved, and says so up front", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7": [200, { ...script, versions: [{ ...script.versions[0], status: "draft" }] }] }));
