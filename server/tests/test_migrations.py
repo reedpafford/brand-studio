@@ -259,3 +259,20 @@ def test_n18_gives_every_video_no_locks_and_no_outfits_of_its_own(tmp_path):
         row = conn.execute(text("SELECT locks, outfits FROM projects")).one()
     assert [json.loads(v) for v in row] == [{}, {}]
     command.downgrade(cfg, "n17")
+
+
+def test_n20_makes_the_freestyles_table_and_takes_it_away(tmp_path):
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n20")
+    with create_engine(url).connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM freestyles")).scalar() == 0
+    command.downgrade(cfg, "n18")
+    with create_engine(url).connect() as conn:
+        assert (
+            "freestyles"
+            not in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")
+            .scalars()
+            .all()
+        )

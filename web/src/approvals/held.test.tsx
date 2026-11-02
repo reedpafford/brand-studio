@@ -7,7 +7,7 @@ import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { MemoryRouter } from "react-router-dom";
 import { HeldRequests, askedAgo, stepOf, type HeldWhere } from "./HeldRequests";
-import { PLURAL, STEPS } from "./ApprovalsPage";
+import { PLURAL, STEPS } from "./steps";
 import type { Job } from "./useHeld";
 
 const job = (o: object = {}) => ({ id: 50, kind: "video", project_id: 9, script_id: null, credits: 27, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: "clip_take", error: "", held: "That's more than this video's budget.", declined: false, created_by_name: "Eli", waiting: "", auto: false, output: null, ...o });
@@ -168,7 +168,7 @@ test("the yes-toast says are for a plural: The owner said yes: the clip prompts 
   expect(await screen.findByText("The owner said yes: the clip prompts are being made.")).toBeInTheDocument();
 });
 
-test("the owner sees what an editor asked on this video, one press from that request in Approvals; no Withdraw", async () => {
+test("the owner sees what an editor asked on this video, one press from that request in Needs you; no Withdraw", async () => {
   fakeServer({ "GET /auth/me": [200, { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 }], "GET /jobs": [200, [job(), job({ id: 51, project_id: 10 })]] });
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -181,7 +181,7 @@ test("the owner sees what an editor asked on this video, one press from that req
   );
   expect(await screen.findByText("Waiting for your OK")).toBeInTheDocument();
   expect(document.body).toHaveTextContent("Eli asked for a new take · 27 credits · Asked just now.");
-  expect(screen.getByRole("link", { name: "Open in Approvals" })).toHaveAttribute("href", "/approvals?job=50");
+  expect(screen.getByRole("link", { name: "Open in Needs you" })).toHaveAttribute("href", "/approvals?job=50");
   expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
   expect(screen.getAllByText("Waiting for your OK")).toHaveLength(1);
 });

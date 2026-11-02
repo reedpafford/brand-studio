@@ -9,6 +9,7 @@ from app.models import (  # noqa: F401
     credits,
     files,
     folders,
+    freestyles,
     jobs,
     languages,
     library,

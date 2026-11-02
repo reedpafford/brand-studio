@@ -1,15 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Check, Copy, Ellipsis, UserCog, UserMinus } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, Dialog, Field, Menu, MenuItem, Panel, Select, Skeleton } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
-import { errorText as errorClass } from "../ui";
+import { backLink, errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
-import { CreditLimits } from "./CreditLimits";
-import { StudioName } from "./StudioName";
 import { restoreMember, setRole, useRemovedMembers } from "./memberActions";
 import { serverTime } from "../time";
 
@@ -102,8 +101,6 @@ export function TeamPage() {
           {remove.isError ? "Try again." : "Check your connection."}
         </Banner>
       )}
-      {isOwner && me && <StudioName owner={me.name} />}
-      {isOwner && <CreditLimits />}
       <section className="space-y-3" aria-label="People">
         <h2 className="type-section">People</h2>
         {members.isPending && (
@@ -217,6 +214,11 @@ export function TeamPage() {
             </ul>
           </Card>
         </section>
+      )}
+      {isOwner && (
+        <p className="text-sm text-muted">
+          Studio name and credit limits are in <Link to="/settings?tab=name" className={backLink}>Settings</Link>.
+        </p>
       )}
       {inviting && <InvitePanel onClose={() => setInviting(false)} onDone={refresh} />}
       {changing && (

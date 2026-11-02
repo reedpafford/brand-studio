@@ -202,18 +202,24 @@ def week_start() -> datetime:
     return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+FREESTYLE = "freestyle_id"  # in a freestyle's job's input: its freestyle
+
+
 def is_quick_clip(kind: str, input: dict, project) -> bool:
     """A Quick clip: a video or picture asked for outside any video, not a step of other work
     (a sheet, a frame). The only thing the weekly allowance counts (Reed, 30 Oct): anything in
     a script or video belongs to a brand and is work."""
-    return project is None and kind.startswith(("video", "image")) and "step" not in input
+    plain = "step" not in input and FREESTYLE not in input  # Reed OKs each freestyle send
+    return project is None and kind.startswith(("video", "image")) and plain
 
 
 def someone_elses_quick_clip(user: User, job: Job) -> bool:
     """Another editor's Quick clip: theirs alone (Reed's item 4), so to this user it reads as
-    not there at all. The owner sees everyone's; a video's or script's steps are the team's."""
+    not there at all. The owner sees everyone's; a video's or script's steps are the team's.
+    A freestyle's takes are its maker's too."""
     mine = user.is_owner or job.created_by_id == user.id
-    return not mine and is_quick_clip(job.kind, job.input, job.project_id)
+    theirs = is_quick_clip(job.kind, job.input, job.project_id) or FREESTYLE in job.input
+    return not mine and theirs
 
 
 def week_jobs(user: User) -> tuple:
@@ -223,6 +229,7 @@ def week_jobs(user: User) -> tuple:
         Job.project_id.is_(None),
         or_(Job.kind.startswith("video"), Job.kind.startswith("image")),
         Job.input["step"].as_string().is_(None),
+        Job.input[FREESTYLE].as_integer().is_(None),
         Job.created_by_id == user.id,
         Job.created_at >= week_start(),
     )

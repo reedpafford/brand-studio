@@ -29,17 +29,19 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-test("a script is one row: its title, description, reference, length range and a chip for every version in words", async () => {
+test("a script is one row: its title, reference, length range, each version as a dot and a word, who it waits on and who wrote it", async () => {
   fakeServer({ ...base, "GET /scripts": [200, [script()]] });
   open();
   expect(await screen.findByRole("heading", { name: "Bo tries salmon" })).toBeInTheDocument();
-  expect(screen.getByText("Show a picky dog finally loving Iron Paws salmon.")).toBeInTheDocument();
   expect(screen.getByText(/Ref: The altar reel · about 24–30 s · 2 versions left to make/)).toBeInTheDocument();
-  expect(screen.getByText("A · Finished")).toBeInTheDocument();
-  expect(screen.getByText("B · Ready to make")).toBeInTheDocument();
-  expect(screen.getByText("C · In production")).toBeInTheDocument();
+  const versions = screen.getByRole("list", { name: "Versions" });
+  expect(within(versions).getByText("Finished")).toBeInTheDocument();
+  expect(within(versions).getByText("Ready")).toBeInTheDocument();
+  expect(within(versions).getByText("Making")).toBeInTheDocument();
   expect(screen.getByLabelText("Version A, finished").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
-  expect(screen.getByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
+  expect(screen.getByText("An editor to pick it up")).toBeInTheDocument(); // B is ready and nobody has started it
+  expect(screen.getByText("Reed")).toBeInTheDocument(); // written by
+  expect(screen.getByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7");
   expect(screen.getByText("1 script")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\bv\d\b|project/i);
 });
@@ -52,7 +54,7 @@ test("an editor's brand opens on their videos; on Scripts they start on Ready to
   await userEvent.click(screen.getAllByRole("link", { name: "Scripts" })[0]);
   await screen.findByRole("heading", { name: "Scripts" });
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
-  expect(screen.getByLabelText("Status")).toHaveValue("published");
+  expect(screen.getByRole("tab", { name: /Ready to make/ })).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByText("No scripts ready to make yet.")).toBeInTheDocument();
 });
 
@@ -62,11 +64,12 @@ test("filters and search are sent to the server and live in the address; Clear f
   open("/b/1/scripts?status=in_production&len=15-30");
   await screen.findByRole("heading", { name: "Scripts" });
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
-  expect(screen.getByLabelText("Status")).toHaveValue("in_production");
+  expect(screen.getByRole("tab", { name: /In production/ })).toHaveAttribute("aria-selected", "true");
+  expect(calls.some((c) => c.key === "GET /scripts")).toBe(true);
   expect(screen.getByLabelText("Length")).toHaveValue("15-30");
   expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
   await userEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
-  expect(screen.getByLabelText("Status")).toHaveValue("");
+  expect(screen.getByRole("tab", { name: /All/ })).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
 });
 
@@ -95,11 +98,11 @@ test("videos made before scripts stay reachable under a closed disclosure", asyn
 
 test("on a phone the filters sit behind one Filters button that opens a sheet, and says how many are on", async () => {
   fakeServer({ ...base, "GET /scripts": [200, []] });
-  open("/b/1/scripts?status=done");
+  open("/b/1/scripts?len=15-30");
   const button = await screen.findByRole("button", { name: "Filters (1)" });
   await userEvent.click(button);
   const sheet = await screen.findByRole("dialog", { name: "Filters" });
-  expect(within(sheet).getByLabelText("Status")).toHaveValue("done");
+  expect(within(sheet).getByLabelText("Length")).toHaveValue("15-30");
 });
 
 const full = (o: object = {}) => ({
@@ -271,7 +274,7 @@ test("an editor's own draft shows under Your drafts even though the list asks fo
 });
 
 test("a script's age is in plain words", async () => {
-  const { age } = await import("./ScriptsPage");
+  const { age } = await import("./status");
   const now = new Date("2026-10-25T12:00:00Z").getTime();
   expect(age("2026-10-25T11:59:59Z", now)).toBe("just now");
   expect(age("2026-10-25T11:55:00Z", now)).toBe("5 min ago");
@@ -721,8 +724,8 @@ test("an In production chip names who is making it; yours opens your video, some
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, rows], "GET /scripts/7": [200, { ...script(), versions: rows[0].versions.map((x) => ({ ...x, text: "Hi" })) }], "GET /scripts/7/cast": [200, []] });
   open();
   // (The fake answers the Making now list with the same rows, so the script shows twice.)
-  expect((await screen.findAllByText("A · In production · you")).length).toBeGreaterThan(0);
-  expect(screen.getAllByText("B · In production · Jo").length).toBeGreaterThan(0);
+  expect((await screen.findAllByText("Making · you")).length).toBeGreaterThan(0);
+  expect(screen.getAllByText("Making · Jo").length).toBeGreaterThan(0);
   expect(screen.getAllByLabelText("Version A, in production by you")[0].closest("a")).toHaveAttribute("href", "/b/1/projects/31");
   await userEvent.click(screen.getAllByLabelText("Version B, in production by Jo")[0]);
   const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" });
@@ -776,7 +779,7 @@ test("Making now keeps a version whose clips are ready too", async () => {
   open();
   const section = await screen.findByRole("region", { name: "Making now" });
   expect(within(section).getByText("Clips ready reel")).toBeInTheDocument();
-  expect(within(section).getByText("A · In production · you")).toBeInTheDocument();
+  expect(within(section).getByText("Making · you")).toBeInTheDocument();
 });
 
 test("the library pages from the server: the total comes from its header, and Show more asks for the next rows", async () => {
@@ -791,7 +794,7 @@ test("the library pages from the server: the total comes from its header, and Sh
       const key = `${req.method} ${url.pathname.replace(/^\/api/, "")}`;
       const json = (body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", ...headers } });
       if (key === "GET /scripts") {
-        asked.push(`${url.searchParams.get("offset")}/${url.searchParams.get("limit")}/${url.searchParams.get("reference_id") ?? ""}/${url.searchParams.get("sort") ?? ""}`);
+        if (url.searchParams.get("limit") !== "1") asked.push(`${url.searchParams.get("offset")}/${url.searchParams.get("limit")}/${url.searchParams.get("reference_id") ?? ""}/${url.searchParams.get("sort") ?? ""}`);
         const off = Number(url.searchParams.get("offset") ?? 0);
         return json(all.slice(off, off + Number(url.searchParams.get("limit") ?? 30)), { "X-Total-Count": String(all.length) });
       }
@@ -814,7 +817,7 @@ test("a row shows its poster once a video is finished, the reel's name from the 
   open();
   expect(await screen.findByText(/Ref: The altar reel/)).toBeInTheDocument();
   expect(document.querySelector("img[src*='77']")).not.toBeNull();
-  expect(screen.getByText("A · Didn't finish")).toBeInTheDocument();
+  expect(screen.getByText("Didn't finish")).toBeInTheDocument();
   expect(screen.getByLabelText("Version A, didn't finish").closest("a")).toHaveAttribute("href", "/b/1/projects/5");
 });
 
@@ -891,7 +894,7 @@ test("a row without a finished video uses its reel's thumbnail as the poster", a
 
 test("the phone's Filters button stays on one line", async () => {
   fakeServer({ ...base, "GET /scripts": [200, []] });
-  open("/b/1/scripts?status=done");
+  open("/b/1/scripts?len=15-30");
   const button = await screen.findByRole("button", { name: "Filters (1)" });
   expect(button.className).toMatch(/whitespace-nowrap/);
   expect(button.className).toMatch(/shrink-0/);
@@ -1486,7 +1489,7 @@ test("the owner's title link still opens the script's own steps", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts": [200, [script()]] });
   open();
-  expect(await screen.findByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7?step=publish");
+  expect(await screen.findByRole("link", { name: "Bo tries salmon" })).toHaveAttribute("href", "/b/1/scripts/7"); // its Overview
 });
 
 test("with no version ready, an editor's title goes where their version's chip goes: their own video (QA-4 on #1018)", async () => {
