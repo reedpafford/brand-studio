@@ -1752,7 +1752,9 @@ def test_the_director_splices_a_wrong_brand_word_or_redoes_with_a_note():
     director = prompts.system("director")
     for part in ("- `splice_word` (free, `clip_id`, `word`)", "can_splice:", "no_copy:",
                  "Never splice a sung line", "You never give or guess a time",
-                 "from the brand's notes"):  # fmt: skip
+                 "from the brand's notes", "said right in the same voice",
+                 "no clean copy in that voice anywhere in the video",
+                 "make it again and watch it before delivering"):  # fmt: skip
         assert part in director, part
     turn = schemas.DirectorTurn(tool="splice_word", clip_id="c3", word="fomo", why="b2: fomo")
     assert (turn.clip_id, turn.word) == ("c3", "fomo")
