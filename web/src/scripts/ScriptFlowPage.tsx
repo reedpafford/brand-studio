@@ -6,7 +6,7 @@ import { Button, Dialog, Skeleton, StepPicker } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
-import { BreakdownStep } from "./BreakdownStep";
+import { BreakdownStep, VersionPick, breakdownSlot } from "./BreakdownStep";
 import { CastStep } from "./CastStep";
 import { DirectionsStep } from "./DirectionsStep";
 import { VariationsStep, variationsReason } from "./VariationsStep";
@@ -94,7 +94,7 @@ export function ScriptFlowPage() {
   // While accepted directions wait, "Apply N accepted" is the one indigo press, so Next turns secondary (C_Directions).
   // v5 G_Publish: Publish is its own page, with its presses at the end of it, so the top has no Next there.
   const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : step !== "publish" && next && !unread && (
-    <Button variant={step === "directions" && waiting > 0 ? "secondary" : "primary"} disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
+    <Button variant={(step === "directions" && waiting > 0) || step === "breakdown" ? "secondary" : "primary"} disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
   );
@@ -135,7 +135,14 @@ export function ScriptFlowPage() {
     ...(overview || step === "publish" ? [] : [<span key="x">Steps</span>]),
   ];
   // v5 settings per step (C_ScriptWrite: Type, Style, Project and Shape; C_Directions: Type, Style, Project).
-  const settings = (
+  const slot = breakdownSlot(s, params.get("v"));
+  const settings = step === "breakdown" ? (
+    // C_Breakdown: the version and the shape (read only: each video picks its own).
+    <>
+      <VersionPick script={s} value={slot} onChange={(v) => setParams({ step: "breakdown", ...(v ? { v: String(v) } : {}) })} />
+      <ShapeChip />
+    </>
+  ) : (
     <>
       <FormatSetting script={s} />
       <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
@@ -145,7 +152,7 @@ export function ScriptFlowPage() {
   );
   // A story's v5 step bar ends at Cast: Publish is "Publish to library", still the step after Cast (Next: Publish).
   const barSteps = stepsFor(s) === WRITING_STEPS && step !== "publish" ? steps.filter((x) => x.id !== "publish") : steps;
-  const v5 = ["script", "directions", "variations", "publish"].includes(step); // the steps built to v5 so far: their own headings, no step title row
+  const v5 = ["script", "directions", "variations", "breakdown", "publish"].includes(step); // the steps built to v5 so far: their own headings, no step title row
   // v5 settings rows: Variations shows only the steps (G_Variations); Publish has neither (G_Publish).
   const row = overview || (step !== "variations" && step !== "publish");
 
@@ -202,7 +209,7 @@ export function ScriptFlowPage() {
           {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => { setWaiting(n); setHold(n > 0 ? { title: `Leave without applying ${n} accepted?`, body: "They stay accepted but are not applied to the script. Leaving doesn't apply them." } : null); }} />}
           {step === "variations" && <VariationsStep script={s} own={mine} />}
           {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
-          {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
+          {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} slot={slot} />}
           {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} onNotYet={() => (prev ? go(prev.id) : go(first))} />}
         </>
       )}

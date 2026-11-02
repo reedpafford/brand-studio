@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ellipsis, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { ChevronLeft, Ellipsis, MapPin, Pencil, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Elapsed } from "../clip/History";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Card, Dialog, Menu, MenuItem, Skeleton, Tabs, useToast, wholeCredits } from "../components";
+import { Banner, Button, Dialog, Dot, Menu, MenuItem, Skeleton, useToast, wholeCredits } from "../components";
 import { BreakdownView } from "../projects/BreakdownView";
-import { Scenes } from "../projects/PlanStep";
+import { Scenes, call, usePlan } from "../projects/PlanStep";
 import { refName } from "../projects/names";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
@@ -18,43 +18,43 @@ import { refreshJobs } from "../jobs/refresh";
 type Breakdown = components["schemas"]["Breakdown"];
 const LETTER = ["A", "B", "C"];
 
-/** Step 6 (optional): plan a version's shots before publishing. The editor starts from the saved plan. */
-export function BreakdownStep({ script, brandId, readOnly }: { script: Script; brandId: number; readOnly: boolean }) {
-  const versions = script.versions.filter((v) => v.text.trim() !== "");
-  const [slot, setSlot] = useState(versions[0]?.slot ?? 0);
-  const at = versions.find((v) => v.slot === slot) ?? versions[0];
+/** The version a Breakdown shows: ?v=1 is version B. Shared with the page's Version picker in the settings row. */
+export const breakdownSlot = (script: Script, v: string | null) => {
+  const versions = script.versions.filter((x) => x.text.trim() !== "");
+  return (versions.find((x) => String(x.slot) === v) ?? versions[0])?.slot ?? 0;
+};
+
+/** v5's "Version A ▾" in the settings row (C_Breakdown). */
+export function VersionPick({ script, value, onChange }: { script: Script; value: number; onChange: (slot: number) => void }) {
+  const versions = script.versions.filter((x) => x.text.trim() !== "");
+  return (
+    <label className="inline-flex min-h-control items-center gap-1.5 rounded-md border border-border px-3 text-sm lg:min-h-control-dense">
+      <span className="text-muted">Version</span>
+      <select aria-label="Version" value={value} onChange={(e) => onChange(Number(e.target.value))} className="bg-transparent text-text">
+        {versions.map((v) => (
+          <option key={v.slot} value={v.slot}>
+            {LETTER[v.slot] ?? v.slot + 1}
+            {v.has_breakdown ? " · planned" : ""}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Step 4 (optional, v5 C_Breakdown): a version's shots as a clip table grouped by scene, with Plan again and Approve the
+ *  plan. The scene plan and the shot editor are still a press away (the ⋯ menu, or a row), so nothing is lost. */
+export function BreakdownStep({ script, brandId, readOnly, slot }: { script: Script; brandId: number; readOnly: boolean; slot: number }) {
+  const at = script.versions.find((v) => v.slot === slot && v.text.trim() !== "");
   if (!at) return <p className="text-muted">Write the script first.</p>;
-  return (
-    <div className="space-y-4">
-      <Tabs
-        label="Versions"
-        value={String(at.slot)}
-        onChange={(id) => setSlot(Number(id))}
-        tabs={versions.map((v) => ({ id: String(v.slot), label: `${LETTER[v.slot] ?? v.slot + 1}${v.has_breakdown ? " · Planned" : ""}` }))}
-      />
-      <Views key={at.slot} script={script} slot={at.slot} brandId={brandId} readOnly={readOnly} />
-    </div>
-  );
+  return <Plan key={at.slot} script={script} slot={at.slot} brandId={brandId} readOnly={readOnly} />;
 }
 
-/** S6: the owner's scene plan first (each new video's start once approved), then the shots preview made from it. Both are
- *  optional: Shots can be made without a plan, as before. A published version shows its shots only (read only, rule 31). */
-function Views({ script, slot, brandId, readOnly }: { script: Script; slot: number; brandId: number; readOnly: boolean }) {
-  const v = script.versions.find((x) => x.slot === slot);
-  const [view, setView] = useState<"scenes" | "shots">(v?.has_breakdown || v?.preview_older_plan ? "shots" : "scenes");
-  const shots = <Plan script={script} slot={slot} brandId={brandId} readOnly={readOnly} onPlan={() => setView("scenes")} />;
-  if (readOnly) return shots;
+function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: number; brandId: number; readOnly: boolean }) {
+  // The table, or one of the editors it opens: the shots (a row, or Edit the shots) or the scene plan (Edit the scenes).
+  const [mode, setMode] = useState<"table" | "shots" | "scenes">("table");
   const home = { base: `/scripts/${script.id}/drafts/${slot}/plan`, key: ["draft-plan", script.id, slot], refresh: [["script-lib", script.id]], script: true };
-  return (
-    <div className="space-y-4">
-      <Tabs label="Plan views" value={view} onChange={(id) => setView(id as "scenes" | "shots")} tabs={[{ id: "scenes", label: "Scenes" }, { id: "shots", label: "Shots" }]} />
-      {view === "scenes" ? <Scenes home={home} onApproved={() => setView("shots")} /> : shots}
-    </div>
-  );
-}
-
-
-function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slot: number; brandId: number; readOnly: boolean; onPlan?: () => void }) {
+  const scenePlan = usePlan(home.base, home.key);
   const scriptId = script.id;
   const letter = LETTER[slot] ?? String(slot + 1);
   const queryClient = useQueryClient();
@@ -128,19 +128,28 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
     if (!wasRunning && started !== null) void queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] });
   }, [wasRunning, started, queryClient, scriptId]);
 
-  const makeLabel = planned ? "Make it again" : "Make the breakdown";
-  const button = (
-    <Button
-      variant={planned ? "ghost" : "secondary"}
-      icon={planned ? RotateCcw : Sparkles}
-      charge="estimate" price={price}
-      busy={run.isPending}
-      disabled={running || readOnly}
-      onClick={() => (planned ? setAsking(true) : run.mutate())}
-    >
-      {failed ? "Try again" : makeLabel}
+
+
+  const approvePlan = useMutation({
+    mutationFn: () => call("POST", `${home.base}/approve`),
+    onSuccess: async () => {
+      refreshJobs(queryClient);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: home.key }), queryClient.invalidateQueries({ queryKey: ["preview", scriptId, slot] }), queryClient.invalidateQueries({ queryKey: ["script-lib", scriptId] })]);
+      toast(`Plan approved for version ${letter}.`);
+    },
+  });
+  const back = (
+    <Button variant="ghost" icon={ChevronLeft} onClick={() => setMode("table")}>
+      Back to the breakdown
     </Button>
   );
+  if (mode === "scenes")
+    return (
+      <div className="space-y-4">
+        {back}
+        <Scenes home={home} onApproved={() => setMode("table")} />
+      </div>
+    );
 
   if (preview.isPending)
     return (
@@ -150,11 +159,53 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
         ))}
       </div>
     );
+  const scenes = scenePlan.data;
+  const sceneReady = !!scenes && scenes.scenes.length > 0 && scenes.status === "ready";
+  const sceneApproved = scenes?.status === "approved";
+  const v = script.versions.find((x) => x.slot === slot);
+  const title = <h2 className="type-card">Breakdown · version {letter}</h2>;
+  const menu = !readOnly && (
+    <Menu
+      title="More for this plan"
+      align="right"
+      trigger={(t) => (
+        <button type="button" {...t} aria-label="More for this plan" className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
+          <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          {planned && (
+            <MenuItem onClick={() => { close(); setMode("shots"); }}>
+              <Pencil size={20} strokeWidth={1.75} aria-hidden /> Edit the shots
+            </MenuItem>
+          )}
+          <MenuItem onClick={() => { close(); setMode("scenes"); }}>
+            <MapPin size={20} strokeWidth={1.75} aria-hidden /> {scenes?.scenes.length ? "Edit the scenes" : "Plan the scenes first"}
+          </MenuItem>
+          {planned && owner && (
+            <MenuItem danger onClick={() => { close(); setRemoving(true); }}>
+              <Trash2 size={20} strokeWidth={1.75} aria-hidden /> Remove the plan
+            </MenuItem>
+          )}
+        </>
+      )}
+    </Menu>
+  );
+  const approveButton = !readOnly && sceneReady && (
+    <Button busy={approvePlan.isPending} disabled={running} onClick={() => approvePlan.mutate()}>
+      Approve the plan
+    </Button>
+  );
+  const errors = [run.error, remove.error, approvePlan.error].filter(Boolean) as Error[];
+
   if (running)
     return (
       <div className="space-y-3" role="status">
-        <p className="text-sm text-muted">
-          Planning shots… {started && <Elapsed since={started ?? mountedAt} />}
+        {title}
+        <p className="text-xs text-muted">
+          Planning… {started && <Elapsed since={started ?? mountedAt} />}
         </p>
         {[0, 1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-12" />
@@ -163,120 +214,184 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
     );
   if (!planned)
     return (
-      <div className="space-y-3">
-        {failed && (
-          <Banner title="The breakdown didn't finish." action={button}>
-            Nothing was charged.
-          </Banner>
-        )}
-        {!failed && (
-          <Card className="space-y-3">
-            <p>Plan the shots now, or let it happen when an editor starts this version.</p>
-            {onPlan && (
-              <p className="text-sm text-muted">
-                They follow the scene plan once it's approved.{" "}
-                <button type="button" className="underline" onClick={onPlan}>See the scenes</button>
-              </p>
-            )}
-            <p className="text-sm text-muted">Sees the length, scenes and shots, and lets you edit them.</p>
-            {!readOnly && button}
-          </Card>
-        )}
-        {run.error && <p role="alert" className={errorClass}>{run.error.message}</p>}
-      </div>
+      <section aria-label="Breakdown" className="mx-auto flex max-w-[1000px] flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            {title}
+            <p className="text-xs text-muted">{readOnly ? "Not planned: each video plans its own shots." : "Not planned yet. Plan the shots now, or let each video plan its own when it starts."}</p>
+          </div>
+          {!readOnly && (
+            <div className="flex items-center gap-2">
+              {menu}
+              <Button variant="secondary" dense icon={failed ? RotateCcw : Sparkles} charge="estimate" price={price} busy={run.isPending} onClick={() => run.mutate()}>
+                {failed ? "Try again" : "Plan the shots"}
+              </Button>
+              {approveButton}
+            </div>
+          )}
+        </div>
+        {failed && <Banner title="The breakdown didn't finish.">Nothing was charged.</Banner>}
+        {sceneReady && <p className="text-sm text-muted">The scene plan is ready. Approve it and the shots are planned from it.</p>}
+        {errors.map((e) => <p key={e.message} role="alert" className={errorClass}>{e.message}</p>)}
+      </section>
     );
 
   const plan = p!.breakdown as Breakdown;
   const row = { id: 0, script_version: 0, source: "claude", breakdown: plan, problems: p!.problems, kept: p!.kept, stale: p!.stale } as components["schemas"]["BreakdownOut"];
+  if (mode === "shots")
+    return (
+      <div className="space-y-4">
+        {back}
+        <BreakdownView
+          key={JSON.stringify(plan)}
+          row={row}
+          projectId={scriptId}
+          brandId={brandId}
+          scriptVersion={0}
+          plannedSeconds={p!.seconds}
+          makeButton={() => null}
+          failed={false}
+          problem={null}
+          name={(id) => (id ? refName(id, pieces, roles) : "")}
+          line={null}
+          preview={{
+            keep: (problem, undo) => keep.mutate({ problem, undo }),
+            keepBusy: keep.isPending,
+            fix: async (problems) => {
+              const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix", { params: { path }, body: { problems } });
+              if (!data) throw new Error(errorText(error));
+              return data;
+            },
+            fixCast: async () => {
+              const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix-cast", { params: { path } });
+              if (!data) throw new Error(errorText(error));
+              return data as unknown as { changed_shots: { shot_id: string; before: string[]; after: string[] }[] };
+            },
+            again: readOnly ? null : (
+              <Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} disabled={running} onClick={() => setAsking(true)}>
+                Plan again
+              </Button>
+            ),
+            save: async (bd) => {
+              const { data, error } = await api.PUT("/scripts/{script_id}/drafts/{slot}/breakdown", { params: { path }, body: bd });
+              if (!data) throw new Error(errorText(error));
+              toast(`Plan saved for version ${letter}.`);
+              return data;
+            },
+          }}
+        />
+        {asking && (
+          <Dialog title="Plan again?" cancelLabel="Keep my plan" actionLabel="Plan again" onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); setMode("table"); run.mutate(); }}>
+            Your edits to this plan will be lost.
+          </Dialog>
+        )}
+      </div>
+    );
+
+  // The clip table (C_Breakdown): each clip under the scene its first shot is in.
+  const shotById = new Map(plan.scenes.flatMap((sc) => sc.shots.map((sh) => [sh.id, { shot: sh, scene: sc }] as const)));
+  const groups = plan.scenes
+    .map((sc) => ({ scene: sc, clips: plan.clips.filter((c) => shotById.get(c.shot_ids[0])?.scene.id === sc.id) }))
+    .filter((g) => g.clips.length > 0);
+  const who = (ids: string[]) => [...new Set(ids.map((id) => (id.startsWith("slot:") ? roles.get(id) || "A role" : refName(id, pieces, roles))))].join(", ") || "—";
+  const number = new Map(groups.flatMap((g) => g.clips).map((c, i) => [c.id, i + 1]));
+  const credits = v?.estimate_credits ? ` · about ${wholeCredits(v.estimate_credits)} credits to make (planned)` : "";
+  const by = v?.planned_by?.name ? ` · planned by ${v.planned_by.name}` : "";
+  const cols = "grid grid-cols-[56px_minmax(0,1fr)_56px] gap-x-4 sm:grid-cols-[64px_minmax(0,1fr)_160px_70px]";
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted tabular-nums">
-        Planned · {p!.seconds} s · {plan.clips.length} clip{plan.clips.length === 1 ? "" : "s"}
-        {script.versions.find((v) => v.slot === slot)?.estimate_credits ? ` · about ${wholeCredits(script.versions.find((v) => v.slot === slot)!.estimate_credits)} credits to make (planned)` : ""}
-      </p>
-      {!readOnly && (
-        <div className="flex flex-wrap items-center gap-2">
-          {!p!.stale && button /* a stale plan has its Make it again in the banner */}
-          {owner && (
-            <Menu
-              title="More for this plan"
-              trigger={(t) => (
-                <button type="button" {...t} aria-label="More for this plan" className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-9">
-                  <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
-                </button>
-              )}
-            >
-              {(close) => (
-                <MenuItem
-                  danger
-                  onClick={() => {
-                    close();
-                    setRemoving(true);
-                  }}
-                >
-                  <Trash2 size={20} strokeWidth={1.75} aria-hidden />
-                  Remove the plan
-                </MenuItem>
-              )}
-            </Menu>
-          )}
+    <section aria-label="Breakdown" className="mx-auto flex max-w-[1000px] flex-col gap-3.5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          {title}
+          <p className="text-xs tabular-nums text-muted">
+            Planned · {groups.length} scene{groups.length === 1 ? "" : "s"} · {plan.clips.length} clip{plan.clips.length === 1 ? "" : "s"} · {p!.seconds} s{credits}
+            {by}
+          </p>
         </div>
-      )}
+        {!readOnly && (
+          <div className="flex flex-wrap items-center gap-2">
+            {menu}
+            <Button variant="secondary" dense charge="estimate" price={price} disabled={running} onClick={() => setAsking(true)}>
+              Plan again
+            </Button>
+            {approveButton}
+            {sceneApproved && <Dot tone="success">Plan approved</Dot>}
+          </div>
+        )}
+      </div>
       {older && !readOnly && (
-        <Banner tone="warning" title="Made for an older plan." action={<Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} busy={run.isPending} disabled={running} onClick={() => run.mutate()}>Make the preview again</Button>}>
-          The scene plan changed after these shots were made, so a new video makes its own shots from the plan. Make the preview again to start videos from it.
+        <Banner tone="warning" title="Made for an older plan." action={<Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} busy={run.isPending} disabled={running} onClick={() => run.mutate()}>Plan again</Button>}>
+          The scene plan changed after these shots were made, so a new video makes its own shots from the plan.
         </Banner>
       )}
-      {remove.error && <p role="alert" className={errorClass}>{remove.error.message}</p>}
-      {run.error && <p role="alert" className={errorClass}>{run.error.message}</p>}
-      <BreakdownView
-        key={JSON.stringify(plan)}
-        row={row}
-        projectId={scriptId}
-        brandId={brandId}
-        scriptVersion={0}
-        plannedSeconds={p!.seconds}
-        makeButton={() => null}
-        failed={false}
-        problem={null}
-        name={(id) => (id ? refName(id, pieces, roles) : "")}
-        line={null}
-        preview={{
-          keep: (problem, undo) => keep.mutate({ problem, undo }),
-          keepBusy: keep.isPending,
-          fix: async (problems) => {
-            const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix", { params: { path }, body: { problems } });
-            if (!data) throw new Error(errorText(error));
-            return data;
-          },
-          fixCast: async () => {
-            const { data, error } = await api.POST("/scripts/{script_id}/drafts/{slot}/breakdown/fix-cast", { params: { path } });
-            if (!data) throw new Error(errorText(error));
-            return data as unknown as { changed_shots: { shot_id: string; before: string[]; after: string[] }[] };
-          },
-          again: readOnly ? null : (
-            <Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} disabled={running} onClick={() => setAsking(true)}>
-              Make it again
-            </Button>
-          ),
-          save: async (bd) => {
-            const { data, error } = await api.PUT("/scripts/{script_id}/drafts/{slot}/breakdown", { params: { path }, body: bd });
-            if (!data) throw new Error(errorText(error));
-            toast(`Plan saved for version ${letter}.`);
-            return data;
-          },
-        }}
-      />
+      {p!.stale && !readOnly && (
+        <Banner tone="warning" title="Made for an older script." action={<Button variant="secondary" icon={RotateCcw} charge="estimate" price={price} busy={run.isPending} disabled={running} onClick={() => run.mutate()}>Plan again</Button>}>
+          The words changed after these shots were planned.
+        </Banner>
+      )}
+      {p!.problems.length > 0 && !readOnly && (
+        <Banner tone="warning" title={`${p!.problems.length} thing${p!.problems.length === 1 ? "" : "s"} to check in the shots.`} action={<Button variant="secondary" onClick={() => setMode("shots")}>Open the shots</Button>}>
+          {p!.problems[0]}
+        </Banner>
+      )}
+      {errors.map((e) => <p key={e.message} role="alert" className={errorClass}>{e.message}</p>)}
+      <div role="table" aria-label="Clips">
+        <div role="row" className={`${cols} h-[34px] items-center border-b border-border px-3 text-xs text-muted`}>
+          <span role="columnheader">Clip</span>
+          <span role="columnheader">What happens</span>
+          <span role="columnheader" className="hidden sm:block">Who</span>
+          <span role="columnheader" className="text-right">Length</span>
+        </div>
+        {groups.map((g, gi) => (
+          <div role="rowgroup" key={g.scene.id}>
+            <div role="row" className="flex h-9 items-center gap-2.5 border-b border-border bg-surface px-3 font-medium">
+              <span role="rowheader">
+                Scene {gi + 1}
+                {g.scene.heading ? ` · ${g.scene.heading}` : ""}
+              </span>
+              <span className="text-xs tabular-nums text-muted">
+                {g.clips.length} clip{g.clips.length === 1 ? "" : "s"} · {Math.round(g.clips.reduce((t, c) => t + c.seconds, 0))} s
+              </span>
+            </div>
+            {g.clips.map((c) => {
+              const n = number.get(c.id);
+              const shots = c.shot_ids.map((id) => shotById.get(id)?.shot).filter((x): x is NonNullable<typeof x> => !!x);
+              const said = shots.map((sh) => [sh.line ? `${sh.speaker ? `${sh.speaker}: ` : ""}${sh.line}` : "", sh.action].filter(Boolean).join(" ")).join(" ");
+              const people = who(shots.flatMap((sh) => sh.character_ids));
+              const cells = (
+                <>
+                  <span role="cell" className="tabular-nums">Clip {n}</span>
+                  <span role="cell" className="type-script min-w-0 text-[13px] text-text/80">
+                    {said}
+                    <span className="block font-sans text-xs text-muted sm:hidden">{people}</span>
+                  </span>
+                  <span role="cell" className="hidden min-w-0 truncate sm:block">{people}</span>
+                  <span role="cell" className="text-right tabular-nums">{Math.round(c.seconds)} s</span>
+                </>
+              );
+              return readOnly ? (
+                <div role="row" key={c.id} className={`${cols} min-h-12 items-center border-b border-border px-3 py-1.5`}>
+                  {cells}
+                </div>
+              ) : (
+                <button type="button" role="row" key={c.id} aria-label={`Clip ${n}: open the shots`} onClick={() => setMode("shots")} className={`${cols} min-h-12 w-full items-center border-b border-border px-3 py-1.5 text-left hover:bg-surface-2`}>
+                  {cells}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
       {removing && (
         <Dialog title="Remove this plan?" cancelLabel="Keep it" actionLabel="Remove" danger busy={remove.isPending} onCancel={() => setRemoving(false)} onConfirm={() => remove.mutate(plan)}>
-          An editor's video will plan its shots when they start.
+          Each video will plan its own shots when it starts.
         </Dialog>
       )}
       {asking && (
-        <Dialog title="Make the breakdown again?" cancelLabel="Keep my plan" actionLabel="Make again" onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); run.mutate(); }}>
+        <Dialog title="Plan again?" cancelLabel="Keep my plan" actionLabel="Plan again" onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); run.mutate(); }}>
           Your edits to this plan will be lost.
         </Dialog>
       )}
-    </div>
+    </section>
   );
 }
