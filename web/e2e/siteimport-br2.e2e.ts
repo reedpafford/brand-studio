@@ -10,20 +10,20 @@ for (const width of [1440, 390]) {
     const brandId = await emptyBrand(page, `Site Co ${width}-${test.info().retry}`);
     await page.goto(`/b/${brandId}/brand`);
     await page.getByRole("button", { name: "Import from website" }).first().click(); // v5: opened from the top bar (or the setup list)
-    const card = page.locator("div.rounded-lg", { has: page.getByRole("heading", { name: "Import from website" }) });
+    const card = page.getByRole("region", { name: "Import from website" });
 
     await card.getByLabel("Paste the brand's website").fill("https://example.com/fail");
     await card.getByRole("button", { name: /^Read the site · about/ }).click();
     await expect(card.getByText("Couldn't read that site. Nothing was charged.")).toBeVisible();
-    await card.getByRole("button", { name: "Try again" }).click();
 
+    // The address stays in the box; Read it again reads the corrected one.
     await card.getByLabel("Paste the brand's website").fill("https://example.com");
-    await card.getByRole("button", { name: /^Read the site · about/ }).click();
+    await card.getByRole("button", { name: /^Read it again · about/ }).click();
     await expect(card.getByText(/Nothing is saved yet/)).toBeVisible({ timeout: 20_000 });
     await expect(card.getByRole("checkbox").first()).toBeChecked();
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
-    const save = page.getByRole("button", { name: "Save the ticked ones" });
+    const save = page.getByRole("button", { name: /^Save \d+ picked$/ });
     expect((await save.boundingBox())!.height).toBeGreaterThanOrEqual(width === 1440 ? 24 : 44); // desktop: Linear-sized controls (Reed, 2 Nov)
     await save.click();
     await expect(page.getByText(/^Saved /)).toBeVisible();
