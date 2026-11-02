@@ -195,6 +195,13 @@ test("each note says whether a move has answered it yet", async () => {
   expect(within(list).getAllByText(/· Open$/)).toHaveLength(1); // and never on a move
 });
 
+test("a refused move reads as plain words, without the server's Refused: prefix (Advice on #1176)", async () => {
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: [turn(1, { result: "Refused: the cast is locked, so it stays." })] })] }));
+  show();
+  expect(await screen.findByText("The cast is locked, so it stays.")).toBeInTheDocument();
+  expect(screen.queryByText(/Refused:/)).toBeNull();
+});
+
 test("before the first run there's no message box: Make it starts the director", async () => {
   fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "" })] }));
   show();

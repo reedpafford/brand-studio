@@ -197,6 +197,17 @@ test("each row says who asked, and the owner sees the dollars next to the credit
   expect(screen.getByText("To decline, ask Jo to shorten the plan.")).toBeInTheDocument();
 });
 
+test("a held Freestyle row shows credits only, even to the owner: no dollars beside Approve (Advice on #1176)", async () => {
+  const calls = fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue" })]], "GET /jobs/70/detail": [200, { ...freestyle({ type: "dialogue" }), cost_usd: 0.31 }], "GET /credits/allowances": allowances });
+  open();
+  expect(await screen.findByText("Freestyle · Dialogue · Bo at the beach")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /jobs/70/detail")).toBe(true));
+  await new Promise((r) => setTimeout(r, 100)); // the detail with its dollars has been drawn
+  const row = screen.getByText("Freestyle · Dialogue · Bo at the beach").closest("li")!;
+  expect(row.textContent).toMatch(/27 credits/);
+  expect(row.textContent).not.toMatch(/\$/); // the page's owner total at the top keeps its dollars
+});
+
 test("an editor who opens Needs you sees no held work and no dollars", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "GET /jobs/50/detail": [200, held({ cost_usd: 2.36 })] });
   open("/approvals");
