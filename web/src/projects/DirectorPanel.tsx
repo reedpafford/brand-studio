@@ -30,7 +30,7 @@ export function plain(line: string, clips: Clip[]): string {
       const t = clips.find((c) => c.clip_id === `c${n}`)?.takes.find((k) => k.id === Number(id));
       return t ? `take ${t.number} for clip ${n}` : `a take for clip ${n}`;
     })
-    .replace(/\b(?:clip )?c(\d+)\b/g, "clip $1"); // "clip c9" reads "clip 9", not "clip clip 9"
+    .replace(/\bc(\d+)\b/g, "clip $1");
   return NOT_PLAIN.test(out) ? "" : out;
 }
 

@@ -4,7 +4,7 @@ import { Bell } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Card, creditsText, Dialog, EmptyState, Skeleton, Tabs } from "../components";
+import { Banner, Button, Card, creditsLabel, Dialog, EmptyState, Skeleton, Tabs } from "../components";
 import { FLAGS, reason, STEPS as AT, who } from "../production/ProductionPage";
 import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
@@ -95,7 +95,7 @@ export function NeedsYouPage() {
   // A held Freestyle's dollars are its first turn's; scale them to its up to at the same rate, so the owner's total matches the credits.
   const totalUsd = held.heldJobs.reduce((n, j) => n + (usd.get(j.id) ?? 0) * (j.freestyle?.up_to != null && j.credits > 0 ? j.freestyle.up_to / j.credits : 1), 0);
   const money = known && held.heldJobs.length > 0 ? ` (${dollars(totalUsd)})` : "";
-  const worth = held.count > 0 ? ` · ${plural(held.count, "request")}${credits > 0 ? ` worth ${creditsText(credits)}${money}` : ""}` : "";
+  const worth = held.count > 0 ? ` · ${plural(held.count, "request")}${credits > 0 ? ` worth ${creditsLabel(credits)}${money}` : ""}` : "";
   const all = (
     <Button charge="estimate" price={credits > 0 ? credits : undefined} disabled={held.count === 0} busy={approveAll.isPending} onClick={() => setAsking(true)}>
       Approve all
@@ -149,7 +149,7 @@ export function NeedsYouPage() {
         </Card>
       )}
       {asking && (
-        <Dialog title={`Approve ${plural(held.count, "request")} for ${creditsText(credits)}${money}?`} cancelLabel="Keep them" actionLabel="Approve all" busy={approveAll.isPending} onCancel={() => setAsking(false)} onConfirm={() => approveAll.mutate()}>
+        <Dialog title={`Approve ${plural(held.count, "request")} for ${creditsLabel(credits)}${money}?`} cancelLabel="Keep them" actionLabel="Approve all" busy={approveAll.isPending} onCancel={() => setAsking(false)} onConfirm={() => approveAll.mutate()}>
           Everything waiting starts now.
         </Dialog>
       )}

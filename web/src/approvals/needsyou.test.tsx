@@ -209,10 +209,10 @@ test("a held Freestyle row shows credits only, even to the owner: no dollars bes
 });
 
 test("the top total counts what approving commits to: a held Freestyle's up to, not its first charge (rules 32, 34)", async () => {
-  const job = { ...freestyle({ type: "dialogue", up_to: 204 }), credits: 3 };
+  const job = { ...freestyle({ type: "dialogue", up_to: 203.1 }), credits: 3 };
   fakeServer({ ...base, "GET /jobs": [200, [job]], "GET /jobs/70/detail": [200, { ...job, cost_usd: 0.3 }], "GET /credits/allowances": allowances });
   open();
-  expect(await screen.findByText("Every brand · 1 thing · 1 request worth 204 credits ($20.40)")).toBeInTheDocument(); // the owner's dollars at the same rate
+  expect(await screen.findByText("Every brand · 1 thing · 1 request worth 204 credits ($20.31)")).toBeInTheDocument(); // the owner's dollars at the same rate
   expect(screen.getByRole("button", { name: /Approve all · up to 204 credits/ })).toBeInTheDocument();
 });
 
