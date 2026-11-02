@@ -161,7 +161,9 @@ for (const width of [1440, 390]) {
       });
       await page.reload();
       await expect(page.getByText("That change didn't finish. Nothing was charged.")).toBeVisible();
-      await expect(page.getByLabel("Change this… c1")).toHaveValue("Slower, warmer light");
+      await expect(page.getByLabel("Note for the next take c1")).toHaveValue("Slower, warmer light");
+      // The approved still is a thumbnail beside the prompt, still a full-size press (QA-11).
+      expect((await page.getByRole("button", { name: /^Still for clip c1/ }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
       const again = page.getByRole("button", { name: /^Try again/ });
       expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await expect(page.getByText(/Ask the owner/)).toHaveCount(0);

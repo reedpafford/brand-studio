@@ -27,7 +27,7 @@ function clipStatus(c: Clip | undefined, f: Frame | undefined, making: boolean):
 const lineOf = (s: Shot) => (s.line ? (s.speaker ? `${s.speaker.toUpperCase()}: ${s.line}` : s.line) : s.action ? `(${s.action})` : "");
 
 /** The Clips tab (v4): one place per clip. Left, the clips with their still, line and status; right, the one picked, with
- *  its takes, its still and its prompt. The stills' and the takes' one-press actions sit above the list. The stills and the
+ *  its takes, then its still as a thumbnail beside its prompt and the note for the next take. The stills' and the takes' one-press actions sit above the list. The stills and the
  *  takes keep their own panes (their locks, holds and prices); this only lays them out. */
 export function ClipsStep(props: {
   projectId: number;
@@ -52,9 +52,14 @@ export function ClipsStep(props: {
   const jobs = useJobs();
   const breakdown = useBreakdown(projectId, props.scriptVersion);
   const [picked, setPicked] = useState<string | null>(null);
-  // A Review row names the card to go to ("Clip c2", "Frame c2"): that clip is picked in the list.
+  // A Review row names the card to go to ("Clip c2", "Frame c2"): that clip is picked once, when the address names it, so a
+  // press on another clip in the list still wins while ?to= stays in the address (QA-11).
   const to = useSearchParams()[0].get("to")?.match(/^(?:Clip|Frame) (c\d+)$/)?.[1];
-  if (to && to !== picked) setPicked(to);
+  const [toSeen, setToSeen] = useState<string>();
+  if (to !== toSeen) {
+    setToSeen(to);
+    if (to) setPicked(to);
+  }
   const [stillsBar, setStillsBar] = useState<HTMLDivElement | null>(null);
   const [clipsBar, setClipsBar] = useState<HTMLDivElement | null>(null);
   const [still, setStill] = useState<HTMLDivElement | null>(null);

@@ -8,7 +8,7 @@ import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 import { editor } from "../test/people";
-import { pickClip } from "../test/clips";
+import { clipCard, pickClip } from "../test/clips";
 
 const project = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
@@ -101,13 +101,42 @@ test("?step=make opens Clips: the clip list, and the picked clip's takes with it
   expect(screen.queryByRole("tab", { name: /Stills/ })).toBeNull(); // no separate Stills | Clips any more
 });
 
+test("the picked clip's approved still is a small thumbnail beside its prompt, shown in full, with one note box; the thumbnail opens the still's own presses (QA-11)", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]] });
+  open("?step=clips");
+  const card = await clipCard("c1");
+  expect(within(card).getByLabelText("Prompt for clip c1")).toHaveTextContent("Bo sniffs the salmon"); // the words, not only Edit prompt
+  expect(within(card).getByLabelText("Note for the next take c1")).toBeInTheDocument();
+  expect(within(card).getAllByRole("textbox")).toHaveLength(1); // no second "Change this…" for the still
+  expect(within(card).getByLabelText("Frame c1")).toHaveClass("w-16");
+  await userEvent.click(within(card).getByRole("button", { name: "Still for clip c1: approve, redo or change it" }));
+  const sheet = screen.getByRole("dialog", { name: "Still for clip 1" });
+  expect(within(sheet).getByRole("button", { name: "Undo approve" })).toBeInTheDocument();
+  expect(within(sheet).getByRole("button", { name: /Make another/ })).toBeInTheDocument();
+  expect(within(sheet).getByLabelText("Change this… still c1")).toBeInTheDocument();
+});
+
+test("a Review link's ?to= picks its clip once: a press on another clip in the list wins while ?to= stays (QA-11)", async () => {
+  setViewport(1440);
+  // The takes wait for the stills, so there is no "Clip c2" card to find and ?to= stays in the address for a while.
+  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false }, { ...frame, id: 2, clip_id: "c2", approved: false }]] });
+  open("?step=storyboard&to=Clip%20c2");
+  const list = await screen.findByRole("list", { name: "Clip list" });
+  expect(await within(list).findByRole("button", { name: /^Clip 2(\D|$)/ })).toHaveAttribute("aria-current", "true");
+  await userEvent.click(within(list).getByRole("button", { name: /^Clip 1(\D|$)/ }));
+  expect(within(list).getByRole("button", { name: /^Clip 1(\D|$)/ })).toHaveAttribute("aria-current", "true");
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Frame c2")).toBeNull();
+});
+
 test("before the stills are approved, the takes wait and say why; the still is there to approve", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], approved: false }]] });
   open("?step=clips");
   expect(await screen.findByRole("tab", { name: "Clips", selected: true })).toBeInTheDocument();
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
-  expect(screen.getByText(/^Takes: /)).toBeInTheDocument();
+  expect(screen.getByText("Takes: Approve every still first (1 left)")).toBeInTheDocument(); // stills, as on Make the stills (QA-11)
   expect(screen.queryByLabelText("Clip c1")).toBeNull();
 });
 
@@ -459,7 +488,7 @@ test("Undo after a clip change goes back to the take that was picked when Change
     return inner(req.clone(), init);
   }));
   open("?step=clips");
-  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
+  await userEvent.type(await screen.findByLabelText("Note for the next take c1"), "Slower");
   await userEvent.click(await screen.findByRole("button", { name: "Change it and make a new take · up to 27 credits" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }, { timeout: 9000 }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/takes/1/pick")).toBe(true));
@@ -544,7 +573,7 @@ test("once a clip has a take, Change it shows the full price (rewrite and take),
     return inner(req.clone(), init);
   }));
   open("?step=clips");
-  await userEvent.type(await screen.findByLabelText("Change this… c1"), "Slower");
+  await userEvent.type(await screen.findByLabelText("Note for the next take c1"), "Slower");
   expect(await screen.findByRole("button", { name: "Change the prompt · up to 3 credits" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /^Make clip/ }));
   expect(await screen.findByRole("button", { name: "Change it and make a new take · up to 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
@@ -560,7 +589,7 @@ test("a clip change that didn't finish says the server's words, keeps the note i
   });
   open("?step=clips");
   expect(await screen.findByText("That change didn't finish. Nothing was charged.")).toBeInTheDocument();
-  expect(screen.getByLabelText("Change this… c1")).toHaveValue("Slower, warmer light");
+  expect(screen.getByLabelText("Note for the next take c1")).toHaveValue("Slower, warmer light");
   expect(screen.queryByText(/Ask the owner/)).toBeNull();
   await userEvent.click(await screen.findByRole("button", { name: "Try again · up to 27 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/change")?.body).toEqual({ note: "Slower, warmer light" }));
@@ -577,7 +606,7 @@ test("Changing… stops when its rewrite job has failed, even while the clip sti
   open("?step=clips");
   expect(await screen.findByText("That change didn't finish.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Changing…" })).toBeNull();
-  expect(screen.getByLabelText("Change this… c1")).not.toHaveAttribute("readonly");
+  expect(screen.getByLabelText("Note for the next take c1")).not.toHaveAttribute("readonly");
   expect(screen.getByRole("button", { name: "Try again · up to 27 credits" })).toBeEnabled();
 });
 
@@ -1207,7 +1236,7 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   const calls = fakeServer(staleRoutes);
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
-  expect(within(card).queryByLabelText("Change this… c1")).toBeNull();
+  expect(within(card).queryByLabelText("Note for the next take c1")).toBeNull();
   await userEvent.click(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
 });
@@ -1427,7 +1456,7 @@ test("once the free rewrite is used, the clip says so and offers the priced Rewr
   expect(within(card).getByRole("status")).toHaveTextContent("We couldn't fix this one automatically.");
   expect(within(card).getByRole("status")).not.toHaveTextContent("Try saying");
   expect(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · up to 3 credits" })).toBeInTheDocument();
-  expect(within(card).getByLabelText("Change this… c1")).toBeInTheDocument();
+  expect(within(card).getByLabelText("Note for the next take c1")).toBeInTheDocument();
 });
 
 test("when the server can't fix it, the card says why in the server's words", async () => {
@@ -1639,6 +1668,21 @@ test("a video opens on the Director tab, first in the one tab row; a step opens 
   expect(screen.queryByRole("button", { name: "Make it" })).toBeNull();
   await userEvent.click(screen.getByRole("tab", { name: "Director" }));
   expect(await screen.findByRole("button", { name: "Make it" })).toBeInTheDocument();
+});
+
+test("a finished video's Director tab has one primary press, Download MP4: the bar points quietly at Final cut, never Next: Cast (QA-11)", async () => {
+  setViewport(1440);
+  fakeServer({ ...directed, "GET /projects/9/assets": [200, []], "GET /projects/9/storyboard": [200, [frame]], "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("");
+  expect(await screen.findByRole("link", { name: /Download MP4/ })).toHaveClass("bg-accent");
+  expect(screen.getByRole("heading", { name: "The director's cut", level: 2 })).toBeInTheDocument(); // not "Let the director make it"
+  expect(screen.getByRole("button", { name: "Make it" })).not.toHaveClass("bg-accent");
+  const bar = screen.getByRole("region", { name: "Cost" });
+  expect(within(bar).queryByRole("button", { name: /^Next:/ })).toBeNull();
+  const final = within(bar).getByRole("button", { name: "Open Final cut" });
+  expect(final).not.toHaveClass("bg-accent");
+  await userEvent.click(final);
+  expect(await screen.findByRole("tab", { name: "Final cut", selected: true })).toBeInTheDocument();
 });
 
 test("at 390, the steps stay one button with a sheet, the Director first in it", async () => {

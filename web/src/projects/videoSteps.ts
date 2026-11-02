@@ -37,7 +37,13 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
   if (shots || step === "cast") return shots;
   const left = p.assets.total - p.assets.ready;
   if (left > 0 && !kept) return `Approve the cast first (${left} left)`; // made work stays open: its presses wait instead (videoHold)
-  return lockReason(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
+  // The video page calls the frames stills, everywhere (QA-11: "Make the storyboard first" beside Make the stills).
+  return (
+    lockReason(VIDEO_STEPS.find((s) => s.id === step)!.old, p)
+      ?.replace("Make the storyboard first", "Make the stills first")
+      .replace("Redo the out of date frames first", "Redo the out-of-date stills first")
+      .replace(/Approve every storyboard frame first/, "Approve every still first") ?? null
+  );
 }
 
 /** Why a step's paid presses wait while its work stays viewable, and the step that puts it right: an earlier step changed
