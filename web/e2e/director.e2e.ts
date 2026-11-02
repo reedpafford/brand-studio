@@ -34,6 +34,8 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await expect(ed.getByText(/^\d+ s · up to \d+(\.\d)? credits? for this run$/)).toBeVisible();
   await expect(ed.getByText(/^Every move \(\d+\)$/)).toBeVisible();
   await expect(ed.getByRole("list", { name: "Locked" })).toBeVisible(); // the locks it builds around, above the moves
+  const all = ed.getByRole("button", { name: /^Show all \d+ moves$/ }); // the newest 5 show; the rest on a press
+  if (await all.isVisible()) await all.click();
   const moves = await ed.getByRole("complementary", { name: "Locks and moves" }).locator("ol").textContent();
   expect(moves).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words only: no tool names, clip codes or JSON
   expect(moves).toContain("Watching the cut."); // it watched its cut (#1145)
