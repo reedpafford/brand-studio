@@ -149,8 +149,7 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
             if word.lower() not in scripted and _off_by_one(word.lower(), brand.lower()):
                 findings.append(_finding("name", h["start"], f"“{word}” at {at}: {brand} may "
                                          "be said wrong. Listen first: the transcript can "
-                                         f"mishear.", f"Say {brand} as {said_as}, never "
-                                         f"“{word}”."))  # fmt: skip
+                                         f"mishear.", f"Say {brand} as {said_as}."))  # fmt: skip
     return findings + sounds
 
 
