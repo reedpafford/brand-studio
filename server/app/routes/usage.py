@@ -405,6 +405,8 @@ class MyVideo(BaseModel):
     status: Literal["in_production", "done", "failed"]
     credits: float  # its whole life
     budget_credits: float
+    director_credits: float = 0  # of `credits`, the director's own time (its own limit)
+    approved_up_to: float | None = None  # a freestyle's video: what the owner's OKs cover
     folder_id: int | None
     finished_at: UtcTime | None
     last_activity_at: UtcTime
@@ -466,6 +468,11 @@ def mine(
     projects = list(db.scalars(query))
     _, _, credits, last = usage.project_totals(db, [p.id for p in projects])
     states, videos = usage.video_statuses(db, projects), []
+    from app.credits import approved, director_credits
+    from app.models.freestyles import Freestyle
+
+    sent = {fs.project_id: fs for fs in db.scalars(select(Freestyle).where(
+        Freestyle.project_id.in_([p.id for p in projects])))}  # fmt: skip
     for p in projects:
         active = max(filter(None, [last.get(p.id), p.created_at]))
         moment = p.finished_at if states[p.id] == "done" else active
@@ -474,6 +481,8 @@ def mine(
         videos.append(MyVideo(
             project_id=p.id, title=usage.video_title(db, p)[0], status=states[p.id],
             credits=float(credits.get(p.id, 0)), budget_credits=float(p.budget_credits),
+            director_credits=float(director_credits(db, p)),
+            approved_up_to=float(approved(db, sent[p.id])) if p.id in sent else None,
             folder_id=p.live_folder_id, finished_at=p.finished_at,
             last_activity_at=active))  # fmt: skip
     quick = usage.filed(db, brand_id, when, made_by=user.id, quick_only=True)
