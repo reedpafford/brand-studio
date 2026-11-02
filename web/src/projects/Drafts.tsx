@@ -5,6 +5,7 @@ import { Elapsed, GOING, useJobs } from "../clip/History";
 import { Sparkles } from "lucide-react";
 import { Badge, Banner, Button, Card, Skeleton } from "../components";
 import { errorText as errorClass } from "../ui";
+import { refreshJobs } from "../jobs/refresh";
 
 
 /** No script yet: Claude writes a few drafts from the brief, and you pick one to start from. */
@@ -49,7 +50,7 @@ export function DraftsPanel({
       );
       if (!data) throw new Error(errorText(error));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => refreshJobs(queryClient),
   });
   const use = useMutation({
     mutationFn: async (d: { job_id: number; n: number }) => {

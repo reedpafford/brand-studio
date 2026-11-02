@@ -4,6 +4,7 @@ import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { clock } from "./TakePlayer";
+import { refreshJobs } from "../jobs/refresh";
 
 export type SongTake = components["schemas"]["SongTakeOut"];
 const BUSY: SongTake["status"][] = ["making", "timing"];
@@ -38,7 +39,7 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
   const ask = (label: string, price: number | null | undefined) => (editor && price ? "Send for approval" : label);
   const SENDS = "Songs, narration and music on a script wait for the owner's OK. Nothing is charged until they say yes.";
   const sends = (price: number | null | undefined) => (editor && price ? SENDS : null);
-  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["songs", scriptId] }), queryClient.invalidateQueries({ queryKey: ["allowance"] }), queryClient.invalidateQueries({ queryKey: ["jobs"] })]);
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["songs", scriptId] }), queryClient.invalidateQueries({ queryKey: ["allowance"] }), refreshJobs(queryClient)]);
   const ok = async <T,>(call: Promise<{ data?: T; error?: unknown; response: Response }>) => {
     const { data, error, response } = await call;
     if (!response.ok) throw new Error(errorText(error));

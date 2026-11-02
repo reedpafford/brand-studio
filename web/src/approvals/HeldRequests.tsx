@@ -8,6 +8,7 @@ import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { PLURAL, STEPS } from "./steps";
 import type { Job } from "./useHeld";
+import { refreshJobs } from "../jobs/refresh";
 
 /** Which of my requests belong on this page: a video's, a script's, or my Quick clips (no video, no script). */
 export type HeldWhere = { projectId: number } | { scriptId: number } | { quick: true };
@@ -86,7 +87,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
     },
     onSuccess: () => {
       toast("Withdrawn. Nothing was charged.");
-      return queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      return refreshJobs(queryClient);
     },
     onError: (e: Error) => toast(e.message, undefined, "error"),
   });

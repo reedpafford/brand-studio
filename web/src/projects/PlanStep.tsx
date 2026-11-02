@@ -9,6 +9,7 @@ import { editScene, joinNext, moveLine, splitAt, toPut, toggleStar, type PlanLin
 import { serverTime } from "../time";
 import { JobClock, useJobs } from "../clip/History";
 import { errorText as errorClass } from "../ui";
+import { refreshJobs } from "../jobs/refresh";
 
 /** The video's scene plan (flows P1; Builder-Server-8's #893, to #876's names): the script's words grouped into scenes. The words never change (rule 19). */
 type Line = PlanLine;
@@ -226,7 +227,7 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
   const approve = useMutation({
     mutationFn: () => call("POST", `${base}/approve`),
     onSuccess: async () => {
-      await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["jobs"] })]);
+      await Promise.all([refresh(), refreshJobs(queryClient)]);
       onApproved();
     },
   });

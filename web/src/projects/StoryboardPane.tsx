@@ -21,6 +21,7 @@ import { StoryboardVersions, useMayChangeVideo } from "./VersionLists";
 import { type Softened } from "./Soften";
 import { FrameCard } from "./FrameCard";
 import { BarAction } from "./BarAction";
+import { refreshJobs } from "../jobs/refresh";
 
 type Frame = components["schemas"]["FrameOut"];
 
@@ -100,7 +101,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       setWriting(job.id);
       pressed.press();
       auto.current = !!props.oneStep;
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
     },
   });
   const render = useMutation({
@@ -112,7 +113,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
     onSuccess: ({ frame, job }) => {
       setDrawing((d) => ({ ...d, [frame.id]: job.id }));
       stillPressed.press();
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
     },
   });
   // Save prompt: a frame that has a still is drawn again from the new prompt (the button says so, with the price).

@@ -13,6 +13,7 @@ import { refName } from "../projects/names";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
 import type { Script } from "./useScript";
+import { refreshJobs } from "../jobs/refresh";
 
 type Breakdown = components["schemas"]["Breakdown"];
 const LETTER = ["A", "B", "C"];
@@ -83,7 +84,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
     },
     onSuccess: async () => {
       setStarted(new Date().toISOString());
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
       await queryClient.invalidateQueries({ queryKey: ["preview", scriptId, slot] }); // the server now says it is running
     },
   });
