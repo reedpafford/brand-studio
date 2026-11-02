@@ -51,7 +51,14 @@ def test_an_editors_change_waits_for_the_owner_then_a_new_run_makes_it(app, owne
     assert out["file_id"] and out["file_id"] != first_cut  # delivered again
 
 
-def test_the_owners_change_runs_at_once_and_one_during_a_run_is_only_a_note(app, owner, db):
+def test_the_owners_change_runs_at_once_and_one_during_a_run_is_only_a_note(
+    app, owner, db, monkeypatch
+):
+    from datetime import timedelta
+
+    from app import director
+
+    monkeypatch.setattr(director, "GAP", timedelta(0))  # two notes in a few seconds: not a flood
     fs = owner.post("/freestyles", json=BODY).json()  # running now
     jobs = db.query(Job).count()
     r = owner.post(f"/freestyles/{fs['id']}/messages", json={"text": CHANGE})
