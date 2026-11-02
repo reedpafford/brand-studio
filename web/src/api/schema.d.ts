@@ -6825,6 +6825,11 @@ export interface components {
             look_sheets: {
                 [key: string]: components["schemas"]["LookSheetOut"];
             };
+            /**
+             * Used In
+             * @default []
+             */
+            used_in: components["schemas"]["UsedIn"][];
         };
         /**
          * ItemPatch
@@ -7920,6 +7925,11 @@ export interface components {
             look_sheets: {
                 [key: string]: components["schemas"]["LookSheetOut"];
             };
+            /**
+             * Used In
+             * @default []
+             */
+            used_in: components["schemas"]["UsedIn"][];
             /** Was File Id */
             was_file_id: number | null;
         };
@@ -9916,6 +9926,18 @@ export interface components {
             people: components["schemas"]["Who"][];
             /** Items */
             items: components["schemas"]["UsageVideo"][];
+        };
+        /** UsedIn */
+        UsedIn: {
+            /** Project Id */
+            project_id: number;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "making" | "done";
         };
         /** ValidationError */
         ValidationError: {
