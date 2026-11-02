@@ -164,7 +164,7 @@ def _move(fs: Freestyle, job: Job) -> tuple[str, str, str]:
     """(freestyle status, move status, plain words) for one send's job."""
     s = job.status
     if s == JobStatus.needs_owner_approval:
-        return "waiting", "held", "Waiting for Reed's OK."
+        return "waiting", "held", "Waiting for the owner's OK."
     if s == JobStatus.queued:
         return "working", "queued", "Starting the clip."
     if s == JobStatus.running:
@@ -174,7 +174,7 @@ def _move(fs: Freestyle, job: Job) -> tuple[str, str, str]:
     if s == JobStatus.failed:
         return "failed", "refused", f"Couldn't make it: {job.error or 'it failed'}"
     if job.input.get(DECLINE):
-        return "declined", "refused", f"Reed declined: {job.error}"
+        return "declined", "refused", f"The owner declined: {job.error}"
     if job.input.get(WITHDRAWN):
         return "withdrawn", "refused", "Withdrawn."
     return "stopped", "refused", "Stopped."

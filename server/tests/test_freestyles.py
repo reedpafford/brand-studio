@@ -31,7 +31,10 @@ def test_an_editors_sends_wait_for_the_owner_and_a_decline_says_why(app, owner, 
     fs = r.json()
     assert (fs["title"], fs["status"], fs["file_id"]) == ("MIA: The market opened at nine.",
                                                           "waiting", None)  # fmt: skip
-    assert _moves(fs) == [("message", None, SCRIPT), ("move", "held", "Waiting for Reed's OK.")]
+    assert _moves(fs) == [
+        ("message", None, SCRIPT),
+        ("move", "held", "Waiting for the owner's OK."),
+    ]
     assert fs["thread"][0]["who"] == "Ed" and fs["credits"] > 0
     (job,) = db.query(Job).all()
     assert job.status == "needs_owner_approval" and job.input["held"]
@@ -57,7 +60,7 @@ def test_an_editors_sends_wait_for_the_owner_and_a_decline_says_why(app, owner, 
     assert r.status_code == 200
     fs = editor.get(f"/freestyles/{fs['id']}").json()
     assert fs["status"] == "declined" and fs["file_id"]  # the first take is still there
-    assert _moves(fs)[-1] == ("move", "refused", "Reed declined: Too dark for the brand.")
+    assert _moves(fs)[-1] == ("move", "refused", "The owner declined: Too dark for the brand.")
 
 
 def test_the_owners_run_at_once_and_only_the_maker_and_owner_see_one(
