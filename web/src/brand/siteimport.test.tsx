@@ -86,7 +86,9 @@ test("Save N picked counts the ticks, sends just them, says what it saved, and U
   await userEvent.click(await within(card).findByRole("checkbox", { name: /Gold card/ })); // untick
   await userEvent.click(screen.getByRole("button", { name: "Save 3 picked" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/site-read/40/save")?.body).toEqual({ logo: true, colours: ["#ff6600"], products: [0] }));
-  expect(await screen.findByText("Saved the logo, 1 colour, 1 product.")).toBeInTheDocument();
+  // Products go to Cast & places (the Products tab holds product photos), so the message says so, with a link.
+  const saved = await screen.findByText((_, el) => el?.textContent === "Saved the logo, 1 colour, 1 product. It's in Cast & places.");
+  expect(within(saved).getByRole("link", { name: "Cast & places" })).toHaveAttribute("href", "/b/1/library/props");
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/site-read/40/undo")).toBe(true));
 });
@@ -97,7 +99,7 @@ test("a logo that didn't come says so at Save, and the rest is saved", async () 
   await open();
   await readSite();
   await userEvent.click(await screen.findByRole("button", { name: /^Save \d+ picked$/ }));
-  expect(await screen.findByText("Saved 1 colour, 2 products. Couldn't get the logo from the site.")).toBeInTheDocument();
+  expect(await screen.findByText((_, el) => el?.tagName === "SPAN" && el.textContent === "Saved 1 colour, 2 products. Couldn't get the logo from the site. They're in Cast & places.")).toBeInTheDocument();
 });
 
 test("a site that couldn't be read says nothing was charged, and keeps the address for Read it again", async () => {

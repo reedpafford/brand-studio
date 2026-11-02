@@ -3,9 +3,10 @@ import { Check, CircleAlert } from "lucide-react";
 import { Button } from "./Button";
 
 type Kind = "success" | "error";
-type Item = { message: string; undo?: () => void; kind: Kind; long?: boolean; id: number };
+type Item = { message: ReactNode; undo?: () => void; kind: Kind; long?: boolean; id: number };
 /** `long` keeps a toast without Undo up as long as one with it: for a message that takes time to read. */
-type Show = (message: string, undo?: () => void, kind?: Kind, long?: boolean) => void;
+/** The message is words, or words with a link in them ("Saved 2 products to Cast & places"). */
+type Show = (message: ReactNode, undo?: () => void, kind?: Kind, long?: boolean) => void;
 const Ctx = createContext<Show>(() => {});
 
 export const useToast = () => useContext(Ctx);

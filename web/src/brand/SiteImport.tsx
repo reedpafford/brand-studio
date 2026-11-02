@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Globe, Image } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Banner, Button, Field, pressLabel, useToast } from "../components";
@@ -67,7 +68,20 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
       onSaved();
       const parts = [s.logo && "the logo", s.colours_added > 0 && `${s.colours_added} colour${s.colours_added === 1 ? "" : "s"}`, s.products_made > 0 && `${s.products_made} product${s.products_made === 1 ? "" : "s"}`, s.products_filled > 0 && `${s.products_filled} description${s.products_filled === 1 ? "" : "s"}`].filter(Boolean);
       const said = [parts.length ? `Saved ${parts.join(", ")}.` : "Nothing new to save.", ...s.problems].join(" "); // "Couldn't get the logo from the site." The rest is saved.
-      toast(said, async () => {
+      // Products go to Cast & places, not the Products tab (that tab holds product photos), so the message says where (Next-Lead).
+      const toProps = s.products_made + s.products_filled > 0;
+      const message = toProps ? (
+        <>
+          {said} {s.products_made + s.products_filled === 1 ? "It's" : "They're"} in{" "}
+          <Link to={`/b/${brandId}/library/props`} className="underline">
+            Cast &amp; places
+          </Link>
+          .
+        </>
+      ) : (
+        said
+      );
+      toast(message, async () => {
         await must(api.POST("/brands/{brand_id}/site-read/{job_id}/undo", { params: { path: { brand_id: brandId, job_id: id } } })).catch((e: Error) => toast(e.message, undefined, "error"));
         await refresh();
         onSaved();
