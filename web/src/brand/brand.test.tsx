@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
+import { setViewport } from "../test/viewport";
 
 const editor = { id: 2, email: "eli@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const brand = { id: 1, name: "fomo", slug: "fomo", colours: ["#112233"], fonts: ["Inter"], tone_notes: "Punchy", never_say: [], legal_line: "", logo_file_id: null };
@@ -265,4 +266,14 @@ test("the Products tab counts Bag and bag as one product", async () => {
   withScreens([mk(4, "Bag", "Chicken"), mk(5, "bag", "Salmon")]);
   renderAt("/b/1/brand");
   expect(await screen.findByRole("tab", { name: /^Products 1$/ })).toBeInTheDocument();
+});
+
+test("at 1440, with products and screens already there, Add product and Add screens sit in the top bar (QA-3 on #1210)", async () => {
+  setViewport(1440);
+  withScreens([bag]);
+  renderAt("/b/1/brand?tab=products");
+  const top = (await screen.findByRole("heading", { name: "fomo", level: 1 })).parentElement!;
+  expect(await within(top).findByRole("button", { name: "Add product" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: /App screens/ }));
+  expect(await within(top).findByRole("button", { name: "Add screens" })).toBeInTheDocument();
 });

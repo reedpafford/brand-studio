@@ -128,12 +128,14 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
             <section className="min-w-0 space-y-5 border-b border-border pb-6 last:border-b-0">
               <h2 className="type-section">Look</h2>
               <Field label="Name" required value={kit.name} onChange={(e) => set("name", e.target.value)} />
-              <ImagePicker label="Logo" fileId={kit.logo_file_id} onChange={(id) => set("logo_file_id", id)} />
+              <ImagePicker label="Logo" inline="Change logo" fileId={kit.logo_file_id} onChange={(id) => set("logo_file_id", id)} />
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium">Colours</legend>
-                <div className="flex flex-wrap gap-3">
+                <p className="text-sm text-muted">The first colour tints the brand's dot.</p>
+                {/* v5 F_BrandLook: each colour's swatch and hex side by side, + Add at the end of the row. */}
+                <div className="flex flex-wrap items-start gap-3">
                   {kit.colours.map((c, i) => (
-                    <span key={i} className="flex w-28 flex-col gap-1">
+                    <span key={i} className="flex w-full flex-col gap-1 sm:w-48 lg:w-40">
                       <span className="flex items-center gap-1">
                         <input
                           type="color"
@@ -142,25 +144,24 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
                           value={HEX.test(c) ? c : "#000000"}
                           onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
                         />
-                        <button type="button" className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2" aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
-                          <X size={16} strokeWidth={1.75} aria-hidden />
+                        <input
+                          className="min-h-control w-full min-w-0 rounded-md border border-border-strong bg-surface px-2 font-mono text-sm"
+                          aria-label={`Colour ${i + 1}`}
+                          placeholder="#12A150"
+                          value={c}
+                          onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
+                        />
+                        <button type="button" className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2 lg:w-6" aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
+                          <X size={14} strokeWidth={1.75} aria-hidden />
                         </button>
                       </span>
-                      <input
-                        className="min-h-control w-full rounded-md border border-border-strong bg-surface px-2 font-mono text-sm"
-                        aria-label={`Colour ${i + 1}`}
-                        placeholder="#12A150"
-                        value={c}
-                        onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
-                      />
                       {c !== "" && !HEX.test(c) && <span className={errorClass}>Use a colour like #12A150.</span>}
                     </span>
                   ))}
+                  <Button type="button" variant="secondary" icon={Plus} aria-label="Add colour" onClick={() => set("colours", [...kit.colours, kit.colours.at(-1) ?? ""])}>
+                    Add
+                  </Button>
                 </div>
-                <Button type="button" variant="secondary" icon={Plus} aria-label="Add colour" onClick={() => set("colours", [...kit.colours, kit.colours.at(-1) ?? ""])}>
-                  Add
-                </Button>
-                <p className="text-sm text-muted">The first colour tints the brand's dot.</p>
               </fieldset>
               <ChipList label="Fonts" items={kit.fonts} onChange={(v) => set("fonts", v)} placeholder="e.g. Manrope" />
             </section>

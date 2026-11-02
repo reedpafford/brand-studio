@@ -59,6 +59,8 @@ export function BrandPage() {
                 Import from website
               </Button>
             )}
+            {/* Products and App screens put their Add here, as F_BrandProducts does (QA-3 on #1210); Look and Voice save in the bottom bar. */}
+            {rail && tab !== "look" && tab !== "voice" && <div ref={setSlot} className="flex items-center gap-2" />}
             {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
           </div>
         </div>
