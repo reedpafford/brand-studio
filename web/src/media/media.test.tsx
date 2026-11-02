@@ -207,7 +207,8 @@ test("a song tile says which script or video it's from (Next-Layout's 390 walk)"
 test("a tile opens the item's own page at 390 and desktop: the item, who made it, one press to its video, and Download (v5 G_MediaItem)", async () => {
   for (const width of [1440, 390]) {
     setViewport(width);
-    fakeServer(base(owner, page([item({ key: "final:3", kind: "final", content_type: "video/mp4", video_name: "Bo tries salmon · A", open_step: "final" })])));
+    const final = item({ key: "final:3", kind: "final", content_type: "video/mp4", video_name: "Bo tries salmon · A", open_step: "final" });
+    fakeServer({ ...base(owner, page([final])), "GET /brands/1/media/final%3A3": [200, final] });
     const { unmount } = renderApp("/b/1/media");
     await userEvent.click(await screen.findByRole("link", { name: /^Open Bo tries salmon · A/ }));
     expect(await screen.findByRole("heading", { name: "Final video", level: 1 })).toBeInTheDocument();
@@ -219,9 +220,43 @@ test("a tile opens the item's own page at 390 and desktop: the item, who made it
   }
 });
 
-test("an item no longer in Media says so, with the way back", async () => {
-  fakeServer(base(owner, page([])));
+test("an item no longer in Media says so in the server's words, with the way back (#1212)", async () => {
+  fakeServer({ ...base(owner, page([])), "GET /brands/1/media/final%3A99": [404, { detail: "That's no longer in Media." }] });
   renderApp("/b/1/media/final%3A99");
-  expect(await screen.findByText("That item isn't in Media any more.")).toBeInTheDocument();
+  expect(await screen.findByText("That's no longer in Media.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Back to Media" })).toHaveAttribute("href", "/b/1/media");
+});
+
+test("the owner deletes a final cut from its page, after a check that says its video keeps a copy (#1212)", async () => {
+  setViewport(1440);
+  const final = item({ key: "final:3", kind: "final", content_type: "video/mp4", video_name: "Bo tries salmon · A", open_step: "final" });
+  const calls = fakeServer({ ...base(owner, page([final])), "GET /brands/1/media/final%3A3": [200, final], "DELETE /brands/1/media/final%3A3": [204, null] });
+  renderApp("/b/1/media/final%3A3");
+  expect(await screen.findByText("Deleting removes it from Media. Its video keeps its own copy.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Delete this final video?" });
+  await userEvent.click(within(ask).getByRole("button", { name: "Delete" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /brands/1/media/final%3A3")).toBe(true));
+  expect(await screen.findByText("Deleted from Media.")).toBeInTheDocument();
+});
+
+test("a refused delete says why in plain words; a still has no Delete, and an editor never sees it (#1212)", async () => {
+  setViewport(1440);
+  const song = item({ key: "song:4", kind: "song", content_type: "audio/mpeg", video_name: null, open_step: "song" });
+  fakeServer({ ...base(owner, page([song])), "GET /brands/1/media/song%3A4": [200, song], "DELETE /brands/1/media/song%3A4": [409, { detail: "A video still uses this song." }] });
+  const first = renderApp("/b/1/media/song%3A4");
+  await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("A video still uses this song.");
+  first.unmount();
+  const still = item({ key: "still:5", kind: "still", content_type: "image/png", open_step: "storyboard" });
+  fakeServer({ ...base(owner, page([still])), "GET /brands/1/media/still%3A5": [200, still] });
+  const second = renderApp("/b/1/media/still%3A5");
+  await screen.findByRole("link", { name: /^Download PNG/ });
+  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  second.unmount();
+  fakeServer({ ...base(editor, page([song])), "GET /brands/1/media/song%3A4": [200, song] });
+  renderApp("/b/1/media/song%3A4");
+  await screen.findByRole("link", { name: /^Download MP3/ });
+  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
 });
