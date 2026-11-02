@@ -84,6 +84,7 @@ class ProjectOut(BaseModel):
     song_take_id: int | None = None
     look: str = "house"  # how its pictures are drawn (VS1)
     look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
+    freestyle_id: int | None = None  # P3: made through a freestyle (the director's chat view)
     look_locked: bool = False  # made from a published script: it keeps that style (item 7)
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
@@ -176,6 +177,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         song_take_id=project.song_take_id,
         look=project.look,
         look_redo_credits=looks.redo_credits(db, project),
+        freestyle_id=_freestyle_of(db, project),
         look_locked=looks.script_style(db, project) is not None,
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
@@ -196,6 +198,12 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         plan_status=plans.status(db, project),
         plan_credits=price(plans.price(db, project)),
     )
+
+
+def _freestyle_of(db: Session, project: Project) -> int | None:
+    from app.models.freestyles import Freestyle
+
+    return db.scalar(select(Freestyle.id).where(Freestyle.project_id == project.id))
 
 
 BRIEF_FIELDS = tuple(BriefPatch.model_fields)

@@ -45,9 +45,10 @@ class Project(Filed, Entity, Base):
     status: Mapped[ProjectStatus] = mapped_column(String(30), default=ProjectStatus.active)
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-    # The library version this video is made from (each version is produced once).
+    # The library version this video is made from: once by Make this version, and again by
+    # a director-first video's "Make another" (n22).
     script_draft_id: Mapped[int | None] = mapped_column(
-        ForeignKey("script_drafts.id", use_alter=True), unique=True
+        ForeignKey("script_drafts.id", use_alter=True)
     )
     hidden: Mapped[bool] = mapped_column(default=False)  # a freestyle's own (app/hidden.py)
 

@@ -50,12 +50,13 @@ PENDING = {JobStatus.queued: "Deciding what to do next.",
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 
 
-def start(db: Session, user: User, project: Project, *, wait: str = "", extra: dict | None = None
-          ) -> Job:  # fmt: skip
+def start(db: Session, user: User, project: Project, *, wait: str = "", extra: dict | None = None,
+          frozen: bool = True) -> Job:  # fmt: skip
     """A run on a video made from a published script (its words are locked): its first turn.
     `wait`: the turn waits for the owner with that reason (a freestyle's editor send);
-    `extra`: more of its input (the freestyle it's for)."""
-    if why := blocked(db, project):
+    `extra`: more of its input (the freestyle it's for). `frozen=False`: a freestyle's, whose
+    version is frozen and published when its run starts (`freestyles.freeze`)."""
+    if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
     lock(db, Project, project.id)  # the notes it takes can't change under it
