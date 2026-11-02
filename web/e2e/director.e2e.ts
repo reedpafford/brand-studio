@@ -47,6 +47,11 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await ed.getByLabel("Tell the director what to change").fill("Make clip 1 slower.");
   await ed.getByRole("button", { name: "Send to the director" }).click();
   await expect(thread.getByText("Make clip 1 slower.")).toBeVisible();
+  // A message never starts a run by itself (the Producer, 2 Nov): it's saved, and Make it again makes it.
+  const again = ed.getByRole("button", { name: "Make it again" });
+  await expect(ed.getByText("Saved. Press Make it again to make this change.").or(ed.getByRole("button", { name: "Stop" }))).toBeVisible();
+  if (await again.isVisible()) await again.click();
+  await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
   await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);

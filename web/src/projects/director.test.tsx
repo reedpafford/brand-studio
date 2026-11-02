@@ -145,6 +145,30 @@ test("after a delivery, a person asks for a change: it's sent, shows in the thre
   expect(box).toHaveValue("");
 });
 
+test("after a delivery a message is saved, not run: Make it again makes the change (the Producer, 2 Nov)", async () => {
+  setViewport(1440);
+  const before = [item("t1", { text: "Every take checked clean." })];
+  const savedThread = [...before, { id: "m0", kind: "message", at, who: "Olu", text: "Make clip 1 slower.", status: null, why: "" }];
+  const saved = run({ status: "delivered", start_blocked: "", thread: savedThread });
+  const calls = fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "delivered", start_blocked: "", thread: before })], "POST /projects/9/director/messages": [201, saved], "POST /projects/9/director": [201, run({ thread: savedThread })] }));
+  show();
+  await userEvent.type(await screen.findByLabelText("Tell the director what to change"), "Make clip 1 slower.{Enter}");
+  expect(await screen.findByText("Saved. Press Make it again to make this change.")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "POST /projects/9/director")).toBe(false); // the message alone starts nothing
+  await userEvent.click(screen.getByRole("button", { name: "Make it again" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/director")).toBe(true));
+});
+
+test("after a Stop the press reads Start again with this note; too many messages says so plainly", async () => {
+  setViewport(1440);
+  const stopped = run({ status: "ended", ended: "Stopped.", start_blocked: "", thread: [item("t1"), { id: "m0", kind: "message", at, who: "Olu", text: "Shorter, please.", status: null, why: "" }] });
+  fakeServer(routes({ "GET /projects/9/director": [200, stopped], "POST /projects/9/director/messages": [429, { detail: "Too many messages; wait a moment" }] }));
+  show();
+  expect(await screen.findByRole("button", { name: "Start again with this note" })).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Tell the director what to change"), "And louder.{Enter}");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Too many messages; wait a moment");
+});
+
 test("before the first run there's no message box: Make it starts the director", async () => {
   fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "" })] }));
   show();

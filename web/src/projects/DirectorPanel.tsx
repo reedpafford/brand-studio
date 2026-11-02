@@ -103,6 +103,9 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const blocked = r?.start_blocked || null;
   const cut = video.data;
   const list = clips.data ?? [];
+  // A note waits: the newest in the thread is a person's message and nothing runs. A message never starts a run by itself
+  // (the Producer, 2 Nov): the press does, through the holds as ever.
+  const noted = status !== "running" && r?.thread?.at(-1)?.kind === "message";
   // The conversation; a server without it yet still shows this run's moves (each with its reason).
   type Said = { said?: string };
   const thread = r?.thread?.length
@@ -163,12 +166,12 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
                   Stop
                 </Button>
               ) : (
-                <Button variant={cut ? "secondary" : "primary"} icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
-                  {status === "none" ? "Make it" : "Make it again"}
+                <Button variant={cut && !noted ? "secondary" : "primary"} icon={Wand2} busy={start.isPending} disabled={!!blocked} onClick={() => start.mutate()}>
+                  {status === "none" ? "Make it" : status === "ended" && noted ? "Start again with this note" : "Make it again"}
                 </Button>
               )}
               {cut && !running && (
-                <a className={buttonClass("primary")} href={fileUrl(cut.file_id)} download={`${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "video"}.mp4`}>
+                <a className={buttonClass(noted ? "secondary" : "primary")} href={fileUrl(cut.file_id)} download={`${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "video"}.mp4`}>
                   <Download aria-hidden className="size-4" />
                   Download MP4
                 </a>
@@ -189,7 +192,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
         </div>
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-medium">Talk to the director</h3>
-          <DirectorChat projectId={projectId} thread={thread} plain={(t) => plain(t, list)} canAsk={status !== "none"} />
+          <DirectorChat projectId={projectId} thread={thread} plain={(t) => plain(t, list)} canAsk={status !== "none"} waiting={noted ? (status === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : null} />
         </div>
       </aside>
       {stopping && (

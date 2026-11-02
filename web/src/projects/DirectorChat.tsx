@@ -6,7 +6,6 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Button } from "../components";
 import { serverTime } from "../time";
-import { useToast } from "../toast";
 
 type Item = components["schemas"]["ThreadItem"] & { why?: string }; // `why`: the move's reason, when the server sends it
 type Run = components["schemas"]["DirectorOut"];
@@ -14,11 +13,11 @@ type Run = components["schemas"]["DirectorOut"];
 const SHOWN = 8; // the newest few, with Show earlier
 
 /** The conversation with the director on a video (v4, DECISIONS rule 33): what people asked and what it did, oldest
- *  first, then a box to ask for a change. A message after a delivery or a stop starts a revision run; during a run,
- *  the director reads it on its next turn. Spending is as ever: inside the budget it goes ahead, past it the owner says. */
-export function DirectorChat({ projectId, thread, plain, canAsk }: { projectId: number; thread: Item[]; plain: (text: string) => string; canAsk: boolean }) {
+ *  first, then a box to ask for a change. During a run the director reads it on its next turn; after a delivery or a stop
+ *  it's saved, and Make it again (or Start again with this note) makes it: a message never starts a run by itself
+ *  (the Producer, 2 Nov). Spending is as ever: inside the budget it goes ahead, past it the owner says. */
+export function DirectorChat({ projectId, thread, plain, canAsk, waiting }: { projectId: number; thread: Item[]; plain: (text: string) => string; canAsk: boolean; waiting?: string | null }) {
   const queryClient = useQueryClient();
-  const toast = useToast();
   const [text, setText] = useState("");
   const [all, setAll] = useState(false);
   const end = useRef<HTMLLIElement>(null);
@@ -33,7 +32,6 @@ export function DirectorChat({ projectId, thread, plain, canAsk }: { projectId: 
       queryClient.setQueryData(["director", projectId], data);
       return queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
-    onError: (e: Error) => toast(e.message, undefined, "error"),
   });
   const last = thread.at(-1)?.id;
   useEffect(() => {
@@ -84,6 +82,7 @@ export function DirectorChat({ projectId, thread, plain, canAsk }: { projectId: 
           })}
         </ol>
       )}
+      {waiting && <p className="text-sm text-muted" role="status">{waiting}</p>}
       {canAsk && (
         <form
           className="flex items-end gap-2 rounded-lg border border-border-strong bg-surface p-2 focus-within:border-focus"
@@ -100,7 +99,10 @@ export function DirectorChat({ projectId, thread, plain, canAsk }: { projectId: 
             rows={2}
             maxLength={2000}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (send.isError) send.reset();
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -112,6 +114,11 @@ export function DirectorChat({ projectId, thread, plain, canAsk }: { projectId: 
           />
           <Button type="submit" variant="secondary" dense icon={ArrowUp} busy={send.isPending} disabled={!ask} aria-label="Send to the director" />
         </form>
+      )}
+      {send.isError && (
+        <p role="alert" className="text-sm text-danger">
+          {send.error.message /* the server's own words, e.g. "Too many messages; wait a moment" */}
+        </p>
       )}
     </div>
   );
