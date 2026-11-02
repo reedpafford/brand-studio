@@ -131,6 +131,18 @@ test("N opens New video from anywhere but a box being typed in", async () => {
   await screen.findByRole("navigation", { name: "Main" });
   await userEvent.keyboard("n");
   expect(await screen.findByRole("heading", { name: "What should the director make?" })).toBeInTheDocument();
+  expect(await words()).toHaveFocus(); // the box is ready to type in on load
   await userEvent.type(await words(), "no new page");
   expect(screen.getByLabelText("Paste a script, or describe the video")).toHaveValue("no new page");
+});
+
+test("at 390, From a script: a tap selects the script (no sheet over the press), and its row picks the version", async () => {
+  setViewport(390);
+  const calls = server(editor, { "GET /scripts": [200, [scriptRow]], "GET /scripts/7": [200, scriptRow], "POST /freestyles": [201, fs({ type: "dialogue", status: "waiting" })], "GET /freestyles/9": [200, fs()] });
+  renderApp("/b/1/videos/new?from=script");
+  await userEvent.click(await screen.findByRole("option", { name: /Bo tries salmon/ }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await userEvent.click(await screen.findByRole("radio", { name: "B" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Send for approval · up to 34 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toEqual({ type: "dialogue", script_id: 7, slot: 1, shape: "9:16" }));
 });

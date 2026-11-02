@@ -105,23 +105,33 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
   const seconds = Math.round(clips.reduce((n, c) => n + c.seconds, 0));
   const title = fromScript && slot && slot.slot > 0 ? `${fs.title} · ${letterOf(slot.slot)}` : fs.title;
   const stepsTo = state === "waiting" || (state === "working" && rail) ? null : clips.length ? "clips" : "plan";
-  const download = fs.file_id && (
-    <a className={buttonClass(noted ? "secondary" : "primary")} href={fileUrl(fs.file_id)} download={mp4(fs.title)}>
-      <Download size={16} strokeWidth={1.75} aria-hidden />
-      Download MP4
-    </a>
-  );
-  const top = (
+  // The presses for where it is: in the top bar on desktop, in the bar above the tabs on a phone (B_PhoneVideo), by the
+  // same rules. A saved note makes Make it again the primary one ("Start again with this note" after a stop).
+  const withdrawn = state === "change" ? "Withdraw change" : "Withdraw";
+  const quiet = rail ? "text-muted! hover:text-text!" : "";
+  const presses = (
     <>
-      {state === "waiting" && maker && <Button variant="ghost" dense className="text-muted! hover:text-text!" busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate()}>Withdraw</Button>}
-      {state === "working" && <Button variant="secondary" dense icon={Square} onClick={() => setStopping(true)}>Stop</Button>}
-      {state === "change" && maker && <Button variant="ghost" dense className="text-muted! hover:text-text!" busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate()}>Withdraw change</Button>}
-      {owner && ["delivered", "stopped", "failed", "declined", "withdrawn"].includes(state) && (
-        <Button variant={noted || !fs.file_id ? "primary" : "secondary"} dense busy={again.isPending} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
-          Make it again
+      {(state === "waiting" || state === "change") && maker && (
+        <Button variant={rail ? "ghost" : "secondary"} dense className={quiet} busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate()}>
+          {withdrawn}
         </Button>
       )}
-      {state !== "working" && download}
+      {state === "working" && (
+        <Button variant="secondary" dense icon={Square} onClick={() => setStopping(true)}>
+          Stop
+        </Button>
+      )}
+      {owner && ["delivered", "stopped", "failed", "declined", "withdrawn"].includes(state) && (
+        <Button variant={noted || !fs.file_id ? "primary" : "secondary"} dense busy={again.isPending} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
+          {state === "stopped" && noted ? "Start again with this note" : "Make it again"}
+        </Button>
+      )}
+      {state !== "working" && fs.file_id && (
+        <a className={buttonClass(noted ? "secondary" : "primary")} href={fileUrl(fs.file_id)} download={mp4(fs.title)}>
+          <Download size={16} strokeWidth={1.75} aria-hidden />
+          Download MP4
+        </a>
+      )}
     </>
   );
   const box =
@@ -140,7 +150,7 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
     ) : null;
   return (
     <div className="flex h-[calc(100dvh-var(--tabbar-h))] flex-col lg:h-screen">
-      <VideoTop brandId={p.brand_id} fs={fs} title={title} stepsTo={stepsTo} actions={rail ? top : null} />
+      <VideoTop brandId={p.brand_id} fs={fs} title={title} stepsTo={stepsTo} actions={rail ? presses : null} />
       {state === "working" && rail && ( // pinned under the header while the thread scrolls (B_VideoRunning)
         <div className="px-8 pt-3">
           <div className="mx-auto w-full max-w-[736px] space-y-2">
@@ -169,7 +179,7 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
       <div className="border-t border-border bg-bg px-4 py-3 lg:border-0 lg:px-8 lg:pb-6 lg:pt-0">
         <div className="mx-auto w-full max-w-[736px] space-y-3">
           <ChangeBox fs={fs} status={box} closed={state === "waiting" ? (fromScript ? box : null) : null} disabled={state === "waiting"} saveTo={owner && !running ? p.id : undefined} />
-          {!rail && (state === "working" ? <Button variant="secondary" className="w-full" onClick={() => setStopping(true)}>Stop</Button> : state === "waiting" && maker ? <Button variant="secondary" className="w-full" busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate()}>Withdraw</Button> : fs.file_id ? <div className="[&_a]:w-full">{download}</div> : null)}
+          {!rail && <div className="grid gap-2 empty:hidden [&>*]:w-full">{presses}</div>}
         </div>
       </div>
       {stopping && (
@@ -230,7 +240,7 @@ function ScriptCard({ title, slot, seconds, lines, to }: { title: string; slot: 
         <p className="font-medium">{`From script ${title} · version ${letterOf(slot)}`}</p>
         <p className="text-sm text-muted">{[seconds > 0 && mmss(seconds), `${lines} line${lines === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
       </div>
-      <Link to={to} className="text-sm text-muted hover:text-text">Open script</Link>
+      <Link to={to} className="inline-flex min-h-control shrink-0 items-center text-sm text-muted hover:text-text lg:min-h-0">Open script</Link>
     </div>
   );
 }

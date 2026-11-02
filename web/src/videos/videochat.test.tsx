@@ -89,6 +89,36 @@ test("made from a script, it shows the script and version it came from; the box 
   expect(screen.queryByLabelText("Tell the director what to change")).toBeNull();
 });
 
+test("at 390 the bar above the tabs has the same presses: the owner's saved note makes Make it again the first one", async () => {
+  setViewport(390);
+  const done = fs({ status: "delivered", file_id: 8, thread: [item("m1", "message", "Reed", SCRIPT), item("t2", "move", "Director", "Clean.", "done", later)] });
+  const noted = run({ status: "delivered", unread: 1, turns: [{ turn: 3, tool: "deliver", why: "", result: "Delivered.", status: "succeeded", created_at: later }] });
+  const calls = server(owner, done, noted, { "POST /projects/50/director": [201, run()] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("Saved. Press Make it again to make this change.")).toBeInTheDocument();
+  const again = screen.getByRole("button", { name: "Make it again · up to 40 credits" });
+  expect(screen.getByRole("link", { name: "Download MP4" })).toBeInTheDocument();
+  await userEvent.click(again);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+});
+
+test("at 390 after a stop with a note waiting, the press reads Start again with this note", async () => {
+  setViewport(390);
+  server(owner, fs({ status: "stopped" }), run({ status: "ended", unread: 1, turns: [] }));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: "Start again with this note · up to 40 credits" })).toBeInTheDocument();
+});
+
+test("at 390 an editor's waiting change has Withdraw change in the bar", async () => {
+  setViewport(390);
+  const waiting = fs({ status: "waiting", created_by_name: "Eli", file_id: 8, thread: [item("m1", "message", "Eli", SCRIPT), item("t3", "move", "Director", "Waiting for the owner's OK.", "held", later)] });
+  const calls = server(editor, waiting, run({ turns: [{ turn: 0, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: later }] }), { "POST /freestyles/9/withdraw": [200, { ...waiting, status: "delivered" }] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Withdraw change" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+  expect(screen.getByRole("link", { name: "Download MP4" })).toBeInTheDocument(); // the last cut stays
+});
+
 test("the director's treatment is a card in the thread: hook, story, why it holds, numbered beats with their purpose; a new one says Changed", async () => {
   setViewport(1440);
   const treatment = (hook: string) => ({ hook, logline: "Bo finds salmon in his bowl.", why_it_holds: "The reveal lands on the bag.", beats: [{ id: "b1", lines: [1], purpose: "Hook", picture: "Bo sniffs" }, { id: "b2", lines: [2], purpose: "Payoff", picture: "The bag" }], ending: "Bag to camera, then the link." });

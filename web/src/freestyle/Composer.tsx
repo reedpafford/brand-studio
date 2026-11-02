@@ -117,6 +117,7 @@ export function Composer({ brandId, owner, onCreated, below }: { brandId: number
         </label>
         <textarea
           id="new-video-words"
+          autoFocus={rail} // a keyboard starts typing at once; a phone keeps its keyboard down until tapped
           rows={8}
           maxLength={5000}
           value={text}

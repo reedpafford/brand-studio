@@ -68,4 +68,36 @@ test("an editor sends a script for approval from New video, the owner approves i
   await expect(ed.getByRole("list", { name: "Thread" }).getByText("Delivered.", { exact: true })).toBeVisible({ timeout: 240_000 });
   await expect(ed.getByRole("link", { name: "Download MP4" })).toBeVisible();
   await noSidewaysScroll(ed);
+
+  // At 390 (QA on #1194): the editor's change waits for the owner, and the phone's bar has Withdraw change.
+  await ed.setViewportSize({ width: 390, height: 844 });
+  await ed.getByLabel("Tell the director what to change").fill("Punchier ending.");
+  await ed.getByLabel("Tell the director what to change").press("Enter");
+  await expect(ed.getByText("Change asked · waiting for the owner")).toBeVisible();
+  const withdraw = ed.getByRole("button", { name: "Withdraw change" });
+  expect((await withdraw.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await withdraw.click();
+  await expect(ed.getByText("Change asked · waiting for the owner")).toHaveCount(0);
+  await noSidewaysScroll(ed);
+});
+
+test("at 390, the owner's saved change after a delivery has Make it again in the phone's bar, and it runs", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, "reed@example.com");
+  await onBrand(page, "fomo");
+  await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "New" }).click();
+  const script = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in ${Date.now()}.`, "NATE: Download fomo through the link in my bio."].join("\n");
+  await page.getByLabel("Paste a script, or describe the video").fill(script);
+  await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click();
+  await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
+  const again = page.getByRole("button", { name: /^Make it again · up to \d+ credits?$/ });
+  await expect(again).toBeVisible({ timeout: 240_000 }); // delivered: its press is in the phone's bar
+  await page.getByLabel("Tell the director what to change").fill("Make it slower.");
+  await page.getByLabel("Tell the director what to change").press("Enter");
+  await expect(page.getByText("Saved. Press Make it again to make this change.")).toBeVisible();
+  expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await again.click();
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
+  await noSidewaysScroll(page);
 });

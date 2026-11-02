@@ -120,7 +120,9 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
   // Each editor's own week, from the owner-only allowances.
   const allowances = useQuery({ queryKey: ["allowances"], queryFn: async () => (await api.GET("/credits/allowances")).data ?? [] });
   const week = allowances.data?.find((a) => a.user_id === job.created_by_id);
-  const after = project && project.budget_credits > 0 ? ((budgetUsed(project) + job.credits) / project.budget_credits) * 100 : null;
+  // A freestyle's price is its run's "up to" (the line above); its first turn's own credits against the video's budget
+  // (budget_credits) would be a second, different figure (QA on #1194), so it has no budget line.
+  const after = !fs && project && project.budget_credits > 0 ? ((budgetUsed(project) + job.credits) / project.budget_credits) * 100 : null;
   const where = (
     <div className="flex flex-wrap items-baseline justify-between gap-2">
       <Where brandId={job.brand_id ?? project?.brand_id}>
@@ -151,9 +153,11 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
       ) : (
         job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>
       )}
-      <p className="tabular-nums">
-        {creditsText(job.credits)}{usd !== undefined && !fs && ` (${dollars(usd)})`}{after !== null && ` · takes the video to ${Math.round(after)}% of its budget`}
-      </p>
+      {fs?.up_to == null && ( // a director-run send's price is its "up to" above; a One clip's is its take's
+        <p className="tabular-nums">
+          {creditsText(job.credits)}{usd !== undefined && !fs && ` (${dollars(usd)})`}{after !== null && ` · takes the video to ${Math.round(after)}% of its budget`}
+        </p>
+      )}
       {!project && !job.step && !fs && week && (
         <p className="text-muted tabular-nums">
           {who ? `${who}'s` : "The editor's"} quick clips this week: {whole(week.quick_clip_credits_used)} of {whole(week.quick_clip_credits_allowed)} credit{week.quick_clip_credits_allowed === 1 ? "" : "s"}

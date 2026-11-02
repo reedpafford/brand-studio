@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import { Button, Sheet, Skeleton } from "../components";
+import { Button, Skeleton } from "../components";
 import { useFolders } from "../folders/Projects";
 import { lookName, useLooks } from "../scripts/Looks";
 import { letterOf, useDebounced } from "../scripts/status";
@@ -88,14 +88,10 @@ export function FromScript({ brandId, owner, onCreated }: { brandId: number; own
   const folders = useFolders(brandId).data;
   const looks = useLooks().data;
   const [picked, setPicked] = useState<number | null>(null);
-  const [sheet, setSheet] = useState(false);
   const m = useMakeFromScript(picked, onCreated);
   const list = rows.data ?? [];
   const at = list.findIndex((r) => r.id === picked);
-  const choose = (id: number) => {
-    setPicked(id);
-    if (!rail) setSheet(true);
-  };
+  const choose = setPicked;
   const press = <SendPress owner={owner} price={m.video ? undefined : m.price} busy={m.create.isPending} disabled={!m.version || !!m.video} wide={!rail} onClick={() => m.send()} />;
   const note = owner ? "The director plans, casts, makes and cuts it. You can stop it any time." : "The director plans, casts, makes and cuts it. The owner approves it before anything is spent.";
   return (
@@ -123,7 +119,14 @@ export function FromScript({ brandId, owner, onCreated }: { brandId: number; own
                   <p className="truncate font-medium">{r.title}</p>
                   <p className="truncate text-sm text-muted">{meta}</p>
                 </div>
-                <span className="shrink-0 text-sm text-muted">{rail ? where : ready.map((v) => letterOf(v.slot)).join(" ")}</span>
+                {/* A phone picks the version right in the row (E_PhonePick): no sheet over the press. */}
+                {!rail && on && m.versions.length > 1 && m.version ? (
+                  <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <Versions versions={m.versions} slot={m.version.slot} onPick={m.pick} letters />
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-sm text-muted">{rail ? where : ready.map((v) => letterOf(v.slot)).join(" ")}</span>
+                )}
               </li>
             );
           })}
@@ -142,11 +145,10 @@ export function FromScript({ brandId, owner, onCreated }: { brandId: number; own
         </section>
       ) : (
         <>
-          {sheet && m.script && m.version && (
-            <Sheet title={m.script.title} onClose={() => setSheet(false)}>
-              <Picked m={m} brandId={brandId} />
-            </Sheet>
-          )}
+          <div className="space-y-3 px-4 empty:hidden">
+            {m.video && <HasVideo m={m} brandId={brandId} />}
+            {m.error && <p role="alert" className="text-sm text-danger">{m.error}</p>}
+          </div>
           <ActionBar phone>{m.version ? press : <Button disabled>Pick a script</Button>}</ActionBar>
         </>
       )}
@@ -185,13 +187,14 @@ function Picked({ m, brandId, note, press }: { m: Making; brandId: number; note?
 }
 
 /** Version A · 0:32 | B · 0:35 | C · 0:38, as one segmented control. */
-export function Versions({ versions, slot, onPick }: { versions: Row[]; slot: number; onPick: (slot: number) => void }) {
+/** `letters`: just A B C, each a 44 px target (a phone's row, E_PhonePick). */
+export function Versions({ versions, slot, onPick, letters }: { versions: Row[]; slot: number; onPick: (slot: number) => void; letters?: boolean }) {
   return (
     <div role="radiogroup" aria-label="Version" className="inline-flex rounded-md border border-border p-0.5">
       {versions.map((v) => (
-        <button key={v.slot} type="button" role="radio" aria-checked={v.slot === slot} onClick={() => onPick(v.slot)} className={`min-h-control rounded-sm px-3 text-sm tabular-nums lg:min-h-control-dense ${v.slot === slot ? "bg-surface-2 font-medium text-text" : "text-muted hover:text-text"}`}>
+        <button key={v.slot} type="button" role="radio" aria-checked={v.slot === slot} onClick={() => onPick(v.slot)} className={`min-h-control rounded-sm text-sm tabular-nums lg:min-h-control-dense ${letters ? "min-w-11 px-2" : "px-3"} ${v.slot === slot ? "bg-surface-2 font-medium text-text" : "text-muted hover:text-text"}`}>
           {letterOf(v.slot)}
-          {v.seconds > 0 && ` · ${mmss(v.seconds)}`}
+          {!letters && v.seconds > 0 && ` · ${mmss(v.seconds)}`}
         </button>
       ))}
     </div>

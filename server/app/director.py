@@ -154,18 +154,30 @@ def thread(db: Session, project: Project) -> list[dict]:
                         "status": "done", "why": "", "answered": None})  # fmt: skip
         result = j.input.get("result") or ""
         tool = (j.output or {}).get("tool")
+        # The worker keeps a turn's answer (succeeded) before its tool runs and its result is
+        # written (`after`): until then it is still going, never "Stopped." (QA on #1194).
+        acting = (
+            j.status == JobStatus.succeeded and "result" not in j.input and "ended" not in j.input
+        )
         text = (
-            ((j.output or {}).get("why") if tool == "deliver" else result)
-            or (
-                j.input.get("held")  # a held turn says why it waits
-                if j.status == JobStatus.needs_owner_approval
-                else ""
+            PENDING[JobStatus.running]
+            if acting
+            else (
+                ((j.output or {}).get("why") if tool == "deliver" else result)
+                or (
+                    j.input.get("held")  # a held turn says why it waits
+                    if j.status == JobStatus.needs_owner_approval
+                    else ""
+                )
+                or PENDING.get(
+                    j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
+                )
             )
-            or PENDING.get(j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped.")
         )
         why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
         text, why = named(text), named(why)
         status = ("held" if j.status == JobStatus.needs_owner_approval
+                  else "running" if acting
                   else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
                   else "refused" if result.startswith("Refused") else "done")  # fmt: skip
         out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),

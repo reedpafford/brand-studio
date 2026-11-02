@@ -176,11 +176,14 @@ test("a held change in a Freestyle thread says Change asked", async () => {
   expect(screen.queryByText("First send")).toBeNull();
 });
 
-test("a held Freestyle change shows its own price and the running total, in credits", async () => {
-  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", change: true, said: "Slower ending", up_to: 12, total: 46, spent: 30 })]] });
+test("a held Freestyle change shows its own price and the running total, in credits, and no second budget figure", async () => {
+  const change = freestyle({ type: "dialogue", change: true, said: "Slower ending", up_to: 12, total: 46, spent: 30 });
+  fakeServer({ ...base, "GET /jobs": [200, [{ ...change, project_id: 9 }]] }); // on its video, which has a budget
   open();
   expect(await screen.findByText("Up to 12 credits for this change")).toBeInTheDocument();
   expect(screen.getByText("30 credits spent so far · 46 credits in all with this change")).toBeInTheDocument();
+  expect(screen.queryByText(/of its budget/)).toBeNull(); // the run's "up to" is its one price (QA on #1194)
+  expect(screen.queryByText("27 credits")).toBeNull();
 });
 
 test("each row says who asked, and the owner sees the dollars next to the credits", async () => {
