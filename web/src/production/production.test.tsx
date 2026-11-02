@@ -144,3 +144,11 @@ test("In production: a row's menu releases the version, with the letter and the 
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/11/release")).toBe(true));
   expect(await screen.findByText("Version B is ready to make again.")).toBeInTheDocument();
 });
+
+test("In production: a video's credits leave the director's own time out, so a director video isn't marked close to its budget for it (DECISIONS #1066)", async () => {
+  setViewport(1440);
+  fakeServer(base([{ ...failed, credits_used: 400, budget_credits: 420, director_credits: 300 }, fine]));
+  open();
+  const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
+  expect(within(link).getByText("100 of 420")).not.toHaveAttribute("title"); // 400 used, 300 of it the director's
+});
