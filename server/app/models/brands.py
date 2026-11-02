@@ -16,6 +16,7 @@ class Brand(Entity, Base):
     name: Mapped[str] = mapped_column(String(120))
     slug: Mapped[str] = mapped_column(String(120))
     archived: Mapped[bool] = mapped_column(default=False)
+    hidden: Mapped[bool] = mapped_column(default=False)  # a freestyle's own (app/hidden.py)
 
     # Brand kit
     logo_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))

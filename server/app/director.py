@@ -49,8 +49,11 @@ PENDING = {JobStatus.queued: "Deciding what to do next.",
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 
 
-def start(db: Session, user: User, project: Project) -> Job:
-    """A run on a video made from a published script (its words are locked): its first turn."""
+def start(db: Session, user: User, project: Project, *, wait: str = "", extra: dict | None = None
+          ) -> Job:  # fmt: skip
+    """A run on a video made from a published script (its words are locked): its first turn.
+    `wait`: the turn waits for the owner with that reason (a freestyle's editor send);
+    `extra`: more of its input (the freestyle it's for)."""
     if why := blocked(db, project):
         raise HTTPException(409, why)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
@@ -60,7 +63,7 @@ def start(db: Session, user: User, project: Project) -> Job:
     if left:
         project.director_chat = [{**m, "run": run["id"]} if n in left else m
                                  for n, m in enumerate(project.director_chat)]  # fmt: skip
-    return _turn(db, user, project, run)
+    return _turn(db, user, project, run, wait=wait, extra=extra)
 
 
 def say(db: Session, user: User, project: Project, text: str) -> None:
@@ -408,7 +411,8 @@ def _end(job: Job, why: str, result: str = "") -> None:
     job.input = {**job.input, "ended": why, **({"result": result} if result else {})}
 
 
-def _turn(db: Session, user: User, project: Project, run: dict) -> Job:
+def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "",
+          extra: dict | None = None) -> Job:  # fmt: skip
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
@@ -429,12 +433,12 @@ def _turn(db: Session, user: User, project: Project, run: dict) -> Job:
     run = {**run, "turn": run["turn"] + 1}
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
-    data = {"step": STEP, RUN: run, **prompt}
+    data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
     try:
-        return enqueue(
-            db, user, "write-claude", data, project=project, provider="claude", prepaid=True
-        )  # its own limit (MAX_USD), never the video's budget; the
-        # per-video cap still counts it (director-chat.md §2, DECISIONS #1066)
+        return enqueue(db, user, "write-claude", data, project=project, provider="claude",
+                       prepaid=not wait, wait=wait)  # fmt: skip
+        # its own limit (MAX_USD), never the video's budget; the per-video cap still counts
+        # it (director-chat.md §2, DECISIONS #1066)
     except HTTPException as no:  # e.g. the per-video cap: the run ends, saying why
         if last is None or run["turn"] == 1:  # its first turn: the start itself is refused
             raise

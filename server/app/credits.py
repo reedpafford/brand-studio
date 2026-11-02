@@ -125,12 +125,19 @@ def budget(db: Session, project: Project) -> Decimal:
     from app.cast_roles import all_slots
     from app.prompts.schemas import Breakdown
 
+    cap = Decimal(get_limits(db, project.workspace_id).per_video_max_credits)
+    if project.hidden:  # a freestyle's video: the owner's OK covers the price shown, no more
+        from app.models.freestyles import Freestyle
+
+        fs = db.scalar(select(Freestyle).where(Freestyle.project_id == project.id))
+        if fs is not None and fs.up_to is not None:
+            return min(fs.up_to, cap)
     row = clip_prompts.newest(db, project)
     bd = Breakdown.model_validate(row.data) if row else None
     roles = sum(s.library_item_id is None for s in all_slots(db, project))
     ws, seconds = project.workspace_id, int(project.estimate_credits)
     cost = max(plan_cost(db, ws, seconds, bd, roles), plan_cost(db, ws, seconds, None, roles))
-    return min(cost * BUDGET_MULTIPLIER, Decimal(get_limits(db, ws).per_video_max_credits))
+    return min(cost * BUDGET_MULTIPLIER, cap)
 
 
 def usd_to_credits(usd: Decimal) -> Decimal:

@@ -96,9 +96,9 @@ def test_the_estimate_is_free_and_the_director_types_are_coming_next(owner, edit
     r = editor.get("/freestyles/estimate", params={**HOUSE, "text": SCRIPT})
     assert r.status_code == 200 and r.json()["credits"] > 0
     assert db.query(Job).count() == 0
-    for kind in ("dialogue", "song", "narrated"):
+    for kind in ("song", "narrated"):
         r = editor.post("/freestyles", json={**HOUSE, "type": kind, "text": SCRIPT})
-        assert r.status_code == 422 and "One clip works now" in r.text
+        assert r.status_code == 422 and "One clip and Dialogue work now" in r.text
     r = editor.post("/freestyles", json={**HOUSE, "look": "nope", "text": SCRIPT})
     assert r.status_code == 422
     assert db.query(Job).count() == 0
@@ -178,7 +178,8 @@ def test_needs_you_says_which_freestyle_and_what_it_asks(owner, editor, db):
     held = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     (row,) = held
     assert row["freestyle"] == {"id": fs["id"], "title": fs["title"], "type": "one_clip",
-                                "said": "Make it night.", "change": True}  # fmt: skip
+                                "said": "Make it night.", "change": True,
+                                "up_to": None}  # fmt: skip
     assert row["prompt_summary"] == "Make it night."
     first = owner.get(f"/jobs/{job.id}").json()["freestyle"]
     assert (first["said"], first["change"]) == (SCRIPT, False)

@@ -3,8 +3,9 @@ videos. `chat` is the thread's messages, each {by, text, at, job}: `job` is the 
 started (None when it started none). Its status is read from those jobs."""
 
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
@@ -21,3 +22,5 @@ class Freestyle(Entity, Base):
     brand_id: Mapped[int | None] = mapped_column(ForeignKey("brands.id"))
     chat: Mapped[list[dict]] = mapped_column(JSON, default=list)
     stopped_at: Mapped[datetime | None]
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))  # its hidden video
+    up_to: Mapped[Decimal | None] = mapped_column(Numeric(12, 3))  # the price the OK covers

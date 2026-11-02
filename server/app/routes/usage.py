@@ -64,6 +64,7 @@ class UsageSummaryOut(BaseModel):
     cost_per_finished_usd: float | None
     in_progress: int
     unassigned_spend_usd: float  # "Not tied to one brand"
+    freestyle_spend_usd: float = 0  # Freestyle sends with no brand (its hidden brand)
 
 
 class UsageBrandRow(BaseModel):
@@ -150,7 +151,18 @@ def summary(
         cost_per_finished_usd=usage.money(spent / done) if done else None,
         in_progress=sum(f.in_progress.values()),
         unassigned_spend_usd=usage.money(f.spend.get(None)),
+        freestyle_spend_usd=usage.money(
+            sum(f.spend.get(b, 0) for b in _freestyle_brands(db, owner))
+        ),
     )
+
+
+def _freestyle_brands(db: Session, owner: User) -> list[int]:
+    """The workspace's hidden "Freestyle" brand (app/hidden.py), whose spend Usage shows apart."""
+    from app import hidden
+
+    query = select(Brand.id).where(Brand.workspace_id == owner.workspace_id, Brand.hidden)
+    return list(db.scalars(query.execution_options(**{hidden.SEE: True})))
 
 
 @router.get("/brands", response_model=UsageBrandsOut)
