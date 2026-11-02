@@ -149,7 +149,7 @@ test("after a delivery a message is saved, not run: Make it again makes the chan
   setViewport(1440);
   const before = [item("t1", { text: "Every take checked clean." })];
   const savedThread = [...before, { id: "m0", kind: "message", at, who: "Olu", text: "Make clip 1 slower.", status: null, why: "" }];
-  const saved = run({ status: "delivered", start_blocked: "", thread: savedThread });
+  const saved = run({ status: "delivered", start_blocked: "", thread: savedThread, unread: 1 });
   const calls = fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "delivered", start_blocked: "", thread: before })], "POST /projects/9/director/messages": [201, saved], "POST /projects/9/director": [201, run({ thread: savedThread })] }));
   show();
   await userEvent.type(await screen.findByLabelText("Tell the director what to change"), "Make clip 1 slower.{Enter}");
@@ -161,7 +161,7 @@ test("after a delivery a message is saved, not run: Make it again makes the chan
 
 test("after a Stop the press reads Start again with this note; too many messages says so plainly", async () => {
   setViewport(1440);
-  const stopped = run({ status: "ended", ended: "Stopped.", start_blocked: "", thread: [item("t1"), { id: "m0", kind: "message", at, who: "Olu", text: "Shorter, please.", status: null, why: "" }] });
+  const stopped = run({ status: "ended", ended: "Stopped.", start_blocked: "", unread: 1, thread: [item("t1"), { id: "m0", kind: "message", at, who: "Olu", text: "Shorter, please.", status: null, why: "" }] });
   fakeServer(routes({ "GET /projects/9/director": [200, stopped], "POST /projects/9/director/messages": [429, { detail: "Too many messages; wait a moment" }] }));
   show();
   expect(await screen.findByRole("button", { name: "Start again with this note" })).toBeInTheDocument();

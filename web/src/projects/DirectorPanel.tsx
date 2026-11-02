@@ -105,7 +105,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const list = clips.data ?? [];
   // A note waits: the newest in the thread is a person's message and nothing runs. A message never starts a run by itself
   // (the Producer, 2 Nov): the press does, through the holds as ever.
-  const noted = status !== "running" && r?.thread?.at(-1)?.kind === "message";
+  const noted = status !== "running" && status !== "none" && (r?.unread ?? 0) > 0; // notes waiting for the press
   // The conversation; a server without it yet still shows this run's moves (each with its reason).
   type Said = { said?: string };
   const thread = r?.thread?.length
