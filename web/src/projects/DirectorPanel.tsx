@@ -177,7 +177,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
           </div>
         </div>
         {list.length > 0 && <InTheCut clips={list} projectId={projectId} onOpenClips={onOpenClips} />}
-        <p className="text-sm text-muted">Advice it leaves stays on Review.</p>
+        {status === "delivered" && <p className="text-sm text-muted">Advice it leaves stays on Review.</p>}
       </section>
       <aside className="min-w-0 space-y-4 lg:border-l lg:border-border lg:pl-6" aria-label="Locks and conversation">
         <div className="space-y-2">

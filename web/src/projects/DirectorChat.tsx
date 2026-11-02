@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Button } from "../components";
+import { serverTime } from "../time";
 import { useToast } from "../toast";
 
 type Item = components["schemas"]["ThreadItem"] & { why?: string }; // `why`: the move's reason, when the server sends it
@@ -51,7 +52,7 @@ export function DirectorChat({ projectId, thread, plain, canAsk }: { projectId: 
         <ol className="max-h-[28rem] space-y-3 overflow-y-auto pr-1" aria-label="Conversation with the director">
           {shown.map((t) => {
             const words = t.kind === "move" ? plain(t.text) || "Deciding what to do next." : t.text;
-            const when = new Date(t.at);
+            const when = serverTime(t.at); // a server time without a zone is UTC (time.ts)
             const time = Number.isNaN(when.getTime()) ? "" : ` · ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
             return t.kind === "message" ? (
               <li key={t.id} ref={t.id === last ? end : undefined} className="flex min-w-0 flex-col items-end gap-0.5 text-sm">
