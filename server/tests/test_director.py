@@ -14,7 +14,7 @@ from tests.test_cast_roles import _video
 
 def _run(app, db, ticks=60):
     """Run the worker until the director's run ends (or `ticks` passes)."""
-    providers = get_providers(app.state.settings)
+    providers = get_providers(app.state.settings, app.state.storage)
     for _ in range(ticks):
         run_once(db, providers, app.state.storage)
         db.expire_all()
@@ -54,7 +54,7 @@ def test_it_builds_the_video_from_a_published_script_and_logs_every_turn(app, db
         out["ended"],
         [(t["tool"], t["result"]) for t in out["turns"]],
     )
-    assert tools[-2:] == ["final_cut", "deliver"]
+    assert "final_cut" in tools and tools[-1] == "deliver"
     assert all(not t["result"].startswith("Refused") for t in out["turns"]), out["turns"]
     assert editor.get(f"/projects/{pid}/video").json()["file_id"]
     assert out["spent_usd"] is None  # editors never see dollars (rule 4)
@@ -74,8 +74,9 @@ def test_a_flagged_take_is_made_again_with_its_notes_at_most_twice(
     redos = [t for t in out["turns"] if t["tool"] == "make_take" and "flagged" in t["why"]]
     clips = {t["why"].split()[-1] for t in redos}
     assert len(redos) == director.MAX_REDOS * len(clips)  # then it cuts with the newest
-    assert [t["tool"] for t in out["turns"]][-2:] == ["final_cut", "deliver"]
-    assert "is clean: its newest is used." in out["turns"][-2]["why"]  # said in the log
+    cut = [t for t in out["turns"] if t["tool"] == "final_cut"][-1]
+    assert out["turns"][-1]["tool"] == "deliver"
+    assert "is clean: its newest is used." in cut["why"]  # said in the log
 
 
 def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor, monkeypatch):
@@ -277,7 +278,7 @@ def test_a_job_of_its_own_that_fails_never_leaves_the_run_hanging(app, db, owner
     reached its finish) left the run "running" forever. Now it goes on: it sees the failure,
     draws the still again and delivers."""
     pid = _made(app, owner, editor, db)
-    providers = get_providers(app.state.settings)
+    providers = get_providers(app.state.settings, app.state.storage)
     real, failed = providers["replicate"].submit, []
 
     def once(kind, input):
@@ -302,7 +303,7 @@ def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
     """Producer: a failed item is retried at most twice; then the run delivers what it has or,
     with no cut yet, stops with that reason (never spending its turns on it)."""
     pid = _made(app, owner, editor, db)
-    providers = get_providers(app.state.settings)
+    providers = get_providers(app.state.settings, app.state.storage)
     real, tries = providers["replicate"].submit, []
 
     def never(kind, input):
@@ -387,6 +388,63 @@ def test_a_turn_that_fails_inside_the_worker_ends_the_run_and_nothing_more_is_ch
     assert turn.status == JobStatus.failed
 
 
+def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, editor):
+    """Reed, 1 Nov: "watch and make those fixes". On the stand-ins a watch finds a rushed line
+    in clip 1 (redo) and an extra word in the last clip (mute): it redoes, mutes for free,
+    cuts again and watches again, 3 times at most, and the delivery note says what it muted."""
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.clips import ClipTake, ProjectClip
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=120)
+    out = editor.get(f"/projects/{pid}/director").json()
+    tools = [t["tool"] for t in out["turns"]]
+    assert out["status"] == "delivered", (out["ended"], tools)
+    assert tools.count("watch_cut") == 2  # the stand-in watches twice (the server allows 3)
+    redos = [t for t in out["turns"] if t["tool"] == "make_take" and "watch found" in t["why"]]
+    assert len(redos) == 1  # the stand-in remakes a clip once for a watch
+    assert tools.count("final_cut") == 3 and tools[-2:] == ["final_cut", "deliver"]
+    last = db.query(ProjectClip).filter_by(project_id=pid).order_by(ProjectClip.id.desc()).first()
+    muted = f"Muted a stretch of clip {last.clip_id.removeprefix('c')} instead of remaking it."
+    assert [t["result"] for t in out["turns"] if t["tool"] == "mute"] == [muted]
+    ((start, end),) = db.get(ClipTake, last.picked_take_id).made_with["mutes"]
+    assert round(end - start, 2) == 0.5  # the half second the watch found, nothing more
+    assert out["ended"].endswith(muted)  # named in the delivery note
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    again = director_tools.run(db, user, db.get(Project, pid), {"tool": "mute", "clip_id": "c1"},
+                               None)  # fmt: skip
+    assert again == "Refused: nothing to mute in clip 1."  # only what was found is silenced
+
+
+def test_it_never_watches_before_a_cut_or_the_same_cut_twice(app, db, owner, editor, monkeypatch):
+    from app import director_tools
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    said = director_tools.run(db, user, project, {"tool": "watch_cut"}, None, {})
+    assert said == "Refused: Make the cut first."
+    prompt = director.turn_input(db, project, {"id": "r", "turn": 0, "redos": {}})["prompt"]
+    assert '"watches_left": 3' in prompt and '"watch": {' in prompt
+    db.commit()
+    real = director.choose
+
+    def watch_again(state):  # once it has watched, it asks to watch the same cut again
+        out = real(state)
+        again = out["tool"] in ("make_take", "mute") and state["watch"].get("current")
+        return {**out, "tool": "watch_cut"} if again else out
+
+    monkeypatch.setattr("app.director.choose", watch_again)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["ended"] == "It stopped: it already watched this cut.", out["turns"]
+    assert [t["tool"] for t in out["turns"]].count("watch_cut") == 3  # once, then refused twice
+
+
 def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owner, editor):
     """The cost bar read "Over budget" after one director run: its turns are counted in
     credits_used but the hold leaves them out. director_credits shows them apart."""
@@ -415,7 +473,15 @@ def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owne
     db.add(watch)
     db.commit()
     got = editor.get(f"/projects/{pid}").json()
-    assert got["director_credits"] == float(sum(j.credits for j in turns) + 3)
+    from app.credits import COUNTED
+
+    own = [
+        j
+        for j in db.query(Job).filter(Job.project_id == pid)
+        if director.RUN in j.input and j.status in COUNTED
+    ]  # turns, watches, and this one
+    assert len(own) > len(turns)  # its watches of the cut count too
+    assert got["director_credits"] == float(sum(j.credits for j in own))
     project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
     budget = credits.credits_used(db, project) - credits.director_credits(db, project)
     assert float(budget) == pytest.approx(got["credits_used"] - got["director_credits"])

@@ -16,7 +16,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_tools
+from app import director_tools, take_mute
 from app.credits import COUNTED
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -30,6 +30,7 @@ STEP = "director"
 RUN = "director_run"
 MAX_TURNS = 40  # a run's turns at most
 MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
+MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
@@ -164,7 +165,8 @@ def _act(db: Session, job: Job, storage) -> None:
     run = dict(job.input[RUN])
     tool = decision.get("tool")
     if tool == "deliver":
-        return _end(job, decision.get("why") or "Delivered.", result="Delivered.")
+        why = " ".join([decision.get("why") or "Delivered.", *_mutes(db, job, run)])
+        return _end(job, why, result="Delivered.")
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
     if tool == "make_take" and decision.get("clip_id"):
@@ -181,9 +183,63 @@ def _act(db: Session, job: Job, storage) -> None:
         return _record(db, job, run, IDLE if idle else "Waiting.")
     if (refused := _refused_again(db, job, decision)) is not None:
         return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
+    if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
+        watch = _watch(db, project)
+        if run.get("watches", 0) >= MAX_WATCHES:
+            return _record(db, job, run, f"Refused: it watched {MAX_WATCHES} times this run.")
+        if watch.get("state") in ("watching", "done") and watch.get("current"):
+            return _record(db, job, run, "Refused: it already watched this cut.")
     db.commit()  # the turn's answer is kept whatever the tool does
     user = db.get(User, run["by"])
-    _record(db, job, run, director_tools.run(db, user, project, decision, storage))
+    result = director_tools.run(db, user, project, decision, storage, run)
+    if tool == "watch_cut" and not result.startswith("Refused"):
+        run["watches"] = run.get("watches", 0) + 1
+    _record(db, job, run, result)
+
+
+def _mutes(db: Session, job: Job, run: dict) -> list[str]:
+    """What this run muted instead of remaking, for the delivery note."""
+    rows = turns(db, db.get(Project, job.project_id))
+    return [j.input["result"] for j in rows if j.input[RUN]["id"] == run["id"]
+            and (j.output or {}).get("tool") == "mute"
+            and j.input.get("result", "").startswith("Muted")]  # fmt: skip
+
+
+def _watch(db: Session, project: Project) -> dict:
+    """The newest watch of the cut (watch_cut, Builder-Server-8's): {"state": "none"} before."""
+    from app import watch_cut
+
+    return watch_cut.state(db, project)
+
+
+def to_mute(db: Session, row: ProjectClip) -> list[list[float]]:
+    """The stretches the director's mute silences on a clip's picked take, in its seconds:
+    the current watch's mute findings for that clip and the words check's unscripted lines,
+    less any already muted. Never a time the model gives: so never a script word."""
+    from app.item_checks import latest, shown
+
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    if take is None:
+        return []
+    watch = _watch(db, db.get(Project, row.project_id))
+    spans = [
+        f["mute"]
+        for f in watch.get("findings") or []
+        if watch.get("current")
+        and f.get("fix") == "mute"
+        and f.get("clip_id") == row.clip_id
+        and f.get("mute")
+    ]
+    heard = shown(db, latest(db, "words", [take.id]).get(take.id))
+    spans += [f.mute for f in (heard.findings if heard else [])
+              if f.kind in ("extra", "voiced") and f.mute]  # fmt: skip
+    done = {tuple(s) for s in take_mute.spans(take)}
+    out = []
+    for s in spans:
+        span = [round(float(s[0]), 2), round(float(s[1]), 2)]
+        if tuple(span) not in done and span not in out:
+            out.append(span)
+    return out
 
 
 def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
@@ -290,6 +346,7 @@ def turn_input(db: Session, project: Project, run: dict) -> dict:
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
              "result": j.input.get("result")} for j in turns(db, project)[-8:]]  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
+               "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD)}  # fmt: skip
     parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed))
@@ -321,7 +378,9 @@ def video_state(db: Session, project: Project) -> dict:
             out.append({"id": t.id, "number": t.number, "verdict": verdict(checks),
                         "notes": notes})  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
-                      "picked_take_id": row.picked_take_id, "takes": out})  # fmt: skip
+                      "picked_take_id": row.picked_take_id, "takes": out,
+                      "muted": take_mute.spans(db.get(ClipTake, row.picked_take_id)
+                                               if row.picked_take_id else None)})  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
     acted = [j for j in turns(db, project) if "result" in j.input]
@@ -345,17 +404,23 @@ def video_state(db: Session, project: Project) -> dict:
         "held_for_owner": [j.input.get("held", "") for j in waiting
                            if j.status == JobStatus.needs_owner_approval],
         "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
+        "watch": _watch(db, project),  # its last watch of the cut, and its findings
     }  # fmt: skip
 
 
 def choose(state: dict) -> dict:
     """The stand-in director (no paid call): the agents' order, step by step. A flagged take
-    is made again with the take check's notes (the server counts the redos)."""
+    is made again with the take check's notes (the server counts the redos). Once cut, it
+    watches the cut (while watches are left), fixes what that watch found (a clip remade once,
+    a pick, a mute), then cuts again and watches again (`allowed`: what its turn may still
+    do). Kept short: the browser test walks it in real time."""
 
     def go(tool: str, why: str, **extra) -> dict:
         return {"tool": tool, "why": why, "clip_id": None, "take_id": None, "note": "", **extra}
 
-    clips = state["clips"]
+    clips, watch = state["clips"], state.get("watch") or {"state": "none"}
+    found = watch.get("findings") or [] if watch.get("current") else []
+    picked_by_watch = {f["clip_id"]: f.get("take_id") for f in found if f.get("fix") == "pick"}
     if state["being_made"] or state["held_for_owner"]:
         return go("wait", "Something is still being made or waits for the owner.")
     if state["shots"] == "none":
@@ -381,17 +446,64 @@ def choose(state: dict) -> dict:
     for c in clips:  # the newest clean take (Builder-Server-8's best-take function to come)
         clean = next((t for t in reversed(c["takes"]) if t["verdict"] == "clean"), None)
         best = clean or c["takes"][-1]
-        if c["picked_take_id"] != best["id"]:
+        if c["picked_take_id"] != best["id"] and c["picked_take_id"] != picked_by_watch.get(
+            c["clip_id"]
+        ):
             why = (f"Take {best['number']} is {c['clip_id']}'s newest clean take." if clean
                    else f"No take of {c['clip_id']} is clean: using the newest, take "
                    f"{best['number']}.")  # fmt: skip
             return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
+    if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
+        return fix  # every fix the watch of this cut found, then one cut again
     if state["cut"] != "made":
         unclean = [c["clip_id"] for c in clips
                    if not any(t["verdict"] == "clean" for t in c["takes"])]  # fmt: skip
         said = f" No take of {', '.join(unclean)} is clean: its newest is used." if unclean else ""
         return go("final_cut", f"Every clip has its take.{said}")
-    return go("deliver", "The cut is made with each clip's best take.")
+    if watch.get("state") == "watching":
+        return go("wait", "It's watching the cut.")
+    left = state.get("allowed", {}).get("watches_left", 0)  # it watches twice (the server: 3)
+    if not watch.get("current") and left > MAX_WATCHES - 2:
+        return go("watch_cut", "The cut is made: it watches it as a viewer would.")
+    keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
+    return go("deliver", f"The cut is made with each clip's best take. {keep}".strip())
+
+
+def _next_fix(found: list[dict], clips: dict) -> dict | None:
+    """The stand-in's next fix from the watch of this cut: a clip is remade once at most."""
+    base = {"clip_id": None, "take_id": None, "note": ""}
+    for f in found:
+        c = clips.get(f.get("clip_id"))
+        if c is None:
+            continue
+        if f.get("fix") == "redo" and len(c["takes"]) == 1:
+            return {
+                **base,
+                "tool": "make_take",
+                "why": f"The watch found: {f['says']}",
+                "clip_id": c["clip_id"],
+                "note": (f.get("note") or f["says"])[:500],
+            }
+        if f.get("fix") == "pick" and f.get("take_id") not in (None, c["picked_take_id"]):
+            return {
+                **base,
+                "tool": "pick_take",
+                "why": f"The watch found: {f['says']}",
+                "clip_id": c["clip_id"],
+                "take_id": f["take_id"],
+            }
+        if f.get("fix") == "mute" and f.get("mute") and not _muted(c, f["mute"]):
+            return {
+                **base,
+                "tool": "mute",
+                "why": f"The watch found: {f['says']}",
+                "clip_id": c["clip_id"],
+            }
+    return None
+
+
+def _muted(clip: dict, span: list[float]) -> bool:
+    return [round(x, 2) for x in span] in (clip.get("muted") or [])
 
 
 def _failed_too_often(db: Session, project: Project, run: dict) -> str:

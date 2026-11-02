@@ -19,12 +19,14 @@ from app.models.storyboards import StoryboardFrame
 
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
-         "pick_take", "final_cut")  # fmt: skip
+         "pick_take", "mute", "final_cut", "watch_cut")  # fmt: skip
 
 
-def run(db: Session, user: User, project: Project, decision: dict, storage) -> str:
+def run(db: Session, user: User, project: Project, decision: dict, storage,
+        run: dict | None = None) -> str:  # fmt: skip
     """Do one tool; what happened, in plain words (a refusal's own words)."""
-    from app import locks, plans
+    from app import locks, plans, watch_cut
+    from app.director import to_mute
     from app.routes import breakdown, project_assets, project_clips, storyboard
     from app.routes import plan as plan_route
 
@@ -76,6 +78,18 @@ def run(db: Session, user: User, project: Project, decision: dict, storage) -> s
             (row,) = _clips(db, pid, decision.get("clip_id"))
             project_clips.pick_take(clip_id=row.id, take_id=decision["take_id"], **me)
             return f"Picked take {decision['take_id']} for {row.clip_id}."
+        if tool == "mute":  # free: the found stretches, through the Mute button (#1091)
+            (row,) = _clips(db, pid, decision.get("clip_id"))
+            spans, clip = to_mute(db, row), f"clip {row.clip_id.removeprefix('c')}"
+            if not spans:
+                return f"Refused: nothing to mute in {clip}."
+            for start, end in spans:
+                project_clips.mute(clip_id=row.id, body=project_clips.MuteIn(start=start, end=end),
+                                   **me)  # fmt: skip
+            what = "a stretch" if len(spans) == 1 else f"{len(spans)} stretches"
+            return f"Muted {what} of {clip} instead of remaking it."
+        if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget
+            return watch_cut.start(db, user, project, run)
         if tool == "final_cut":
             project_clips.approve_all(**me)  # the picked takes it cuts with
             project_clips.make_video(request=request, **me)
