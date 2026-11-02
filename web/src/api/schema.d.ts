@@ -9246,6 +9246,11 @@ export interface components {
             text: string;
             /** Status */
             status: ("queued" | "running" | "held" | "done" | "refused") | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
         };
         /** TurnOut */
         TurnOut: {

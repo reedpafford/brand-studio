@@ -741,7 +741,11 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
         "who": "Ed",
         "text": "Make clip 1 slower and warmer.",
         "status": None,
+        "why": "",
     }
+    asked = next(m for m in out["thread"] if m["why"].startswith("You asked:"))
+    assert asked["kind"] == "move" and asked["text"]  # each move keeps its reason
+    assert out["thread"][-1]["why"] == ""  # the delivery's reason is its text
     assert [m["at"] for m in out["thread"]] == sorted(m["at"] for m in out["thread"])
     ids = [m["id"] for m in out["thread"]]
     assert len(set(ids)) == len(ids) and out["thread"][said]["id"] == "m0"

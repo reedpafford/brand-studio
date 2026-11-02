@@ -83,7 +83,7 @@ def thread(db: Session, project: Project) -> list[dict]:
                                         Job.input["step"].as_string() == STEP)
                       .order_by(Job.id)).all()  # fmt: skip
     out = [{"id": f"m{n}", "kind": "message", "at": m["at"], "who": user_name(db, m["by"]),
-            "text": m["text"], "status": None}
+            "text": m["text"], "status": None, "why": ""}
            for n, m in enumerate(project.director_chat or [])]  # fmt: skip
     for j in rows:
         result = j.input.get("result") or ""
@@ -91,12 +91,13 @@ def thread(db: Session, project: Project) -> list[dict]:
         text = ((j.output or {}).get("why") if tool == "deliver" else result) or PENDING.get(
             j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
         )
+        why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
         status = ("held" if j.status == JobStatus.needs_owner_approval
                   else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
                   else "refused" if result.startswith("Refused") else "done")  # fmt: skip
         out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                     "who": "Director",
-                    "text": text, "status": status})  # fmt: skip
+                    "text": text, "status": status, "why": why})  # fmt: skip
     return sorted(out, key=lambda m: m["at"])
 
 
