@@ -202,3 +202,23 @@ def test_freestyle_takes_stay_out_of_the_quick_clip_history(owner, editor, db):
     assert [
         j["freestyle"]["id"] for j in editor.get("/jobs", params={"freestyle": True}).json()
     ] == [fs["id"]]
+
+
+def test_my_credits_lists_my_waiting_and_declined_sends(app, owner, editor, db):
+    """v5 My credits: the editor's own sends waiting for the owner's OK ("up to", nothing spent
+    yet) and declined ones with the owner's words; every brand; never someone else's."""
+    brand = first_brand(owner)
+    first = editor.post("/freestyles", json={**HOUSE, "brand_id": brand, "text": SCRIPT}).json()
+    second = editor.post("/freestyles", json={**HOUSE, "text": "LEO: Nine sharp."}).json()
+    owner.post("/freestyles", json={**HOUSE, "text": "MIA: Mine."})  # the owner's: not listed
+    held = db.query(Job).filter(Job.status == "needs_owner_approval").order_by(Job.id).all()
+    owner.post(f"/jobs/{held[1].id}/decline", json={"reason": "Not this week."})
+    mine = editor.get("/usage/mine", params={"brand_id": brand}).json()
+    sends = {s["freestyle_id"]: s for s in mine["sends"]}
+    assert set(sends) == {first["id"], second["id"]}
+    assert (sends[first["id"]]["status"], sends[first["id"]]["up_to_credits"]) == (
+        "waiting", float(held[0].credits))  # fmt: skip
+    assert (sends[second["id"]]["status"], sends[second["id"]]["reason"],
+            sends[second["id"]]["brand"]) == ("declined", "Not this week.", "")  # fmt: skip
+    assert mine["waiting_credits"] == float(held[0].credits)
+    assert all(v["project_id"] != first.get("project_id") for v in mine["videos"])

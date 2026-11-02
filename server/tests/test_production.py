@@ -6,7 +6,7 @@ from datetime import timedelta
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
-from app.models.clips import ProjectClip
+from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -89,6 +89,7 @@ def test_flags_and_the_attention_order(owner, editor, db):
         "in_production": 4,
         "needs_attention": 3,
         "changes_waiting": 0,
+        "delivered_today": 0,
     }
     page = owner.get("/production", params={"limit": 2, "offset": 1})
     assert [r["project_id"] for r in page.json()] == [stuck, idle]
@@ -134,3 +135,33 @@ def test_the_videos_list_has_each_videos_step_and_still(owner, editor, db):
     db.get(Project, pid).finished_at = utcnow()
     db.commit()
     assert row()["step"] == "done"
+
+
+def test_clip_counts_and_the_videos_delivered_today(owner, editor, db):
+    """v5 In production: "Making clips: 4 of 6" (clips with a take), and the Delivered today
+    tab: videos done since midnight (UTC), with nothing to flag."""
+    pid = _video(owner, editor, db)
+    bd = db.query(BreakdownVersion).filter_by(project_id=pid).one()
+    clips = [ProjectClip(project_id=pid, breakdown_id=bd.id, clip_id=f"c{n}", seconds=5,
+                         prompt="p") for n in (1, 2, 3)]  # fmt: skip
+    db.add_all(clips)
+    db.commit()
+    _job(db, pid, JobStatus.succeeded)
+    job = db.query(Job).filter_by(project_id=pid).one()
+    take = ClipTake(clip_id=clips[0].id, number=1, job_id=job.id, file_id=upload(owner))
+    db.add(take)
+    db.flush()
+    clips[0].picked_take_id = take.id
+    db.commit()
+    row = _row(owner, pid)
+    assert (row["clips_made"], row["clips_total"], row["finished_at"]) == (1, 3, None)
+    assert owner.get("/production", params={"delivered": "today"}).json() == []
+
+    done, old = pid, _video(owner, editor, db)
+    db.get(Project, done).finished_at = utcnow()
+    db.get(Project, old).finished_at = utcnow() - timedelta(days=1)  # yesterday: not today
+    _job(db, done, JobStatus.failed)  # a failure before it was done: nothing to flag now
+    (row,) = owner.get("/production", params={"delivered": "today"}).json()
+    assert (row["project_id"], row["flag"], row["finished_at"] is not None) == (done, None, True)
+    assert owner.get("/production/summary").json()["delivered_today"] == 1
+    assert editor.get("/production", params={"delivered": "today"}).status_code == 404

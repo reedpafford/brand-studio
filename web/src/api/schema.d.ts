@@ -1102,6 +1102,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People
+         * @description v5 Usage › By person: what each person in the team spent in the period, most first.
+         *     Everyone is listed, someone who spent nothing too.
+         */
+        get: operations["people_usage_people_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage/brands/{brand_id}/videos": {
         parameters: {
             query?: never;
@@ -7474,6 +7495,16 @@ export interface components {
              */
             scripts: components["schemas"]["MyScript"][];
             week?: components["schemas"]["MyWeek"] | null;
+            /**
+             * Sends
+             * @default []
+             */
+            sends: components["schemas"]["MySend"][];
+            /**
+             * Waiting Credits
+             * @default 0
+             */
+            waiting_credits: number;
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -7611,6 +7642,35 @@ export interface components {
             title: string;
             /** Credits */
             credits: number;
+        };
+        /**
+         * MySend
+         * @description One of the caller's own freestyle sends that waits for the owner or was declined.
+         */
+        MySend: {
+            /** Freestyle Id */
+            freestyle_id: number;
+            /** Title */
+            title: string;
+            /** Brand */
+            brand: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "declined";
+            /** Up To Credits */
+            up_to_credits: number;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** MyVideo */
         MyVideo: {
@@ -7763,6 +7823,28 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+        };
+        /** PersonRow */
+        PersonRow: {
+            /** User Id */
+            user_id: number;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "editor";
+            /** Credits */
+            credits: number;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Videos */
+            videos: number;
+            /** Week Used */
+            week_used: number;
+            /** Week Allowance */
+            week_allowance: number | null;
         };
         /** PickIn */
         PickIn: {
@@ -7988,6 +8070,18 @@ export interface components {
             flag_job?: string | null;
             /** Flag Problem */
             flag_problem?: string | null;
+            /**
+             * Clips Made
+             * @default 0
+             */
+            clips_made: number;
+            /**
+             * Clips Total
+             * @default 0
+             */
+            clips_total: number;
+            /** Finished At */
+            finished_at?: string | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -9478,6 +9572,11 @@ export interface components {
              * @default 0
              */
             changes_waiting: number;
+            /**
+             * Delivered Today
+             * @default 0
+             */
+            delivered_today: number;
         };
         /** SwitchOut */
         SwitchOut: {
@@ -12990,6 +13089,37 @@ export interface operations {
             };
         };
     };
+    people_usage_people_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     brand_videos_usage_brands__brand_id__videos_get: {
         parameters: {
             query?: {
@@ -13208,6 +13338,7 @@ export interface operations {
                 brand_id?: number | null;
                 editor_id?: number | null;
                 attention?: boolean;
+                delivered?: "today" | null;
                 q?: string;
                 sort?: "attention" | "activity" | "credits" | "budget";
                 limit?: number | null;

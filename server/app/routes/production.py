@@ -8,7 +8,7 @@ approved → downloads. Flags (one per row, in this order): failed (its newest j
 nothing started since), stuck (a job queued or running for over 30 min), idle (no job or edit
 for 48 h)."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 
@@ -75,12 +75,16 @@ class ProductionRow(BaseModel):
     flag_since: UtcTime | None = None
     flag_job: str | None = None  # e.g. "Making the takes"
     flag_problem: str | None = None  # the failed job's plain sentence
+    clips_made: int = 0  # clips with a take: "Making clips: 4 of 6"
+    clips_total: int = 0
+    finished_at: UtcTime | None = None  # a delivered one (?delivered=today)
 
 
 class Summary(BaseModel):
     in_production: int
     needs_attention: int
     changes_waiting: int = 0  # finished videos whose clips changed since (LW2)
+    delivered_today: int = 0  # videos done since midnight (UTC): v5's "Delivered today" tab
 
 
 def _owner(user: User = Depends(current_user)) -> User:
@@ -93,13 +97,20 @@ def _grouped(db: Session, query, ids: list[int]) -> dict[int, tuple]:
     return {row[0]: row[1:] for row in db.execute(query.where(query.selected_columns[0].in_(ids)))}
 
 
-def rows(db: Session, user: User) -> list[ProductionRow]:
+def today() -> datetime:
+    """Midnight (UTC) today: where "Delivered today" starts."""
+    return utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def rows(db: Session, user: User, delivered: bool = False) -> list[ProductionRow]:
+    """The videos being made; `delivered`: the ones done today instead (no flags: done)."""
+    when = Project.finished_at >= today() if delivered else Project.finished_at.is_(None)
     found = db.execute(
         select(Project, ScriptDraft.slot, Script.id, Script.title, Brand.id, Brand.name)
         .join(ScriptDraft, ScriptDraft.id == Project.script_draft_id)
         .join(Script, Script.id == ScriptDraft.script_id)
         .join(Brand, Brand.id == Project.brand_id)
-        .where(Project.workspace_id == user.workspace_id, Project.finished_at.is_(None))
+        .where(Project.workspace_id == user.workspace_id, when)
     ).all()
     ids = [r[0].id for r in found]
     if not ids:
@@ -158,6 +169,9 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
         ids,
     )
     frames, steps = progress(db, ids)
+    clips = _grouped(db, select(ProjectClip.project_id, func.count(ProjectClip.id),
+                                func.count(ProjectClip.picked_take_id))
+                     .group_by(ProjectClip.project_id), ids)  # fmt: skip
     editors = {
         u.id: u.name for u in db.scalars(select(User).where(User.workspace_id == user.workspace_id))
     }
@@ -189,8 +203,14 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
             budget_credits=float(project.budget_credits),
             spent_usd=round(float((spent.get(pid) or (Decimal(0),))[0] or 0), 4),
             poster_file_id=(frames.get(pid) or (None, None))[1],
+            clips_total=(clips.get(pid) or (0, 0))[0],
+            clips_made=(clips.get(pid) or (0, 0))[1],
+            finished_at=project.finished_at,
         )
         job = newest.get(pid)
+        if delivered:  # done: nothing to flag
+            out.append(row)
+            continue
         if job is not None and job.status == JobStatus.failed:
             row.flag, row.flag_since = "failed", job.finished_at or job.created_at
             row.flag_job = JOB_NAMES.get(job.input.get("step", ""), "A step")
@@ -266,6 +286,7 @@ def in_production(
     brand_id: int | None = None,
     editor_id: int | None = None,
     attention: bool = False,
+    delivered: Literal["today"] | None = None,  # v5's "Delivered today" tab
     q: str = "",
     sort: Literal["attention", "activity", "credits", "budget"] = "attention",
     limit: int | None = Query(None, ge=1, le=200),
@@ -273,7 +294,7 @@ def in_production(
     user: User = Depends(_owner),
     db: Session = Depends(get_db),
 ):
-    found = rows(db, user)
+    found = rows(db, user, delivered=delivered == "today")
     if brand_id is not None:
         found = [r for r in found if r.brand.id == brand_id]
     if editor_id is not None:
@@ -296,4 +317,5 @@ def summary(user: User = Depends(_owner), db: Session = Depends(get_db)):
                                             Project.finished_at.is_not(None),
                                             Project.archived_at.is_(None)))  # fmt: skip
     return Summary(in_production=len(found), needs_attention=sum(1 for r in found if r.flag),
-                   changes_waiting=len(out_of_date(db, list(done))))  # fmt: skip
+                   changes_waiting=len(out_of_date(db, list(done))),
+                   delivered_today=len(rows(db, user, delivered=True)))  # fmt: skip
