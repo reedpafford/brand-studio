@@ -214,7 +214,7 @@ test("a take's words check has its own chip: what's off and when, Change this…
   await userEvent.click(within(notes).getAllByRole("button", { name: "Looks fine" })[1]);
   expect(calls.some((c) => c.key === "POST /projects/9/checks/8/findings/1/dismiss")).toBe(true);
   await userEvent.click(within(notes).getAllByRole("button", { name: "Change this…" })[0]);
-  expect(screen.getByLabelText("Change this… c1")).toHaveValue("Make sure BO says, word for word: “No way.”");
+  expect(screen.getByLabelText("Note for the next take c1")).toHaveValue("Make sure BO says, word for word: “No way.”");
 });
 
 test("while a take's words are heard it says so, apart from the picture check", async () => {

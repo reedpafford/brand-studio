@@ -36,6 +36,8 @@ export function FrameCard(props: {
   stopped: boolean;
   stopFor: (cost: number | undefined) => string | null;
   oneStep: boolean;
+  /** On the clip's card: a small thumbnail beside the prompt; pressing it opens the still with all its presses. */
+  thumb?: boolean;
   onPick: (file: number) => void;
   /** OR3 Preferred still: use an earlier still again (free, Undo). */
   onPrefer?: (file: number) => Promise<unknown>;
@@ -48,7 +50,8 @@ export function FrameCard(props: {
   softenedBySelf: boolean;
   onSoften: () => void;
   onUndoSoften: (before: string) => void;
-  onOpen: () => void;
+  /** Opens the still full size; left out where the still is already open in a sheet. */
+  onOpen?: () => void;
 }) {
   const viewOnly = useViewOnly(); // a video only its maker or the owner may change
   const { frame: f } = props;
@@ -56,6 +59,8 @@ export function FrameCard(props: {
   const [editing, setEditing] = useState<string | null>(null);
   const [redo, setRedo] = useState<string | null>(null);
   const [seed, setSeed] = useState<{ text: string; n: number }>();
+  const [opened, setOpened] = useState(false); // the thumbnail's still, open in a sheet
+  if (opened && !props.thumb) setOpened(false); // it needs a look now (unapproved, say): the card shows in full instead
   const check = (f as Frame & { check?: ItemCheck }).check;
   // The look's banned words repaired (ST2); shown only while the prompt is still the fixed one (after Undo it isn't).
   const lookFixed = (f.look_fixed as LookFixed | null | undefined) ?? null;
@@ -90,6 +95,24 @@ export function FrameCard(props: {
       </Button>
     </div>
   );
+  if (props.thumb)
+    return (
+      <li className="w-16" aria-label={`Frame ${f.clip_id}`}>
+        <button type="button" className="block w-full space-y-1 text-left text-xs text-muted" aria-label={`Still for clip ${f.clip_id}: approve, redo or change it`} onClick={() => setOpened(true)}>
+          <span className="block overflow-hidden rounded-sm bg-surface-2" style={{ aspectRatio: ratio(props.aspect) }}>
+            {f.file_id !== null && <img src={fileUrl(f.file_id)} alt="" className="h-full w-full object-cover" />}
+          </span>
+          Still
+        </button>
+        {opened && (
+          <Sheet title={`Still for clip ${f.clip_id.replace(/^c/, "")}`} onClose={() => setOpened(false)}>
+            <ul>
+              <FrameCard {...props} thumb={false} onOpen={undefined} />
+            </ul>
+          </Sheet>
+        )}
+      </li>
+    );
   return (
     <li className="space-y-2 text-sm" aria-label={`Frame ${f.clip_id}`}>
       <div className={`relative grid place-items-center overflow-hidden rounded-md bg-surface-2 ${f.approved ? "border-2 border-accent" : "border border-border"}`} style={{ aspectRatio: ratio(props.aspect) }}>
@@ -111,6 +134,8 @@ export function FrameCard(props: {
             <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover opacity-50" />
             <span className="absolute inset-0 grid place-items-center text-sm font-medium">Making the change…</span>
           </>
+        ) : f.file_id !== null && !props.onOpen ? (
+          <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover" />
         ) : f.file_id !== null ? (
           <button type="button" className="h-full w-full" aria-label={`Open the still for clip ${f.clip_id}`} onClick={props.onOpen}>
             <img src={fileUrl(f.file_id)} alt={`Still for clip ${f.clip_id}`} className="h-full w-full object-cover" />

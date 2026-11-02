@@ -91,7 +91,7 @@ export function ClipCard(props: {
   undoing: boolean;
   /** The clip's script line (the Clips tab's detail). */
   line?: string;
-  /** Where the Clips tab puts this clip's still, between the takes and the prompt. */
+  /** Where the Clips tab puts this clip's still, beside the prompt. */
   stillSlot?: (el: HTMLDivElement | null) => void;
 }) {
   const viewOnly = useViewOnly(); // a video only its maker or the owner may change
@@ -239,43 +239,62 @@ export function ClipCard(props: {
       })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
       <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} hold={props.busy || props.fixBusy ? "Wait for this clip's take or prompt being made." : null} versions={c.versions ?? []} />
-      {/* Its still, with the still's own presses (the Clips tab puts the storyboard's card here). */}
-      {stillSlot && <div ref={stillSlot} className="border-t border-border pt-4" />}
-      <div className="space-y-2 border-t border-border pt-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted">Prompt</span>
-          {props.showPrompt && !props.toRead && <Badge tone="success" icon={Check}>Prompt OK</Badge>}
-          {props.showPrompt && (
-            <Button variant="secondary" dense icon={props.toRead ? Check : undefined} aria-label={`${props.toRead ? "Prompt OK" : "Undo Prompt OK"} for ${c.clip_id}`} onClick={props.toRead ? props.onLooksGood : props.onUndoLooksGood}>
-              {props.toRead ? "Prompt OK" : "Undo Prompt OK"}
-            </Button>
+      {/* Its still beside its prompt and the note for the next take (v4). The Clips tab puts the storyboard's card in the slot:
+          a thumbnail that opens the still's own presses, or the whole card while the still needs a look. */}
+      <div className="flex flex-wrap items-start gap-3 border-t border-border pt-4">
+        {stillSlot && <div ref={stillSlot} className="empty:hidden" />}
+        <div className="min-w-[min(100%,16rem)] flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted">Prompt</span>
+            {props.showPrompt && !props.toRead && <Badge tone="success" icon={Check}>Prompt OK</Badge>}
+            {props.showPrompt && (
+              <Button variant="secondary" dense icon={props.toRead ? Check : undefined} aria-label={`${props.toRead ? "Prompt OK" : "Undo Prompt OK"} for ${c.clip_id}`} onClick={props.toRead ? props.onLooksGood : props.onUndoLooksGood}>
+                {props.toRead ? "Prompt OK" : "Undo Prompt OK"}
+              </Button>
+            )}
+            <span className="flex-1" />
+            {editing === null && (
+              <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} aria-label={`Edit the prompt for ${c.clip_id}`} onClick={() => setEditing(c.prompt)}>
+                Edit prompt
+              </button>
+            )}
+          </div>
+          {(props.showPrompt || props.review) && c.prompt && editing === null && <PromptText clip={c} />}
+          {updated && (
+            <p className="text-muted" role="status">
+              Prompt updated. Read it, then press {verb}.
+            </p>
           )}
-          <span className="flex-1" />
-          {editing === null && (
-            <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} aria-label={`Edit the prompt for ${c.clip_id}`} onClick={() => setEditing(c.prompt)}>
-              Edit prompt
-            </button>
+          {editing !== null && (
+            <div className="space-y-2">
+              <textarea className={input} rows={5} aria-label={`Prompt for ${c.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
+              <div className="flex gap-2">
+                <button className={btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
+                  Save prompt
+                </button>
+                <button className={btnSecondary} onClick={() => setEditing(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {props.review && !c.stale && (
+            <ChangeBox
+              kind="clip"
+              title="Note for the next take"
+              projectId={props.projectId}
+              id={c.id}
+              label={c.clip_id}
+              change={lastChange}
+              action={c.takes.length > 0 ? "Change it and make a new take" : "Change the prompt"}
+              hold={props.busy ? "This one is still being made" : null}
+              stopFor={props.stopFor}
+              snapshot={c.picked_take_id}
+              seed={seed}
+              onUndo={c.takes.length > 1 ? (was) => props.onPick(c.takes.some((t) => t.id === was) ? was! : c.takes[c.takes.length - 2].id) : undefined}
+            />
           )}
         </div>
-        {props.showPrompt && <PromptText clip={c} />}
-        {updated && (
-          <p className="text-muted" role="status">
-            Prompt updated. Read it, then press {verb}.
-          </p>
-        )}
-        {editing !== null && (
-          <div className="space-y-2">
-            <textarea className={input} rows={5} aria-label={`Prompt for ${c.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
-            <div className="flex gap-2">
-              <button className={btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
-                Save prompt
-              </button>
-              <button className={btnSecondary} onClick={() => setEditing(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
       </div>
       {note !== null && (
         <div className="space-y-2">
@@ -308,21 +327,6 @@ export function ClipCard(props: {
         </button>
       )}
       {(props.review || !c.prompt) && props.rewrite /* never written: its only way out, everywhere */}
-      {props.review && !c.stale && (
-        <ChangeBox
-          kind="clip"
-          projectId={props.projectId}
-          id={c.id}
-          label={c.clip_id}
-          change={lastChange}
-          action={c.takes.length > 0 ? "Change it and make a new take" : "Change the prompt"}
-          hold={props.busy ? "This one is still being made" : null}
-          stopFor={props.stopFor}
-          snapshot={c.picked_take_id}
-          seed={seed}
-          onUndo={c.takes.length > 1 ? (was) => props.onPick(c.takes.some((t) => t.id === was) ? was! : c.takes[c.takes.length - 2].id) : undefined}
-        />
-      )}
       {c.inserts.map((i) => (
         <label key={i.shot_id} className="flex min-h-11 w-full items-start gap-3 sm:min-h-0">
           <input type="checkbox" role="switch" disabled={viewOnly} className="mt-0.5 size-5 shrink-0 sm:size-4" checked={i.use_real_image} onChange={(e) => props.onRealImage(i.shot_id, e.target.checked)} />

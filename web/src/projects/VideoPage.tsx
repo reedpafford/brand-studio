@@ -112,6 +112,8 @@ export function VideoPage() {
   const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
   const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.id === "storyboard" ? "Clips" : next.label}`, reason, onPress: () => pick(next.id) } : null;
+  // On the Director tab a made cut is the end, not Plan: the bar points at Final cut, quietly, beside Download MP4 (QA-11 on #1156).
+  const cutAction: CostAction | null = progress.video.made ? { label: "Open Final cut", secondary: true, onPress: () => pick("downloads") } : nextAction;
   // Release while it is being made; Archive once it is done. An archived video is read-only until it is restored.
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used, released: p.released };
@@ -131,11 +133,11 @@ export function VideoPage() {
     ...videoTabStates(step, all).map((s) => (directing && s.state === "current" ? { ...s, state: "open" as const } : s)),
   ];
   const meta =
-    step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : step === "clips" && all.clips.total > 0 ? count(all.clips.total, "clip", all.clips.approved) : null;
+    step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "still", all.frames.approved) : step === "clips" && all.clips.total > 0 ? count(all.clips.total, "clip", all.clips.approved) : null;
 
   return (
     // One cost bar at the bottom: the budget, what finishing costs, and the step's press (audit M1).
-    <CostBarProvider projectId={id} used={budgetUsed(p)} budget={p.budget_credits} pct={budgetPct(p)} director={directorTime(p)} lookOnly={lookOnly} fallback={waiting ? null : lookOnly ? nextAction : (updateAction ?? nextAction)}>
+    <CostBarProvider projectId={id} used={budgetUsed(p)} budget={p.budget_credits} pct={budgetPct(p)} director={directorTime(p)} lookOnly={lookOnly} fallback={waiting ? null : directing ? cutAction : lookOnly ? nextAction : (updateAction ?? nextAction)}>
     <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
       <div className="flex items-center gap-1">
         {/* The back link names where it goes: this brand's videos. */}

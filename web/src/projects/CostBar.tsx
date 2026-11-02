@@ -16,6 +16,8 @@ export type CostAction = {
   usually?: number;
   reason?: string | null;
   busy?: boolean;
+  /** A press that isn't the screen's one primary (the Director tab's Final cut, once its cut is made). */
+  secondary?: boolean;
   onPress: () => void;
 };
 
@@ -64,7 +66,7 @@ export function CostBarProvider(props: {
   const after = shown?.price != null && !shown.reason && !sends ? left - shown.price : null;
   const value = useMemo(() => setAction, []);
   const press = shown && (
-    <Button price={shown.price} charge={shown.upTo ? "estimate" : "fixed"} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
+    <Button variant={shown.secondary ? "secondary" : "primary"} price={shown.price} charge={shown.upTo ? "estimate" : "fixed"} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
       {sends ? "Send for approval" : shown.label}
     </Button>
   );

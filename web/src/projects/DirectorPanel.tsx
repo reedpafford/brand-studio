@@ -140,7 +140,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
           )}
           <div className="min-w-0 flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="type-section">{status === "none" ? "Let the director make it" : status === "delivered" ? "Delivery note" : "The director's cut"}</h2>
+              <h2 className="type-section">{status === "none" && !cut ? "Let the director make it" : status === "delivered" ? "Delivery note" : "The director's cut"}</h2>
               {badge}
             </div>
             {line && <p className="break-words text-sm text-muted tabular-nums">{line}</p>}
