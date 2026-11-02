@@ -131,6 +131,7 @@ export function VideoPage() {
     ...(mayDirect ? [{ id: "director", label: "Director", state: directing ? "current" : "open" } as Step] : []),
     ...videoTabStates(step, all).map((s) => (directing && s.state === "current" ? { ...s, state: "open" as const } : s)),
   ];
+  const approvedOf = all.clips.total > 0 ? `${all.clips.approved} of ${all.clips.total} approved` : all.frames.total > 0 ? `${all.frames.approved} of ${all.frames.total} stills approved` : null;
   const meta =
     step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "still", all.frames.approved) : step === "clips" && all.clips.total > 0 ? count(all.clips.total, "clip", all.clips.approved) : null;
 
@@ -184,7 +185,10 @@ export function VideoPage() {
           steps={steps}
           onPick={(to) => (to === "director" ? setParams({}) : pick(to))}
           end={
-            !directing && (
+            // On Clips: how many are approved (v5; the list carries each clip's script line). Elsewhere: the script.
+            isClips(step) && !directing ? (
+              approvedOf && <span className="shrink-0 text-xs text-muted tabular-nums">{approvedOf}</span>
+            ) : !directing && (
               <Button variant="ghost" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Show script">
                 {rail ? "Script" : ""}
               </Button>
@@ -197,10 +201,11 @@ export function VideoPage() {
       ) : (
       <>
       {p.status === "needs_owner_approval" && <WaitingBadge />}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="type-section">{label}</h2>
-          {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
+      <div className="flex flex-wrap items-start justify-between gap-3 has-[>div:empty]:hidden">
+        <div className="empty:hidden">
+          {/* On Clips the list is the heading, and its count sits at the end of the tabs (v5). */}
+          {!isClips(step) && <h2 className="type-section">{label}</h2>}
+          {meta && !isClips(step) && <p className="text-sm text-muted tabular-nums">{meta}</p>}
           {/* While the takes are locked (the stills aren't approved), it says why. */}
           {isClips(step) && clipsLock && <p className="text-sm text-muted">Takes: {clipsLock}</p>}
           {(isClips(step) || step === "downloads") && <CheckSummary projectId={id} />}

@@ -94,7 +94,8 @@ test("?step=make opens Clips: the clip list, and the picked clip's takes with it
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, [{ ...done }]] });
   open("?step=make");
   expect(await screen.findByRole("tab", { name: "Clips", selected: true })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Clips", level: 2 })).toBeNull(); // v5: the list is the heading, its count ends the tabs
+  expect(screen.getByText("1 of 1 approved")).toBeInTheDocument();
   expect(within(screen.getByRole("list", { name: "Clip list" })).getByRole("button", { name: /^Clip 1 · 8 s/ })).toHaveAttribute("aria-current", "true");
   const card = await screen.findByLabelText("Clip c1");
   expect(within(card).getByLabelText("Frame c1")).toBeInTheDocument(); // its still, with the still's own presses
@@ -115,6 +116,18 @@ test("the picked clip's approved still is a small thumbnail beside its prompt, s
   expect(within(sheet).getByRole("button", { name: "Undo approve" })).toBeInTheDocument();
   expect(within(sheet).getByRole("button", { name: /Make another/ })).toBeInTheDocument();
   expect(within(sheet).getByLabelText("Change this… still c1")).toBeInTheDocument();
+});
+
+test("v5: one press makes the next take, at its exact price; a note typed for the next take makes it the note's, priced up to", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]], "GET /projects/9/clips/3/change": [200, { credits: 27 }] });
+  open("?step=clips");
+  const card = await clipCard("c1");
+  const make = within(card).getByRole("button", { name: "Make another take · 24 credits" });
+  expect(make).toHaveTextContent(/^Make · 24 credits$/); // the tile already says Another take
+  expect(within(card).queryAllByRole("button", { name: /Change it/ })).toHaveLength(0); // no second press beside the note
+  await userEvent.type(within(card).getByLabelText("Note for the next take c1"), "Slower");
+  expect(within(card).getByRole("button", { name: "Change it and make a new take · up to 27 credits" })).toHaveTextContent(/^Make · up to 27 credits$/);
 });
 
 test("a Review link's ?to= picks its clip once: a press on another clip in the list wins while ?to= stays (QA-11)", async () => {
@@ -285,7 +298,7 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
   open("?step=clips");
   expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Clip list" })).toBeInTheDocument();
 });
 
 test("Final cut puts the clips together by itself the first time, for free", async () => {
@@ -508,6 +521,7 @@ test("a take that failed before the prompt was changed no longer reads as failin
   expect(within(card).queryByText(/couldn't finish this/)).toBeNull();
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
   expect(within(card).getByText(/Prompt updated\. Read it, then press Make clip/)).toBeInTheDocument();
+  await userEvent.type(within(card).getByLabelText("Note for the next take c1"), "Slower"); // a note makes the tile's press the note's
   expect(within(card).getByRole("button", { name: "Change the prompt · up to 3 credits" })).toBeInTheDocument(); // no take yet: only the prompt
 });
 
@@ -539,8 +553,9 @@ test("when the newest take failed but an earlier take is picked, the clip stays 
   const line = await within(card).findByText(/The newest take didn't work; Take 1 is still picked\./);
   expect(line.closest("p")).toHaveClass("text-muted");
   expect(within(card).queryByText("Didn't finish")).toBeNull();
-  expect(within(card).getByRole("button", { name: "Change it and make a new take · up to 22 credits" })).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: /Make another take/ })).toBeEnabled(); // the failed one can be tried again: no dead end
+  expect(within(card).getByRole("button", { name: "Make another take · 24 credits" })).toBeEnabled(); // tried again at its exact price: no dead end
+  await userEvent.type(within(card).getByLabelText("Note for the next take c1"), "Slower");
+  expect(within(card).getByRole("button", { name: "Change it and make a new take · up to 22 credits" })).toBeEnabled();
 });
 
 test("when the newest take failed and no take is picked, the clip still reads Failed and points to the other takes", async () => {
@@ -554,7 +569,7 @@ test("when the newest take failed and no take is picked, the clip still reads Fa
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
   expect((await within(card).findByText(/The last try didn't finish; your other takes are below\./)).closest("p")).toHaveClass("text-danger");
-  expect(within(card).getByText("Didn't finish")).toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Clip list" })).getByRole("button", { name: /^Clip 1 / })).toHaveTextContent("Didn't finish");
 });
 
 test("once a clip has a take, Change it shows the full price (rewrite and take), not the rewrite-only price read before", async () => {
@@ -575,7 +590,9 @@ test("once a clip has a take, Change it shows the full price (rewrite and take),
   open("?step=clips");
   await userEvent.type(await screen.findByLabelText("Note for the next take c1"), "Slower");
   expect(await screen.findByRole("button", { name: "Change the prompt · up to 3 credits" })).toBeInTheDocument();
+  await userEvent.clear(screen.getByLabelText("Note for the next take c1")); // an empty note: the tile makes the take as it is
   await userEvent.click(screen.getByRole("button", { name: /^Make clip/ }));
+  await userEvent.type(await screen.findByLabelText("Note for the next take c1"), "Slower");
   expect(await screen.findByRole("button", { name: "Change it and make a new take · up to 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
 }, 15000);
 
@@ -1549,8 +1566,8 @@ test("the video's back link says where it goes: this brand's videos", async () =
 test("Storyboard's counts are said once, in the step heading's line", async () => {
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, []] });
   open("?step=storyboard");
-  expect(await screen.findByText("1 still · 1 approved")).toBeInTheDocument();
-  expect(screen.queryByText(/· 1 still · 1 approved/)).toBeNull(); // no second heading in the work area
+  expect(await screen.findByText("1 of 1 stills approved")).toBeInTheDocument(); // at the end of the tabs (v5)
+  expect(screen.queryByText(/1 still · 1 approved/)).toBeNull(); // said once
 });
 
 test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {
@@ -1749,7 +1766,7 @@ test("the clip list: each clip's still, length, script line and status; a row op
   expect(row(2)).toHaveAttribute("aria-current", "true"); // it opens on the first clip that needs you
   const card = await screen.findByLabelText("Clip c2");
   expect(within(card).getByRole("button", { name: "Approve take 2" })).toBeInTheDocument();
-  expect(within(card).getByLabelText("Take 1")).toHaveTextContent("Use this take"); // the other take, side by side
+  expect(within(within(card).getByLabelText("Take 1")).getByRole("button", { name: "Use take 1" })).toBeInTheDocument(); // the other take, side by side
   expect(within(card).getByRole("button", { name: /^Make another take/ })).toBeInTheDocument();
   await userEvent.click(row(3));
   expect(await screen.findByLabelText("Clip c3")).toBeInTheDocument();
