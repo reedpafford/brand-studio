@@ -246,31 +246,64 @@ class Refusing(FakeSeedance):
         return super().__call__(request)
 
 
-def test_a_copyright_refusal_says_what_to_do_and_warns_after_two(app, db, editor, setup, clip):  # noqa: F811
+def test_a_look_alike_refusal_steps_down_then_says_what_to_do(app, db, editor, setup, clip):  # noqa: F811
+    """The Producer: a take refused as a look-alike is made again without the opening still,
+    then without the sheets (the characters said in words), then it stops and says what to do.
+    Refused takes are never charged."""
+    from app.clip_takes import GAVE_UP, LOOKALIKE
     from app.credits import credits_used
     from app.models.projects import Project
 
     url = f"/projects/{setup['project']}/clips/{clip['id']}"
     before = credits_used(db, db.get(Project, setup["project"]))
     editor.post(f"{url}/generate")
-    _work(app, db, Refusing([]))  # refused: tried again once on its own (P3)
+    _work(app, db, Refusing([]))  # refused: made again on its own without the still
     assert editor.get(f"/projects/{setup['project']}/clips").json()[0]["retrying"] == "refused"
-    _work(app, db, Refusing([]))  # refused again: nothing more runs on its own
-    retry, first = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
-    assert (retry["auto"], retry["retry_of_id"], first["auto"]) == (True, first["id"], False)
-    assert (
-        retry["error"]
-        == first["error"]
-        == (
-            "The video model thinks this clip looks too much like someone else's character or "
-            "video. Try another look for Mom, or use Change this… on the opening shot. "
-            "Nothing was charged."
-        )
-    )  # never "Ask the owner"
+    for _ in LOOKALIKE:
+        _work(app, db, Refusing([]))
+    db.expire_all()
+    takes = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
+                   key=lambda j: j.id)  # fmt: skip
+    first, *steps = takes
+    assert [j.input.get("lookalike") for j in steps] == [1, 2]  # without the still, then sheets
+    assert [j.retry_of_id for j in steps] == [first.id, steps[0].id]
+    pictures = [len(j.input["files"].get("reference_images", [])) for j in takes]
+    assert pictures[2] < pictures[0]  # without the sheets: fewer pictures (no still here)
+    assert "[Image2]" not in steps[1].input["input"]["prompt"]  # the rest numbered again
+    said = {j["id"]: j["error"] for j in editor.get("/jobs").json()}
+    assert said[first.id].startswith("The video model thinks this clip looks too much like")
+    assert said[steps[-1].id] == GAVE_UP  # plain words, never "Ask the owner"
     shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
     assert shown["retrying"] is None
-    assert shown["take_warning"].startswith("The last two takes of this clip were refused")
     assert credits_used(db, db.get(Project, setup["project"])) == before  # refused takes: free
+
+
+@pytest.mark.parametrize("by", ["person", "director"])
+def test_a_look_alike_retry_keeps_the_redo_note(app, db, editor, setup, clip, by):  # noqa: F811
+    """QA-10: a Redo with a note, a person's or the director's make_take, keeps that note on
+    both look-alike retries, so the take that's made is the change that was asked for."""
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    note = "Mom should look angrier."
+    if by == "person":
+        url = f"/projects/{setup['project']}/clips/{clip['id']}/generate"
+        assert editor.post(url, json={"note": note}).status_code == 201
+    else:
+        user = db.query(User).filter_by(email="ed@example.com").one()
+        project = db.get(Project, setup["project"])
+        decision = {"tool": "make_take", "clip_id": clip["clip_id"], "note": note}
+        said = director_tools.run(db, user, project, decision, app.state.storage)
+        assert said == "Making 1 take.", said
+    for _ in range(3):
+        _work(app, db, Refusing([]))
+    db.expire_all()
+    takes = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
+                   key=lambda j: j.id)  # fmt: skip
+    assert [j.input.get("lookalike") for j in takes] == [None, 1, 2]
+    assert all(f"Change from the last take: {note}" in j.input["input"]["prompt"]
+               for j in takes)  # fmt: skip
 
 
 class Busy(FakeSeedance):
