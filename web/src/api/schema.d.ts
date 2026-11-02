@@ -6479,6 +6479,10 @@ export interface components {
              * @default 0
              */
             spent: number;
+            /** Script Id */
+            script_id?: number | null;
+            /** Slot */
+            slot?: number | null;
         };
         /** FreestyleRow */
         FreestyleRow: {
