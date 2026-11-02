@@ -937,7 +937,7 @@ test("New script: Import a reel takes a reel link or a video, checks the link fi
   expect(calls.some((c) => c.key === "POST /scripts/import/link")).toBe(false);
   await userEvent.clear(screen.getByLabelText("Link to the reel"));
   await userEvent.type(screen.getByLabelText("Link to the reel"), "https://www.instagram.com/p/Abc123/");
-  expect(screen.getByText("Off: keep the reel's lines and rewrite only what the brand swap needs.")).toBeInTheDocument();
+  expect(screen.getByText("Keeps the reel's beats and timing, with fresh words")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("switch", { name: "Write new lines in the same style" }));
   await userEvent.click(screen.getByRole("button", { name: "Get the reel" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/import/link")?.body).toMatchObject({ brand_id: 1, url: "https://www.instagram.com/p/Abc123/", new_lines: true }));

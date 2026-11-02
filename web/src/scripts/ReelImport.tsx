@@ -120,7 +120,7 @@ export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?
           <input type="checkbox" role="switch" className="size-5" checked={newLines} onChange={(e) => setNewLines(e.target.checked)} />
           Write new lines in the same style
         </label>
-        <p className="text-xs text-muted">Off: keep the reel's lines and rewrite only what the brand swap needs.</p>
+        <p className="text-xs text-muted">Keeps the reel's beats and timing, with fresh words</p>
       </div>
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
