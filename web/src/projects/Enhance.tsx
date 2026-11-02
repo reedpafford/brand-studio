@@ -211,17 +211,18 @@ export function EnhanceBar({ e, stop }: { e: EnhanceState; stop?: string | null 
           </Button>
         )}
         {e.running && <span className="text-sm text-muted">{e.last?.status === "needs_owner_approval" ? "Waiting for the owner's OK" : <>Reading your script… <Elapsed since={e.last?.created_at ?? new Date().toISOString()} /></>}</span>}
-        {accepted > 0 && (
+        {/* Only accepted suggestions are applied (the server's rule too); it shows with the suggestions, waiting at 0. */}
+        {pending + accepted > 0 && (
           <span className="ml-auto">
-            <Button disabled={e.apply.isPending} busy={e.apply.isPending} onClick={() => e.apply.mutate()}>
-              Add {accepted} direction{accepted === 1 ? "" : "s"}
+            <Button disabled={accepted === 0 || e.apply.isPending} reason={accepted === 0 ? "Accept a suggestion first" : null} busy={e.apply.isPending} onClick={() => e.apply.mutate()}>
+              Apply {accepted} accepted
             </Button>
           </span>
         )}
       </div>
       <Chips e={e} />
       {e.marks.length > 0 && <p className="hidden text-xs text-muted sm:block">Keys: J / K next and previous, A accept, R reject, Esc to let go.</p>}
-      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Adding keeps your accepted directions in the script. Suggestions you haven't decided on are dropped.</p>}
+      {accepted > 0 && pending > 0 && <p className="text-sm text-muted">Applying keeps your accepted directions in the script. Suggestions you haven't decided on are dropped.</p>}
       {failed && (
         <p role="alert" className={errorClass}>
           Suggestions didn't finish. Your script is unchanged. Press Suggest directions to try again.
@@ -250,9 +251,10 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
   if (mark.status === "rejected") return null;
   const accepted = mark.status === "accepted";
   return (
-    <li ref={row} aria-current={focused ? "true" : undefined} className={`ml-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-sm py-0.5 text-sm sm:ml-10 ${accepted ? "text-muted" : ""} ${focused ? "outline outline-2 outline-accent" : ""}`} data-kind={mark.kind}>
-      {/* Phone: the words first, then the kind and the buttons on a second line. */}
-      <span className="basis-full sm:basis-0 sm:flex-1">
+    <li ref={row} aria-current={focused ? "true" : undefined} className={`ml-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-sm py-0.5 text-sm sm:ml-10 sm:grid-cols-[minmax(0,1fr)_6.5rem_12rem] ${accepted ? "text-muted" : ""} ${focused ? "outline outline-2 outline-accent" : ""}`} data-kind={mark.kind}>
+      {/* One grid (Reed's walk item 2): the words, then a fixed column for the kind and one for the buttons, so every row lines
+          up. Phone: the words on their own line, then the kind and the buttons. */}
+      <span className="col-span-2 min-w-0 sm:col-span-1">
         {/* Only the suggestion's own words are marked, never the row or the buttons. */}
         <button type="button" aria-haspopup="dialog" className="text-left" onClick={() => setOpen(true)}>
           <span className={accepted ? "" : "bg-mark underline decoration-mark-line decoration-2 underline-offset-2"}>
@@ -270,7 +272,7 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
         )}
       </span>
       <span className="text-xs text-muted">{KIND[mark.kind] ?? mark.kind}</span>
-      <span className="ml-auto flex gap-3 sm:ml-0">
+      <span className="flex justify-end gap-2">
         {!accepted && (
           <Button variant="secondary" dense icon={Check} aria-label={`Accept: ${mark.text}`} onClick={() => e.decide.mutate({ id: mark.id, verb: "accept" })}>
             Accept

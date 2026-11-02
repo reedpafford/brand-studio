@@ -38,7 +38,7 @@ test("Directions opens with its card, the price on Suggest directions, and Next 
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/enhance")).toBe(true));
 });
 
-test("suggestions sit under their line with Accept and Reject; Add 1 direction shows only once one is accepted, and Next is still there", async () => {
+test("suggestions sit under their line with Accept and Reject; Apply 1 accepted counts only the accepted ones, and Next is still there", async () => {
   setViewport(1440);
   const calls = fakeServer(base({
     "GET /scripts/7/drafts/0/suggestions": [200, [mark(), mark({ id: 2, key: "b", kind: "reaction", line: 2, text: "Bo blinks twice.", status: "accepted" })]],
@@ -47,11 +47,11 @@ test("suggestions sit under their line with Accept and Reject; Add 1 direction s
   }));
   open();
   expect(await screen.findByText(/Slow push-in on Mia's face\./)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Add 1 direction" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Apply 1 accepted" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Next: Variations" })).toBeEnabled();
   await userEvent.click(screen.getByRole("button", { name: "Accept: Slow push-in on Mia's face." }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/suggestions/1/accept")).toBe(true));
-  await userEvent.click(screen.getByRole("button", { name: "Add 1 direction" }));
+  await userEvent.click(screen.getByRole("button", { name: "Apply 1 accepted" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/apply")).toBe(true));
   expect(await screen.findByText("Added 1 direction.")).toBeInTheDocument();
 });
@@ -64,7 +64,7 @@ test("Undo after adding saves the earlier words back", async () => {
     "PUT /scripts/7/drafts/0": [200, script()],
   }));
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Add 1 direction" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Apply 1 accepted" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "MIA: Hell no!\nBO: Salmon?" }));
 });
@@ -94,12 +94,13 @@ test("no Edit the script on a published script", async () => {
   expect(screen.queryByRole("button", { name: "Edit the script" })).toBeNull();
 });
 
-test("with nothing accepted there is no Add button, and Next just goes on", async () => {
+test("with nothing accepted Apply 0 accepted waits with its reason, and Next just goes on", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/drafts/0/suggestions": [200, [mark()]] }));
   open();
   await screen.findByText(/Slow push-in on Mia's face\./);
-  expect(screen.queryByRole("button", { name: /^Add \d+ direction/ })).toBeNull();
+  expect(screen.getByRole("button", { name: "Apply 0 accepted" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Apply 0 accepted" })).toHaveAccessibleDescription("Accept a suggestion first");
   await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
   expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument(); // the Variations step, no question asked
 });
@@ -110,10 +111,10 @@ test("Next with accepted directions not added asks once, and Stay keeps you here
   open();
   await screen.findByText(/Slow push-in on Mia's face\./);
   await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
-  expect(await screen.findByRole("alertdialog", { name: "Leave without adding 2 directions?" })).toBeInTheDocument();
-  expect(screen.getByText("They stay accepted but are not added to the script. Leaving doesn't add them.")).toBeInTheDocument();
+  expect(await screen.findByRole("alertdialog", { name: "Leave without applying 2 accepted?" })).toBeInTheDocument();
+  expect(screen.getByText("They stay accepted but are not applied to the script. Leaving doesn't apply them.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Stay" }));
-  expect(screen.getByRole("button", { name: "Add 2 directions" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Apply 2 accepted" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
   await userEvent.click(screen.getByRole("button", { name: "Leave" }));
   expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument();

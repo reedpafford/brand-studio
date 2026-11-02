@@ -13,7 +13,8 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("button", { name: "New script" }).first().click();
   await page.getByRole("menuitem", { name: /Dialogue/ }).click();
   // Nothing is saved until the first word (flows S1 U).
-  await expect(page.getByText("Dialogue · saved when you type the first word.")).toBeVisible();
+  await expect(page.getByText("Not saved yet · saved when you type the first word")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Format: Dialogue" })).toBeVisible(); // the header shows before the save
   await page.getByLabel("Paste or write your script").fill("BO: Salmon? Again?\nMIA: Try it.");
   await page.getByRole("button", { name: "Save script" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
@@ -158,12 +159,12 @@ test("Directions: Claude suggests lines for a written script, one is accepted an
   expect(made.ok()).toBeTruthy();
   await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=directions`);
   await page.getByRole("button", { name: /^Suggest directions/ }).click();
-  const add = page.getByRole("button", { name: /^Add \d+ directions?$/ });
+  const add = page.getByRole("button", { name: /^Apply \d+ accepted$/ });
   await expect(add.or(page.getByText("This script already reads well. Nothing to suggest."))).toBeVisible({ timeout: 90_000 });
   if (await add.isVisible()) {
     await page.getByRole("button", { name: /^Accept: / }).first().click();
-    await expect(page.getByRole("button", { name: "Add 1 direction" })).toBeEnabled();
-    await page.getByRole("button", { name: "Add 1 direction" }).click();
+    await expect(page.getByRole("button", { name: "Apply 1 accepted" })).toBeEnabled();
+    await page.getByRole("button", { name: "Apply 1 accepted" }).click();
     await expect(page.getByText("Added 1 direction.")).toBeVisible();
   }
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Hell no!");
@@ -188,7 +189,7 @@ test("Directions shows its result when Suggest is pressed while the page's first
   });
   await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=directions`);
   await page.getByRole("button", { name: /^Suggest directions/ }).click();
-  await expect(page.getByRole("button", { name: /^Add \d+ directions?$/ }).or(page.getByText("This script already reads well. Nothing to suggest."))).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: /^Apply \d+ accepted$/ }).or(page.getByText("This script already reads well. Nothing to suggest."))).toBeVisible({ timeout: 60_000 });
 });
 
 test("a new script keeps every letter typed through its first save, at typing speed, Dialogue and Song", async ({ page }) => {

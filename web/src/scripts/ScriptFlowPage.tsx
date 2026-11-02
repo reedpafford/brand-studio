@@ -190,7 +190,8 @@ export function ScriptFlowPage() {
       {!overview && (
         <>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <h2 className="type-section">{label}</h2>
+            {/* As tall as the buttons beside it, so the step's name sits level with Back and Next (item 3). */}
+            <h2 className="flex min-h-control items-center type-section">{label}</h2>
             {rail ? (
               <div className="flex items-start gap-2">
                 {backButton}
@@ -210,7 +211,7 @@ export function ScriptFlowPage() {
           {step === "narration" && <NarrationStep script={s} />}
           {step === "script" && <FormatAdvice script={s} />}
           {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
-          {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
+          {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without applying ${n} accepted?`, body: "They stay accepted but are not applied to the script. Leaving doesn't apply them." } : null)} onEditWords={() => go("script")} />}
           {step === "variations" && <VariationsStep script={s} own={mine} />}
           {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
           {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}

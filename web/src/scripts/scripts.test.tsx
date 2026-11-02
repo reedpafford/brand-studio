@@ -116,7 +116,10 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Dialogue/ }));
-  expect(await screen.findByText("Dialogue · saved when you type the first word.")).toBeInTheDocument();
+  // The script page's header shows at once (Reed's walk item 1): format, Look, Project and the steps, later ones locked.
+  expect(await screen.findByText("Not saved yet · saved when you type the first word")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Format: Dialogue" })).toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write the script first");
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
   await userEvent.type(screen.getByLabelText("Paste or write your script"), "B");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));
@@ -130,6 +133,25 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   // The title is one tap away in the header.
   await userEvent.click(screen.getByRole("button", { name: "Rename Untitled script" }));
   expect(screen.getByLabelText("Title")).toHaveValue("Untitled script");
+});
+
+test("New script at 390 and desktop: the header shows on load and opening saves nothing; a Look pick saves the script with that look, a Project pick files it", async () => {
+  const looks = [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }, { id: "noir", name: "Noir", blurb: "", on: true, sample_still_id: null }];
+  for (const width of [1440, 390]) {
+    setViewport(width);
+    const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { was_folder_id: null }] });
+    const { unmount } = renderApp("/b/1/scripts/new?kind=story");
+    await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
+    expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Look" })).getAllByRole("button", { name: "Use this look" })[0]);
+    await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", look: "noir" }));
+    unmount();
+  }
+  const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { was_folder_id: null }] });
+  renderApp("/b/1/scripts/new?kind=story");
+  await userEvent.click(await screen.findByRole("button", { name: /Project: none/ }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Launch" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toMatchObject({ kind: "script", id: 7, folder_id: 3 }));
 });
 
 test("New script: the script page opens with its editor already there, so no letter falls between the two boxes", async () => {
