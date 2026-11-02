@@ -139,13 +139,3 @@ def shot(db, **change) -> None:
     row.data["scenes"][0]["shots"][0].update(change)
     flag_modified(row, "data")
     db.commit()
-
-
-def approve_held(db) -> None:
-    """The owner's OK on every held job (an editor's Quick clip always waits for it)."""
-    from app.models.jobs import Job, JobStatus
-
-    db.query(Job).filter(Job.status == JobStatus.needs_owner_approval).update(
-        {Job.status: JobStatus.queued}
-    )
-    db.commit()
