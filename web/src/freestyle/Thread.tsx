@@ -6,6 +6,7 @@ import type { Tone } from "../components";
 import { plain } from "../projects/DirectorPanel";
 import { serverTime } from "../time";
 import { STATUS, type Freestyle } from "./useFreestyle";
+import { TreatmentCard, treatmentOf } from "../videos/Treatment";
 
 const DOT: Record<Tone, string> = { warning: "bg-warning", accent: "bg-accent", success: "bg-success", danger: "bg-danger", neutral: "bg-faint", media: "bg-faint" };
 
@@ -35,6 +36,7 @@ export type Said = components["schemas"]["ThreadItem"]; // a FreestyleItem, with
  *  owner to Needs you (an editor reads that it waits) unless `children` (the cut, a price card) under it say so. */
 export function Item({ t, words, why, owner, children, ref }: { t: Said; words: ReactNode; why?: string; owner?: boolean; children?: ReactNode; ref?: Ref<HTMLLIElement> }) {
   const director = t.kind === "move";
+  const story = director ? treatmentOf(t) : null; // the treatment: a card in place of its plain lines (#1192)
   return (
     <li ref={ref} className="flex min-w-0 gap-3">
       <span aria-hidden className={`grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${director ? "bg-accent-soft text-accent-text" : "bg-surface-3 text-text"}`}>
@@ -52,7 +54,7 @@ export function Item({ t, words, why, owner, children, ref }: { t: Said; words: 
           </span>
         </p>
         <div className="min-w-0 space-y-1 empty:hidden">
-          {words != null && <div className="whitespace-pre-line break-words">{words}</div>}
+          {story ? <TreatmentCard t={story} changed={t.text.startsWith("Changed the treatment")} /> : words != null && <div className="whitespace-pre-line break-words">{words}</div>}
           {why && <p className="break-words text-muted">{why}</p>}
           {t.status === "held" && !children &&
             (owner ? (

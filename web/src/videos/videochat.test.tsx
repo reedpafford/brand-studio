@@ -1,11 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { editor, owner } from "../test/people";
 import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
-import { TreatmentCard } from "./Treatment";
 
 // The director-first video's chat view (v5 B_VideoWaiting … B_ChangeHeld): a video made through a freestyle.
 const at = "2026-11-02T10:00:00Z";
@@ -90,11 +89,18 @@ test("made from a script, it shows the script and version it came from; the box 
   expect(screen.queryByLabelText("Tell the director what to change")).toBeNull();
 });
 
-test("a treatment card: the hook as its title, the story, why it holds, numbered beats with their purpose, and Changed", () => {
-  render(<TreatmentCard t={{ hook: "A dog gasps at salmon", story: "Bo finds salmon in his bowl.", why: "The reveal lands on the bag.", beats: [{ text: "Bo sniffs", purpose: "Hook" }, { text: "The bag", purpose: "Payoff" }], changed: true }} />);
-  const card = screen.getByRole("region", { name: "Treatment" });
-  expect(within(card).getByRole("heading", { name: "A dog gasps at salmon" })).toBeInTheDocument();
-  expect(within(card).getByText("Changed")).toBeInTheDocument();
-  expect(within(card).getByText("The reveal lands on the bag.")).toBeInTheDocument();
-  expect(within(card).getAllByRole("listitem").map((l) => l.textContent)).toEqual(["1Bo sniffsHook", "2The bagPayoff"]);
+test("the director's treatment is a card in the thread: hook, story, why it holds, numbered beats with their purpose; a new one says Changed", async () => {
+  setViewport(1440);
+  const treatment = (hook: string) => ({ hook, logline: "Bo finds salmon in his bowl.", why_it_holds: "The reveal lands on the bag.", beats: [{ id: "b1", lines: [1], purpose: "Hook", picture: "Bo sniffs" }, { id: "b2", lines: [2], purpose: "Payoff", picture: "The bag" }], ending: "Bag to camera, then the link." });
+  const told = (id: string, text: string, hook: string, when: string) => ({ ...item(id, "move", "Director", text, "done", when), treatment: treatment(hook) });
+  server(owner, fs({ thread: [item("m1", "message", "Reed", SCRIPT), told("s1", "The treatment: …", "A dog gasps at salmon", at), told("s2", "Changed the treatment: …", "Bo spins first", later)] }), run());
+  renderApp("/b/1/videos/50");
+  const [first, second] = await screen.findAllByRole("region", { name: "Treatment" });
+  expect(within(first).getByRole("heading", { name: "A dog gasps at salmon" })).toBeInTheDocument();
+  expect(within(first).queryByText("Changed")).toBeNull();
+  expect(within(first).getByText("The reveal lands on the bag.")).toBeInTheDocument();
+  expect(within(first).getAllByRole("listitem").map((l) => l.textContent)).toEqual(["1Bo sniffsHook", "2The bagPayoff"]);
+  expect(within(second).getByRole("heading", { name: "Bo spins first" })).toBeInTheDocument();
+  expect(within(second).getByText("Changed")).toBeInTheDocument();
+  expect(screen.queryByText("The treatment: …")).toBeNull(); // the card replaces its plain lines
 });

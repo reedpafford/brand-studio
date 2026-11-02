@@ -20,7 +20,6 @@ import { useScript } from "../scripts/useScript";
 import { refreshJobs } from "../jobs/refresh";
 import { useRail } from "../useMedia";
 import { serverTime } from "../time";
-import { TreatmentCard, treatmentsOf } from "./Treatment";
 import { VideoTop, mp4, useVideoProject } from "./VideoTop";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -152,9 +151,6 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
               </div>
             </div>
           )}
-          {treatmentsOf(run).map((t, i) => (
-            <TreatmentCard key={i} t={t} />
-          ))}
           <Thread
             fs={fs}
             items={items.map((t) => (t.id === delivered ? { ...t, text: "Delivered." } : t))}
