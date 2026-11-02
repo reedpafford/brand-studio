@@ -27,11 +27,11 @@ import { StoryboardPane } from "./StoryboardPane";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
-import { VIDEO_STEPS, videoBlocker, videoHold, videoLock, videoNext, videoStepFromParams, videoStepStates, type VideoProgress } from "./videoSteps";
+import { VIDEO_STEPS, isMake, videoBlocker, videoHold, videoLock, videoNext, videoPickerStates, videoStepFromParams, type VideoProgress } from "./videoSteps";
 import { HeldRequests, WaitingCount } from "../approvals/HeldRequests";
 import { DirectorPanel } from "./DirectorPanel";
 
-/** A video made from a library version: Plan · Cast · Storyboard · Clips · Final cut. */
+/** A video made from a library version: Plan · Cast · Make (Stills | Clips) · Final cut. */
 export function VideoPage() {
   const { brandId = "", projectId } = useParams();
   const id = Number(projectId);
@@ -87,6 +87,7 @@ export function VideoPage() {
   const asked = params.get("step");
   if (asked === "breakdown") return <Navigate to="?step=plan&view=shots" replace />;
   if (asked === "assets") return <Navigate to="?step=cast" replace />;
+  if (asked === "make") return <Navigate to={`?step=${videoPickerStates(step, all)[2].id}`} replace />;
   if (videoLock(step, all) !== null) return <Navigate to={`?step=${videoBlocker(step, all)}`} replace />;
 
   const pick = (to: string) => {
@@ -98,7 +99,8 @@ export function VideoPage() {
     setLine(null);
     setPanel(true);
   };
-  const label = VIDEO_STEPS.find((s) => s.id === step)?.label;
+  const label = isMake(step) ? "Make" : VIDEO_STEPS.find((s) => s.id === step)?.label;
+  const clipsLock = videoLock("clips", all);
   // Made work whose earlier step changed stays viewable; its paid presses wait, and the banner says where to go (audit M14).
   const held = videoHold(step, all);
   // While a look in the cast isn't ready, the update would be refused at its storyboard step: it waits with the same reason (Flow-QA on #936).
@@ -108,7 +110,7 @@ export function VideoPage() {
   const next = videoNext(step);
   const reason = !next ? null : dirty && step === "plan" ? "Save your changes first." : step === "cast" && flavours.unchosen ? `Pick a ${flavours.unchosen} flavour first` : videoLock(next.id, all);
   // The cost bar's press when the step has none of its own. On a phone, unsaved shot edits take the bar's place.
-  const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.label}`, reason, onPress: () => pick(next.id) } : null;
+  const nextAction: CostAction | null = next && !(step === "plan" && dirty && !rail) ? { label: `Next: ${next.id === "storyboard" ? "Make" : next.label}`, reason, onPress: () => pick(next.id) } : null;
   // Release while it is being made; Archive once it is done. An archived video is read-only until it is restored.
   const finished = isDone("final", progress);
   const target = { id, name: p.name, creditsUsed: p.credits_used, released: p.released };
@@ -171,7 +173,7 @@ export function VideoPage() {
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          {waiting ? <Skeleton className="h-control" /> : <StepPicker steps={videoStepStates(step, all)} onPick={pick} />}
+          {waiting ? <Skeleton className="h-control" /> : <StepPicker steps={videoPickerStates(step, all)} onPick={pick} />}
         </div>
         <Button variant="secondary" dense icon={FileText} onClick={() => setPanel(true)} aria-label="Show script">
           {rail ? "Script" : ""}
@@ -181,9 +183,14 @@ export function VideoPage() {
         <div>
           <h2 className="type-section">{label}</h2>
           {meta && <p className="text-sm text-muted tabular-nums">{meta}</p>}
+          {/* While Clips is locked (the stills aren't approved), its tab says why rather than opening. */}
+          {isMake(step) && clipsLock && <p className="text-sm text-muted">Clips: {clipsLock}</p>}
           {(step === "storyboard" || step === "clips" || step === "downloads") && <CheckSummary projectId={id} />}
         </div>
       </div>
+      {isMake(step) && (
+        <Tabs label="Make" value={step} onChange={(to) => to !== step && (to !== "clips" || !clipsLock) && pick(to)} tabs={[{ id: "storyboard", label: "Stills", count: all.frames.total || undefined }, { id: "clips", label: "Clips", count: all.clips.total || undefined }]} />
+      )}
       {hold && !update.stopped && ( // a stopped update says where, with that step's own press
         <Banner tone="warning" title={held?.at === "cast" ? "Waiting on the cast" : "Out of date"} action={fixAt && <Button variant="secondary" onClick={() => pick(fixAt.id)}>Open {fixAt.label}</Button>}>
           {hold}

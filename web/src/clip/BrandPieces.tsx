@@ -23,6 +23,7 @@ export function useBrandPieces(brandId: number): { pieces: Piece[]; screens: { k
   const props = useLibrary("prop");
   const screens = useQuery({
     queryKey: ["screens", brandId],
+    enabled: brandId > 0, // not before the brand has loaded (no /brands/0/… 404s)
     queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: brandId } } })).data ?? [],
   });
   const lift = (type: Piece["type"], rows: { id: number; name: string; image_file_ids?: number[]; sheet_status?: string }[] = []): Piece[] =>

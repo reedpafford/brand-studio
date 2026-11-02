@@ -217,7 +217,8 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
   // One press in the new flow writes the frames and draws every still: one total decides the price and the budget check.
   const makeTotal = props.oneStep && props.clips && exact !== undefined && writeCost !== undefined ? Math.ceil(writeCost + exact * props.clips) : writeCost;
-  const makeLabel = list.length ? "Redo storyboard" : "Make the storyboard";
+  // Inside Make (the new page) the tab is Stills, so its press says so too; the old page keeps "storyboard".
+  const makeLabel = props.oneStep ? (list.length ? "Redo stills" : "Make the stills") : list.length ? "Redo storyboard" : "Make the storyboard";
   const allCost = stills(missing.length);
   const err = make.error ?? approve.error;
   // A still or a saved prompt that was refused says why on its own frame, where it was pressed.
@@ -239,7 +240,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
             : approveAll.action,
   );
   if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
-  if (frames.isError) return <p role="alert" className={errorClass}>Could not load the storyboard. Try again.</p>;
+  if (frames.isError) return <p role="alert" className={errorClass}>Could not load the {props.oneStep ? "stills" : "storyboard"}. Try again.</p>;
   const made = list.filter((f) => f.file_id !== null).length;
   const makeButton = (
     <>
@@ -256,7 +257,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
       </Button>
       {confirmRedo && (
         <Dialog
-          title="Redo storyboard?"
+          title={props.oneStep ? "Redo the stills?" : "Redo storyboard?"}
           actionLabel={`${makeLabel}${makeTotal === undefined ? "" : ` · ${pressLabel(makeTotal, "estimate")}`}`}
           danger={made > 0}
           cancelLabel="Not yet"
@@ -380,7 +381,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
           );
         })}
       </ul>
-      <StoryboardVersions projectId={projectId} hold={writingNow || Object.values(drawingNow).some(Boolean) ? "Wait for the storyboard and stills being made." : null} />
+      <StoryboardVersions projectId={projectId} hold={writingNow || Object.values(drawingNow).some(Boolean) ? "Wait for the stills being made." : null} />
       {lightbox && lightbox.file_id !== null && (
         <Sheet title={`Clip ${lightbox.clip_id} · shot ${lightbox.shot_id}`} onClose={() => setLightbox(null)}>
           <img src={fileUrl(lightbox.file_id)} alt={`Still for clip ${lightbox.clip_id}`} className="w-full rounded-md" />
