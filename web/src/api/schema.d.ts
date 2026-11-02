@@ -6793,6 +6793,8 @@ export interface components {
              * @enum {string}
              */
             sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
+            /** Voice File Name */
+            voice_file_name?: string | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -7904,6 +7906,8 @@ export interface components {
              * @enum {string}
              */
             sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
+            /** Voice File Name */
+            voice_file_name?: string | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */

@@ -37,3 +37,15 @@ def test_my_credits_shows_the_directors_time_and_what_the_ok_covers(app, db, own
     assert 0 < video["director_credits"] <= video["credits"]
     shown = owner.get(f"/freestyles/{fs['id']}").json()
     assert video["approved_up_to"] == shown["up_to"]  # one send, its price
+
+
+def test_a_characters_page_names_its_voice_sample_file(editor):
+    from tests.conftest import upload
+
+    voice = upload(editor, "mia-voice.m4a", b"\x00\x00\x00 ftypM4A ", "audio/mp4")
+    mia = editor.post("/library/character", json={"name": "Mia", "voice_file_id": voice}).json()
+    assert editor.get(f"/library/character/{mia['id']}").json()["voice_file_name"] == (
+        "mia-voice.m4a"
+    )
+    leo = editor.post("/library/character", json={"name": "Leo"}).json()
+    assert leo["voice_file_name"] is None
