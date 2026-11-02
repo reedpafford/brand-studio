@@ -243,8 +243,9 @@ def read_site(url: str) -> dict:
 
 
 def study_link(url: str, folder: Path) -> Path:
-    """A song-ad study's link on the stand-ins: the 6 s test clip, so a walk reaches the
-    finished study; a reel id with "blocked" in it is refused, as Instagram would."""
+    """A reel's link on the stand-ins (Import a reel, or a song-ad study): the 6 s test clip,
+    never fetched, so a walk reaches the read reel or the finished study; a reel id with
+    "blocked" in it is refused, as Instagram would."""
     if "blocked" in url:
         return refuse_link(url, folder)
     return two_scenes(folder / "reel.mp4")
