@@ -6391,6 +6391,10 @@ export interface components {
              * @default
              */
             why: string;
+            /** Treatment */
+            treatment?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** FreestyleOut */
         FreestyleOut: {
@@ -9524,6 +9528,10 @@ export interface components {
             why: string;
             /** Answered */
             answered?: boolean | null;
+            /** Treatment */
+            treatment?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** TitleIn */
         TitleIn: {

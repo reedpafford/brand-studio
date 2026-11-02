@@ -601,32 +601,18 @@ def treatment(db: Session, project: Project) -> dict | None:
     return (job.output or None) if job else None
 
 
-CANNED_TREATMENT = {  # the stand-in's (no paid call), so QA can walk the flow
-    "hook": "A wallet on the kitchen floor, and a phone lighting up beside it.",
-    "logline": "Mom finds out the dip she was afraid of is the buy she was waiting for.",
-    "why_it_holds": "A small mystery in the first second, answered in the last line.",
-    "beats": [{"id": "b1", "lines": [1], "purpose": "hook", "picture": "the phone lights up"},
-              {"id": "b2", "lines": [2], "purpose": "payoff", "picture": "her smile"}],
-    "ending": "The payoff, then the app's name.",
-}  # fmt: skip
-
-
 def write_treatment(db: Session, user: User, project: Project, run: dict | None,
                     note: str = "") -> str:  # fmt: skip
     """Queue the treatment (the Director's step: hook, logline, why it holds, beats, ending),
     on the director's own limit like a watch; its words in plain lines."""
     from app import plans, prompts
     from app.credits import estimate, past_approved
-    from app.enhance import escape, project_context
+    from app.enhance import project_context
     from app.routes.jobs import enqueue
 
     version = plans.script(db, project)
-    system, context = project_context(db, project, "treatment")
-    brief = re.search(r"<brief>\n(.*?)\n</brief>", context, re.S)
-    cast = re.search(r"<cast>\n(.*?)\n</cast>", context, re.S)
-    lines = cast[1].splitlines() if cast else []
-    text = prompts.treatment_input(escape(prompts.number_lines(version.text)),
-                                   brief[1] if brief else "", lines, note=escape(note))  # fmt: skip
+    system, context = project_context(db, project, "treatment")  # its look's skill and craft
+    text = f"{context}\n{prompts.treatment_input(version.text, note)}"
     data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
             "prompt": text, "max_tokens": 6000}  # fmt: skip
     again = treatment(db, project) is not None
@@ -649,11 +635,12 @@ def told(made: dict, again: bool) -> str:
 
 
 def treatment_block(db: Session, project: Project) -> str:
-    """<treatment> for a step's user message (plan, breakdown, clip prompts, watch), or ""."""
-    from app.enhance import escape
+    """<treatment> for a step's user message (plan, breakdown, clip prompts, the watch, the
+    director), or "" before one is made (the Director's prompts.treatment_block)."""
+    from app import prompts
 
-    made = treatment(db, project)
-    return f"<treatment>\n{escape(json.dumps(made, indent=1))}\n</treatment>\n" if made else ""
+    told = prompts.treatment_block(treatment(db, project))
+    return f"{told}\n" if told else ""
 
 
 def video_state(db: Session, project: Project) -> dict:

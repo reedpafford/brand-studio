@@ -414,10 +414,10 @@ class FakeWriter:
         return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked})
 
     def _treatment(self, prompt):
-        """The stand-in treatment (app/director): the same one every time."""
-        from app.director import CANNED_TREATMENT
+        """The stand-in treatment: one beat a spoken line (the Director's)."""
+        from app import prompts
 
-        return CANNED_TREATMENT
+        return prompts.stand_in_treatment(_tag(prompt, "script") or "")
 
     def _enhance(self, prompt):
         return {"suggestions": [], "notes": []}

@@ -82,3 +82,18 @@ def test_planning_again_takes_the_watchs_note_once_a_run(app, db, owner, editor)
     assert said == f"Planning again: {note}"
     job = db.query(Job).filter(Job.project_id == pid).order_by(Job.id.desc()).first()
     assert job.input["step"] == plans.STEP and "give the payoff its own shot" in job.input["prompt"]
+
+
+def test_the_treatment_is_the_first_move_and_is_posted_in_the_chat(app, db, owner, editor):
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=120)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    assert out["turns"][0]["tool"] == "treatment"  # the story first
+    (told,) = [m for m in out["thread"] if m.get("treatment")]
+    assert told["text"].startswith("The treatment:") and told["treatment"]["beats"]
+    steps = [j.input for j in db.query(Job).filter(Job.project_id == pid)]
+    written = [i for i in steps if i.get("step") in ("clip_prompts", "watch_cut")]
+    assert written and all("<treatment>" in i["prompt"] for i in written)  # each read it
+    assert any(i.get("step") == "treatment" and i.get(director.RUN) for i in steps)  # its own
