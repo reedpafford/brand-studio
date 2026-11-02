@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
@@ -16,8 +16,8 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   "GET /credits/allowances": [200, [{ user_id: 2, name: "Sam", quick_clip_credits_used: 120, quick_clip_credits_allowed: 145 }]],
   ...o,
 });
-function open() {
-  renderApp("/team");
+function open(tab = "limits") {
+  renderApp(`/settings?tab=${tab}`);
 }
 afterEach(() => vi.unstubAllGlobals());
 
@@ -72,18 +72,37 @@ test("a value that isn't a whole number says so and can't be saved", async () =>
   expect(screen.getByRole("button", { name: "Save limits" })).toBeDisabled();
 });
 
-test("an editor doesn't see Credit limits", async () => {
+test("Settings is the owner's: an editor sees no tabs, no looks, languages or limits", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 2, role: "editor" }] }));
   open();
-  await screen.findByRole("heading", { name: "People" });
+  expect(await screen.findByText("Only the owner manages settings.")).toBeInTheDocument();
+  expect(screen.queryByRole("tablist")).toBeNull();
   expect(screen.queryByRole("region", { name: "Credit limits" })).toBeNull();
+});
+
+test("Settings has four tabs, Looks first; /looks and /languages land on their tabs, and Team keeps only people and invites", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /looks": [200, []], "GET /languages": [200, []] }));
+  renderApp("/languages");
+  const tabs = await screen.findByRole("tablist", { name: "Settings" });
+  expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Looks", "Languages", "Studio name", "Credit limits"]);
+  expect(within(tabs).getByRole("tab", { name: "Languages" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("region", { name: "Languages" })).toBeInTheDocument();
+  await userEvent.click(within(tabs).getByRole("tab", { name: "Credit limits" }));
+  expect(await screen.findByLabelText("Editors' weekly allowance")).toBeInTheDocument();
+  cleanup();
+  renderApp("/team");
+  await screen.findByRole("heading", { name: "People" });
+  expect(screen.queryByLabelText("Studio name")).toBeNull();
+  expect(screen.queryByRole("region", { name: "Credit limits" })).toBeNull();
+  expect(within(screen.getByRole("main")).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings?tab=name");
 });
 
 test("Studio name is filled, Save waits for a change, and Undo puts the old name back", async () => {
   setViewport(1440);
   const calls = fakeServer(base({ "PUT /workspace": [200, { id: 1, name: "Reed's studio" }] }));
-  open();
+  open("name");
   const name = await screen.findByLabelText("Studio name");
   expect(name).toHaveValue("Iron Paws Studio");
   expect(screen.getByText("Shown on invite links.")).toBeInTheDocument();
@@ -101,7 +120,7 @@ test("Studio name is filled, Save waits for a change, and Undo puts the old name
 test("a studio stored as a slug shows as Reed's studio, and Save is ready", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /workspace": [200, { id: 1, name: "owner-reed" }] }));
-  open();
+  open("name");
   expect(await screen.findByLabelText("Studio name")).toHaveValue("Reed's studio");
   expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
 });

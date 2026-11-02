@@ -3,7 +3,7 @@ import { ChartColumn, ChevronRight, Search } from "lucide-react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton } from "../components";
 import { useRail } from "../useMedia";
-import { useDebounced } from "../scripts/ScriptsPage";
+import { useDebounced } from "../scripts/status";
 import { useRestoreBrand } from "../brand/ArchiveBrand";
 import { Charges } from "./Charges";
 import { Money, PeriodControl, Stats, lastText, money, periodLine, periodWord } from "./parts";

@@ -6,7 +6,6 @@ import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 
 const owner = { id: 1, email: "o@b.co", name: "Olu", role: "owner", workspace_id: 1 };
-const editor = { ...owner, id: 2, role: "editor" };
 const house = { id: "house", name: "House", blurb: "Our own look", on: true, sample_still_id: null };
 const pixar = { id: "pixar", name: "Disney Pixar", blurb: "Soft 3D feature-film look", on: false, sample_still_id: null };
 const sample = (o: object = {}) => ({ status: "none", reason: null, credits: 6, hero: { id: 5, name: "Bo" }, characters: [], still_id: null, clip_id: null, look: pixar, ...o });
@@ -133,13 +132,6 @@ test("a failed sample says why with Try again; an On look offers Switch off", as
   expect(await within(card).findByText("The still was refused. Nothing was charged.")).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: /Try again · up to 6 credits/ })).toBeInTheDocument();
   expect(within(screen.getByLabelText("Zack D")).getByRole("button", { name: "Switch off" })).toBeInTheDocument();
-});
-
-test("editors don't get the Looks page", async () => {
-  setViewport(1440);
-  fakeServer(routes({ "GET /auth/me": [200, editor] }));
-  open();
-  expect(await screen.findByText("Only the owner manages looks.")).toBeInTheDocument();
 });
 
 test("Make another sample keeps the character picked for it", async () => {

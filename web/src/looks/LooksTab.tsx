@@ -2,28 +2,22 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, Panel, Select, Skeleton } from "../components";
 import { useLooks, type Look } from "../scripts/Looks";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
-/** The Looks page (owner, flows ST3): every look, its sample, and the switch that lets editors pick it. */
-export function LooksPage() {
-  const owner = useMe().data?.role === "owner";
+/** Settings › Looks (owner, flows ST3): every look, its sample, and the switch that lets editors pick it. */
+export function LooksTab() {
   const looks = useLooks();
   // With no brand at all the shell shows "No brands yet" instead of this page, so there's always one to sample with.
   const brands = useBrands().data ?? [];
   const [picked, setPicked] = useState<number | null>(null);
   const brandId = picked ?? brands[0]?.id ?? null;
-  if (!owner) return <p className="p-6">Only the owner manages looks.</p>;
   return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className="type-page">Looks</h1>
-        <p className="text-sm text-muted">How the pictures are drawn. A look is on for editors once you've seen its sample.</p>
-      </div>
+    <section aria-label="Looks" className="space-y-4">
+      <p className="text-sm text-muted">How the pictures are drawn. A look is on for editors once you've seen its sample.</p>
       {brands.length > 1 && (
         <div className="max-w-xs">
           <Select label="Sample with" hint="The sample uses this brand's hero." value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
@@ -43,7 +37,7 @@ export function LooksPage() {
           </li>
         ))}
       </ul>
-    </main>
+    </section>
   );
 }
 
@@ -92,7 +86,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
       ) : s.status === "ready" ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <Button busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
+            <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
             <Button variant="ghost" busy={make.isPending} charge="estimate" price={s.credits} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>Make another sample</Button>
           </div>
         </div>
@@ -112,7 +106,7 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
             </Select>
           )}
           {s.test_site && <p className="text-sm text-muted">{s.test_site}</p>}
-          <Button charge="estimate" price={s.credits} busy={make.isPending} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>
+          <Button variant="secondary" charge="estimate" price={s.credits} busy={make.isPending} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>
             {s.status === "failed" ? "Try again" : "Make a sample"}
           </Button>
         </div>

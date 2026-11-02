@@ -265,11 +265,28 @@ def test_n19_gives_every_video_an_empty_director_chat(tmp_path):
     url = f"sqlite:///{tmp_path}/m.db"
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "n18")
+    command.upgrade(cfg, "n20")
     engine = create_engine(url)
     with engine.begin() as conn:
         _row(conn, "projects", id=1, brand_id=1, workspace_id=1, name="V")
     command.upgrade(cfg, "n19")
     with engine.connect() as conn:
         assert json.loads(conn.execute(text("SELECT director_chat FROM projects")).scalar()) == []
+    command.downgrade(cfg, "n20")
+
+
+def test_n20_makes_the_freestyles_table_and_takes_it_away(tmp_path):
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n20")
+    with create_engine(url).connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM freestyles")).scalar() == 0
     command.downgrade(cfg, "n18")
+    with create_engine(url).connect() as conn:
+        assert (
+            "freestyles"
+            not in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")
+            .scalars()
+            .all()
+        )

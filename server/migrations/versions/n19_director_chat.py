@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "n19"
-down_revision = "n18"  # tracks next's head for CI; re-pointed to the head just before merge
+down_revision = "n20"  # after Freestyle (n20), which landed first
 branch_labels = None
 depends_on = None
 
