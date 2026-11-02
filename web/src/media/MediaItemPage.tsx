@@ -10,7 +10,9 @@ import { serverTime } from "../time";
 import { kindName, opens } from "./MediaPage";
 
 const when = (iso: string) => serverTime(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-const PAGES = 5; // there is no read of one item: it is found in the brand's media list, newest first
+const PAGES = 5;
+/** "MP4", "PNG", "MP3": what Download gives (G_MediaItem's "Download MP4"). */
+const fileType = (t: string) => ({ "video/mp4": "MP4", "image/png": "PNG", "image/jpeg": "JPG", "image/webp": "WebP", "audio/mpeg": "MP3", "audio/mp4": "M4A", "audio/wav": "WAV" })[t] ?? ""; // there is no read of one item: it is found in the brand's media list, newest first
 
 /** One thing in Media (v5 G_MediaItem): the picture, take, song or video itself, what it is and who made it, where it came from
  *  (one press back to its step), and Download. */
@@ -32,11 +34,14 @@ export function MediaItemPage() {
     if (more && !media.isFetchingNextPage) void media.fetchNextPage();
   }, [more, media]);
   const crumb = (
-    <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 border-b border-border pb-3 text-sm text-muted">
-      <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control items-center hover:text-text sm:min-h-control-dense">Media</Link>
-      <span aria-hidden>›</span>
-      <span className="font-medium text-text" aria-current="page">{m ? `${m.video_name ? `${m.video_name} · ` : ""}${kindName(m.kind)}` : "…"}</span>
-    </nav>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+      <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm text-muted">
+        <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control min-w-11 items-center justify-center hover:text-text sm:min-h-control-dense">Media</Link>
+        <span aria-hidden>›</span>
+        <span className="font-medium text-text" aria-current="page">{m ? `${m.video_name ? `${m.video_name} · ` : ""}${kindName(m.kind)}` : "…"}</span>
+      </nav>
+      <Link to={`/b/${brandId}/media`} className={buttonClass("ghost")}>Close</Link>
+    </div>
   );
   if (media.isPending || more) return <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">{crumb}<Skeleton className="h-96" /></main>;
   if (!m)
@@ -75,6 +80,7 @@ export function MediaItemPage() {
             <Link to={to} className="inline-flex min-h-control items-center text-accent-text hover:underline">
               {m.video_name ? `Open its video: ${m.video_name}` : `Open in ${step}`}
             </Link>
+            <p className="text-sm text-muted">{m.open_step === "quick" ? "Made in Freestyle; it opens its own thread." : m.video_name ? `Opens the video at ${step}, where it was made.` : `Opens ${step}, where it was made.`}</p>
           </div>
           <div className="space-y-2 border-t border-border py-4">
             <h2 className="text-sm font-medium">Kind</h2>
@@ -87,7 +93,7 @@ export function MediaItemPage() {
           <div className="border-t border-border py-4">
             <a href={src} download className={`${buttonClass("primary")} gap-2`}>
               <Download size={20} strokeWidth={1.75} aria-hidden />
-              Download
+              Download {fileType(m.content_type)}
             </a>
           </div>
         </section>

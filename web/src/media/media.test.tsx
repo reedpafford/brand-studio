@@ -212,7 +212,8 @@ test("a tile opens the item's own page at 390 and desktop: the item, who made it
     await userEvent.click(await screen.findByRole("link", { name: /^Open Bo tries salmon · A/ }));
     expect(await screen.findByRole("heading", { name: "Final video", level: 1 })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open its video: Bo tries salmon · A" })).toHaveAttribute("href", "/b/1/videos/9?step=downloads");
-    expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute("href", "/api/files/30");
+    expect(screen.getByRole("link", { name: "Download MP4" })).toHaveAttribute("href", "/api/files/30");
+    expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", "/b/1/media");
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Media" })).toHaveAttribute("href", "/b/1/media");
     unmount();
   }

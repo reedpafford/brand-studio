@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { Pause, Play } from "lucide-react";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button } from "../components";
@@ -40,14 +41,13 @@ export function ItemView({ item, kind, shared, brandNames, onEdit }: { item: Ite
     <div>
       <div className="space-y-1 pb-4">
         <h1 className="type-page">{item.name}</h1>
-        {item.notes ? <p className="whitespace-pre-line text-text">{item.notes}</p> : <p className="text-muted">No description yet.</p>}
+        {/* A product's line leads, then its notes (G_Prop: "Grain-free salmon kibble for picky dogs. Label always readable…"). */}
+        {kind === "prop" && item.short_description && <p className="text-text">{item.short_description}</p>}
+        {item.notes ? <p className="whitespace-pre-line text-text">{item.notes}</p> : !(kind === "prop" && item.short_description) && <p className="text-muted">No description yet.</p>}
         {shared.length > 0 && <p className="text-sm text-muted">Shared with {shared.join(", ")}. Changes apply there too.</p>}
       </div>
       {kind === "prop" && (
         <>
-          <Section title="What it is">
-            <p>{item.short_description || <span className="text-muted">Not said yet.</span>}</p>
-          </Section>
           <Section title="Main claim">
             <p>{item.main_claim || <span className="text-muted">Not said yet.</span>}</p>
             {(item.advice ?? []).map((a) => (
@@ -56,8 +56,7 @@ export function ItemView({ item, kind, shared, brandNames, onEdit }: { item: Ite
           </Section>
         </>
       )}
-      {kind === "character" && (
-        <>
+      {kind !== "prop" && (
           <Section title="Pictures" action={quiet("Add image")}>
             {item.source_photo_file_id || pictures.length > 0 ? (
               <div className="flex flex-wrap gap-2">
@@ -71,8 +70,11 @@ export function ItemView({ item, kind, shared, brandNames, onEdit }: { item: Ite
             )}
             {item.source_photo_file_id && <p className="text-sm text-muted">The source photo makes the sheet; it isn't used in videos.</p>}
           </Section>
+      )}
+      {kind === "character" && (
+        <>
           <Section title="Voice sample" action={quiet(item.voice_file_id ? "Replace voice" : "Add voice")}>
-            {item.voice_file_id ? <audio controls src={fileUrl(item.voice_file_id)} aria-label="Play the voice sample" className="w-full max-w-md" /> : <p className="text-sm text-muted">No voice sample yet.</p>}
+            {item.voice_file_id ? <VoicePlay fileId={item.voice_file_id} /> : <p className="text-sm text-muted">No voice sample yet.</p>}
           </Section>
           <Section title="Outfits" action={quiet("Add outfit")}>
             {outfits.length > 0 ? (
@@ -90,13 +92,31 @@ export function ItemView({ item, kind, shared, brandNames, onEdit }: { item: Ite
           </Section>
         </>
       )}
-      <Section title="Brands">
+      {/* G_Character has only the "Shared with" line; a place and a prop list their brands. */}
+      {kind !== "character" && <Section title="Brands">
         <div className="flex flex-wrap gap-2">
           {brandNames.map((n) => (
             <span key={n} className="inline-flex h-7 items-center rounded-sm border border-border-strong px-2 text-sm">{n}</span>
           ))}
         </div>
-      </Section>
+      </Section>}
+    </div>
+  );
+}
+
+/** The voice sample as one press (G_Character: "▶ Play · 0:12"), not the browser's audio bar. */
+function VoicePlay({ fileId }: { fileId: number }) {
+  const audio = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [secs, setSecs] = useState<number | null>(null);
+  const time = (n: number) => `${Math.floor(n / 60)}:${String(Math.round(n % 60)).padStart(2, "0")}`;
+  return (
+    <div className="flex items-center gap-3">
+      <Button variant="secondary" icon={playing ? Pause : Play} aria-label={playing ? "Pause the voice sample" : "Play the voice sample"} onClick={() => (playing ? audio.current?.pause() : void audio.current?.play())}>
+        {playing ? "Pause" : "Play"}
+      </Button>
+      {secs !== null && <span className="text-sm tabular-nums text-muted">{time(secs)}</span>}
+      <audio ref={audio} src={fileUrl(fileId)} preload="metadata" onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setSecs(e.currentTarget.duration)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} className="hidden" />
     </div>
   );
 }

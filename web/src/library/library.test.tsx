@@ -453,3 +453,21 @@ test("a look starting with a vowel reads Make an …", async () => {
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByRole("button", { name: /Make an Anime comic sheet/ })).toBeInTheDocument();
 });
+
+test("v5 pages (QA-3 on #1204): a character's voice is one Play press and it has no Brands section; a place shows its pictures; a prop's crumb is Props & products; no History until there's an earlier version", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/character/5": [200, { ...mia, voice_file_id: 21 }], "GET /library/character/5/versions": [200, [{ version: 3, snapshot: mia, saved_by_id: 2, created_at: "2026-10-23T10:00:00Z" }]] });
+  const { unmount } = renderApp("/b/1/library/characters/5");
+  expect(await screen.findByRole("button", { name: "Play the voice sample" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Brands" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "History" })).toBeNull();
+  unmount();
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe", image_file_ids: [9] }], "GET /library/place/7/versions": [200, []] });
+  const place = renderApp("/b/1/library/places/7");
+  expect(await within(await screen.findByRole("region", { name: "Pictures" })).findByRole("img", { name: "Cafe 1" })).toBeInTheDocument();
+  place.unmount();
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/prop/8": [200, { ...mia, id: 8, kind: "prop", name: "Bag", short_description: "Grain-free salmon kibble", main_claim: "" }], "GET /library/prop/8/versions": [200, []] });
+  renderApp("/b/1/library/props/8");
+  expect(await screen.findByRole("link", { name: "Props & products" })).toHaveAttribute("href", "/b/1/library/props");
+  expect(screen.getByText("Grain-free salmon kibble")).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "What it is" })).toBeNull();
+});

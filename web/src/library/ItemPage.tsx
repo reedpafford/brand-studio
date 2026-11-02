@@ -100,9 +100,9 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
         <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm text-muted">
-          <Link to={`/b/${brandId}/library/characters`} className="inline-flex min-h-control items-center hover:text-text sm:min-h-control-dense">Cast &amp; places</Link>
+          <Link to={`/b/${brandId}/library/characters`} className="inline-flex min-h-control min-w-11 items-center justify-center hover:text-text sm:min-h-control-dense">Cast &amp; places</Link>
           <span aria-hidden>›</span>
-          <Link to={`/b/${brandId}/library/${slug}`} className="inline-flex min-h-control items-center hover:text-text sm:min-h-control-dense">{title}</Link>
+          <Link to={`/b/${brandId}/library/${slug}`} className="inline-flex min-h-control min-w-11 items-center justify-center hover:text-text sm:min-h-control-dense">{slug === "props" ? "Props & products" : title}</Link>
           <span aria-hidden>›</span>
           <span className="font-medium text-text" aria-current="page">{item.name}</span>
         </nav>
@@ -119,7 +119,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
       </div>
       {archive.isError && <p role="alert" className={errorClass}>{archive.error.message}</p>}
       <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
-        <div className="min-w-0 space-y-6">
+        <div className="order-2 min-w-0 space-y-6 lg:order-1">
           {kind === "prop" ? (
             <PropPictures ids={item.image_file_ids ?? []} name={item.name} onAdd={() => setEditing(true)} />
           ) : (
@@ -129,7 +129,8 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
             </>
           )}
         </div>
-        <div className="min-w-0 max-w-[720px] space-y-0">
+        {/* On a phone the name and its sections come first, the sheet after (QA-3 on #1204: not 1,500 px down). */}
+        <div className="order-1 min-w-0 max-w-[720px] space-y-0 lg:order-2">
       {!editing ? (
         <ItemView item={item} kind={kind} shared={others as string[]} brandNames={(item.brand_ids ?? []).map((id) => brands?.find((b) => b.id === id)?.name).filter((n): n is string => !!n)} onEdit={() => setEditing(true)} />
       ) : (
@@ -221,9 +222,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
             </div>
           )}
           {/* History stays under the page and the form alike: a restore works from either. */}
-          <div className="border-t border-border pt-4">
-            <History kind={kind} item={item} onRestored={refresh} />
-          </div>
+          <History kind={kind} item={item} onRestored={refresh} />
         </div>
       </div>
     </main>
@@ -251,8 +250,10 @@ function History({ kind, item, onRestored }: { kind: "character" | "place" | "pr
     },
   });
   const who = (id: number | null) => members.data?.find((m) => m.id === id)?.name ?? "someone";
+  // Nothing to restore yet (only the version in use): no History at all (QA-3 on #1204).
+  if (!versions.data || versions.data.filter((v) => v.version !== item.version).length === 0) return null;
   return (
-    <section className="space-y-2">
+    <section className="space-y-2 border-t border-border pt-4">
       <h2 className="text-[length:var(--text-md)] font-semibold">History</h2>
       {restore.isError && <p role="alert" className={errorClass}>{restore.error.message}</p>}
       <ul className="divide-y divide-border text-sm">
@@ -283,8 +284,8 @@ function PropPictures({ ids, name, onAdd }: { ids: number[]; name: string; onAdd
         <div className="grid aspect-square w-full place-items-center rounded-md border border-border bg-surface-2 text-muted">No picture yet</div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        {ids.slice(1).map((id, n) => (
-          <img key={id} src={fileUrl(id)} alt={`${name} ${n + 2}`} className="size-16 rounded-md border border-border bg-surface-2 object-cover" />
+        {ids.length > 1 && ids.map((id, n) => (
+          <img key={id} src={fileUrl(id)} alt={`${name} ${n + 1}`} className="size-16 rounded-md border border-border bg-surface-2 object-cover" />
         ))}
         <Button variant="ghost" onClick={onAdd}>Add image</Button>
       </div>
