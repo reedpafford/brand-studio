@@ -14,6 +14,7 @@ import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 import { LookFixedNote, LookTip, type LookFixed } from "./LookFix";
 import { EarlierStills } from "./Versions";
+import { Tag } from "./OtherTakes";
 
 type Frame = components["schemas"]["FrameOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -98,11 +99,9 @@ export function FrameCard(props: {
   if (props.thumb)
     return (
       <li className="w-16" aria-label={`Frame ${f.clip_id}`}>
-        <button type="button" className="block w-full space-y-1 text-left text-xs text-muted" aria-label={`Still for clip ${f.clip_id}: approve, redo or change it`} onClick={() => setOpened(true)}>
-          <span className="block overflow-hidden rounded-sm bg-surface-2" style={{ aspectRatio: ratio(props.aspect) }}>
-            {f.file_id !== null && <img src={fileUrl(f.file_id)} alt="" className="h-full w-full object-cover" />}
-          </span>
-          Still
+        <button type="button" className="relative block w-full overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect) }} aria-label={`Still for clip ${f.clip_id}: approve, redo or change it`} onClick={() => setOpened(true)}>
+          {f.file_id !== null && <img src={fileUrl(f.file_id)} alt="" className="h-full w-full object-cover" />}
+          <Tag>Still</Tag>
         </button>
         {opened && (
           <Sheet title={`Still for clip ${f.clip_id.replace(/^c/, "")}`} onClose={() => setOpened(false)}>
