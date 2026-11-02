@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { onBrand, signIn } from "./helpers";
 
 // The director (first slice, #1087), on the stand-ins: an editor on a video from a published script presses Make it, sees
-// each move as it goes, and gets the finished cut with its note. Credits only, never dollars; nothing paid is called.
+// each move as it goes (it watches its cut, fixes what it found and cuts again, #1145), and gets the finished cut with
+// its note. Credits only, never dollars; nothing paid is called.
 test("at 390, an editor presses Make it and the director delivers the finished cut with its note", async ({ page, browser, baseURL }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 390, height: 900 });
@@ -34,6 +35,10 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await ed.getByText(/^Every move \(\d+\)$/).click();
   const moves = await ed.locator("details", { hasText: /^Every move/ }).locator("ol").textContent();
   expect(moves).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words only: no tool names, clip codes or JSON
+  expect(moves).toContain("Watching the cut."); // it watched its cut (#1145)
+  expect((moves ?? "").match(/Made the cut\./g)?.length ?? 0).toBeGreaterThanOrEqual(2); // and cut again after its fixes
+  const noted = /^The cut is made\b.*Muted a stretch of clip \d+ instead of remaking it\./; // the delivery note names the mute
+  await expect(ed.locator("p").filter({ hasText: noted }).first()).toBeVisible();
   expect(await ed.locator("main").textContent()).not.toMatch(/\$\d|ask (Reed|the owner)/i);
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);

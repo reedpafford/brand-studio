@@ -412,6 +412,7 @@ def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, e
     ((start, end),) = db.get(ClipTake, last.picked_take_id).made_with["mutes"]
     assert round(end - start, 2) == 0.5  # the half second the watch found, nothing more
     assert out["ended"].endswith(muted)  # named in the delivery note
+    assert out["turns"][-1]["why"].endswith(muted)  # the deliver turn's note, as the page shows it
     user = db.query(User).filter_by(email="ed@example.com").one()
     again = director_tools.run(db, user, db.get(Project, pid), {"tool": "mute", "clip_id": "c1"},
                                None)  # fmt: skip
@@ -430,19 +431,23 @@ def test_it_never_watches_before_a_cut_or_the_same_cut_twice(app, db, owner, edi
     prompt = director.turn_input(db, project, {"id": "r", "turn": 0, "redos": {}})["prompt"]
     assert '"watches_left": 3' in prompt and '"watch": {' in prompt
     db.commit()
-    real = director.choose
+    real, asked = director.choose, []
 
-    def watch_again(state):  # once it has watched, it asks to watch the same cut again
+    def watch_again(state):  # once it has watched, it asks twice to watch the same cut again
         out = real(state)
         again = out["tool"] in ("make_take", "mute") and state["watch"].get("current")
-        return {**out, "tool": "watch_cut"} if again else out
+        if again and len(asked) < 2:
+            asked.append(state["allowed"]["watches_left"])
+            return {**out, "tool": "watch_cut"}
+        return out
 
     monkeypatch.setattr("app.director.choose", watch_again)
     editor.post(f"/projects/{pid}/director")
     _run(app, db)
     out = editor.get(f"/projects/{pid}/director").json()
-    assert out["ended"] == "It stopped: it already watched this cut.", out["turns"]
-    assert [t["tool"] for t in out["turns"]].count("watch_cut") == 3  # once, then refused twice
+    assert out["status"] == "delivered", (out["ended"], out["turns"])  # the run went on
+    again = [t for t in out["turns"] if t["result"] == director.WATCHED_AGAIN]
+    assert len(again) == 2 and asked == [2, 2]  # refused twice, and neither counted as a watch
 
 
 def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owner, editor):
