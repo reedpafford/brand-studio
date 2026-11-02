@@ -131,7 +131,7 @@ export function MediaItemPage() {
         </section>
       </div>
       {asking && (
-        <Dialog title={`Delete this ${kindName(m.kind).toLowerCase()}?`} cancelLabel="Keep it" actionLabel="Delete" danger busy={remove.isPending} onCancel={() => setAsking(false)} onConfirm={() => remove.mutate()}>
+        <Dialog title={`Delete this ${m.open_step === "quick" ? "clip" : m.kind === "final" ? "final cut" : kindName(m.kind).toLowerCase()}?`} cancelLabel="Keep it" actionLabel="Delete" danger busy={remove.isPending} onCancel={() => setAsking(false)} onConfirm={() => remove.mutate()}>
           It leaves Media for everyone.{m.video_name ? " Its video keeps its own copy." : ""}
         </Dialog>
       )}
