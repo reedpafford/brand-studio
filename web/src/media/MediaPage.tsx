@@ -28,7 +28,7 @@ const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { da
 /** Where an item is opened, and the step's name for "Open in {step}". */
 function opens(m: Item, brandId: number): { to: string; step: string } {
   const video = (step: string) => `/b/${brandId}/videos/${m.project_id}?step=${step}`;
-  if (m.open_step === "quick") return { to: `/b/${brandId}/clip`, step: "Quick clip" };
+  if (m.open_step === "quick") return { to: "/freestyle", step: "Freestyle" }; // Freestyle replaced Quick clip
   if (m.open_step === "song" && m.script_id) return { to: `/b/${brandId}/scripts/${m.script_id}?step=takes`, step: "Takes" };
   if (!m.project_id) return { to: `/b/${brandId}/library`, step: "Cast & places" }; // the brand's own sheets
   if (m.open_step === "storyboard") return { to: video("storyboard"), step: "Storyboard" };
@@ -194,7 +194,7 @@ export function MediaPage() {
           filtered ? (
             <EmptyState icon={Images} title="Nothing matches these filters." action={<Button variant="ghost" onClick={clear}>Clear filters</Button>} />
           ) : (
-            <EmptyState icon={Film} title={`Nothing made yet in ${brand?.name ?? "this brand"}.`} action={<Link to={`/b/${brandId}/clip`} className={buttonClass("primary")}>Make a quick clip</Link>}>
+            <EmptyState icon={Film} title={`Nothing made yet in ${brand?.name ?? "this brand"}.`} action={<Link to="/freestyle" className={buttonClass("primary")}>Make a freestyle</Link>}>
               Stills, takes, songs and final videos show up here as they're made.
             </EmptyState>
           )

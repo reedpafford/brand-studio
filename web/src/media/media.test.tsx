@@ -51,19 +51,19 @@ test("each tile shows its picture, kind, when and who, with Open in {step} and D
   expect(within(tiles[0]).getByRole("link", { name: "Open in Clips" })).toHaveAttribute("href", "/b/1/videos/9?step=clips");
   expect(within(tiles[0]).getByRole("link", { name: /Download take/ })).toHaveAttribute("href", "/api/files/30");
   expect(within(tiles[1]).getByRole("link", { name: "Open in Storyboard" })).toHaveAttribute("href", "/b/1/videos/9?step=storyboard");
-  expect(within(tiles[2]).getByRole("link", { name: "Open in Quick clip" })).toHaveAttribute("href", "/b/1/clip");
+  expect(within(tiles[2]).getByRole("link", { name: "Open in Freestyle" })).toHaveAttribute("href", "/freestyle");
   expect(within(tiles[3]).getByRole("link", { name: "Open in Takes" })).toHaveAttribute("href", "/b/1/scripts/7?step=takes");
   expect(within(tiles[3]).getByLabelText(/^Play/)).toBeInTheDocument();
   expect(within(tiles[4]).getByRole("link", { name: "Open in Cast & places" })).toHaveAttribute("href", "/b/1/library");
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
-test("with nothing made yet it says so and offers a quick clip", async () => {
+test("with nothing made yet it says so and offers a freestyle", async () => {
   setViewport(1440);
   fakeServer(base(editor, page([])));
   open();
   expect(await screen.findByRole("heading", { name: "Nothing made yet in Iron Paws." })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Make a quick clip" })).toHaveAttribute("href", "/b/1/clip");
+  expect(screen.getByRole("link", { name: "Make a freestyle" })).toHaveAttribute("href", "/freestyle");
 });
 
 test("the kind and who-made-it filters ask the server, and Clear filters puts them back", async () => {

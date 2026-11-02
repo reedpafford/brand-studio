@@ -144,7 +144,7 @@ test("on a phone there are five tabs (Videos first), no More, and Reed gets an A
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
-  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Videos", "Scripts", "Quick clip", "Cast", "Brand"]);
+  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Videos", "Scripts", "Freestyle", "Cast", "Brand"]);
   expect(within(tabs).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page"); // an earlier-way video sits under Videos
   expect(within(tabs).getByRole("link", { name: "Cast" })).toHaveAttribute("href", "/b/1/library");
   expect(within(tabs).getByRole("link", { name: "Brand" })).toHaveAttribute("href", "/b/1/brand");
@@ -214,7 +214,7 @@ test("on desktop one rail (nav A): the brand switcher, Make and Library, Studio 
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Scripts", "Videos", "Quick clip", "Cast & places", "Media", "Brand", "Approvals", "In production", "Usage", "Team", "Looks", "Languages"]);
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Scripts", "Videos", "Freestyle", "Cast & places", "Media", "Brand", "Approvals", "In production", "Usage", "Team", "Looks", "Languages"]);
   expect(within(rail).getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "Account menu" })).toBeInTheDocument();
   expect(screen.queryByRole("banner")).not.toBeInTheDocument();
