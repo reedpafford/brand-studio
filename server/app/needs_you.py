@@ -28,12 +28,21 @@ def _count(n: int, one: str, many: str) -> str:
     return f"1 {one}" if n == 1 else f"{n} {many}"
 
 
-def waiting_on(db: Session, projects: list[Project], old: set[int]) -> dict[int, str]:
+HELD = "Waiting for your OK"
+
+
+def waiting_on(
+    db: Session, projects: list[Project], old: set[int], owner: bool = False
+) -> dict[int, str]:
     """Video id -> what it waits on its editor for; videos with nothing to do are left out.
-    `old`: the finished videos whose clips changed since (project_clips.out_of_date)."""
+    `old`: the finished videos whose clips changed since (project_clips.out_of_date). For the
+    `owner`, a step held for their OK comes first (v5: Needs you counts it)."""
     ids = [p.id for p in projects if not p.archived_at]
     if not ids:
         return {}
+    on_hold = Job.status == JobStatus.needs_owner_approval
+    waiting = select(Job.project_id).where(Job.project_id.in_(ids), on_hold)
+    held = set(db.scalars(waiting)) if owner else set()
     newest_job = dict(db.execute(select(Job.project_id, func.max(Job.id))
                                  .where(Job.project_id.in_(ids), Job.kind != ADVISORY)
                                  .group_by(Job.project_id)).all())  # fmt: skip
@@ -65,7 +74,9 @@ def waiting_on(db: Session, projects: list[Project], old: set[int]) -> dict[int,
     out = {}
     for pid in ids:
         job = failed.get(pid)
-        if job and (name := KINDS.get(job.kind) or NAMES.get(job.input.get("step", ""))):
+        if pid in held:
+            out[pid] = HELD
+        elif job and (name := KINDS.get(job.kind) or NAMES.get(job.input.get("step", ""))):
             out[pid] = f"{name} didn't finish"
         elif pid in ready_plan:  # made, not approved yet: the one press that moves it on
             out[pid] = "Check the scene plan"
