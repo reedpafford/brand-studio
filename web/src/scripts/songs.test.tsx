@@ -358,7 +358,7 @@ test("Takes (v5): the takes are rows under the header's Edit and Make 2 more, an
   open("/b/1/scripts/7?step=takes");
   const list = await screen.findByRole("list", { name: "Takes" });
   expect(within(list).getAllByRole("listitem").map((r) => r.getAttribute("aria-label"))).toEqual(["Take 2", "Take 1", "Take 3"]); // the Preferred one first
-  expect(within(list).getByText("0:25 of 0:31 · trimmed")).toBeInTheDocument();
+  expect(within(list).getByText("0:25 of 0:31 · Trimmed")).toBeInTheDocument();
   expect(screen.getByText("Pick the Preferred take; the video is cut to it.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Make 2 more/ })).toBeInTheDocument();
   expect(screen.getByText("A video this long: about 40 credits to make (planned).")).toBeInTheDocument();

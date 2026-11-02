@@ -52,7 +52,7 @@ function TakeRow({ t, a, readOnly, others, onDefaultStyle }: { t: SongTake; a: R
   );
   const length = t.seconds !== null && (
     <span className="block text-xs tabular-nums text-muted">
-      <span className="block">{t.trim_to != null ? `${clock(t.trim_to)} of ${clock(t.seconds)} · trimmed` : clock(t.seconds)}</span>
+      <span className="block">{t.trim_to != null ? `${clock(t.trim_to)} of ${clock(t.seconds)} · Trimmed` : clock(t.seconds)}</span>
       {videoCost(t) && <span className="block">{videoCost(t).replace(/^ · a/, "A")}</span>}
     </span>
   );
