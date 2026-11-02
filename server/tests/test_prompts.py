@@ -1647,22 +1647,27 @@ def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
     docs = Path(prompts.__file__).parents[3] / "docs" / "next" / "skills"
     for path in (HERE / "skills").glob("*.md"):  # word for word, so nothing of Reed's is lost
         assert path.read_text() == (docs / path.name).read_text(), path.name
-    expect = {"house": None, "watercolor": None, "wool-crochet": None,
+    expect = {"house": "house", "watercolor": None, "wool-crochet": None,
               "disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
               "claymation-goofy": "claymation", "paper-collage": "paper",
               "skeleton-xray": "skeleton-ad", "skeleton": "skeleton-ad"}  # fmt: skip
     for look, name in expect.items():
         text = prompts.skill(look)
         assert text == ((HERE / "skills" / f"{name}.md").read_text() if name else ""), look
-    assert prompts.skill("house", "song") == (HERE / "skills" / "song-ad.md").read_text()
+    assert prompts.skill("watercolor", "song") == (HERE / "skills" / "song-ad.md").read_text()
     for step in ("treatment", "plan", "director", "review_stills", "watch_cut"):
         text = prompts.system(step, "claymation-goofy")
         assert "## Producer craft" in text and "## The style's skill" in text, step
         assert (HERE / "skills" / "producer-craft.md").read_text() in text, step
         assert (HERE / "skills" / "claymation.md").read_text() in text, step
     assert "## The style's skill" not in prompts.system("storyboard", "claymation-goofy")
-    house = prompts.system("treatment", "house")  # no style skill: producer craft only
-    assert "## Producer craft" in house and "## The style's skill" not in house
+    plain = prompts.system("treatment", "watercolor")  # no style skill: producer craft only
+    assert "## Producer craft" in plain and "## The style's skill" not in plain
+    # Reed approved House's camera as a baseline, never forced ("I don't want it to force slow
+    # motion or anything")
+    house = (HERE / "skills" / "house.md").read_text()
+    assert "None of it is mandatory: use a tool when it serves the story, never by habit" in house
+    assert house in prompts.system("treatment", "house")
     # Reed: producer craft is the story only; the camera is each style's own
     craft = (HERE / "skills" / "producer-craft.md").read_text().lower()
     for word in ("camera", "close-up", "push in", "pan ", "transition", "lighting", "framing"):
@@ -1670,7 +1675,7 @@ def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
     assert prompts.SCHEMAS["treatment"] is schemas.Treatment
     assert prompts.SCHEMAS["review_stills"] is schemas.StillsReview
     treatment = prompts.system("treatment")
-    for part in ("the first 2 seconds", "The words are final (rule 19)", "why_it_holds",
+    for part in ("the first 2 seconds", "The script never varies (rule 19)", "why_it_holds",
                  "A beat with nothing happening in it is a beat to rethink"):  # fmt: skip
         assert part in treatment, part
     canned = prompts.stand_in_treatment("Mom: Hi.\n\nDad: Bye.")
@@ -1691,3 +1696,29 @@ def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
     assert "is the hook there by 2 seconds" in director
     turn = schemas.DirectorTurn(tool="redraw_still", shot_id="3.1", note="x", why="b3: x")
     assert turn.shot_id == "3.1"
+
+
+def test_the_treatment_never_varies_from_the_script():
+    """Reed, 2 Nov: "This can be fixed by saying to not vary from the scripts." Its beats cover
+    every line but the headings once, a quoted line is the script's word for word, and a picture
+    answering an earlier one is a callback, never a rhyme; a format keeps its own structure."""
+    script = (
+        "SCENE 1 — EXT. BUS STOP — NIGHT\nMARCUS: Four dollars... and twelve cents.\nKID: You sure?"
+    )
+    beats = [{"id": "b1", "lines": [2], "purpose": "hook", "picture": "coins"},
+             {"id": "b2", "lines": [3], "purpose": "callback", "picture": "kid"}]  # fmt: skip
+    good = {"hook": 'Coins in a wet palm: "Four dollars... and twelve cents."', "logline": "x",
+            "why_it_holds": "x", "ending": "x", "beats": beats}  # fmt: skip
+    assert check.treatment(good, script) == []
+    bad = {**good, "hook": 'He says "four bucks and change", a rhyme', "beats": good["beats"][:1]}
+    assert check.treatment(bad, script) == [
+        "the beats must cover every line but the scene headings once, in order; missing [3]",
+        "\"four bucks and change\" isn't the script's words: quote lines exactly",
+        check.RHYME,
+    ]
+    treatment = prompts.system("treatment")
+    assert "**The script never varies (rule 19).**" in treatment and "a callback" in treatment
+    assert "that structure guides the beats" in treatment
+    assert "it never changes, adds or reorders a spoken line or on-screen text" in prompts.system(
+        "plan"
+    )

@@ -74,13 +74,14 @@ GUIDES = {
 # shots and format rules (Reed, 2 Nov: "the skill should really just be the visual style, and how
 # the cameras and stuff move").
 SKILLS = {"disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
-          "claymation": "claymation", "paper": "paper", "skeleton": "skeleton-ad"}  # fmt: skip
+          "claymation": "claymation", "paper": "paper", "skeleton": "skeleton-ad",
+          "house": "house"}  # fmt: skip  # House: Reed's camera baseline, approved 2 Nov
 SKILLED = {"treatment", "plan", "plan_scene", "director", "review_stills", "watch_cut"}
 
 
 def skill(look_id: str, fmt: str = "") -> str:
     """The look's whole skill file (a lane takes its look's), and Song's for a song video; ""
-    for a look with none (House, Watercolor, Wool Crochet)."""
+    for a look with none (Watercolor, Wool Crochet)."""
     look = style(look_id) if look_id else {"id": "", "parent": ""}
     names = [SKILLS.get(look["parent"] or look["id"]), "song-ad" if fmt == "song" else None]
     return "\n\n".join((HERE / "skills" / f"{n}.md").read_text() for n in names if n)
