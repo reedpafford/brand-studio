@@ -38,6 +38,8 @@ SCHEMAS = {
     "language_sample": schemas.ScriptDrafts,  # flows VS1: a language's sample test
     "director": schemas.DirectorTurn,  # director-chat.md §5: one decision a turn
     "watch_cut": schemas.CutWatch,  # the director's eyes on the finished cut
+    "treatment": schemas.Treatment,  # the director's first move: why it holds a viewer
+    "review_stills": schemas.StillsReview,  # the stills against the treatment, before takes
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -54,6 +56,7 @@ NO_RULES = {
     "item_check",
     "site_read",
     "watch_cut",
+    "review_stills",
 }  # not script writers: the rules would only add tokens
 
 
@@ -66,6 +69,22 @@ GUIDES = {
     "script": ["script_draft", "enhance", "variations"],
     "lanes": ["plan"],  # a look's lanes: the plan picks one per video
 }
+# Reed's skill files (docs/next/skills, copied here word for word: a test keeps them equal), the
+# brain of the steps that judge a story (the Producer, 2 Nov: "Reed wrote those skills to be the
+# brain"), with the team's craft from the harvest (#1075).
+SKILLS = {"disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
+          "claymation": "claymation", "paper": "paper", "skeleton": "skeleton-ad"}  # fmt: skip
+SKILLED = {"treatment", "plan", "plan_scene", "director", "review_stills", "watch_cut"}
+
+
+def skill(look_id: str, fmt: str = "") -> str:
+    """The look's whole skill file (a lane takes its look's), and Song's for a song video; ""
+    for a look with none (House, Watercolor, Wool Crochet)."""
+    look = style(look_id) if look_id else {"id": "", "parent": ""}
+    names = [SKILLS.get(look["parent"] or look["id"]), "song-ad" if fmt == "song" else None]
+    return "\n\n".join((HERE / "skills" / f"{n}.md").read_text() for n in names if n)
+
+
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
 
 
@@ -198,6 +217,14 @@ def system(step: str, style_id: str = "house", fmt: str = "") -> str:
             f"{chosen['name']} look: these add to the look, never change it.\n\n"
             + _styled("\n\n".join(guide), style_id)
         )
+    if step in SKILLED:
+        parts.append((HERE / "craft.md").read_text())
+        if text := skill(style_id, fmt):
+            parts.append(
+                "## The look's skill (Reed's, for this video)\nHow this look's videos are made and "
+                "why they hold a viewer. Follow it; where the steps above are more specific about "
+                "the site's own fields and limits, they win.\n\n" + text
+            )
     return "\n\n".join(parts)
 
 
@@ -788,6 +815,45 @@ def watch_cut_input(
         f"<transcript>{json.dumps(transcript, ensure_ascii=False)}</transcript>\n"
         f"<frames>\n{escape(seen)}\n</frames>"
     )
+
+
+def treatment_input(script: str, note: str = "") -> str:
+    """The user message for the treatment, after project_context's <brief> and <cast>: the
+    script numbered, and the owner's or the watch's note when it's made again."""
+    text = f"<script>\n{escape(number_lines(script))}\n</script>"
+    return text + (f"\n<note>{escape(note.strip())}</note>" if note.strip() else "")
+
+
+def treatment_block(treatment: dict | None) -> str:
+    """<treatment> for the steps that follow it (plan, breakdown, clip prompts, the director,
+    review_stills, watch_cut); "" before one is made."""
+    if not treatment:
+        return ""
+    return f"<treatment>\n{json.dumps(treatment, indent=1, ensure_ascii=False)}\n</treatment>"
+
+
+def stand_in_treatment(script: str) -> dict:
+    """A canned treatment for the stand-ins (no paid call): one beat per spoken line, the first
+    the hook, the last the payoff; it validates as schemas.Treatment."""
+    lines = [n for n, line in enumerate(script.splitlines(), 1) if line.strip()] or [1]
+    last = len(lines)
+    beats = [{"id": f"b{i}", "lines": [n],
+              "purpose": "hook" if i == 1 else "payoff" if i == last else "escalate",
+              "picture": f"Line {n} played big: something happening on the line."}
+             for i, n in enumerate(lines, 1)]  # fmt: skip
+    return {"hook": "The first line, on the conflict, with something happening at once.",
+            "logline": "The story as the script tells it.",
+            "why_it_holds": "Each beat escalates to the payoff.",
+            "beats": beats, "ending": "The payoff, then the end line."}  # fmt: skip
+
+
+def review_stills_input(plan: str, frames: list[tuple[int, str, str, str]]) -> str:
+    """The user message for review_stills, after <treatment>: the plan, and what each still
+    ([ImageN], in order) is for: (n, shot id, its action, its line)."""
+    seen = "\n".join(f"[Image{n}] shot {sid}: {escape(act.strip())}"
+                      + (f' (line: "{escape(line.strip())}")' if line and line.strip() else "")
+                      for n, sid, act, line in frames)  # fmt: skip
+    return f"<plan>{escape(plan.strip())}</plan>\n<frames>\n{seen}\n</frames>"
 
 
 def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:

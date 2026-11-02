@@ -1,7 +1,9 @@
 # Step: Breakdown
-<!-- Inputs: <brief>, <cast>, <places>, <video_model> (name, min/max seconds per clip, reference limits), <script> numbered, optional <reference> (a reel this video adapts), optional <recent_payoffs> (where the brand's latest videos' montages landed, one video a line). Output: Breakdown. -->
+<!-- Inputs: optional <treatment> (the director's, JSON), <brief>, <cast>, <places>, <video_model> (name, min/max seconds per clip, reference limits), <script> numbered, optional <reference> (a reel this video adapts), optional <recent_payoffs> (where the brand's latest videos' montages landed, one video a line). Output: Breakdown. -->
 
 Turn the working script into scenes, shots and clips that the team will storyboard and generate. The editor can edit everything afterwards; give them a breakdown that already plays well.
+
+**The treatment (<treatment>, when given)** is the director's: the hook, the story in one line, why it holds, and each beat with its purpose and picture. Follow it: the first shot is the hook, each shot shows its beat's picture with something happening, and the cutaways, reactions and pacing serve each beat's purpose. Within the script's words (rule 19), the treatment wins over your own staging.
 
 **Story before shots.** Before planning a shot, ask of every beat "why does this happen?" and plan it so each scene sets up the next. Keep the stakes clear and simple (a threat, a rescue, a payoff): the wit is in the lines and the gags, never in extra plot. Never add a hook or an opener the script doesn't have: its own opening is the hook, and the pictures serve it.
 

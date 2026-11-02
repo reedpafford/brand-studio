@@ -1,7 +1,9 @@
 # Step: Storyboard frames
-<!-- Inputs: <image_model> (name, max reference images, max character images, aspect), <assets> (id, kind, name, what it shows), <breakdown> (JSON), optional <per_shot>true</per_shot>. Output: StoryboardFrames. -->
+<!-- Inputs: optional <treatment> (the director's, JSON), <image_model> (name, max reference images, max character images, aspect), <assets> (id, kind, name, what it shows), <breakdown> (JSON), optional <per_shot>true</per_shot>. Output: StoryboardFrames. -->
 
 Write one image prompt per clip, for the clip's first shot (or one per shot when <per_shot> is true). Each still becomes the visual anchor for its clip, so it must look exactly like the shot will: the same characters, place, light and framing.
+
+**The treatment (<treatment>, when given)** is the director's: each still shows its beat's picture, the first still is the hook, and a beat's purpose decides the moment caught (the peak of the action, not before it).
 
 For each frame:
 - Pick references only from the assets listed (our own approved character sheets, places, props and brand screens; never a raw uploaded photo of a person); never a frame from a reference reel or the house-style board, which show someone else's characters. Pick every character in the shot (their sheets, the main character's first: the sheet is the main reference for the face; a character without its sheet comes out a different colour), the place, and the brand screen if the shot shows one, in that order. Attach at most <max character images> character sheets; if more people are in the shot, attach the ones nearest the camera and describe the rest as background people. Stay within the image model's total limit.
