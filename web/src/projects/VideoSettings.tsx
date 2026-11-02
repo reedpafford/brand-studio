@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Settings2 } from "lucide-react";
+import { ChevronDown, Lock, Settings2 } from "lucide-react";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
@@ -26,7 +26,8 @@ export function useVideoSettings(projectId: number) {
 
 /** One choice in a picker, and the one setting it switches (a body with exactly that key; null is Auto). */
 export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; overCap?: boolean; off?: boolean; body: SettingIn };
-export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; choices: Choice[] };
+/** `locked`: why it can't be changed here (a script-made video's look is the script's, Reed's walk item 7); shown, never picked. */
+export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; locked?: string; choices: Choice[] };
 
 const credits = creditsText; // a rate: one decimal, rounded up (rule 32)
 const perSecond = (x: number) => `${credits(x)} a second`;
@@ -41,6 +42,9 @@ export const languageName = (code: string) => {
   }
 };
 
+// Next-Server's field for a look set by the script (item 7); read optionally until the schema has it.
+const lockedLook = (s: SettingsOut) => (s as SettingsOut & { look_locked?: string | null }).look_locked || undefined;
+
 /** The settings as the row shows them: one field per setting, each choice carrying the body that switches to it. */
 export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined): Field[] {
   const auto = <M extends { name: string; default: boolean }>(ms: M[]) => ms.find((m) => m.default) ?? ms[0];
@@ -54,7 +58,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       const now = s.product_variants[product] ?? options[0]; // a product missing from the picks is on its default
       return { key: `flavour:${product}`, label: Object.keys(s.flavours).length > 1 ? `Flavour (${product})` : "Flavour", current: now, valueLabel: now, choices: options.map((o) => ({ id: o, label: o, body: { product_variants: { [product]: o } } })) };
     }),
-    ...(looks ? [{ key: "look", label: "Look", current: s.look, valueLabel: lookName(looks as Look[], s.look), choices: looks.map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }] : []),
+    ...(looks ? [{ key: "look", label: "Look", current: s.look, valueLabel: lookName(looks as Look[], s.look), locked: lockedLook(s), choices: looks.map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }] : []),
     {
       key: "video_model",
       label: "Video model",
@@ -127,12 +131,20 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   if (settings.isPending) return <Skeleton className="h-control" />;
   if (settings.isError || !settings.data) return null; // the server doesn't offer settings yet: nothing to press
   const fields = fieldsOf(settings.data, looks.data);
-  const chip = (f: Field) => (
+  const chip = (f: Field) =>
+    f.locked ? (
+      // Locked: the value and why, with no picker to open.
+      <span key={f.key} className="inline-flex min-h-control items-center gap-1.5 px-2 text-sm" aria-label={`${f.label}: ${f.valueLabel}, locked. ${f.locked}`}>
+        <span className="text-muted">{f.label}:</span> {f.valueLabel}
+        <Lock size={16} strokeWidth={1.75} aria-hidden className="text-muted" />
+        <span className="text-xs text-muted">{f.locked}</span>
+      </span>
+    ) : (
     <Button key={f.key} variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setPicking(f)}>
       <span className="text-muted">{f.label}:</span> {f.valueLabel}
       {f.price && <>{" "}<span className="text-xs text-muted tabular-nums">· {f.price}</span></>}
     </Button>
-  );
+    );
   const language = <Badge>Language: {languageName(settings.data.language)} (from the script)</Badge>;
   const items = (
     <>
