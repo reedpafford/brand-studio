@@ -1766,9 +1766,34 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     director makes the song or narration, judges the hook, the lyrics, the length and the mood
     without hearing it, and remakes once with a note in the music's words; never a lyric."""
     director = prompts.system("director")
-    for part in ("- `song` (paid, `note`)", "- `narration` (paid)", "songs_left",
+    for part in ("- `song` (paid, `note`)", "- `narration` (paid, `note`)", "songs_left",
+                 "never the pet's voice", "a take with any speech in it is a fault",
                  "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
-                 "never change a lyric (rule 19)", "Sung shots follow the song's own sections",
+                 "never change a lyric (rule 19)", "With `take_id` and no `note` (free)",
+                 "the shorter (fewer seconds to film)", "onto the song's sections",
+                 "a voice in a take is a fault to redo", "not a second before",
                  "Treatment, then the song or the narration"):  # fmt: skip
         assert part in director, part
+    # Song-Producer's review (2 Nov): the plan maps beats onto the song; one voice; one world
+    assert "Map the treatment's beats onto its sections" in prompts.system("plan", fmt="song")
+    assert "**One voice in a song or a narration:**" in prompts.system("watch_cut")
+    assert "a song is usually one world" in prompts.system("review_stills")
+    assert "lands on the word that names it" in prompts.system("song_breakdown")
+    assert "one framing device" in prompts.system("treatment")
+    assert "a comic action and a felt reaction" in prompts.system("plan")
+    assert "`extras`" in director and "while `songs_left`" in director
+    assert 'When `style` is "", the first `song`\'s `note` is the style line' in director
     assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"
+
+
+def test_the_director_checks_the_brand_word_in_a_fresh_narration_before_the_plan():
+    """Song-Producer's condition for leaving narration splicing for later (2 Nov): the brand's
+    name is judged right after the narration is made, and remade with a pronunciation note
+    before the plan, never spliced."""
+    director = prompts.system("director")
+    for part in ("misheard: brand words heard wrong in it", "as soon as the narration is timed,"
+                 " before the plan", "a pronunciation note from the brand's notes",
+                 "a narration is never spliced"):  # fmt: skip
+        assert part in director, part
+    turn = schemas.DirectorTurn(tool="narration", note="say fomo as FOH-moh", why="misheard")
+    assert turn.note == "say fomo as FOH-moh"

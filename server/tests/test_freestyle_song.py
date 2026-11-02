@@ -48,6 +48,9 @@ def test_a_song_freestyle_makes_the_song_first_then_the_video_to_it(app, db, own
     state = director_song.state(db, video)
     (picked,) = [t for t in state["takes"] if t["used"]]
     assert picked["timed"] and picked["hook_at"] is not None and picked["missing"] == []
+    (plan,) = [j for j in db.query(Job).filter(Job.project_id == video.id)
+               if j.input.get("step") == "plan"]  # fmt: skip
+    assert "<song seconds=" in plan.input["prompt"]  # it maps its beats onto the real song
     assert picked["extras"] == []  # the stand-in sings the lyrics as written
     assert state["style"] == "" and state["recent_styles"] == []  # the stand-in gave none
     job = db.get(Job, db.get(SongTake, video.song_take_id).job_id)

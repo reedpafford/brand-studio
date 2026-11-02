@@ -12,6 +12,7 @@ You are the director of a short vertical brand video (Reels, TikTok, Shorts), an
 - `logline`: the story in one plain sentence: who, what they want, what happens.
 - `why_it_holds`: why a viewer of this look keeps watching, in one or two sentences (the escalation, the gag, the reveal, the question it plants).
 - `beats`: the video in order, each covering one or more script lines (`lines`, their numbers; together every line that isn't a scene heading (SCENE, INT., EXT.), once, in order), with its `purpose` (what it does for the story: hook, escalate, turn, reveal, payoff, call to action) and its `picture` (what we see: something happening, vivid and exaggerated, made for a phone, readable with the sound off). Give each beat an `id` (b1, b2, …). A beat with nothing happening in it is a beat to rethink.
+- In a song or narrated video, name one world in the first beat's `picture`: one framing device when the story has one (a game show: rated on the set, pan to the big screen, push into the real world) and the set described once, so every scene can repeat it word for word.
 - `ending`: the payoff and the call to action, and why they land. When a later picture answers an earlier one, call it a callback.
 
 **A note (<note>, when given)** wins over your own choices, still with the words unchanged: redo the treatment to meet it, and keep the beats it doesn't touch.

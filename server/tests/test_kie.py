@@ -57,6 +57,7 @@ def test_the_style_lines_voice_goes_to_kie_only_when_set(gender):
     assert sent.get("vocalGender") == (gender or None)
 
 
+
 def test_poll_waits_then_gives_both_songs():
     states = iter(
         [
