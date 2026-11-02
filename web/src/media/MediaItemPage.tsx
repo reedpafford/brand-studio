@@ -1,18 +1,19 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { Download } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
-import { api, must } from "../api/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Download, Trash2 } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { buttonClass, Skeleton } from "../components";
+import { useMe } from "../auth/useMe";
+import { Button, buttonClass, Dialog, Skeleton, useToast } from "../components";
+import { errorText as errorClass } from "../ui";
 import { useBrands } from "../shell/useBrands";
 import { serverTime } from "../time";
 import { kindName, opens } from "./MediaPage";
 
 const when = (iso: string) => serverTime(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-const PAGES = 5;
 /** "MP4", "PNG", "MP3": what Download gives (G_MediaItem's "Download MP4"). */
-const fileType = (t: string) => ({ "video/mp4": "MP4", "image/png": "PNG", "image/jpeg": "JPG", "image/webp": "WebP", "audio/mpeg": "MP3", "audio/mp4": "M4A", "audio/wav": "WAV" })[t] ?? ""; // there is no read of one item: it is found in the brand's media list, newest first
+const fileType = (t: string) => ({ "video/mp4": "MP4", "image/png": "PNG", "image/jpeg": "JPG", "image/webp": "WebP", "audio/mpeg": "MP3", "audio/mp4": "M4A", "audio/wav": "WAV" })[t] ?? "";
 
 /** One thing in Media (v5 G_MediaItem): the picture, take, song or video itself, what it is and who made it, where it came from
  *  (one press back to its step), and Download. */
@@ -21,18 +22,36 @@ export function MediaItemPage() {
   const brandId = Number(b);
   const key = decodeURIComponent(raw ?? "");
   const brand = useBrands().data?.find((x) => x.id === brandId);
-  const media = useInfiniteQuery({
-    queryKey: ["media", brandId, null, null, null],
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: pageParam ? { before: pageParam } : {} } })).then((r) => r.data!),
-    getNextPageParam: (last) => last.next,
+  const owner = useMe().data?.role === "owner";
+  const navigate = useNavigate();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [asking, setAsking] = useState(false);
+  // One item's own read (#1212); a 404 says, in the server's words, that it's gone.
+  const item = useQuery({
+    queryKey: ["media-item", brandId, key],
+    retry: false,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET("/brands/{brand_id}/media/{key}", { params: { path: { brand_id: brandId, key } } });
+      if (response.status === 404) return { gone: errorText(error) || "That's no longer in Media." };
+      if (!data) throw new Error(errorText(error));
+      return { item: data };
+    },
   });
-  const pages = media.data?.pages ?? [];
-  const m = pages.flatMap((p) => p.items).find((x) => x.key === key);
-  const more = !m && media.hasNextPage && pages.length < PAGES;
-  useEffect(() => {
-    if (more && !media.isFetchingNextPage) void media.fetchNextPage();
-  }, [more, media]);
+  const m = item.data?.item;
+  // The owner deletes a quick clip, a script's song or a final cut; the server refuses the rest in plain words.
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.DELETE("/brands/{brand_id}/media/{key}", { params: { path: { brand_id: brandId, key } } });
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["media"] });
+      toast("Deleted from Media.");
+      navigate(`/b/${brandId}/media`, { replace: true });
+    },
+    onError: () => setAsking(false),
+  });
   const crumb = (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
       <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm text-muted">
@@ -43,15 +62,19 @@ export function MediaItemPage() {
       <Link to={`/b/${brandId}/media`} className={buttonClass("ghost")}>Close</Link>
     </div>
   );
-  if (media.isPending || more) return <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">{crumb}<Skeleton className="h-96" /></main>;
+  if (item.isPending) return <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">{crumb}<Skeleton className="h-96" /></main>;
   if (!m)
     return (
       <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
         {crumb}
-        <p>That item isn't in Media any more.</p>
-        <Link to={`/b/${brandId}/media`} className={buttonClass("secondary")}>Back to Media</Link>
+        <p role={item.isError ? "alert" : undefined}>{item.data?.gone ?? "Couldn't load this item. Check your connection."}</p>
+        <div className="flex flex-wrap gap-2">
+          {item.isError && <Button variant="secondary" onClick={() => void item.refetch()}>Try again</Button>}
+          <Link to={`/b/${brandId}/media`} className={buttonClass("secondary")}>Back to Media</Link>
+        </div>
       </main>
     );
+  const deletable = owner && (m.kind === "song" || m.kind === "final" || m.open_step === "quick");
   const { to, step } = opens(m, brandId);
   const src = fileUrl(m.file_id);
   const isVideo = m.content_type.startsWith("video/");
@@ -90,14 +113,28 @@ export function MediaItemPage() {
               ))}
             </div>
           </div>
-          <div className="border-t border-border py-4">
-            <a href={src} download className={`${buttonClass("primary")} gap-2`}>
-              <Download size={20} strokeWidth={1.75} aria-hidden />
-              Download {fileType(m.content_type)}
-            </a>
+          <div className="space-y-2 border-t border-border py-4">
+            <div className="flex flex-wrap gap-2">
+              <a href={src} download className={`${buttonClass("primary")} gap-2`}>
+                <Download size={20} strokeWidth={1.75} aria-hidden />
+                Download {fileType(m.content_type)}
+              </a>
+              {deletable && (
+                <Button variant="secondary" icon={Trash2} busy={remove.isPending} onClick={() => setAsking(true)}>
+                  Delete
+                </Button>
+              )}
+            </div>
+            {deletable && <p className="text-sm text-muted">Deleting removes it from Media.{m.video_name ? " Its video keeps its own copy." : ""}</p>}
+            {remove.isError && <p role="alert" className={errorClass}>{remove.error.message}</p>}
           </div>
         </section>
       </div>
+      {asking && (
+        <Dialog title={`Delete this ${kindName(m.kind).toLowerCase()}?`} cancelLabel="Keep it" actionLabel="Delete" danger busy={remove.isPending} onCancel={() => setAsking(false)} onConfirm={() => remove.mutate()}>
+          It leaves Media for everyone.{m.video_name ? " Its video keeps its own copy." : ""}
+        </Dialog>
+      )}
     </main>
   );
 }
