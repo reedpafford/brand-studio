@@ -139,7 +139,8 @@ export function NewScriptPage() {
   const look = looks.data?.[0]?.id ?? "house";
   // The same steps and reasons the script's own page shows for an empty script.
   const empty = { kind, published: false, versions: [{ slot: 0, text: "", status: "draft" }] } as unknown as Script;
-  const steps = (kind in KINDS ? stepStates(stepsFor(empty)[0].id, empty) : []);
+  // Every step after the first is locked with its reason: none can be opened before the script exists (QA-3 on #1191).
+  const steps = (kind in KINDS ? stepStates(stepsFor(empty)[0].id, empty) : []).map((x, n) => (n === 0 ? x : { ...x, state: "todo" as const, reason: x.reason ?? (kind === "song" ? "Write or pick the lyrics first" : "Write the script first") }));
   const type = (text: string) => {
     latest.current = text;
     if (saved.current !== null) hand(saved.current, text);
@@ -153,7 +154,7 @@ export function NewScriptPage() {
       </Link>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="type-page">{UNTITLED}</h1>
-        <Badge tone="neutral">Not saved yet · saved when you type the first word</Badge>
+        <Badge tone="neutral">Not saved yet · saved when you type, or pick a look or project</Badge>
         <Menu title="Format" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} aria-label={`Format: ${KINDS[kind]}`} {...t}>{KINDS[kind]}</Button>}>
           {(close) =>
             (Object.keys(KINDS) as Kind[]).map((k) => (

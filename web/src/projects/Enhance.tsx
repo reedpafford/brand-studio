@@ -251,7 +251,7 @@ export function MarkLine({ mark, e }: { mark: Mark; e: EnhanceState }) {
   if (mark.status === "rejected") return null;
   const accepted = mark.status === "accepted";
   return (
-    <li ref={row} aria-current={focused ? "true" : undefined} className={`ml-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-sm py-0.5 text-sm sm:ml-10 sm:grid-cols-[minmax(0,1fr)_6.5rem_12rem] ${accepted ? "text-muted" : ""} ${focused ? "outline outline-2 outline-accent" : ""}`} data-kind={mark.kind}>
+    <li ref={row} aria-current={focused ? "true" : undefined} className={`ml-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-sm py-0.5 text-sm sm:ml-12 sm:grid-cols-[minmax(0,1fr)_6.5rem_12rem] ${accepted ? "text-muted" : ""} ${focused ? "outline outline-2 outline-accent" : ""}`} data-kind={mark.kind}>
       {/* One grid (Reed's walk item 2): the words, then a fixed column for the kind and one for the buttons, so every row lines
           up. Phone: the words on their own line, then the kind and the buttons. */}
       <span className="col-span-2 min-w-0 sm:col-span-1">

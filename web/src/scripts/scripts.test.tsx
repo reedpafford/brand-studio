@@ -117,9 +117,11 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Dialogue/ }));
   // The script page's header shows at once (Reed's walk item 1): format, Look, Project and the steps, later ones locked.
-  expect(await screen.findByText("Not saved yet · saved when you type the first word")).toBeInTheDocument();
+  expect(await screen.findByText("Not saved yet · saved when you type, or pick a look or project")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Format: Dialogue" })).toBeInTheDocument();
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write the script first");
+  // No dead press: every later step is locked with its reason, Variations too (QA-3 on #1191).
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: /Variations/ })).toHaveAccessibleDescription("Write the script first");
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
   await userEvent.type(screen.getByLabelText("Paste or write your script"), "B");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));

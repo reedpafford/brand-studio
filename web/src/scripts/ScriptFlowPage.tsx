@@ -47,6 +47,7 @@ export function ScriptFlowPage() {
   const [asking, setAsking] = useState(false); // the Publish confirmation, opened from the Next slot
   // Something on this step would be lost by leaving (unsaved words, accepted directions not added): Next and every other way out ask once, and Next still always goes on.
   const [hold, setHold] = useState<{ title: string; body: string } | null>(null);
+  const [waiting, setWaiting] = useState(0); // accepted directions not applied yet: Apply is the step's one primary press
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
   useEffect(() => {
     if (!hold) return;
@@ -96,7 +97,8 @@ export function ScriptFlowPage() {
   // A script from a reel isn't ready to move on until the reel is read: Read this reel is the one amber button until then.
   const unread = step === "script" && !!reel.data && reel.data.status !== "done";
   const reelReady = unread && !s.published && !rail && (reel.data?.status === "ready" || reel.data?.status === "failed") && reel.data?.failed_step !== "prepare";
-  const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : publishButton || (next && !unread && (
+  // While accepted directions wait, "Apply N accepted" is the one indigo press, so Next steps aside (rule 33, as on the video).
+  const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : publishButton || (next && !unread && !(step === "directions" && waiting > 0) && (
     <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
@@ -211,7 +213,7 @@ export function ScriptFlowPage() {
           {step === "narration" && <NarrationStep script={s} />}
           {step === "script" && <FormatAdvice script={s} />}
           {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
-          {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without applying ${n} accepted?`, body: "They stay accepted but are not applied to the script. Leaving doesn't apply them." } : null)} onEditWords={() => go("script")} />}
+          {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => { setWaiting(n); setHold(n > 0 ? { title: `Leave without applying ${n} accepted?`, body: "They stay accepted but are not applied to the script. Leaving doesn't apply them." } : null); }} onEditWords={() => go("script")} />}
           {step === "variations" && <VariationsStep script={s} own={mine} />}
           {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
           {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
