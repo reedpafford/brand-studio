@@ -354,10 +354,10 @@ test("at 390, an editor's Make 2 takes reads Send for approval, and once pressed
 
 test("Takes (v5): the takes are rows under the header's Edit and Make 2 more, and the card under them says what a video costs and the song's last line", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true, trim_to: 25 }), take({ id: 2, number: 2 })])] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: true, trim_to: 25 }), take({ id: 3, number: 3 })])] });
   open("/b/1/scripts/7?step=takes");
   const list = await screen.findByRole("list", { name: "Takes" });
-  expect(within(list).getAllByRole("listitem").map((r) => r.getAttribute("aria-label"))).toEqual(["Take 1", "Take 2"]);
+  expect(within(list).getAllByRole("listitem").map((r) => r.getAttribute("aria-label"))).toEqual(["Take 2", "Take 1", "Take 3"]); // the Preferred one first
   expect(within(list).getByText("0:25 of 0:31 · trimmed")).toBeInTheDocument();
   expect(screen.getByText("Pick the Preferred take; the video is cut to it.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Make 2 more/ })).toBeInTheDocument();

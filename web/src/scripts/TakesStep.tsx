@@ -320,7 +320,8 @@ export function TakesStep({ script: s }: { script: Script }) {
           {!readOnly && makeNotes}
           {!readOnly && takes.length > 0 && current.length === 0 && <Banner tone="warning" title="These takes sing older words.">Make 2 takes of the lyrics as they are now. The old ones stay playable.</Banner>}
           <ul aria-label="Takes" className="border-t border-border">
-            {takes.map((t) => (
+            {/* The Preferred take first (v5 G_SongTakes), then the rest by number. */}
+            {[...takes].sort((x, y) => Number(y.preferred) - Number(x.preferred) || x.number - y.number).map((t) => (
               <TakeRow key={t.id} t={t} a={a} readOnly={readOnly} others={takes.filter((o) => o.id !== t.id)} onDefaultStyle={defaultStyle} />
             ))}
           </ul>
