@@ -23,7 +23,7 @@ def test_a_still_is_fixed_for_the_look_with_undo_and_a_quoted_word_is_advice():
     after, note = storyboard.look_fixed("A bone beside a corpse.", "skeleton", None)
     assert after == "A bone beside a skeleton."
     assert note["before"] == "A bone beside a corpse." and note["after"] == after
-    assert note["note"].startswith("Fixed for the look: ") and note["look_fixed"]
+    assert note["note"].startswith("Fixed for the style: ") and note["look_fixed"]
     _, changed, advice = check.look_words('A sign reads "the blood is yours".', "skeleton")
     assert changed == [] and advice  # rule 19: what's quoted is never changed
 

@@ -543,7 +543,7 @@ def look_fixed(prompt: str, look: str, note: dict | None) -> tuple[str, dict | N
     after, fixed, _ = check.look_words(prompt, look)
     if not fixed:
         return prompt, note
-    said = f"Fixed for the look: {', '.join(fixed)}."
+    said = f"Fixed for the style: {', '.join(fixed)}."
     base = note or {"note": "", "status": "done", "before": prompt, "unchanged": False}
     return after, {**base, "note": f"{base['note']} {said}".strip(), "after": after,
                    "look_fixed": fixed}  # fmt: skip

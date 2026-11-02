@@ -15,10 +15,10 @@ from app.models.accounts import User
 from app.models.looks import LookSwitch
 
 DEFAULT = "house"
-UNKNOWN = "There's no such look."
-OFF = "{} is off for editors. Pick a look that's on."
-OTHER = "{} made in another look. Redo them in this video's look, then make the video."
-NO_SAMPLE = "Make a sample first: a look is switched on only once its sample is approved."
+UNKNOWN = "There's no such style."
+OFF = "{} is off for editors. Pick a style that's on."
+OTHER = "{} made in another style. Redo them in this video's style, then make the video."
+NO_SAMPLE = "Make a sample first: a style is switched on only once its sample is approved."
 
 
 def looks() -> list[dict]:
