@@ -1083,19 +1083,18 @@ def test_a_montages_trading_screens_are_the_real_ones_and_climb():
     assert check._screens_climb(falls) == []  # a home balance may fall
     clip.prompt = bigger  # only a montage clip's screens are held to it
     assert check.clip_prompts(bd, cp, 30, 10) == []
+    for step in ("clip_prompts", "storyboard", "improve", "change"):  # Reed's batch-4 review
+        assert "Never invent a screen or a figure" in prompts.system(step), step
+        assert "invented trading screen" not in prompts.system(step), step
+
+
+def test_no_screen_is_invented_and_scenes_stay_original():
+    """Reed's batch-4 review (2 Nov): real UI only, never an invented screen or figure; a loss
+    with no screen is the phone turned away, its red light on the face."""
     for step in ("clip_prompts", "storyboard", "improve"):
-        assert "invented trading screen" in prompts.system(step), step
-    assert "the fomo logo from [ImageN], the word fomo in lowercase" in prompts.system("change")
-
-
-def test_invented_screens_spell_the_logo_and_scenes_stay_original():
-    _, cp = example("clip_prompts")  # QA-Live, video #17: "JOMO", or the icon alone
-    word = "the fomo logo from [Image4], the word fomo in lowercase, sharp and legible"
-    assert word in prompts.system("clip_prompts")  # only for a moment with no screen (rule 14)
-    assert word not in cp.clips[0].prompt
-    assert "with the word “fomo” in lowercase letters" in prompts.system("storyboard")  # quoted
-    for step in ("clip_prompts", "improve"):  # Seedance: quotes are speech, so no quotes
-        assert "the word fomo in lowercase" in prompts.system(step), step
+        text = prompts.system(step)
+        assert "the phone turned away from us with its light on the face" in text, step
+        assert "the word fomo in lowercase, sharp and legible" not in text, step
     for step in ("breakdown", "storyboard", "clip_prompts", "improve"):  # clip 7's Up-like scene
         assert "never recreate a famous film, TV, comic or game scene" in prompts.system(step)
 
@@ -1722,3 +1721,25 @@ def test_the_treatment_never_varies_from_the_script():
     assert "it never changes, adds or reorders a spoken line or on-screen text" in prompts.system(
         "plan"
     )
+
+
+def test_reeds_batch_4_craft_notes_reach_the_steps():
+    """FOMO-Producer's batch 4 (Reed, 2 Nov): "scenes don't make sense… we are missing little
+    actions that connect clips", and the screen line didn't show the coin. As craft, never story
+    rules, with no hard timing (rule 29)."""
+    craft = (HERE / "skills" / "producer-craft.md").read_text()
+    assert (
+        "**Show what a line points at.**" in craft and "**Little actions that connect.**" in craft
+    )
+    watch = prompts.system("watch_cut")
+    assert "**Show what a line points at:**" in watch and "**Connecting actions:**" in watch
+    clip = prompts.system("clip_prompts")
+    assert "**Show what a line points at.**" in clip and "about 1.5 s is a good guide" in clip
+    assert "an extreme close-up of the phone in a hand, upright and filling the frame" in clip
+    assert "Every result has its cause on screen" in clip
+    assert '"Language: every spoken line is in American English."' in clip
+    assert "every adult at normal adult scale" in clip
+    assert "Every adult is at normal adult scale" in prompts.system("storyboard")
+    assert "**Show what a line points at.**" in prompts.system("breakdown")
+    assert "an insert of the phone in a hand" in prompts.system("item_check")  # not a fault
+    assert 'never "two quick cuts" inside a shot' in clip
