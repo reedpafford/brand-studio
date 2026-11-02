@@ -117,7 +117,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           {readyToMake && whole > 0 && (
             <p className="text-sm text-muted">
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (${planned ? "the shots" : "the plan"}) · the whole video up to ${wholeCredits(whole)} credits` : `Starting is free · the whole video up to ${wholeCredits(whole)} credits`}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (${planned ? "the shots" : "the plan"}) · the whole video about ${wholeCredits(whole)} credits (planned)` : `Starting is free · the whole video about ${wholeCredits(whole)} credits (planned)`}
               {songLength && ` · ${songLength} song`}
             </p>
           )}
