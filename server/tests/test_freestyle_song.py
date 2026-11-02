@@ -4,11 +4,12 @@ follow it. Stand-ins only."""
 
 import pytest
 
-from app import director_song
+from app import director_song, music
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
+from app.models.songs import SongTake
 from app.routes.estimate import run_price
 from tests.conftest import first_brand
 from tests.test_freestyle_dialogue import _run
@@ -50,6 +51,13 @@ def test_a_song_freestyle_makes_the_song_first_then_the_video_to_it(app, db, own
     (plan,) = [j for j in db.query(Job).filter(Job.project_id == video.id)
                if j.input.get("step") == "plan"]  # fmt: skip
     assert "<song seconds=" in plan.input["prompt"]  # it maps its beats onto the real song
+    assert picked["extras"] == []  # the stand-in sings the lyrics as written
+    assert state["style"] == "" and state["recent_styles"] == []  # the stand-in gave none
+    job = db.get(Job, db.get(SongTake, video.song_take_id).job_id)
+    job.input = music.job(LYRICS, "breezy pop, warm female vocal")  # as the request sung it
+    db.commit()
+    state = director_song.state(db, video)
+    assert state["style"] == "breezy pop, warm female vocal" == state["recent_styles"][0]
 
 
 def test_a_narrated_freestyle_makes_the_narration_first(app, db, owner):
@@ -208,3 +216,30 @@ def test_a_song_the_service_failed_is_tried_again_free_once_and_a_refusal_says_s
     assert tool().startswith("Refused: the song didn't come out")  # once; then a note
     job = max(db.query(Job).filter(Job.kind == "music"), key=lambda j: j.id)
     assert "fake:fail" in str(job.input)
+
+
+def test_with_no_take_named_the_preferred_take_then_fewest_missing_then_shortest(app, db, owner):
+    from app import director_tools
+    from app.models.accounts import User
+
+    fs = _sent(owner, "song", LYRICS)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+    one, two = sorted(director_song.song_takes.for_video(db, video), key=lambda t: t.id)[:2]
+
+    def picked(**timings):
+        for take, (missing, seconds) in zip((one, two), timings.values(), strict=True):
+            lines = [{**x, "heard": 0 if k < missing else 1}
+                     for k, x in enumerate(take.timing["lines"])]  # fmt: skip
+            take.timing, take.seconds = {**take.timing, "lines": lines, "seconds": seconds}, seconds
+        video.song_take_id = None
+        db.commit()
+        director_tools.run(db, me, video, {"tool": "song"}, app.state.storage, {})
+        return video.song_take_id
+
+    assert picked(one=(0, 40), two=(0, 30)) == two.id  # both whole: the shorter
+    assert picked(one=(0, 40), two=(1, 30)) == one.id  # a missing line outweighs length
+    two.preferred = True
+    assert picked(one=(0, 40), two=(1, 30)) == two.id  # the preferred take first

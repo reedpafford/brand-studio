@@ -19,6 +19,10 @@ hold there; A4 still open):
 
 import re
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.jobs import Job, JobStatus
 from app.prompts import SUNG_RATE, SUNO_PACE, song_request
 from app.prompts.check import sung_lines
 
@@ -94,6 +98,24 @@ def job(lyrics: str, style_line: str) -> dict:
         raise NotReady(STYLE_TOO_LONG)
     # A1: Custom mode, our words only.
     return {"input": {**song_request(lyrics, style_line), "instrumental": False}}
+
+
+RECENT = 5  # a brand's latest distinct style lines the director and song directions see
+
+
+def sung_style(job_input: dict) -> str:
+    """The style line a request was sung in (a remake's note included), without our pacing."""
+    return (job_input.get("input") or {}).get("style", "").removesuffix(SUNO_PACE).strip()
+
+
+def recent_styles(db: Session, brand_id: int, count: int = RECENT) -> list[str]:
+    """The brand's latest songs' style lines, newest first and each once, so a new song can
+    sound like them or deliberately not."""
+    jobs = db.scalars(select(Job).where(Job.brand_id == brand_id, Job.kind == "music",
+                                        Job.status == JobStatus.succeeded)
+                      .order_by(Job.id.desc()).limit(count * 6))  # fmt: skip
+    found = dict.fromkeys(style for j in jobs if (style := sung_style(j.input)))
+    return list(found)[:count]
 
 
 def failure(detail: str, style_line: str = "") -> str:
