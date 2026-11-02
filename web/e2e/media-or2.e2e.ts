@@ -25,7 +25,7 @@ for (const width of [1440, 390]) {
     if (width === 390) await page.keyboard.press("Escape");
 
     for (const press of [width === 1440 ? page.getByRole("link", { name: "Media" }).first() : page.getByRole("main").getByRole("link", { name: "Videos" }), page.getByRole("button", { name: /Filters|Clear filters/ }).first()]) {
-      expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(width === 1440 ? 24 : 44); // desktop: the web target (WCAG 2.2); phones: touch
     }
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
