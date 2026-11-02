@@ -21,18 +21,18 @@ test("signed-out visitors are sent to sign in", async ({ page }) => {
 test("first-run setup needs the right code, then creates the owner and signs in", async ({ page }) => {
   await page.goto("/setup");
   await fill(page, setupForm("wrong-code"));
-  await page.getByRole("button", { name: "Create owner account" }).click();
+  await page.getByRole("button", { name: "Create the studio" }).click();
   await expect(page.getByRole("alert")).toHaveText("Setup is not allowed.");
 
   await page.getByLabel("Setup code (from your server settings)").fill("e2e-setup-code");
-  await page.getByRole("button", { name: "Create owner account" }).click();
+  await page.getByRole("button", { name: "Create the studio" }).click();
   await expectSignedInAs(page, "Reed");
 });
 
 test("setup cannot be run a second time", async ({ page }) => {
   await page.goto("/setup");
   await fill(page, setupForm("e2e-setup-code"));
-  await page.getByRole("button", { name: "Create owner account" }).click();
+  await page.getByRole("button", { name: "Create the studio" }).click();
   await expect(page.getByRole("alert")).toHaveText("Already set up.");
 });
 

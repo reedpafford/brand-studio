@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Check, Copy, Ellipsis, UserCog, UserMinus } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Card, Dialog, Field, Menu, MenuItem, Panel, Select, Skeleton } from "../components";
+import { Badge, Banner, Button, Card, Dialog, Field, Menu, MenuItem, PageTop, Panel, Select, Skeleton } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
 import { backLink, errorText as errorClass } from "../ui";
@@ -90,11 +90,8 @@ export function TeamPage() {
   const onlyMe = members.data?.length === 1;
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-6 p-4 sm:p-6">
-      <div className="flex items-end justify-between gap-3">
-        <h1 className="type-page">Team</h1>
-        {invite && rail && invite}
-      </div>
+    <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">
+      <PageTop title="Team">{invite && rail && invite}</PageTop>
       {invite && !rail && <ActionBar phone>{invite}</ActionBar>}
       {(members.isError || remove.isError) && (
         <Banner title={remove.isError ? "Couldn't remove that person." : "Couldn't load the team."} action={members.isError ? <Button variant="secondary" onClick={() => void members.refetch()}>Try again</Button> : undefined}>
@@ -110,22 +107,34 @@ export function TeamPage() {
           </div>
         )}
         {members.data && (
-          <Card className="p-0 sm:p-0">
-            <ul className="divide-y divide-border">
+          <Card className="p-0 sm:p-0 lg:max-w-[1100px] lg:rounded-none lg:border-0 lg:bg-transparent">
+            {/* v5 D_Team: on a computer a table of Name, Email and Role across the page; on a phone a card per person. */}
+            {rail && (
+              <div aria-hidden className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_140px_44px] gap-4 border-b border-border py-2 text-xs text-muted">
+                <span>Name</span>
+                <span>Email</span>
+                <span>Role</span>
+                <span />
+              </div>
+            )}
+            <ul className="divide-y divide-border lg:border-b lg:border-border">
               {members.data.map((m) => (
-                <li key={m.id} className="flex items-center gap-3 p-3 sm:px-5">
-                  <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft font-display font-bold text-accent-text">
-                    {m.name.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{m.name}</span>
-                    <span className="block truncate text-sm text-muted">{m.email}</span>
-                    <span className="mt-1 inline-flex sm:hidden">
-                      <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
+                <li key={m.id} className="flex items-center gap-3 p-3 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_140px_44px] lg:gap-4 lg:px-0 lg:py-2">
+                  <span className="flex min-w-0 flex-1 items-center gap-3">
+                    <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft font-display font-bold text-accent-text lg:size-7 lg:text-xs">
+                      {m.name.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold lg:font-medium">{m.name}</span>
+                      {!rail && <span className="block truncate text-sm text-muted">{m.email}</span>}
+                      <span className="mt-1 inline-flex sm:hidden">
+                        <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
+                      </span>
                     </span>
                   </span>
+                  {rail && <span className="truncate text-sm text-muted">{m.email}</span>}
                   <span className="hidden sm:inline-flex">
-                    <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>
+                    {rail ? <span className="text-sm text-muted">{ROLE[m.role as keyof typeof ROLE] ?? m.role}</span> : <Badge>{ROLE[m.role as keyof typeof ROLE] ?? m.role}</Badge>}
                   </span>
                   {isOwner && m.id !== me?.id && (
                     <Menu
@@ -162,6 +171,7 @@ export function TeamPage() {
                       )}
                     </Menu>
                   )}
+                  {rail && !(isOwner && m.id !== me?.id) && <span />}
                 </li>
               ))}
             </ul>

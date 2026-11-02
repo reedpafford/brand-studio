@@ -81,16 +81,17 @@ test("Settings is the owner's: an editor sees no tabs, no looks, languages or li
   expect(screen.queryByRole("region", { name: "Credit limits" })).toBeNull();
 });
 
-test("Settings has four tabs, Looks first; /looks and /languages land on their tabs, and Team keeps only people and invites", async () => {
+test("Settings has four tabs in the v5 D_Settings order, Studio first; /looks and /languages land on their tabs, and Team keeps only people and invites", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /looks": [200, []], "GET /languages": [200, []] }));
   renderApp("/languages");
   const tabs = await screen.findByRole("tablist", { name: "Settings" });
-  expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Styles", "Languages", "Studio name", "Credit limits"]);
+  expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Studio", "Limits", "Styles", "Languages"]);
   expect(within(tabs).getByRole("tab", { name: "Languages" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByRole("region", { name: "Languages" })).toBeInTheDocument();
-  await userEvent.click(within(tabs).getByRole("tab", { name: "Credit limits" }));
+  await userEvent.click(within(tabs).getByRole("tab", { name: "Limits" }));
   expect(await screen.findByLabelText("Editors' weekly allowance")).toBeInTheDocument();
+  expect(screen.getByText("Always asks you")).toBeInTheDocument(); // editors' Freestyle sends always wait for the owner
   cleanup();
   renderApp("/team");
   await screen.findByRole("heading", { name: "People" });

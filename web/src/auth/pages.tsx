@@ -26,14 +26,16 @@ export function LoginPage() {
 export function SetupPage() {
   return (
     <AuthForm
-      title="Set up the studio"
-      submitLabel="Create owner account"
+      title="Set up your studio"
+      intro={<p className="text-sm text-muted">You'll be the owner: you approve what editors spend and set the budgets.</p>}
+      submitLabel="Create the studio"
+      // v5 A_Setup: the studio and you first, the setup code last.
       fields={[
-        { name: "setup_token", label: "Setup code (from your server settings)", type: "password" },
         { name: "workspace_name", label: "Studio name", hint: "What your team sees when they're invited, e.g. Northside Studio." },
         { name: "name", label: "Your name", autoComplete: "name" },
         { name: "email", label: "Email", type: "email", autoComplete: "email" },
         { name: "password", label: "Password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
+        { name: "setup_token", label: "Setup code (from your server settings)", type: "password" },
       ]}
       submit={(v) =>
         api.POST("/auth/setup", {

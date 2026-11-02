@@ -40,7 +40,7 @@ test("Reed changes the editors' weekly allowance in Settings, and Undo puts it b
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("tab", { name: "Credit limits" }).click();
+  await page.getByRole("tab", { name: "Limits" }).click();
   const weekly = page.getByLabel("Editors' weekly allowance");
   const before = await weekly.inputValue();
   await weekly.fill(String(Number(before) + 5));

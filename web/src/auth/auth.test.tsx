@@ -91,7 +91,7 @@ test("setup tells you when the studio already exists", async () => {
     [/Password/, "correct horse battery"],
   ];
   for (const [label, value] of entries) await userEvent.type(await screen.findByLabelText(label), value);
-  await userEvent.click(screen.getByRole("button", { name: "Create owner account" }));
+  await userEvent.click(screen.getByRole("button", { name: "Create the studio" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Already set up.");
 });
 
