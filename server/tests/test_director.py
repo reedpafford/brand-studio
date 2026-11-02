@@ -400,12 +400,58 @@ def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owne
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
     _run(app, db)
-    got = editor.get(f"/projects/{pid}").json()
     turns = director.turns(db, db.get(Project, pid))
-    assert got["director_credits"] == float(sum(j.credits for j in turns)) > 0
+    run = turns[-1].input[director.RUN]
+    watch = Job(
+        workspace_id=turns[-1].workspace_id,
+        created_by_id=turns[-1].created_by_id,
+        kind="write-claude",
+        provider="claude",
+        project_id=pid,
+        credits=Decimal(3),
+        input={"step": "watch_cut", director.RUN: run},
+        status=JobStatus.succeeded,
+    )  # its look at the cut: its own limit too
+    db.add(watch)
+    db.commit()
+    got = editor.get(f"/projects/{pid}").json()
+    assert got["director_credits"] == float(sum(j.credits for j in turns) + 3)
     project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
     budget = credits.credits_used(db, project) - credits.director_credits(db, project)
     assert float(budget) == pytest.approx(got["credits_used"] - got["director_credits"])
     room = project.budget_credits - budget  # what the hold still lets through
     assert not credits.needs_approval(db, ed, project, room)  # exactly fits
     assert credits.needs_approval(db, ed, project, room + Decimal("0.01"))  # one cent past
+
+
+def test_the_owners_release_counts_the_budget_as_the_hold_does(app, db, owner, editor):
+    """Approving a video releases its held presses by the same figure the hold uses: the
+    director's own turns are left out of both, so they always agree."""
+    from decimal import Decimal
+
+    from app import credits
+    from app.models.accounts import User
+    from app.models.projects import ProjectStatus
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    assert credits.director_credits(db, project) > 0
+    room = project.budget_credits - credits.budget_used(db, project)
+    assert not credits.needs_approval(db, ed, project, room)  # the hold lets exactly this in
+
+    def held(cost):
+        job = Job(workspace_id=project.workspace_id, created_by_id=ed.id, kind="image",
+                  provider="replicate", input={}, project_id=pid, brand_id=project.brand_id,
+                  credits=cost, status=JobStatus.needs_owner_approval)  # fmt: skip
+        db.add(job)
+        return job
+
+    fits, past = held(room), held(Decimal("0.01"))
+    project.status = ProjectStatus.needs_owner_approval
+    db.commit()
+    assert owner.post(f"/projects/{pid}/approve").status_code == 200
+    db.expire_all()
+    assert db.get(Job, fits.id).status == JobStatus.queued  # released, as the hold allowed
+    assert db.get(Job, past.id).status == JobStatus.needs_owner_approval  # a cent past: held

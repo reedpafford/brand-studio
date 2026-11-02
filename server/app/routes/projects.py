@@ -11,7 +11,15 @@ from sqlalchemy.orm import Session
 
 from app import brand_setup, folders, looks, narration, needs_you, plans, reference
 from app.auth import current_user, owner_only, user_name
-from app.credits import credits_used, director_credits, get_limits, lock, over_cap, price
+from app.credits import (
+    budget_used,
+    credits_used,
+    director_credits,
+    get_limits,
+    lock,
+    over_cap,
+    price,
+)
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
@@ -427,7 +435,7 @@ def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
     """Approving a project also releases the jobs held in it, oldest first, while they fit
     in its budget. Any that don't fit stay held for a separate decision."""
     lock(db, Project, project.id)
-    used = credits_used(db, project)
+    used = budget_used(db, project)  # as the hold reads it, so the two always agree
     held = db.scalars(
         select(Job)
         .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
