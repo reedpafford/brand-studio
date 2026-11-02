@@ -154,3 +154,52 @@ def test_a_still_is_redrawn_twice_at_most_a_run(app, db, owner, editor, monkeypa
                if t["why"] == "Again."]  # fmt: skip
     assert sum(r.startswith("Drawing shot 1.1") for r in results) == 2
     assert "Refused: shot 1.1 was drawn again 2 times." in results
+
+
+def test_a_treatment_that_varies_from_the_script_is_made_again_once_with_its_problems(
+    app, db, owner, editor, monkeypatch
+):
+    from app import prompts
+    from app.providers.fake_local import FakeWriter
+    from app.providers.fake_local import _tag as tag
+
+    made = []
+
+    def first_skips_a_line(self, prompt):
+        good = prompts.stand_in_treatment(tag(prompt, "script") or "")
+        made.append("<note>" in prompt)
+        if len(made) == 1:  # the first leaves its last beat out
+            return {**good, "beats": good["beats"][:-1] or good["beats"]}
+        return good
+
+    monkeypatch.setattr(FakeWriter, "_treatment", first_skips_a_line)
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=150)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    assert made[:2] == [False, True]  # one redo, told what to fix (<note>)
+    redo = db.query(Job).filter(Job.input["step"].as_string() == "treatment",
+                                Job.input["redo"].as_boolean()).one()  # fmt: skip
+    assert "Fix:" in redo.input["prompt"]
+    told = [m for m in out["thread"] if m.get("treatment")]
+    assert len(told) == 1 and told[0]["text"].startswith("The treatment:")  # the kept one
+
+
+def test_a_watch_still_going_is_not_a_watched_cut(app, db, owner, editor, monkeypatch):
+    real = director.choose
+
+    def eager(state):  # delivers as soon as the watch has started on this cut
+        if state["cut"] == "made" and (state.get("watch") or {}).get("state") == "watching":
+            return {"tool": "deliver", "why": "Done.", "clip_id": None, "take_id": None,
+                    "note": ""}  # fmt: skip
+        return real(state)
+
+    monkeypatch.setattr(director, "choose", eager)
+    monkeypatch.setattr("app.watch_cut.state", lambda db, p: {"state": "watching",
+                                                              "current": True})  # fmt: skip
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=40)
+    results = [t["result"] for t in editor.get(f"/projects/{pid}/director").json()["turns"]]
+    assert director.UNWATCHED in results

@@ -153,6 +153,7 @@ def thread(db: Session, project: Project) -> list[dict]:
                                            Job.input["step"].as_string() == "treatment",
                                            Job.status == JobStatus.succeeded)
                          .order_by(Job.id)).all()  # fmt: skip
+    written = [j for j in written if not j.input.get("redone")]  # its check's one redo replaced it
     for n, j in enumerate(written):  # the treatment, posted in the chat as plain lines
         out.append({"id": f"s{j.id}", "kind": "move", "at": (j.finished_at or j.created_at
                     ).isoformat(), "who": "Director", "text": named(told(j.output or {}, n > 0)),
@@ -308,8 +309,33 @@ def after(db: Session, job: Job, storage) -> None:
         else:
             _end(job, TURN_FAILED)
         return
+    if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
+        if _treatment_checked(db, job):  # one redo with its problems: the redo wakes the run
+            return
     if job.project_id:
         wake(db, db.get(Project, job.project_id))
+
+
+def _treatment_checked(db: Session, job: Job) -> bool:
+    """The Director's free check on a saved treatment (check.treatment: every line once, in
+    order, word for word): problems mean one redo with them as its note; a redo's problems
+    are kept and shown. Whether a redo was queued."""
+    from app import plans
+    from app.prompts import check
+
+    project = db.get(Project, job.project_id)
+    version = plans.script(db, project)
+    problems = check.treatment(job.output or {}, version.text if version else "")
+    if not problems:
+        return False
+    if job.input.get("redo"):  # kept as it is, its problems shown in the thread
+        job.output = {**(job.output or {}), "problems": problems}
+        db.commit()
+        return False
+    job.input = {**job.input, "redone": True}  # the thread shows the one it kept
+    write_treatment(db, db.get(User, job.created_by_id), project, job.input.get(RUN),
+                    "Fix: " + " ".join(problems), redo=True)  # fmt: skip
+    return True
 
 
 def wake(db: Session, project: Project) -> None:
@@ -346,8 +372,9 @@ def _act(db: Session, job: Job, storage) -> None:
     tool = decision.get("tool")
     if tool == "deliver":
         watch = _watch(db, project)
+        watched = watch.get("current") and watch.get("state") in ("done", "failed")
         if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
-                and not watch.get("current")):  # fmt: skip
+                and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
             return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
         named = {int(n) for n in NOTE.findall(decision.get("why") or "")}
         given = max((t.input.get(READ, 0) for t in turns(db, project)
@@ -619,7 +646,7 @@ def treatment(db: Session, project: Project) -> dict | None:
 
 
 def write_treatment(db: Session, user: User, project: Project, run: dict | None,
-                    note: str = "") -> str:  # fmt: skip
+                    note: str = "", redo: bool = False) -> str:  # fmt: skip
     """Queue the treatment (the Director's step: hook, logline, why it holds, beats, ending),
     on the director's own limit like a watch; its words in plain lines."""
     from app import plans, prompts
@@ -631,7 +658,7 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     system, context = project_context(db, project, "treatment")  # its look's skill and craft
     text = f"{context}\n{prompts.treatment_input(version.text, note)}"
     data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
-            "prompt": text, "max_tokens": 6000}  # fmt: skip
+            "prompt": text, "max_tokens": 6000, **({"redo": True} if redo else {})}  # fmt: skip
     again = treatment(db, project) is not None
     price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
     wait = past_own(db, project, (run or {}).get("id"), price)
@@ -647,8 +674,10 @@ def told(made: dict, again: bool) -> str:
     beats = " ".join(f"{b.get('id', '')}: {b.get('purpose', '')}, {b.get('picture', '')}."
                      for b in made.get("beats") or [])  # fmt: skip
     head = "Changed the treatment:" if again else "The treatment:"
+    still = " ".join(made.get("problems") or [])
     return (f"{head} {made.get('logline', '')} Hook: {made.get('hook', '')} {beats} "
-            f"Ending: {made.get('ending', '')}").strip()  # fmt: skip
+            f"Ending: {made.get('ending', '')}" + (f" Still to fix: {still}" if still else "")
+            ).strip()  # fmt: skip
 
 
 def treatment_block(db: Session, project: Project) -> str:
