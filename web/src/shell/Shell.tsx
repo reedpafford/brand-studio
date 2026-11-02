@@ -261,7 +261,7 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
   const section = (to: string) => SECTIONS.find((s) => s.to === to)!;
   const group = (label: string, rows: ReactNode) => (
     <div className="mt-4 flex flex-col gap-0.5">
-      {wide && <p className="px-2 pb-1 text-xs text-faint">{label}</p>}
+      {wide && <p className="px-2 pb-1 text-xs text-muted">{label}</p>}
       {rows}
     </div>
   );
