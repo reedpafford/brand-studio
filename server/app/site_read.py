@@ -42,6 +42,22 @@ def fetch_input(brand: Brand, url: str) -> dict:
     return {"step": "site_fetch", "brand_id": brand.id, "url": url}
 
 
+def start(db: Session, owner: User, brand: Brand, url: str) -> Job:
+    """Read the site (the Import press, or New brand's Website): the free fetch now; the paid
+    read follows only if the page had something (save_fetched), through the usual price,
+    holds and cap."""
+    from app.routes.jobs import enqueue
+
+    return enqueue(db, owner, "site_fetch", fetch_input(brand, url), units=0, provider="local")
+
+
+def latest(db: Session, brand: Brand) -> Job | None:
+    """The brand's newest read."""
+    return db.scalar(select(Job).where(Job.input["step"].as_string() == "site_fetch",
+                                       Job.input["brand_id"].as_integer() == brand.id)
+                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
+
+
 def save_fetched(db: Session, job: Job) -> None:
     """The page is in: ask for the products and the brand's colours, unless it had nothing."""
     from app.routes.jobs import enqueue

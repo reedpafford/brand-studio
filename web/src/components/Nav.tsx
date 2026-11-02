@@ -96,7 +96,7 @@ export type Tab = { id: string; label: string; count?: number };
 /** A pill tab (v4 boards). The chosen one has a 3:1 edge and semibold words, not just a faint fill; hover only brightens the
  *  words (QA-3 on #1164). */
 export const pillClass = (on: boolean) =>
-  `inline-flex min-h-control shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 ${on ? "bg-surface-2 font-semibold text-text ring-1 ring-inset ring-border-strong" : "font-medium text-muted hover:text-text"}`;
+  `inline-flex min-h-control shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 sm:gap-2 sm:px-3 ${on ? "bg-surface-2 font-semibold text-text ring-1 ring-inset ring-border-strong" : "font-medium text-muted hover:text-text"}`;
 /** A strip of pills that scrolls sideways; its padding keeps the focus ring from being cut off. */
 export const pillStrip = "-m-1 flex gap-1 overflow-x-auto p-1";
 
