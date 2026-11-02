@@ -12,6 +12,7 @@ from app import folders
 from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
+    FREESTYLE,
     USD_PER_CREDIT,
     check_clip_cap,
     check_video_cap,
@@ -26,6 +27,7 @@ from app.credits import (
 from app.db import get_db, utcnow
 from app.job_brand import brand_for
 from app.models.accounts import User
+from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project, ProjectStatus
 from app.schemas import ShortText, UtcTime
@@ -36,6 +38,14 @@ router = APIRouter(tags=["jobs"])
 
 WAITING = ("This hasn't started yet: the service that makes it isn't taking work right now. "
            "It's charged only if it runs.")  # fmt: skip
+
+
+class FreestyleRef(BaseModel):
+    id: int
+    title: str
+    type: str  # dialogue, song, narrated or one_clip
+    said: str  # this send's own words, the first send's script or the change asked (excerpt)
+    change: bool  # a change asked in the thread, not the first send
 
 
 class JobOut(BaseModel):
@@ -70,6 +80,7 @@ class JobOut(BaseModel):
     declined: bool = False  # the owner said no; why is in `error`
     retry_of_id: int | None = None  # P3: the failed take this automatic retry is for
     auto: bool = False  # made on its own (the one automatic retry), not by a press
+    freestyle: FreestyleRef | None = None  # a Freestyle take's freestyle (Needs you's row)
 
     @model_validator(mode="before")
     @classmethod
@@ -123,8 +134,18 @@ class JobOut(BaseModel):
             else "",
             "held": job.input.get(HELD, "") if job.status == JobStatus.needs_owner_approval else "",
             "declined": bool(job.input.get(DECLINE)),
+            "freestyle": _freestyle(db, job) if db else None,
             **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
         }
+
+
+def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
+    fs = db.get(Freestyle, job.input[FREESTYLE]) if FREESTYLE in job.input else None
+    if fs is None:
+        return None
+    said = job.input.get(SAID, "")
+    return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
+                        said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
 
 
 def _usd(db: Session, job: Job) -> float:
@@ -149,6 +170,8 @@ ON_SCRIPT = "on_script"  # a song take's or narration music's script (outside an
 DECLINED = "The owner said no this time. Nothing was charged."
 HELD = "held"  # in a held job's input: why it waits for the owner (plain words)
 DECLINE = "declined"  # in its input once the owner said no
+SAID, CHANGE = "said", "change"  # in a Freestyle job's input: the send's words; a change?
+WITHDRAWN = "withdrawn"  # in a freestyle job's input: its maker took it back before the OK
 NOT_APPROVED = "This video's length isn't approved yet, so nothing can be made."
 
 
@@ -243,6 +266,7 @@ def list_jobs(
     removed: bool = False,  # true: the Quick clips taken off the history, to bring back
     folder: str | None = None,  # OR1: a project's id, or "none" for No project
     mine: bool = False,  # only the caller's own; an editor never gets others' Quick clips anyway
+    freestyle: bool = False,  # include Freestyle takes (they live on Freestyle and Media)
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -254,6 +278,8 @@ def list_jobs(
         quick = and_(Job.project_id.is_(None), Job.input["step"].as_string().is_(None),
                      or_(Job.kind.startswith("video"), Job.kind.startswith("image")))  # fmt: skip
         query = query.where(or_(Job.created_by_id == user.id, ~quick))
+    if not freestyle and status != JobStatus.needs_owner_approval:  # Needs you lists them all
+        query = query.where(Job.input[FREESTYLE].as_integer().is_(None))
     if status:
         query = query.where(Job.status == status)
     if (filed := folders.where(Job.folder_id, folder)) is not None:
@@ -272,6 +298,8 @@ FINISHED = (JobStatus.succeeded, JobStatus.failed, JobStatus.cancelled)
 def _prompt(job: Job) -> str:
     """What was asked: the person's own words, not the [ImageN] lines added for the model."""
     given = job.input.get("input") or {}
+    if SAID in job.input:  # a Freestyle send: the person's words, never the look's lines
+        return job.input[SAID]
     return str((job.input.get("request") or given).get("prompt", ""))
 
 
@@ -391,6 +419,9 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job has already started.")
+    if FREESTYLE in job.input:  # its thread says Withdrawn, as Freestyle's own Withdraw does
+        db.refresh(job)
+        job.input = {**job.input, WITHDRAWN: True}
     db.commit()
     if job.project_id:  # a press the director waited on was withdrawn: it goes on
         from app import director
