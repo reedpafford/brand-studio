@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, Select, Skeleton } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
@@ -11,21 +10,16 @@ import { errorText as errorClass } from "../ui";
 
 type Language = components["schemas"]["LanguageOut"];
 
-/** The Languages page (owner, flows VS1): every language, its sample test, and the switch that lets editors write in it. */
-export function LanguagesPage() {
-  const owner = useMe().data?.role === "owner";
+/** Settings › Languages (owner, flows VS1): every language, its sample test, and the switch that lets editors write in it. */
+export function LanguagesTab() {
   const list = useLanguages();
   // With no brand at all the shell shows "No brands yet" instead of this page, so there's always one to test with.
   const brands = useBrands().data ?? [];
   const [picked, setPicked] = useState<number | null>(null);
   const brandId = picked ?? brands[0]?.id ?? null;
-  if (!owner) return <p className="p-6">Only the owner manages languages.</p>;
   return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className="type-page">Languages</h1>
-        <p className="text-sm text-muted">What scripts can be written in. A language is on for editors once you've read and approved its test script.</p>
-      </div>
+    <section aria-label="Languages" className="space-y-4">
+      <p className="text-sm text-muted">What scripts can be written in. A language is on for editors once you've read and approved its test script.</p>
       {brands.length > 1 && (
         <div className="max-w-xs">
           <Select label="Test with" hint="The test script is written for this brand." value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
@@ -44,7 +38,7 @@ export function LanguagesPage() {
           </li>
         ))}
       </ul>
-    </main>
+    </section>
   );
 }
 

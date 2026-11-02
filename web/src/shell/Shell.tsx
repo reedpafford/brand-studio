@@ -1,14 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, ChartColumn, Coins, ChevronDown, Clapperboard, Film, Plus, FileText, Images, Languages, LogOut, Palette, Check, UserPlus, Users, Zap, type LucideIcon } from "lucide-react";
+import { Bell, ChevronDown, Film, Plus, FileText, Images, Palette, Check, Users, Zap, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
-import { api } from "../api/client";
 import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
 import { useProductionSummary } from "../production/useProduction";
 import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
-import { applyTheme, getTheme, type Theme } from "../theme";
 import { useMedia } from "../useMedia";
+import { AccountMenu, STUDIO } from "./AccountMenu";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
 import { NewBrand } from "./NewBrand";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
@@ -51,7 +49,7 @@ function useOnline() {
 }
 
 /** Desktop: one rail (brand switcher on top; Make, Library and, for Reed, Studio; the account at the bottom), no top bar.
- *  Phone: the top bar (switcher, Approvals, account) and the bottom tabs. */
+ *  Phone: the top bar (switcher, Needs you, account) and the bottom tabs. */
 export function Shell() {
   return (
     <ActionBarProvider>
@@ -71,6 +69,8 @@ function Frame() {
   const wide = useMedia("(min-width: 1280px)");
   const online = useOnline();
   const held = useHeld();
+  // Needs you counts held requests and videos that need attention, from reads the shell makes anyway; changes waiting are on the page.
+  const attention = useProductionSummary(held.owner).data?.needs_attention ?? 0;
   const { count, node, setNode } = useActionBarSlot();
   // The phone's action bar is as tall as what's in it (the cost bar is taller than one button): the page's bottom
   // padding and the toasts sit above its real height, so neither the work nor a toast hides behind or over it.
@@ -102,7 +102,7 @@ function Frame() {
     return () => void root.removeProperty("--brand");
   }, [brand]);
 
-  const waiting = held.owner ? held.count : null;
+  const waiting = held.owner ? held.count + attention : null;
   const work = (
     <div className="min-w-0 flex-1" style={rail ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
       {!online && (
@@ -131,7 +131,7 @@ function Frame() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      {!inVideo && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} waiting={waiting} rail={rail} />}
+      {!inVideo && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} waiting={waiting} />}
       <div className="flex">
         {rail && <Rail brands={brands ?? []} brand={brand} current={current} wide={wide} owner={held.owner} waiting={waiting} />}
         {work}
@@ -146,39 +146,29 @@ function Frame() {
   );
 }
 
-function Badge({ n, word = "waiting" }: { n: number | null; word?: string }) {
+function Badge({ n }: { n: number | null }) {
   if (!n) return null;
   return (
     <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-warning tabular-nums">
       <span aria-hidden className="size-1.5 rounded-full bg-warning" />
       {n}
-      <span className="sr-only"> {word}</span>
+      <span className="sr-only"> waiting</span>
     </span>
   );
 }
 
-function TopBar({ brands, brand, current, waiting, rail }: { brands: Brand[]; brand?: Brand; current: number | null; waiting: number | null; rail: boolean }) {
+function TopBar({ brands, brand, current, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; waiting: number | null }) {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4 lg:h-topbar lg:px-6">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
       <BrandSwitcher brands={brands} brand={brand} current={current} />
       <div className="ml-auto flex items-center gap-2">
-        {/* Approvals shows only while something waits (Reed, 30 Oct); the page itself stays at /approvals. */}
-        {!!waiting &&
-          (rail ? (
-            <Link to="/approvals" className="inline-flex min-h-control items-center gap-2 rounded-full border border-border bg-surface-2 px-4 text-base hover:bg-surface-3">
-              <Bell size={20} strokeWidth={1.75} aria-hidden />
-              Approvals
-              <span className="inline-grid min-w-5 place-items-center rounded-full bg-accent px-1.5 text-xs font-semibold text-on-accent tabular-nums">
-                {waiting}
-                <span className="sr-only"> waiting</span>
-              </span>
-            </Link>
-          ) : (
-            <Link to="/approvals" aria-label={`Approvals, ${waiting} waiting`} className="relative grid size-control place-items-center rounded-full hover:bg-surface-2">
-              <Bell size={20} strokeWidth={1.75} aria-hidden />
-              <span aria-hidden className="absolute right-1 top-1 inline-grid min-w-5 place-items-center rounded-full bg-accent px-1 text-xs font-semibold text-on-accent tabular-nums">{waiting}</span>
-            </Link>
-          ))}
+        {/* Needs you shows only while something waits (Reed, 30 Oct); the page itself stays at /approvals. */}
+        {!!waiting && (
+          <Link to="/approvals" aria-label={`Needs you, ${waiting} waiting`} className="relative grid size-control place-items-center rounded-full hover:bg-surface-2">
+            <Bell size={20} strokeWidth={1.75} aria-hidden />
+            <span aria-hidden className="absolute right-1 top-1 inline-grid min-w-5 place-items-center rounded-full bg-accent px-1 text-xs font-semibold text-on-accent tabular-nums">{waiting}</span>
+          </Link>
+        )}
         <AccountMenu />
       </div>
     </header>
@@ -248,117 +238,6 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
   );
 }
 
-const THEMES: { id: Theme; label: string }[] = [
-  { id: "dark", label: "Dark" },
-  { id: "light", label: "Light" },
-  { id: "system", label: "Match my device" },
-];
-
-function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?: boolean } = {}) {
-  const { data: me } = useMe();
-  const signOut = useSignOut();
-  const [theme, setTheme] = useState<Theme>(getTheme);
-  const initials = (me?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-  return (
-    <Menu
-      title="Account"
-      align={inRail ? "left" : "right"}
-      up={inRail}
-      trigger={(p) =>
-        inRail ? (
-          <button type="button" {...p} aria-label="Account menu" className={`flex min-h-control w-full items-center gap-2 rounded-md px-2 hover:bg-surface-2 ${iconOnly ? "justify-center" : ""}`}>
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-3 text-xs font-semibold">{initials}</span>
-            {!iconOnly && <span className="min-w-0 flex-1 truncate text-left">{me?.name}</span>}
-          </button>
-        ) : (
-          <button type="button" {...p} aria-label="Account menu" className="grid size-control place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent-text">
-            {initials}
-          </button>
-        )
-      }
-    >
-      {(close) => (
-        <>
-          <div className="px-3 pb-2 pt-1">
-            <div className="font-semibold">{me?.name}</div>
-            <div className="text-sm text-muted">{me?.email}</div>
-          </div>
-          {me?.role === "owner" && !inRail && (
-            <Link to="/production" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
-              <Clapperboard size={20} strokeWidth={1.75} aria-hidden />
-              In production
-            </Link>
-          )}
-          {me?.role === "owner" && !inRail && (
-            <Link to="/team" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
-              <UserPlus size={20} strokeWidth={1.75} aria-hidden />
-              Team
-            </Link>
-          )}
-          {me?.role === "owner" && !inRail && (
-            <Link to="/looks" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
-              <Palette size={20} strokeWidth={1.75} aria-hidden />
-              Looks
-            </Link>
-          )}
-          {me?.role === "owner" && !inRail && (
-            <Link to="/languages" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
-              <Languages size={20} strokeWidth={1.75} aria-hidden />
-              Languages
-            </Link>
-          )}
-          {me?.role === "editor" && (
-            <Link to="/usage/mine" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
-              <Coins size={20} strokeWidth={1.75} aria-hidden />
-              My credits
-            </Link>
-          )}
-          {me?.role === "owner" && !inRail && (
-            <Link to="/usage" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
-              <ChartColumn size={20} strokeWidth={1.75} aria-hidden />
-              Usage
-            </Link>
-          )}
-          <div role="group" aria-label="Theme" className="mt-1 border-t border-border pt-1">
-            <p className="px-3 pt-2 text-xs font-bold uppercase tracking-[0.12em] text-muted">Theme</p>
-            {THEMES.map((t) => (
-              <MenuItem
-                key={t.id}
-                checked={theme === t.id}
-                onClick={() => {
-                  applyTheme(t.id);
-                  setTheme(t.id);
-                }}
-              >
-                <span className="flex-1">{t.label}</span>
-                {theme === t.id && <Check size={20} strokeWidth={1.75} aria-hidden />}
-              </MenuItem>
-            ))}
-          </div>
-          <div className="mt-1 border-t border-border pt-1">
-            <MenuItem onClick={() => signOut.mutate()}>
-              <LogOut size={20} strokeWidth={1.75} aria-hidden />
-              Sign out
-            </MenuItem>
-          </div>
-        </>
-      )}
-    </Menu>
-  );
-}
-
-function useSignOut() {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => api.POST("/auth/logout"),
-    onSuccess: () => {
-      queryClient.clear(); // nothing from this person stays for the next one
-      navigate("/login", { replace: true });
-    },
-  });
-}
-
 /** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
 function NavItem({ to, also, className, children, ...rest }: { to: string; also?: string; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
   const { pathname } = useLocation();
@@ -386,7 +265,6 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
       {rows}
     </div>
   );
-  const attention = useProductionSummary(owner).data?.needs_attention ?? null;
   return (
     <nav aria-label="Main" className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-y-auto border-r border-border bg-surface p-2 ${wide ? "w-rail" : "w-[64px]"}`}>
       <BrandSwitcher brands={brands} brand={brand} current={current} inRail iconOnly={!wide} />
@@ -396,12 +274,8 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
         group(
           "Studio",
           <>
-            {!!waiting && row("/approvals", "Approvals", Bell, <Badge n={waiting} />)}
-            {row("/production", "In production", Clapperboard, <Badge n={attention} word="need attention" />)}
-            {row("/usage", "Usage", ChartColumn)}
-            {row("/team", "Team", UserPlus)}
-            {row("/looks", "Looks", Palette)}
-            {row("/languages", "Languages", Languages)}
+            {!!waiting && row("/approvals", "Needs you", Bell, <Badge n={waiting} />)}
+            {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
           </>,
         )}
       <div className="mt-auto pt-4">
