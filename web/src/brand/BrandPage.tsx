@@ -41,7 +41,9 @@ export function BrandPage() {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [dirty, setDirty] = useState(false);
   const [leaving, setLeaving] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
+  // Import from website lives in the address (?import=1), so New brand can open on it and a reload keeps it open.
+  const importing = params.get("import") === "1";
+  const setImporting = (on: boolean) => setParams(on ? { import: "1" } : {}, { replace: true });
   const go = (id: string) => setParams(id === "look" ? {} : { tab: id }, { replace: true });
 
   return (
@@ -55,7 +57,7 @@ export function BrandPage() {
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             {owner && brand && (tab === "look" || tab === "voice") && (
-              <Button variant="secondary" onClick={() => { setImporting(true); go("look"); }}>
+              <Button variant="secondary" onClick={() => setImporting(true)}>
                 Import from website
               </Button>
             )}

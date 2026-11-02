@@ -11,5 +11,5 @@ test("with many brands the brand menu scrolls and New brand can still be pressed
   await page.reload();
   await page.getByRole("button", { name: /^Brand: / }).click();
   await page.getByRole("menuitem", { name: "New brand" }).click();
-  await expect(page.getByLabel("Brand name")).toBeVisible();
+  await expect(page.getByRole("form", { name: "New brand" })).toBeVisible();
 });

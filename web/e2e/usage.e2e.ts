@@ -53,15 +53,15 @@ test("Reed changes the editors' weekly allowance in Settings, and Undo puts it b
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("tab", { name: "Credit limits" }).click();
-  const weekly = page.getByLabel("Editors' weekly allowance");
+  await page.getByRole("tab", { name: "Limits" }).click();
+  const weekly = page.getByLabel("Each editor's own week");
   const before = await weekly.inputValue();
   await weekly.fill(String(Number(before) + 5));
-  await page.getByRole("button", { name: "Save limits" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Limits saved.")).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await page.reload();
-  await expect(page.getByLabel("Editors' weekly allowance")).toHaveValue(before);
+  await expect(page.getByLabel("Each editor's own week")).toHaveValue(before);
 });
 
 test("Reed releases a version he started by mistake, and it leaves In production", async ({ page }) => {
@@ -84,14 +84,15 @@ test("Reed releases a version he started by mistake, and it leaves In production
   await expect(page.getByRole("link", { name: new RegExp(`^${title}, version A, `) })).toBeHidden();
 });
 
-test("Reed adds a brand from the brand menu and lands on its Look page", async ({ page }) => {
+test("Reed adds a brand from the brand menu on its own page and lands on its Look page", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await page.getByRole("button", { name: /^Brand: / }).click();
   await page.getByRole("menuitem", { name: "New brand" }).click();
-  await page.getByLabel("Brand name").fill("Zephyr Studio");
-  await page.getByRole("button", { name: "Create brand" }).click();
-  await expect(page.getByText("Zephyr Studio is ready. Add its logo and colours.")).toBeVisible();
+  const form = page.getByRole("form", { name: "New brand" });
+  await form.getByLabel("Name", { exact: true }).fill("Zephyr Studio");
+  await form.getByRole("button", { name: "Make the brand" }).click();
+  await expect(page.getByText("Zephyr Studio is ready. Add its look next.")).toBeVisible();
   await expect(page).toHaveURL(/\/b\/\d+\/brand$/);
   await expect(page.getByRole("button", { name: "Brand: Zephyr Studio" })).toBeVisible();
 });
