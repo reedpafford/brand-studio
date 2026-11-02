@@ -332,7 +332,7 @@ def test_on_the_stand_ins_a_study_link_gives_the_test_clip(app, db, owner, song)
 
     app.state.settings.fake_providers = True
     local = get_providers(app.state.settings, app.state.storage)["local"]
-    assert local.fetch_study is study_link and local.fetch_link is refuse_link  # import: as is
+    assert local.fetch_study is study_link and local.fetch_link is study_link  # a reel's too
     url = f"/scripts/{song}/drafts/0/song-study"
     assert (
         owner.post(url, data={"url": "https://www.instagram.com/reel/DehudnaAmce/"}).status_code

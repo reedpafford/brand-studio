@@ -267,3 +267,24 @@ def test_frame_grids_hold_three_frames_a_shot_within_geminis_limits(clip, tmp_pa
     assert len(grids) == 1 and grids[0].stat().st_size < 7 * 1024 * 1024
     assert Image.open(grids[0]).width == 3 * 240  # one row per shot, three frames across
     assert labels[0].startswith("1 · ") and labels[0].endswith("s")  # shot number and time
+
+
+def test_on_the_stand_ins_a_reel_link_imports_the_test_clip(app, owner, db):
+    """QA walks Import a reel by link as Reed does (Next-Lead): the stand-ins give the 6 s test
+    clip, never fetched; a link with "blocked" in it is refused, as Instagram would."""
+    from app.providers import get_providers
+
+    app.state.settings.fake_providers = True
+    providers = get_providers(app.state.settings, app.state.storage)
+    brand = owner.get("/brands").json()[0]["id"]
+    said = {}
+    for reel_id in ("DehudnaAmce", "blockedReel"):  # one at a time, as the page allows
+        url = f"https://www.instagram.com/reel/{reel_id}/"
+        made = owner.post("/scripts/import/link", json={"brand_id": brand, "url": url})
+        assert made.status_code == 201, made.text
+        for _ in range(4):
+            run_once(db, {"local": providers["local"]}, app.state.storage, allow_paid=False)
+        said[reel_id] = owner.get(f"/scripts/{made.json()['script_id']}/import").json()
+    assert said["DehudnaAmce"]["status"] == "ready", said
+    refused = said["blockedReel"]
+    assert (refused["status"], refused["problem_code"]) == ("failed", "blocked")

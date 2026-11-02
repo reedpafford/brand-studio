@@ -50,8 +50,9 @@ def transcript(path: Path) -> list[dict]:
 def hear_take(path: Path, job: dict) -> list[dict]:
     """Stand-in hearing of a take: its script lines, one every 2 s. A marker in the take's
     prompt walks each finding (QA): fake:drop-line (the last line isn't said),
-    fake:extra-line (an unscripted line after them), fake:misname (the brand said "Fobo") or
-    fake:gasp (a gasp after the lines)."""
+    fake:extra-line (an unscripted line after them), fake:misname (the brand said "Fobo"),
+    fake:says-brand (said right, "fomo") or fake:gasp (a gasp after the lines). Each line has
+    its words and when, as whisper gives them."""
     lines, prompt = [x["text"] for x in job["lines"]], job.get("prompt", "")
     if "fake:drop-line" in prompt:
         lines = lines[:-1]
@@ -61,8 +62,19 @@ def hear_take(path: Path, job: dict) -> list[dict]:
         lines = [*lines, "Can't believe it worked."]
     if "fake:gasp" in prompt:
         lines = [*lines, "(gasps)"]
-    return [{"start": 2.0 * i + 0.5, "end": 2.0 * i + 1.8, "text": t, "speaker": None}
+    if "fake:says-brand" in prompt:  # the brand said right (a clean copy for a splice)
+        lines = [f"{lines[0]} I love fomo." if lines else "I love fomo.", *lines[1:]]
+    return [{"start": 2.0 * i + 0.5, "end": 2.0 * i + 1.8, "text": t, "speaker": None,
+             "words": _spread(t, 2.0 * i + 0.5, 2.0 * i + 1.8)}
             for i, t in enumerate(lines)]  # fmt: skip
+
+
+def _spread(text: str, start: float, end: float) -> list[dict]:
+    """A line's words, evenly over its time (whisper gives each word's own)."""
+    words = text.split()
+    each = (end - start) / max(len(words), 1)
+    return [{"word": w.strip(".,!?"), "start": round(start + k * each, 2),
+             "end": round(start + (k + 1) * each, 2)} for k, w in enumerate(words)]  # fmt: skip
 
 
 def hear_cut(path: Path, job: dict) -> list[dict]:
@@ -243,8 +255,9 @@ def read_site(url: str) -> dict:
 
 
 def study_link(url: str, folder: Path) -> Path:
-    """A song-ad study's link on the stand-ins: the 6 s test clip, so a walk reaches the
-    finished study; a reel id with "blocked" in it is refused, as Instagram would."""
+    """A reel's link on the stand-ins (Import a reel, or a song-ad study): the 6 s test clip,
+    never fetched, so a walk reaches the read reel or the finished study; a reel id with
+    "blocked" in it is refused, as Instagram would."""
     if "blocked" in url:
         return refuse_link(url, folder)
     return two_scenes(folder / "reel.mp4")
