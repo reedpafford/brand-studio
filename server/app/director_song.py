@@ -44,7 +44,7 @@ def _take(db: Session, take: SongTake, used: int | None) -> dict:
             "seconds": timing.get("seconds"),
             "sections": [s.get("name") for s in timing.get("sections") or []],
             "hook_at": sung[0]["start"] if sung else None,
-            "gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
+            "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
             "missing": [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
             if take.timing is not None else None,

@@ -105,7 +105,7 @@ def test_a_song_is_made_again_once_a_run_and_never_in_another_kind(app, db, owne
         db.get(Project, video.id, execution_options={"see_hidden": True}).song_take_id
         == other["id"]
     )
-    assert other["gap"] is not None and other["tail"] is not None
+    assert other["longest_gap"] is not None and other["tail"] is not None
     assert tool("song", "warmer, female vocal") == "Making the song (warmer, female vocal)."
     job = max(db.query(Job).filter(Job.project_id == video.id, Job.kind == "music"),
               key=lambda j: j.id)  # fmt: skip
