@@ -5,7 +5,9 @@
 # Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC (keys only when FAKE=false),
 # KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on), LOOK_SAMPLES,
 # LOOK_BUDGET (with REPLICATE while real look samples are switched on), and LANGUAGE_TESTS,
-# LANGUAGE_BUDGET (with ANTHROPIC while real language tests are switched on).
+# LANGUAGE_BUDGET (with ANTHROPIC while real language tests are switched on), and with the
+# stand-ins off: REAL_BUDGET, REAL_SINCE, ITEM_CHECKS_PAID, NARRATION_MUSIC_PAID,
+# NARRATION_MUSIC_BUDGET and SITE_READ_REAL; ITEM_CHECK_SCOPE either way.
 set -euo pipefail
 
 main() {
@@ -50,6 +52,11 @@ main() {
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
       echo "BS_REAL_BUDGET_USD=${REAL_BUDGET:-0}"  # every paid call stops at it (0: none runs)
       if [ -n "${REAL_SINCE:-}" ]; then echo "BS_REAL_BUDGET_SINCE=$REAL_SINCE"; fi  # unset: none runs
+      # Each paid path that's off until a real test is approved (all inside the budget above).
+      echo "BS_ITEM_CHECKS_PAID=${ITEM_CHECKS_PAID:-false}"  # the take check (eyes, screens, cast)
+      echo "BS_NARRATION_MUSIC_PAID=${NARRATION_MUSIC_PAID:-false}"  # a narration's music bed
+      echo "BS_NARRATION_MUSIC_BUDGET_USD=${NARRATION_MUSIC_BUDGET:-0}"
+      echo "BS_SITE_READ_REAL=${SITE_READ_REAL:-false}"  # Import from website reads the real site
     elif [ -n "${KIE:-}" ] || [ "$samples" = true ] || [ "$tests" = true ]; then  # stand-ins, but real songs, samples or tests
       echo "BS_FAKE_PROVIDERS=true"
       echo "BS_GENERATION_ENABLED=true"
@@ -57,6 +64,11 @@ main() {
       echo "BS_FAKE_PROVIDERS=true"
       echo "BS_GENERATION_ENABLED=false"
     fi
+    case "${ITEM_CHECK_SCOPE:-key_takes}" in  # which items the take check looks at
+      key_takes|all_takes|everything) echo "BS_ITEM_CHECK_SCOPE=${ITEM_CHECK_SCOPE:-key_takes}" ;;
+      *) echo "::warning::NEXT_ITEM_CHECK_SCOPE is key_takes, all_takes or everything; using key_takes." >&2
+         echo "BS_ITEM_CHECK_SCOPE=key_takes" ;;
+    esac
     if [ -n "${KIE:-}" ]; then  # Suno through KIE, stopped at the test budget
       hosts=$(printf '%s' "${KIE_HOSTS:-}" | tr -d ' ' | sed 's/[^,][^,]*/"&"/g')
       echo "BS_KIE_SUNO=true"
