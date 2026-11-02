@@ -501,8 +501,8 @@ class MineOut(BaseModel):
     projects: list[MyProject]
     scripts: list[MyScript] = []
     week: MyWeek | None = None  # this week, as the allowance counts it
-    sends: list[MySend] = []  # every brand: their sends waiting for the owner, or declined
-    waiting_credits: float = 0  # up to, over the waiting ones: none of it is spent yet
+    sends: list[MySend] = []  # every brand: each held send ("waiting"), and declined ones
+    waiting_credits: float = 0  # up to, over the waiting sends (as Needs you): none spent yet
 
 
 @router.get("/mine", response_model=MineOut)
@@ -564,33 +564,46 @@ def mine(
 
 
 def _sends(db: Session, user: User) -> list[MySend]:
-    """The caller's freestyle sends that wait for the owner or were declined (v5 My credits:
-    "Waiting for the owner's OK · up to N credits"), newest first."""
+    """The caller's freestyle sends waiting for the owner (each held job at its "up to", as
+    Needs you shows it to the owner: a first send, a change, a step past the price) and the
+    freestyles whose last send was declined (v5 My credits), newest first."""
     from app import hidden
+    from app.credits import FREESTYLE
     from app.models.freestyles import Freestyle
+    from app.models.jobs import JobStatus
     from app.routes import freestyles
+    from app.routes.jobs import _freestyle, _with_check
 
-    hidden.see(db)
-    rows = db.scalars(select(Freestyle).where(Freestyle.created_by_id == user.id)
-                      .order_by(Freestyle.id.desc()).limit(200))  # fmt: skip
-    out = []
-    for fs in rows:
-        seen = freestyles._out(db, fs)
-        if seen.status not in ("waiting", "declined"):
-            continue
+    hidden.see(db)  # a freestyle's video and script are hidden until the owner's OK
+
+    def send(fs, status: str, credits, reason: str = "", at=None) -> MySend:
         brand = db.get(Brand, fs.brand_id) if fs.brand_id else None
-        said = next((m.text for m in reversed(seen.thread)
-                     if m.text.startswith("The owner declined: ")), "")  # fmt: skip
-        out.append(MySend(freestyle_id=fs.id, title=fs.title, status=seen.status,
-                          brand=brand.name if brand and not brand.hidden else "",
-                          up_to_credits=float(seen.up_to or _asked(db, fs)),
-                          reason=said.removeprefix("The owner declined: "),
-                          created_at=fs.created_at))  # fmt: skip
-    return out
+        return MySend(freestyle_id=fs.id, title=fs.title, status=status, reason=reason,
+                      brand=brand.name if brand and not brand.hidden else "",
+                      up_to_credits=float(credits), created_at=at or fs.created_at)  # fmt: skip
+
+    mine = (Job.created_by_id == user.id, Job.status == JobStatus.needs_owner_approval)
+    held = db.scalars(select(Job).where(*mine, Job.input[FREESTYLE].as_integer().is_not(None)))
+    out = []
+    for job in held:
+        ref = _freestyle(db, job)
+        if ref is not None:
+            fs = db.get(Freestyle, ref.id)
+            out.append(send(fs, "waiting", ref.up_to if ref.up_to is not None
+                            else _with_check(db, job), at=job.created_at))  # fmt: skip
+    for fs in db.scalars(select(Freestyle).where(Freestyle.created_by_id == user.id)
+                         .order_by(Freestyle.id.desc()).limit(200)):  # fmt: skip
+        seen = freestyles._out(db, fs)
+        if seen.status == "declined":
+            said = next((m.text for m in reversed(seen.thread)
+                         if m.text.startswith("The owner declined: ")), "")  # fmt: skip
+            out.append(send(fs, "declined", seen.up_to or _asked(db, fs),
+                            said.removeprefix("The owner declined: ")))  # fmt: skip
+    return sorted(out, key=lambda s: s.created_at, reverse=True)
 
 
 def _asked(db: Session, fs) -> Decimal:
-    """A one-clip freestyle's newest send's price (declined ones included)."""
+    """A one-clip freestyle's newest send's price (a declined one's too)."""
     from app.routes.freestyles import _jobs
 
     jobs, sent = _jobs(db, fs), [m["job"] for m in fs.chat if m.get("job")]

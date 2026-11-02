@@ -1,7 +1,8 @@
 """Make the two done-test videos end to end with the stand-in providers: free, no keys.
 Script Library (script, cast slots, breakdown preview, publish, produce, Assets), then
 storyboard, stills, clip prompts, takes, one cut-in and the final MP4, all through the API.
-Also reel import: one uploaded reel read and produced, two reel links through bulk create.
+Also reel import: one uploaded reel read and produced, three reel links through bulk create
+(two imported on the stand-ins, one blocked and uploaded instead).
 Prints what came out; exits 1 if anything went wrong.
 
     cd server && uv run python -m scripts.fake_run
@@ -199,19 +200,23 @@ def import_reel(c, work, video: Path) -> None:
 
 
 def bulk_reels(c, work, video: Path) -> None:
-    """Two reel links in bulk create; local runs can't reach Instagram, so each says to upload
-    the video, gets it, and Write all reads both at one total."""
+    """Reel links in bulk create, on the stand-ins (#1216): a link imports the canned reel,
+    free and with no network; a blocked one is refused and says to upload the video, which
+    then reads. Write all reads all three at one total."""
     print("\nbulk reel links")
     brand_id = c.get("/brands").json()[0]["id"]
-    rows = [{"brand_id": brand_id, "reel_url": f"https://www.instagram.com/reel/Local{n}x/"}
-            for n in (1, 2)]  # fmt: skip
+    rows = [{"brand_id": brand_id, "reel_url": f"https://www.instagram.com/reel/{name}/"}
+            for name in ("Local1x", "Local2x", "Localblocked3x")]  # fmt: skip
     ids = [s["id"] for s in ok(c.post("/scripts/bulk", json={"scripts": rows}), "bulk links")]
     work()
-    for sid in ids:
-        if c.get(f"/scripts/{sid}/import").json()["problem_code"] != "blocked":
-            problems.append(f"bulk reel links: script {sid} wasn't refused locally")
-        _upload(c, f"/scripts/{sid}/import/upload", video)
-        work()
+    *linked, blocked = ids
+    for sid in linked:
+        if c.get(f"/scripts/{sid}/import").json()["problem_code"]:
+            problems.append(f"bulk reel links: script {sid}'s link wasn't imported")
+    if c.get(f"/scripts/{blocked}/import").json()["problem_code"] != "blocked":
+        problems.append(f"bulk reel links: script {blocked}'s blocked link wasn't refused")
+    _upload(c, f"/scripts/{blocked}/import/upload", video)
+    work()
     price = ok(c.post("/scripts/write/estimate", json={"script_ids": ids}), "estimate")
     print(f"  read {price['reading']} reels, {price['credits']:.0f} credits")
     ok(c.post("/scripts/write", json={"script_ids": ids}), "write all reels")

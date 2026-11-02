@@ -224,3 +224,12 @@ def test_my_credits_lists_my_waiting_and_declined_sends(app, owner, editor, db):
             sends[second["id"]]["brand"]) == ("declined", "Not this week.", "")  # fmt: skip
     assert mine["waiting_credits"] == float(held[0].credits)
     assert all(v["project_id"] != first.get("project_id") for v in mine["videos"])
+
+    from tests.test_freestyle_dialogue import BODY  # a director-run send, on a hidden video
+
+    run = editor.post("/freestyles", json={**BODY, "brand_id": brand}).json()
+    mine = editor.get("/usage/mine", params={"brand_id": brand}).json()
+    asked = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    shown = sum(j["freestyle"]["up_to"] or j["credits"] for j in asked)  # Needs you's figures
+    assert mine["waiting_credits"] == shown == float(held[0].credits) + run["up_to"]
+    assert [s["status"] for s in mine["sends"]].count("waiting") == 2
