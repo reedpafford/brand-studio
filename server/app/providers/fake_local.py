@@ -65,6 +65,12 @@ def hear_take(path: Path, job: dict) -> list[dict]:
             for i, t in enumerate(lines)]  # fmt: skip
 
 
+def hear_cut(path: Path, job: dict) -> list[dict]:
+    """Stand-in hearing of a cut: nobody speaks (so a stand-in mute never covers a script
+    word); its frames and clips are found as for a real cut."""
+    return []
+
+
 # The stand-in song (Producer: a fixed track with known timings): a click on every beat at
 # 120 BPM from 0.25 s, 24 s long; its words are sung one a beat from the fifth beat on.
 # A marker in the style line picks another outcome, so every state can be walked (Flow-QA):
@@ -704,6 +710,33 @@ class FakeWriter:
                 }
             )
         return {"findings": found}  # fmt: skip
+
+    def _watch_cut(self, prompt):
+        """The stand-in watch of a cut (so the director's fixes can be walked, Next-Server's
+        e2e): a redo of the first clip and a half-second mute in the last, every time; the
+        ending lands. A fake:watch-pick marker in a clip's shot adds a pick of its other take."""
+        cut = json.loads(_tag(prompt, "cut") or "[]")
+        if not cut:
+            return {"lands": True, "summary": "Nothing to watch.", "findings": []}
+        first, last = cut[0], cut[-1]
+        mid = round((last["start"] + last["end"]) / 2, 2)
+        found = [
+            {"clip_id": first["clip_id"], "start": first["start"],
+             "end": min(first["start"] + 1, first["end"]),
+             "says": f"{first['clip_id']}: the opening face changes between shots",
+             "fix": "redo", "take_id": None,
+             "note": "Keep the same face in every shot, as on their sheet."},
+            {"clip_id": last["clip_id"], "start": mid, "end": round(mid + 0.5, 2),
+             "says": f"{last['clip_id']}: a stray sound nobody asked for", "fix": "mute",
+             "take_id": None, "note": "a stray sound"},
+        ]  # fmt: skip
+        for c in cut:
+            if "fake:watch-pick" in json.dumps(c["shots"]) and c["other_takes"]:
+                found.append({"clip_id": c["clip_id"], "start": c["start"], "end": c["end"],
+                              "says": f"{c['clip_id']}: another take reads better",
+                              "fix": "pick", "take_id": c["other_takes"][0]["take_id"],
+                              "note": "The other take keeps the line."})  # fmt: skip
+        return {"lands": True, "summary": "It plays; two small fixes.", "findings": found}
 
     def _site_read(self, prompt):  # the practice page's two products and both its colours
         return {"products": [

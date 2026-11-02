@@ -41,7 +41,7 @@ class DirectorOut(BaseModel):
 def _out(db: Session, user: User, project) -> DirectorOut:
     rows = director.turns(db, project)
     last = rows[-1] if rows else None
-    ended = (last.input.get("ended") or "") if last else ""
+    ended = director.ended(db, project)
     delivered = bool(last) and last.input.get("result") == "Delivered."
     status = ("none" if not last else "running" if director.active(db, project)
               else "delivered" if delivered else "ended")  # fmt: skip

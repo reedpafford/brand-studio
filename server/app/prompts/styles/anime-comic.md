@@ -13,7 +13,7 @@ Original cel-shaded anime illustration: clean, even ink line weight, two-tone ce
 Original cel-shaded anime background art: clean ink lines, flat colour fills with one shadow tone, soft painted sky gradients, a clear readable layout with the depth carried by colour and value.
 
 ## still_look
-The Anime comic look, unless the brand block says otherwise: "Original cel-shaded anime frame: clean, even ink lines, two-tone cel shading, flat bright colour, painted background art, a strong key pose and a readable silhouette. Faces, builds and outfits come from the character sheets. Expressions are big and graphic, readable with the sound off."
+The Anime comic look, unless the brand block says otherwise: "Original cel-shaded anime frame: clean, even ink lines, two-tone cel shading, flat bright colour, painted background art, a strong key pose and a readable silhouette. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Expressions are big and graphic, readable with the sound off."
 
 ## clip_style
 Original cel-shaded anime animation, clean ink lines and two-tone shading, pose-to-pose with purposeful holds and snappy impact frames

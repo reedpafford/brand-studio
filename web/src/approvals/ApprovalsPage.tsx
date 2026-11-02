@@ -232,7 +232,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
           <Where brandId={brandId}>
             {project ? (
               <>
-                <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
+                <Link className="inline-flex min-h-11 items-center underline sm:min-h-0" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
                 <span aria-hidden className="text-muted">·</span>
                 <span>{what}</span>
               </>
@@ -295,7 +295,7 @@ function ProjectRow({ project, heldJobs }: { project: Project; heldJobs: number 
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <Where brandId={project.brand_id}>
-            <Link className="underline" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
+            <Link className="inline-flex min-h-11 items-center underline sm:min-h-0" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
             <span aria-hidden className="text-muted">·</span>
             <span>project</span>
           </Where>

@@ -59,5 +59,5 @@ test("it stays out of every count: the steps are not blocked and the header coun
   await screen.findByLabelText("Noah");
   expect(screen.getByText("1 in the cast · 1 approved")).toBeInTheDocument();
   const steps = screen.getByRole("list", { name: "Steps" });
-  expect(within(steps).getByRole("button", { name: "Storyboard" })).not.toHaveAccessibleDescription(/Approve the cast first/);
+  expect(within(steps).getByRole("button", { name: "Make" })).not.toHaveAccessibleDescription(/Approve the cast first/);
 });

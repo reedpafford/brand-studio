@@ -236,7 +236,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
           </Banner>
         )}
         <p className="text-[length:var(--text-xl)] font-semibold">No clips yet.</p>
-        <p className="text-muted">Each clip is made from its storyboard frame and the breakdown.</p>
+        <p className="text-muted">Each clip is made from its still and the shots.</p>
         {!bar && (
           <Button dense charge="estimate" price={writeCost} busy={write.isPending} disabled={!!stopFor(writeCost)} reason={stopFor(writeCost)} onClick={() => write.mutate(undefined)}>
             Write clip prompts

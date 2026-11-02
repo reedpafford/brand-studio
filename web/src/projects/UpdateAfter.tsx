@@ -4,7 +4,7 @@ import { api, errorText } from "../api/client";
 import { Banner, Button } from "../components";
 import type { CostAction } from "./CostBar";
 
-const STEP = { storyboard: { label: "Storyboard", go: "storyboard" }, stills: { label: "Storyboard", go: "storyboard" }, clip_prompts: { label: "Clips", go: "clips" } } as const;
+const STEP = { storyboard: { label: "Stills", go: "storyboard" }, stills: { label: "Stills", go: "storyboard" }, clip_prompts: { label: "Clips", go: "clips" } } as const;
 
 /** Update everything after this (audit M14 part 2): one server press redoes the storyboard, its stills and the clip prompts in
  *  order, priced first. `action` is the cost bar's press while the storyboard is out of date; `note` says what it runs, or where

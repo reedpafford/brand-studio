@@ -229,10 +229,12 @@ def name_for(caption_text: str, transcript: list[dict], limit: int = 60) -> str:
     return first[:limit].rsplit(" ", 1)[0].rstrip(",.;:—-") + "…"
 
 
-def transcribe(path: Path, sounds: bool = False) -> list[dict]:
+def transcribe(path: Path, sounds: bool = False, words: bool = False) -> list[dict]:
     """faster-whisper small (int8, CPU) in a subprocess: [{start, end, text, speaker}].
-    `sounds`: keep whisper's non-speech tags ("(gasps)"), for a take's words check."""
-    args = [sys.executable, "-m", "app.whisper", str(path), *(["--sounds"] if sounds else [])]
+    `sounds`: keep whisper's non-speech tags ("(gasps)"), for a take's words check; `words`:
+    each line's words and when (`words: [{word, start, end}]`), for a cut's watch."""
+    flag = ["--sounds"] if sounds else ["--study"] if words else []
+    args = [sys.executable, "-m", "app.whisper", str(path), *flag]
     try:
         done = _run(args, TRANSCRIBE_TIMEOUT)
     except subprocess.TimeoutExpired:
