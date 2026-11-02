@@ -930,6 +930,7 @@ test("New script: Import a reel takes a reel link or a video, checks the link fi
   setViewport(1440);
   const calls = fakeServer({ ...base, "POST /scripts/import/link": [201, reelOut({ status: "preparing" })], "GET /scripts/7": [200, full({ id: 7 })], "GET /scripts/7/import": [200, reelOut({ status: "preparing" })] });
   open("/b/1/scripts/import");
+  expect(await screen.findByRole("button", { name: "Get the reel" })).toHaveAccessibleDescription("Paste a link to the reel first, or upload a video above"); // greyed out, and says why
   await userEvent.type(await screen.findByLabelText("Link to the reel"), "https://example.com/video");
   await userEvent.click(screen.getByRole("button", { name: "Get the reel" }));
   expect(await screen.findByText("That isn't an Instagram reel link.")).toBeInTheDocument();
@@ -989,7 +990,7 @@ test("a prepared reel shows its price and the one amber Read this reel · N cred
     "POST /scripts/7/import/read": [201, reelOut({ status: "reading", steps_done: [], estimate: est(7) })],
   });
   open("/b/1/scripts/7");
-  expect(await screen.findByText("Reading it costs about 7 credits.")).toBeInTheDocument();
+  expect(await screen.findByText("Reading it costs up to 7 credits.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Read this reel.*7 credits/ }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/import/read")).toBe(true));
   const rows = await screen.findByRole("list", { name: "Reading the reel" });
@@ -1060,7 +1061,7 @@ test("the estimate in words rounds up like the button's price", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [200, reelOut({ estimate: est(6.4) })] });
   open("/b/1/scripts/7");
-  expect(await screen.findByText("Reading it costs about 7 credits.")).toBeInTheDocument();
+  expect(await screen.findByText("Reading it costs up to 7 credits.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Read this reel.*7 credits/ })).toBeInTheDocument();
 });
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, FileVideoCamera, Film, Link as LinkIcon, LoaderCircle, RotateCcw, Upload } from "lucide-react";
+import { Check, CircleAlert, FileVideoCamera, Film, LoaderCircle, RotateCcw, Upload } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -78,7 +78,7 @@ export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?
       }}
     >
       <p className="text-text/80">We read the reel's lines and shots and turn them into a script you can adapt.</p>
-      <Field label="Link to the reel" inputMode="url" placeholder="https://www.instagram.com/reel/…" value={url} error={bad} onChange={(e) => setUrl(e.target.value)} trailing={<LinkIcon size={20} strokeWidth={1.75} aria-hidden className="text-muted" />} />
+      <Field label="Link to the reel" inputMode="url" placeholder="https://www.instagram.com/reel/…" value={url} error={bad} onChange={(e) => setUrl(e.target.value)} />
       <div className="flex items-center gap-3" aria-hidden>
         <span className="h-px flex-1 bg-border" />
         <span className="text-xs text-muted">or</span>
@@ -112,7 +112,7 @@ export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?
       {brandName && (
         <div className="space-y-1.5">
           <p className="text-xs font-medium">Brand</p>
-          <Badge>{brandName}</Badge>
+          <span className="inline-flex h-[26px] items-center rounded-sm border border-border-strong px-2 text-xs">{brandName}</span>
         </div>
       )}
       <div className="space-y-1">
@@ -125,7 +125,7 @@ export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-xs text-muted">Getting the reel is free and takes about a minute.</span>
-        <Button type="submit" busy={fromLink.isPending} disabled={!url.trim() || fromFile.isPending} className="w-full sm:w-auto">
+        <Button type="submit" busy={fromLink.isPending} disabled={!url.trim() || fromFile.isPending} reason={!url.trim() ? "Paste a link to the reel first, or upload a video above" : null} className="w-full sm:w-auto">
           Get the reel
         </Button>
       </div>
@@ -366,7 +366,7 @@ export function ReelBlock({ scriptId, published }: { scriptId: number; published
             </p>
             <p className="text-sm text-muted">{facts}</p>
             {r.url && <p className="truncate text-sm text-muted">{r.url.replace(/^https?:\/\/(www\.)?/, "")}</p>}
-            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs about ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.${tried >= 2 ? ` It has been tried ${tried} times already.` : ""}` : `Reading it costs about ${wholeCredits(r.estimate.credits)} credits.`}</p>}
+            {r.estimate && <p className="text-sm text-muted">{r.status === "failed" ? `Trying again costs up to ${wholeCredits(r.estimate.credits)} credits. A step that is run again is charged again.${tried >= 2 ? ` It has been tried ${tried} times already.` : ""}` : `Reading it costs up to ${wholeCredits(r.estimate.credits)} credits.`}</p>}
           </div>
         </div>
         {r.status === "failed" && (
