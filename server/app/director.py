@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -18,7 +19,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app import director_tools, take_mute
-from app.credits import COUNTED
+from app.credits import COUNTED, lock
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import WAITING, Job, JobStatus, Usage
@@ -35,6 +36,10 @@ MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and m
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
+READ = "chat_read"  # in a turn's input: how many of its run's messages it read
+PER_MINUTE, MAX_UNREAD = 5, 3  # messages a minute on a video; sent and not read yet
+TOO_FAST = "That's a lot of messages at once. Wait a minute, then send again."
+TOO_MANY = "The director hasn't read your last messages yet. Wait for its next move."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
 PENDING = {JobStatus.queued: "Deciding what to do next.",
@@ -62,7 +67,14 @@ def say(db: Session, user: User, project: Project, text: str) -> None:
         raise HTTPException(409, why)
     run = dict(going.input[RUN]) if going else {"id": uuid.uuid4().hex, "turn": 0, "redos": {},
                                                  "by": user.id, "revision": True}  # fmt: skip
+    minute = (utcnow() - timedelta(minutes=1)).isoformat()
+    if sum(m["at"] >= minute for m in project.director_chat or []) >= PER_MINUTE:
+        raise HTTPException(429, TOO_FAST)
+    if going and len(unread(db, project, run["id"])) >= MAX_UNREAD:
+        raise HTTPException(429, TOO_MANY)
     said = {"by": user.id, "text": text, "at": utcnow().isoformat(), "run": run["id"]}
+    lock(db, Project, project.id)  # never lost to a delivery moving this run's messages
+    db.refresh(project)
     project.director_chat = [*(project.director_chat or []), said]
     db.commit()
     if not going:
@@ -72,6 +84,35 @@ def say(db: Session, user: User, project: Project, text: str) -> None:
 def chat(project: Project, run_id: str) -> list[dict]:
     """What people asked of this run, oldest first."""
     return [{"text": m["text"]} for m in project.director_chat or [] if m.get("run") == run_id]
+
+
+def unread(db: Session, project: Project, run_id: str) -> list[dict]:
+    """This run's messages no turn has read yet (each turn notes how many it read)."""
+    read = max((t.input.get(READ, 0) for t in turns(db, project)
+                if t.input[RUN]["id"] == run_id), default=0)  # fmt: skip
+    return [m for m in project.director_chat or [] if m.get("run") == run_id][read:]
+
+
+def _again(db: Session, project: Project, run_id: str) -> None:
+    """Messages sent while the run's last turn delivered: they start a revision run, once
+    (they move to it, so nothing reads them twice and none is lost)."""
+    lock(db, Project, project.id)  # read and moved with say() held off
+    db.refresh(project)
+    left = unread(db, project, run_id)
+    if not left:
+        return
+    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": left[-1]["by"],
+           "revision": True}  # fmt: skip
+    mine = [n for n, m in enumerate(project.director_chat) if m.get("run") == run_id]
+    moved = set(mine[len(mine) - len(left) :])
+    project.director_chat = [{**m, "run": run["id"]} if n in moved else m
+                             for n, m in enumerate(project.director_chat)]  # fmt: skip
+    db.commit()  # the delivery and the move are kept whatever the start does
+    try:
+        _turn(db, db.get(User, run["by"]), project, run)
+    except HTTPException as no:  # e.g. the per-video cap: logged; the messages stay in the thread
+        db.rollback()
+        log.warning("project %s: a revision couldn't start: %s", project.id, no.detail)
 
 
 def thread(db: Session, project: Project) -> list[dict]:
@@ -92,6 +133,7 @@ def thread(db: Session, project: Project) -> list[dict]:
             j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
         )
         why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
+        text, why = _named(text), _named(why)
         status = ("held" if j.status == JobStatus.needs_owner_approval
                   else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
                   else "refused" if result.startswith("Refused") else "done")  # fmt: skip
@@ -99,6 +141,11 @@ def thread(db: Session, project: Project) -> list[dict]:
                     "who": "Director",
                     "text": text, "status": status, "why": why})  # fmt: skip
     return sorted(out, key=lambda m: m["at"])
+
+
+def _named(text: str) -> str:
+    """Clips as people see them ("clip 1"), never their ids ("c1")."""
+    return re.sub(r"\bc(\d+)\b", r"clip \1", text)
 
 
 def blocked(db: Session, project: Project) -> str:
@@ -222,7 +269,8 @@ def _act(db: Session, job: Job, storage) -> None:
     if tool == "deliver":
         why = " ".join([decision.get("why") or "Delivered.", *_mutes(db, job, run)])
         job.output = {**decision, "why": why}  # the note the video page shows names the mutes
-        return _end(job, why, result="Delivered.")
+        _end(job, why, result="Delivered.")
+        return _again(db, project, run["id"])  # asked during its last turn: made next
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
     if tool == "make_take" and decision.get("clip_id"):
@@ -412,7 +460,7 @@ def turn_input(db: Session, project: Project, run: dict) -> dict:
     parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed),
              *((("chat", asked),) if asked else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
-    return {"system": system, "prompt": f"{brief}\n{tagged}"}
+    return {"system": system, "prompt": f"{brief}\n{tagged}", READ: len(asked)}
 
 
 def video_state(db: Session, project: Project) -> dict:
