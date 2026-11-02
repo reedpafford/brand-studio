@@ -44,7 +44,7 @@ def _take(db: Session, take: SongTake, used: int | None) -> dict:
             "seconds": timing.get("seconds"),
             "sections": [s.get("name") for s in timing.get("sections") or []],
             "hook_at": sung[0]["start"] if sung else None,
-            "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
+            "gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
             "missing": [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
             if take.timing is not None else None,
@@ -113,8 +113,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if ready and not note:
         if project.song_take_id in {t.id for t in ready}:
             return f"The {what} is set: take {_number(db, project.song_take_id)}."
-        best = next((t for t in ready if t.preferred), None) or min(
-            ready, key=lambda t: (len(_take(db, t, None)["missing"] or []), t.id))  # fmt: skip
+        best = next((t for t in ready if t.preferred), None) or min(ready, key=_pick)
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
     if takes and not note:
@@ -137,6 +136,14 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if takes:  # a remake; the first song's note is its style line, not a remake
         run["songs"] = run.get("songs", 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
+
+
+def _pick(take: SongTake) -> tuple:
+    """The automatic pick (no take_id, none preferred): the fewest lyric lines missing, then
+    the shorter take (fewer seconds to film), then the older."""
+    lines = (take.timing or {}).get("lines") or []
+    missing = sum(1 for x in lines if (x.get("heard") or 0) < HEARD)
+    return missing, take.seconds or (take.timing or {}).get("seconds") or 0, take.id
 
 
 def _real(db: Session, found: str) -> float:
