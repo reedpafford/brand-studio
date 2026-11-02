@@ -168,3 +168,10 @@ test("a video with my request waiting says so on its row: 1 request waiting for 
   expect(await within(row).findByText("1 request waiting for the owner")).toBeInTheDocument();
   expect(within(screen.getByRole("link", { name: /Bo tries tuna · A/ })).queryByText(/waiting for the owner/)).toBeNull();
 });
+
+test("an earlier-style video's row counts its budget without the director's own time (DECISIONS #1066)", async () => {
+  setViewport(390);
+  fakeServer(base(editor, [video({ script_draft_id: null, credits_used: 500, budget_credits: 600, director_credits: 380 })]));
+  open();
+  expect(await screen.findByText(/120 of 600 credits/)).toBeInTheDocument();
+});

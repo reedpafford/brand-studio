@@ -11,6 +11,7 @@ import { lastText, money } from "../usage/parts";
 import { useRail } from "../useMedia";
 import { useProduction, useProductionSummary, type Row, type Sort, type Step } from "./useProduction";
 import { serverTime } from "../time";
+import { budgetUsed } from "../projects/budget";
 import { linkText } from "../ui";
 
 const STEPS: Record<Step, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
@@ -43,7 +44,7 @@ function reason(r: Row) {
 const who = (r: Row) => r.editor?.name ?? "Someone";
 const target = (r: Row): VideoTarget => ({ id: r.project_id, name: `${r.script.title} · ${r.letter}`, letter: r.letter, creditsUsed: r.credits_used });
 const label = (r: Row) => `${r.script.title}, version ${r.letter}, ${who(r)}, at ${STEPS[r.step]}${r.flag ? `, ${FLAGS[r.flag].label.toLowerCase()}` : ""}`;
-const nearBudget = (r: Row) => r.budget_credits > 0 && r.credits_used / r.budget_credits >= 0.9;
+const nearBudget = (r: Row) => r.budget_credits > 0 && budgetUsed(r) / r.budget_credits >= 0.9; // the director's own time never counts (DECISIONS #1066)
 
 const Dot = ({ colour }: { colour?: string }) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-brand" style={colour ? { background: colour } : undefined} />;
 
@@ -69,7 +70,7 @@ function FlagLine({ r }: { r: Row }) {
 function Credits({ r }: { r: Row }) {
   return (
     <span title={nearBudget(r) ? CLOSE : undefined} className={nearBudget(r) ? "text-warning" : undefined}>
-      {r.credits_used} of {r.budget_credits}
+      {Math.round(budgetUsed(r))} of {Math.round(r.budget_credits)}
     </span>
   );
 }

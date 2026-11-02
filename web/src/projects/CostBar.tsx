@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Button, creditsLabel, wholeCredits } from "../components";
+import { Button, creditsLabel, creditsText, wholeCredits } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
 import { Meter } from "./Meter";
@@ -42,6 +42,8 @@ export function CostBarProvider(props: {
   used: number;
   budget: number;
   pct: number;
+  /** The director's own time on this video, in credits: never in the budget (DECISIONS #1066), so said apart from it. */
+  director?: number;
   /** Set where the viewer may only look: the step's own press shows greyed out with this reason. */
   lookOnly?: string | null;
   /** The press when the step has none of its own (Next: …). */
@@ -70,6 +72,7 @@ export function CostBarProvider(props: {
     <div role="region" aria-label="Cost" className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2 text-left"}>
       <div className="min-w-48 flex-1">
         <Meter used={props.used} budget={props.budget} pct={props.pct} />
+        {!!props.director && <p className="mt-1 text-xs tabular-nums text-muted">Not in the budget: the director's time, {creditsText(props.director)}.</p>}
       </div>
       {estimate.data && (
         <p className="text-sm tabular-nums text-muted">

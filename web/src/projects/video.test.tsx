@@ -1639,3 +1639,23 @@ test("the video header says how many of my requests wait for the owner", async (
   open();
   expect(await screen.findByText("1 request waiting for the owner")).toBeInTheDocument();
 });
+
+test("after a director run, the cost bar leaves the director's own time out of the budget and says it apart (DECISIONS #1066)", async () => {
+  setViewport(390);
+  // 130 credits used: 90 of them the director's own turns, which never count toward the 100-credit budget.
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 130, budget_credits: 100, budget_pct: 130, director_credits: 90 }], "GET /projects/9/assets": [200, []] });
+  open();
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(bar.textContent).not.toMatch(/Over budget|Almost at budget/);
+  expect(within(bar).getByText("Not in the budget: the director's time, 90 credits.")).toBeInTheDocument();
+  expect(bar).toHaveTextContent("40 / 100 credits · 40%"); // 130 used, 90 of them the director's own
+});
+
+test("with no director run the bar is as before: no line about the director", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /projects/9": [200, { ...project, credits_used: 130, budget_credits: 100, budget_pct: 130 }], "GET /projects/9/assets": [200, []] });
+  open();
+  const bar = await screen.findByRole("region", { name: "Cost" });
+  expect(bar).toHaveTextContent("Over budget");
+  expect(within(bar).queryByText(/the director's time/)).toBeNull();
+});
