@@ -164,4 +164,8 @@ def test_clip_counts_and_the_videos_delivered_today(owner, editor, db):
     (row,) = owner.get("/production", params={"delivered": "today"}).json()
     assert (row["project_id"], row["flag"], row["finished_at"] is not None) == (done, None, True)
     assert owner.get("/production/summary").json()["delivered_today"] == 1
+    db.get(Project, done).archived_at = utcnow()  # archived: no longer delivered (QA-13)
+    db.commit()
+    assert owner.get("/production", params={"delivered": "today"}).json() == []
+    assert owner.get("/production/summary").json()["delivered_today"] == 0
     assert editor.get("/production", params={"delivered": "today"}).status_code == 404

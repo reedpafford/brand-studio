@@ -1,5 +1,6 @@
 """Jobs as the team sees them (status, output, no money) and usage with dollars (owner only)."""
 
+from contextvars import ContextVar
 from datetime import timedelta
 from decimal import Decimal
 
@@ -152,11 +153,18 @@ class JobOut(BaseModel):
         }
 
 
+# Set while a director's tool runs (director_tools.run): every job it starts is marked as the
+# director's, since its tools call the very routes the buttons do.
+DIRECTOR_TOOL: ContextVar[bool] = ContextVar("director_tool", default=False)
+BY_DIRECTOR = "by_director"
+
+
 def _note(job: Job) -> str:
     """The note a person typed for a redo or a change (Needs you quotes it on the row). The
     director's own notes are left out: those aren't anyone's words."""
     note = job.input.get("note")
-    return note if isinstance(note, str) and not job.input.get("director_run") else ""
+    mine = not (job.input.get(BY_DIRECTOR) or job.input.get("director_run"))
+    return note if isinstance(note, str) and mine else ""
 
 
 def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
@@ -300,6 +308,8 @@ def enqueue(
             wait = PAST_APPROVED if project.hidden else OVER_BUDGET
         elif project is None and input.get(ON_SCRIPT):
             wait = SCRIPT_MEDIA
+    if DIRECTOR_TOOL.get():  # started by a director's tool, through the button's own route
+        input = {**input, BY_DIRECTOR: True}
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,

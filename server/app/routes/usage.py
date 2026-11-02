@@ -482,10 +482,13 @@ class MyWeek(BaseModel):
 
 
 class MySend(BaseModel):
-    """One of the caller's own freestyle sends that waits for the owner or was declined."""
+    """One of the caller's own sends waiting for the owner's OK (any kind: a freestyle send, a
+    Quick clip past the allowance, a script's song or narration, a step past the budget), or
+    a freestyle whose last send the owner declined."""
 
-    freestyle_id: int
-    title: str
+    job_id: int | None = None  # the held job (Withdraw cancels it); null for a declined one
+    freestyle_id: int | None = None  # a freestyle's send
+    title: str  # the freestyle's title, or what was asked ("Quick clip", "Song · Bo tries salmon")
     brand: str  # its brand's name, "" with none picked
     status: Literal["waiting", "declined"]
     up_to_credits: float  # what it asks for ("up to"); nothing is spent until it's approved
@@ -501,7 +504,7 @@ class MineOut(BaseModel):
     projects: list[MyProject]
     scripts: list[MyScript] = []
     week: MyWeek | None = None  # this week, as the allowance counts it
-    sends: list[MySend] = []  # every brand: each held send ("waiting"), and declined ones
+    sends: list[MySend] = []  # every brand: each held send of any kind, and declined ones
     waiting_credits: float = 0  # up to, over the waiting sends (as Needs you): none spent yet
 
 
@@ -564,41 +567,43 @@ def mine(
 
 
 def _sends(db: Session, user: User) -> list[MySend]:
-    """The caller's freestyle sends waiting for the owner (each held job at its "up to", as
-    Needs you shows it to the owner: a first send, a change, a step past the price) and the
-    freestyles whose last send was declined (v5 My credits), newest first."""
+    """Every send of the caller's waiting for the owner's OK, of any kind, each at the price
+    Needs you shows the owner (a freestyle's "up to", else the held job's price with what
+    rides along), and the freestyles whose last send was declined (v5 My credits), newest
+    first. A freestyle's video and script are hidden until the OK, so this sees hidden rows."""
     from app import hidden
-    from app.credits import FREESTYLE
     from app.models.freestyles import Freestyle
     from app.models.jobs import JobStatus
     from app.routes import freestyles
     from app.routes.jobs import _freestyle, _with_check
 
-    hidden.see(db)  # a freestyle's video and script are hidden until the owner's OK
+    hidden.see(db)
 
-    def send(fs, status: str, credits, reason: str = "", at=None) -> MySend:
-        brand = db.get(Brand, fs.brand_id) if fs.brand_id else None
-        return MySend(freestyle_id=fs.id, title=fs.title, status=status, reason=reason,
-                      brand=brand.name if brand and not brand.hidden else "",
-                      up_to_credits=float(credits), created_at=at or fs.created_at)  # fmt: skip
+    def name(brand_id: int | None) -> str:
+        brand = db.get(Brand, brand_id) if brand_id else None
+        return brand.name if brand and not brand.hidden else ""
 
-    mine = (Job.created_by_id == user.id, Job.status == JobStatus.needs_owner_approval)
-    held = db.scalars(select(Job).where(*mine, Job.input[FREESTYLE].as_integer().is_not(None)))
     out = []
-    for job in held:
+    held = select(Job).where(Job.created_by_id == user.id,
+                             Job.status == JobStatus.needs_owner_approval)  # fmt: skip
+    for job in db.scalars(held):
         ref = _freestyle(db, job)
-        if ref is not None:
-            fs = db.get(Freestyle, ref.id)
-            out.append(send(fs, "waiting", ref.up_to if ref.up_to is not None
-                            else _with_check(db, job), at=job.created_at))  # fmt: skip
+        fs = db.get(Freestyle, ref.id) if ref else None
+        price = ref.up_to if ref and ref.up_to is not None else _with_check(db, job)
+        out.append(MySend(job_id=job.id, freestyle_id=fs and fs.id, status="waiting",
+                          title=fs.title if fs else usage.what(db, job),
+                          brand=name(fs.brand_id if fs else job.brand_id),
+                          up_to_credits=float(price), created_at=job.created_at))  # fmt: skip
     for fs in db.scalars(select(Freestyle).where(Freestyle.created_by_id == user.id)
                          .order_by(Freestyle.id.desc()).limit(200)):  # fmt: skip
         seen = freestyles._out(db, fs)
         if seen.status == "declined":
             said = next((m.text for m in reversed(seen.thread)
                          if m.text.startswith("The owner declined: ")), "")  # fmt: skip
-            out.append(send(fs, "declined", seen.up_to or _asked(db, fs),
-                            said.removeprefix("The owner declined: ")))  # fmt: skip
+            out.append(MySend(freestyle_id=fs.id, title=fs.title, status="declined",
+                              brand=name(fs.brand_id), created_at=fs.created_at,
+                              up_to_credits=float(seen.up_to or _asked(db, fs)),
+                              reason=said.removeprefix("The owner declined: ")))  # fmt: skip
     return sorted(out, key=lambda s: s.created_at, reverse=True)
 
 

@@ -98,13 +98,15 @@ def _grouped(db: Session, query, ids: list[int]) -> dict[int, tuple]:
 
 
 def today() -> datetime:
-    """Midnight (UTC) today: where "Delivered today" starts."""
+    """Midnight (UTC) today: where "Delivered today" starts. The workspace has no time zone
+    setting yet, so it's UTC, like the weekly allowance (6 pm the evening before for Reed)."""
     return utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def rows(db: Session, user: User, delivered: bool = False) -> list[ProductionRow]:
     """The videos being made; `delivered`: the ones done today instead (no flags: done)."""
-    when = Project.finished_at >= today() if delivered else Project.finished_at.is_(None)
+    when = (and_(Project.finished_at >= today(), Project.archived_at.is_(None)) if delivered
+            else Project.finished_at.is_(None))  # fmt: skip  # an archived one isn't delivered
     found = db.execute(
         select(Project, ScriptDraft.slot, Script.id, Script.title, Brand.id, Brand.name)
         .join(ScriptDraft, ScriptDraft.id == Project.script_draft_id)

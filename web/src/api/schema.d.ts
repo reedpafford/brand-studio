@@ -7775,11 +7775,15 @@ export interface components {
         };
         /**
          * MySend
-         * @description One of the caller's own freestyle sends that waits for the owner or was declined.
+         * @description One of the caller's own sends waiting for the owner's OK (any kind: a freestyle send, a
+         *     Quick clip past the allowance, a script's song or narration, a step past the budget), or
+         *     a freestyle whose last send the owner declined.
          */
         MySend: {
+            /** Job Id */
+            job_id?: number | null;
             /** Freestyle Id */
-            freestyle_id: number;
+            freestyle_id?: number | null;
             /** Title */
             title: string;
             /** Brand */

@@ -514,27 +514,10 @@ def test_a_shot_that_is_only_drawn_words_stays_and_gets_advice(app, db, editor, 
     assert any(p.startswith("Advice: ") and "only words on screen" in p for p in shown["problems"])
 
 
-def test_a_held_redo_carries_the_note_as_typed_never_the_directors(db):
-    """Needs you quotes an editor's own "What's wrong?" on a held take row (Next-Lead, #1213);
-    the director's notes and the prompt never show as one."""
-    from app.db import utcnow
-    from app.models.jobs import Job
-    from app.routes.jobs import JobOut
-
-    def out(**input):
-        job = Job(
-            id=1,
-            kind="video",
-            project_id=None,
-            credits=4,
-            error="",
-            auto=False,
-            status="needs_owner_approval",
-            input=input,
-            created_at=utcnow(),
-        )
-        return JobOut.model_validate(job)
-
-    assert out(step="clip_take", note="Brighter, she smiles.").note == "Brighter, she smiles."
-    assert out(step="clip_take", note="b2: tighter", director_run={"id": "r1"}).note == ""
-    assert out(step="clip_take", input={"prompt": "A long model prompt"}).note == ""
+def test_a_redo_carries_the_note_as_typed(app, db, editor, setup, clip):  # noqa: F811
+    """Needs you quotes an editor's own "What's wrong?" on a take row (Next-Lead, #1213),
+    never the prompt it went into. The director's notes: test_word_splice's director run."""
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    job = editor.post(f"{url}/generate", json={"note": "Brighter, she smiles."}).json()
+    assert job["note"] == "Brighter, she smiles."
+    assert "Brighter, she smiles." in db.get(Job, job["id"]).input["input"]["prompt"]

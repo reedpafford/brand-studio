@@ -174,6 +174,9 @@ def test_with_no_clean_copy_a_director_run_redoes_with_how_the_brand_is_said(
              if j.input.get("step") == "clip_take"]  # fmt: skip
     redo = takes[1].input["input"]["prompt"]
     assert "Change from the last take: Say fomo as" in redo  # told how it's said
+    shown = {j["id"]: j for j in owner.get("/jobs").json()}  # Needs you's own read
+    assert shown[takes[1].id]["note"] == ""  # the director's note, never quoted as a person's
+    assert takes[1].input["by_director"] is True
     assert not any(t["result"].startswith("Spliced") for t in out["turns"])
 
 
