@@ -35,6 +35,7 @@ MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); meas
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
 IDLE = "Waiting, with nothing being made: it reads the video again."
+WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 
 
@@ -166,6 +167,7 @@ def _act(db: Session, job: Job, storage) -> None:
     tool = decision.get("tool")
     if tool == "deliver":
         why = " ".join([decision.get("why") or "Delivered.", *_mutes(db, job, run)])
+        job.output = {**decision, "why": why}  # the note the video page shows names the mutes
         return _end(job, why, result="Delivered.")
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
@@ -188,7 +190,7 @@ def _act(db: Session, job: Job, storage) -> None:
         if run.get("watches", 0) >= MAX_WATCHES:
             return _record(db, job, run, f"Refused: it watched {MAX_WATCHES} times this run.")
         if watch.get("state") in ("watching", "done") and watch.get("current"):
-            return _record(db, job, run, "Refused: it already watched this cut.")
+            return _record(db, job, run, WATCHED_AGAIN)  # not a watch; it goes on
     db.commit()  # the turn's answer is kept whatever the tool does
     user = db.get(User, run["by"])
     result = director_tools.run(db, user, project, decision, storage, run)
@@ -244,13 +246,16 @@ def to_mute(db: Session, row: ProjectClip) -> list[list[float]]:
 
 def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     """The same tool, as it was, right after it was refused: the refusal (else None). Nothing
-    changed, so it would be refused again; the run stops and says why."""
+    changed, so it would be refused again; the run stops and says why. Asking to watch the
+    same cut again never stops it: it's told to fix something or deliver (QA on #1145)."""
     rows = turns(db, db.get(Project, job.project_id))
     before = next((j for j in reversed(rows) if j.id < job.id), None)
     said = (before.input.get("result") or "") if before else ""
     keys = ("tool", "clip_id", "take_id", "note")
     same = before is not None and all((before.output or {}).get(k) == decision.get(k) for k in keys)
-    return said.removeprefix("Refused: ") if same and said.startswith("Refused: ") else None
+    if said == WATCHED_AGAIN or not (same and said.startswith("Refused: ")):
+        return None
+    return said.removeprefix("Refused: ")
 
 
 def _record(db: Session, job: Job, run: dict, result: str) -> None:
