@@ -53,6 +53,10 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
             project_assets.make_missing_looks(**me)
             return "Making the missing looks."
         if tool == "storyboard":
+            try:  # the right cast in each shot first, free (Reed's item 9: the director's job)
+                breakdown.fix_cast(**me)
+            except HTTPException:
+                pass  # every shot already has it
             project_assets.approve_all(**me)  # the looks it moves on with
             storyboard.make(body=storyboard.StoryboardIn(), **me)
             return "Making the storyboard."

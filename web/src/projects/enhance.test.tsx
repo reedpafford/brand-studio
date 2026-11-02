@@ -77,7 +77,7 @@ test("accept and reject are sent; apply shows once something is accepted", async
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Accept: Slow push-in on her face." }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/suggestions/1/accept")).toBe(true));
-  await userEvent.click(screen.getByRole("button", { name: "Add 1 direction" }));
+  await userEvent.click(screen.getByRole("button", { name: "Apply 1 accepted" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/script/apply")).toBe(true));
 });
 
@@ -142,7 +142,7 @@ test("Apply says how many directions were added, and Undo saves the earlier word
     "PUT /projects/9/script": [200, { ...script, version: 6 }],
   });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Add 2 directions" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Apply 2 accepted" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Added 2 directions.");
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/script")?.body).toEqual({ text: script.text }));
@@ -169,7 +169,7 @@ test("tapping a suggestion opens a sheet with the Why, and the Notes chip opens 
 test("the helper says 'directions', and phones get a 'Why?' hint after a suggestion that has a reason", async () => {
   fakeServer({ ...base, "GET /projects/9/script/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, line: 2 })]] });
   open();
-  expect(await screen.findByText(/Adding keeps your accepted directions in the script\./)).toBeInTheDocument();
+  expect(await screen.findByText(/Applying keeps your accepted directions in the script\./)).toBeInTheDocument();
   expect(screen.getByText("Why?")).toBeInTheDocument();
 });
 

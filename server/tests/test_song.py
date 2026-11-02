@@ -335,7 +335,10 @@ def test_a_song_in_any_look_gets_its_looks_tokens_and_songs_guides():
         for kind in ("", "story", "narrated"):
             assert song[guide] not in prompts.system(step, "house", kind)
             assert prompts.system(step, "house", kind) == prompts.system(step, "house")
-    assert prompts.system("plan", "claymation", "song") == prompts.system("plan", "claymation")
+    # the plan is the story's, plus Reed's song skill on top (the Producer, 2 Nov): nothing else
+    song_plan = prompts.system("plan", "claymation", "song")
+    story_plan = prompts.system("plan", "claymation")
+    assert song_plan == story_plan + "\n\n" + prompts.skill("", "song")
 
 
 def test_reeds_song_skill_is_folded_in():

@@ -408,9 +408,22 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job isn't waiting for approval.")
-    db.commit()
     db.refresh(job)
+    if job.input.get("freeze"):  # an editor's director-first video: real from its OK
+        from app.routes.freestyles import freeze
+
+        freeze(db, job.input["freeze"], owner)
+    db.commit()
     return job
+
+
+def _release(db: Session, job: Job) -> None:
+    """A director-first video an editor's send was making: refused before it ran, it lets go
+    of its version (`freestyles.release`)."""
+    if job.input.get("freeze"):
+        from app.routes.freestyles import release
+
+        release(db, job.input["freeze"])
 
 
 class DeclineIn(BaseModel):
@@ -438,6 +451,7 @@ def decline_job(
         raise HTTPException(409, "This job isn't waiting for approval.")
     db.refresh(job)
     job.input = {**job.input, DECLINE: True}  # not a withdrawal: the editor sees it was a no
+    _release(db, job)
     db.commit()
     if job.project_id:  # the director waited on it: it goes on, told what happened
         from app import director
@@ -470,6 +484,7 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     if FREESTYLE in job.input and held:  # taken back before the OK: its thread says Withdrawn
         db.refresh(job)
         job.input = {**job.input, WITHDRAWN: True}
+        _release(db, job)
     db.commit()
     if job.project_id:  # a press the director waited on was withdrawn: it goes on
         from app import director

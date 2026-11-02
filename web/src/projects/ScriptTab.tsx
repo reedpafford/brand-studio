@@ -243,7 +243,8 @@ export function ScriptText({ text, around, highlight = [], rewritten = [], onLin
                   </span>
                 )}
                 {tag ? (
-                  <span className="ml-4 flex flex-wrap items-baseline gap-x-3 text-muted sm:ml-8">
+                  // On the suggestions' grid (MarkLine): the words, then the kind in the same fixed column (QA-3 on #1191).
+                  <span className="ml-4 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 text-muted sm:ml-0 sm:grid-cols-[minmax(0,1fr)_6.5rem_12rem]">
                     <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">
                       {tag[1] === "Brand screen" ? "★ " : "▸ "}
                       {line.slice(tag[0].length)}

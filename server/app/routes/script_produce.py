@@ -17,7 +17,7 @@ from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.projects import Project
-from app.models.script_library import ScriptCastSlot
+from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.models.scripts import ScriptVersion
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
@@ -57,10 +57,43 @@ def produce(
         raise HTTPException(409, "Publish this script first.")
     if draft.status != "approved":
         raise HTTPException(409, "Approve this version first.")
-    if db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
+    settings = body.model_dump(exclude_none=True) if body else {}
+    project, version, landed = make_video(db, user, request, script, draft, settings)
+    if landed:
+        db.commit()
+        return ProduceOut(project_id=project.id, breakdown_job_id=None)
+    # Every video gets a plan before its shots (flows 1b): the plan call is what this press
+    # charges, and the editor approves it to make the shots. An owner's approved plan (S6) goes
+    # straight to the shots. One transaction: if the call is declined (allowance or cap), the
+    # project and the reservation go too, so the version stays free to produce.
+    shots = bool(project.plan and project.plan.get("approved_at"))
+    data = (
+        breakdown.job_input(db, project, version)
+        if shots
+        else plans.job_input(db, project, version)
+    )
+    try:
+        job = enqueue(db, user, plans.KIND, data, project=project, provider="claude")
+    except HTTPException:
+        db.rollback()
+        raise
+    if shots:
+        return ProduceOut(project_id=project.id, breakdown_job_id=job.id)
+    return ProduceOut(project_id=project.id, breakdown_job_id=None, plan_job_id=job.id)
+
+
+def make_video(db: Session, user: User, request: Request, script, draft, settings: dict,
+               another: bool = False) -> tuple[Project, ScriptVersion, bool]:  # fmt: skip
+    """A version's video (Make this version, and a freestyle made from a script): the
+    script's brand, reel, look and locked cast, its words as script v1, its plan (S6), and its
+    saved breakdown preview landed free when it follows that plan (#934); whether it landed.
+    One a version, but for a director-first video's "Make another" (`another`, n22). Not
+    committed; nothing queued."""
+    credits.lock(db, ScriptDraft, draft.id)  # two presses at once: the second finds the first
+    if not another and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
         raise HTTPException(409, "This version already has a video.")
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
-    name = f"{script.title} — {draft.title}" if slot and draft.title else script.title
+    name = f"{script.title} — {draft.title}" if draft.slot and draft.title else script.title
     project = Project(
         workspace_id=user.workspace_id,
         brand_id=script.brand_id,
@@ -73,8 +106,8 @@ def produce(
         script_draft_id=draft.id,
         look=script.look,  # the video's own from here on (VS1)
         product_variants=lib.offered_flavours(db, script.brand_id, draft),  # n03: its defaults
+        hidden=script.hidden,  # a freestyle's with no brand stays out of every list
     )
-    settings = body.model_dump(exclude_none=True) if body else {}
     if "product_variants" in settings:  # the picks sent win, product by product (n03)
         settings["product_variants"] = {**project.product_variants, **settings["product_variants"]}
     for field, value in settings.items():
@@ -114,26 +147,8 @@ def produce(
         )
         db.flush()
         vs.follow_lip_sync(db, project, could=True)  # a no-lip-sync model: Sung shots to B-roll
-        db.commit()
-        return ProduceOut(project_id=project.id, breakdown_job_id=None)
-    # Every video gets a plan before its shots (flows 1b): the plan call is what this press
-    # charges, and the editor approves it to make the shots. An owner's approved plan (S6) goes
-    # straight to the shots. One transaction: if the call is declined (allowance or cap), the
-    # project and the reservation go too, so the version stays free to produce.
-    shots = bool(project.plan and project.plan.get("approved_at"))
-    data = (
-        breakdown.job_input(db, project, version)
-        if shots
-        else plans.job_input(db, project, version)
-    )
-    try:
-        job = enqueue(db, user, plans.KIND, data, project=project, provider="claude")
-    except HTTPException:
-        db.rollback()
-        raise
-    if shots:
-        return ProduceOut(project_id=project.id, breakdown_job_id=job.id)
-    return ProduceOut(project_id=project.id, breakdown_job_id=None, plan_job_id=job.id)
+        return project, version, True
+    return project, version, False
 
 
 class VersionEstimateOut(BaseModel):

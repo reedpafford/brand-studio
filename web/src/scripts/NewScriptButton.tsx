@@ -1,9 +1,14 @@
-import { useLayoutEffect, useRef, type FocusEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FocusEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, FileInput, FileText, Mic, Music, Plus } from "lucide-react";
+import { ChevronDown, ChevronLeft, FileInput, FileText, Folder, Mic, Music, Palette, Plus } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
-import { Button, Card, Menu, MenuItem, TextArea, buttonClass } from "../components";
+import { Badge, Button, Card, Menu, MenuItem, StepPicker, TextArea, buttonClass } from "../components";
+import { useMe } from "../auth/useMe";
+import { useFolders } from "../folders/Projects";
+import { stepStates, stepsFor } from "./flow";
+import type { Script } from "./useScript";
+import { LookPicker, lookName, useLooks } from "./Looks";
 import { errorText as errorClass } from "../ui";
 import { songsQuery } from "./useSongs";
 
@@ -92,18 +97,25 @@ export function NewScriptPage() {
       /* a private window: saved with it */
     }
   };
+  const [, setParams] = useSearchParams();
+  const me = useMe().data;
+  const looks = useLooks();
+  const folders = useFolders(brandId);
+  const [picking, setPicking] = useState(false);
+  // A Look or Project pick saves the script with it (flows S1 U: the first press saves it, never just opening the page).
   const make = useMutation({
-    mutationFn: async (typed: string) => {
-      const text = keeps() ? "" : typed;
+    mutationFn: async (start: { text: string; look?: string; folder?: number }) => {
+      const text = keeps() ? "" : start.text;
       // "narrated" is Next-Server's #858; the generated types carry it once that's on next.
-      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind: kind as "story" } });
+      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind: kind as "story", ...(start.look ? { look: start.look } : {}) } });
       if (!data) throw new Error(errorText(error));
+      if (start.folder != null) await api.POST("/folders/file", { body: { kind: "script", id: data.id, folder_id: start.folder } });
       return data;
     },
     onError: () => {
       started.current = false;
     },
-    onSuccess: async (made) => {
+    onSuccess: async (made, how) => {
       // The script page opens with its editor already there (no loading screen for keys to fall into): the save returned the
       // script, and a voiced one's takes are loaded first. Typing meanwhile still lands in this box.
       queryClient.setQueryData(["script-lib", made.id], made);
@@ -112,15 +124,23 @@ export function NewScriptPage() {
       const words = latest.current; // read last, just before the swap, so nothing typed while saving is lost
       saved.current = made.id;
       hand(made.id, words);
-      navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : { about: true } });
+      // A Look or Project pick stays on the Script step, ready for the words; Start from what it's for opens About.
+      const picked = how.look !== undefined || how.folder !== undefined;
+      navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : picked ? undefined : { about: true } });
     },
   });
   if (!(kind in KINDS)) return <Navigate to={`/b/${brandId}/scripts`} replace />;
-  const start = (text: string) => {
+  const start = (text: string, with_: { look?: string; folder?: number } = {}) => {
     if (started.current) return;
     started.current = true;
-    make.mutate(text);
+    make.mutate({ text, ...with_ });
   };
+  // The script page's own header, before the script exists: the format, Look and Project, and the steps (later ones locked).
+  const look = looks.data?.[0]?.id ?? "house";
+  // The same steps and reasons the script's own page shows for an empty script.
+  const empty = { kind, published: false, versions: [{ slot: 0, text: "", status: "draft" }] } as unknown as Script;
+  // Every step after the first is locked with its reason: none can be opened before the script exists (QA-3 on #1191).
+  const steps = (kind in KINDS ? stepStates(stepsFor(empty)[0].id, empty) : []).map((x, n) => (n === 0 ? x : { ...x, state: "todo" as const, reason: x.reason ?? (kind === "song" ? "Write or pick the lyrics first" : "Write the script first") }));
   const type = (text: string) => {
     latest.current = text;
     if (saved.current !== null) hand(saved.current, text);
@@ -132,8 +152,41 @@ export function NewScriptPage() {
         <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
         Scripts
       </Link>
-      <h1 className="type-page">{UNTITLED}</h1>
-      <p className="text-sm text-muted">{KINDS[kind]} · saved when you type the first word.</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="type-page">{UNTITLED}</h1>
+        <Badge tone="neutral">Not saved yet · saved when you type, or pick a look or project</Badge>
+        <Menu title="Format" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} aria-label={`Format: ${KINDS[kind]}`} {...t}>{KINDS[kind]}</Button>}>
+          {(close) =>
+            (Object.keys(KINDS) as Kind[]).map((k) => (
+              <MenuItem key={k} onClick={() => { close(); setParams({ kind: k }, { replace: true }); }}>
+                {KINDS[k]}{k === kind ? " ✓" : ""}
+              </MenuItem>
+            ))
+          }
+        </Menu>
+        {looks.data && (
+          <Button variant="ghost" dense icon={Palette} trailing={ChevronDown} aria-haspopup="dialog" disabled={make.isPending} onClick={() => setPicking(true)}>
+            Look: {lookName(looks.data, look)}
+          </Button>
+        )}
+        {folders.data && me && (
+          <Menu title="Project" trigger={(t) => <Button variant="ghost" dense icon={Folder} trailing={ChevronDown} disabled={make.isPending} {...t}>Project: none</Button>}>
+            {(close) =>
+              folders.data!.length === 0 ? (
+                <p className="p-3 text-sm text-muted">No projects yet. Make one on the Scripts page.</p>
+              ) : (
+                folders.data!.map((f) => (
+                  <MenuItem key={f.id} onClick={() => { close(); start("", { folder: f.id }); }}>
+                    {f.name}
+                  </MenuItem>
+                ))
+              )
+            }
+          </Menu>
+        )}
+      </div>
+      <StepPicker steps={steps} onPick={() => {}} />
+      {picking && looks.data && <LookPicker current={look} looks={looks.data} busy={make.isPending ? look : null} error={null} onPick={(l) => { setPicking(false); start("", { look: l.id }); }} onClose={() => setPicking(false)} />}
       <Card className="max-w-[680px] space-y-3">
         <TextArea {...(kind === "song" ? LYRICS_BOX : SCRIPT_BOX)} autoFocus onChange={(e) => type(e.target.value)} />
         {make.isError && <p role="alert" className={errorClass}>{make.error.message} Type again to try again.</p>}

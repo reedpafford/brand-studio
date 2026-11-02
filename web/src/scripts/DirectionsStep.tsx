@@ -28,8 +28,12 @@ export function DirectionsStep({ script: s, onAccepted, onEditWords }: { script:
           </div>
         )}
       </Card>
-      <EnhanceBar e={e} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/* As wide as the script and Notes below it, so Apply sits over Notes' edge, not at the window's (QA-3 on #1191). */}
+      <div className="lg:max-w-[1024px]">
+        <EnhanceBar e={e} />
+      </div>
+      {/* The script column is capped at the card's 680px and the script fills it, so Notes sits right beside it (item 2). */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,680px)_320px] [&>div:first-child]:max-w-none">
         <ScriptText text={text} around={(line, where) => e.shown.filter((m) => m.line === line && (m.placement === "before") === (where === "before")).map((m) => <MarkLine key={m.id} mark={m} e={e} />)} />
         <div className="hidden lg:block">
           <Notes e={e} />

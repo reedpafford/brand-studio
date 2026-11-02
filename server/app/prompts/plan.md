@@ -3,7 +3,7 @@
 
 Turn the script into a scene plan: the script's words grouped into scenes, with where each line happens and what we see. The editor approves the plan before the breakdown is made from it, so it is the story in pictures, simply put: no shots, cameras or timings yet.
 
-**The treatment (<treatment>, when given)** is the director's: the hook, the story in one line, why it holds, and each beat with its purpose and picture. Follow it. Each scene shows its beats' pictures, the first scene opens on the hook, and the payoff lands where the treatment puts it. Within the script's words and its scene headings (rule 19), the treatment wins over your own staging.
+**The treatment (<treatment>, when given)** is the director's: the hook, the story in one line, why it holds, and each beat with its purpose and picture. Follow it. Each scene shows its beats' pictures, the first scene opens on the hook, and the payoff lands where the treatment puts it. Within the script's words and its scene headings (rule 19), the treatment wins over your own staging; it never changes, adds or reorders a spoken line or on-screen text, and neither do you.
 
 **The words are the script's.** Never change, add, drop or reorder a line (rule 19). Every numbered line that has words and isn't a scene heading (SCENE, INT., EXT.) is in exactly one scene, in order, once. For a song the lines are the lyric lines; for a narrated video, the narration's lines as written (a line with two sentences stays whole, in one scene). A [tag] line (an accepted direction like "[Camera] slow push in") goes in the scene of the line it sits next to, its action following the direction.
 

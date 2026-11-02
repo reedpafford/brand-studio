@@ -44,6 +44,7 @@ SAYS = re.compile(  # action that reads like a line; the model voices it (fomo m
     r"|(does not|doesn't|won't|will not) (sell|say|speak|answer|reply|agree|give in))\b",
     re.I,
 )
+RHYME = 'call a picture that answers an earlier one a "callback", never a "rhyme"'
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
 FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23;
     # not everyday words that over-flag: a dog's "crusty eyes", "her lap" (Reed's frame, 10-28)
@@ -1214,6 +1215,48 @@ def _said(line: str, labelled: bool) -> str:
 def _lines(ns: list[int], many: str = "are", one: str = "is") -> str:
     """ "line 4 is", "lines 4, 7 are"."""
     return f"lines {', '.join(map(str, ns))} {many}" if len(ns) > 1 else f"line {ns[0]} {one}"
+
+
+HEADING = re.compile(r"^\s*(SCENE\b|INT\.|EXT\.)", re.I)
+RHYME = 'call a picture that answers an earlier one a "callback", never a "rhyme"'
+QUOTED = re.compile(r"[\"“]([^\"”]{3,}?)[\"”]")
+
+
+def treatment(made: dict, script: str) -> list[str]:
+    """The treatment never varies from the script (Reed, 2 Nov: "not vary from the scripts"):
+    its beats cover every line but the scene headings once, in order; any line it quotes is the
+    script's word for word (a trailing "…" marks a cut-off quote); and a picture that answers an
+    earlier one is a callback, never a "rhyme"."""
+    lines = script.splitlines()
+    want = [n for n, line in enumerate(lines, 1) if line.strip() and not HEADING.match(line)]
+    got = [n for beat in made.get("beats", []) for n in beat.get("lines", [])]
+    problems = []
+    if got != want:
+        missing = [n for n in want if n not in got]
+        extra = [n for n in got if n not in want or got.count(n) > 1]
+        said = "the beats must cover every line but the scene headings once, in order"
+        if missing:
+            said += f"; missing {missing}"
+        if extra:
+            said += f"; not lines to cover, or twice: {sorted(set(extra))}"
+        problems.append(said)
+
+    def bare(text: str) -> str:  # an ellipsis is a cut, in the script or the quote
+        return " ".join(text.replace("…", " ").replace("...", " ").split())
+
+    flat = bare(" ".join(lines))
+    texts = [made.get(k, "") for k in ("hook", "logline", "why_it_holds", "ending")]
+    texts += [b.get(k, "") for b in made.get("beats", []) for k in ("purpose", "picture")]
+    for text in texts:
+        for quote in QUOTED.findall(text):
+            words = bare(quote)
+            if len(words.split()) >= 2 and words not in flat:
+                problems.append(f"\"{quote}\" isn't the script's words: quote lines exactly")
+        if re.search(r"\brhym", text, re.I):
+            problems.append(
+                'call a picture that answers an earlier one a "callback", never a "rhyme"'
+            )
+    return problems
 
 
 def plan(
