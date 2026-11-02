@@ -89,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = make_sessionmaker(settings.database_url)
     advice.LOOKUP = app.state.sessionmaker  # names an id left in a shown message
     app.state.storage = LocalStorage(settings.storage_dir)
+    app.include_router(site_read.new_brand)  # /brands/site-read/…, ahead of /brands/{id}/…
     for module in (
         health,
         auth,

@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/brands/site-read/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * New Brand Estimate
+         * @description New brand's "Make the brand · about 3 credits" once a website is typed (F_BrandNew).
+         */
+        get: operations["new_brand_estimate_brands_site_read_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -509,7 +529,9 @@ export interface paths {
         put?: never;
         /**
          * Create Brand
-         * @description Add a brand (owner only, like archiving one).
+         * @description Add a brand (owner only, like archiving one). With a Website, its site is read too
+         *     (flows BR2): the brand is made whatever the read does; the read's job is returned so the
+         *     page opens on its review, or the reason it couldn't start.
          */
         post: operations["create_brand_brands_post"];
         delete?: never;
@@ -5202,6 +5224,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands/{brand_id}/site-read/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest Read
+         * @description The brand's newest read, so Import from website reopens on it (F_BrandImport).
+         */
+        get: operations["latest_read_brands__brand_id__site_read_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/brands/{brand_id}/site-read/{job_id}": {
         parameters: {
             query?: never;
@@ -5211,6 +5253,27 @@ export interface paths {
         };
         /** Read State */
         get: operations["read_state_brands__brand_id__site_read__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/site-read/{job_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Found Logo
+         * @description The logo the read found, as a picture for the review's logo row. Nothing is saved to
+         *     the brand; a logo that can't be fetched is a 404 with the words to show.
+         */
+        get: operations["found_logo_brands__brand_id__site_read__job_id__logo_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5506,6 +5569,8 @@ export interface components {
             end_line: string;
             /** Name */
             name: string;
+            /** Website */
+            website?: string | null;
         };
         /** BrandOut */
         BrandOut: {
@@ -7723,6 +7788,108 @@ export interface components {
              */
             action: "cast" | "plan" | "approvals";
         };
+        /** NewBrandOut */
+        NewBrandOut: {
+            /** Logo File Id */
+            logo_file_id?: number | null;
+            /** Style Board File Id */
+            style_board_file_id?: number | null;
+            /** End Card File Id */
+            end_card_file_id?: number | null;
+            /**
+             * Colours
+             * @default []
+             */
+            colours: string[];
+            /**
+             * Fonts
+             * @default []
+             */
+            fonts: string[];
+            /**
+             * Tone Notes
+             * @default
+             */
+            tone_notes: string;
+            /**
+             * Never Say
+             * @default []
+             */
+            never_say: string[];
+            /**
+             * Legal Line
+             * @default
+             */
+            legal_line: string;
+            /**
+             * End Line
+             * @default
+             */
+            end_line: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Audience
+             * @default
+             */
+            audience: string;
+            /**
+             * Do List
+             * @default []
+             */
+            do_list: string[];
+            /**
+             * Dont List
+             * @default []
+             */
+            dont_list: string[];
+            /**
+             * Music Style
+             * @default
+             */
+            music_style: string;
+            /**
+             * Default Language
+             * @default en
+             */
+            default_language: string;
+            /**
+             * Default Look
+             * @default house
+             */
+            default_look: string;
+            /**
+             * Default Cast
+             * @default []
+             */
+            default_cast: number[];
+            /**
+             * Cta Lines
+             * @default []
+             */
+            cta_lines: components["schemas"]["CtaLine"][];
+            /**
+             * Cast
+             * @default []
+             */
+            cast: components["schemas"]["CastPick"][];
+            /**
+             * Advice
+             * @default []
+             */
+            advice: string[];
+            /** Site Read Job Id */
+            site_read_job_id?: number | null;
+            /**
+             * Site Read Problem
+             * @default
+             */
+            site_read_problem: string;
+        };
         /** NewInviteOut */
         NewInviteOut: {
             /** Id */
@@ -8004,6 +8171,11 @@ export interface components {
             name: string;
             /** Short Description */
             short_description: string;
+            /**
+             * Mark
+             * @default new
+             */
+            mark: string;
         };
         /** ProductionRow */
         ProductionRow: {
@@ -10625,6 +10797,10 @@ export interface components {
         };
         /** ReadOut */
         app__routes__site_read__ReadOut: {
+            /** Id */
+            id: number;
+            /** Url */
+            url: string;
             /** Status */
             status: string;
             /** Reason */
@@ -10679,6 +10855,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    new_brand_estimate_brands_site_read_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__site_read__EstimateOut"];
+                };
+            };
+        };
+    };
     health_health_get: {
         parameters: {
             query?: never;
@@ -11726,7 +11922,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BrandOut"];
+                    "application/json": components["schemas"]["NewBrandOut"];
                 };
             };
             /** @description Validation Error */
@@ -21055,6 +21251,37 @@ export interface operations {
             };
         };
     };
+    latest_read_brands__brand_id__site_read_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__site_read__ReadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_state_brands__brand_id__site_read__job_id__get: {
         parameters: {
             query?: never;
@@ -21074,6 +21301,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__site_read__ReadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    found_logo_brands__brand_id__site_read__job_id__logo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
