@@ -12,6 +12,8 @@ import { errorText as errorClass } from "../ui";
 import { serverTime } from "../time";
 import { typeName, type Kind } from "../freestyle/useFreestyle";
 import { STEPS } from "./steps";
+import { useScript } from "../scripts/useScript";
+import { letterOf } from "../scripts/status";
 import type { Job, Project } from "./useHeld";
 import { refreshJobs } from "../jobs/refresh";
 
@@ -76,6 +78,18 @@ function Row({ id, status, where, children, actions, ...rest }: { id?: string; s
       </div>
       <div className="grid grid-cols-2 gap-2 pt-1 lg:flex lg:items-center lg:pt-0">{actions}</div>
     </li>
+  );
+}
+
+/** The script and version a held send was made from ("From Bo tries salmon › B"), linked to the script. */
+function FromScript({ scriptId, slot, brandId }: { scriptId: number; slot: number | null | undefined; brandId: number | null | undefined }) {
+  const { data: script } = useScript(scriptId);
+  if (!script) return null;
+  const label = `From ${script.title}${slot != null ? ` › ${letterOf(slot)}` : ""}`;
+  return brandId ? (
+    <Link className="inline-flex min-h-11 items-center text-xs text-accent-text hover:underline lg:min-h-0" to={`/b/${brandId}/scripts/${scriptId}`}>{label}</Link>
+  ) : (
+    <p className="text-xs text-muted">{label}</p>
   );
 }
 
@@ -152,6 +166,7 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
       {fs ? (
         <>
           <p className="text-xs text-muted">{fs.change ? "Change asked" : "First send"}</p>
+          {fs.script_id != null && <FromScript scriptId={fs.script_id} slot={fs.slot} brandId={job.brand_id ?? project?.brand_id} />}
           {fs.said && <p className="line-clamp-6 whitespace-pre-line font-mono text-xs leading-relaxed">"{fs.said}"</p>}
           {fs.up_to != null && <p className="tabular-nums">Up to {creditsLabel(fs.up_to)}{fs.change ? " for this change" : " · your OK covers the whole run"}</p>}
           {fs.change && fs.total != null && (

@@ -319,3 +319,10 @@ test("on a computer who asked follows the title and the tab says Changes waiting
   expect(screen.getByText("Request")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: /^Changes waiting 0$/ })).toBeInTheDocument();
 });
+
+test("a held send from a script names the script and its version, linked to the script (#1207)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", script_id: 3, slot: 1 })]], "GET /scripts/3": [200, { id: 3, title: "Bo tries salmon", versions: [] }] });
+  open();
+  expect(await screen.findByRole("link", { name: "From Bo tries salmon › B" })).toHaveAttribute("href", "/b/1/scripts/3");
+});
