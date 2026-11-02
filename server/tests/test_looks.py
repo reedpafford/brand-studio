@@ -1,6 +1,8 @@
 """Format and Look (flows ST1, ST3, VS1): the look cards, who may pick an Off look, the owner's
 switch (on only with a sample), and a video's look reaching its prompts."""
 
+import pytest
+
 from app import looks, prompts
 from app.enhance import project_context
 from app.models.looks import LookSwitch
@@ -79,10 +81,14 @@ def test_a_video_takes_its_scripts_look_and_its_prompts_use_its_own(owner, edito
     project = db.get(Project, made["project_id"])
     system, _ = project_context(db, project, "storyboard")
     assert system[0] == prompts.system("storyboard", "disney-pixar") != prompts.system("storyboard")
-    assert editor.patch(video, json={"look": "zack-d"}).status_code == 409  # off for editors
-    assert owner.patch(video, json={"look": "house"}).json()["look"] == "house"
+    assert editor.get(video).json()["look_locked"] is True  # Reed's walk, item 7
+    kept = owner.patch(video, json={"look": "house"})  # it keeps its script's style
+    assert kept.status_code == 409 and "keeps its script's style, Disney Pixar" in kept.text
+    assert owner.post(f"{video}/settings", json={"look": "house"}).status_code == 409
+    assert db.get(Project, made["project_id"]).look == "disney-pixar"
 
 
+@pytest.mark.usefixtures("own_look")
 def test_a_look_change_puts_its_stills_and_clips_out_of_date_and_undo_brings_them_back(
     owner, editor, db
 ):

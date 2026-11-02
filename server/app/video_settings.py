@@ -103,6 +103,7 @@ def check(db: Session, user: User, project: Project, values: dict) -> dict:
     field, value = next(iter(values.items()))
     if field == "look":
         value = looks.pick(db, user, value)  # the look's own rules (Off for editors)
+        looks.keep_style(db, project, value)  # a published script's style stays (item 7)
     elif field in ("video_model", "image_model"):
         kind = field.split("_")[0]
         if value is not None and value not in {m.id for m in _models(kind)}:

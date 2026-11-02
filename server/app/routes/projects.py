@@ -84,6 +84,7 @@ class ProjectOut(BaseModel):
     song_take_id: int | None = None
     look: str = "house"  # how its pictures are drawn (VS1)
     look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
+    look_locked: bool = False  # made from a published script: it keeps that style (item 7)
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
     status: ProjectStatus
@@ -175,6 +176,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         song_take_id=project.song_take_id,
         look=project.look,
         look_redo_credits=looks.redo_credits(db, project),
+        look_locked=looks.script_style(db, project) is not None,
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
         status=project.status,
@@ -403,7 +405,9 @@ def update_project(
     if body.name is not None:
         project.name = body.name
     if body.look is not None:
-        project.look = looks.pick(db, user, body.look)
+        look = looks.pick(db, user, body.look)
+        looks.keep_style(db, project, look)  # a published script's style stays (item 7)
+        project.look = look
         looks.picked_by_person(project)  # a plan's lane leaves it as they chose
     if "planned_seconds" in body.model_fields_set:  # null clears it: the breakdown decides
         _set_length(db, user, project, body.planned_seconds)
