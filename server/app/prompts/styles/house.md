@@ -4,7 +4,7 @@ kind: look
 order: 0
 on: yes
 image_model: auto
-blurb: Our look: stylised 3D feature-film animation, warm amber light against cool blue shadows, big readable faces.
+blurb: Our style: stylised 3D feature-film animation, warm amber light against cool blue shadows, big readable faces.
 
 ## sheet_look
 Stylised 3D animated feature-film look (Pixar/Disney-like CG) with expressive eyes and brows. The body and face follow the character's age: an adult has an adult's height, build and face (a defined jaw, adult proportions, about 7 heads tall), never a child's; a teenager looks like a teenager, a child like a child. One fixed outfit, simple, clean and real-world, with fine cloth detail, identical in every view, and one silhouette-defining item that reads at a glance.
