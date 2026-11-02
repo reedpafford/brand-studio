@@ -93,6 +93,7 @@ class FreestyleItem(BaseModel):
     text: str
     status: Literal["held", "queued", "running", "refused", "done"] | None
     why: str = ""  # a move's reason when it has one (the director-run types)
+    treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
 
 
 class FreestyleRow(BaseModel):

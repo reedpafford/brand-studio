@@ -148,6 +148,15 @@ def thread(db: Session, project: Project) -> list[dict]:
                     "answered": place[m.get("run")] in done.get(m.get("run"), set())})  # fmt: skip
     from app.credits import price
 
+    written = db.scalars(select(Job).where(Job.project_id == project.id,
+                                           Job.input["step"].as_string() == "treatment",
+                                           Job.status == JobStatus.succeeded)
+                         .order_by(Job.id)).all()  # fmt: skip
+    for n, j in enumerate(written):  # the treatment, posted in the chat as plain lines
+        out.append({"id": f"s{j.id}", "kind": "move", "at": (j.finished_at or j.created_at
+                    ).isoformat(), "who": "Director", "text": named(told(j.output or {}, n > 0)),
+                    "status": "done", "why": "", "answered": None,
+                    "treatment": j.output})  # fmt: skip
     for j in rows:
         if j.input.get(GRANT) and j.status in COUNTED:  # the owner's OK at the director's limit
             out.append({"id": f"g{j.id}", "kind": "move", "at": j.created_at.isoformat(),
@@ -551,7 +560,11 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
     asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
     # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
-    parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed),
+    own = db.scalar(select(Job.id).where(Job.input["step"].as_string() == "treatment",
+                                         Job.input[RUN]["id"].as_string() == run["id"],
+                                         Job.status.in_(COUNTED)).limit(1))  # fmt: skip
+    video = {**video_state(db, project), "treatment": "written" if own else "none"}  # this run's
+    parts = (("video", video), ("last_actions", done), ("allowed", allowed),
              *((("chat", asked),) if asked else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
     return {"system": system, "prompt": f"{brief}\n{story(db, project)}{tagged}",
@@ -581,6 +594,53 @@ def treatment(db: Session, project: Project) -> dict | None:
                                       Job.status == JobStatus.succeeded)
                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
     return (job.output or None) if job else None
+
+
+CANNED_TREATMENT = {  # the stand-in's (no paid call), so QA can walk the flow
+    "hook": "A wallet on the kitchen floor, and a phone lighting up beside it.",
+    "logline": "Mom finds out the dip she was afraid of is the buy she was waiting for.",
+    "why_it_holds": "A small mystery in the first second, answered in the last line.",
+    "beats": [{"id": "b1", "lines": [1], "purpose": "hook", "picture": "the phone lights up"},
+              {"id": "b2", "lines": [2], "purpose": "payoff", "picture": "her smile"}],
+    "ending": "The payoff, then the app's name.",
+}  # fmt: skip
+
+
+def write_treatment(db: Session, user: User, project: Project, run: dict | None,
+                    note: str = "") -> str:  # fmt: skip
+    """Queue the treatment (the Director's step: hook, logline, why it holds, beats, ending),
+    on the director's own limit like a watch; its words in plain lines."""
+    from app import plans, prompts
+    from app.credits import estimate, past_approved
+    from app.enhance import escape, project_context
+    from app.routes.jobs import enqueue
+
+    version = plans.script(db, project)
+    system, context = project_context(db, project, "treatment")
+    brief = re.search(r"<brief>\n(.*?)\n</brief>", context, re.S)
+    cast = re.search(r"<cast>\n(.*?)\n</cast>", context, re.S)
+    lines = cast[1].splitlines() if cast else []
+    text = prompts.treatment_input(escape(prompts.number_lines(version.text)),
+                                   brief[1] if brief else "", lines, note=escape(note))  # fmt: skip
+    data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
+            "prompt": text, "max_tokens": 6000}  # fmt: skip
+    again = treatment(db, project) is not None
+    price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
+    wait = past_own(db, project, (run or {}).get("id"), price)
+    data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
+    wait = wait or past_approved(db, project, user, price)
+    enqueue(db, user, "write-claude", data, project=project, provider="claude",
+            prepaid=not wait, wait=wait)  # fmt: skip
+    return "Changing the treatment." if again else "Writing the treatment."
+
+
+def told(made: dict, again: bool) -> str:
+    """A treatment as plain lines in the thread (the Director: the delivery note's style)."""
+    beats = " ".join(f"{b.get('id', '')}: {b.get('purpose', '')}, {b.get('picture', '')}."
+                     for b in made.get("beats") or [])  # fmt: skip
+    head = "Changed the treatment:" if again else "The treatment:"
+    return (f"{head} {made.get('logline', '')} Hook: {made.get('hook', '')} {beats} "
+            f"Ending: {made.get('ending', '')}").strip()  # fmt: skip
 
 
 def treatment_block(db: Session, project: Project) -> str:
@@ -671,6 +731,8 @@ def choose(state: dict) -> dict:
     picked_by_watch = {f["clip_id"]: f.get("take_id") for f in found if f.get("fix") == "pick"}
     if state["being_made"] or state["held_for_owner"]:
         return go("wait", "Something is still being made or waits for the owner.")
+    if state.get("treatment") == "none":  # the story first, on every run (the Director)
+        return go("treatment", "The story first: what holds a viewer, beat by beat.")
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
     if state["missing_looks"]:

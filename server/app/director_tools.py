@@ -91,6 +91,10 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
             return f"Muted {what} of {clip} instead of remaking it."
         if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget
             return watch_cut.start(db, user, project, run)
+        if tool == "treatment":  # the story first (the Director's step), on its own limit
+            from app.director import write_treatment
+
+            return write_treatment(db, user, project, run, decision.get("note") or "")
         if tool == "final_cut":
             project_clips.approve_all(**me)  # the picked takes it cuts with
             project_clips.make_video(request=request, **me)
