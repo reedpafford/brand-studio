@@ -171,3 +171,11 @@ test("In production: a row's credits and budget are rounded alike (20 of 32, nev
   const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
   expect(within(link).getByText("20 of 32")).toBeInTheDocument();
 });
+
+test("In production on a phone: the director's time follows the whole spend line, never inside it (QA-3 on #1218)", async () => {
+  setViewport(390);
+  fakeServer(base([{ ...failed, credits_used: 21, budget_credits: 729, director_credits: 15, spent_usd: 0 }]));
+  open();
+  const card = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
+  expect(card).toHaveTextContent(/6 of 729 credits · \$0\.00\s*15 credits of director time/);
+});

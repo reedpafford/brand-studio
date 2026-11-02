@@ -120,14 +120,15 @@ function FlagLine({ r }: { r: Row }) {
 
 function Credits({ r }: { r: Row }) {
   return (
-    <>
-      <span title={nearBudget(r) ? CLOSE : undefined} className={nearBudget(r) ? "text-warning" : undefined}>
-        {Math.round(budgetUsed(r))} of {Math.round(r.budget_credits)}
-      </span>
-      {/* The director's own time, apart from the budget (#1216, QA-3 on #1218). */}
-      {(r.director_credits ?? 0) > 0 && <span className="block text-xs text-muted">{creditsText(r.director_credits)} of director time</span>}
-    </>
+    <span title={nearBudget(r) ? CLOSE : undefined} className={nearBudget(r) ? "text-warning" : undefined}>
+      {Math.round(budgetUsed(r))} of {Math.round(r.budget_credits)}
+    </span>
   );
+}
+
+/** The director's own time, apart from the budget, on its own line after the spend (#1216, QA-3 on #1218). */
+function DirectorTime({ r }: { r: Row }) {
+  return (r.director_credits ?? 0) > 0 ? <span className="block text-xs text-muted">{creditsText(r.director_credits)} of director time</span> : null;
 }
 
 /** Reed's list of every version being made, across all brands. Filters live in the address. */
@@ -316,6 +317,7 @@ function Table({ rows, showBrand, colour, onRelease }: { rows: Row[]; showBrand:
               <span className="min-w-0 break-words text-muted">{who(r)}</span>
               <span className="text-right">
                 <Credits r={r} /> <span className="text-muted">{money(r.spent_usd)}</span>
+                <DirectorTime r={r} />
               </span>
               <span aria-hidden />
             </Link>
@@ -347,6 +349,7 @@ function Cards({ rows, colour, onRelease }: { rows: Row[]; colour: (id: number) 
                 <span className="block text-sm text-muted tabular-nums">
                   <Credits r={r} /> credits · {money(r.spent_usd)}
                 </span>
+                <DirectorTime r={r} />
               </span>
               <span aria-hidden className="size-control shrink-0" />
             </span>
