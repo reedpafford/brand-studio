@@ -8,7 +8,7 @@ test("at 390: Cast & places' tabs and New character are 44 px presses, and the B
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
   const brandId = await emptyBrand(page, "Touch Co");
   await page.goto(`/b/${brandId}/library/characters`);
-  for (const press of [page.getByRole("link", { name: "Characters", exact: true }), page.getByRole("link", { name: "Places", exact: true }), page.getByRole("link", { name: "Props", exact: true }), page.getByRole("button", { name: "New character" })]) {
+  for (const press of [page.getByRole("link", { name: /^Characters/ }), page.getByRole("link", { name: /^Places/ }), page.getByRole("link", { name: /^Props/ }), page.getByRole("button", { name: "New character" })]) {
     await expect(press).toBeVisible();
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }

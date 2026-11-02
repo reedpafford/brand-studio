@@ -18,11 +18,9 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "Nothing made yet in Media Co." })).toBeVisible();
     await expect(page.getByRole("link", { name: "Make a freestyle" })).toHaveAttribute("href", "/freestyle");
 
-    if (width === 390) await page.getByRole("button", { name: "Filters" }).click();
-    await page.getByLabel("Kind").selectOption("still");
+    await page.getByRole("navigation", { name: "Kinds" }).getByRole("button", { name: "Stills" }).click();
     await expect(page).toHaveURL(/kind=still/);
     await expect(page.getByRole("heading", { name: "Nothing matches these filters." })).toBeVisible();
-    if (width === 390) await page.keyboard.press("Escape");
 
     for (const press of [width === 1440 ? page.getByRole("link", { name: "Media" }).first() : page.getByRole("main").getByRole("link", { name: "Videos" }), page.getByRole("button", { name: /Filters|Clear filters/ }).first()]) {
       expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(width === 1440 ? 24 : 44); // desktop: the web target (WCAG 2.2); phones: touch
