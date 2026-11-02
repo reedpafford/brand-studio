@@ -1609,4 +1609,9 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
         and "**When people ask for changes.**" in director
     )
     assert "the published script's words can't change here" in director
-    assert "Do only what they asked, and keep everything else as it was" in director
+    # QA-10 on #1158: each note comes once; the asks come first, named; the watch fixes only
+    # what the change broke, with no unasked extras
+    assert "new notes from people since your last turn, in their words" in director
+    assert "name the ask in that action's `why`" in director and "not yet read" not in director
+    assert "only a real fault the change itself caused" in director
+    assert "no other new fixes or extras" in director and "names each ask" in director
