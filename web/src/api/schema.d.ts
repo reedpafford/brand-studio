@@ -8162,6 +8162,11 @@ export interface components {
             look_redo_credits: number;
             /** Freestyle Id */
             freestyle_id?: number | null;
+            /**
+             * Look Locked
+             * @default false
+             */
+            look_locked: boolean;
             /** Planned Seconds */
             planned_seconds: number | null;
             /** Breakdown Seconds */

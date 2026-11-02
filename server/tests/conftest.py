@@ -185,3 +185,10 @@ def bulk_scripts(client, rows: list[dict]):
     """Create several scripts at once, all in the first brand."""
     brand = first_brand(client)
     return client.post("/scripts/bulk", json={"scripts": [{"brand_id": brand, **r} for r in rows]})
+
+
+@pytest.fixture
+def own_look(monkeypatch):
+    """A video that keeps no script's style (one made the earlier way), so its own look can
+    switch (VS1, n12): the switch tests run on a script's video, which keeps its style now."""
+    monkeypatch.setattr("app.looks.script_style", lambda db, project: None)

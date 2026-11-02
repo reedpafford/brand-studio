@@ -192,7 +192,7 @@ function Plan({ script, slot, brandId, readOnly, onPlan }: { script: Script; slo
     <div className="space-y-3">
       <p className="text-sm text-muted tabular-nums">
         Planned · {p!.seconds} s · {plan.clips.length} clip{plan.clips.length === 1 ? "" : "s"}
-        {script.versions.find((v) => v.slot === slot)?.estimate_credits ? ` · about ${wholeCredits(script.versions.find((v) => v.slot === slot)!.estimate_credits)} credits to make` : ""}
+        {script.versions.find((v) => v.slot === slot)?.estimate_credits ? ` · about ${wholeCredits(script.versions.find((v) => v.slot === slot)!.estimate_credits)} credits to make (planned)` : ""}
       </p>
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-2">

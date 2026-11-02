@@ -212,7 +212,7 @@ export function TakesStep({ script: s }: { script: Script }) {
   const make = (label: string, primary: boolean) =>
     cut ? (
       <div className="space-y-2">
-        <p className="text-sm text-warning">A song this long would go over the video limit (about {Math.ceil(data.video_estimate_credits)} credits to make).</p>
+        <p className="text-sm text-warning">A song this long would go over the video limit (about {Math.ceil(data.video_estimate_credits)} credits to make, planned).</p>
         {data.keep_lines ? (
           <Button variant={primary ? "primary" : "secondary"} onClick={() => setKeeping(true)}>
             Keep the first {data.keep_lines} line{data.keep_lines === 1 ? "" : "s"} · free
@@ -231,7 +231,7 @@ export function TakesStep({ script: s }: { script: Script }) {
       </Button>
       {a.sends(data.estimate_credits) && <p className="text-sm text-muted">{a.sends(data.estimate_credits)}</p>}
       {failed && <p role="alert" className={errorClass}>{failed}</p>}
-      <p className="text-sm text-muted">A video this long: about {Math.ceil(data.video_estimate_credits)} credits to make.</p>
+      <p className="text-sm text-muted">A video this long: about {Math.ceil(data.video_estimate_credits)} credits to make (planned).</p>
     </div>
   );
   return (
