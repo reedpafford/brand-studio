@@ -94,7 +94,7 @@ export function LookSheets({ item }: { item: Item }) {
                   <Button variant="ghost" dense charge="estimate" price={price} busy={make.isPending && make.variables === l.id} onClick={() => make.mutate(l.id)}>Redo</Button>
                 </div>
               )}
-              {!owner && s.status === "none" && <p className="text-muted">Only the owner adds a sheet in a style.</p>}
+              {!owner && s.status === "none" && <p className="text-muted">Only the owner adds a sheet in another style.</p>}
             </li>
           );
         })}

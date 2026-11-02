@@ -414,7 +414,7 @@ test("an editor sees the other looks' sheets but can't add one", async () => {
   fakeServer(charRoutes(editor, {}));
   renderAt("/b/1/library/characters/5");
   const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  expect(within(pixar).getByText("Only the owner adds a sheet in a style.")).toBeInTheDocument();
+  expect(within(pixar).getByText("Only the owner adds a sheet in another style.")).toBeInTheDocument();
   expect(within(pixar).queryByRole("button")).toBeNull();
 });
 
