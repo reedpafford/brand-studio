@@ -443,3 +443,135 @@ def test_it_never_watches_before_a_cut_or_the_same_cut_twice(app, db, owner, edi
     out = editor.get(f"/projects/{pid}/director").json()
     assert out["ended"] == "It stopped: it already watched this cut.", out["turns"]
     assert [t["tool"] for t in out["turns"]].count("watch_cut") == 3  # once, then refused twice
+
+
+def _stop_during(monkeypatch, editor, pid, where: str, before: bool = False) -> list:
+    """Stop is pressed once, while `where` (the turn being asked, or its tool) runs; `before`:
+    just as it starts (the worker took the turn, then Stop came)."""
+    module, name = where.rsplit(".", 1)
+    import importlib
+
+    real, pressed = getattr(importlib.import_module(module), name), []
+
+    def midway(*args, **kwargs):
+        out = None if before else real(*args, **kwargs)
+        if not pressed:
+            args[0].commit()  # as the worker's own session would be, mid-step
+            pressed.append(editor.post(f"/projects/{pid}/director/stop").json())
+            pressed.append(args[0].query(Job).count())  # every job there is when it stops
+        return real(*args, **kwargs) if before else out
+
+    monkeypatch.setattr(where, midway)
+    return pressed
+
+
+def test_a_stop_while_a_turn_or_its_tool_runs_holds(app, db, owner, editor, monkeypatch):
+    """QA on #1087: Stop pressed mid-turn was overwritten when the worker recorded that turn
+    (from what it read before), and the run went on to deliver."""
+    cases = [("app.director.refresh", True), ("app.director.refresh", False),
+             ("app.director_tools.run", False)]  # fmt: skip
+    for n, (where, before) in enumerate(cases):
+        pid = _made(app, owner, editor, db) if n == 0 else _made_again(app, owner, editor, db)
+        pressed = _stop_during(monkeypatch, editor, pid, where, before)
+        editor.post(f"/projects/{pid}/director")
+        _run(app, db)
+        out = editor.get(f"/projects/{pid}/director").json()
+        assert pressed and pressed[0]["status"] == "ended", where
+        assert (out["status"], out["ended"]) == ("ended", "Stopped."), (where, out["turns"])
+        assert len(out["turns"]) == 1, where  # no turn after the stop
+        assert db.query(Job).count() == pressed[1], where  # nor any job: nothing more charged
+        monkeypatch.undo()
+
+
+def _second_turn(app, db, owner, editor, monkeypatch, when: str):
+    """A run whose second turn meets Stop: `before` its call (while its prompt is built, as
+    slowly as QA-7's), or `after` its call went out (the answer is back, then Stop)."""
+    from decimal import Decimal
+
+    from app.providers import Result, UsageItem
+
+    pid, calls = _made(app, owner, editor, db), []
+    providers = get_providers(app.state.settings, app.state.storage)
+    real_input, real_run = director.turn_input, providers["claude"].run
+
+    def building(db, project, run):  # QA-7: Stop lands while the prompt is being built
+        if when == "before" and run["turn"] == 2 and calls:
+            editor.post(f"/projects/{pid}/director/stop")
+        return real_input(db, project, run)
+
+    def asked(kind, input):
+        out = real_run(kind, input)
+        if input.get("step") == director.STEP:
+            calls.append(input[director.RUN]["turn"])
+            if when == "after" and len(calls) == 2:
+                editor.post(f"/projects/{pid}/director/stop")
+            usage = [UsageItem(units=Decimal(1), unit="call", cost_usd=Decimal("0.01"))]
+            return Result(out.state, output=out.output, usage=usage)  # a paid call, logged
+        return out
+
+    monkeypatch.setattr("app.director.turn_input", building)
+    providers["claude"].run = asked
+    editor.post(f"/projects/{pid}/director")
+    for _ in range(30):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+    return pid, calls
+
+
+def test_a_stop_before_a_turns_call_means_no_call_and_no_charge(app, db, owner, editor,
+                                                                monkeypatch):  # fmt: skip
+    from app.models.jobs import Usage
+
+    pid, calls = _second_turn(app, db, owner, editor, monkeypatch, "before")
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
+    assert calls == [1]  # the second turn's call was never made
+    second = director.turns(db, db.get(Project, pid))[-1]
+    assert second.status == JobStatus.cancelled
+    assert db.query(Usage).filter(Usage.job_id == second.id).count() == 0  # nothing charged
+
+
+def test_a_stop_after_a_turns_call_records_and_charges_it_and_stays_stopped(
+    app, db, owner, editor, monkeypatch
+):
+    from app.models.jobs import Usage
+
+    pid, calls = _second_turn(app, db, owner, editor, monkeypatch, "after")
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
+    assert calls == [1, 2] and len(out["turns"]) == 2  # no turn after it
+    second = director.turns(db, db.get(Project, pid))[-1]
+    assert second.status == JobStatus.succeeded  # its call went out: kept, logged, charged
+    assert db.query(Usage).filter(Usage.job_id == second.id).count() == 1
+    assert not second.input.get("result")  # nothing it said was done
+
+
+def test_a_stop_while_the_next_turn_is_made_holds(app, db, owner, editor, monkeypatch):
+    """QA-7, round 3: Stop ended the last turn while the next one was being made, and that
+    new turn carried the run on to deliver. Now a run is over once ANY of its turns says so:
+    the new turn makes no call, and "Stopped." stays."""
+    pid, made, calls = _made(app, owner, editor, db), [], []
+    real_turn, providers = director._turn, get_providers(app.state.settings, app.state.storage)
+    real_run = providers["claude"].run
+
+    def turn(db, user, project, run):  # the next turn is made just as Stop lands
+        if run["turn"] == 1 and not made:
+            made.append(editor.post(f"/projects/{pid}/director/stop").json()["status"])
+        return real_turn(db, user, project, run)
+
+    def asked(kind, input):
+        if input.get("step") == director.STEP:
+            calls.append(input[director.RUN]["turn"])
+        return real_run(kind, input)
+
+    monkeypatch.setattr("app.director._turn", turn)
+    providers["claude"].run = asked
+    editor.post(f"/projects/{pid}/director")
+    for _ in range(30):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert made == ["ended"] and calls == [1]  # no call after the stop
+    assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
+    second = director.turns(db, db.get(Project, pid))[-1]
+    assert second.input[director.RUN]["turn"] == 2 and second.status == JobStatus.cancelled
