@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app import looks, prompts
 from app.auth import current_user
 from app.catalogue import get_model
-from app.credits import FREESTYLE, WAIT_OK, estimate
+from app.credits import COUNTED, FREESTYLE, WAIT_OK, estimate, get_limits, lock, over_cap
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.freestyles import Freestyle
@@ -146,6 +146,13 @@ def _send(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """Add a message and start its take: held for the owner when an editor sends it."""
     texts = [m["text"] for m in fs.chat] + [text]
     input = _job_input(fs, texts)
+    lock(db, Freestyle, fs.id)  # a freestyle is one video: its sends share the per-video cap
+    earlier = sum(j.credits for j in _jobs(db, fs).values() if j.status in COUNTED)
+    units = Decimal(input["input"]["duration"])
+    cap = get_limits(db, user.workspace_id).per_video_max_credits
+    if earlier + estimate(db, user.workspace_id, "video", units, input) > cap:
+        db.rollback()
+        raise over_cap(user, cap)
     job = enqueue(db, user, "video", input, units=input["input"]["duration"],
                   provider="replicate", wait="" if user.is_owner else HELD)  # fmt: skip
     message = {"by": user.id, "text": text, "at": utcnow().isoformat(), "job": job.id}
@@ -190,8 +197,8 @@ def _out(db: Session, fs: Freestyle) -> FreestyleOut:
                                     who="Director", text=words, status=move))  # fmt: skip
         if job.status == JobStatus.succeeded:
             file_id = ((job.output or {}).get("file_ids") or [None])[0]
-        if job.status != JobStatus.cancelled or job.started_at:
-            credits += job.credits
+        if job.status in (*COUNTED, JobStatus.needs_owner_approval):
+            credits += job.credits  # never a failed, declined, withdrawn or stopped one
     return FreestyleOut(**_row(fs, names, status).model_dump(), look=fs.look, shape=fs.shape,
                         brand_id=fs.brand_id, credits=credits, file_id=file_id,
                         thread=thread)  # fmt: skip
