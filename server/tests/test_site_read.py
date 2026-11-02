@@ -49,6 +49,9 @@ def test_a_read_shows_what_it_found_and_saves_only_the_ticked(app, db, owner, si
     assert found["colours"] == ["#e4572e", "#2299cc"]
     assert found["logo_url"] == "https://ironpaws.example/logo.png"
     assert [p["name"] for p in found["products"]] == ["Chicken bites", "Peanut butter chews"]
+    assert [p["mark"] for p in found["products"]] == ["new", "fills"]  # an empty description
+    assert (seen["id"], seen["url"]) == (job_id, "https://ironpaws.example/")
+    assert owner.get(f"{url}/latest").json()["id"] == job_id  # Import reopens on it
     assert db.get(Brand, brand_id).logo_file_id is None  # nothing saved before Save
     read = db.query(Job).filter(Job.input["step"].as_string() == "site_read").one()
     assert (read.credits, db.get(Job, job_id).credits) == (3, 0)  # only the read is paid
@@ -86,7 +89,8 @@ def test_an_existing_description_is_never_overwritten(app, db, owner, site):
     db.add(LibraryItem(workspace_id=1, kind=Kind.prop, name="Chicken Bites", brands=[brand],
                        short_description="Our best seller."))  # fmt: skip
     db.commit()
-    job_id, _ = _read(app, db, owner, url)
+    job_id, seen = _read(app, db, owner, url)
+    assert seen["found"]["products"][0]["mark"] == "have"  # "Already in your products"
     saved = owner.post(f"{url}/{job_id}/save", json={"products": [0]}).json()
     assert (saved["products_made"], saved["products_filled"]) == (0, 0)
     assert db.query(LibraryItem).filter_by(name="Chicken Bites").one().short_description == (
@@ -132,9 +136,26 @@ def test_undo_keeps_a_logo_changed_since(app, db, owner, site):
     assert db.get(Brand, brand_id).logo_file_id == other.id
 
 
+def test_the_found_logo_is_shown_once_fetched_and_save_uses_that_file(app, db, owner, site):
+    brand_id, url = site
+    job_id, _ = _read(app, db, owner, url)
+    shown = owner.get(f"{url}/{job_id}/logo")
+    assert shown.status_code == 200 and shown.headers["content-type"] == "image/png"
+    files = db.query(StoredFile).count()
+    assert owner.get(f"{url}/{job_id}/logo").content == shown.content
+    assert db.query(StoredFile).count() == files  # fetched once, kept on the read
+    owner.post(f"{url}/{job_id}/save", json={"logo": True})
+    db.expire_all()
+    kept = db.get(Job, job_id).output["logo_file_id"]
+    assert db.get(Brand, brand_id).logo_file_id == kept and db.query(StoredFile).count() == files
+    assert db.get(Brand, brand_id).logo_file_id is not None
+
+
 def test_a_logo_that_cant_be_fetched_saves_the_rest(app, db, owner, site):
     brand_id, url = site
     job_id, seen = _read(app, db, owner, url, "https://nologo.example/")
+    shown = owner.get(f"{url}/{job_id}/logo")
+    assert (shown.status_code, shown.json()["detail"]) == (404, sr.NO_LOGO)
     saved = owner.post(f"{url}/{job_id}/save", json={"logo": True, "colours": ["#e4572e"]})
     assert saved.json()["problems"] == [sr.NO_LOGO] and saved.json()["colours_added"] == 1
     assert db.get(Brand, brand_id).logo_file_id is None
@@ -144,3 +165,30 @@ def test_real_reading_is_off_unless_switched_on(tmp_path):
     local = LocalProvider(storage=None)  # the real providers' default: BS_SITE_READ_REAL off
     done = local.run("site_fetch", {"url": "https://ironpaws.example/"})
     assert done.output == {"problem": "Reading websites is switched off."}
+
+
+def test_a_new_brand_with_a_website_is_made_and_its_site_read(app, db, owner, editor, site):
+    """F_BrandNew: Name, Website, Colour and Logo; the site is read once the brand is made,
+    and the brand page opens on that read's review."""
+    assert owner.get("/brands/site-read/estimate").json() == {"credits": 3.0}
+    assert editor.get("/brands/site-read/estimate").status_code == 403
+    bad = owner.post("/brands", json={"name": "Calm Co", "website": "ftp://calm.example/"})
+    assert bad.status_code == 422 and "Paste a web address (https://…)" in bad.text
+    made = owner.post("/brands", json={"name": "Calm Co", "website": "https://calm.example/",
+                                       "colours": ["#112233"]})  # fmt: skip
+    assert made.status_code == 201 and made.json()["colours"] == ["#112233"]
+    job_id = made.json()["site_read_job_id"]
+    _work(app, db)
+    url = f"/brands/{made.json()['id']}/site-read"
+    seen = owner.get(f"{url}/latest").json()
+    assert (seen["id"], seen["status"], seen["url"]) == (job_id, "done", "https://calm.example/")
+    assert db.get(Brand, made.json()["id"]).logo_file_id is None  # nothing saved before Save
+
+    plain = owner.post("/brands", json={"name": "Quiet Co"}).json()
+    assert plain["site_read_job_id"] is None
+    assert owner.get(f"/brands/{plain['id']}/site-read/latest").status_code == 404
+    app.state.settings.fake_providers = False
+    app.state.settings.generation_enabled = False  # the read can't start: the brand is made
+    off = owner.post("/brands", json={"name": "Still Co", "website": "https://still.example/"})
+    assert off.status_code == 201 and off.json()["site_read_job_id"] is None
+    assert off.json()["site_read_problem"] == "Generation is switched off on this server."
