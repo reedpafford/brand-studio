@@ -5,7 +5,7 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Dialog, buttonClass, creditsLabel, creditsText } from "../components";
+import { Badge, Banner, Button, Dialog, buttonClass, creditsLabel, wholeCredits } from "../components";
 import { linkText } from "../ui";
 import { useToast } from "../toast";
 import { ReviewChip } from "./Checks";
@@ -25,6 +25,7 @@ export const NOT_PLAIN = /\b[a-z]+_[a-z_]+\b|[{}[\]<>]|"\w+"\s*:|\b[a-z]\d+\b|\b
 /** The server's words for a move, made plain: "c3" is clip 3 and "take 12" is that clip's take number. */
 export function plain(line: string, clips: Clip[]): string {
   const out = line
+    .replace(/^Refused(?: again)?:\s*(.)/, (_all, first: string) => first.toUpperCase()) // the server's "Refused:" is for the director; the status says it couldn't
     .replace(/\btake (\d+) for c(\d+)\b/g, (_all, id: string, n: string) => {
       const t = clips.find((c) => c.clip_id === `c${n}`)?.takes.find((k) => k.id === Number(id));
       return t ? `take ${t.number} for clip ${n}` : `a take for clip ${n}`;
@@ -115,7 +116,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const doing = [...turns].reverse().find((t) => t.tool && DOING[t.tool])?.tool;
   const made = list.filter((c) => c.takes.length > 0).length;
   const phase = held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && list.length ? `Making clips: ${made} of ${list.length}` : DOING[doing];
-  const credits = r ? creditsText(r.credits) : null;
+  const credits = r && wholeCredits(r.credits) > 0 ? creditsLabel(r.credits) : null; // what it has spent, in whole credits ("up to" is only for a price before a press)
   const dollars = owner && r?.spent_usd != null ? `the director's own time $${r.spent_usd.toFixed(2)}` : null; // rule 4: the owner only
   const note = plain([...turns].reverse().find((t) => t.tool === "deliver")?.why ?? "", list);
   const firstTake = turns.findIndex((t) => t.tool === "make_take");
@@ -123,8 +124,8 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const seconds = Math.round(list.reduce((n, c) => n + c.seconds, 0));
   const line =
     status === "none" ? (blocked ?? "It makes every step from the script, checks each take, and delivers the finished cut. You can stop it any time.")
-    : running ? [phase, credits && `up to ${credits} so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
-    : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `up to ${credits} for this run`, dollars].filter(Boolean).join(" · ");
+    : running ? [phase, credits && `${credits} spent so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
+    : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `spent ${credits} on this run`, dollars].filter(Boolean).join(" · ");
   const badge = running ? <Badge tone={held ? "warning" : "neutral"}>{held ? "Waiting for approval" : "Working…"}</Badge> : status === "delivered" ? <Badge tone="success">Delivered</Badge> : status === "ended" ? <Badge tone="warning">Stopped</Badge> : null;
 
   const ratio = aspect.replace(":", " / ");
