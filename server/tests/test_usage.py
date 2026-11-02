@@ -199,3 +199,25 @@ def test_all_time_counts_only_finished_videos(owner, db):
                if b["brand_id"] == fomo)  # fmt: skip
     assert (row["finished"], row["cost_per_finished_usd"]) == (1, 3.0)
     assert owner.get("/usage/summary").json()["finished"] == 0  # this week: none
+
+
+def test_the_directors_own_spend_this_month(owner, editor, db):
+    """v5 Settings > Limits (UX-Auditor, Next-Lead): the director's own time, in dollars, for
+    the owner only. Its takes are the video's spend, not the director's."""
+    from app.director import RUN
+
+    me, _, project = _setup(owner, db)
+    run = {RUN: {"id": "r1"}}
+    _charge(db, enqueue(db, me, "write-claude", {"step": "director", **run}, project=project),
+            "0.40")  # fmt: skip
+    _charge(db, enqueue(db, me, "check-claude", {"step": "watch_cut", **run}, project=project),
+            "0.35")  # fmt: skip
+    _charge(db, enqueue(db, me, "video-480p", {}, project=project), "3.00")  # a take it asked for
+    _charge(db, enqueue(db, me, "write-claude", {"step": "director", **run}, project=project),
+            "9.99", when=utcnow() - timedelta(days=40))  # last month  # fmt: skip
+    month = owner.get("/usage/summary", params={"period": "month"}).json()
+    assert month["director_spend_usd"] == 0.75
+    assert (
+        owner.get("/usage/summary", params={"period": "all"}).json()["director_spend_usd"] == 10.74
+    )
+    assert editor.get("/usage/summary", params={"period": "month"}).status_code == 404

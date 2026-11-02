@@ -65,6 +65,7 @@ class UsageSummaryOut(BaseModel):
     in_progress: int
     unassigned_spend_usd: float  # "Not tied to one brand"
     freestyle_spend_usd: float = 0  # Freestyle sends with no brand (its hidden brand)
+    director_spend_usd: float = 0  # the director's own time: its turns, watches and looks
 
 
 class UsageBrandRow(BaseModel):
@@ -154,6 +155,7 @@ def summary(
         freestyle_spend_usd=usage.money(
             sum(f.spend.get(b, 0) for b in _freestyle_brands(db, owner))
         ),
+        director_spend_usd=usage.money(usage.director_spend(db, owner.workspace_id, now)),
     )
 
 
