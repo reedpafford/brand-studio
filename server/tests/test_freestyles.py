@@ -165,3 +165,20 @@ def test_media_names_a_freestyle_takes_freestyle(owner, db):
         if r["key"].startswith("quick:")
     ]
     assert row["freestyle_id"] == fs["id"]
+
+
+def test_needs_you_says_which_freestyle_and_what_it_asks(owner, editor, db):
+    """QA-9 on #1161: held freestyle sends read as their freestyle, never as the look's lines."""
+    fs = editor.post("/freestyles", json={**HOUSE, "text": SCRIPT}).json()
+    job = db.query(Job).one()
+    owner.post(f"/jobs/{job.id}/approve")
+    db.query(Job).update({Job.status: "succeeded"})
+    db.commit()
+    editor.post(f"/freestyles/{fs['id']}/messages", json={"text": "Make it night."})
+    held = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    (row,) = held
+    assert row["freestyle"] == {"id": fs["id"], "title": fs["title"], "type": "one_clip",
+                                "said": "Make it night.", "change": True}  # fmt: skip
+    assert row["prompt_summary"] == "Make it night."
+    first = owner.get(f"/jobs/{job.id}").json()["freestyle"]
+    assert (first["said"], first["change"]) == (SCRIPT, False)

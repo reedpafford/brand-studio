@@ -26,7 +26,7 @@ from app.models.jobs import Job, JobStatus
 from app.references import LONG_SIDE
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
-from app.routes.jobs import DECLINE, WITHDRAWN, enqueue, stop_jobs
+from app.routes.jobs import CHANGE, DECLINE, SAID, WITHDRAWN, enqueue, stop_jobs
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
 Type = Literal["dialogue", "song", "narrated", "one_clip"]
@@ -156,6 +156,7 @@ def _send(db: Session, user: User, fs: Freestyle, text: str) -> None:
     if earlier + estimate(db, user.workspace_id, "video", units, input) > cap:
         db.rollback()
         raise over_cap(user, cap)
+    input = {**input, SAID: text, CHANGE: bool(fs.chat)}  # for Needs you: what this send asks
     job = enqueue(db, user, "video", input, units=input["input"]["duration"],
                   provider="replicate", wait="" if user.is_owner else HELD)  # fmt: skip
     message = {"by": user.id, "text": text, "at": utcnow().isoformat(), "job": job.id}

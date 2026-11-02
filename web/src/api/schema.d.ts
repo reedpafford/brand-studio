@@ -6393,6 +6393,19 @@ export interface components {
             /** Thread */
             thread: components["schemas"]["FreestyleItem"][];
         };
+        /** FreestyleRef */
+        FreestyleRef: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            /** Said */
+            said: string;
+            /** Change */
+            change: boolean;
+        };
         /** FreestyleRow */
         FreestyleRow: {
             /** Id */
@@ -6860,6 +6873,7 @@ export interface components {
              * @default false
              */
             auto: boolean;
+            freestyle?: components["schemas"]["FreestyleRef"] | null;
             /** Approved By Id */
             approved_by_id: number | null;
             /** Provider */
@@ -6958,6 +6972,7 @@ export interface components {
              * @default false
              */
             auto: boolean;
+            freestyle?: components["schemas"]["FreestyleRef"] | null;
         };
         /** JobState */
         JobState: {
