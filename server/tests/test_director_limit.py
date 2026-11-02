@@ -31,14 +31,14 @@ def _turns(db, pid) -> int:
 def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
     app, db, owner, editor, monkeypatch
 ):
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(30))  # this run's own is 42.8
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # this run's own is about 61
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")  # the owner's own run waits too
     _run(app, db)
     (held,) = _held(db, pid)
     limit = director.own_limit()
     assert held.input["held"] == ("Waiting for the owner's OK: the director has used its own "
-                                  "limit of 30 credits.")  # fmt: skip
+                                  "limit of 35 credits.")  # fmt: skip
     charged, oks = _own(db, pid)
     assert (charged <= limit, oks) == (True, 0)  # never past it without an OK
     assert [j["id"] for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
@@ -53,18 +53,18 @@ def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
     charged, oks = _own(db, pid)
     assert oks == 1 and limit < charged <= 2 * limit  # several turns on the one OK
     texts = [m["text"] for m in out["thread"]]
-    assert "OK'd: up to 30 more credits of the director's time." in texts
+    assert "OK'd: up to 35 more credits of the director's time." in texts
 
 
 def test_an_ok_grants_a_limits_worth_then_it_waits_again(app, db, owner, editor, monkeypatch):
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(9))  # three turns at 3 each
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(12))  # 4 steps (turns, treatment)
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     for oks in range(3):
         _run(app, db)
         (held,) = _held(db, pid)
         charged, given = _own(db, pid)
-        assert given == oks and charged <= 9 * (1 + oks), (charged, oks)
+        assert given == oks and charged <= 12 * (1 + oks), (charged, oks)
         before = _turns(db, pid)
         assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
         _run(app, db)

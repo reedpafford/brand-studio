@@ -94,6 +94,7 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
             f"<prompt>\n{escape(row.prompt)}\n</prompt>\n<note>\n{escape(note)}\n</note>"
         ),
         "max_tokens": 16000,  # the whole prompt comes back: a 24 s clip ran out of room at 4000
+        "then": str(then),  # the redraw it starts: shown with it while it waits (rule 32)
     }
     # The whole price is checked in one locked step, against the video's budget.
     job = enqueue(db, user, "write-claude", data, project=project, provider="claude", hold=then)

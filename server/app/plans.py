@@ -197,6 +197,9 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
         places=[x for x in escape(_places(db, project)).splitlines() if x],
         reference=escape_block(reference) if reference else "", note=escape(note),
     )  # fmt: skip
+    from app.director import treatment_block
+
+    message = treatment_block(db, project) + message  # the story it serves, when there is one
     return {"step": STEP, "project_id": project.id, "script_version": version.version,
             "system": system, "prompt": message, "max_tokens": 16000,
             "script": version.text, "fmt": fmt(db, project),
