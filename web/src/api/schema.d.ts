@@ -4224,8 +4224,8 @@ export interface paths {
         put?: never;
         /**
          * Estimate Clip
-         * @description What Generate would cost. Nothing is queued. An editor's Generate waits for the owner
-         *     (Reed's v4: every editor send is checked first): `needs_owner_approval`, why in `reason`.
+         * @description What Generate would cost. Nothing is queued. Past the editor's weekly allowance,
+         *     Generate would wait for the owner: `needs_owner_approval`, and why in `reason`.
          */
         post: operations["estimate_clip_clips_estimate_post"];
         delete?: never;
