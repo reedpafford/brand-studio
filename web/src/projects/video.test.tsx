@@ -8,6 +8,7 @@ import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 import { editor } from "../test/people";
+import { pickClip } from "../test/clips";
 
 const project = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
@@ -42,14 +43,14 @@ function open(query = "?step=cast") {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("the four steps (Make holds Stills and Clips), and Make waits until every asset is approved", async () => {
+test("the four steps in one tab row (Clips holds the stills and the takes), and Clips waits until every asset is approved", async () => {
   setViewport(1440);
   fakeServer(base);
   open();
-  const steps = await screen.findByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d/, ""))).toEqual(["Plan", "Cast", "Make", "Final cut"]);
-  expect(within(steps).getByRole("button", { name: "Make" })).toHaveAccessibleDescription(/Approve the cast first \(1 left\)/);
-  expect(screen.getByRole("button", { name: /Next: Make/ })).toBeDisabled();
+  const steps = await screen.findByRole("tablist", { name: "Steps" });
+  expect(within(steps).getAllByRole("tab").map((b) => b.textContent)).toEqual(["Plan", "Cast", "Clips", "Final cut"]);
+  expect(within(steps).getByRole("tab", { name: "Clips" })).toHaveAccessibleDescription(/Approve the cast first \(1 left\)/);
+  expect(screen.getByRole("button", { name: /Next: Clips/ })).toBeDisabled();
 });
 
 test("a look that needs approval points to Cast & places and never approves a shared character here", async () => {
@@ -84,27 +85,40 @@ test("a role with no character picks one from the library", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
 });
 
-const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: true, stale: false };
+const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: true, stale: false, earlier: [], change: null };
 const clip = (o: object) => ({ id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const toClips = { ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown] };
 
-test("Make has Stills and Clips tabs; ?step=make opens Clips once clips exist; Clips waits on the stills", async () => {
+test("?step=make opens Clips: the clip list, and the picked clip's takes with its still under them", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, [{ ...done }]] });
   open("?step=make");
-  expect(await screen.findByRole("tab", { name: /Clips/, selected: true })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("tab", { name: /Stills/ }));
-  expect(await screen.findByRole("tab", { name: /Stills/, selected: true })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Make", level: 2 })).toBeInTheDocument();
+  expect(await screen.findByRole("tab", { name: "Clips", selected: true })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Clip list" })).getByRole("button", { name: /^Clip 1 · 8 s/ })).toHaveAttribute("aria-current", "true");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).getByLabelText("Frame c1")).toBeInTheDocument(); // its still, with the still's own presses
+  expect(screen.queryByRole("tab", { name: /Stills/ })).toBeNull(); // no separate Stills | Clips any more
 });
 
-test("before the stills are approved, the Clips tab says why and doesn't open", async () => {
+test("before the stills are approved, the takes wait and say why; the still is there to approve", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], approved: false }]] });
-  open("?step=make");
-  await userEvent.click(await screen.findByRole("tab", { name: /Clips/ }));
-  expect(screen.getByRole("tab", { name: /Stills/ })).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByText(/^Clips: /)).toBeInTheDocument();
+  open("?step=clips");
+  expect(await screen.findByRole("tab", { name: "Clips", selected: true })).toBeInTheDocument();
+  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+  expect(screen.getByText(/^Takes: /)).toBeInTheDocument();
+  expect(screen.queryByLabelText("Clip c1")).toBeNull();
+});
+
+test("a locked Clips tab says why and doesn't open", async () => {
+  setViewport(1440);
+  fakeServer(base); // a look in the cast isn't approved
+  open();
+  const clips = await screen.findByRole("tab", { name: "Clips" });
+  expect(clips).toHaveAttribute("aria-disabled", "true");
+  await userEvent.click(clips);
+  expect(screen.getByRole("tab", { name: "Cast", selected: true })).toBeInTheDocument();
 });
 
 test("a clip's prompt is marked Prompt OK on the server, by its own button or by Make clip, which then makes the take", async () => {
@@ -242,8 +256,7 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
   open("?step=clips");
   expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Make", level: 2 })).toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: /Clips/ })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
 });
 
 test("Final cut puts the clips together by itself the first time, for free", async () => {
@@ -265,7 +278,7 @@ test("a video made from a library version opens on the new page", async () => {
     </QueryClientProvider>,
   );
   expect(await screen.findByRole("heading", { name: "Plan", level: 2 })).toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "Steps" })).toHaveTextContent("Final cut");
+  expect(screen.getByRole("tablist", { name: "Steps" })).toHaveTextContent("Final cut");
 });
 
 test("on a phone Download MP4 sits in the action bar", async () => {
@@ -300,12 +313,12 @@ test("Assets gets its tick only once it has been opened, not before (#749 LW9)",
   fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
   open("?step=breakdown");
   // The step picker waits under a skeleton while Assets loads (#773), so each look finds the list afresh.
-  const steps = () => screen.findByRole("list", { name: "Steps" });
-  const tick = async () => within(await steps()).getByRole("button", { name: "Cast" }).querySelector(".text-success");
-  await vi.waitFor(async () => expect(within(await steps()).getByRole("button", { name: "Cast" })).toBeEnabled());
+  const steps = () => screen.findByRole("tablist", { name: "Steps" });
+  const tick = async () => within(await steps()).getByRole("tab", { name: "Cast" }).querySelector(".text-success");
+  await vi.waitFor(async () => expect(within(await steps()).getByRole("tab", { name: "Cast" })).not.toHaveAttribute("aria-disabled"));
   expect(await tick()).toBeNull();
-  await userEvent.click(within(await steps()).getByRole("button", { name: "Cast" }));
-  await userEvent.click(await within(await steps()).findByRole("button", { name: "Plan" }));
+  await userEvent.click(within(await steps()).getByRole("tab", { name: "Cast" }));
+  await userEvent.click(await within(await steps()).findByRole("tab", { name: "Plan" }));
   await vi.waitFor(async () => expect(await tick()).not.toBeNull());
 });
 
@@ -347,7 +360,7 @@ test("Change this… sits under every still with its price; a note is sent as it
     "POST /projects/9/storyboard/frames/1/change": [201, { id: 8, kind: "image", status: "queued", credits: 4 }],
   });
   open("?step=storyboard");
-  const box = await screen.findByLabelText("Change this… c1");
+  const box = await screen.findByLabelText("Change this… still c1");
   expect(screen.getByRole("button", { name: /^Change it/ })).toBeDisabled();
   expect(screen.getByText("Say what should change")).toBeInTheDocument();
   await userEvent.type(box, "Bo should look surprised");
@@ -366,7 +379,7 @@ test("a note that changes what's said is refused in the server's words, kept in 
     "POST /projects/9/storyboard/frames/1/change": [422, { detail: "The note changes what's said. The spoken lines stay exactly as written." }],
   });
   open("?step=storyboard");
-  const box = await screen.findByLabelText("Change this… c1");
+  const box = await screen.findByLabelText("Change this… still c1");
   await userEvent.type(box, "Make Bo say hello");
   await userEvent.click(await screen.findByRole("button", { name: "Change it · up to 4 credits" }));
   expect(await screen.findByText(/The note changes what's said\. The spoken lines stay exactly as written\. To change the words, edit the script\./)).toBeInTheDocument();
@@ -383,7 +396,7 @@ test("while a change is made the still says so and the box is read-only; when it
   });
   open("?step=storyboard");
   expect(await screen.findByText("Making the change…")).toBeInTheDocument();
-  expect(screen.getByLabelText("Change this… c1")).toHaveAttribute("readonly");
+  expect(screen.getByLabelText("Change this… still c1")).toHaveAttribute("readonly");
   expect(screen.getByRole("button", { name: "Changing…" })).toHaveAttribute("aria-busy", "true");
 });
 
@@ -1043,6 +1056,7 @@ test("Approve all is not offered when every frame is approved or has no still", 
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }, waiting(2, { file_id: null })]] });
   open("?step=storyboard");
+  await pickClip("c2");
   await screen.findByLabelText("Frame c2");
   expect(screen.queryByRole("button", { name: /^Approve (all|\d)/ })).toBeNull();
 });
@@ -1070,8 +1084,8 @@ test("clips made before the storyboard went out of date stay open, with a banner
   const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
   expect(make).toBeDisabled();
   expect(make).toHaveAccessibleDescription("The plan changed after these were made. Redo the stills first.");
-  await userEvent.click(screen.getByRole("button", { name: "Open Stills" }));
-  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
+  expect(screen.getByLabelText("Frame c1")).toBeInTheDocument(); // the still to redo is on the same tab, under the takes
+  expect(screen.getByRole("button", { name: /^Redo stills/ })).toBeInTheDocument();
   expect(calls.some((c) => c.key.startsWith("POST /projects/9/clips"))).toBe(false);
 });
 
@@ -1193,7 +1207,7 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   const calls = fakeServer(staleRoutes);
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
-  expect(within(card).queryByLabelText("Change this…")).toBeNull();
+  expect(within(card).queryByLabelText("Change this… c1")).toBeNull();
   await userEvent.click(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
 });
@@ -1279,8 +1293,8 @@ test("a locked step says Plan, where the shots now live, when problems in it are
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["c1: the shot has no action", "c2: the shot has no setting"] }] });
   open("?step=breakdown");
-  const steps = await screen.findByRole("list", { name: "Steps" });
-  expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Fix the 2 problems in Plan first");
+  const steps = await screen.findByRole("tablist", { name: "Steps" });
+  expect(within(steps).getByRole("tab", { name: "Cast" })).toHaveAccessibleDescription("Fix the 2 problems in Plan first");
 });
 
 const gone = asset({ ref: "slot:3", slot_id: 3, library_item_id: 77, name: "", role: "Nate", sheet_status: "none", library_deleted: true, look_credits: 4, look_usual_credits: 2 });
@@ -1413,7 +1427,7 @@ test("once the free rewrite is used, the clip says so and offers the priced Rewr
   expect(within(card).getByRole("status")).toHaveTextContent("We couldn't fix this one automatically.");
   expect(within(card).getByRole("status")).not.toHaveTextContent("Try saying");
   expect(await within(card).findByRole("button", { name: "Rewrite this clip's prompt · up to 3 credits" })).toBeInTheDocument();
-  expect(within(card).getByLabelText("Change this…")).toBeInTheDocument();
+  expect(within(card).getByLabelText("Change this… c1")).toBeInTheDocument();
 });
 
 test("when the server can't fix it, the card says why in the server's words", async () => {
@@ -1610,25 +1624,39 @@ test("a link to Clips or Downloads with no storyboard yet lands on Storyboard, n
   expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
 });
 
-test("at 390, a video opens on the Director view; Look inside opens the step picker, and Director comes back (ux-audit §8.5)", async () => {
-  setViewport(390);
-  fakeServer({ ...base, "GET /projects/9": [200, { ...project, script_draft_id: 4 }], "GET /projects/9/director": [200, { status: "none", ended: "", turns: [], spent_usd: null, credits: 0, start_blocked: "" }] });
+const directed = { ...base, "GET /projects/9": [200, { ...project, script_draft_id: 4 }] as [number, unknown], "GET /projects/9/director": [200, { status: "none", ended: "", turns: [], spent_usd: null, credits: 0, start_blocked: "" }] as [number, unknown] };
+
+test("a video opens on the Director tab, first in the one tab row; a step opens from the row, and Director comes back (ux-audit §8.5, v4)", async () => {
+  setViewport(1440);
+  fakeServer(directed);
   open("");
   expect(await screen.findByRole("button", { name: "Make it" })).toBeEnabled();
-  expect(screen.getByRole("tab", { name: "Director" })).toHaveAttribute("aria-selected", "true");
-  expect(screen.queryByRole("button", { name: /^Step 1 of 4/ })).toBeNull();
-  await userEvent.click(screen.getByRole("tab", { name: "Look inside" }));
-  expect(await screen.findByRole("button", { name: /^Step 1 of 4/ })).toBeInTheDocument(); // the phone step picker
+  const steps = screen.getByRole("tablist", { name: "Steps" });
+  expect(within(steps).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Director", "Plan", "Cast", "Clips", "Final cut"]);
+  expect(within(steps).getByRole("tab", { name: "Director" })).toHaveAttribute("aria-selected", "true");
+  await userEvent.click(within(steps).getByRole("tab", { name: "Plan" }));
+  expect(await screen.findByRole("heading", { name: "Plan", level: 2 })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Make it" })).toBeNull();
   await userEvent.click(screen.getByRole("tab", { name: "Director" }));
   expect(await screen.findByRole("button", { name: "Make it" })).toBeInTheDocument();
 });
 
-test("a video not made from a script version has no Director view: it opens on its steps", async () => {
+test("at 390, the steps stay one button with a sheet, the Director first in it", async () => {
+  setViewport(390);
+  fakeServer(directed);
+  open("");
+  expect(await screen.findByRole("button", { name: "Make it" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Step 1 of 5 · Director" }));
+  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Plan/ }));
+  expect(await screen.findByRole("button", { name: "Step 2 of 5 · Plan" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Make it" })).toBeNull();
+});
+
+test("a video not made from a script version has no Director tab: it opens on its steps", async () => {
   setViewport(1440);
   fakeServer(base);
   open("");
-  expect(await screen.findByRole("list", { name: "Steps" })).toBeInTheDocument();
+  expect(await screen.findByRole("tab", { name: "Plan", selected: true })).toBeInTheDocument();
   expect(screen.queryByRole("tab", { name: "Director" })).toBeNull();
 });
 
@@ -1658,4 +1686,28 @@ test("with no director run the bar is as before: no line about the director", as
   const bar = await screen.findByRole("region", { name: "Cost" });
   expect(bar).toHaveTextContent("Over budget");
   expect(within(bar).queryByText(/the director's time/)).toBeNull();
+});
+
+test("the clip list: each clip's still, length, script line and status; a row opens that clip on the right", async () => {
+  setViewport(1440);
+  const shot = (id: string, o: object) => ({ id, script_lines: [], speaker: null, line: null, action: null, reaction: null, camera: "Wide", seconds: 4, character_ids: [], place_id: null, moment: null, screen_ids: [], ...o });
+  const plan = { ...breakdown, breakdown: { ...breakdown.breakdown, scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [shot("1.1", { speaker: "Bo", line: "Is that… salmon?" }), shot("1.2", { action: "Bo sniffs the bag" }), shot("1.3", { action: "Bo spins" })] }], clips: [{ id: "c1", shot_ids: ["1.1"], seconds: 8, seam: "end" }, { id: "c2", shot_ids: ["1.2"], seconds: 4, seam: "end" }, { id: "c3", shot_ids: ["1.3"], seconds: 4, seam: "end" }] } };
+  const frames = ["c1", "c2", "c3"].map((c, i) => ({ ...frame, id: i + 1, clip_id: c }));
+  const rows = [done, clip({ id: 4, clip_id: "c2", seconds: 4, file_id: 52, takes: [take(3, 1), take(4, 2)], picked_take_id: 4 }), clip({ id: 5, clip_id: "c3", seconds: 4 })];
+  fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, plan], "GET /projects/9/storyboard": [200, frames], "GET /projects/9/clips": [200, rows] });
+  open("?step=clips");
+  const list = await screen.findByRole("list", { name: "Clip list" });
+  const row = (n: number) => within(list).getByRole("button", { name: new RegExp(`^Clip ${n} `) });
+  await vi.waitFor(() => expect(row(1)).toHaveTextContent("Clip 1 · 8 sApprovedBO: Is that… salmon?"));
+  expect(row(2)).toHaveTextContent("Check take 2");
+  expect(within(row(2)).getByText("(Bo sniffs the bag)")).toHaveClass("font-script");
+  expect(row(3)).toHaveTextContent("No take yet");
+  expect(row(2)).toHaveAttribute("aria-current", "true"); // it opens on the first clip that needs you
+  const card = await screen.findByLabelText("Clip c2");
+  expect(within(card).getByRole("button", { name: "Approve take 2" })).toBeInTheDocument();
+  expect(within(card).getByLabelText("Take 1")).toHaveTextContent("Use this take"); // the other take, side by side
+  expect(within(card).getByRole("button", { name: /^Make another take/ })).toBeInTheDocument();
+  await userEvent.click(row(3));
+  expect(await screen.findByLabelText("Clip c3")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Clip c2")).toBeNull();
 });

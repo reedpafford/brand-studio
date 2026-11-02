@@ -1,7 +1,7 @@
 import { AutoFixLine, RetryLine } from "./AutoFixes";
 import { useState, type ReactNode } from "react";
 import { Check, TriangleAlert } from "lucide-react";
-import { Badge, Button, useViewOnly } from "../components";
+import { Badge, Button, buttonClass, useViewOnly } from "../components";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { JobClock } from "../clip/History";
@@ -12,7 +12,7 @@ import { AdviceList, useKeep } from "./Keep";
 import { ChangeBox, type ChangeState } from "./ChangeBox";
 import { FIX_NOTE, FixedNote, FixThisPrompt, refused } from "./FixClip";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
-import { OtherTakes } from "./OtherTakes";
+import { Dot, OtherTakes, takeReason } from "./OtherTakes";
 import { LookTip } from "./LookFix";
 import { ClipVersions } from "./VersionLists";
 
@@ -56,7 +56,8 @@ function PromptText({ clip }: { clip: Clip }) {
 export const failureLine = (error: string | null | undefined) =>
   !error || /ask the owner/i.test(error) ? "The service couldn't finish this. Credits returned; try again." : error;
 
-/** One video clip per breakdown clip: make takes, pick and approve one, then stitch them into the video. */
+/** One video clip per breakdown clip: its takes side by side (the picked one, the others, Make a take), its still, its
+ *  prompt and the change note. Approve take N approves the picked one. */
 export function ClipCard(props: {
   words: (p: string) => string;
   fix: (p: string) => ReactNode;
@@ -88,9 +89,13 @@ export function ClipCard(props: {
   onFix: () => void;
   onUndoFix: (before: string) => void;
   undoing: boolean;
+  /** The clip's script line (the Clips tab's detail). */
+  line?: string;
+  /** Where the Clips tab puts this clip's still, between the takes and the prompt. */
+  stillSlot?: (el: HTMLDivElement | null) => void;
 }) {
   const viewOnly = useViewOnly(); // a video only its maker or the owner may change
-  const { clip: c } = props;
+  const { clip: c, stillSlot } = props;
   const keep = useKeep(props.projectId, { of: "clip", id: c.id });
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -122,16 +127,36 @@ export function ClipCard(props: {
   // "Change this…" on a clip with no take only rewrites the prompt (no surprise paid take): say what to press next.
   // A change always clears "Looks good" (the prompt must be read again), so the line only shows while it is waiting to be read.
   const updated = props.review && props.toRead && c.takes.length === 0 && lastChange?.status === "done" && lastChange.note !== FIX_NOTE;
+  const tile = "flex w-40 shrink-0 flex-col gap-1.5 sm:w-44";
+  const posterUrl = props.poster ? fileUrl(props.poster) : undefined;
   return (
-    <li className={`space-y-2 rounded-md bg-surface p-3 text-sm ${c.approved ? "border-2 border-success" : "border border-border"}`} aria-label={`Clip ${c.clip_id}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{c.clip_id} · {c.seconds} s</span>
-        <span className={`ml-auto rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : status === "Didn't finish" ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
-          {status && `${status}${checkedMark(check)}`}
-          {!status && (
-            <>
-              <JobClock queued={props.job?.status === "queued"} making="Making…" since={props.job?.status === "queued" ? props.job.created_at : (props.job?.started_at ?? props.job?.created_at)} />
-            </>
+    <li className="min-w-0 space-y-4 text-sm" aria-label={`Clip ${c.clip_id}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h3 className="flex flex-wrap items-center gap-2 type-section tabular-nums">
+            Clip {c.clip_id.replace(/^c/, "")} · {c.seconds} s
+            <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${c.approved ? "bg-success-soft text-success" : status === "Didn't finish" ? "bg-danger-soft text-danger" : c.stale ? "bg-warning-soft text-warning" : "bg-surface-2"}`}>
+              {status && `${status}${checkedMark(check)}`}
+              {!status && <JobClock queued={props.job?.status === "queued"} making="Making…" since={props.job?.status === "queued" ? props.job.created_at : (props.job?.started_at ?? props.job?.created_at)} />}
+            </span>
+          </h3>
+          {props.line && <p className="break-words font-script">{props.line}</p>}
+        </div>
+        <span className="flex flex-wrap gap-2">
+          {picked && (
+            <a className={buttonClass("ghost")} href={fileUrl(picked.file_id)} download={`${props.projectName}-${c.clip_id}-take${picked.number}.mp4`}>
+              Download
+            </a>
+          )}
+          {picked && !c.approved && (
+            <Button dense icon={Check} onClick={props.onApprove}>
+              Approve take {picked.number}
+            </Button>
+          )}
+          {c.approved && (
+            <Button variant="secondary" dense disabled={viewOnly} onClick={props.onUnapprove}>
+              Undo approval
+            </Button>
           )}
         </span>
       </div>
@@ -148,22 +173,39 @@ export function ClipCard(props: {
       {props.job?.waiting && <p role="status" className="text-sm text-muted">{props.job.waiting}</p>}
       <RetryLine clip={c} />
       {c.take_warning && !props.busy && <p role="status" className="text-sm text-warning">{c.take_warning}</p>}
-      <div className="grid place-items-center overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect), maxHeight: "24rem" }}>
-        {c.file_id ? (
-          <video controls muted src={fileUrl(c.file_id)} poster={props.poster ? fileUrl(props.poster) : undefined} className="h-full w-full object-cover" aria-label={`Video for clip ${c.clip_id}`} />
-        ) : props.poster ? (
-          <img src={fileUrl(props.poster)} alt={`Storyboard frame for clip ${c.clip_id}`} className="h-full w-full object-cover" />
-        ) : (
-          <span className="text-muted">No video yet</span>
+      <div className="flex flex-wrap items-start gap-4">
+        <div className={tile}>
+          <div className={`grid place-items-center overflow-hidden rounded-md bg-surface-2 ${picked ? "ring-2 ring-accent" : ""}`} style={{ aspectRatio: ratio(props.aspect) }}>
+            {c.file_id ? (
+              <video controls muted src={fileUrl(c.file_id)} poster={posterUrl} className="h-full w-full object-cover" aria-label={`Video for clip ${c.clip_id}`} />
+            ) : props.poster ? (
+              <img src={posterUrl} alt={`Storyboard frame for clip ${c.clip_id}`} className="h-full w-full object-cover opacity-60" />
+            ) : (
+              <span className="text-muted">No video yet</span>
+            )}
+          </div>
+          {picked ? (
+            <>
+              <span className="flex justify-between gap-2"><span className="font-medium">Take {picked.number}</span><span className="text-muted">Picked</span></span>
+              <Dot tone={picked.verdict === "flagged" ? "need" : picked.verdict === "clean" ? "ok" : "none"}>{takeReason(picked)}</Dot>
+            </>
+          ) : (
+            <span className="text-muted">No take yet</span>
+          )}
+        </div>
+        <OtherTakes takes={c.takes} pickedId={c.picked_take_id} clipId={c.clip_id} aspect={props.aspect} poster={posterUrl} fileName={(n) => `${props.projectName}-${c.clip_id}-take${n}.mp4`} disabled={viewOnly} onPick={props.onPick} />
+        {note === null && editing === null && (
+          <div className={`${tile} items-center justify-center rounded-md border border-dashed border-border p-3 text-center`} style={{ aspectRatio: ratio(props.aspect) }}>
+            <span className="font-medium">{c.takes.length ? "Another take" : "Make a take"}</span>
+            <span className="text-xs text-muted">{c.takes.length ? "Same still and prompt, plus any note below." : "From the still and the prompt."}</span>
+            {/* A prompt only waiting for Prompt OK isn't a reason: the press marks it Prompt OK and makes the take (#751). */}
+            <Button variant="secondary" dense charge="fixed" price={props.cost} disabled={!!why} reason={why} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
+              {verb}
+            </Button>
+          </div>
         )}
       </div>
       <SheetWarning blockers={props.blockers} brandId={props.brandId} />
-      {props.showPrompt && (
-        <div className="space-y-1">
-          {!props.toRead && <Badge tone="success" icon={Check}>Prompt OK</Badge>}
-          <PromptText clip={c} />
-        </div>
-      )}
       <AutoFixLine projectId={props.projectId} clip={c} />
       {blocking(c.problems, c.kept).length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-danger" aria-label={`Problems for ${c.clip_id}`}>
@@ -197,7 +239,44 @@ export function ClipCard(props: {
       })()}
       <AdviceList label={props.words} problems={c.problems} kept={c.kept} onKeep={(problem, undo) => keep.mutate({ problem, undo })} busy={keep.isPending} name={`Advice for ${c.clip_id}`} />
       <ClipVersions projectId={props.projectId} clipRowId={c.id} label={c.clip_id} hold={props.busy || props.fixBusy ? "Wait for this clip's take or prompt being made." : null} versions={c.versions ?? []} />
-      <OtherTakes takes={c.takes} pickedId={c.picked_take_id} clipId={c.clip_id} fileName={(n) => `${props.projectName}-${c.clip_id}-take${n}.mp4`} disabled={viewOnly} onPick={props.onPick} />
+      {/* Its still, with the still's own presses (the Clips tab puts the storyboard's card here). */}
+      {stillSlot && <div ref={stillSlot} className="border-t border-border pt-4" />}
+      <div className="space-y-2 border-t border-border pt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted">Prompt</span>
+          {props.showPrompt && !props.toRead && <Badge tone="success" icon={Check}>Prompt OK</Badge>}
+          {props.showPrompt && (
+            <Button variant="secondary" dense icon={props.toRead ? Check : undefined} aria-label={`${props.toRead ? "Prompt OK" : "Undo Prompt OK"} for ${c.clip_id}`} onClick={props.toRead ? props.onLooksGood : props.onUndoLooksGood}>
+              {props.toRead ? "Prompt OK" : "Undo Prompt OK"}
+            </Button>
+          )}
+          <span className="flex-1" />
+          {editing === null && (
+            <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} aria-label={`Edit the prompt for ${c.clip_id}`} onClick={() => setEditing(c.prompt)}>
+              Edit prompt
+            </button>
+          )}
+        </div>
+        {props.showPrompt && <PromptText clip={c} />}
+        {updated && (
+          <p className="text-muted" role="status">
+            Prompt updated. Read it, then press {verb}.
+          </p>
+        )}
+        {editing !== null && (
+          <div className="space-y-2">
+            <textarea className={input} rows={5} aria-label={`Prompt for ${c.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
+            <div className="flex gap-2">
+              <button className={btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
+                Save prompt
+              </button>
+              <button className={btnSecondary} onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       {note !== null && (
         <div className="space-y-2">
           <label className="block">
@@ -222,6 +301,11 @@ export function ClipCard(props: {
             </button>
           </div>
         </div>
+      )}
+      {c.takes.length > 0 && note === null && editing === null && !props.review && (
+        <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} onClick={() => setNote("")}>
+          Needs a change
+        </button>
       )}
       {(props.review || !c.prompt) && props.rewrite /* never written: its only way out, everywhere */}
       {props.review && !c.stale && (
@@ -248,61 +332,6 @@ export function ClipCard(props: {
           </span>
         </label>
       ))}
-      {editing !== null ? (
-        <div className="space-y-2">
-          <textarea className={input} rows={5} aria-label={`Prompt for ${c.clip_id}`} value={editing} onChange={(e) => setEditing(e.target.value)} />
-          <div className="flex gap-2">
-            <button className={btnPrimary} onClick={() => { props.onSave(editing); setEditing(null); }}>
-              Save prompt
-            </button>
-            <button className={btnSecondary} onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {updated && (
-            <p className="w-full text-muted" role="status">
-              Prompt updated. Read it, then press {verb}.
-            </p>
-          )}
-          {c.picked_take_id !== null && !c.approved && (
-            <Button variant="secondary" dense icon={Check} onClick={props.onApprove}>
-              Approve take
-            </Button>
-          )}
-          {c.approved && (
-            <button className={`${btnSecondary} min-h-11 sm:min-h-9`} disabled={viewOnly} onClick={props.onUnapprove}>
-              Undo approval
-            </button>
-          )}
-          {props.showPrompt && (
-            <Button variant="secondary" icon={props.toRead ? Check : undefined} aria-label={`${props.toRead ? "Prompt OK" : "Undo Prompt OK"} for ${c.clip_id}`} onClick={props.toRead ? props.onLooksGood : props.onUndoLooksGood}>
-              {props.toRead ? "Prompt OK" : "Undo Prompt OK"}
-            </Button>
-          )}
-          {/* A prompt only waiting for Prompt OK isn't a reason: the press marks it Prompt OK and makes the take (#751). */}
-          {note === null && (
-            <Button variant="secondary" dense charge="fixed" price={props.cost} disabled={!!why} reason={why} onClick={() => { if (props.toRead) props.onLooksGood(); props.onGenerate(); }}>
-              {verb}
-            </Button>
-          )}
-          {c.takes.length > 0 && note === null && !props.review && (
-            <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} onClick={() => setNote("")}>
-              Needs a change
-            </button>
-          )}
-          {picked && (
-            <a className={`${linkText} inline-flex min-h-11 items-center sm:min-h-9`} href={fileUrl(picked.file_id)} download={`${props.projectName}-${c.clip_id}-take${picked.number}.mp4`}>
-              Download
-            </a>
-          )}
-          <button className={`${linkText} min-h-11 sm:min-h-9`} disabled={viewOnly} aria-label={`Edit the prompt for ${c.clip_id}`} onClick={() => setEditing(c.prompt)}>
-            {props.review ? "Advanced: edit the prompt" : "Edit prompt"}
-          </button>
-        </div>
-      )}
     </li>
   );
 }

@@ -66,7 +66,7 @@ for (const width of [1440, 390]) {
     }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
     await expect(
-      page.getByRole("button", { name: "Next: Make" }),
+      page.getByRole("button", { name: "Next: Clips" }),
     ).toBeEnabled();
     if (width === 390) {
       // The cost bar is taller than one button: the space kept for it (and toasts above it) is its real height.
@@ -132,7 +132,7 @@ for (const width of [1440, 390]) {
       timeout: 30_000,
     });
     await page.getByRole("button", { name: "Next: Cast" }).click();
-    await page.getByRole("button", { name: "Next: Make" }).click();
+    await page.getByRole("button", { name: "Next: Clips" }).click();
 
     // One press writes the frames and draws every still.
     await page.getByRole("button", { name: /Make the stills/ }).click();
@@ -142,7 +142,7 @@ for (const width of [1440, 390]) {
       await approve.first().click();
       await expect(page.getByText("✓ Approved").first()).toBeVisible();
     }
-    await page.getByRole("button", { name: /Next: Clips/ }).click();
+    // The takes are on the same tab, under each still: the cost bar's press moves on to the clip prompts.
 
     // Each prompt is read and marked Prompt OK before the take is made; Make clip marks it for you (Reed's #32 c6).
     await page.getByRole("button", { name: /Write clip prompts/ }).click();
