@@ -74,6 +74,17 @@ def _grouped(db: Session, query) -> dict:
     return {key: value for key, value in db.execute(query).all()}
 
 
+def director_spend(db: Session, workspace_id: int, when: Period) -> Decimal:
+    """What the director's own jobs cost in the period: every job a run made itself (its
+    turns, watches of the cut, treatment and still reviews), not the takes it asked for."""
+    from app.director import RUN
+
+    own = select(func.sum(Usage.cost_usd)).join(Job, Job.id == Usage.job_id).where(
+        Usage.workspace_id == workspace_id, *when.has(Usage.created_at),
+        Job.input[RUN]["id"].as_string().is_not(None))  # fmt: skip
+    return Decimal(db.scalar(own) or 0)
+
+
 def figures(db: Session, workspace_id: int, when: Period) -> Figures:
     charged = (
         select(
