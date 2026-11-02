@@ -176,11 +176,12 @@ test("a held change in a Freestyle thread says Change asked", async () => {
   expect(screen.queryByText("First send")).toBeNull();
 });
 
-test("a held Freestyle change shows its own price and the running total, in credits", async () => {
+test("a held Freestyle change shows its own price and only what's spent so far, never a second total (QA-3 on #1213)", async () => {
   fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", change: true, said: "Slower ending", up_to: 12, total: 46, spent: 30 })]] });
   open();
   expect(await screen.findByText("Up to 12 credits for this change")).toBeInTheDocument();
-  expect(screen.getByText("30 credits spent so far · 46 credits in all with this change")).toBeInTheDocument();
+  expect(screen.getByText("30 credits spent so far")).toBeInTheDocument();
+  expect(screen.queryByText(/in all/)).toBeNull();
 });
 
 test("each row says who asked, and the owner sees the dollars next to the credits", async () => {
@@ -320,9 +321,29 @@ test("on a computer who asked follows the title and the tab says Changes waiting
   expect(screen.getByRole("tab", { name: /^Changes waiting 0$/ })).toBeInTheDocument();
 });
 
-test("a held send from a script names the script and its version, linked to the script (#1207)", async () => {
+test("a held send from a script names the script and its version, linked by the script's own brand even with none on the send (#1207, QA-3 on #1213)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", script_id: 3, slot: 1 })]], "GET /scripts/3": [200, { id: 3, title: "Bo tries salmon", versions: [] }] });
+  fakeServer({ ...base, "GET /jobs": [200, [{ ...freestyle({ type: "dialogue", script_id: 3, slot: 1, up_to: 144 }), brand_id: null, credits: 3 }]], "GET /scripts/3": [200, { id: 3, brand_id: 2, title: "Bo tries salmon", versions: [] }] });
   open();
-  expect(await screen.findByRole("link", { name: "From Bo tries salmon › B" })).toHaveAttribute("href", "/b/1/scripts/3");
+  expect(await screen.findByRole("link", { name: "From Bo tries salmon › B" })).toHaveAttribute("href", "/b/2/scripts/3");
+  expect(screen.getByText("Up to 144 credits · your OK covers the whole run")).toBeInTheDocument();
+  expect(screen.queryByText("3 credits")).toBeNull(); // the first charge isn't a second price
+});
+
+test("a pasted Dialogue send says Pasted text, not a script (QA-3 on #1213)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", script_id: 8, slot: 0 })]], "GET /scripts/8": [404, { detail: "Not found" }] });
+  open();
+  expect(await screen.findByText("Pasted text")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /^From / })).toBeNull();
+});
+
+test("a held take on a video has Open, Decline and Approve, and never quotes the model's prompt (QA-3 on #1213)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ prompt_summary: "Audio: only the spoken lines…" })]] });
+  open();
+  expect(await screen.findByRole("link", { name: "Open Mia buys the dip" })).toHaveAttribute("href", "/b/1/videos/9?step=clips");
+  expect(screen.getByRole("button", { name: /^Decline/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Approve a new take/ })).toBeInTheDocument();
+  expect(screen.queryByText(/Audio: only the spoken lines/)).toBeNull();
 });

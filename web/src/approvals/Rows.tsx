@@ -13,6 +13,7 @@ import { serverTime } from "../time";
 import { typeName, type Kind } from "../freestyle/useFreestyle";
 import { STEPS } from "./steps";
 import { useScript } from "../scripts/useScript";
+import { stepOf } from "./HeldRequests";
 import { letterOf } from "../scripts/status";
 import type { Job, Project } from "./useHeld";
 import { refreshJobs } from "../jobs/refresh";
@@ -81,16 +82,15 @@ function Row({ id, status, where, children, actions, ...rest }: { id?: string; s
   );
 }
 
-/** The script and version a held send was made from ("From Bo tries salmon › B"), linked to the script. */
-function FromScript({ scriptId, slot, brandId }: { scriptId: number; slot: number | null | undefined; brandId: number | null | undefined }) {
-  const { data: script } = useScript(scriptId);
-  if (!script) return null;
+/** The script and version a held send was made from ("From Bo tries salmon › B"), linked by the script's own brand (a
+ *  Freestyle send has none of its own, QA-3 on #1213). A pasted Dialogue's script is hidden and can't be read: that one
+ *  reads "Pasted text". */
+function FromScript({ scriptId, slot }: { scriptId: number; slot: number | null | undefined }) {
+  const { data: script, isPending } = useScript(scriptId);
+  if (isPending) return null;
+  if (!script) return <p className="text-xs text-muted">Pasted text</p>;
   const label = `From ${script.title}${slot != null ? ` › ${letterOf(slot)}` : ""}`;
-  return brandId ? (
-    <Link className="inline-flex min-h-11 items-center text-xs text-accent-text hover:underline lg:min-h-0" to={`/b/${brandId}/scripts/${scriptId}`}>{label}</Link>
-  ) : (
-    <p className="text-xs text-muted">{label}</p>
-  );
+  return <Link className="inline-flex min-h-11 items-center text-xs text-accent-text hover:underline lg:min-h-0" to={`/b/${script.brand_id}/scripts/${scriptId}`}>{label}</Link>;
 }
 
 export function useRefresh() {
@@ -148,6 +148,16 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
       <span>{fs ? `Freestyle · ${typeName(fs.type as Kind)} · ${fs.title}` : what}</span>
     </Where>
   );
+  // Open goes where the request was made: the freestyle thread, the video at its step, or the script (a song take).
+  const brandOf = job.brand_id ?? project?.brand_id;
+  const step = stepOf(job);
+  const open = fs
+    ? { to: `/freestyle/${fs.id}`, label: `Open freestyle ${fs.title}` }
+    : project
+      ? { to: `/b/${project.brand_id}/videos/${project.id}${step ? `?step=${step}` : ""}`, label: `Open ${project.name}` }
+      : job.script_id != null && brandOf != null
+        ? { to: `/b/${brandOf}/scripts/${job.script_id}`, label: "Open its script" }
+        : null;
   const actions = (
     <>
       <Button variant="secondary" className="lg:order-2" disabled={act.isPending} aria-label={`Decline ${lower(what)}`} onClick={() => setDeclining(true)}>
@@ -156,8 +166,8 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
       <Button variant="secondary" className="lg:order-3" busy={act.isPending && !declining} aria-label={`Approve ${lower(what)}`} onClick={() => act.mutate(true)}>
         Approve
       </Button>
-      {fs && (
-        <Link className={`${buttonClass("ghost")} col-span-2 lg:order-1`} to={`/freestyle/${fs.id}`} aria-label={`Open freestyle ${fs.title}`}>Open</Link>
+      {open && (
+        <Link className={`${buttonClass("ghost")} col-span-2 lg:order-1`} to={open.to} aria-label={open.label}>Open</Link>
       )}
     </>
   );
@@ -166,21 +176,22 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
       {fs ? (
         <>
           <p className="text-xs text-muted">{fs.change ? "Change asked" : "First send"}</p>
-          {fs.script_id != null && <FromScript scriptId={fs.script_id} slot={fs.slot} brandId={job.brand_id ?? project?.brand_id} />}
+          {fs.script_id != null && <FromScript scriptId={fs.script_id} slot={fs.slot} />}
           {fs.said && <p className="line-clamp-6 whitespace-pre-line font-mono text-xs leading-relaxed">"{fs.said}"</p>}
           {fs.up_to != null && <p className="tabular-nums">Up to {creditsLabel(fs.up_to)}{fs.change ? " for this change" : " · your OK covers the whole run"}</p>}
-          {fs.change && fs.total != null && (
-            <p className="tabular-nums text-muted">
-              {fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "Nothing spent yet"} · {creditsLabel(fs.total)} in all with this change
-            </p>
-          )}
+          {/* Only what's spent so far: "in all" read as a second price (QA-3 on #1213, as on the video page). */}
+          {fs.change && <p className="tabular-nums text-muted">{fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "Nothing spent yet"}</p>}
         </>
       ) : (
-        job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>
+        // A Quick clip's prompt is the editor's own words; a step's is model text, never quoted to the owner (QA-3 on #1213).
+        !job.step && job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>
       )}
-      <p className="tabular-nums">
-        {creditsText(job.credits)}{usd !== undefined && !fs && ` (${dollars(usd)})`}{after !== null && ` · takes the video to ${Math.round(after)}% of its budget`}
-      </p>
+      {/* A Freestyle shows its whole price above; its first charge beside it read as a second price (QA-3 on #1213). */}
+      {!(fs && fs.up_to != null) && (
+        <p className="tabular-nums">
+          {creditsText(job.credits)}{usd !== undefined && !fs && ` (${dollars(usd)})`}{after !== null && ` · takes the video to ${Math.round(after)}% of its budget`}
+        </p>
+      )}
       {!project && !job.step && !fs && week && (
         <p className="text-muted tabular-nums">
           {who ? `${who}'s` : "The editor's"} quick clips this week: {whole(week.quick_clip_credits_used)} of {whole(week.quick_clip_credits_allowed)} credit{week.quick_clip_credits_allowed === 1 ? "" : "s"}
