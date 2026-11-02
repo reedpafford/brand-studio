@@ -309,7 +309,10 @@ def after(db: Session, job: Job, storage) -> None:
         else:
             _end(job, TURN_FAILED)
         return
+    run_id = (job.input.get(RUN) or {}).get("id")
     if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
+        if run_id and over(db, run_id):  # stopped meanwhile: nothing more runs for it
+            return
         if _treatment_checked(db, job):  # one redo with its problems: the redo wakes the run
             return
     if job.project_id:
