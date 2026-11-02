@@ -172,6 +172,19 @@ test("with nothing waiting, Reed sees no Needs you in the top bar or the rail, a
   }
 });
 
+test("when only a changed video waits, Reed still reaches Needs you: the bell and the rail row count it (QA-9 on #1154)", async () => {
+  for (const width of [390, 1440]) {
+    setViewport(width);
+    fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 1 }] });
+    renderAt("/b/1/projects");
+    const needsYou = await screen.findByRole("link", { name: width === 390 ? "Needs you, 1 waiting" : /^Needs you/ });
+    expect(needsYou).toHaveAttribute("href", "/approvals");
+    if (width === 1440) expect(needsYou).toHaveTextContent("1");
+    cleanup();
+    vi.unstubAllGlobals();
+  }
+});
+
 test("an editor has no Needs you bell", async () => {
   setViewport(390);
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });

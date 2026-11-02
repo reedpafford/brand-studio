@@ -69,8 +69,9 @@ function Frame() {
   const wide = useMedia("(min-width: 1280px)");
   const online = useOnline();
   const held = useHeld();
-  // Needs you counts held requests and videos that need attention, from reads the shell makes anyway; changes waiting are on the page.
-  const attention = useProductionSummary(held.owner).data?.needs_attention ?? 0;
+  // Needs you counts all it lists (held requests, videos that need attention, changes waiting), from reads the shell makes anyway.
+  const summary = useProductionSummary(held.owner).data;
+  const attention = (summary?.needs_attention ?? 0) + (summary?.changes_waiting ?? 0);
   const { count, node, setNode } = useActionBarSlot();
   // The phone's action bar is as tall as what's in it (the cost bar is taller than one button): the page's bottom
   // padding and the toasts sit above its real height, so neither the work nor a toast hides behind or over it.
