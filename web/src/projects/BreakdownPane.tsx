@@ -10,6 +10,7 @@ import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
 import { BreakdownVersions } from "./VersionLists";
+import { refreshJobs } from "../jobs/refresh";
 
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
@@ -58,7 +59,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
     },
     onSuccess: (job) => {
       setStartedJob(job.id);
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      refreshJobs(queryClient);
     },
   });
   // When our run finishes, fetch the new breakdown.

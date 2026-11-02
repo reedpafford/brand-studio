@@ -5,6 +5,7 @@ import { api, errorText } from "../api/client";
 import { Button, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { refreshJobs } from "../jobs/refresh";
 
 /** What the server keeps of the last note on a still or a clip. */
 export type ChangeState = { note: string; job_id?: number; status: "changing" | "done" | "unchanged" | "failed"; before?: string; after?: string; unchanged?: boolean; error?: string } | null;
@@ -144,7 +145,7 @@ export function ChangeBox(props: {
     onSuccess: () => {
       setNote("");
       setEdited(false);
-      void queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      void refreshJobs(queryClient);
       void queryClient.invalidateQueries({ queryKey: [kind === "frame" ? "storyboard" : "project-clips", projectId] });
     },
   });

@@ -11,6 +11,7 @@ import { errorText as errorClass } from "../ui";
 import { BulkFiles } from "./BulkFiles";
 import { forgetVideo, videoUploader } from "./uploadVideo";
 import { MAX_REELS, useFileQueue, type Uploader } from "./videoUploads";
+import { refreshJobs } from "../jobs/refresh";
 
 type ReelRow = components["schemas"]["ReelRow"];
 type Row = { title: string; description: string; reference: string };
@@ -122,7 +123,7 @@ export function BulkCreate({ brandId, onClose, uploader }: { brandId: number; on
     },
     onSuccess: async (jobs) => {
       await queryClient.invalidateQueries({ queryKey: ["scripts"] });
-      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      await refreshJobs(queryClient);
       toast(reels ? `Reading ${jobs.length} reel${jobs.length === 1 ? "" : "s"} and writing their scripts. They'll show as drafts when they're ready.` : `Writing ${jobs.length} script${jobs.length === 1 ? "" : "s"}. They'll show as drafts when they're ready.`);
       onClose();
     },
