@@ -202,7 +202,7 @@ test("without the server's projects nothing about projects shows", async () => {
   expect(screen.queryByRole("button", { name: /^Project: / })).toBeNull();
 });
 
-test("Scripts and Quick clip ask the server for the picked project too", async () => {
+test("Scripts ask the server for the picked project too", async () => {
   setViewport(1440);
   fakeServer(base(owner, [november]));
   open("/b/1/scripts?folder=4");

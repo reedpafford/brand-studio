@@ -16,7 +16,7 @@ for (const width of [1440, 390]) {
     }
     await expect(page).toHaveURL(new RegExp(`/b/${brandId}/media$`));
     await expect(page.getByRole("heading", { name: "Nothing made yet in Media Co." })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Make a quick clip" })).toHaveAttribute("href", `/b/${brandId}/clip`);
+    await expect(page.getByRole("link", { name: "Make a freestyle" })).toHaveAttribute("href", "/freestyle");
 
     await page.getByRole("navigation", { name: "Kinds" }).getByRole("button", { name: "Stills" }).click();
     await expect(page).toHaveURL(/kind=still/);

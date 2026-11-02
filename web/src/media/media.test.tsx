@@ -39,31 +39,33 @@ test("each tile shows its picture, kind, when and who, with Open in {step} and D
     item(),
     item({ key: "still:4", kind: "still", file_id: 40, content_type: "image/png", poster_file_id: null, open_step: "storyboard", made_by: { id: 1, name: "Reed" } }),
     item({ key: "quick:5:0", kind: "take", project_id: null, video_name: null, open_step: "quick" }),
+    item({ key: "quick:6:0", kind: "take", project_id: null, video_name: null, open_step: "quick", freestyle_id: 4 }),
     item({ key: "song:6", kind: "song", file_id: 60, content_type: "audio/mpeg", poster_file_id: null, project_id: null, video_name: null, script_id: 7, open_step: "song" }),
     item({ key: "sheet:8:0", kind: "sheet", file_id: 80, content_type: "image/png", poster_file_id: null, project_id: null, video_name: null, open_step: "cast", made_by: null }),
   ])));
   open();
   const list = await screen.findByRole("list", { name: "Media" });
   const tiles = within(list).getAllByRole("listitem");
-  expect(tiles).toHaveLength(5);
+  expect(tiles).toHaveLength(6);
   expect(tiles[0]).toHaveTextContent("Bo tries salmon");
   expect(tiles[0]).toHaveTextContent(/Take · .+ · Eli/);
   expect(within(tiles[0]).getByRole("link", { name: "Open in Clips" })).toHaveAttribute("href", "/b/1/videos/9?step=clips");
   expect(within(tiles[0]).getByRole("link", { name: /Download take/ })).toHaveAttribute("href", "/api/files/30");
   expect(within(tiles[1]).getByRole("link", { name: "Open in Storyboard" })).toHaveAttribute("href", "/b/1/videos/9?step=storyboard");
-  expect(within(tiles[2]).getByRole("link", { name: "Open in Quick clip" })).toHaveAttribute("href", "/b/1/clip");
-  expect(within(tiles[3]).getByRole("link", { name: "Open in Takes" })).toHaveAttribute("href", "/b/1/scripts/7?step=takes");
-  expect(within(tiles[3]).getByLabelText(/^Play/)).toBeInTheDocument();
-  expect(within(tiles[4]).getByRole("link", { name: "Open in Cast & places" })).toHaveAttribute("href", "/b/1/library");
+  expect(within(tiles[2]).getByRole("link", { name: "Open in Freestyle" })).toHaveAttribute("href", "/freestyle");
+  expect(within(tiles[3]).getByRole("link", { name: "Open in Freestyle" })).toHaveAttribute("href", "/freestyle/4");
+  expect(within(tiles[4]).getByRole("link", { name: "Open in Takes" })).toHaveAttribute("href", "/b/1/scripts/7?step=takes");
+  expect(within(tiles[4]).getByLabelText(/^Play/)).toBeInTheDocument();
+  expect(within(tiles[5]).getByRole("link", { name: "Open in Cast & places" })).toHaveAttribute("href", "/b/1/library");
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
-test("with nothing made yet it says so and offers a quick clip", async () => {
+test("with nothing made yet it says so and offers a freestyle", async () => {
   setViewport(1440);
   fakeServer(base(editor, page([])));
   open();
   expect(await screen.findByRole("heading", { name: "Nothing made yet in Iron Paws." })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Make a quick clip" })).toHaveAttribute("href", "/b/1/clip");
+  expect(screen.getByRole("link", { name: "Make a freestyle" })).toHaveAttribute("href", "/freestyle");
 });
 
 test("the kind and who-made-it filters ask the server, and Clear filters puts them back", async () => {
