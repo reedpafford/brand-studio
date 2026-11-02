@@ -389,6 +389,32 @@ test("a cast problem blocks Next, offers Keep anyway and the free fix; the fix s
   await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
 });
 
+test("on a director-run video the plan has no problems box or advice; one thing that needs a person is one sentence and one button, at 390 and desktop (Reed's walk item 9)", async () => {
+  for (const width of [1440, 390]) {
+    setViewport(width);
+    fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem, "Advice: shot 1.2 is short."], kept: [], director_run: true, needs_you: { text: "Pick who plays Nate.", action: "cast" } })] });
+    const { unmount } = renderApp("/b/1/projects/9?stage=breakdown");
+    expect(await screen.findByText("Pick who plays Nate.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Cast" })).toHaveAttribute("href", expect.stringContaining("step=cast"));
+    expect(screen.queryByLabelText("Problems")).toBeNull();
+    expect(screen.queryByText(/Check the cast/)).toBeNull();
+    expect(screen.queryByText(/Advice \(/)).toBeNull();
+    unmount();
+  }
+});
+
+test("on a director-run video with nothing for a person, the plan shows no box at all; a manual video keeps its problems", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem], kept: [], director_run: true, needs_you: null })] });
+  const { unmount } = renderApp("/b/1/projects/9?stage=breakdown");
+  expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Problems")).toBeNull();
+  expect(screen.queryByRole("banner", { name: /Pick/ })).toBeNull();
+  unmount();
+  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem], kept: [] })] });
+  renderApp("/b/1/projects/9?stage=breakdown");
+  expect(within(await screen.findByLabelText("Problems")).getByText(castProblem)).toBeInTheDocument();
+});
+
 test("a cast problem kept anyway stops blocking and moves under the closed list, where the keep can be undone", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem], kept: [castProblem] })] });
   open();

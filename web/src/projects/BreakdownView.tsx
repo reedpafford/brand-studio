@@ -8,7 +8,8 @@ import { useMedia, useRail } from "../useMedia";
 import { ActionBar } from "../shell/ActionBar";
 import { Sheet } from "./Sheet";
 import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User, Users } from "lucide-react";
-import { Badge, Banner, Button, Menu, MenuItem } from "../components";
+import { Link } from "react-router-dom";
+import { Badge, Banner, Button, buttonClass, Menu, MenuItem } from "../components";
 import { errorText as errorClass } from "../ui";
 import { blocking, CAST } from "./problems";
 import { plainWords } from "./names";
@@ -51,7 +52,11 @@ export function BreakdownView(props: {
   const keep = useKeep(projectId, { of: "breakdown" });
   // A video already made: saving an edit says first what it marks out of date (the finished video stays downloadable).
   const made = !!useQuery({ ...videoQuery(projectId), enabled: !preview }).data;
-  const real = blocking(row.problems, row.kept); // advice is listed apart, closed
+  // A director-run video (Reed's walk item 9): the director fixes the cast and makes missing sheets itself, so its plan shows no
+  // problems box or advice; only what truly needs a person, in one sentence with one button. The manual flow keeps its advice.
+  const directed = !preview && !!(row as { director_run?: boolean }).director_run;
+  const needsYou = directed ? (row as { needs_you?: NeedsYou | null }).needs_you : null;
+  const real = directed ? [] : blocking(row.problems, row.kept); // advice is listed apart, closed
 
   // A line picked in the script brings its shot into view.
   useEffect(() => {
@@ -230,6 +235,7 @@ export function BreakdownView(props: {
       </div>
       {props.failed && <p role="alert" className={errorClass}>The breakdown didn't finish. Nothing was charged for the failed part.</p>}
       {props.problem}
+      {needsYou && <NeedsYouLine need={needsYou} />}
       {real.length > 0 && phone && (
         <>
           <button className="flex min-h-control w-full items-center gap-2 rounded-lg border border-danger bg-danger-soft px-3 text-left text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
@@ -259,7 +265,7 @@ export function BreakdownView(props: {
           {castFix}
         </section>
       )}
-      <AdviceList label={words} problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} extra={(p) => goButton(p)} />
+      {!directed && <AdviceList label={words} problems={row.problems} kept={row.kept} onKeep={preview ? preview.keep : (problem, undo) => keep.mutate({ problem, undo })} busy={preview ? preview.keepBusy : keep.isPending} extra={(p) => goButton(p)} />}
       {bd.hook !== undefined && (
         <p className="text-sm">
           <EditableText value={bd.hook} label="hook" onChange={(v) => change((b) => setHook(b, v))}>
@@ -400,5 +406,16 @@ export function BreakdownView(props: {
       {dirty && (rail ? bar : <ActionBar phone>{bar}</ActionBar>)}
       {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
     </div>
+  );
+}
+
+/** Next-Server's one thing a person must do on a director-run plan (item 9): a plain sentence and where to do it. */
+type NeedsYou = { text: string; action: "cast" | "plan" | "approvals" | null };
+const NEED_GO: Record<string, { to: string; label: string }> = { cast: { to: "?step=cast", label: "Open Cast" }, approvals: { to: "/approvals", label: "Open Approvals" } };
+
+function NeedsYouLine({ need }: { need: NeedsYou }) {
+  const go = need.action ? NEED_GO[need.action] : undefined;
+  return (
+    <Banner tone="warning" title={need.text} action={go && <Link className={buttonClass("secondary")} to={go.to}>{go.label}</Link>} />
   );
 }
