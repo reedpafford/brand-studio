@@ -316,12 +316,10 @@ test("Usage (v5 D_Usage, #1208): the director's own time is its own card, in dol
   expect(within(totals).getByText("Outside the credit budget")).toBeInTheDocument();
 });
 
-test("My credits (v5 D_MyCredits): my sends waiting for the owner's OK show what approving would let them spend, and that nothing is spent yet", async () => {
+test("My credits shows no waiting figure until the server counts every held send: never an undercount (QA-3 on #1218)", async () => {
   setViewport(1440);
-  const send = { id: 60, kind: "video", project_id: null, credits: 4, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: null, brand_id: 1, freestyle: { id: 4, title: "Bo", type: "dialogue", said: "", change: false, up_to: 204, spent: 0 } };
-  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, mine], "GET /jobs": [200, [send, { ...send, id: 61, status: "done" }]] });
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, mine], "GET /jobs": [200, []] });
   open("/usage/mine");
-  expect(await screen.findByText("up to 204 credits")).toBeInTheDocument();
-  expect(screen.getByText("1 send. Nothing is spent until it's approved.")).toBeInTheDocument();
-  expect(document.body.textContent).not.toMatch(/\$/);
+  expect(await screen.findByRole("heading", { name: "This week" })).toBeInTheDocument();
+  expect(screen.queryByText(/Waiting for the owner/)).toBeNull();
 });
