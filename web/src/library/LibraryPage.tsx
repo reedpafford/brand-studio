@@ -155,6 +155,7 @@ const cover = (i: { sheet_file_id?: number | null; source_photo_file_id?: number
 
 function NewItem(props: { brandId: number; kind: "character" | "place" | "prop"; one: string; onDone: () => void; onClose: () => void }) {
   const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const create = useMutation({
     mutationFn: async () => {
@@ -163,12 +164,13 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
       const photo = props.kind !== "prop";
       const { data, error } = await api.POST("/library/{kind}", {
         params: { path: { kind: props.kind } },
-        body: { name, notes: "", brand_ids: [props.brandId], image_file_ids: stored && !photo ? [stored] : [], source_photo_file_id: stored && photo ? stored : null, outfits: [] },
+        body: { name, notes, brand_ids: [props.brandId], image_file_ids: stored && !photo ? [stored] : [], source_photo_file_id: stored && photo ? stored : null, outfits: [] },
       });
       if (!data) throw new Error(errorText(error));
     },
     onSuccess: () => {
       setName("");
+      setNotes("");
       setFile(null);
       props.onClose();
       props.onDone();
@@ -179,10 +181,16 @@ function NewItem(props: { brandId: number; kind: "character" | "place" | "prop";
     create.mutate();
   };
   return (
-    <form onSubmit={submit} className={`${card} space-y-3`}>
+    <form onSubmit={submit} className={`${card} max-w-[640px] space-y-3`}>
       <label className="block text-sm">
         Name
         <input className={input} required value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      {/* G_CharacterNew: the description, which makes the sheet when there's no photo. */}
+      <label className="block text-sm">
+        Description
+        <textarea className={input} rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        {props.kind !== "prop" && <span className="mt-1 block text-muted">Used to make the sheet when there's no photo.</span>}
       </label>
       <label className="block text-sm">
         {props.kind === "prop" ? "Image (optional)" : "Photo (optional)"}

@@ -10,7 +10,7 @@ What you're given is fixed: the frames show the cut, and the transcript is what 
 - **Reveals and punchlines land.** Big, unmistakable and held long enough to read before the reaction. A reveal that contradicts itself (the trap holds the monster, then the hero) is a finding.
 - **Feelings carry.** A strong feeling carries into the next shot; a scream cut straight to a calm call to action snaps it.
 - **Faces and outfits stay the same person** from clip to clip.
-- **Words.** Compare <transcript> with <script>: an unscripted word or sound, a wrong or made-up word, a mispronounced name ("fogo" for fomo), a line said twice, or a line that's missing. A gasp or a laugh the story motivates is fine; one it doesn't motivate is a finding.
+- **Words.** Compare <transcript> with <script>: an unscripted word or sound, a wrong or made-up word, a mispronounced name ("fogo" for fomo: for the brand's name, `says` names the word and its time in the cut, "c3 at 4.2 s: 'fogo' for fomo", so it matches the words check), a line said twice, or a line that's missing. A gasp or a laugh the story motivates is fine; one it doesn't motivate is a finding.
 - **Show what a line points at:** a line that names something ("That's my face", the coin, the balance) with that thing not readable on screen as the line lands is a finding.
 - **Connecting actions:** a result with no cause on screen (a peanut on the tray nobody flicked) is a finding.
 - **Dead holds:** a blank stare, a static sky, a shot that has nothing left to show.

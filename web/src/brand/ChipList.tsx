@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
-import { Button } from "../components";
+import { X } from "lucide-react";
 
-/** A list of short words as chips with an X, and a box to add another. */
+/** A list of short words as chips with an X, and a box among them to type another (v5 F_BrandLook): Enter or leaving
+ *  the box adds it. */
 export function ChipList(props: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string; hint?: string; /** How a typed word is stored (e.g. as a tag with dashes). */ normalise?: (word: string) => string }) {
   const [text, setText] = useState("");
   const add = () => {
@@ -13,8 +13,7 @@ export function ChipList(props: { label: string; items: string[]; onChange: (ite
   return (
     <fieldset className="min-w-0 space-y-2">
       <legend className="text-sm font-medium">{props.label}</legend>
-      {props.items.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
+      <ul className="flex flex-wrap items-center gap-2">
           {props.items.map((item) => (
             <li key={item} className="flex items-center gap-1 rounded-md bg-surface-3 pl-3 text-sm">
               {item}
@@ -23,11 +22,10 @@ export function ChipList(props: { label: string; items: string[]; onChange: (ite
               </button>
             </li>
           ))}
-        </ul>
-      )}
-      <div className="flex gap-2">
+        <li className="min-w-0 flex-1 basis-40 sm:max-w-56">
         <input
-          className="min-h-control min-w-0 flex-1 rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted"
+          className="min-h-control w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted lg:min-h-control-dense lg:text-sm"
+          enterKeyHint="done"
           aria-label={`Add to ${props.label.toLowerCase()}`}
           placeholder={props.placeholder}
           value={text}
@@ -40,10 +38,8 @@ export function ChipList(props: { label: string; items: string[]; onChange: (ite
             }
           }}
         />
-        <Button variant="secondary" icon={Plus} aria-label={`Add ${props.label.toLowerCase()}`} disabled={!text.trim()} onClick={add}>
-          Add
-        </Button>
-      </div>
+        </li>
+      </ul>
       {props.hint && <p className="text-sm text-muted">{props.hint}</p>}
     </fieldset>
   );
