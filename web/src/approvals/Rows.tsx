@@ -4,7 +4,7 @@ import { Check, Film } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Button, buttonClass, creditsText, Dialog, Field } from "../components";
+import { Button, buttonClass, creditsLabel, creditsText, Dialog, Field } from "../components";
 import { Meter } from "../projects/Meter";
 import { budgetUsed } from "../projects/budget";
 import { useBrands } from "../shell/useBrands";
@@ -141,6 +141,12 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
         <>
           <p className="text-muted">{fs.change ? "Change asked" : "First send"}</p>
           {fs.said && <p className="line-clamp-6 whitespace-pre-line text-muted">"{fs.said}"</p>}
+          {fs.up_to != null && <p className="tabular-nums">Up to {creditsLabel(fs.up_to)}{fs.change ? " for this change" : " · your OK covers the whole run"}</p>}
+          {fs.change && fs.total != null && (
+            <p className="tabular-nums text-muted">
+              {fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "Nothing spent yet"} · {creditsLabel(fs.total)} in all with this change
+            </p>
+          )}
         </>
       ) : (
         job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>

@@ -161,12 +161,26 @@ test("a held Freestyle row says Freestyle, its type and title, who asked, quotes
   expect(screen.queryByText(/quick clips this week/)).toBeNull();
 });
 
+test("a held Dialogue freestyle says the whole price Reed's OK covers, in credits", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", up_to: 33.2 })]] });
+  open();
+  expect(await screen.findByText("Freestyle · Dialogue · Bo at the beach")).toBeInTheDocument();
+  expect(screen.getByText("Up to 34 credits · your OK covers the whole run")).toBeInTheDocument();
+});
+
 test("a held change in a Freestyle thread says Change asked", async () => {
   fakeServer({ ...base, "GET /jobs": [200, [freestyle({ change: true, said: "Make it sunset" })]] });
   open();
   expect(await screen.findByText("Change asked")).toBeInTheDocument();
   expect(screen.getByText('"Make it sunset"')).toBeInTheDocument();
   expect(screen.queryByText("First send")).toBeNull();
+});
+
+test("a held Freestyle change shows its own price and the running total, in credits", async () => {
+  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", change: true, said: "Slower ending", up_to: 12, total: 46, spent: 30 })]] });
+  open();
+  expect(await screen.findByText("Up to 12 credits for this change")).toBeInTheDocument();
+  expect(screen.getByText("30 credits spent so far · 46 credits in all with this change")).toBeInTheDocument();
 });
 
 test("each row says who asked, and the owner sees the dollars next to the credits", async () => {

@@ -8,7 +8,7 @@ import { Button } from "../components";
 import { serverTime } from "../time";
 import { refreshJobs } from "../jobs/refresh";
 
-type Item = components["schemas"]["ThreadItem"] & { why?: string }; // `why`: the move's reason, when the server sends it
+type Item = components["schemas"]["ThreadItem"] & { why?: string }; // `why`: the move's reason; `answered` on a note: a move has named it
 type Run = components["schemas"]["DirectorOut"];
 
 const SHOWN = 8; // the newest few, with Show earlier
@@ -62,6 +62,8 @@ export function DirectorChat({ projectId, thread, plain, canAsk, owner, waiting 
                 <p className="text-xs text-muted tabular-nums">
                   {t.who}
                   {time}
+                  {t.answered === true && " · Answered"}
+                  {t.answered === false && " · Open"}
                 </p>
                 <p className="max-w-[90%] whitespace-pre-line break-words rounded-lg bg-surface-2 px-3 py-2">{words}</p>
               </li>
