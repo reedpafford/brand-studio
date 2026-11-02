@@ -1549,8 +1549,8 @@ test("the video's back link says where it goes: this brand's videos", async () =
 test("Storyboard's counts are said once, in the step heading's line", async () => {
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, []] });
   open("?step=storyboard");
-  expect(await screen.findByText("1 frame · 1 approved")).toBeInTheDocument();
-  expect(screen.queryByText(/· 1 frame · 1 approved/)).toBeNull(); // no second heading in the work area
+  expect(await screen.findByText("1 still · 1 approved")).toBeInTheDocument();
+  expect(screen.queryByText(/· 1 still · 1 approved/)).toBeNull(); // no second heading in the work area
 });
 
 test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {

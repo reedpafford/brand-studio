@@ -133,7 +133,7 @@ export function VideoPage() {
     ...videoTabStates(step, all).map((s) => (directing && s.state === "current" ? { ...s, state: "open" as const } : s)),
   ];
   const meta =
-    step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "frame", all.frames.approved) : step === "clips" && all.clips.total > 0 ? count(all.clips.total, "clip", all.clips.approved) : null;
+    step === "cast" ? (waiting ? null : `${all.assets.total} in the cast · ${all.assets.ready} approved`) : step === "storyboard" && all.frames.total > 0 ? count(all.frames.total, "still", all.frames.approved) : step === "clips" && all.clips.total > 0 ? count(all.clips.total, "clip", all.clips.approved) : null;
 
   return (
     // One cost bar at the bottom: the budget, what finishing costs, and the step's press (audit M1).
