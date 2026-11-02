@@ -98,6 +98,19 @@ export function ScriptFlowPage() {
       Next: {next.label}
     </Button>
   );
+  // In the 52 px top bar a held Next says why on its left, so the bar keeps its height.
+  const topNext = !reelReady && step !== "publish" && next && !unread && nextReason ? (
+    <span className="flex items-center gap-3">
+      <span id="next-why" className="text-xs text-muted">
+        {nextReason}
+      </span>
+      <Button disabled aria-describedby="next-why">
+        Next: {next.label}
+      </Button>
+    </span>
+  ) : (
+    nextButton
+  );
   const backButton = prev && (
     <Button variant="ghost" icon={ChevronLeft} aria-label={rail ? undefined : "Back"} onClick={() => go(prev.id)}>
       {rail ? "Back" : ""}
@@ -151,7 +164,7 @@ export function ScriptFlowPage() {
           </Button>
         )}
         {mayDelete(s) && <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />}
-        {!overview && rail && nextButton}
+        {!overview && rail && topNext}
       </ScriptTop>
       {step !== "publish" || overview ? (
         <SettingsRow steps={<StepPicker flat steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...barSteps] : barSteps} onPick={(to) => go(to)} />}>

@@ -254,7 +254,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, act
               title={`Version ${letter}`}
               align="right"
               trigger={(p) => (
-                <button type="button" {...p} aria-label={`More for version ${letter}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
+                <button type="button" {...p} aria-label={`More for version ${letter}`} className="-my-1.5 grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
                   <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
                 </button>
               )}
