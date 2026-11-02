@@ -156,7 +156,7 @@ export function TeamPage() {
                   </span>
                   <span role="cell">
                     {mine && (
-                      <Button variant="ghost" dense aria-label={`Remove ${m.name}`} onClick={() => setRemoving({ id: m.id, name: m.name })} className="w-full text-muted sm:w-auto">
+                      <Button variant="ghost" dense aria-label={`Remove ${m.name}`} onClick={() => setRemoving({ id: m.id, name: m.name })} className="w-full text-muted! sm:w-auto">
                         Remove
                       </Button>
                     )}
