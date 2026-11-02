@@ -170,6 +170,27 @@ test("Directions: Claude suggests lines for a written script, one is accepted an
   await expect(page.getByRole("list", { name: "Script text" })).toContainText("BO: Salmon? Again?");
 });
 
+test("Directions shows its result when Suggest is pressed while the page's first jobs list is still loading", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brandId = await emptyBrand(page, "Slow Jobs Co");
+  const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Slow jobs list", description: "Race test.", notes: "", reference_replace: "", text: "MIA: Hell no!\nBO: Salmon? Again?" } });
+  expect(made.ok()).toBeTruthy();
+  // The first jobs list is asked for at once but answered late: it lands after the press, with no job in it.
+  let first = true;
+  await page.route("**/api/jobs", async (route) => {
+    if (!first || route.request().method() !== "GET") return route.continue();
+    first = false;
+    const before = await route.fetch();
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.fulfill({ response: before });
+  });
+  await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=directions`);
+  await page.getByRole("button", { name: /^Suggest directions/ }).click();
+  await expect(page.getByRole("button", { name: /^Add \d+ directions?$/ }).or(page.getByText("This script already reads well. Nothing to suggest."))).toBeVisible({ timeout: 60_000 });
+});
+
 test("a new script keeps every letter typed through its first save, at typing speed, Dialogue and Song", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
