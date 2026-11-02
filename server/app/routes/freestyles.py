@@ -6,7 +6,7 @@ freestyle (`FREESTYLE`) for Usage. One clip works now: a single take, no plan or
 director-run types (dialogue, song, narrated) come next."""
 
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -26,7 +26,7 @@ from app.models.jobs import Job, JobStatus
 from app.references import LONG_SIDE
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
-from app.routes.jobs import DECLINE, enqueue, stop_jobs
+from app.routes.jobs import DECLINE, WITHDRAWN, enqueue, stop_jobs
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
 Type = Literal["dialogue", "song", "narrated", "one_clip"]
@@ -40,7 +40,8 @@ NOT_YET = "Dialogue, Song and Narrated are coming next; One clip works now."
 HELD = f"{WAIT_OK}every freestyle send is checked first."
 BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
-WITHDRAWN = "withdrawn"  # in a job's input: its maker took it back before the owner's OK
+MAX_PROMPT = 6000  # what Quick clip sends at most
+TOO_LONG = "That's more changes than one clip can carry. Start a new freestyle from here."
 
 
 class FreestyleIn(BaseModel):
@@ -146,6 +147,8 @@ def _send(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """Add a message and start its take: held for the owner when an editor sends it."""
     texts = [m["text"] for m in fs.chat] + [text]
     input = _job_input(fs, texts)
+    if len(input["input"]["prompt"]) > MAX_PROMPT:  # every change rides in one clip's prompt
+        raise HTTPException(409, TOO_LONG)
     lock(db, Freestyle, fs.id)  # a freestyle is one video: its sends share the per-video cap
     earlier = sum(j.credits for j in _jobs(db, fs).values() if j.status in COUNTED)
     units = Decimal(input["input"]["duration"])
@@ -233,6 +236,15 @@ def create_freestyle(
     body: FreestyleIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     _check(db, user, body.type, body.look, body.brand_id)
+    lock(db, User, user.id)  # a double tap waits here, then finds the first one
+    since = utcnow() - timedelta(seconds=10)
+    for fs in db.scalars(select(Freestyle).where(Freestyle.created_by_id == user.id,
+                                                 Freestyle.created_at >= since)):  # fmt: skip
+        same = (fs.type, fs.look, fs.shape, fs.brand_id) == (body.type, body.look, body.shape,
+                                                             body.brand_id)  # fmt: skip
+        if same and fs.chat and fs.chat[0]["text"] == body.text:
+            db.rollback()
+            return _out(db, fs)  # the same send twice: one freestyle, one held take
     title = next(line.strip() for line in body.text.splitlines() if line.strip())[:60]
     fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title=title,
                    type=body.type, look=body.look, shape=body.shape, brand_id=body.brand_id,

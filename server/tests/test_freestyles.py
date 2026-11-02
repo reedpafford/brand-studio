@@ -124,3 +124,44 @@ def test_a_freestyle_is_one_video_under_the_cap_and_a_failed_take_costs_nothing(
     db.commit()
     out = owner.get(f"/freestyles/{other['id']}").json()
     assert (out["status"], out["credits"]) == ("failed", 0)
+
+
+def test_a_double_tap_makes_one_freestyle_and_cancel_says_withdrawn(owner, editor, db):
+    body = {**HOUSE, "text": SCRIPT}
+    first, again = (editor.post("/freestyles", json=body).json() for _ in range(2))
+    assert first["id"] == again["id"] and db.query(Job).count() == 1  # one held take
+    (job,) = db.query(Job).all()
+    assert editor.post(f"/jobs/{job.id}/cancel").status_code == 200
+    out = editor.get(f"/freestyles/{first['id']}").json()
+    assert out["status"] == "withdrawn" and _moves(out)[-1][2] == "Withdrawn."
+
+
+def test_changes_stop_where_one_clip_prompt_would_overflow(owner, db):
+    fs = owner.post("/freestyles", json={**HOUSE, "text": "A cat trades at dawn."}).json()
+    change = "Make the light warmer and the cat slower. " * 45  # about 1,900 letters
+    codes = []
+    for _ in range(4):
+        db.query(Job).update({Job.status: "succeeded"})  # each take done before the next
+        db.commit()
+        codes.append(
+            owner.post(f"/freestyles/{fs['id']}/messages", json={"text": change[:2000]}).status_code
+        )
+    assert codes[:3] == [201, 201, 201] and codes[3] == 409
+    r = owner.post(f"/freestyles/{fs['id']}/messages", json={"text": change[:2000]})
+    assert "Start a new freestyle" in r.json()["detail"]
+
+
+def test_media_names_a_freestyle_takes_freestyle(owner, db):
+    from tests.conftest import upload
+
+    brand = first_brand(owner)
+    fs = owner.post("/freestyles", json={**HOUSE, "brand_id": brand, "text": SCRIPT}).json()
+    job = db.query(Job).one()
+    job.status, job.output = "succeeded", {"file_ids": [upload(owner)]}
+    db.commit()
+    (row,) = [
+        r
+        for r in owner.get(f"/brands/{brand}/media").json()["items"]
+        if r["key"].startswith("quick:")
+    ]
+    assert row["freestyle_id"] == fs["id"]

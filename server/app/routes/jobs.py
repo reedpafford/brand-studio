@@ -12,6 +12,7 @@ from app import folders
 from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
+    FREESTYLE,
     USD_PER_CREDIT,
     check_clip_cap,
     check_video_cap,
@@ -149,6 +150,7 @@ ON_SCRIPT = "on_script"  # a song take's or narration music's script (outside an
 DECLINED = "The owner said no this time. Nothing was charged."
 HELD = "held"  # in a held job's input: why it waits for the owner (plain words)
 DECLINE = "declined"  # in its input once the owner said no
+WITHDRAWN = "withdrawn"  # in a freestyle job's input: its maker took it back before the OK
 NOT_APPROVED = "This video's length isn't approved yet, so nothing can be made."
 
 
@@ -391,6 +393,9 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job has already started.")
+    if FREESTYLE in job.input:  # its thread says Withdrawn, as Freestyle's own Withdraw does
+        db.refresh(job)
+        job.input = {**job.input, WITHDRAWN: True}
     db.commit()
     if job.project_id:  # a press the director waited on was withdrawn: it goes on
         from app import director

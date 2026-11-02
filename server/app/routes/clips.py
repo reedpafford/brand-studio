@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import prompts
 from app.auth import current_user
 from app.catalogue import CatalogueModel, get_model
-from app.credits import estimate, over_allowance, someone_elses_quick_clip
+from app.credits import WAIT_OK, estimate, over_allowance, someone_elses_quick_clip
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand, BrandScreen
@@ -36,6 +36,7 @@ from app.storage import Storage
 
 router = APIRouter(prefix="/clips", tags=["clips"])
 MAX_REFERENCE_BYTES = 100 * 1024 * 1024
+HELD = f"{WAIT_OK}every Quick clip is checked first."
 Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=6000)]
 
 
@@ -262,10 +263,10 @@ def estimate_clip(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """What Generate would cost. Nothing is queued. Past the editor's weekly allowance,
-    Generate would wait for the owner: `needs_owner_approval`, and why in `reason`."""
+    """What Generate would cost. Nothing is queued. An editor's Generate waits for the owner
+    (Reed's v4: every editor send is checked first): `needs_owner_approval`, why in `reason`."""
     plan = _plan(db, user, body, request.app.state.storage)
-    held = over_allowance(db, user, plan.credits)
+    held = _held(db, user, plan.credits)
     return EstimateOut(
         credits=plan.credits,
         needs_owner_approval=bool(held),  # Reed, 30 Oct: "Hold requests"
@@ -273,6 +274,11 @@ def estimate_clip(
         auto_screen_ids=plan.auto_screen_ids,
         **{k: len(v) for k, v in plan.files.items()},
     )
+
+
+def _held(db: Session, user: User, credits: Decimal) -> str:
+    """Why an editor's Quick clip waits for the owner (past the week says so); "" for the owner."""
+    return "" if user.is_owner else over_allowance(db, user, credits) or HELD
 
 
 def generation_on(request: Request) -> None:
@@ -299,6 +305,7 @@ def create_clip(
         _job_input(plan.model, body, plan.files, plan.prompt, plan.exact),
         units=body.duration,
         provider="replicate",
+        wait=_held(db, user, plan.credits),  # Reed's v4: every editor send is checked first
     )
 
 

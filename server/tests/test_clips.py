@@ -13,7 +13,7 @@ from app.providers.replicate import ReplicateProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once
 from tests.conftest import PNG, png, upload
-from tests.helpers import MP3, MP4, assert_hidden, assert_no_dollars, mp4, with_sheet
+from tests.helpers import MP3, MP4, approve_held, assert_hidden, assert_no_dollars, mp4, with_sheet
 from tests.test_replicate import BASE, FakeReplicate
 
 
@@ -38,7 +38,8 @@ def _clip(fomo, **extra):
 def test_estimate_auto_attaches_moment_screens(editor, fomo):
     r = editor.post("/clips/estimate", json=_clip(fomo, character_ids=[fomo["character"]]))
     body = r.json()
-    assert body["credits"] == 5 and body["needs_owner_approval"] is False
+    assert body["credits"] == 5 and body["needs_owner_approval"] is True  # every editor's waits
+    assert body["reason"] == "Waiting for the owner's OK: every Quick clip is checked first."
     assert body["auto_screen_ids"] == [fomo["screen"]]
     assert body["reference_images"] == 2  # character sheet + trading screen
     other = editor.post("/clips/estimate", json=_clip(fomo, prompt="A quiet beach at dawn"))
@@ -65,7 +66,7 @@ def test_create_returns_job_with_safe_summary(editor, fomo, db):
     assert r.status_code == 201, r.text
     job = r.json()
     assert (job["status"], job["model_id"], job["brand_id"]) == (
-        "queued",
+        "needs_owner_approval",  # an editor's Quick clip waits for the owner's OK
         "seedance-2.5",
         fomo["brand"],
     )
@@ -118,6 +119,7 @@ def test_worker_sends_references_as_data_urls(app, editor, fomo, db):
     fake = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(fake))
     for _ in range(3):
+        approve_held(db)  # an editor's Quick clip waits for the owner's OK
         run_once(
             db,
             {"replicate": ReplicateProvider(BASE, client, token="test-token")},
@@ -134,6 +136,7 @@ def test_worker_sends_references_as_data_urls(app, editor, fomo, db):
 def _sent(app, db) -> dict:
     fake = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(fake))
+    approve_held(db)  # an editor's Quick clip waits for the owner's OK
     run_once(
         db, {"replicate": ReplicateProvider(BASE, client, token="test-token")}, app.state.storage
     )
@@ -199,6 +202,7 @@ def test_huge_images_fail_before_any_paid_call(app, editor, fomo, db, monkeypatc
     job = editor.post("/clips", json=body).json()["id"]
     fake = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(fake))
+    approve_held(db)  # an editor's Quick clip waits for the owner's OK
     run_once(
         db, {"replicate": ReplicateProvider(BASE, client, token="test-token")}, app.state.storage
     )
@@ -330,6 +334,7 @@ def _work(app, db) -> None:
     """Run the worker until the clip is made (the fake is done on its first check)."""
     client = httpx.Client(transport=httpx.MockTransport(FakeReplicate()))
     for _ in range(3):
+        approve_held(db)  # an editor's Quick clip waits for the owner's OK
         run_once(
             db,
             {"replicate": ReplicateProvider(BASE, client, token="test-token")},

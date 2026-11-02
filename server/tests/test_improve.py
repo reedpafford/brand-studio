@@ -7,7 +7,7 @@ import httpx2 as httpx
 from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
-from tests.helpers import assert_hidden, assert_no_dollars
+from tests.helpers import approve_held, assert_hidden, assert_no_dollars
 from tests.test_clips import _clip, fomo  # noqa: F401 - fixture
 from tests.test_enhance import FakeClaude, _run
 from tests.test_replicate import BASE, FakeReplicate
@@ -64,6 +64,7 @@ def test_improve_then_generate_as_is(app, db, editor, fomo):  # noqa: F811
     assert clip.status_code == 201, clip.text
     replicate = FakeReplicate()
     client = httpx.Client(transport=httpx.MockTransport(replicate))
+    approve_held(db)  # an editor's Quick clip waits for the owner's OK
     run_once(
         db, {"replicate": ReplicateProvider(BASE, client, token="test-token")}, app.state.storage
     )
