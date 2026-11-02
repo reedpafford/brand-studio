@@ -445,6 +445,112 @@ def test_it_never_watches_before_a_cut_or_the_same_cut_twice(app, db, owner, edi
     assert [t["tool"] for t in out["turns"]].count("watch_cut") == 3  # once, then refused twice
 
 
+def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owner, editor):
+    """The cost bar read "Over budget" after one director run: its turns are counted in
+    credits_used but the hold leaves them out. director_credits shows them apart."""
+    from decimal import Decimal
+
+    import pytest
+
+    from app import credits
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    turns = director.turns(db, db.get(Project, pid))
+    run = turns[-1].input[director.RUN]
+    watch = Job(
+        workspace_id=turns[-1].workspace_id,
+        created_by_id=turns[-1].created_by_id,
+        kind="write-claude",
+        provider="claude",
+        project_id=pid,
+        credits=Decimal(3),
+        input={"step": "watch_cut", director.RUN: run},
+        status=JobStatus.succeeded,
+    )  # its look at the cut: its own limit too
+    db.add(watch)
+    db.commit()
+    got = editor.get(f"/projects/{pid}").json()
+    from app.credits import COUNTED
+
+    own = [
+        j
+        for j in db.query(Job).filter(Job.project_id == pid)
+        if director.RUN in j.input and j.status in COUNTED
+    ]  # turns, watches, and this one
+    assert len(own) > len(turns)  # its watches of the cut count too
+    assert got["director_credits"] == float(sum(j.credits for j in own))
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    budget = credits.credits_used(db, project) - credits.director_credits(db, project)
+    assert float(budget) == pytest.approx(got["credits_used"] - got["director_credits"])
+    room = project.budget_credits - budget  # what the hold still lets through
+    assert not credits.needs_approval(db, ed, project, room)  # exactly fits
+    assert credits.needs_approval(db, ed, project, room + Decimal("0.01"))  # one cent past
+    db.commit()
+
+
+def test_every_budget_check_counts_as_the_hold_does(app, db, owner, editor, monkeypatch):
+    """QA-6: the hold left the director's spend out, but the take retry's check (fits), the
+    settings preview and the cost bar's percent still counted it. All read budget_used now;
+    the per-video cap still counts everything."""
+    from decimal import Decimal
+
+    from app import credits
+    from app.models.accounts import User
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    used = credits.budget_used(db, project)
+    assert credits.director_credits(db, project) > 0 and used < credits.credits_used(db, project)
+    room, cent = project.budget_credits - used, Decimal("0.01")
+    assert credits.fits(db, project, ed, room) == ""
+    assert credits.fits(db, project, ed, room + cent) == "would go over this video's budget."
+    got = editor.get(f"/projects/{pid}").json()
+    assert got["budget_pct"] == round(float(used / project.budget_credits * 100), 1)
+    db.commit()
+    for cost, over in ((room, False), (room + cent, True)):
+        monkeypatch.setattr("app.video_settings.to_finish", lambda db, p, cost=cost: cost)
+        seen = editor.post(f"/projects/{pid}/settings/preview", json={"aspect_ratio": "1:1"})
+        assert seen.json()["over_budget"] is over, (cost, seen.json())
+
+
+def test_the_owners_release_counts_the_budget_as_the_hold_does(app, db, owner, editor):
+    """Approving a video releases its held presses by the same figure the hold uses: the
+    director's own turns are left out of both, so they always agree."""
+    from decimal import Decimal
+
+    from app import credits
+    from app.models.accounts import User
+    from app.models.projects import ProjectStatus
+
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    assert credits.director_credits(db, project) > 0
+    room = project.budget_credits - credits.budget_used(db, project)
+    assert not credits.needs_approval(db, ed, project, room)  # the hold lets exactly this in
+
+    def held(cost):
+        job = Job(workspace_id=project.workspace_id, created_by_id=ed.id, kind="image",
+                  provider="replicate", input={}, project_id=pid, brand_id=project.brand_id,
+                  credits=cost, status=JobStatus.needs_owner_approval)  # fmt: skip
+        db.add(job)
+        return job
+
+    fits, past = held(room), held(Decimal("0.01"))
+    project.status = ProjectStatus.needs_owner_approval
+    db.commit()
+    assert owner.post(f"/projects/{pid}/approve").status_code == 200
+    db.expire_all()
+    assert db.get(Job, fits.id).status == JobStatus.queued  # released, as the hold allowed
+    assert db.get(Job, past.id).status == JobStatus.needs_owner_approval  # a cent past: held
+
+
 def _stop_during(monkeypatch, editor, pid, where: str, before: bool = False) -> list:
     """Stop is pressed once, while `where` (the turn being asked, or its tool) runs; `before`:
     just as it starts (the worker took the turn, then Stop came)."""
@@ -575,3 +681,31 @@ def test_a_stop_while_the_next_turn_is_made_holds(app, db, owner, editor, monkey
     assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
     second = director.turns(db, db.get(Project, pid))[-1]
     assert second.input[director.RUN]["turn"] == 2 and second.status == JobStatus.cancelled
+
+
+def test_the_production_page_counts_the_budget_as_the_hold_does(app, db, owner, editor):
+    """Owner's Production page: each row carries director_credits, and "Closest to budget"
+    sorts by what the budget counts, the director's own spend left out (QA-6)."""
+    from decimal import Decimal
+
+    from app import credits
+
+    app.state.settings.fake_providers = True
+    ran, plain = _made_again(app, owner, editor, db), _made_again(app, owner, editor, db)
+    a, b = db.get(Project, ran), db.get(Project, plain)
+
+    def spend(project, cost, **input):
+        db.add(Job(workspace_id=project.workspace_id, created_by_id=project.created_by_id,
+                   kind="write-claude", provider="claude", input=input, project_id=project.id,
+                   credits=Decimal(cost), status=JobStatus.succeeded))  # fmt: skip
+        db.commit()
+
+    budget = a.budget_credits
+    spend(a, budget * Decimal("0.8"), step="director", director_run={"id": "r"})  # its own
+    spend(a, budget * Decimal("0.1"))  # the budget's share: 10%
+    spend(b, budget * Decimal("0.5"))  # 50%: closer to its budget, though less spent in all
+    rows = {r["project_id"]: r for r in owner.get("/production").json()}
+    assert rows[ran]["director_credits"] == float(credits.director_credits(db, a)) > 0
+    assert rows[plain]["director_credits"] == 0
+    order = [r["project_id"] for r in owner.get("/production?sort=budget").json()]
+    assert order.index(plain) < order.index(ran)  # counting all spend would put ran first

@@ -183,3 +183,27 @@ test("a look switch names the roles that need a new look in it (ST1)", async () 
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
   expect(await within(ask).findByText("Nate and Mia need a new look, made in Cast.")).toBeInTheDocument();
 });
+
+// One look per style: a video can be on a lane of a style ("paper-flat"). Its name shows, never the raw id; the picker offers
+// the styles (one card each, #1139), with the lane's style In use.
+const paper = { id: "paper", name: "Paper", blurb: "", on: true, sample_still_id: null, lanes: [] };
+test("at 390, a video on a lane shows the lane's own name; the picker lists styles only, with its style In use", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /looks": [200, [...looks, { ...paper, lanes: [{ id: "paper-flat", name: "Paper · Flat Paper" }, { id: "paper-origami", name: "Paper · Origami" }] }]], "GET /projects/9/settings": [200, { ...settings, look: "paper-flat" }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Settings: 9:16 · Chicken · Paper · Flat Paper · Auto · Auto" })); // the phone's one row
+  await userEvent.click(within(await screen.findByRole("dialog", { name: "Video settings" })).getByRole("button", { name: /Look: Paper · Flat Paper/ }));
+  expect(await screen.findByRole("heading", { name: "Paper" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: /Paper · / })).toBeNull(); // lanes aren't offered
+  const card = screen.getByRole("heading", { name: "Paper" }).closest("li")!;
+  expect(within(card).getByText("In use")).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("paper-flat");
+});
+
+test("a lane the looks list doesn't carry yet reads as its style and its words, never the raw id", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /looks": [200, [...looks, paper]], "GET /projects/9/settings": [200, { ...settings, look: "paper-flat" }] });
+  open();
+  expect(await screen.findByRole("button", { name: /Look: Paper · Flat/ })).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("paper-flat");
+});

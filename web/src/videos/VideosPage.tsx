@@ -1,4 +1,5 @@
 import { WaitingCount } from "../approvals/HeldRequests";
+import { budgetUsed } from "../projects/budget";
 import { ProjectsChip, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +28,7 @@ function Row({ p }: { p: Project }) {
   const done = !!p.finished_at;
   const meta = [
     p.created_by_name || "Someone",
-    done ? `Finished · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(p.credits_used)} of ${Math.round(p.budget_credits)} credits`,
+    done ? `Finished · ${date(p.finished_at!)}` : p.script_draft_id && p.step && STEP[p.step] ? `At ${STEP[p.step]}` : `${Math.round(budgetUsed(p))} of ${Math.round(p.budget_credits)} credits`,
     p.script_draft_id ? null : "(earlier way)",
   ]
     .filter(Boolean)

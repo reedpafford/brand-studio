@@ -150,3 +150,14 @@ test("without brand setup on the server the page is as before", async () => {
   expect(screen.getByLabelText("End line")).toBeInTheDocument();
   expect(screen.queryByText(/Changes apply to work from now on/)).toBeNull();
 });
+
+test("a brand whose default look is a lane shows the lane's name; the list offers the styles, never the raw id (one look per style)", async () => {
+  setViewport(390);
+  const withLane = [...looks, { id: "paper", name: "Paper", blurb: "", on: true, lanes: [{ id: "paper-flat", name: "Paper · Flat Paper" }, { id: "paper-origami", name: "Paper · Origami" }] }];
+  fakeServer({ ...routes(owner, { ...brand, default_look: "paper-flat" }), "GET /looks": [200, withLane] });
+  renderAt("/b/1/brand");
+  const look = (await screen.findByLabelText("Look")) as HTMLSelectElement;
+  expect(look.selectedOptions[0].textContent).toBe("Paper · Flat Paper");
+  expect([...look.options].map((o) => o.textContent)).toEqual(["House", "Disney Pixar (off for editors)", "Paper", "Paper · Flat Paper"]); // not Origami: lanes are chosen per video
+  expect(document.body.textContent).not.toContain("paper-flat");
+});

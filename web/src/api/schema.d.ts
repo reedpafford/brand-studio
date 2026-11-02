@@ -6753,6 +6753,13 @@ export interface components {
          * @enum {string}
          */
         Kind: "character" | "place" | "prop";
+        /** LaneOut */
+        LaneOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** LanguageOut */
         LanguageOut: {
             /** Id */
@@ -6978,6 +6985,11 @@ export interface components {
              * @default false
              */
             own_sample: boolean;
+            /**
+             * Lanes
+             * @default []
+             */
+            lanes: components["schemas"]["LaneOut"][];
         };
         /** LookSheetOut */
         LookSheetOut: {
@@ -7615,6 +7627,11 @@ export interface components {
             last_activity_at: string;
             /** Credits Used */
             credits_used: number;
+            /**
+             * Director Credits
+             * @default 0
+             */
+            director_credits: number;
             /** Budget Credits */
             budget_credits: number;
             /** Spent Usd */
@@ -7842,6 +7859,8 @@ export interface components {
             budget_credits: number;
             /** Credits Used */
             credits_used: number;
+            /** Director Credits */
+            director_credits: number;
             /** Budget Pct */
             budget_pct: number;
             /** Created By Id */

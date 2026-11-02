@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app import looks
 from app.catalogue import catalogue
-from app.credits import credits_used, get_limits
+from app.credits import budget_used, credits_used, get_limits
 from app.models.accounts import User
 from app.models.brands import BrandScreen
 from app.models.breakdowns import BreakdownVersion
@@ -194,7 +194,7 @@ def preview(db: Session, user: User, project: Project, values: dict) -> dict:
     cap = get_limits(db, project.workspace_id).per_video_max_credits
     over_cap = used + now > cap
     budget = project.budget_credits
-    over_budget = bool(budget) and used + now > budget
+    over_budget = bool(budget) and budget_used(db, project) + now > budget  # as the hold counts
     reason = OVER_CAP.format(cap) if over_cap else OVER_BUDGET if over_budget else ""
     return {
         "to_finish_credits": float(now), "was_credits": float(was),
@@ -276,6 +276,7 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
 
         follow_model(db, project)
     if "look" in values:
+        looks.picked_by_person(project)  # a plan's lane leaves it as they chose
         follow_own_looks(db, project)
     db.commit()
     return was

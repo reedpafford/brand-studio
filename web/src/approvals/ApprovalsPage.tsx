@@ -6,6 +6,7 @@ import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Card, creditsText, Dialog, EmptyState, Field, Skeleton } from "../components";
 import { Meter } from "../projects/Meter";
+import { budgetUsed } from "../projects/budget";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
@@ -222,7 +223,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
   // Each editor's own week, from the owner-only allowances.
   const allowances = useQuery({ queryKey: ["allowances"], queryFn: async () => (await api.GET("/credits/allowances")).data ?? [] });
   const week = allowances.data?.find((a) => a.user_id === job.created_by_id);
-  const after = project && project.budget_credits > 0 ? ((project.credits_used + job.credits) / project.budget_credits) * 100 : null;
+  const after = project && project.budget_credits > 0 ? ((budgetUsed(project) + job.credits) / project.budget_credits) * 100 : null;
   return (
     <li id={`job-${job.id}`} tabIndex={-1} aria-current={asked || undefined} className={`flex gap-3 p-4 text-sm sm:p-5 ${asked ? "outline outline-2 -outline-offset-2 outline-accent" : ""}`}>
       <Preview />
@@ -250,7 +251,7 @@ function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; usd?: n
             {who ? `${who}'s` : "The editor's"} quick clips this week: {whole(week.quick_clip_credits_used)} of {whole(week.quick_clip_credits_allowed)} credit{week.quick_clip_credits_allowed === 1 ? "" : "s"}
           </p>
         )}
-        {project && after !== null && <Meter used={project.credits_used + job.credits} budget={project.budget_credits} pct={after} />}
+        {project && after !== null && <Meter used={budgetUsed(project) + job.credits} budget={project.budget_credits} pct={after} />}
         {act.isError && <p role="alert" className={errorClass}>{act.error.message}</p>}
         <div className="flex gap-2 pt-1">
           <Button variant="ghost" className="flex-1 sm:flex-none" disabled={act.isPending} aria-label={`Decline ${lower(what)}`} onClick={() => setDeclining(true)}>
