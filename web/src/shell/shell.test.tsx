@@ -176,7 +176,7 @@ test("an editor has no Approvals bell", async () => {
   expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
 });
 
-test("the account menu has Team for Reed only, the theme choices, and Sign out; Escape closes it", async () => {
+test("the account menu (bottom of the rail) has the theme choices and Sign out; Team is a rail row, not in the menu; Escape closes it", async () => {
   setViewport(1440);
   localStorage.removeItem("bs.theme");
   document.documentElement.removeAttribute("data-theme");
@@ -185,7 +185,8 @@ test("the account menu has Team for Reed only, the theme choices, and Sign out; 
   const menu = await screen.findByRole("button", { name: "Account menu" });
   await userEvent.click(menu);
   expect(screen.getByText("reed@b.co")).toBeInTheDocument();
-  expect(within(screen.getByRole("menu", { name: "Account" })).getByRole("link", { name: "Team" })).toHaveAttribute("href", "/team");
+  expect(within(screen.getByRole("menu", { name: "Account" })).queryByRole("link", { name: "Team" })).toBeNull();
+  expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Team" })).toHaveAttribute("href", "/team");
   expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Light" }));
   expect(document.documentElement.getAttribute("data-theme")).toBe("light");
@@ -207,16 +208,19 @@ test("an editor's account menu has no Team link", async () => {
   expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
 });
 
-test("on desktop the rail has the six brand sections, and Studio (Approvals with its count, In production, Team, Looks, Languages, Usage) for Reed only", async () => {
+test("on desktop one rail (nav A): the brand switcher, Make and Library, Studio for Reed only, the account at the bottom; no top bar", async () => {
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Videos", "Scripts", "Quick clip", "Media", "Cast & places", "Brand", "Approvals", "In production", "Team", "Looks", "Languages", "Usage"]);
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["Scripts", "Videos", "Quick clip", "Cast & places", "Media", "Brand", "Approvals", "In production", "Usage", "Team", "Looks", "Languages"]);
+  expect(within(rail).getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
+  expect(within(rail).getByRole("button", { name: "Account menu" })).toBeInTheDocument();
+  expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   expect(within(rail).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page");
   expect(await within(rail).findByRole("link", { name: /Approvals/ })).toHaveTextContent("1");
-  expect(screen.getAllByRole("link", { name: /Approvals/ })).toHaveLength(2); // the rail item and the top-bar pill both go to /approvals
+  expect(screen.getAllByRole("link", { name: /Approvals/ })).toHaveLength(1); // only the rail row: no top bar on desktop
   expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
 });
 

@@ -1,4 +1,4 @@
-/* Brand Studio design tokens v2 · "Screening room" (Reed's pick, #173).
+/* Brand Studio design tokens v3 · Linear-style (Reed, 2 Nov: "i like how linear looks"). Was v2 "Screening room" (#173).
    Drop-in replacement for web/src/styles/tokens.css (redesign PR 1).
    Variable names match v1 where they mean the same thing, so existing classes keep working.
 
@@ -11,7 +11,6 @@
    every text pair >= 4.5:1, input borders and focus >= 3:1, disabled labels >= 4.5:1 too. */
 
 @import "@fontsource-variable/inter";
-@import "@fontsource-variable/manrope"; /* new dependency, web/ only */
 @import "@fontsource/courier-prime/400.css";
 @import "@fontsource/courier-prime/700.css";
 
@@ -19,82 +18,82 @@
   color-scheme: dark;
 
   /* Surfaces: night -> panel -> raised -> hover */
-  --bg: #0b0b0d;
-  --surface: #151517;
-  --surface-2: #1e1e21;
-  --surface-3: #28282c;       /* hover / pressed on surface-2 */
-  --border: #2a2a2f;           /* dividers, card edges */
-  --border-strong: #64646e;    /* inputs, checkboxes: 3.1:1 on surface */
+  --bg: #0e0f11;
+  --surface: #141518;
+  --surface-2: #1c1d21;
+  --surface-3: #25262b;       /* hover / pressed on surface-2 */
+  --border: #23252a;           /* dividers, card edges */
+  --border-strong: #666a73;    /* inputs, checkboxes: 3.4:1 on surface */
   --scrim: rgb(0 0 0 / 0.64);  /* behind sheets and dialogs */
   --media-shade: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0) 70%); /* text on pictures */
 
   /* Text */
-  --text: #f3f2ef;             /* 16.3:1 on surface */
-  --text-muted: #a3a1a9;       /* 7.2:1 on surface, 5.8:1 on surface-3 */
-  --text-faint: #6e6c75;       /* decoration only: never words people must read */
+  --text: #e6e7ea;             /* 14.8:1 on surface */
+  --text-muted: #8f929b;       /* 5.9:1 on surface, 4.9:1 on surface-3 */
+  --text-faint: #5f626b;       /* decoration only: never words people must read */
   --text-on-media: #ffffff;
 
-  /* Action: golden-hour amber, ours (not the brand's). Dark text on it. */
-  --accent: #f4a940;
-  --accent-hover: #f7ba62;
-  --accent-pressed: #e2962d;
+  /* Action: one calm indigo, white text on it. Only the screen's main press uses it. */
+  --accent: #5e63d6;
+  --accent-hover: #6a6fe0;
+  --accent-pressed: #5257c6;
   --accent-border: transparent;
-  --on-accent: #1b1206;        /* 9.3:1 on accent */
-  --accent-soft: #2e2414;
-  --accent-text: #f7c27a;      /* 9.4:1 on accent-soft */
-  --focus: #f7c27a;            /* 2px ring, 12:1 on bg */
+  --on-accent: #ffffff;        /* 5.0:1 on accent */
+  --accent-soft: #1f2040;
+  --accent-text: #a9acf7;      /* 7.4:1 on accent-soft */
+  --focus: #8b8ff0;            /* 2px ring, 6.7:1 on bg */
 
   /* Disabled: a real colour pair, not opacity (stays readable) */
-  --disabled-bg: #26262a;
-  --disabled-text: #8e8c95;    /* 4.55:1 */
+  --disabled-bg: #1f2024;
+  --disabled-text: #8a8d96;    /* 4.9:1 */
 
   /* Status */
-  --success: #5bd08a;  --success-soft: #12261a;   /* 8.2:1 */
-  --warning: #f2c14e;  --warning-soft: #2a2312;   /* 9.3:1 */
-  --danger: #ff8a7e;   --danger-soft: #33191a;    /* 7.1:1 */
+  --success: #4cb782;  --success-soft: #13261d;   /* 6.4:1 */
+  --warning: #e2a33b;  --warning-soft: #2a2214;   /* 7.1:1: also "needs you" */
+  --danger: #eb6e5e;   --danger-soft: #331a18;    /* 5.3:1 */
 
   /* Script Enhance marks */
-  --mark: #3a3215;
+  --mark: #2c2715;
   --mark-line: #f2c14e;
 
   /* Brand slot (the brand dot, the brand's own pages). Falls back to amber. */
   --brand: var(--accent);
 
   /* Elevation: dark uses light edges, not big shadows */
-  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-card: none;
   --shadow-raised: 0 12px 32px rgb(0 0 0 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.05); /* menus, toasts */
   --shadow-overlay: 0 24px 64px rgb(0 0 0 / 0.6);                                       /* sheets, dialogs */
 
-  /* Type: Manrope titles, Inter text, Courier Prime for scripts and prompts */
-  --font-display: "Manrope Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Type: Inter for everything (titles too), Courier Prime for scripts and prompts */
+  --font-display: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-script: "Courier Prime", "Courier New", ui-monospace, monospace;
 
   /* Type scale: size / line height (weight set by role, see typography.md) */
   --text-xs: 0.75rem;     --leading-xs: 1rem;        /* 12/16 badges, timecodes, captions */
   --text-sm: 0.8125rem;   --leading-sm: 1.125rem;    /* 13/18 helper text, meta */
-  --text-base: 0.9375rem; --leading-base: 1.375rem;  /* 15/22 body, controls (16/24 on phones) */
-  --text-md: 1.0625rem;   --leading-md: 1.375rem;    /* 17/22 card titles (Manrope 700) */
-  --text-lg: 1.25rem;     --leading-lg: 1.625rem;    /* 20/26 section titles (Manrope 700) */
-  --text-xl: 1.5rem;      --leading-xl: 1.875rem;    /* 24/30 empty-state headlines (Manrope 750) */
-  --text-2xl: 2rem;       --leading-2xl: 2.375rem;   /* 32/38 page titles (Manrope 800; 26/32 on phones) */
+  --text-base: 0.875rem;  --leading-base: 1.25rem;   /* 14/20 body, controls (16/24 on phones) */
+  --text-md: 0.9375rem;   --leading-md: 1.375rem;    /* 15/22 card titles (600) */
+  --text-lg: 1.0625rem;   --leading-lg: 1.5rem;      /* 17/24 section titles (600) */
+  --text-xl: 1.25rem;     --leading-xl: 1.75rem;     /* 20/28 empty-state headlines (600) */
+  --text-2xl: 1.375rem;   --leading-2xl: 1.875rem;   /* 22/30 page titles (600; 22/30 on phones too) */
   --text-script: 0.875rem; --leading-script: 1.6;   /* 14 Courier Prime */
-  --tracking-display: -0.02em;
+  --tracking-display: -0.01em;
 
   /* Space: 4px grid. Allowed steps only: 1 2 3 4 5 6 8 10 12 16 (x4px) */
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
   --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
 
   /* Shape */
-  --radius-sm: 6px;    /* badges, chips */
-  --radius-md: 10px;   /* buttons, inputs, small media */
-  --radius-lg: 14px;   /* cards, media cards */
-  --radius-xl: 20px;   /* sheets, dialogs */
+  --radius-sm: 4px;    /* badges, chips */
+  --radius-md: 6px;    /* buttons, inputs, small media */
+  --radius-lg: 8px;    /* cards, media cards */
+  --radius-xl: 12px;   /* sheets, dialogs */
   --radius-full: 999px;
 
   /* Sizes */
   --control-h: 44px;       /* every control on phones; also the desktop minimum for primary actions */
-  --control-h-dense: 36px; /* secondary controls on desktop only (pointer), never on phones */
+  --control-h-dense: 32px; /* secondary controls on desktop only (pointer), never on phones */
   --topbar-h: 60px;
   --rail-w: 232px;         /* desktop side rail */
   --tabbar-h: 64px;        /* phone bottom tabs (+ safe area) */
@@ -112,42 +111,46 @@
   --dur-exit: 160ms;    /* sheets and dialogs out */
 }
 
+@media (min-width: 1024px) {
+  :root { --control-h: 36px; --topbar-h: 0px; } /* desktop (pointer): Linear-sized controls (phones keep 44px); no top bar, the rail has it all */
+}
+
 @media (max-width: 639px) {
   :root {
     --text-base: 1rem; --leading-base: 1.5rem;     /* 16px: no iOS zoom on inputs */
-    --text-2xl: 1.625rem; --leading-2xl: 2rem;     /* 26/32 page titles */
+    --text-2xl: 1.375rem; --leading-2xl: 1.875rem; /* 22/30 page titles */
   }
 }
 
-/* Light mode: the warm palette from direction A, with the same amber action colour. */
+/* Light mode: cool neutrals, the same indigo action colour. */
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f5f3ee;
+  --bg: #fbfbfc;
   --surface: #ffffff;
-  --surface-2: #efece5;
-  --surface-3: #e6e2d9;
-  --border: #e2ded5;
-  --border-strong: #8f8a81;    /* 3.4:1 */
+  --surface-2: #f4f4f6;
+  --surface-3: #ebebef;
+  --border: #e7e7ea;
+  --border-strong: #8b8e97;    /* 3.3:1 */
   --scrim: rgb(20 20 18 / 0.45);
-  --text: #1c1b19;
-  --text-muted: #5e5b55;       /* 6.8:1 on surface */
-  --text-faint: #8a867e;
-  --accent: #f4a940;
-  --accent-hover: #f7ba62;
-  --accent-pressed: #e2962d;
-  --accent-border: #b8740f;    /* amber fill is light on light: the edge carries 3.4:1 */
-  --on-accent: #1b1206;
-  --accent-soft: #fcefd9;
-  --accent-text: #8a4b00;      /* 6.0:1 on accent-soft */
-  --focus: #b45f06;            /* 4.1:1 on bg */
-  --disabled-bg: #e6e2d9;
-  --disabled-text: #5e5b55;    /* 5.2:1 */
-  --success: #1f7a3d;  --success-soft: #e4f3e8;
-  --warning: #8a5a00;  --warning-soft: #fcf0dc;
-  --danger: #b42318;   --danger-soft: #fde8e6;
-  --mark: #fff0bf;
+  --text: #1b1c1f;
+  --text-muted: #62656e;       /* 5.8:1 on surface */
+  --text-faint: #9a9da5;
+  --accent: #5e63d6;
+  --accent-hover: #6a6fe0;
+  --accent-pressed: #5257c6;
+  --accent-border: transparent;
+  --on-accent: #ffffff;
+  --accent-soft: #eef0ff;
+  --accent-text: #4146b8;      /* 6.6:1 on accent-soft */
+  --focus: #5e63d6;            /* 4.8:1 on bg */
+  --disabled-bg: #ebebef;
+  --disabled-text: #62656e;    /* 4.9:1 */
+  --success: #1a7a4b;  --success-soft: #e6f4ec;
+  --warning: #8f5c12;  --warning-soft: #fbf1df;
+  --danger: #c23b2f;   --danger-soft: #fde9e7;
+  --mark: #fff3c4;
   --mark-line: #c99400;
-  --shadow-card: 0 1px 2px rgb(28 27 25 / 0.06);
+  --shadow-card: none;
   --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
   --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
 }
@@ -155,14 +158,14 @@
 @media (prefers-color-scheme: light) {
   [data-theme="system"] {
     color-scheme: light;
-    --bg: #f5f3ee; --surface: #ffffff; --surface-2: #efece5; --surface-3: #e6e2d9;
-    --border: #e2ded5; --border-strong: #8f8a81; --scrim: rgb(20 20 18 / 0.45);
-    --text: #1c1b19; --text-muted: #5e5b55; --text-faint: #8a867e;
-    --accent-border: #b8740f; --accent-soft: #fcefd9; --accent-text: #8a4b00; --focus: #b45f06;
-    --disabled-bg: #e6e2d9; --disabled-text: #5e5b55;
-    --success: #1f7a3d; --success-soft: #e4f3e8; --warning: #8a5a00; --warning-soft: #fcf0dc;
-    --danger: #b42318; --danger-soft: #fde8e6; --mark: #fff0bf; --mark-line: #c99400;
-    --shadow-card: 0 1px 2px rgb(28 27 25 / 0.06); --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
+    --bg: #fbfbfc; --surface: #ffffff; --surface-2: #f4f4f6; --surface-3: #ebebef;
+    --border: #e7e7ea; --border-strong: #8b8e97; --scrim: rgb(20 20 18 / 0.45);
+    --text: #1b1c1f; --text-muted: #62656e; --text-faint: #9a9da5;
+    --accent-border: transparent; --accent-soft: #eef0ff; --accent-text: #4146b8; --focus: #5e63d6;
+    --disabled-bg: #ebebef; --disabled-text: #62656e;
+    --success: #1a7a4b; --success-soft: #e6f4ec; --warning: #8f5c12; --warning-soft: #fbf1df;
+    --danger: #c23b2f; --danger-soft: #fde9e7; --mark: #fff3c4; --mark-line: #c99400;
+    --shadow-card: none; --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
     --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
   }
 }
