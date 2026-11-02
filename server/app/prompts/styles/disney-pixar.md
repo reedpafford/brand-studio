@@ -13,7 +13,7 @@ A frame in the style of a Pixar animated feature film: high-end stylised 3D anim
 A frame in the style of a Pixar animated feature film: high-end stylised 3D animation, every object a designed 3D asset with simplified, appealing shapes and believable stylised materials, a detailed lived-in environment, rich cinematic light with soft global illumination, warm bounce light and gentle colour in the shadows, saturated but harmonious colour.
 
 ## still_look
-The Disney Pixar look, unless the brand block says otherwise: "A frame in the style of a Pixar animated feature film: high-end stylised 3D animation in which every object and surface is a designed, stylised 3D asset with simplified, appealing shapes. Faces, builds and outfits come from the character sheets. Rich cinematic lighting with soft global illumination, warm bounce light and gentle colour in the shadows, a detailed lived-in environment with believable stylised materials, shallow cinematic depth of field, and saturated but harmonious colour. Composed like a hero frame from an animated feature, with the camera inside the scene at a cinematic angle and the scene filling the entire frame. A stylised 3D animated render. Expressions are big and readable with the sound off."
+The Disney Pixar look, unless the brand block says otherwise: "A frame in the style of a Pixar animated feature film: high-end stylised 3D animation in which every object and surface is a designed, stylised 3D asset with simplified, appealing shapes. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Rich cinematic lighting with soft global illumination, warm bounce light and gentle colour in the shadows, a detailed lived-in environment with believable stylised materials, shallow cinematic depth of field, and saturated but harmonious colour. Composed like a hero frame from an animated feature, with the camera inside the scene at a cinematic angle and the scene filling the entire frame. A stylised 3D animated render. Expressions are big and readable with the sound off."
 
 ## clip_style
 Smooth cinematic 3D animation in the style of a Pixar feature film, fluid and expressive, with soft global light, warm bounce light and saturated but harmonious colour
@@ -47,7 +47,7 @@ anime → animated
 ## fixes
 refused: Take out any studio or film name, Soften it, then Make another: a frame that reads as a copy of a studio's is refused.
 face: Make another first. If it drifts again, Change this… "big glossy eyes and sculpted hair exactly as the sheet, adult proportions".
-outfit: Change this… naming the sheet's key pieces in the shot.
+outfit: Change this… naming the outfit's key pieces in the shot, this video's when it gives one, else the sheet's.
 product: Change this… "the real product from its image, the label facing the camera and readable, under the scene's soft light".
 
 ## sample

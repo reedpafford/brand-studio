@@ -13,7 +13,7 @@ Goofy claymation: a goofy plasticine character with an oversized head, huge roun
 Goofy claymation: everything sculpted from plasticine with visible fingerprints and thumb smudges, wonky handmade geometry where nothing is perfectly straight, a busy, cluttered set dressed with tiny sculpted props, a saturated teal and terracotta palette, bright warm light with real cast shadows.
 
 ## still_look
-The Goofy Claymation look, unless the brand block says otherwise: "Goofy claymation scene — everything sculpted from plasticine with visible fingerprints and thumb smudges, wonky handmade geometry where nothing is perfectly straight, saturated teal and terracotta palette, the scene filling the entire frame with the camera inside the clay world. Faces, builds and outfits come from the character sheets. Bright warm light with real cast shadows; everything in frame is plasticine: no photographic skin, no real human hands, no fingernails."
+The Goofy Claymation look, unless the brand block says otherwise: "Goofy claymation scene — everything sculpted from plasticine with visible fingerprints and thumb smudges, wonky handmade geometry where nothing is perfectly straight, saturated teal and terracotta palette, the scene filling the entire frame with the camera inside the clay world. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Bright warm light with real cast shadows; everything in frame is plasticine: no photographic skin, no real human hands, no fingernails."
 
 ## clip_style
 Handmade stop-motion claymation throughout: matte plasticine, visible fingerprints and tool marks, slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI. Non cartoon. Animation must start at the first frame

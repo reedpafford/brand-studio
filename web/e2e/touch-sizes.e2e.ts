@@ -17,3 +17,17 @@ test("at 390: Cast & places' tabs and New character are 44 px presses, and the B
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
+
+// QA sweep (1 Nov): every video page asked for /api/brands/0/screens before its brand loaded, a 404 each time.
+test("a video page never asks for brand 0's screens", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brandId = await emptyBrand(page, "Zero Co");
+  const id = (await (await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Zero test", planned_seconds: 20 } })).json()).id;
+  const zero: string[] = [];
+  page.on("request", (r) => r.url().includes("/api/brands/0/") && zero.push(r.url()));
+  await page.goto(`/b/${brandId}/videos/${id}`);
+  await expect(page.getByRole("heading", { name: "Zero test", level: 1 })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(zero).toEqual([]);
+});

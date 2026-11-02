@@ -11,10 +11,12 @@ type Screen = components["schemas"]["ScreenOut"];
 export function useBriefChoices(brandId: number, picks: Record<string, string>) {
   const characters = useQuery({
     queryKey: ["library", "character", brandId, false],
+    enabled: brandId > 0, // not before the brand has loaded (no /brands/0/… 404s)
     queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "character" }, query: { brand_id: brandId } } })).data ?? [],
   });
   const screens = useQuery({
     queryKey: ["screens", brandId],
+    enabled: brandId > 0, // not before the brand has loaded (no /brands/0/… 404s)
     queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: brandId } } })).data ?? [],
   });
   // Screens that are one flavour of a product (a bag that comes in Chicken or Peanut butter) are picked here.

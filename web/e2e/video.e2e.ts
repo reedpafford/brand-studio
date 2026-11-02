@@ -66,7 +66,7 @@ for (const width of [1440, 390]) {
     }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
     await expect(
-      page.getByRole("button", { name: "Next: Storyboard" }),
+      page.getByRole("button", { name: "Next: Make" }),
     ).toBeEnabled();
     if (width === 390) {
       // The cost bar is taller than one button: the space kept for it (and toasts above it) is its real height.
@@ -132,10 +132,10 @@ for (const width of [1440, 390]) {
       timeout: 30_000,
     });
     await page.getByRole("button", { name: "Next: Cast" }).click();
-    await page.getByRole("button", { name: "Next: Storyboard" }).click();
+    await page.getByRole("button", { name: "Next: Make" }).click();
 
     // One press writes the frames and draws every still.
-    await page.getByRole("button", { name: /Make the storyboard/ }).click();
+    await page.getByRole("button", { name: /Make the stills/ }).click();
     const approve = page.getByRole("button", { name: "Approve", exact: true });
     await expect(approve.first()).toBeVisible({ timeout: 90_000 });
     while (await approve.count()) {
