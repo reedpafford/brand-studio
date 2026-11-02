@@ -19,6 +19,7 @@ from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
 
+REMADE = "audio_remakes"  # the run's count of them, a song's or a narration's alike
 REMAKES = 2  # a run's song (or narration) made again, with a note (Song-Producer: 2)
 HEARD = 0.6  # a line counts as heard as written from this share of its words (take words)
 HOOK = 0.5  # the first line sung: half its words heard
@@ -132,7 +133,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         if project.song_take_id in {t.id for t in ready}:
             return f"The {what} is set: take {_number(db, project.song_take_id)}."
         best = next((t for t in ready if t.preferred), None) or min(
-            ready, key=lambda t: (len(_take(db, t, None)["missing"] or []), t.id))  # fmt: skip
+            ready, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
     if takes and not note:
@@ -147,7 +148,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice)
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made
         return f"Trying the {what} again: the service failed, nothing was charged."
-    if takes and run.get("songs", 0) >= REMAKES:
+    if takes and run.get(REMADE, 0) >= REMAKES:
         return AGAIN.format(what=what)
     if not _on(db, draft):
         return OFF
@@ -157,13 +158,18 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     song_takes.make(db, user, draft, project, kie=_real(db, found), note=note, voice=voice)
     run["song_note"], run["song_voice"] = note, voice
     if takes:  # a remake; the first song's note is its style line, not a remake
-        run["songs"] = run.get("songs", 0) + 1
+        run[REMADE] = run.get(REMADE, 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
 
 
 def _real(db: Session, found: str) -> float:
     """A real song through KIE's price (song_takes.real_songs); a narration is never one."""
     return 0.0 if found == "narrated" else song_takes.real_songs(db, _settings())
+
+
+def _rank(take: dict, take_id: int) -> tuple:
+    """The best take first: fewest lines missing, then the shorter (cheaper to film)."""
+    return (len(take["missing"] or []), take["seconds"] or 0, take_id)
 
 
 def _settings():
