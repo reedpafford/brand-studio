@@ -528,7 +528,8 @@ def song_study_block(study: dict) -> str:
 def song_block(song: dict) -> str:
     """The preferred take, measured, for the song_breakdown step: Next-Server's song timing
     {seconds, bpm, beats, sections [{name, start, end, cuts}], lines [{section, text, start,
-    end, heard}]} (words and peaks are for the screens, left out). Sections start on bar lines;
+    end, heard}], words [{word, start, end}]} (peaks are for the screens, left out). Each line
+    lists its words' start times, so a picture can land on the word. Sections start on bar lines;
     `cuts` are bar lines inside one that fall outside any sung word, the best shot edges. A
     line heard 0 times has guessed times."""
     lines = [f'<song seconds="{song["seconds"]:.2f}" bpm="{song.get("bpm") or "?"}">', "Sections:"]
@@ -539,9 +540,13 @@ def song_block(song: dict) -> str:
         )
     lines.append("Beats: " + " ".join(f"{b:.2f}" for b in song.get("beats", [])))
     lines.append("Sung lines:")
+    words = song.get("words", [])
     for n, x in enumerate(song.get("lines", []), 1):
         guessed = " (times guessed)" if x.get("heard", 1) == 0 else ""
         lines.append(f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}{guessed}")
+        said = [w for w in words if x["start"] - 0.05 <= w["start"] < x["end"]]
+        if said and not guessed:
+            lines.append("   words: " + ", ".join(f"{w['start']:.2f} {w['word']}" for w in said))
     return "\n".join([*lines, "</song>"])
 
 

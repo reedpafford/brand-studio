@@ -1768,7 +1768,14 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     director = prompts.system("director")
     for part in ("- `song` (paid, `note`)", "- `narration` (paid)", "songs_left",
                  "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
-                 "never change a lyric (rule 19)", "Sung shots follow the song's own sections",
+                 "never change a lyric (rule 19)", "With `take_id` and no `note` (free)",
+                 "the shorter (fewer seconds to film)", "onto the song's sections",
+                 "a voice in a take is a fault to redo", "not a second before",
                  "Treatment, then the song or the narration"):  # fmt: skip
         assert part in director, part
+    # Song-Producer's review (2 Nov): the plan maps beats onto the song; one voice; one world
+    assert "Map the treatment's beats onto its sections" in prompts.system("plan", fmt="song")
+    assert "**One voice in a song or a narration:**" in prompts.system("watch_cut")
+    assert "a song is usually one world" in prompts.system("review_stills")
+    assert "lands on the word that names it" in prompts.system("song_breakdown")
     assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"

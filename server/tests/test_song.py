@@ -93,7 +93,8 @@ def test_song_block_lists_sections_beats_and_timed_lines():
     assert "Beats: 0.00 0.50 1.00" in block
     assert "1| 0.10–1.90 Bowl stays full\n" in block
     assert "2| 2.10–3.80 Then the green goes on (times guessed)" in block
-    assert "peaks" not in block and "0.40" not in block  # words and peaks stay out
+    assert "   words: 0.10 Bowl\n2|" in block  # a picture can land on its word
+    assert "peaks" not in block and "0.40" not in block  # peaks and word ends stay out
     assert "<length>30 s (about 66 sung words)</length>" in prompts.song_directions_input(
         "Goal: x", ["char:1 Biscuit"], "folk", 30
     )

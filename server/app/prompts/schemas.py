@@ -629,7 +629,9 @@ class DirectorTurn(BaseModel):
         "make_take, null makes a first take of every clip that has none. Else null.",
     )
     take_id: int | None = Field(
-        default=None, description="For pick_take: the take's id (not its number); else null."
+        default=None,
+        description="For pick_take: the take's id (not its number). For song with no note: "
+        "the song take to use. Else null.",
     )
     shot_id: str | None = Field(
         default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
