@@ -20,3 +20,28 @@ export function Badge({ tone = "neutral", icon: Icon, children }: { tone?: Tone;
     </span>
   );
 }
+
+const dots: Record<Tone, string> = { success: "bg-success", warning: "bg-warning", danger: "bg-danger", neutral: "bg-muted", accent: "bg-accent", media: "bg-white" };
+
+/** A list's status: a small dot and the word. The word carries it; the dot's colour is the second signal. */
+export function Dot({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+      <span aria-hidden className={`size-2 shrink-0 rounded-full ${dots[tone]}`} />
+      {children}
+    </span>
+  );
+}
+
+/** Small bars for a run of steps: done ones green, the current one in the text colour, the rest dim. `at` is the current
+ *  step's index, or steps.length when all are done. Read out as words. */
+export function StepBars({ steps, at }: { steps: readonly string[]; at: number }) {
+  const said = at >= steps.length ? `All ${steps.length} steps done` : `Step ${at + 1} of ${steps.length}: ${steps[at]}`;
+  return (
+    <span role="img" aria-label={said} title={said} className="inline-flex shrink-0 gap-1">
+      {steps.map((s, i) => (
+        <span key={s} className={`h-1 w-3 rounded-full ${i < at ? "bg-success" : i === at ? "bg-text" : "bg-surface-3"}`} />
+      ))}
+    </span>
+  );
+}

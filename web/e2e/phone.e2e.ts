@@ -89,6 +89,7 @@ test("on a phone, New script → Dialogue opens with the box focused and no side
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Scripts", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
+  await page.waitForLoadState("networkidle"); // count once the rows have loaded, not before (an earlier test's Untitled script)
   const untitled = await page.getByRole("link", { name: "Untitled script" }).count();
   await page.getByRole("button", { name: "New script" }).first().click();
   await page.getByRole("menuitem", { name: /Dialogue/ }).click();

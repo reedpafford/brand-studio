@@ -24,6 +24,8 @@ import { LookSetting } from "./Looks";
 import { ProjectPicker } from "../folders/Projects";
 import { FormatAdvice, FormatSetting } from "./Format";
 import { HeldRequests } from "../approvals/HeldRequests";
+import { ScriptOverview } from "./ScriptOverview";
+import { VersionPanel } from "./VersionPanel";
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -68,13 +70,17 @@ export function ScriptFlowPage() {
   const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
   const fit = takes.find((t) => t.preferred && !t.out_of_date);
   const song = voiced ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date && t.status === "ready").length, making: takes.some((t) => t.status === "making" || t.status === "timing"), older: takes.filter((t) => t.out_of_date).length } : undefined;
+  // A published script opens on its Overview; a draft on its first step, as before.
+  const overview = s.published && (params.get("step") ?? "overview") === "overview";
   const step = stepFromParam(s, params.get("step"));
-  if (lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
-  const first = stepsFor(s)[0].id;
+  if (!overview && lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
+  const first = s.published ? "overview" : stepsFor(s)[0].id;
   const move = (to: string) => {
     setHold(null);
     setParams(to === first ? {} : { step: to });
   };
+  const steps = stepStates(step, s, song).map((x) => (overview && x.state === "current" ? { ...x, state: "open" as const } : x));
+  const making = /^(\d+)$/.exec(params.get("make") ?? ""); // ?make=1: Version B's panel, opened from the Overview
   const go = (to: string) => (hold ? setLeaving(() => () => move(to)) : move(to));
   const { prev, next } = around(s, step);
   const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : lockReason(next.id, s, song);
@@ -106,7 +112,7 @@ export function ScriptFlowPage() {
   const draftNote = mine ? (me?.role === "owner" ? "Draft · only you can see it" : "Draft · only you and the owner can see it") : `Draft · ${s.created_by_name || "an editor"}'s, not published`;
 
   return (
-    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail ? "" : "pb-28"}`}>
+    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail || overview ? "" : "pb-28"}`}>
       <Link
         to={`/b/${brandId}/scripts`}
         onClick={(e) => {
@@ -178,33 +184,39 @@ export function ScriptFlowPage() {
           {hold?.body}
         </Dialog>
       )}
-      <StepPicker steps={stepStates(step, s, song)} onPick={(to) => go(to)} />
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 className="type-section">{label}</h2>
-        {rail ? (
-          <div className="flex items-start gap-2">
-            {backButton}
-            {nextButton}
+      <StepPicker steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...steps] : steps} onPick={(to) => go(to)} />
+      {overview && <ScriptOverview script={s} brandId={brandId} onStep={go} onMake={(slot) => setParams({ make: String(slot) })} />}
+      {making && <VersionPanel scriptId={s.id} slot={Number(making[1])} brandId={brandId} onClose={() => setParams({})} />}
+      {!overview && (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h2 className="type-section">{label}</h2>
+            {rail ? (
+              <div className="flex items-start gap-2">
+                {backButton}
+                {nextButton}
+              </div>
+            ) : (
+              <ActionBar phone>
+                <div className="flex items-start gap-2 [&>button]:w-auto [&>span]:flex-1">
+                  {backButton}
+                  <span className="flex-1">{nextButton}</span>
+                </div>
+              </ActionBar>
+            )}
           </div>
-        ) : (
-          <ActionBar phone>
-            <div className="flex items-start gap-2 [&>button]:w-auto [&>span]:flex-1">
-              {backButton}
-              <span className="flex-1">{nextButton}</span>
-            </div>
-          </ActionBar>
-        )}
-      </div>
-      {step === "song" && <SongStep script={s} brandId={brandId} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The lyrics you changed are not saved." } : null)} />}
-      {step === "takes" && <TakesStep script={s} />}
-      {step === "narration" && <NarrationStep script={s} />}
-      {step === "script" && <FormatAdvice script={s} />}
-      {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
-      {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
-      {step === "variations" && <VariationsStep script={s} own={mine} />}
-      {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
-      {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
-      {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
+          {step === "song" && <SongStep script={s} brandId={brandId} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The lyrics you changed are not saved." } : null)} />}
+          {step === "takes" && <TakesStep script={s} />}
+          {step === "narration" && <NarrationStep script={s} />}
+          {step === "script" && <FormatAdvice script={s} />}
+          {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
+          {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
+          {step === "variations" && <VariationsStep script={s} own={mine} />}
+          {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
+          {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
+          {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
+        </>
+      )}
     </main>
   );
 }

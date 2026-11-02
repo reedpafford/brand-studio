@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, type Tone } from "../components";
-import { useDebounced } from "../scripts/ScriptsPage";
+import { useDebounced } from "../scripts/status";
 import { VideoMenu, useVideoActions, type VideoTarget } from "../projects/ReleaseVideo";
 import { useBrands } from "../shell/useBrands";
 import { lastText, money } from "../usage/parts";
