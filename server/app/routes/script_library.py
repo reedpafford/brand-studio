@@ -684,6 +684,19 @@ def restore_script(
     return _out(db, script)
 
 
+AWAITING_VIDEO = "This version is waiting for the owner's OK to make a video. Withdraw it to edit."
+
+
+def _awaiting_video(db: Session, draft: ScriptDraft) -> bool:
+    """A director-first video an editor asked for from this version waits for the owner's OK:
+    its words stay as sent until then (rule 31; QA-10 on #1190)."""
+    from app.models.jobs import JobStatus
+
+    return bool(db.scalar(select(Job.id).where(
+        Job.status == JobStatus.needs_owner_approval,
+        Job.input["freeze"]["draft"].as_integer() == draft.id).limit(1)))  # fmt: skip
+
+
 @router.put("/{script_id}/drafts/{slot}", response_model=ScriptOut)
 def write_draft(
     script_id: int,
@@ -700,6 +713,8 @@ def write_draft(
     )
     if draft and draft.status == "approved":
         raise HTTPException(409, "These words are approved and can't change.")
+    if draft and _awaiting_video(db, draft):
+        raise HTTPException(409, AWAITING_VIDEO)
     if not draft:
         draft = ScriptDraft(script_id=script.id, slot=slot)
         db.add(draft)

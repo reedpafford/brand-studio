@@ -79,6 +79,9 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
         (db.query(ScriptDraft).filter_by(script_id=made["id"], slot=0).one()),
     )
     assert not script.published and draft.status == "draft"  # nothing frozen while it waits
+    words = f"/scripts/{made['id']}/drafts/0"
+    edit = editor.put(words, json={"text": f"{SCRIPT}\nLEO: Changed."})
+    assert edit.status_code == 409 and "waiting for the owner's OK" in edit.text  # QA-10
     held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
                 if j["freestyle"]["id"] == mine["id"])  # fmt: skip
     owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not this one."})
@@ -86,6 +89,7 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
     assert not db.get(Script, made["id"]).published
     assert db.get(ScriptDraft, draft.id).status == "draft"
     assert mine["project_id"] not in [p["id"] for p in owner.get("/projects").json()]
+    assert editor.put(words, json={"text": f"{SCRIPT}\nLEO: Again."}).status_code == 200
     again = owner.post("/freestyles", json=pick)  # the version is free to make again
     assert again.status_code == 201, again.text
     twice = editor.post("/freestyles", json=pick)  # (the owner's own twice is a double tap)
