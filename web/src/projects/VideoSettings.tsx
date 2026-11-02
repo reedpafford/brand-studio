@@ -5,7 +5,7 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
 import { useMe } from "../auth/useMe";
-import { LookPicker, lookName, useLooks, type Look } from "../scripts/Looks";
+import { LookPicker, lookName, styleOf, useLooks, type Look } from "../scripts/Looks";
 import { SongSetting } from "../scripts/VideoSong";
 import { useRail } from "../useMedia";
 import { errorText as errorClass } from "../ui";
@@ -42,6 +42,21 @@ export const languageName = (code: string) => {
   }
 };
 
+/** A video that keeps its script's style (#1189): the style as a locked line and, when the style has lanes, a Lane choice among
+ *  them (the Producer: the server lets a lane of the same style follow; no other style is offered). */
+function lockedStyle(current: string, looks: Look[]): Field[] {
+  const style = looks.find((l) => l.id === styleOf(looks, current));
+  const locked: Field = { key: "look", label: "Style", current, valueLabel: style?.name ?? lookName(looks, current), locked: "set on the script", choices: [] };
+  const lanes = style?.lanes ?? [];
+  if (!style || lanes.length === 0) return [locked];
+  const short = (name: string) => name.replace(`${style.name} · `, "");
+  const lane = lanes.find((x) => x.id === current);
+  return [
+    locked,
+    { key: "lane", label: "Lane", current, valueLabel: lane ? short(lane.name) : "None", choices: [{ id: style.id, label: "None", body: { look: style.id } }, ...lanes.map((x) => ({ id: x.id, label: short(x.name), body: { look: x.id } }))] },
+  ];
+}
+
 /** The settings as the row shows them: one field per setting, each choice carrying the body that switches to it. */
 export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined, lookLocked = false): Field[] {
   const auto = <M extends { name: string; default: boolean }>(ms: M[]) => ms.find((m) => m.default) ?? ms[0];
@@ -55,7 +70,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       const now = s.product_variants[product] ?? options[0]; // a product missing from the picks is on its default
       return { key: `flavour:${product}`, label: Object.keys(s.flavours).length > 1 ? `Flavour (${product})` : "Flavour", current: now, valueLabel: now, choices: options.map((o) => ({ id: o, label: o, body: { product_variants: { [product]: o } } })) };
     }),
-    ...(looks ? [{ key: "look", label: "Look", current: s.look, valueLabel: lookName(looks as Look[], s.look), locked: lookLocked ? "set on the script" : undefined, choices: looks.map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }] : []),
+    ...(looks ? (lookLocked ? lockedStyle(s.look, looks as Look[]) : [{ key: "look", label: "Look", current: s.look, valueLabel: lookName(looks as Look[], s.look), choices: looks.map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }]) : []),
     {
       key: "video_model",
       label: "Video model",
