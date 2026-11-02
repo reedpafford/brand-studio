@@ -44,7 +44,7 @@ export function CharacterExtras(props: {
             </label>
           </div>
         ))}
-        <button type="button" className={btnSecondary} onClick={() => onOutfits([...outfits, { name: "", file_ids: [] }])}>
+        <button type="button" className={`${btnSecondary} min-h-control`} onClick={() => onOutfits([...outfits, { name: "", file_ids: [] }])}>
           Add outfit
         </button>
         {addPicture.isError && <p role="alert" className={errorClass}>{addPicture.error.message}</p>}

@@ -172,7 +172,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
         )}
         {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <button className={btnPrimary} disabled={save.isPending || !changed || form.brand_ids.length === 0}>
+          <button className={`${btnPrimary} min-h-control`} disabled={save.isPending || !changed || form.brand_ids.length === 0}>
             Save
           </button>
           {form.brand_ids.length === 0 && <span className="text-sm text-muted">Pick at least one brand.</span>}
@@ -184,7 +184,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
       <History kind={kind} item={item} onRestored={refresh} />
       {archive.isError && <p role="alert" className={errorClass}>{archive.error.message}</p>}
       <button
-        className={btnSecondary}
+        className={`${btnSecondary} min-h-control`}
         onClick={() => archive.mutate()}
       >
         Archive {one}
