@@ -9,3 +9,4 @@ export { Dialog, Panel, Sheet, SidePanel } from "./Overlay";
 export { ToastProvider, useToast } from "./Toast";
 export { Menu, MenuItem } from "./Menu";
 export { ViewOnly, useViewOnly } from "./ViewOnly";
+export { PageTop } from "./PageTop";

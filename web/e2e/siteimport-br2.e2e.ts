@@ -23,7 +23,7 @@ for (const width of [1440, 390]) {
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
     const save = page.getByRole("button", { name: "Save the ticked ones" });
-    expect((await save.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect((await save.boundingBox())!.height).toBeGreaterThanOrEqual(width === 1440 ? 24 : 44); // desktop: Linear-sized controls (Reed, 2 Nov)
     await save.click();
     await expect(page.getByText(/^Saved /)).toBeVisible();
     await page.getByRole("button", { name: "Undo" }).click();

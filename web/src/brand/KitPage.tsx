@@ -4,7 +4,7 @@ import { Plus, X } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
-import { Banner, Button, Card, Field, Select, TextArea } from "../components";
+import { Banner, Button, Field, Select, TextArea } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -100,7 +100,7 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
 
   return (
     <form
-      className="grid grid-cols-1 gap-4 lg:grid-cols-[7fr_5fr]"
+      className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-14"
       onSubmit={(e) => {
         e.preventDefault();
         if (changed && valid) save.mutate();
@@ -111,7 +111,7 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
           Save changes
         </Button>
       </BrandAction>}
-      <Card className="min-w-0 space-y-5">
+      <section className="min-w-0 space-y-5 border-b border-border pb-6 last:border-b-0">
         <h2 className="type-section">Look</h2>
         <Field label="Name" required value={kit.name} onChange={(e) => set("name", e.target.value)} />
         <ImagePicker label="Logo" fileId={kit.logo_file_id} onChange={(id) => set("logo_file_id", id)} />
@@ -150,10 +150,10 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
         </fieldset>
         <ChipList label="Fonts" items={kit.fonts} onChange={(v) => set("fonts", v)} placeholder="e.g. Manrope" />
         <ImagePicker label="Style board" shape="wide" fileId={kit.style_board_file_id} onChange={(id) => set("style_board_file_id", id)} />
-      </Card>
+      </section>
       {setup ? (
         <div className="min-w-0 space-y-4 lg:self-start">
-          <Card className="min-w-0 space-y-5">
+          <section className="min-w-0 space-y-5 border-b border-border pb-6 last:border-b-0">
             <h2 className="type-section">Voice and tone</h2>
             <TextArea label="How the brand talks" rows={5} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
             <TextArea label="Audience" rows={2} placeholder="Dog owners who've tried everything" value={kit.audience ?? ""} onChange={(e) => set("audience", e.target.value)} />
@@ -161,9 +161,9 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
             <ChipList label="Don't" items={kit.dont_list ?? []} onChange={(v) => set("dont_list", v)} placeholder="A word or phrase to never say" />
             <Field label="Music style" value={kit.music_style ?? ""} placeholder="Upbeat pop, warm" hint="New song versions start with this music style." onChange={(e) => set("music_style", e.target.value)} />
             <Field label="Legal line" value={kit.legal_line} onChange={(e) => set("legal_line", e.target.value)} />
-          </Card>
+          </section>
           <CtaLines brandId={brand.id} lines={setup.cta_lines} advice={setup.advice} />
-          <Card className="min-w-0 space-y-5">
+          <section className="min-w-0 space-y-5 border-b border-border pb-6 last:border-b-0">
             <h2 className="type-section">Defaults for new scripts</h2>
             {looks && (
               <Select label="Look" value={kit.default_look} onChange={(e) => set("default_look", e.target.value)} hint={looks.find((l) => l.id === kit.default_look)?.on === false ? "Off for editors: new scripts will start on House until it's on." : undefined}>
@@ -183,11 +183,11 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
               </Select>
             )}
             <DefaultCast brandId={brand.id} value={kit.default_cast ?? []} picks={setup.cast} onChange={(v) => set("default_cast", v)} />
-          </Card>
+          </section>
           {save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>}
         </div>
       ) : (
-      <Card className="min-w-0 space-y-5 lg:self-start">
+      <section className="min-w-0 space-y-5 border-b border-border pb-6 last:border-b-0 lg:self-start">
         <h2 className="type-section">Voice</h2>
         <TextArea label="How we sound" rows={6} value={kit.tone_notes} onChange={(e) => set("tone_notes", e.target.value)} />
         <ChipList label="Never say" items={kit.never_say} onChange={(v) => set("never_say", v)} placeholder="A word or phrase" />
@@ -198,7 +198,7 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
             {save.error.message}
           </p>
         )}
-      </Card>
+      </section>
       )}
     </form>
   );

@@ -6,7 +6,8 @@ import { fileUrl, uploadFile } from "../api/upload";
 import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
-import { backLink, btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
+import { PageTop } from "../components";
+import { backLink, btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 import { CharacterExtras } from "./CharacterExtras";
 import { SheetPanel } from "./SheetPanel";
 import { LookSheets } from "./LookSheets";
@@ -92,8 +93,7 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
       <Link to={backTo ?? `/b/${brandId}/library/${slug}`} className={backLink}>
         {backTo ? "← Back to your video" : `← ${title}`}
       </Link>
-      <h1 className={pageTitle}>{item.name}</h1>
-      {others.length > 0 && <p className="text-sm text-muted">Shared with {others.join(", ")}. Changes apply there too.</p>}
+      <PageTop title={item.name} line={others.length > 0 ? `Shared with ${others.join(", ")}. Changes apply there too.` : undefined} />
       {kind !== "prop" && <SheetPanel item={item} kind={kind} ensureSaved={async () => changed && form.brand_ids.length > 0 && (await save.mutateAsync())} />}
       {kind === "character" && <LookSheets item={item} />}
       {kind !== "prop" && <SheetVersions item={item} kind={kind} />}

@@ -6,11 +6,12 @@ import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
-import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText, pageTitle } from "../ui";
+import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 import { KINDS, isKindSlug } from "./kinds";
+import { PageTop } from "../components";
 
 const tab = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex min-h-control items-center rounded-sm px-3 ${isActive ? "bg-accent-soft font-medium text-accent-text" : "text-muted"}`;
+  `inline-flex min-h-control items-center rounded-md px-3 font-medium ${isActive ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`;
 
 export function LibraryPage() {
   const { brandId, kindSlug } = useParams();
@@ -54,19 +55,18 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   const shown = items.data?.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className={pageTitle}>Cast & places</h1>
-        <p className="text-sm text-muted">The studio's reusable characters and places. Looks made for a video stay with that video.</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {Object.entries(KINDS).map(([s, k]) => (
-          <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>
-            {k.title}
-          </NavLink>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
+    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
+      <PageTop title="Cast & places" line="The studio's reusable characters and places. Looks made for a video stay with that video." />
+      {/* One bar: the kinds, then search and Show archived on the right (v4 board). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border pb-2">
+        <nav aria-label="Kinds" className="flex flex-wrap items-center gap-1">
+          {Object.entries(KINDS).map(([s, k]) => (
+            <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>
+              {k.title}
+            </NavLink>
+          ))}
+        </nav>
+        <span className="hidden flex-1 sm:block" />
         <input className={`${input} max-w-xs`} type="search" aria-label="Search" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
         <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
           <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} />
@@ -91,7 +91,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
           Nothing matches "{search}". <button className={linkText} onClick={() => setSearch("")}>Clear search</button>
         </p>
       )}
-      <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-5 md:grid-cols-4 xl:grid-cols-5">
         {shown?.map((i) => (
           <li key={i.id} className="space-y-1 text-sm">
             {archived ? <Thumb id={cover(i)} name={i.name} faded /> : (
