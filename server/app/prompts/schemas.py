@@ -576,11 +576,48 @@ class CutWatch(BaseModel):
     )
 
 
+# --- The treatment (the Producer, 2 Nov): the director's first move, why the video holds ---
+
+
+class Beat(BaseModel):
+    id: str = Field(description="'b1', 'b2', … in order.")
+    lines: list[int] = Field(description="The script line numbers this beat covers, in order.")
+    purpose: str = Field(description="What it does for the story: hook, escalate, turn, payoff…")
+    picture: str = Field(description="What we see: something happening, readable with no sound.")
+
+
+class Treatment(BaseModel):
+    hook: str = Field(description="The first 2 seconds: what we see and hear.")
+    logline: str = Field(description="The story in one plain sentence.")
+    why_it_holds: str = Field(description="Why a viewer of this look keeps watching.")
+    beats: list[Beat] = Field(
+        description="The video in order; together every line but the scene headings, once."
+    )
+    ending: str = Field(description="The payoff and the call to action, and why they land.")
+
+
+# --- Review the stills (the Producer, 2 Nov): against the treatment, before any take ---
+
+
+class StillFinding(BaseModel):
+    shot_id: str = Field(description="The still's shot, from <frames>: '3.1'.")
+    problem: str = Field(description="One plain line for the owner: what's wrong for the story.")
+    note: str = Field(description="The change note for the redraw, ready to send.")
+
+
+class StillsReview(BaseModel):
+    ready: bool = Field(description="True when the stills tell the treatment and takes can start.")
+    findings: list[StillFinding] = Field(
+        max_length=8, description="Worst first; only what a viewer would notice; empty if ready."
+    )
+
+
 # --- The director (director-chat.md §5): one decision a turn, run by the server ---
 class DirectorTurn(BaseModel):
     tool: Literal[
-        "plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take", "pick_take",
-        "final_cut", "watch_cut", "mute", "wait", "deliver", "stop",
+        "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
+        "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
+        "mute", "wait", "deliver", "stop",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -594,10 +631,14 @@ class DirectorTurn(BaseModel):
     take_id: int | None = Field(
         default=None, description="For pick_take: the take's id (not its number); else null."
     )
+    shot_id: str | None = Field(
+        default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
+    )
     note: str = Field(
         default="",
-        description="For make_take as a redo: what to fix, from the take check's notes, in plain "
-        "words (e.g. 'say fomo as FOH-moh; no extra people'); else empty.",
+        description="What it must change, in plain words: for make_take as a redo, what to fix "
+        "(e.g. 'say fomo as FOH-moh; no extra people'); for redraw_still, what the beat needs "
+        "in the frame; for treatment or plan made again, what changes; else empty.",
     )
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "
