@@ -856,6 +856,8 @@ def make_video(
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
         if song:  # the song is the only sound (V6); a narration keeps the takes' (V6n)
             lengths = [c.song_slice["end"] - c.song_slice["start"] for c in clips]
+            if not narrated:  # it ends a breath after the last sung line (Song-Producer)
+                lengths = clip_takes.ends_at(lengths, song_end(song))
             sound = storage.get(db.get(StoredFile, song.file_id).key)
             bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
             data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
@@ -893,6 +895,18 @@ def make_video(
     project.finished_at = project.finished_at or utcnow()
     db.commit()
     return _video_out(db, video)
+
+
+AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end
+
+
+def song_end(take: SongTake) -> float | None:
+    """Where a song video ends: its last line heard, and a breath."""
+    from app import song_breakdown
+
+    sung = [x for x in song_breakdown.timing_used(take).get("lines") or []
+            if (x.get("heard") or 0) >= 0.5 and x.get("end") is not None]  # fmt: skip
+    return round(sung[-1]["end"] + AFTER_LAST_LINE, 2) if sung else None
 
 
 def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> bytes:
