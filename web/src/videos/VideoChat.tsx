@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText, Square } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Button, Dialog, Skeleton, buttonClass, creditsLabel, wholeCredits } from "../components";
+import { Button, Dialog, Skeleton, buttonClass, creditsLabel, pressLabel, wholeCredits } from "../components";
 import { ChangeBox, useSettingsWords } from "../freestyle/Composer";
 import { mmss } from "../freestyle/FromScript";
 import { Thread, type Said } from "../freestyle/Thread";
@@ -62,6 +62,7 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
   const run = useDirectorRun(p.id).data;
   const clips = useProjectClips(p.id).data ?? [];
   const words = useSettingsWords();
+  const changePrice = useChangePrice(freestyleId, q.data?.status === "waiting" && !!q.data.file_id);
   const actions = useFreestyleActions(freestyleId);
   const script = useScript(fs?.script_id ?? 0).data;
   const [stopping, setStopping] = useState(false);
@@ -146,7 +147,7 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
     ) : t.id === heldMove && state === "waiting" ? (
       <Card title="Sent to the owner for approval" price={fs.up_to ?? 0} frames={clips.length || 6} foot={fromScript ? undefined : "Nothing is made until the owner says yes."} />
     ) : t.id === heldMove && state === "change" ? (
-      <Card title="Change asked · waiting for the owner" price={run?.run_price ?? 0} foot="The cut above stays until the owner says yes." />
+      <Card title="Change asked · waiting for the owner" price={changePrice} foot="The cut above stays until the owner says yes." />
     ) : null;
   return (
     <div className="flex h-[calc(100dvh-var(--tabbar-h))] flex-col lg:h-screen">
@@ -206,8 +207,23 @@ function Cut({ fs, p, note, seconds, spent, hasClips }: { fs: Freestyle; p: { id
   );
 }
 
-/** The director's card for what waits on the owner: its "up to" price and, before anything is made, the clips to come. */
-function Card({ title, price, frames, foot }: { title: string; price: number; frames?: number; foot?: string }) {
+/** A held change's own price, "up to", from its held job (JobOut.freestyle.up_to, the figure its Needs you row shows). The
+ *  director's `run_price` is no use here: the server gives 0 while a run is going, and a change's held first turn counts
+ *  as going, which read as "up to free" (QA on #1194). The held jobs: the owner's are everyone's, an editor's their own
+ *  (`mine=true` leaves a director turn out). */
+function useChangePrice(freestyleId: number, enabled: boolean) {
+  const held = useQuery({
+    queryKey: ["held-jobs"],
+    enabled,
+    refetchInterval: 15_000,
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } })).data ?? [],
+  });
+  return held.data?.find((j) => j.status === "needs_owner_approval" && j.freestyle?.id === freestyleId && j.freestyle.change)?.freestyle?.up_to;
+}
+
+/** The director's card for what waits on the owner: its "up to" price (once known; never "up to free") and, before
+ *  anything is made, the clips to come. */
+function Card({ title, price, frames, foot }: { title: string; price: number | null | undefined; frames?: number; foot?: string }) {
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface px-4 py-3.5">
       <p className="flex items-center justify-between gap-3 text-sm">
@@ -215,7 +231,7 @@ function Card({ title, price, frames, foot }: { title: string; price: number; fr
           <span aria-hidden className="size-2 rounded-full bg-warning" />
           {title}
         </span>
-        <span className="text-muted tabular-nums">up to {creditsLabel(price)}</span>
+        {!!price && <span className="text-muted tabular-nums">{pressLabel(price, "estimate")}</span>}
       </p>
       {frames && (
         <ol aria-hidden className="grid grid-cols-6 gap-1.5">

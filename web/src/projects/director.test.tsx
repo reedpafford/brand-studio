@@ -181,7 +181,8 @@ test("during a run a note says the director reads it on its next move; a double 
   expect(calls.filter((c) => c.key === "POST /projects/9/director/messages")).toHaveLength(1);
   expect(screen.queryByRole("alert")).toBeNull();
   const thread = screen.getByRole("list", { name: "Conversation with the director" });
-  expect(within(thread).getByText("Waiting for approval.")).toBeInTheDocument();
+  expect(within(thread).getAllByText(/Waiting for the owner.s OK/)).toHaveLength(1); // said once, never a name
+  expect(within(thread).queryByText("Waiting for approval.")).toBeNull();
   expect(within(thread).queryByRole("link", { name: "See it in Needs you" })).toBeNull();
 });
 

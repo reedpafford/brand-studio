@@ -143,10 +143,10 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
         <>
           <p className="text-muted">{fs.change ? "Change asked" : "First send"}</p>
           {fs.said && <p className="line-clamp-6 whitespace-pre-line text-muted">"{fs.said}"</p>}
-          {fs.up_to != null && <p className="tabular-nums">Up to {creditsLabel(fs.up_to)}{fs.change ? " for this change" : " · your OK covers the whole run"}</p>}
-          {fs.change && fs.total != null && (
-            <p className="tabular-nums text-muted">
-              {fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "Nothing spent yet"} · {creditsLabel(fs.total)} in all with this change
+          {fs.up_to != null && (
+            <p className="tabular-nums">
+              Up to {creditsLabel(fs.up_to)}
+              {fs.change ? ` for this change · ${fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "nothing spent yet"}` : " · your OK covers the whole run"}
             </p>
           )}
         </>

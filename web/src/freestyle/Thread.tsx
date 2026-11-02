@@ -29,6 +29,7 @@ const clock = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 };
 
+const OK = "Waiting for the owner's OK"; // what a held send says to an editor (the server's WAIT_OK)
 export type Said = components["schemas"]["ThreadItem"]; // a FreestyleItem, with `answered` on a note
 
 /** One line of a conversation with the director (B_VideoRunning): an avatar, who and when, then the words. A person's
@@ -62,7 +63,7 @@ export function Item({ t, words, why, owner, children, ref }: { t: Said; words: 
                 See it in Needs you
               </Link>
             ) : (
-              <p className="text-muted">Waiting for approval.</p>
+              !t.text.startsWith(OK) && <p className="text-muted">{OK}.</p> // an editor: always the owner, never a name
             ))}
         </div>
         {children}

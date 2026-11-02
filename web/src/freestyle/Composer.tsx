@@ -24,7 +24,7 @@ export const sendKey = (go: () => void) => (e: KeyboardEvent) => {
   }
 };
 
-const chip = "inline-flex min-h-control items-center gap-1.5 rounded-md border border-border px-2.5 text-sm lg:min-h-control-dense";
+const chip = "inline-flex min-h-control items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-2.5 text-sm lg:min-h-control-dense lg:px-2 lg:text-xs"; // 12 px on desktop, as drawn
 
 /** A setting as a chip, "Type Dialogue": a menu of its choices, or with `locked` a read-only chip with a lock (a script's
  *  own type, style and brand, E_PickInComposer). On a phone the chips fill a 2×2 grid. */
@@ -73,7 +73,7 @@ export const shapeOptions = SHAPES.map((s) => ({ id: s, name: s }));
  *  their cap ("up to N credits", rule 34) once it's known, and ⌘↵. */
 export function SendPress({ owner, price, busy, disabled, wide, onClick }: { owner: boolean; price: number | undefined; busy: boolean; disabled: boolean; wide?: boolean; onClick?: () => void }) {
   return (
-    <Button type={onClick ? "button" : "submit"} busy={busy} disabled={disabled} kbd="⌘↵" onClick={onClick} className={wide ? "w-full" : ""} price={disabled ? undefined : price} charge="estimate">
+    <Button type={onClick ? "button" : "submit"} busy={busy} disabled={disabled} kbd="⌘↵" onClick={onClick} className={wide ? "w-full" : "shrink-0 whitespace-nowrap lg:px-3 lg:text-sm"} price={disabled ? undefined : price} charge="estimate">
       {owner ? "Make it" : "Send for approval"}
     </Button>
   );
@@ -95,7 +95,7 @@ export function Composer({ brandId, owner, onCreated, below }: { brandId: number
   const empty = !text.trim() || !settings.look; // never before the looks have loaded
   const go = () => !empty && !create.isPending && create.mutate({ text: text.trim(), settings }, { onSuccess: onCreated });
   const chips = (
-    <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-1.5">
+    <div className="grid grid-cols-2 gap-2 lg:flex lg:gap-1.5">
       <Pick label="Type" value={settings.type} options={TYPES.map((t) => ({ id: t.id, name: t.name, off: t.soon ? "coming next" : undefined }))} onPick={(type) => pick({ type })} />
       <Pick label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name }))} onPick={(look) => pick({ look })} />
       <Pick label="Brand" value={settings.brand_id ?? 0} options={[...brands.map((b) => ({ id: b.id, name: b.name })), { id: 0, name: "None" }]} onPick={(b) => pick({ brand_id: b || null })} />

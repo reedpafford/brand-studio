@@ -66,11 +66,14 @@ test("delivered: the cut sits in the thread under Delivered., with its note; the
 test("an editor's change waits for the owner: the last cut stays, the change's price shows, and Withdraw change takes it back", async () => {
   setViewport(1440);
   const waiting = fs({ status: "waiting", created_by_name: "Eli", file_id: 8, thread: [item("m1", "message", "Eli", SCRIPT), item("m2", "message", "Eli", "Punchier ending.", null, later), item("t3", "move", "Director", "Waiting for the owner's OK.", "held", later)] });
-  const calls = server(editor, waiting, run({ turns: [{ turn: 0, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: later }] }), { "POST /freestyles/9/withdraw": [200, { ...waiting, status: "delivered" }] });
+  // As the server has it: the run's price is 0 while its held turn counts as going; the change's price is on its held job.
+  const heldJob = { id: 31, kind: "claude", project_id: 50, credits: 3, status: "needs_owner_approval", created_at: later, finished_at: null, freestyle: { id: 9, title: "Bo tries salmon", type: "dialogue", said: "Punchier ending.", change: true, up_to: 139.46, total: 280, spent: 82 } };
+  const calls = server(editor, waiting, run({ run_price: 0, turns: [{ turn: 0, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: later }] }), { "POST /freestyles/9/withdraw": [200, { ...waiting, status: "delivered" }], "GET /jobs?status=needs_owner_approval": [200, [heldJob]] });
   renderApp("/b/1/videos/50");
   expect(await screen.findByText("Change waiting for approval")).toBeInTheDocument();
   expect(screen.getByText("Change asked · waiting for the owner")).toBeInTheDocument();
-  expect(screen.getByText("up to 40 credits")).toBeInTheDocument();
+  expect(await screen.findByText("up to 140 credits")).toBeInTheDocument(); // never "up to free" (QA on #1194)
+  expect(screen.queryByText(/free/)).toBeNull();
   expect(screen.getByText("Another change waits for the owner too.")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$|Reed/);
   await userEvent.click(screen.getByRole("button", { name: "Withdraw change" }));
