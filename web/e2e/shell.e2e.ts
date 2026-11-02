@@ -16,6 +16,24 @@ test("the brand switcher changes brand and is remembered", async ({ page }) => {
   await onBrand(page, "Iron Paws");
 });
 
+test("the rail's brand and account menus are not cut off by the rail, wide or narrow", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  for (const width of [1440, 1100]) {
+    await page.setViewportSize({ width, height: 900 });
+    const rail = page.getByRole("navigation", { name: "Main" });
+    for (const [open, title] of [[rail.getByRole("button", { name: /^Brand: / }), "Brands"], [rail.getByRole("button", { name: "Account menu" }), "Account"]] as const) {
+      await open.click();
+      const menu = page.getByRole("menu", { name: title });
+      await expect(menu).toBeVisible();
+      const box = (await menu.boundingBox())!;
+      // The menu's right edge (where a choice's check sits) is the menu itself, not cut off or covered.
+      const onTop = await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[role="menu"]'), { x: box.x + box.width - 6, y: box.y + box.height / 2 });
+      expect(onTop, `${title} at ${width}px`).toBe(true);
+      await page.keyboard.press("Escape");
+    }
+  }
+});
+
 test("signing out ends the session", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await expectSignedInAs(page, "Reed");

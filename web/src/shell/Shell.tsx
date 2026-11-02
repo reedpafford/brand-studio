@@ -266,19 +266,22 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
     </div>
   );
   return (
-    <nav aria-label="Main" className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-y-auto border-r border-border bg-surface p-2 ${wide ? "w-rail" : "w-[64px]"}`}>
+    <nav aria-label="Main" className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-border bg-surface p-2 ${wide ? "w-rail" : "w-[64px]"}`}>
+      {/* Only the rows scroll: the brand and account menus are wider than the rail and must not be clipped by it. */}
       <BrandSwitcher brands={brands} brand={brand} current={current} inRail iconOnly={!wide} />
-      {current && group("Make", ["scripts", "videos", "clip"].map((to) => { const s = section(to); return row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also); }))}
-      {current && group("Library", ["library", "media", "brand"].map((to) => { const s = section(to); return row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also); }))}
-      {owner &&
-        group(
-          "Studio",
-          <>
-            {!!waiting && row("/approvals", "Needs you", Bell, <Badge n={waiting} />)}
-            {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
-          </>,
-        )}
-      <div className="mt-auto pt-4">
+      <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
+        {current && group("Make", ["scripts", "videos", "clip"].map((to) => { const s = section(to); return row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also); }))}
+        {current && group("Library", ["library", "media", "brand"].map((to) => { const s = section(to); return row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also); }))}
+        {owner &&
+          group(
+            "Studio",
+            <>
+              {!!waiting && row("/approvals", "Needs you", Bell, <Badge n={waiting} />)}
+              {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
+            </>,
+          )}
+      </div>
+      <div className="pt-4">
         <AccountMenu inRail iconOnly={!wide} />
       </div>
     </nav>
