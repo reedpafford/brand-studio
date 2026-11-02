@@ -2,6 +2,8 @@
 how many of its roles need a new look and what making them costs; on a video, VS1's
 confirm says the same and its to-finish price includes them. Free and read only."""
 
+import pytest
+
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from tests.conftest import upload
@@ -40,6 +42,7 @@ def test_a_published_scripts_look_cant_be_previewed_either(owner, db):
     assert owner.get(f"{base}/look-change?look={LOOK}").status_code in (403, 409)
 
 
+@pytest.mark.usefixtures("own_look")
 def test_a_videos_look_switch_names_the_roles_and_prices_them(owner, editor, db):
     base, _ = _published(owner, db, breakdown=BREAKDOWN)
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]

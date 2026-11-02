@@ -8129,6 +8129,11 @@ export interface components {
              * @default 0
              */
             look_redo_credits: number;
+            /**
+             * Look Locked
+             * @default false
+             */
+            look_locked: boolean;
             /** Planned Seconds */
             planned_seconds: number | null;
             /** Breakdown Seconds */

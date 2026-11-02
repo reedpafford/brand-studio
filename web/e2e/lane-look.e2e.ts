@@ -10,6 +10,8 @@ test("at 390, a video on a Paper lane (paper-flat) shows the lane's name in its 
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const fomo = brands.find((b) => b.name === "fomo")!.id;
   const s = await (await page.request.post("/api/scripts", { data: { brand_id: fomo, title: `Lane ${Date.now()}`, description: "", notes: "", reference_replace: "", text: "SCENE 1 — INT. KITCHEN — DAY\nNATE: The dip is in." } })).json();
+  // The style is chosen on the script and its video keeps it (#1189): Paper, so a Paper lane may follow.
+  expect((await page.request.patch(`/api/scripts/${s.id}`, { data: { look: "paper" } })).ok()).toBe(true);
   expect((await page.request.post(`/api/scripts/${s.id}/drafts/0/approve`)).ok()).toBe(true);
   expect((await page.request.post(`/api/scripts/${s.id}/publish`)).ok()).toBe(true);
   const pid = (await (await page.request.post(`/api/scripts/${s.id}/drafts/0/produce`)).json()).project_id;
