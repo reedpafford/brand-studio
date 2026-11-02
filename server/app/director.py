@@ -605,8 +605,8 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
-               "songs_left": director_song.REMAKES - run.get("songs", 0),
-               "narrations_left": director_song.REMAKES - run.get("songs", 0),
+               "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
+               "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip

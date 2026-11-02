@@ -82,7 +82,8 @@ def test_a_song_is_made_again_once_a_run_and_never_in_another_kind(app, db, owne
 
     def tool(name, note="", made=0):
         decision = {"tool": name, "note": note}
-        return director_tools.run(db, me, video, decision, app.state.storage, {"songs": made})
+        return director_tools.run(db, me, video, decision, app.state.storage,
+                                  {director_song.REMADE: made})  # fmt: skip
 
     assert tool("narration") == director_song.NO_NARRATOR
     full = director_song.REMAKES
@@ -134,7 +135,7 @@ def test_a_song_the_service_failed_is_tried_again_free_once_and_a_refusal_says_s
     songs()
     assert director_song.state(db, video)["state"] == "failed"
     assert tool() == "Trying the song again: the service failed, nothing was charged."
-    assert run["song_retries"] == 1 and "songs" not in run  # not a remake
+    assert run["song_retries"] == 1 and director_song.REMADE not in run  # not a remake
     songs()  # the same request again, its style line too: it fails again here
     assert tool().startswith("Refused: the song didn't come out")  # once; then a note
     job = max(db.query(Job).filter(Job.kind == "music"), key=lambda j: j.id)
