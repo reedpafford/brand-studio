@@ -66,6 +66,21 @@ def test_the_brands_name_heard_wrong_in_a_narration_is_found_once_timed():
     ]
 
 
+def test_a_narration_sentence_with_one_word_lost_is_missing():
+    from app.models.songs import SongTake
+
+    said = "Packed with probiotics and greens. Get it today."
+    heard = [{"word": w, "start": 0.0} for w in "Packed with and greens. Get it today.".split()]
+    take = SongTake(kind="narration", timing={"words": heard})
+    lines = [{"text": "Packed with probiotics and greens.", "heard": 0.8},
+             {"text": "Get it today.", "heard": 1.0}]  # fmt: skip
+    assert director_song._missing(take, lines) == ["Packed with probiotics and greens."]
+    take.timing = {"words": [{"word": w, "start": 0.0} for w in said.split()]}
+    assert director_song._missing(take, lines) == []
+    song = SongTake(kind="song", timing={"words": heard})  # a song keeps its 60 %
+    assert director_song._missing(song, lines) == []
+
+
 def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app, db, owner):
     from app.models.songs import SongTake
 

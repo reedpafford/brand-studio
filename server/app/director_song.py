@@ -48,6 +48,16 @@ def misheard(timing: dict | None, brand: str) -> list[dict] | None:
             for w in timing.get("words") or [] if wrong(w["word"])]  # fmt: skip
 
 
+def _missing(take: SongTake, lines: list[dict]) -> list[str]:
+    """Lines not heard as written. A song's: under HEARD of its words. A narration's: any word
+    lost, by its letters against everything heard, as the trim check compares (one dropped
+    "probiotics" is a miss)."""
+    if take.kind != narration.KIND:
+        return [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
+    heard = narration.letters((take.timing or {}).get("words") or [])
+    return [x["text"] for x in lines if narration.letters([{"word": x["text"]}]) not in heard]
+
+
 def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dict:
     status = song_takes.state(db, take)[0]
     timing = take.timing or {}
@@ -61,8 +71,7 @@ def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dic
             "hook_at": sung[0]["start"] if sung else None,
             "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
-            "missing": [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
-            if take.timing is not None else None,
+            "missing": _missing(take, lines) if take.timing is not None else None,
             **({"misheard": misheard(take.timing, brand)} if take.kind == narration.KIND
                else {})}  # fmt: skip
 

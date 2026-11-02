@@ -73,7 +73,7 @@ def trim(path: Path, out: Path) -> Path:
     return out
 
 
-def _letters(heard: list[dict]) -> str:
+def letters(heard: list[dict]) -> str:
     return "".join(re.sub(r"[^a-z]", "", w["word"].lower()) for w in heard)
 
 
@@ -83,7 +83,7 @@ def measure(path: Path, text: str, hear=song_timing.words) -> tuple[dict, Path |
     before = song_timing.length(path)
     trimmed = trim(path, path.with_name("trimmed.mp3"))
     after, heard = hear(trimmed, text), hear(path, text)
-    same = _letters(after) == _letters(heard)
+    same = letters(after) == letters(heard)
     use, heard = (trimmed, after) if same else (path, heard)
     seconds = song_timing.length(use)
     timing = {
