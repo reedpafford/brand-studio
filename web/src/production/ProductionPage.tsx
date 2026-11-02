@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { Check, CircleAlert, Clapperboard, Clock, Film, Search, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, Clapperboard, Clock, Film, Search, TriangleAlert } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, type Tone } from "../components";
+import { Badge, Banner, Button, EmptyState, PageTop, Select, Sheet, Skeleton, Tabs, type Tone } from "../components";
 import { useDebounced } from "../scripts/status";
 import { VideoMenu, useVideoActions, type VideoTarget } from "../projects/ReleaseVideo";
 import { useBrands } from "../shell/useBrands";
@@ -45,6 +45,57 @@ export const who = (r: Row) => r.editor?.name ?? "Someone";
 const target = (r: Row): VideoTarget => ({ id: r.project_id, name: `${r.script.title} · ${r.letter}`, letter: r.letter, creditsUsed: r.credits_used });
 const label = (r: Row) => `${r.script.title}, version ${r.letter}, ${who(r)}, at ${STEPS[r.step]}${r.flag ? `, ${FLAGS[r.flag].label.toLowerCase()}` : ""}`;
 const nearBudget = (r: Row) => r.budget_credits > 0 && budgetUsed(r) / r.budget_credits >= 0.9; // the director's own time never counts (DECISIONS #1066)
+
+/** What a moving video is doing now, by its step (v5 D_Production's Now column). */
+const NOW: Record<Step, string> = { breakdown: "Making the plan", assets: "Casting", storyboard: "Drawing the storyboard", clips: "Making clips", downloads: "Making the final cut" };
+const ORDER: Step[] = ["breakdown", "assets", "storyboard", "clips", "downloads"];
+
+/** A compact select for the page's bars on a computer ("Brand: All" on the board); `label` names it for screen readers. */
+function BarSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
+  return (
+    <span className="relative inline-flex">
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="min-h-control-dense appearance-none rounded-md border border-border bg-transparent pl-3 pr-8 text-sm font-medium hover:bg-surface-2">
+        {options.map(([v, name]) => (
+          <option key={v} value={v}>{name}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
+    </span>
+  );
+}
+
+/** The steps as short bars: done in green, the current one in the accent (D_Production's Step column). */
+function StepDots({ step }: { step: Step }) {
+  const at = ORDER.indexOf(step);
+  return (
+    <span className="inline-flex gap-[3px]" role="img" aria-label={`${STEPS[step]}: step ${at + 1} of ${ORDER.length}`}>
+      {ORDER.map((s, i) => (
+        <i key={s} className={`h-1 w-3.5 rounded-sm ${i < at ? "bg-success" : i === at ? "bg-accent" : "bg-surface-3"}`} />
+      ))}
+    </span>
+  );
+}
+
+/** The Now column: a flagged video's badge colour and reason, or what a moving one is doing and when it last moved. */
+function Now({ r }: { r: Row }) {
+  const f = r.flag ? FLAGS[r.flag] : null;
+  return (
+    <span className="flex min-w-0 items-start gap-2 text-sm">
+      <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${!f ? "bg-accent" : f.tone === "danger" ? "bg-danger" : "bg-warning"}`} />
+      <span className="min-w-0 break-words">
+        {f ? (
+          <>
+            <span className="font-medium">{f.label}</span> <span className="text-muted">{reason(r)}</span>
+          </>
+        ) : (
+          <>
+            {NOW[r.step]} <span className="text-muted">· {ago(lastText(r.last_activity_at))}</span>
+          </>
+        )}
+      </span>
+    </span>
+  );
+}
 
 const Dot = ({ colour }: { colour?: string }) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-brand" style={colour ? { background: colour } : undefined} />;
 
@@ -156,6 +207,13 @@ export function ProductionPage() {
       Needs attention
     </button>
   );
+  const search = (
+    <label className="relative block min-w-0 flex-1 lg:w-56 lg:flex-none">
+      <span className="sr-only">Search scripts</span>
+      <Search size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+      <input type="search" role="searchbox" placeholder="Search scripts" value={text} onChange={(e) => (setText(e.target.value), set("q", e.target.value.trim()))} className="min-h-control w-full rounded-md border border-border bg-surface pl-9 pr-3 lg:min-h-control-dense" />
+    </label>
+  );
   const clearButton = filtered && <Button variant="ghost" onClick={clear}>Clear filters</Button>;
   const active = [brand, editor, attention, sort !== "attention"].filter(Boolean).length;
 
@@ -167,35 +225,32 @@ export function ProductionPage() {
   }
 
   return (
-    <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
-      <div>
-        <p className="hidden text-xs font-bold uppercase tracking-[0.12em] text-muted lg:block">Studio</p>
-        <h1 className="type-page">In production</h1>
-        <p className="text-sm text-muted">
-          {count ?? " "}
-          {count && !filtered && waitingLink && <> · {waitingLink}</>}
-        </p>
-      </div>
+    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
+      <PageTop title="In production" line={count && <>{count}{!filtered && waitingLink && <> · {waitingLink}</>}</>}>
+        {rail && <BarSelect label="Brand" value={brand} onChange={(v) => set("brand", v)} options={[["", "Brand: All"], ...(brands ?? []).map((b): [string, string] => [String(b.id), b.name])]} />}
+      </PageTop>
+      {/* v5 D_Production: Making and Needs attention as tabs in a band, the other filters on its right. */}
+      {rail && (
+        <div className="-mx-6 -mt-4 flex flex-wrap items-center gap-3 border-b border-border px-6 py-2">
+          <Tabs label="Show" value={attention ? "attention" : "making"} onChange={(t) => set("attention", t === "attention" ? "1" : "")} tabs={[
+            { id: "making", label: "Making", count: all },
+            { id: "attention", label: "Needs attention", count: summary.data ? needs : undefined },
+          ]} />
+          <span className="flex-1" />
+          {clearButton}
+          {search}
+          <BarSelect label="Editor" value={editor} onChange={(v) => set("editor", v)} options={[["", "Editor: Anyone"], ...[...people].map(([id, name]): [string, string] => [String(id), name])]} />
+          <BarSelect label="Sort" value={sort} onChange={(v) => set("sort", v === "attention" ? "" : v)} options={SORTS.map((x): [string, string] => [x.id, x.label])} />
+        </div>
+      )}
+      {!rail && (
       <div className="flex flex-wrap items-end gap-3">
-        <label className="relative block min-w-0 flex-1 lg:w-64 lg:flex-none">
-          <span className="sr-only">Search scripts</span>
-          <Search size={20} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="search" role="searchbox" placeholder="Search scripts" value={text} onChange={(e) => (setText(e.target.value), set("q", e.target.value.trim()))} className="min-h-control w-full rounded-md border border-border bg-surface pl-10 pr-3 lg:min-h-control-dense" />
-        </label>
-        {rail ? (
-          <>
-            <div className="w-40">{brandSelect}</div>
-            <div className="w-40">{editorSelect}</div>
-            {toggle}
-            {clearButton}
-            <div className="ml-auto w-56">{sortSelect}</div>
-          </>
-        ) : (
-          <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
-            {active > 0 ? `Filters (${active})` : "Filters"}
-          </Button>
-        )}
+        {search}
+        <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
+          {active > 0 ? `Filters (${active})` : "Filters"}
+        </Button>
       </div>
+      )}
       {query.isError && <Banner title="Couldn't load the videos being made." action={<Button variant="secondary" onClick={() => void query.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {query.isPending && (
         <div role="status" aria-label="Loading" className={rail ? "space-y-2" : "grid gap-3 sm:grid-cols-2"}>
@@ -227,53 +282,46 @@ export function ProductionPage() {
   );
 }
 
+/** v5 D_Production: Video · Brand · Step · Now · Maker · Spent, one hairline row each across the page. */
 function Table({ rows, showBrand, colour, onRelease }: { rows: Row[]; showBrand: boolean; colour: (id: number) => string | undefined; onRelease: (r: Row) => void }) {
-  const cols = showBrand ? "grid-cols-[minmax(0,2.6fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_44px]" : "grid-cols-[minmax(0,2.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_44px]";
+  const cols = showBrand ? "grid-cols-[minmax(0,1.6fr)_120px_96px_minmax(0,1.6fr)_100px_140px_44px]" : "grid-cols-[minmax(0,1.6fr)_96px_minmax(0,1.6fr)_100px_140px_44px]";
   return (
-    <Card className="p-0 sm:p-0">
-      <div aria-hidden className={`grid ${cols} gap-x-4 border-b border-border px-4 py-3 text-sm font-medium text-muted`}>
+    <div className="-mx-6 -mt-4">
+      <div aria-hidden className={`grid ${cols} gap-x-4 border-b border-border px-6 py-2 text-xs text-muted`}>
         <span>Video</span>
         {showBrand && <span>Brand</span>}
-        <span>Editor</span>
         <span>Step</span>
-        <span className="text-right">Last activity</span>
-        <span className="text-right">Credits</span>
+        <span>Now</span>
+        <span>Maker</span>
+        <span className="text-right">Spent</span>
         <span />
       </div>
-      <ul className="divide-y divide-border">
+      <ul>
         {rows.map((r) => (
-          <li key={r.project_id} className="relative">
-            <Link to={`/b/${r.brand.id}/projects/${r.project_id}`} aria-label={label(r)} className={`grid ${cols} items-center gap-x-4 gap-y-2 px-4 py-3 text-sm tabular-nums hover:bg-surface-2`}>
-              <span className="flex min-w-0 items-center gap-3">
-                <Poster id={r.poster_file_id} size="h-14 w-9" />
-                <span className="min-w-0 break-words font-semibold">{r.script.title} · {r.letter}</span>
-              </span>
+          <li key={r.project_id} className="relative border-b border-border">
+            <Link to={`/b/${r.brand.id}/projects/${r.project_id}`} aria-label={label(r)} className={`grid ${cols} min-h-13 items-center gap-x-4 px-6 py-2 text-sm tabular-nums hover:bg-surface-2`}>
+              <span className="min-w-0 break-words font-medium">{r.script.title} · {r.letter}</span>
               {showBrand && (
-                <span className="flex min-w-0 items-center gap-2">
+                <span className="flex min-w-0 items-center gap-2 text-muted">
                   <Dot colour={colour(r.brand.id)} />
                   <span className="min-w-0 break-words">{r.brand.name}</span>
                 </span>
               )}
-              <span className="min-w-0 break-words">{who(r)}</span>
-              <span>{STEPS[r.step]}</span>
-              <span className="text-right">{lastText(r.last_activity_at)}</span>
+              <StepDots step={r.step} />
+              <Now r={r} />
+              <span className="min-w-0 break-words text-muted">{who(r)}</span>
               <span className="text-right">
                 <Credits r={r} /> <span className="text-muted">{money(r.spent_usd)}</span>
               </span>
               <span aria-hidden />
-              {r.flag && (
-                <span className="col-span-full pl-12">
-                  <FlagLine r={r} />
-                </span>
-              )}
             </Link>
-            <div className="absolute right-2 top-3 flex items-center">
+            <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center">
               <VideoMenu title={`${r.script.title} · ${r.letter}`} onRelease={() => onRelease(r)} />
             </div>
           </li>
         ))}
       </ul>
-    </Card>
+    </div>
   );
 }
 

@@ -61,11 +61,21 @@ test("In production: filters go in the address and to the server; the Brand colu
   fakeServer(base());
   open("/production?brand=2&attention=1");
   await screen.findByRole("link", { name: /Bo tries salmon/ });
-  expect(screen.getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("tab", { name: /^Needs attention/ })).toHaveAttribute("aria-selected", "true"); // v5 D_Production: Making and Needs attention are tabs
+  expect(screen.getByRole("combobox", { name: "Brand" })).toHaveValue("2");
   expect(screen.queryByText("Brand", { selector: "span" })).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
   expect(await screen.findByText("Brand", { selector: "span" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("tab", { name: /^Making/ })).toHaveAttribute("aria-selected", "true");
+});
+
+test("In production on a computer (v5 D_Production): each row shows its step as bars and what it's doing now", async () => {
+  setViewport(1440);
+  fakeServer(base());
+  open();
+  const link = await screen.findByRole("link", { name: /Midnight snack/ });
+  expect(within(link).getByRole("img", { name: /: step \d of 5$/ })).toBeInTheDocument();
+  expect(within(link).getByText(/^(Making the plan|Casting|Drawing the storyboard|Making clips|Making the final cut)/)).toBeInTheDocument();
 });
 
 test("In production: on a phone the rows are cards and the filters are in a sheet", async () => {

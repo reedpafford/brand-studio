@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { ChartColumn, ChevronRight, Search } from "lucide-react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
-import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton } from "../components";
+import { Badge, Banner, Button, creditsLabel, EmptyState, PageTop, Select, Sheet, Skeleton } from "../components";
+import { useHeld } from "../approvals/useHeld";
+import { linkText } from "../ui";
 import { useRail } from "../useMedia";
 import { useDebounced } from "../scripts/status";
 import { useRestoreBrand } from "../brand/ArchiveBrand";
 import { Charges } from "./Charges";
-import { Money, PeriodControl, Stats, lastText, money, periodLine, periodWord } from "./parts";
+import { Money, PeriodControl, Stat, Stats, lastText, money, periodLine, periodWord } from "./parts";
 import { periodFrom, useBrandRows, useSummary, type BrandRow, type Sort } from "./useUsage";
 
 const SORTS: { id: Sort; label: string }[] = [
@@ -43,6 +45,8 @@ export function UsagePage() {
   const restoreBrand = useRestoreBrand();
   const summary = useSummary(period);
   const rows = useBrandRows({ period, q, archived, sort });
+  const held = useHeld();
+  const waitingCredits = held.heldJobs.reduce((n, j) => n + (j.freestyle?.up_to ?? j.credits), 0); // as Needs you counts it
   if (summary.error?.message === "404") return <Navigate to="/usage/mine" replace />; // an editor: their own credits (OR4)
   const items = rows.data?.pages.flatMap((p) => p.items) ?? [];
   const total = rows.data?.pages[0]?.total;
@@ -67,15 +71,17 @@ export function UsagePage() {
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="type-page">Usage</h1>
-          <p className="text-sm text-muted">{summary.data ? periodLine(period, summary.data.starts_at) : " "}</p>
-        </div>
-        <PeriodControl value={period} onChange={(p) => set("period", p === "week" ? "" : p)} />
-      </div>
+      <PageTop title="Usage" line={summary.data ? periodLine(period, summary.data.starts_at) : undefined}>
+        {rail && <PeriodControl value={period} onChange={(p) => set("period", p === "week" ? "" : p)} />}
+      </PageTop>
+      {!rail && <PeriodControl value={period} onChange={(p) => set("period", p === "week" ? "" : p)} />}
       {summary.isError && <Banner title="Couldn't load usage." action={<Button variant="secondary" onClick={() => void summary.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-      <Stats figures={summary.data} period={period} />
+      <Stats figures={summary.data} period={period}>
+        {/* v5 D_Usage: what's waiting for the owner's OK, with the way to it. */}
+        <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className={`${linkText} inline-flex min-h-11 items-center lg:min-h-0`}>{held.count} request{held.count === 1 ? "" : "s"} in Needs you</Link>}>
+          {held.count === 0 ? "Nothing" : waitingCredits > 0 ? `up to ${creditsLabel(waitingCredits)}` : `${held.count} request${held.count === 1 ? "" : "s"}`}
+        </Stat>
+      </Stats>
 
       <section aria-label="Brands" className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -116,7 +122,7 @@ export function UsagePage() {
           ) : (
             <EmptyState icon={ChartColumn} title="No brands yet.">Add a brand from the brand menu. It shows up here by itself.</EmptyState>
           ))}
-        {items.length > 0 && (rail ? <BrandTable items={items} period={period} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} /> : <BrandCards items={items} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} />)}
+        {items.length > 0 && (rail ? <BrandTable items={items} period={period} spent={summary.data?.spend_usd ?? 0} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} /> : <BrandCards items={items} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} />)}
         {rows.hasNextPage && (
           <Button variant="secondary" busy={rows.isFetchingNextPage} onClick={() => void rows.fetchNextPage()} className="w-full lg:w-auto">
             Show more
@@ -138,10 +144,11 @@ export function UsagePage() {
   );
 }
 
+const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 const label = (b: BrandRow) => `${b.name}: ${money(b.spend_usd)} spent, ${b.finished} finished`;
 const each = (b: BrandRow) => (b.cost_per_finished_usd === null ? "—" : money(b.cost_per_finished_usd));
 
-function BrandTable({ items, period, onRestore }: { items: BrandRow[]; period: ReturnType<typeof periodFrom>; onRestore: (b: BrandRow) => void }) {
+function BrandTable({ items, period, spent, onRestore }: { items: BrandRow[]; period: ReturnType<typeof periodFrom>; spent: number; onRestore: (b: BrandRow) => void }) {
   const forPeriod = (name: string) => (
     <>
       {name}
@@ -149,7 +156,7 @@ function BrandTable({ items, period, onRestore }: { items: BrandRow[]; period: R
     </>
   );
   return (
-    <Card className="overflow-x-auto p-0 sm:p-0">
+    <div className="overflow-x-auto">
       <table className="w-full text-sm tabular-nums">
         <thead className="text-muted">
           <tr className="border-b border-border text-right align-bottom">
@@ -161,10 +168,11 @@ function BrandTable({ items, period, onRestore }: { items: BrandRow[]; period: R
             <th scope="col" className="px-3 py-3 font-medium">Scripts</th>
             <th scope="col" className="px-3 py-3 font-medium">Versions left</th>
             <th scope="col" className="px-3 py-3 font-medium">Last</th>
+            <th scope="col" className="w-32 px-3 py-3 text-left font-medium">{forPeriod("Share")}</th>
             <th scope="col" className="w-8" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-border border-b border-border">
           {items.map((b) => (
             <tr key={b.brand_id} className="relative text-right hover:bg-surface-2">
               <th scope="row" className="px-4 py-3 text-left font-medium">
@@ -181,6 +189,12 @@ function BrandTable({ items, period, onRestore }: { items: BrandRow[]; period: R
               <td className="px-3 py-3">{b.scripts}</td>
               <td className="px-3 py-3">{b.versions_left}</td>
               <td className="px-3 py-3">{lastText(b.last_activity_at)}</td>
+              {/* v5 D_Usage: the brand's part of what was spent, as a bar. */}
+              <td className="px-3 py-3">
+                <span role="img" aria-label={`${share(b.spend_usd, spent)}% of what was spent`} className="block h-1.5 overflow-hidden rounded-full bg-surface-3">
+                  <i className="block h-full bg-accent" style={{ width: `${share(b.spend_usd, spent)}%` }} />
+                </span>
+              </td>
               <td className="pr-3 text-muted">
                 {b.archived ? (
                   <span className="relative z-10 inline-flex">
@@ -196,7 +210,7 @@ function BrandTable({ items, period, onRestore }: { items: BrandRow[]; period: R
           ))}
         </tbody>
       </table>
-    </Card>
+    </div>
   );
 }
 

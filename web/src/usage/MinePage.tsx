@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
-import { Badge, Banner, Button, Card, Select, Skeleton, creditsText } from "../components";
+import { Badge, Banner, Button, Card, PageTop, Select, Skeleton, creditsLabel, creditsText } from "../components";
+import { useMyRequests } from "../approvals/HeldRequests";
 import { lastBrand, useBrands } from "../shell/useBrands";
 import { PeriodControl, periodWord } from "./parts";
 import { periodFrom } from "./useUsage";
@@ -24,13 +25,28 @@ export function MinePage() {
   });
   const m = mine.data;
   const week = m?.week;
+  // v5 D_MyCredits: my sends waiting for the owner's OK, at what approving them would let them spend.
+  const waiting = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval");
+  const waitingCredits = waiting.reduce((n, j) => n + (j.freestyle?.up_to ?? j.credits), 0);
+  const filters = (
+    <>
+      {brands.length > 1 && (
+        <div className="lg:w-48">
+          <Select label="Brand" value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </Select>
+        </div>
+      )}
+      <PeriodControl value={period} onChange={(p) => setParams((s) => (s.set("period", p), s), { replace: true })} />
+    </>
+  );
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className="type-page">My credits</h1>
-        <p className="text-sm text-muted">What your work has used, in credits.</p>
-      </div>
+      <PageTop title="My credits" line="What your work has used, in credits." />
       {mine.isError && <Banner title="Couldn't load your credits." action={<Button variant="secondary" onClick={() => void mine.refetch()}>Try again</Button>}>Check your connection.</Banner>}
+      <div className="grid gap-3 lg:grid-cols-2">
       <Card className="space-y-2">
         <h2 className="type-section">This week</h2>
         {!week ? (
@@ -56,18 +72,19 @@ export function MinePage() {
           </>
         )}
       </Card>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-        {brands.length > 1 && (
-          <div className="lg:w-64">
-            <Select label="Brand" value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </Select>
-          </div>
+      <Card className="space-y-2">
+        <h2 className="type-section">Waiting for the owner's OK</h2>
+        {waiting.length === 0 ? (
+          <p className="text-sm text-muted">Nothing waiting.</p>
+        ) : (
+          <>
+            <p className="font-medium tabular-nums">up to {creditsLabel(waitingCredits)}</p>
+            <p className="text-sm text-muted">{waiting.length} send{waiting.length === 1 ? "" : "s"}. Nothing is spent until it's approved.</p>
+          </>
         )}
-        <PeriodControl value={period} onChange={(p) => setParams((s) => (s.set("period", p), s), { replace: true })} />
+      </Card>
       </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">{filters}</div>
       {!m ? (
         !mine.isError && <Skeleton className="h-40" />
       ) : (

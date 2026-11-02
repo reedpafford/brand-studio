@@ -295,3 +295,24 @@ test("on a phone the line reads '0 credits' before the badge, and one credit is 
   expect(lines.some((n) => n.textContent === "0 credits")).toBe(true);
   expect(screen.getByText(/1 credit ·/)).toBeInTheDocument();
 });
+
+test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to Needs you, and each brand's share of the spend is a bar", async () => {
+  setViewport(1440);
+  const held = { id: 50, kind: "video", project_id: null, credits: 4, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: null, brand_id: 1, freestyle: { id: 4, title: "Bo", type: "dialogue", said: "", change: false, up_to: 204, spent: 0 } };
+  fakeServer({ ...base, "GET /jobs": [200, [held]], "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])] });
+  open();
+  const totals = await screen.findByRole("group", { name: "Totals" });
+  expect(await within(totals).findByText("up to 204 credits")).toBeInTheDocument();
+  expect(within(totals).getByRole("link", { name: "1 request in Needs you" })).toHaveAttribute("href", "/approvals");
+  expect(await screen.findByRole("img", { name: "62% of what was spent" })).toBeInTheDocument(); // 52.30 of 84.12
+});
+
+test("My credits (v5 D_MyCredits): my sends waiting for the owner's OK show what approving would let them spend, and that nothing is spent yet", async () => {
+  setViewport(1440);
+  const send = { id: 60, kind: "video", project_id: null, credits: 4, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: null, brand_id: 1, freestyle: { id: 4, title: "Bo", type: "dialogue", said: "", change: false, up_to: 204, spent: 0 } };
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, mine], "GET /jobs": [200, [send, { ...send, id: 61, status: "done" }]] });
+  open("/usage/mine");
+  expect(await screen.findByText("up to 204 credits")).toBeInTheDocument();
+  expect(screen.getByText("1 send. Nothing is spent until it's approved.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\$/);
+});
