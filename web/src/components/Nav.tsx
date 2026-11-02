@@ -106,7 +106,7 @@ export function Tabs({ tabs, value, onChange, label }: { tabs: Tab[]; value: str
             role="tab"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className={`-mb-px inline-flex min-h-control items-center gap-2 border-b-2 px-3 font-medium ${on ? "border-accent text-text" : "border-transparent text-muted hover:text-text"}`}
+            className={`-mb-px inline-flex min-h-control shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 font-medium ${on ? "border-accent text-text" : "border-transparent text-muted hover:text-text"}`}
           >
             {t.label}
             {t.count !== undefined && (

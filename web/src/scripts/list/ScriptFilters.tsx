@@ -117,7 +117,7 @@ export function ScriptFilters({ rail, owner, text, onText, f, set, filtered, act
           </Select>
         </div>
       )}
-      <div className="w-full lg:w-40">
+      <div className="w-full lg:w-52">
         <Select label="Sort" value={f.sort} onChange={(e) => set("sort", e.target.value)}>
           {SORTS.map(([v, l]) => (
             <option key={v} value={v}>

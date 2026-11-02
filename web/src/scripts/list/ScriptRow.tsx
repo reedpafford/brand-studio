@@ -101,7 +101,7 @@ export function ScriptRow({ row: r, brandName, refName, refThumb, narrow, mayOpe
         <div className="min-w-0 flex-1">
           <h3 className="flex min-w-0 items-center gap-2 font-medium">
             {mayOpen ? (
-              <Link to={titleTo} className="min-w-0 break-words hover:underline lg:truncate">
+              <Link to={titleTo} className="min-h-control min-w-0 content-center break-words hover:underline lg:min-h-0 lg:truncate">
                 {r.title}
               </Link>
             ) : (
