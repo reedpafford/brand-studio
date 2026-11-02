@@ -87,6 +87,28 @@ def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app
     assert "[" not in draft.text  # the note went to the voice, never into the version's words
     redo = db.get(Job, db.get(SongTake, second["id"]).job_id)
     assert redo.input["input"]["prompt"].startswith("[Say ")
+    assert db.get(SongTake, second["id"]).voice == "Sarah"  # no voice picked: the default
+
+
+def test_the_director_picks_the_narrators_voice_from_ours(app, db, owner):
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.songs import SongTake
+
+    fs = _sent(owner, "narrated", NARRATION)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+
+    def tool(voice):
+        decision = {"tool": "narration", "note": "warmer", "voice": voice}
+        return director_tools.run(db, me, video, decision, app.state.storage, {})
+
+    assert tool("Morgan").startswith("Refused: the narrator's voice is one of Sarah")
+    assert tool("Jane") == "Making the narration (warmer)."
+    newest = max(director_song.state(db, video)["takes"], key=lambda t: t["id"])
+    assert db.get(SongTake, newest["id"]).voice == "Jane"
 
 
 def test_a_song_runs_price_holds_its_song_and_one_remake(app, db, owner):

@@ -140,7 +140,10 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         return AGAIN.format(what=what)
     if not _on(db, draft):
         return OFF
-    song_takes.make(db, user, draft, project, kie=_real(db, found), note=note)
+    voice = (decision.get("voice") if found == "narrated" else None) or narration.VOICE
+    if voice not in narration.VOICES:  # the Director's pick (None: the default)
+        return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
+    song_takes.make(db, user, draft, project, kie=_real(db, found), note=note, voice=voice)
     if takes:  # a remake; the first song's note is its style line, not a remake
         run["songs"] = run.get("songs", 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
