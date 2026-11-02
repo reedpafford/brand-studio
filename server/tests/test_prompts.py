@@ -1617,3 +1617,21 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
     assert "the published script's words can't change here" in director
     for gone in ("not yet read", "never act on it again", "[{text}]", "[{text, new}]"):
         assert gone not in director, gone
+
+
+def test_the_director_reads_the_story_and_never_delivers_a_weak_cut_as_good():
+    """Reed, 2 Nov, on the first real director video: "didn't watch it for engaging content
+    and story telling... made no sense". It reads the script and plan as the story, a clean
+    take isn't proof of the story, it delivers only a watched cut, and a cut that doesn't land
+    is said plainly."""
+    director = prompts.system("director")
+    assert (
+        "<script> (the published script, numbered" in director
+        and "<plan> (the approved" in director
+    )
+    assert "the take check sees faces, outfits, screens and words, never the story" in director
+    assert "read <script> and <plan> as the story" in director
+    assert "`watch` is done and `current` for this cut" in director
+    assert "never deliver it as good" in director
+    watch = prompts.system("watch_cut")
+    assert "does the video make sense, and does it hold a viewer from the first second" in watch
