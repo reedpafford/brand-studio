@@ -278,6 +278,34 @@ def test_a_look_alike_refusal_steps_down_then_says_what_to_do(app, db, editor, s
     assert credits_used(db, db.get(Project, setup["project"])) == before  # refused takes: free
 
 
+@pytest.mark.parametrize("by", ["person", "director"])
+def test_a_look_alike_retry_keeps_the_redo_note(app, db, editor, setup, clip, by):  # noqa: F811
+    """QA-10: a Redo with a note, a person's or the director's make_take, keeps that note on
+    both look-alike retries, so the take that's made is the change that was asked for."""
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    note = "Mom should look angrier."
+    if by == "person":
+        url = f"/projects/{setup['project']}/clips/{clip['id']}/generate"
+        assert editor.post(url, json={"note": note}).status_code == 201
+    else:
+        user = db.query(User).filter_by(email="ed@example.com").one()
+        project = db.get(Project, setup["project"])
+        decision = {"tool": "make_take", "clip_id": clip["clip_id"], "note": note}
+        said = director_tools.run(db, user, project, decision, app.state.storage)
+        assert said == "Making 1 take.", said
+    for _ in range(3):
+        _work(app, db, Refusing([]))
+    db.expire_all()
+    takes = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
+                   key=lambda j: j.id)  # fmt: skip
+    assert [j.input.get("lookalike") for j in takes] == [None, 1, 2]
+    assert all(f"Change from the last take: {note}" in j.input["input"]["prompt"]
+               for j in takes)  # fmt: skip
+
+
 class Busy(FakeSeedance):
     """Seedance too busy to finish a take (Producer, 2026-10-27)."""
 

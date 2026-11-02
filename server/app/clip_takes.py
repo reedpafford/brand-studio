@@ -74,6 +74,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "project_id": project.id,
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
+        **({"note": note} if note else {}),  # its Redo note, kept for a look-alike's retries
         "model": model.id,
         "made_with": {  # VS1: what the take is made with; OR3: its prompt's version
             **video_settings.made_with(
@@ -280,9 +281,9 @@ def _lookalike(job: Job) -> bool:
 
 def _again_without(db: Session, job: Job) -> None:
     """A take refused as a look-alike (Seedance's copyright check, the Producer): made again
-    without the opening still, then without the sheets, the characters said in words; after
-    that it stops and says so plainly. A refused take isn't charged: only the one that's made
-    counts, against the cap and the price like any take."""
+    without the opening still, then without the sheets, the characters said in words, its Redo
+    note kept; after that it stops and says so plainly. A refused take isn't charged: only the
+    one that's made counts, against the cap and the price like any take."""
     step = job.input.get("lookalike", 0)
     project = db.get(Project, job.project_id)
     row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
@@ -293,7 +294,7 @@ def _again_without(db: Session, job: Job) -> None:
     if db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
         return
     try:
-        data = take_input(db, project, row, drop=LOOKALIKE[: step + 1])
+        data = take_input(db, project, row, job.input.get("note", ""), drop=LOOKALIKE[: step + 1])
     except HTTPException as exc:
         log.info("clip %s: no look-alike retry: %s", row.id, exc.detail)
         return
