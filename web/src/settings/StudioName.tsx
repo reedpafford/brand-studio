@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { studioName } from "../auth/pages";
-import { Button, Card, Skeleton } from "../components";
+import { Skeleton } from "../components";
+import { SaveButton, SettingRow, type SettingsTop } from "./SettingRow";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
 /** The name an invite link shows. A stored slug like "owner-reed" reads as "{owner}'s studio" until the owner picks a name. */
-export function StudioName({ owner }: { owner: string }) {
+export function StudioName({ owner, top }: { owner: string; top: SettingsTop }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const workspace = useQuery({ queryKey: ["workspace"], queryFn: async () => (await api.GET("/workspace")).data ?? null });
@@ -36,23 +37,25 @@ export function StudioName({ owner }: { owner: string }) {
     });
   };
 
-  if (workspace.isPending) return <Skeleton className="h-28" />;
-  if (!saved) return null;
+  if (workspace.isPending)
+    return (
+      <>
+        {top()}
+        <Skeleton className="h-28" />
+      </>
+    );
+  if (!saved) return <>{top()}</>;
   return (
-    <section>
-      <Card className="space-y-3">
-        <div className="space-y-1">
-          <label htmlFor="studio-name" className="font-medium">Studio name</label>
-          <input id="studio-name" aria-describedby="studio-name-help" value={value} onChange={(e) => setEdit(e.target.value)} className="min-h-control w-full rounded-md border border-border-strong bg-surface px-3" />
-          <p id="studio-name-help" className="text-sm text-muted">Shown on invite links.</p>
-        </div>
-        {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
-        <div className="sm:flex sm:justify-end">
-          <Button variant="secondary" dense busy={put.isPending} disabled={reason !== null} reason={reason} onClick={save} className="w-full sm:w-auto">
-            Save
-          </Button>
-        </div>
-      </Card>
-    </section>
+    <>
+      {top(
+        <SaveButton reason={reason} busy={put.isPending} onClick={save} />,
+      )}
+      <section aria-label="Studio" className="max-w-[900px] sm:px-2">
+        <SettingRow htmlFor="studio-name" label="Studio name" help="Shown on invite links.">
+          <input id="studio-name" value={value} onChange={(e) => setEdit(e.target.value)} className="min-h-control w-full max-w-[360px] rounded-md border border-border-strong bg-bg px-2.5 lg:min-h-control-dense" />
+        </SettingRow>
+        {put.isError && <p role="alert" className={`pt-3 ${errorClass}`}>{put.error.message}</p>}
+      </section>
+    </>
   );
 }
