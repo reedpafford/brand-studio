@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { onBrand, signIn } from "./helpers";
 
-// One look per style (#1139): a video on one of a style's lanes shows the lane by its name, never its raw id, and the look
-// picker offers the styles only, with the lane's style In use. On the stand-ins; nothing paid.
-test("at 390, a video on a Paper lane (paper-flat) shows the lane's name in its settings; the picker lists styles, Paper In use", async ({ page }) => {
+// One look per style (#1139): a video on one of a style's lanes shows the lane by its name, never its raw id. A video made from a
+// published script keeps the script's style (#1189), so it shows as a locked line, not a picker. On the stand-ins; nothing paid.
+test("at 390, a video on a Paper lane (paper-flat) shows the lane's name in its settings, locked to the script's style", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
@@ -25,10 +25,9 @@ test("at 390, a video on a Paper lane (paper-flat) shows the lane's name in its 
   await expect(summary).toContainText(lane.name);
   await summary.click();
   const sheet = page.getByRole("dialog", { name: "Video settings" });
-  await sheet.getByRole("button", { name: new RegExp(`Look: ${lane.name}`) }).click();
-  const paper = page.getByRole("heading", { name: "Paper", exact: true }).locator("xpath=ancestor::li[1]");
-  await expect(paper.getByText("In use")).toBeVisible();
-  await expect(page.getByRole("heading", { name: /^Paper · / })).toHaveCount(0); // lanes aren't offered as looks
+  // The video keeps its script's style (Reed's walk item 7): the lane's name in a locked line, with no Look picker.
+  await expect(sheet.getByText(`Style: ${lane.name} · set on the script`)).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /^Look:/ })).toHaveCount(0);
   expect(await page.locator("body").textContent()).not.toContain("paper-flat");
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);

@@ -140,7 +140,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   if (settings.isPending) return <Skeleton className="h-control" />;
   if (settings.isError || !settings.data) return null; // the server doesn't offer settings yet: nothing to press
   // A video made from a published script keeps its script's style (Next-Server's ProjectOut.look_locked); legacy videos switch.
-  const fields = fieldsOf(settings.data, looks.data, !!(p as Project & { look_locked?: boolean }).look_locked);
+  const fields = fieldsOf(settings.data, looks.data, p.look_locked);
   const chip = (f: Field) =>
     f.locked ? (
       <LockedSetting key={f.key} field={f} />
