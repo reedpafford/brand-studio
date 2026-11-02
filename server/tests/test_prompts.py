@@ -1598,3 +1598,22 @@ def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
     )  # fmt: skip
     assert "<script>Get &lt;fomo&gt;.</script>" in text and "[Image1] c1 at 0.0 s" in text
     assert '"clip_id": "c1"' in text
+
+
+def test_the_director_revises_from_the_chat_and_never_changes_the_words():
+    """Next-Server's #1155: <chat> is the run's notes, each open until answered as "Note N";
+    the asks come first, the watch fixes only what the change broke, and the script's words
+    never change (rule 19)."""
+    director = prompts.system("director")
+    assert "optional <chat> (JSON: [{note, text, new, answered}]" in director
+    assert "**When people ask for changes.**" in director
+    assert "A note is open while `answered` is false" in director
+    assert 'write "Note N" in the `why` of every action that works on note N' in director
+    assert "never repeat one, so one ask is still one paid redo" in director
+    assert "only a real fault the change itself caused" in director
+    assert "no other new fixes or extras" in director
+    assert "is left alone and offered in the delivery note as a question" in director
+    assert "Deliver only when every note is answered" in director
+    assert "the published script's words can't change here" in director
+    for gone in ("not yet read", "never act on it again", "[{text}]", "[{text, new}]"):
+        assert gone not in director, gone

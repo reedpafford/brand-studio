@@ -8,10 +8,9 @@ import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 import { KINDS, isKindSlug } from "./kinds";
-import { PageTop } from "../components";
+import { PageTop, pillClass } from "../components";
 
-const tab = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex min-h-control items-center rounded-md px-3 font-medium ${isActive ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`;
+const tab = ({ isActive }: { isActive: boolean }) => pillClass(isActive);
 
 export function LibraryPage() {
   const { brandId, kindSlug } = useParams();
@@ -72,7 +71,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
           {Object.entries(KINDS).map(([s, k], n) => (
             <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>
               {k.title}
-              {counts[n].data && <span className="ml-2 tabular-nums text-muted">{counts[n].data.length}</span>}
+              {counts[n].data && <span className="tabular-nums text-muted">{counts[n].data.length}</span>}
             </NavLink>
           ))}
         </nav>
