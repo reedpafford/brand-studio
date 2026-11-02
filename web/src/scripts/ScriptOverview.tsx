@@ -48,7 +48,7 @@ function VersionRow({ v, video, onMake }: { v: Version; video?: Project; onMake:
         )}
       </div>
       <div className={cell}>{v.editor ? <Who name={v.editor.name} /> : "—"}</div>
-      <div className={`${cell} tabular-nums`}>{video ? creditsOf(video) : v.status === "approved" && v.estimate_credits > 0 ? `up to ${wholeCredits(v.estimate_credits)}` : "—"}</div>
+      <div className={`${cell} tabular-nums`}>{video ? creditsOf(video) : v.status === "approved" && v.estimate_credits > 0 ? `about ${wholeCredits(v.estimate_credits)} (planned)` : "—"}</div>
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
         {v.status === "approved" && (
           <Button dense charge="estimate" price={cost} onClick={onMake}>
