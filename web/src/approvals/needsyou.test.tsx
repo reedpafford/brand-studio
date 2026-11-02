@@ -16,6 +16,8 @@ const base: Record<string, [number, unknown]> = {
   "GET /brands": [200, brands],
   "GET /projects": [200, [project]],
   "GET /jobs": [200, [held({})]],
+  "GET /production": [200, []],
+  "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 0 }],
 };
 
 function open(path = "/approvals") {
@@ -24,7 +26,7 @@ function open(path = "/approvals") {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("an editor who opens Approvals lands on Home (their Videos), with no held work asked for", async () => {
+test("an editor who opens Needs you lands on Home (their Videos), with no held work asked for", async () => {
   const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []] });
   open();
   expect(await screen.findByRole("link", { name: "Videos", current: "page" })).toBeInTheDocument();
@@ -35,8 +37,8 @@ test("an editor who opens Approvals lands on Home (their Videos), with no held w
 test("a held job shows what it is, its credits and what it does to the budget, and Approve runs it", async () => {
   const calls = fakeServer({ ...base, "POST /jobs/50/approve": [200, held({ status: "queued" })] });
   open();
-  expect(await screen.findByText("Approvals")).toBeInTheDocument();
-  expect(await screen.findByText(/1 waiting · 27 credits/)).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Needs you" })).toBeInTheDocument();
+  expect(await screen.findByText(/Every brand · 1 thing · 1 request worth 27 credits/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Mia buys the dip" })).toHaveAttribute("href", "/b/1/projects/9");
   expect(screen.getByText(/27 credits · takes the video to 117% of its budget/)).toBeInTheDocument();
   expect(screen.getByText(/Over budget/)).toBeInTheDocument();
@@ -61,7 +63,7 @@ test("Decline asks first in a dialog, with an optional reason the editor sees, t
   expect(await screen.findByText("Declined. Nothing was charged.")).toBeInTheDocument();
 });
 
-test("with nothing waiting, Approvals says held presses from editors show here (S42)", async () => {
+test("with nothing waiting, Needs you says held presses from editors show here (S42)", async () => {
   fakeServer({ ...base, "GET /jobs": [200, []], "GET /projects": [200, []] });
   open();
   expect(await screen.findByText(/an editor's press goes past a video's budget or their week, or they make songs, narration or music on a script, it waits here/)).toBeInTheDocument();
@@ -110,25 +112,25 @@ test("a held project has only Approve, says how to decline, and the toast counts
 test("with nothing waiting it says so", async () => {
   fakeServer({ ...base, "GET /jobs": [200, []], "GET /projects": [200, [project]] });
   open();
-  expect(await screen.findByText("Nothing waiting.")).toBeInTheDocument();
+  expect(await screen.findByText("Nothing needs you.")).toBeInTheDocument();
 });
 
-test("the owner sees a count on Approvals in the top bar and the rail; an editor sees no Approvals link", async () => {
+test("the rail's Needs you counts held requests plus videos that need attention", async () => {
   setViewport(1440);
-  fakeServer({ ...base });
+  fakeServer({ ...base, "GET /production/summary": [200, { in_production: 3, needs_attention: 2, changes_waiting: 0 }] });
   open("/b/1/projects");
   const nav = await screen.findByRole("navigation", { name: "Main" });
-  expect(await within(nav).findByRole("link", { name: /Approvals/ })).toHaveTextContent("1");
+  expect(await within(nav).findByRole("link", { name: /Needs you/ })).toHaveTextContent("3");
 });
 
-test("an editor's navigation has no Approvals", async () => {
+test("an editor's navigation has no Needs you", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /auth/me": [200, editor] });
   open("/b/1/projects");
   const nav = await screen.findByRole("navigation", { name: "Main" });
   await within(nav).findByRole("link", { name: "Scripts" });
-  expect(within(nav).queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: /Approvals/ })).not.toBeInTheDocument();
+  expect(within(nav).queryByRole("link", { name: /Needs you/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Needs you/ })).not.toBeInTheDocument();
 });
 
 test("a Quick clip row says Quick clip once", async () => {
@@ -152,7 +154,7 @@ test("each row says who asked, and the owner sees the dollars next to the credit
   expect(screen.getByText("To decline, ask Jo to shorten the plan.")).toBeInTheDocument();
 });
 
-test("an editor who opens Approvals sees no held work and no dollars", async () => {
+test("an editor who opens Needs you sees no held work and no dollars", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs": [200, [held({ created_by_name: "Sam" })]], "GET /jobs/50/detail": [200, held({ cost_usd: 2.36 })] });
   open("/approvals");
   expect(await screen.findByRole("link", { name: "Videos", current: "page" })).toBeInTheDocument();
@@ -200,4 +202,41 @@ test("a held request's '% of its budget' leaves the director's own time out, as 
   fakeServer({ ...base, "GET /projects": [200, [{ ...project, credits_used: 90, director_credits: 60 }]] });
   open();
   expect(await screen.findByText(/27 credits · takes the video to 57% of its budget/)).toBeInTheDocument(); // (90 − 60 + 27) / 100
+});
+
+const stuckRow = { project_id: 21, brand: { id: 1, name: "fomo" }, script: { id: 3, title: "Treat time" }, letter: "A", editor: { id: 7, name: "Dee" }, step: "assets", last_activity_at: now, credits_used: 5, budget_credits: 100, spent_usd: 0.5, poster_file_id: null, flag: "idle", flag_since: new Date(Date.now() - 3 * 86_400_000).toISOString() };
+const done = { project_id: 22, title: "Bo tries salmon · B", script_id: 4, version_letter: "B", legacy: false, person: { id: 7, name: "Dee" }, status: "done", spend_usd: 1, spend_estimated: false, credits: 10, finished_at: now, last_activity_at: now };
+
+test("one list across brands, with tabs: a stuck video and a finished one with changes each open their video", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /production": [200, [stuckRow]],
+    "GET /production/summary": [200, { in_production: 1, needs_attention: 1, changes_waiting: 1 }],
+    "GET /usage/brands/1/videos": [200, { total: 2, next_cursor: null, people: [], items: [{ ...done, final_out_of_date: true }, { ...done, project_id: 23, final_out_of_date: false }] }],
+  });
+  open();
+  const tabs = await screen.findByRole("tablist", { name: "Show" });
+  expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["All 3", "Requests 1", "Stuck 1", "Changes waiting 1"]);
+  expect(screen.getByText("Every brand · 3 things · 1 request worth 27 credits")).toBeInTheDocument();
+  expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  expect(calls.find((c) => c.key === "GET /production")).toBeTruthy();
+  await userEvent.click(within(tabs).getByRole("tab", { name: "Stuck 1" }));
+  expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  expect(screen.getByText("No activity")).toBeInTheDocument(); // a dot and words
+  expect(screen.getByText("At Cast · Nothing for 3 days · Dee")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Open video Treat time · A" })).toHaveAttribute("href", "/b/1/videos/21");
+  await userEvent.click(within(tabs).getByRole("tab", { name: "Changes waiting 1" }));
+  expect(screen.getAllByRole("listitem")).toHaveLength(1); // only the out-of-date one
+  expect(screen.getByRole("link", { name: "Open video Bo tries salmon · B" })).toHaveAttribute("href", "/b/1/videos/22?step=final");
+  await userEvent.click(within(tabs).getByRole("tab", { name: "Requests 1" }));
+  expect(screen.getByRole("button", { name: "Approve a new take" })).toBeInTheDocument();
+});
+
+test("the brands' video lists are read only when the summary says changes wait; an empty tab says so", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /jobs": [200, []] });
+  open("/approvals?tab=stuck");
+  expect(await screen.findByText("Nothing is stuck.")).toBeInTheDocument();
+  expect(calls.some((c) => c.key.startsWith("GET /usage/"))).toBe(false);
 });

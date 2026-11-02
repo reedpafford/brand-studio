@@ -13,13 +13,13 @@ for (const width of [1440, 390]) {
     const name = `November launch ${run}`;
 
     await page.goto(`/b/${brandId}/videos`);
-    const list = width === 1440 ? page.getByRole("region", { name: "Projects" }) : page.getByRole("dialog", { name: "Projects" });
-    if (width === 390) await page.getByRole("button", { name: "Project: All" }).click();
+    const list = page.getByRole("dialog", { name: "Projects" }); // "Project: All ▾" at every width (the rail lost its list, nav A)
+    await page.getByRole("button", { name: "Project: All" }).click();
     await list.getByRole("button", { name: "New project" }).click();
     await page.getByRole("alertdialog", { name: "New project" }).getByLabel("Name").fill(name);
     await page.getByRole("alertdialog", { name: "New project" }).getByRole("button", { name: "Make the project" }).click();
     await expect(list.getByRole("button", { name: `${name} · 0 items` })).toBeVisible();
-    if (width === 390) await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
 
     await page.goto(`/b/${brandId}/videos/${id}`);
     await page.getByRole("button", { name: "Project: none" }).click();
@@ -28,12 +28,12 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: `Project: ${name}` })).toBeVisible();
 
     await page.goto(`/b/${brandId}/videos`);
-    if (width === 390) await page.getByRole("button", { name: "Project: All" }).click();
+    await page.getByRole("button", { name: "Project: All" }).click();
     await list.getByRole("button", { name: `${name} · 1 item` }).click();
     await expect(page).toHaveURL(/folder=\d+/);
     await expect(page.getByRole("link", { name: new RegExp(video) })).toBeVisible();
 
-    if (width === 390) await page.getByRole("button", { name: `Project: ${name}` }).click();
+    await page.getByRole("button", { name: `Project: ${name}` }).click();
     await list.getByRole("button", { name: `More for ${name}` }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     const ask = page.getByRole("alertdialog", { name: `Delete ${name}?` });

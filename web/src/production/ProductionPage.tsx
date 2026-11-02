@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Card, EmptyState, Select, Sheet, Skeleton, type Tone } from "../components";
-import { useDebounced } from "../scripts/ScriptsPage";
+import { useDebounced } from "../scripts/status";
 import { VideoMenu, useVideoActions, type VideoTarget } from "../projects/ReleaseVideo";
 import { useBrands } from "../shell/useBrands";
 import { lastText, money } from "../usage/parts";
@@ -14,7 +14,7 @@ import { serverTime } from "../time";
 import { budgetUsed } from "../projects/budget";
 import { linkText } from "../ui";
 
-const STEPS: Record<Step, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
+export const STEPS: Record<Step, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
 const SORTS: { id: Sort; label: string }[] = [
   { id: "attention", label: "Needs attention first" },
   { id: "activity", label: "Last activity" },
@@ -22,7 +22,7 @@ const SORTS: { id: Sort; label: string }[] = [
   { id: "budget", label: "Closest to budget" },
 ];
 const sortFrom = (s: string | null): Sort => SORTS.find((x) => x.id === s)?.id ?? "attention";
-const FLAGS: Record<NonNullable<Row["flag"]>, { label: string; tone: Tone; icon: typeof Clock }> = {
+export const FLAGS: Record<NonNullable<Row["flag"]>, { label: string; tone: Tone; icon: typeof Clock }> = {
   failed: { label: "Didn't finish", tone: "danger", icon: CircleAlert },
   stuck: { label: "Stuck", tone: "warning", icon: TriangleAlert },
   idle: { label: "No activity", tone: "warning", icon: Clock },
@@ -35,13 +35,13 @@ const span = (iso: string) => (mins(iso) < 90 ? `${mins(iso)} min` : `${Math.flo
 const ago = (t: string) => (/ (min|h|days)$/.test(t) ? `${t} ago` : t);
 
 /** What follows the badge, in plain words. */
-function reason(r: Row) {
+export function reason(r: Row) {
   if (r.flag === "failed") return `${STEPS[r.step]}: ${r.flag_problem ?? "the last job didn't finish."}`;
   if (r.flag === "stuck") return `${r.flag_job ?? "Working"} for ${r.flag_since ? span(r.flag_since) : "a while"}`;
   return `Nothing for ${r.flag_since ? Math.max(2, Math.floor(mins(r.flag_since) / 1440)) : 2} days`;
 }
 /** Who started it; the server says nobody when that person is gone. */
-const who = (r: Row) => r.editor?.name ?? "Someone";
+export const who = (r: Row) => r.editor?.name ?? "Someone";
 const target = (r: Row): VideoTarget => ({ id: r.project_id, name: `${r.script.title} · ${r.letter}`, letter: r.letter, creditsUsed: r.credits_used });
 const label = (r: Row) => `${r.script.title}, version ${r.letter}, ${who(r)}, at ${STEPS[r.step]}${r.flag ? `, ${FLAGS[r.flag].label.toLowerCase()}` : ""}`;
 const nearBudget = (r: Row) => r.budget_credits > 0 && budgetUsed(r) / r.budget_credits >= 0.9; // the director's own time never counts (DECISIONS #1066)

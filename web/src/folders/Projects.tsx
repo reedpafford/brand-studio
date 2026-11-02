@@ -6,7 +6,6 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Button, Dialog, Field, Menu, MenuItem, Panel, useToast } from "../components";
 import { errorText as errorClass } from "../ui";
-import { useMedia } from "../useMedia";
 
 /** A brand's project (flows OR1). Internally a "folder": the database already calls a video a project. People only see "Project". */
 export type FolderOut = components["schemas"]["FolderOut"];
@@ -142,13 +141,13 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
   );
 }
 
-/** On a list page where the side list isn't shown (a phone, the icon rail): "Project: All ▾", opening the list in a sheet. */
+/** On a list page: "Project: All ▾", opening the brand's projects (pick, New project, Rename, Delete) in a panel.
+ *  At every width since the rail lost its Projects list (Reed, 2 Nov: nav A). */
 export function ProjectsChip({ brandId }: { brandId: number }) {
   const folders = useFolders(brandId);
   const folder = useFolderFilter();
   const [open, setOpen] = useState(false);
-  const wide = useMedia("(min-width: 1280px)"); // there the side list shows them
-  if (!folders.data || wide) return null;
+  if (!folders.data) return null;
   const name = folder === "none" ? "No project" : folder ? (folders.data.find((f) => String(f.id) === folder)?.name ?? "All") : "All";
   return (
     <>

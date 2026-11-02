@@ -376,6 +376,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/freestyles/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Estimate Freestyle
+         * @description What a send would cost, at most. Free: nothing is queued and nothing is asked of a model.
+         */
+        get: operations["estimate_freestyle_freestyles_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/freestyles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Freestyles
+         * @description The caller's freestyles, newest first; `everyone`: the whole team's (owner only).
+         */
+        get: operations["list_freestyles_freestyles_get"];
+        put?: never;
+        /** Create Freestyle */
+        post: operations["create_freestyle_freestyles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/freestyles/{freestyle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Freestyle */
+        get: operations["get_freestyle_freestyles__freestyle_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename Freestyle */
+        patch: operations["rename_freestyle_freestyles__freestyle_id__patch"];
+        trace?: never;
+    };
+    "/freestyles/{freestyle_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Message
+         * @description A change: a new take with every change asked so far, held like the first send. Only its
+         *     maker sends (the owner reads anyone's).
+         */
+        post: operations["send_message_freestyles__freestyle_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/freestyles/{freestyle_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Freestyle
+         * @description The maker takes back a send still waiting for the owner. Nothing was spent.
+         */
+        post: operations["withdraw_freestyle_freestyles__freestyle_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/freestyles/{freestyle_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Freestyle
+         * @description Stop what's waiting or being made, by its maker or the owner. A take already at the
+         *     provider is discarded when it lands.
+         */
+        post: operations["stop_freestyle_freestyles__freestyle_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/brands": {
         parameters: {
             query?: never;
@@ -6218,6 +6339,117 @@ export interface components {
             /** Was File Id */
             was_file_id?: number | null;
         };
+        /** FreestyleIn */
+        FreestyleIn: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "dialogue" | "song" | "narrated" | "one_clip";
+            /** Look */
+            look: string;
+            /**
+             * Shape
+             * @enum {string}
+             */
+            shape: "9:16" | "1:1" | "16:9";
+            /** Brand Id */
+            brand_id?: number | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * FreestyleItem
+         * @description One line of the thread, the same shape as a video's director thread.
+         */
+        FreestyleItem: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "message" | "move";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Who */
+            who: string;
+            /** Text */
+            text: string;
+            /** Status */
+            status: ("queued" | "running" | "held" | "done" | "refused") | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
+        };
+        /** FreestyleOut */
+        FreestyleOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "dialogue" | "song" | "narrated" | "one_clip";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "working" | "delivered" | "declined" | "stopped" | "withdrawn" | "failed";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string;
+            /** Look */
+            look: string;
+            /**
+             * Shape
+             * @enum {string}
+             */
+            shape: "9:16" | "1:1" | "16:9";
+            /** Brand Id */
+            brand_id: number | null;
+            /** Credits */
+            credits: number;
+            /** File Id */
+            file_id: number | null;
+            /** Thread */
+            thread: components["schemas"]["FreestyleItem"][];
+        };
+        /** FreestyleRow */
+        FreestyleRow: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "dialogue" | "song" | "narrated" | "one_clip";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "working" | "delivered" | "declined" | "stopped" | "withdrawn" | "failed";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name: string;
+        };
         /** GuideIn */
         GuideIn: {
             /** Use As Guide */
@@ -9258,6 +9490,11 @@ export interface components {
              */
             why: string;
         };
+        /** TitleIn */
+        TitleIn: {
+            /** Title */
+            title: string;
+        };
         /** TurnOut */
         TurnOut: {
             /** Turn */
@@ -9859,6 +10096,11 @@ export interface components {
             reference_videos: number;
             /** Reference Audios */
             reference_audios: number;
+        };
+        /** EstimateOut */
+        app__routes__freestyles__EstimateOut: {
+            /** Credits */
+            credits: number;
         };
         /** VersionOut */
         app__routes__library__VersionOut: {
@@ -11005,6 +11247,267 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FiledOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_freestyle_freestyles_estimate_get: {
+        parameters: {
+            query: {
+                type: "dialogue" | "song" | "narrated" | "one_clip";
+                look: string;
+                shape: "9:16" | "1:1" | "16:9";
+                text: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__freestyles__EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_freestyles_freestyles_get: {
+        parameters: {
+            query?: {
+                everyone?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreestyleRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_freestyle_freestyles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreestyleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreestyleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_freestyle_freestyles__freestyle_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freestyle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreestyleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_freestyle_freestyles__freestyle_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freestyle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreestyleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_freestyles__freestyle_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freestyle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreestyleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_freestyle_freestyles__freestyle_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freestyle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreestyleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_freestyle_freestyles__freestyle_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freestyle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreestyleOut"];
                 };
             };
             /** @description Validation Error */

@@ -6,7 +6,7 @@ import { Banner, Button, buttonClass, creditsText } from "../components";
 import { serverTime } from "../time";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
-import { PLURAL, STEPS } from "./ApprovalsPage";
+import { PLURAL, STEPS } from "./steps";
 import type { Job } from "./useHeld";
 
 /** Which of my requests belong on this page: a video's, a script's, or my Quick clips (no video, no script). */
@@ -72,7 +72,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
   const mine = useMyRequests();
   const owner = useMe().data?.role === "owner";
   // The owner's own presses are never held: on a video or a script they see what anyone asked there, one press from its row
-  // in Approvals (no dead end; #1119). Editors' Quick clips wait in Approvals only.
+  // in Needs you (no dead end; #1119). Editors' Quick clips wait in Needs you only.
   const asked = useQuery({
     enabled: owner && !("quick" in where),
     queryKey: ["held-jobs"],
@@ -120,7 +120,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
     return (
       <div className="space-y-2" aria-label="Waiting for you">
         {held.map((j) => (
-          <Banner key={j.id} tone="info" title="Waiting for your OK" action={<Link className={buttonClass("secondary")} to={`/approvals?job=${j.id}`}>Open in Approvals</Link>}>
+          <Banner key={j.id} tone="info" title="Waiting for your OK" action={<Link className={buttonClass("secondary")} to={`/approvals?job=${j.id}`}>Open in Needs you</Link>}>
             {j.created_by_name || "An editor"} asked for {lower(what(j).replace(/^Your /, ""))} · {creditsText(j.credits)} · {askedAgo(j.created_at)}. {j.held}
           </Banner>
         ))}
@@ -152,7 +152,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
     <div className="space-y-2" aria-label="Your requests">
       {held.map((j) => (
         <Banner key={j.id} tone="info" title="Waiting for approval" action={<Button variant="secondary" busy={withdraw.isPending && withdraw.variables?.id === j.id} onClick={() => withdraw.mutate(j)}>Withdraw</Button>}>
-          {what(j)} · {creditsText(j.credits)} · {askedAgo(j.created_at)}. {j.held || "It goes past the budget."} The owner sees it in Approvals; nothing is charged unless they approve.
+          {what(j)} · {creditsText(j.credits)} · {askedAgo(j.created_at)}. {j.held || "It goes past the budget."} The owner sees it in Needs you; nothing is charged unless they approve.
         </Banner>
       ))}
       {declined.map((j) => (

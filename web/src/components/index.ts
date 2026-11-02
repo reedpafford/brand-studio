@@ -1,4 +1,4 @@
-export { Badge, type Tone } from "./Badge";
+export { Badge, Dot, StepBars, type Tone } from "./Badge";
 export { Button, buttonClass, type ButtonProps, type Variant } from "./Button";
 export { Card, MediaCard } from "./Card";
 export { creditsLabel, creditsText, pressLabel, roundUp, wholeCredits, type Charge } from "./credits";
@@ -9,3 +9,4 @@ export { Dialog, Panel, Sheet, SidePanel } from "./Overlay";
 export { ToastProvider, useToast } from "./Toast";
 export { Menu, MenuItem } from "./Menu";
 export { ViewOnly, useViewOnly } from "./ViewOnly";
+export { PageTop } from "./PageTop";

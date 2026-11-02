@@ -31,3 +31,19 @@ test("a video page never asks for brand 0's screens", async ({ page }) => {
   await page.waitForLoadState("networkidle");
   expect(zero).toEqual([]);
 });
+
+// QA-3 on #1153: at 390 a script row's title (its main link) was 24 px, and "Ready to make" wrapped over three lines.
+test("at 390, a script row's title is a 44 px press and the stage tabs stay on one line", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brandId = await emptyBrand(page, "Rows Co");
+  const title = `Row ${Date.now()}`;
+  expect((await page.request.post("/api/scripts", { data: { brand_id: brandId, title, description: "", notes: "", reference_replace: "", text: "NATE: Hi." } })).ok()).toBe(true);
+  await page.goto(`/b/${brandId}/scripts`);
+  const link = page.getByRole("link", { name: title, exact: true });
+  await expect(link).toBeVisible();
+  expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const ready = page.getByRole("tab", { name: /^Ready to make/ });
+  expect((await ready.boundingBox())!.height).toBeLessThanOrEqual(48); // one line, not three
+});
