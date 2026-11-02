@@ -8,7 +8,7 @@
 import re
 
 from fastapi import HTTPException
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, event, inspect, or_, select
 from sqlalchemy.orm import Session, object_session
 
 from app.models.accounts import User
@@ -16,7 +16,7 @@ from app.models.clips import ProjectClip
 from app.models.jobs import WAITING, Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
-from app.models.script_library import Script, ScriptDraft, ScriptDraftText
+from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 
 MAX_SLOT = 2  # the original (0) plus up to two variations
 WORDS_PER_SECOND = 4.8
@@ -228,3 +228,45 @@ def poster(db: Session, script: Script) -> int | None:
         .order_by(StoryboardFrame.id)
         .limit(1)
     )
+
+
+AWAITING_VIDEO = "This version is waiting for the owner's OK to make a video. Withdraw it to edit."
+FROZEN_BY = {  # what making that video may change on it (freestyles.freeze, make_video, release)
+    ScriptDraft: {"status", "approved_at", "approved_by_id", "reserved_by_id"},
+    Script: {"published", "hidden"},
+}
+
+
+@event.listens_for(Session, "before_flush")
+def _awaiting_video(session: Session, _ctx, _instances) -> None:
+    """Rule 31 (QA-10 on #1190): while a director-first video an editor asked for from a
+    version waits for the owner's OK, nothing that video is made from changes (its words,
+    breakdown, flavours, plan, the script's look and cast), whichever route writes it: one
+    check at flush, so no route can miss it."""
+    drafts: set[int] = set()
+    scripts: set[int] = set()
+    for row in (*session.new, *session.dirty, *session.deleted):
+        if isinstance(row, ScriptDraft) and row.id and _changed(row) - FROZEN_BY[ScriptDraft]:
+            drafts.add(row.id)  # a new version beside it is fine: this one stays as sent
+        elif isinstance(row, Script) and row.id and _changed(row) - FROZEN_BY[Script]:
+            scripts.add(row.id)
+        elif isinstance(row, ScriptCastSlot):
+            scripts.add(row.script_id)
+    if not drafts and not scripts:
+        return
+    with session.no_autoflush:
+        if scripts:
+            drafts |= set(session.scalars(select(ScriptDraft.id).where(
+                ScriptDraft.script_id.in_(scripts))))  # fmt: skip
+        held = session.scalar(select(Job.id).where(
+            Job.status == JobStatus.needs_owner_approval,
+            Job.input["freeze"]["draft"].as_integer().in_(drafts)).limit(1))  # fmt: skip
+    if held:
+        raise HTTPException(409, AWAITING_VIDEO)
+
+
+def _changed(row) -> set[str]:
+    state = inspect(row)
+    if state.pending or state.deleted or row in (object_session(row) or ()).deleted:
+        return {"*"}
+    return {a.key for a in state.attrs if a.history.has_changes()}
