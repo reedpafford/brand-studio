@@ -2,14 +2,14 @@
 a video (projects.director_chat), each {by, text, at, run}. Starts empty.
 
 Revision ID: n19
-Revises: n18
+Revises: n20
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n19"
-down_revision = "n20"  # after Freestyle (n20), which landed first
+down_revision = "n20"  # tracks next's head for CI; re-pointed to the head just before merge
 branch_labels = None
 depends_on = None
 
