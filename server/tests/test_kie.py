@@ -57,6 +57,11 @@ def test_the_style_lines_voice_goes_to_kie_only_when_set(gender):
     assert sent.get("vocalGender") == (gender or None)
 
 
+def test_a_female_vocal_in_the_style_line_reaches_kie():
+    kie, seen = _kie(lambda r: _ok({"taskId": "t1"}))
+    kie.submit("music", _real(music.job("Iron Paws, bowl is bright", "pop, warm female vocal")))
+    assert json.loads(seen[0].content)["input"]["vocalGender"] == "f"
+
 
 def test_poll_waits_then_gives_both_songs():
     states = iter(
