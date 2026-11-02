@@ -630,11 +630,15 @@ class DirectorTurn(BaseModel):
     )
     take_id: int | None = Field(
         default=None,
-        description="For pick_take: the take's id (not its number). For song with no note: "
-        "the song take to use. Else null.",
+        description="For pick_take: the take's id (not its number). For song or narration "
+        "with no note: the take to use. Else null.",
     )
     shot_id: str | None = Field(
         default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
+    )
+    voice: Literal["Sarah", "Alexandra", "Hope", "Jane"] | None = Field(
+        default=None,
+        description="For narration being made: the narrator's voice; null keeps Sarah. Else null.",
     )
     word: str | None = Field(
         default=None,
