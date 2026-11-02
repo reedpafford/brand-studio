@@ -99,8 +99,7 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool in ("song", "narration"):  # the audio first in a song or narrated video
             from app import director_song
 
-            note, made = decision.get("note") or "", (run or {}).get("songs", 0)
-            said = director_song.run(db, user, project, tool, note, made)
+            said = director_song.run(db, user, project, decision, run if run is not None else {})
             db.commit()
             return said
         if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget

@@ -82,7 +82,19 @@ def test_a_song_is_made_again_once_a_run_and_never_in_another_kind(app, db, owne
         return director_tools.run(db, me, video, decision, app.state.storage, {"songs": made})
 
     assert tool("narration") == director_song.NO_NARRATOR
-    assert tool("song", "warmer, female vocal", made=1) == director_song.AGAIN.format(what="song")
+    full = director_song.REMAKES
+    assert tool("song", "warmer, female vocal", made=full) == director_song.AGAIN.format(
+        what="song"
+    )
+    other = next(t for t in director_song.state(db, video)["takes"] if not t["used"])
+    picked = director_tools.run(db, me, video, {"tool": "song", "take_id": other["id"]},
+                                app.state.storage, {})  # fmt: skip
+    assert picked == f"Using take {other['number']} for the song."
+    assert (
+        db.get(Project, video.id, execution_options={"see_hidden": True}).song_take_id
+        == other["id"]
+    )
+    assert other["longest_gap"] is not None and other["tail"] is not None
     assert tool("song", "warmer, female vocal") == "Making the song (warmer, female vocal)."
     job = max(db.query(Job).filter(Job.project_id == video.id, Job.kind == "music"),
               key=lambda j: j.id)  # fmt: skip

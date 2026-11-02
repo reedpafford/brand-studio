@@ -16,12 +16,12 @@ from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
 
-REMAKES = 1  # a run's song (or narration) made again, with a note
+REMAKES = 2  # a run's song (or narration) made again, with a note (Song-Producer: 2)
 HEARD = 0.6  # a line counts as heard as written from this share of its words (take words)
 HOOK = 0.5  # the first line sung: half its words heard
 NO_SONG = "Refused: this video has no song."
 NO_NARRATOR = "Refused: this video has no narrator."
-AGAIN = "Refused: the {what} was made again once this run."
+AGAIN = f"Refused: the {{what}} was made again {REMAKES} times this run."
 OFF = "Refused: songs aren't switched on here yet."
 
 
@@ -36,11 +36,14 @@ def _take(db: Session, take: SongTake, used: int | None) -> dict:
     timing = take.timing or {}
     lines = timing.get("lines") or []
     sung = [x for x in lines if (x.get("heard") or 0) >= HOOK]
+    gaps = [b["start"] - a["end"] for a, b in zip(sung, sung[1:], strict=False)]
     return {"id": take.id, "number": take.number, "state": status, "used": take.id == used,
             "preferred": bool(take.preferred), "timed": take.timing is not None,
             "seconds": timing.get("seconds"),
             "sections": [s.get("name") for s in timing.get("sections") or []],
             "hook_at": sung[0]["start"] if sung else None,
+            "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
+            "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
             "missing": [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
             if take.timing is not None else None}  # fmt: skip
 
@@ -64,9 +67,12 @@ def _on(db: Session, draft: ScriptDraft) -> bool:
     return bool(settings.fake_providers or settings.kie_suno)
 
 
-def run(db: Session, user: User, project: Project, tool: str, note: str, made: int) -> str:
-    """The tool: use the best timed take when there is one and no note; else make takes
-    (a note: made again, `made` times so far this run)."""
+def run(db: Session, user: User, project: Project, decision: dict, run: dict) -> str:
+    """The tool: with `take_id`, use that timed take (free); with no note and a timed take,
+    the best one; else make takes. The first song of a version with no style line takes its
+    style from the note (the director's music words); after that a note is a remake, REMAKES
+    a run (counted in `run`)."""
+    tool, note = decision["tool"], (decision.get("note") or "").strip()
     found = kind(db, project)
     if found is None or (tool == "song") != (found == "song"):
         return NO_SONG if tool == "song" else NO_NARRATOR
@@ -74,23 +80,30 @@ def run(db: Session, user: User, project: Project, tool: str, note: str, made: i
     what = "song" if found == "song" else "narration"
     takes = song_takes.for_video(db, project)
     ready = [t for t in takes if song_takes.state(db, t)[0] == "ready"]
-    if ready and not note.strip():
+    if (chosen := decision.get("take_id")) is not None:
+        take = next((t for t in ready if t.id == chosen), None)
+        if take is None:
+            return f"Refused: take {chosen} isn't a finished {what} of this video."
+        song_takes.use_in_video(db, project, take)
+        return f"Using take {take.number} for the {what}."
+    if ready and not note:
         if project.song_take_id in {t.id for t in ready}:
             return f"The {what} is set: take {_number(db, project.song_take_id)}."
         best = next((t for t in ready if t.preferred), None) or min(
             ready, key=lambda t: (len(_take(db, t, None)["missing"] or []), t.id))  # fmt: skip
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
-    if takes and not note.strip():
+    if takes and not note:
         return f"Refused: the {what} is still being made, or failed: make it again with a note."
-    if takes and made >= REMAKES:
+    if takes and run.get("songs", 0) >= REMAKES:
         return AGAIN.format(what=what)
     if not _on(db, draft):
         return OFF
     real = 0.0 if found == "narrated" else song_takes.real_songs(db, _settings())
-    song_takes.make(db, user, draft, project, kie=real, note=note.strip())
-    said = f" ({note.strip()})" if note.strip() else ""
-    return f"Making the {what}{said}."
+    song_takes.make(db, user, draft, project, kie=real, note=note)
+    if takes:  # a remake; the first song's note is its style line, not a remake
+        run["songs"] = run.get("songs", 0) + 1
+    return f"Making the {what}{f' ({note})' if note else ''}."
 
 
 def _settings():

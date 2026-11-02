@@ -426,9 +426,6 @@ def _act(db: Session, job: Job, storage) -> None:
         run["watches"] = run.get("watches", 0) + 1
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
-    remade = bool((decision.get("note") or "").strip()) and result.startswith("Making")
-    if tool in ("song", "narration") and remade:
-        run["songs"] = run.get("songs", 0) + 1  # a remake with a note (director_song.REMAKES)
     if tool == "redraw_still" and not result.startswith("Refused"):
         sid = decision.get("shot_id") or ""
         run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}

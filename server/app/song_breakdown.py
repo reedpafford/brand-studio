@@ -19,6 +19,8 @@ from app.models.projects import Project
 from app.models.songs import SongTake
 from app.prompts.schemas import Breakdown, SongBreakdown
 
+MIN_CLIP = 4  # seconds: a shorter span is made 4 s long and cut to it (Song-Producer)
+
 
 def take_for(db: Session, project: Project) -> SongTake | None:
     return db.get(SongTake, project.song_take_id) if project.song_take_id else None
@@ -65,7 +67,7 @@ def fit(data: dict) -> dict:
         known = [timed[s] for s in clip.get("shot_ids", []) if s in timed]
         if known:
             span = max(t["end"] for t in known) - min(t["start"] for t in known)
-            clip = {**clip, "seconds": max(1, math.ceil(span - 0.01))}
+            clip = {**clip, "seconds": max(MIN_CLIP, math.ceil(span - 0.01))}  # cut to its span
         clips.append(clip)
     return {**data, "scenes": scenes, "clips": clips}
 
