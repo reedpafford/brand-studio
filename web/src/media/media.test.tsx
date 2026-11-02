@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
 
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
@@ -201,4 +202,25 @@ test("a song tile says which script or video it's from (Next-Layout's 390 walk)"
   expect(tiles[0]).toHaveTextContent(/Song from the script/);
   expect(tiles[1]).toHaveTextContent("Bo tries salmon");
   expect(tiles[1]).toHaveTextContent(/Song from the video/);
+});
+
+test("a tile opens the item's own page at 390 and desktop: the item, who made it, one press to its video, and Download (v5 G_MediaItem)", async () => {
+  for (const width of [1440, 390]) {
+    setViewport(width);
+    fakeServer(base(owner, page([item({ key: "final:3", kind: "final", content_type: "video/mp4", video_name: "Bo tries salmon · A", open_step: "final" })])));
+    const { unmount } = renderApp("/b/1/media");
+    await userEvent.click(await screen.findByRole("link", { name: /^Open Bo tries salmon · A/ }));
+    expect(await screen.findByRole("heading", { name: "Final video", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open its video: Bo tries salmon · A" })).toHaveAttribute("href", "/b/1/videos/9?step=downloads");
+    expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute("href", "/api/files/30");
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Media" })).toHaveAttribute("href", "/b/1/media");
+    unmount();
+  }
+});
+
+test("an item no longer in Media says so, with the way back", async () => {
+  fakeServer(base(owner, page([])));
+  renderApp("/b/1/media/final%3A99");
+  expect(await screen.findByText("That item isn't in Media any more.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Back to Media" })).toHaveAttribute("href", "/b/1/media");
 });

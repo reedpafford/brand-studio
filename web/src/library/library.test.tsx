@@ -62,6 +62,7 @@ test("saving a character sends its changes, and history can restore an old versi
     "POST /library/character/5/versions/2/restore": [200, { ...mia, version: 4 }],
   });
   renderAt("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   const name = await screen.findByLabelText("Name");
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   await userEvent.clear(name);
@@ -112,6 +113,7 @@ test("a character's outfits and voice are saved; places don't send them", async 
     "POST /files": [201, { id: 21, filename: "v.mp3", content_type: "audio/mpeg", size: 3, created_at: "2026-10-23T00:00:00Z" }],
   });
   renderAt("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Add outfit" })); // the page's Add outfit opens Edit
   await userEvent.click(await screen.findByRole("button", { name: "Add outfit" }));
   await userEvent.type(screen.getByLabelText("Outfit 2 name"), "Office");
   await userEvent.upload(screen.getByLabelText("Voice file"), new File(["x"], "v.mp3", { type: "audio/mpeg" }));
@@ -127,6 +129,7 @@ test("a character's outfits and voice are saved; places don't send them", async 
 test("places have no outfits or voice", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe" }], "GET /library/place/7/versions": [200, []] });
   renderAt("/b/1/library/places/7");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   await screen.findByLabelText("Name");
   expect(screen.queryByRole("button", { name: "Add outfit" })).not.toBeInTheDocument();
 });
@@ -143,7 +146,8 @@ test("archiving happens at once with a toast, and Undo brings the item back", as
     "POST /library/character/5/unarchive": [200, mia],
   });
   renderAt("/b/1/library/characters/5");
-  await userEvent.click(await screen.findByRole("button", { name: "Archive character" }));
+  await userEvent.click(await screen.findByRole("button", { name: "More" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Archive character" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Mia archived.");
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/unarchive")).toBe(true));
@@ -159,6 +163,7 @@ test("shared items show their brands, and Save needs at least one brand", async 
   });
   renderAt("/b/1/library/characters/5");
   expect(await screen.findByText("Shared with Iron Paws. Changes apply there too.")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   await userEvent.click(screen.getByLabelText("fomo"));
   expect(screen.getByText("This will remove Mia from fomo's library.")).toBeInTheDocument();
   await userEvent.click(screen.getByLabelText("Iron Paws"));
@@ -285,7 +290,8 @@ test("Open Mia from a video comes back to the same stage", async () => {
 test("a back link to somewhere else is ignored", async () => {
   fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
   renderAt("/b/1/library/characters/5?back=https%3A%2F%2Fevil.example");
-  expect(await screen.findByRole("link", { name: "← Characters" })).toHaveAttribute("href", "/b/1/library/characters");
+  expect(await screen.findByRole("link", { name: "Characters" })).toHaveAttribute("href", "/b/1/library/characters");
+  expect(screen.queryByRole("link", { name: /Back to your video/ })).toBeNull();
 });
 
 test("a sheet held from before the limits changed says Not started, not Drawing, and offers nothing to press", async () => {
@@ -361,6 +367,7 @@ test("the owner gives a product its line and main claim; an empty claim is Advic
   const calls = fakeServer(propRoutes(owner));
   renderAt("/b/2/library/props/8");
   expect(await screen.findByText("Scripts won't mention a claim for this product.")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   await userEvent.type(screen.getByLabelText("What it is, in a line"), "Grain-free salmon kibble");
   await userEvent.type(screen.getByLabelText("Main claim"), "Dogs finish the bowl");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -370,6 +377,7 @@ test("the owner gives a product its line and main claim; an empty claim is Advic
 test("an editor changes a product's line and claim too, and their save sends them (Reed, 30 Oct)", async () => {
   const calls = fakeServer(propRoutes(editor));
   renderAt("/b/2/library/props/8");
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
   const claim = await screen.findByLabelText("Main claim");
   expect(claim).not.toHaveAttribute("readonly");
   expect(screen.queryByText("Only the owner changes the brand.")).toBeNull();
