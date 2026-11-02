@@ -9866,6 +9866,11 @@ export interface components {
              * @default 0
              */
             freestyle_spend_usd: number;
+            /**
+             * Director Spend Usd
+             * @default 0
+             */
+            director_spend_usd: number;
         };
         /** UsageVideo */
         UsageVideo: {
