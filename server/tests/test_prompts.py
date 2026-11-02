@@ -1615,3 +1615,4 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
     assert "name the ask in that action's `why`" in director and "not yet read" not in director
     assert "only a real fault the change itself caused" in director
     assert "no other new fixes or extras" in director and "names each ask" in director
+    assert "is left alone and offered in the delivery note as a question" in director
