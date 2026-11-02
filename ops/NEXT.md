@@ -21,6 +21,12 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
   - Each state says what the person sees and the one press that moves them on (rule 22).
   - Each PR names the flows it touches and the effects on other steps.
   - Flow-QA walks them all.
+- **Saving Claude usage, nothing lost (Reed, 2 Nov).**
+  - Routine work runs on the lighter model: building screens to the wireframes, small test and lint fixes, and QA test runs.
+  - The top model stays for: the Director's prompts, the Song/Narrated workflow design and its core, the house-style work, final QA on any director, money or Song/Narrated PR, and Next-Lead, Next-Server, UX-Auditor and Song-Producer.
+  - Running sessions keep their model. When a routine piece finishes, its next piece goes to a lighter-model session.
+  - Before a session is shut down, it writes a handoff (open PRs, unfinished items, gotchas) into this file through its next PR, or sends it to Next-Lead. Next-Lead confirms the handoff is complete, and only then does the Producer shut the session down. Any PR or finding with no owner goes to Next-Lead.
+  - Fewer messages. A tester sends a PASS once, to Next-Lead, with the head SHA, and Next-Lead forwards it to the Producer in one line. Only failures get detailed findings. Builders send status to Next-Lead, not the Producer.
 - **Order:** 0 infra + flow map → 1 song ads → 2 styles (Disney, Song, Zack D, Skeleton) → 3 brand setup → 4 video settings (look, models, shape, flavour, language) → 5 organization → 6 cleaner layout. Layout is designed alongside, built last.
 
 ## Team

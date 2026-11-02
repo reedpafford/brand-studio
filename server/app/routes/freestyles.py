@@ -57,7 +57,7 @@ Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, ma
 MODEL, RESOLUTION = "seedance-2.5", "480p"  # Quick clip's defaults
 NOT_YET = "Song and Narrated are coming next; One clip and Dialogue work now."
 ONE_SOURCE = "Paste a script, or pick one: not both."
-NO_LOOK = "Pick a look."
+NO_LOOK = "Pick a style."
 HAS_VIDEO = "This version already has a video."
 FREEZE = "freeze"  # an editor's first turn: what the owner's OK makes real (`freeze`)
 DIRECTED = {"dialogue": "story"}  # the types the director makes: the script kind it reads
