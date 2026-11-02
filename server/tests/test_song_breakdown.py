@@ -275,3 +275,90 @@ def test_a_clip_with_people_over_16_s_is_split_at_its_shots_and_short_ones_last_
         ("c1b", ["1.3"], 7),
         ("c2", ["2.1"], 4),
     ]
+
+
+def _scorecard():
+    """A clip of two shots over 0–6 s; the second shows the scorecard "four" names, sung at
+    4.0 s (Reed's scorecard showed a second early)."""
+    shots = [{"id": "1.1", "action": "Reed swings", "character_ids": ["char:1"], "seconds": 3},
+             {"id": "1.2", "action": "Close-up: the scorecard reads 4/4", "character_ids": [],
+              "seconds": 3}]  # fmt: skip
+    timed = {"1.1": {"start": 0.0, "end": 3.0, "sung": False},
+             "1.2": {"start": 3.0, "end": 6.0, "sung": False}}  # fmt: skip
+    data = {"scenes": [{"shots": shots}], "clips": [{"id": "c1", "shot_ids": ["1.1", "1.2"]}],
+            "song": {"take_id": 1, "shots": timed}}  # fmt: skip
+    words = [
+        {"word": w, "start": t, "end": t + 0.3}
+        for w, t in [("Hole", 3.2), ("in", 3.5), ("four", 4.0), ("scorecard", 5.9)]
+    ]
+    return data, {"words": words}
+
+
+def test_a_shot_that_shows_what_a_word_names_starts_on_that_word():
+    """P1 word-snap: the scorecard lands just before "four" is sung, the shot before it ends
+    there, the clip's span is unchanged, and snapping again changes nothing."""
+    from app.song_breakdown import fit, snap
+
+    data, timing = _scorecard()
+    out = fit(snap(data, timing))
+    times = out["song"]["shots"]
+    assert (times["1.1"]["end"], times["1.2"]["start"], times["1.2"]["end"]) == (3.9, 3.9, 6.0)
+    assert [s["seconds"] for s in out["scenes"][0]["shots"]] == [3.9, 2.1]
+    assert out["clips"][0]["seconds"] == 6 and snap(out, timing) == out
+    assert data["song"]["shots"]["1.2"]["start"] == 3.0  # the plan given is never changed
+
+
+def test_word_snap_keeps_shots_at_least_a_second_and_leaves_sung_and_first_shots():
+    from app.song_breakdown import snap
+
+    data, timing = _scorecard()
+    timing["words"][2]["start"] = 5.3  # "four" so late the scorecard would last under 1 s
+    assert snap(data, timing) == data
+    data, timing = _scorecard()
+    data["song"]["shots"]["1.2"]["sung"] = True  # the lead sings it on camera: never moved
+    assert snap(data, timing) == data
+    data, timing = _scorecard()
+    data["clips"] = [{"id": "c1", "shot_ids": ["1.1"]}, {"id": "c2", "shot_ids": ["1.2"]}]
+    assert snap(data, timing) == data  # a clip's first shot: its span never moves
+    data, timing = _scorecard()
+    timing["words"][2]["word"] = "for"  # nothing it shows is sung inside it
+    assert snap(data, timing) == data
+
+
+def test_a_new_song_plan_is_word_snapped_and_an_edit_never_moves_a_time(
+    app,
+    db,
+    owner,
+    editor,
+    song,  # noqa: F811
+):
+    video = _video(app, db, owner, editor, song)
+    row = _rows(db, video)[-1]
+    take = db.get(SongTake, row.data["song"]["take_id"])
+    times = row.data["song"]["shots"]
+    clip = next(c for c in row.data["clips"] if len(c["shot_ids"]) > 1)
+    first, second = clip["shot_ids"][:2]
+    at = round(times[second]["start"] + 0.6, 2)  # the word is sung 0.6 s into the shot
+    assert times[second]["end"] - at >= 1
+    take.timing = {**take.timing, "words": [{"word": "scorecard", "start": at, "end": at + 0.4}]}
+    db.commit()
+    plan = editor.get(f"{video}/breakdown").json()["breakdown"]
+    for scene in plan["scenes"]:
+        for shot in scene["shots"]:
+            if shot["id"] == second:
+                shot["action"] = "The scorecard fills the frame"
+    assert editor.put(f"{video}/breakdown", json=plan).status_code == 200
+    edited = _rows(db, video)[-1]
+    assert edited.data["song"]["shots"] == times  # an edit keeps every time as it was
+    db.add(
+        BreakdownVersion(
+            project_id=row.project_id,
+            script_version=row.script_version,
+            source="claude",
+            data=copy.deepcopy(edited.data),
+            created_by_id=row.created_by_id,
+        )
+    )  # a new plan with its song part
+    db.commit()
+    snapped = _rows(db, video)[-1].data["song"]["shots"]
+    assert snapped[second]["start"] == snapped[first]["end"] == round(at - 0.1, 2)

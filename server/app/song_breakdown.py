@@ -9,6 +9,7 @@ their lines and Sung marks."""
 
 import bisect
 import math
+import re
 
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
@@ -112,15 +113,67 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
     """A new row without a song part (an edit, a fix, a recast) takes the newest row's, its
     shots packed back to back over the same song, free (rule 22: an edit never leaves a gap
     to fix by hand): see `repack`. A shot an edit brings back (Undo) gets its earlier times
-    from the rows before, so an Undo is exact."""
-    if "song" not in row.data:
-        order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
-        with Session(bind=connection) as db:
-            song = carried(db, row.project_id, order)
-        if song:
-            row.data = {**row.data, "song": song}
+    from the rows before, so an Undo is exact. Only a row that brings its own song part (the
+    AI's plan, a new take) is word-snapped: an edit never moves another shot's time."""
+    with Session(bind=connection) as db:
+        if row.data.get("song"):
+            take = db.get(SongTake, row.data["song"].get("take_id") or 0)
+            row.data = snap(row.data, timing_used(take) if take else {})
+        else:
+            order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
+            if song := carried(db, row.project_id, order):
+                row.data = {**row.data, "song": song}
     if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
         row.data = fit(row.data)
+
+
+LEAD = 0.1  # seconds: a shot that shows what a word names lands just before it's sung
+MIN_SNAP = 1.0  # seconds: a snap never leaves either shot shorter than this
+NUMBERS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+           "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()  # fmt: skip
+SKIP = {"the", "and", "with", "her", "his", "its", "for", "from", "into", "onto", "our",
+        "their", "they", "then", "this", "that", "shot", "close", "wide", "camera", "are",
+        "was", "who", "she", "him", "them", "out", "off", "all", "one's"}  # fmt: skip
+
+
+def _key(word: str) -> str:
+    """A word as both sides compare it: lower case, "4" and "four" alike, a plural's s off."""
+    w = re.sub(r"[^\w']", "", word.lower()).removesuffix("'s")
+    if w.isdigit():
+        return NUMBERS[int(w)] if int(w) < len(NUMBERS) else w
+    return w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w
+
+
+def _named(shot: dict) -> set[str]:
+    """The things a shot shows, by name: its action's words and its screen figure's."""
+    figure = " ".join(str(v) for v in (shot.get("screen_figure") or {}).values())
+    found = re.findall(r"\d+|[a-z']+", f"{shot.get('action') or ''} {figure}".lower())
+    return {_key(w) for w in found if w.isdigit() or (len(w) > 2 and w not in SKIP)}
+
+
+def snap(data: dict, timing: dict) -> dict:
+    """Word-snap (P1): a B-roll shot that shows a thing its line names starts just before
+    that word is sung, not at the line's start (Reed's scorecard showed a second early before
+    "four"). The shot before it in the same clip ends there instead, so a clip's span never
+    moves, and neither shot drops under MIN_SNAP. The first such word sung inside the shot
+    counts; snapping again changes nothing. Words are the take's measured ones (timing)."""
+    song, words = data.get("song"), timing.get("words") or []
+    if not song or not words:
+        return data
+    shots = {sh["id"]: sh for sc in data.get("scenes", []) for sh in sc.get("shots", [])}
+    times = {sid: dict(t) for sid, t in song["shots"].items()}
+    for clip in data.get("clips", []):
+        ids = [s for s in clip.get("shot_ids", []) if s in times and s in shots]
+        for prev, sid in zip(ids, ids[1:], strict=False):
+            here, before, named = times[sid], times[prev], _named(shots[sid])
+            if here.get("sung") or before["end"] != here["start"] or not named:
+                continue
+            word = next((w for w in words if here["start"] < w["start"] < here["end"]
+                         and _key(w["word"]) in named), None)  # fmt: skip
+            at = round(word["start"] - LEAD, 2) if word else here["start"]
+            if at > here["start"] and at - before["start"] >= MIN_SNAP <= here["end"] - at:
+                before["end"] = here["start"] = at
+    return {**data, "song": {**song, "shots": times}}
 
 
 def slice_of(data: dict, clip_id: str) -> dict | None:
