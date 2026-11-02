@@ -49,7 +49,7 @@ From two batches of fomo videos made with Reed on the live site (29–30 Oct: 7 
   - the real screens, with any numbers or coins;
   - custom coin pages with a big fomo header, the eyes logo, and the character's face as the coin icon;
   - any loading screen is dark, with only the fomo eyes and logo.
-  - Real screens are tagged so they're attached exactly, never "trading" (that tag makes the screen an invented one, logo only).
+  - Every real screen is attached as itself (UI, logo and layout exact, since #1041), and each beat's figure is drawn onto its own copy (#1059).
 - **Payoff:** a big balance on a rich Home screen, a different balance each video.
 - **Chart dip:** fine when the story needs it (e.g. "Don't sell. Diamond hands."), as long as it recovers and fomo ends up winning.
 - **End line:** "Want to trade like me? Download FOMO through the link in my bio." It can be adapted to the story, for example to the dad: "You can start by going to my profile and downloading FOMO through the link in my bio."

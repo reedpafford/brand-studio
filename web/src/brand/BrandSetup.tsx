@@ -58,17 +58,20 @@ export function CtaLines({ brandId, lines, advice }: { brandId: number; lines: C
               </div>
             </li>
           ) : (
-            <li key={l.id} className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="min-w-0 flex-1 break-words">{l.text}</span>
+            // In the 320 px side column the line takes the whole width and its presses sit under it (QA-3 on #1210).
+            <li key={l.id} className="space-y-1 rounded-md border border-border px-3 py-2 text-sm">
+              <p className="break-words">{l.text}</p>
+              <div className="flex flex-wrap items-center gap-1">
               {l.default ? <Badge tone="success" icon={Star}>Default</Badge> : <Button variant="ghost" dense busy={edit.isPending && edit.variables?.id === l.id} onClick={() => edit.mutate({ id: l.id, default: true })}>Make default</Button>}
               <Button variant="ghost" dense aria-label={`Edit "${l.text}"`} onClick={() => setEditing({ id: l.id, text: l.text })}>Edit</Button>
               <Button variant="ghost" dense icon={Trash2} aria-label={`Delete "${l.text}"`} busy={remove.isPending && remove.variables?.id === l.id} onClick={() => remove.mutate(l)} />
+              </div>
             </li>
           ),
         )}
       </ul>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-2">
+        <div className="min-w-0">
           <Field label="Add a line" value={text} maxLength={500} placeholder="Find us through the link in my bio." onChange={(e) => setText(e.target.value)} />
         </div>
         <Button variant="secondary" icon={Plus} busy={add.isPending} disabled={!text.trim()} reason={!text.trim() ? "Write the line first" : null} onClick={() => add.mutate()}>Add line</Button>
@@ -99,7 +102,7 @@ export function DefaultCast({ brandId, value, picks, onChange }: { brandId: numb
   );
   return (
     <fieldset className="min-w-0 space-y-2">
-      <legend className="text-sm font-medium">Default cast</legend>
+      <legend className="sr-only">Default cast</legend> {/* the section's heading says it (QA-3 on #1210) */}
       {value.length === 0 && <p className="text-sm text-muted">New scripts start with nobody picked.</p>}
       <ul className="space-y-2">
         {value.map((id) => (

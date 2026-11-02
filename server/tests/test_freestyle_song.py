@@ -100,3 +100,39 @@ def test_a_song_is_made_again_once_a_run_and_never_in_another_kind(app, db, owne
               key=lambda j: j.id)  # fmt: skip
     assert "warmer, female vocal" in str(job.input)  # the note rides this request only
     assert "warmer" not in db.get(ScriptDraft, video.script_draft_id).style_line
+
+
+def test_a_song_the_service_failed_is_tried_again_free_once_and_a_refusal_says_so(app, db, owner):
+    """Song-Producer: a KIE internal error gets a plain free retry, not a remake."""
+    from app import director_tools
+    from app.models.accounts import User
+    from app.providers import get_providers
+    from app.worker import run_once
+
+    fs = _sent(owner, "song", LYRICS)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+    app.state.settings.fake_providers = True
+    providers = get_providers(app.state.settings, app.state.storage)
+
+    def songs():  # the music service and the timing only: the director waits
+        for _ in range(3):
+            run_once(db, providers, app.state.storage, only={"suno", "local"})
+        db.expire_all()
+
+    run = {}
+
+    def tool(note=""):
+        return director_tools.run(db, me, video, {"tool": "song", "note": note},
+                                  app.state.storage, run)  # fmt: skip
+
+    assert tool("pop, fake:fail") == "Making the song (pop, fake:fail)."  # its style line
+    songs()
+    assert director_song.state(db, video)["state"] == "failed"
+    assert tool() == "Trying the song again: the service failed, nothing was charged."
+    assert run["song_retries"] == 1 and "songs" not in run  # not a remake
+    songs()  # the same request again, its style line too: it fails again here
+    assert tool().startswith("Refused: the song didn't come out")  # once; then a note
+    job = max(db.query(Job).filter(Job.kind == "music"), key=lambda j: j.id)
+    assert "fake:fail" in str(job.input)
