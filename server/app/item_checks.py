@@ -52,8 +52,29 @@ def on() -> bool:
 
 def price(db: Session, project: Project, target: str = "take") -> Decimal:
     """One check's "up to": a take's strip of frames costs more than one still (rule 32)."""
-    looks = TAKE_LOOKS if target == "take" else 1
-    return estimate(db, project.workspace_id, KIND, Decimal(looks), {})
+    if target == "take":
+        return estimate(db, project.workspace_id, KIND, Decimal(TAKE_LOOKS), {})
+    return estimate(db, project.workspace_id, KIND, Decimal(1), {})
+
+
+def per_take(db: Session, workspace_id: int) -> Decimal:
+    """What the take check adds to a take while checks are on: every shown price that makes a
+    take includes it, so a price shown is never below what the press charges (QA-3 on #1170)."""
+    return estimate(db, workspace_id, KIND, Decimal(TAKE_LOOKS), {}) if on() else Decimal(0)
+
+
+def rides(db: Session, project: Project, clip) -> Decimal:
+    """The take check one more take of this clip brings with it (the scope rules `queue` uses)."""
+    if not on():
+        return Decimal(0)
+    if scope() == "key_takes":
+        data = db.get(BreakdownVersion, clip.breakdown_id).data
+        ids = next((c["shot_ids"] for c in data.get("clips", []) if c["id"] == clip.clip_id), [])
+        shots = [s for i, s in _shots(db, clip.breakdown_id).items() if i in ids]
+        refs = [r["id"] for r in clip.references or [] if r["kind"] == "image"]
+        if not key(db, project, shots, refs):
+            return Decimal(0)
+    return per_take(db, project.workspace_id)
 
 
 def scope() -> str:

@@ -8,6 +8,7 @@ from decimal import Decimal
 from app.credits import price
 from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
+from app.models.projects import Project
 from tests.test_enhance import setup  # noqa: F401 - fixture
 from tests.test_fake_local import _drain
 from tests.test_song_takes import song  # noqa: F401 - fixture
@@ -221,3 +222,44 @@ def test_an_owners_rate_that_isnt_whole_is_still_never_shown_below_the_charge(
     _drain(app, db, providers)
     charged = _charged(db, since)
     assert charged == Decimal("2.4") and price(charged) == 3
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("checks", [True, False])
+def test_a_takes_shown_price_includes_its_take_check(app, db, editor, setup, monkeypatch, checks):  # noqa: F811
+    """QA-3 on #1170: with take checks on, "Make another take · 5 credits" charged 5.6, the
+    check riding along. Every take price includes it now, so it's never below the charge."""
+    from app import item_checks
+    from app.providers import get_providers
+
+    monkeypatch.setattr(item_checks, "on", lambda: checks)
+    monkeypatch.setattr(item_checks, "scope", lambda: "all_takes")
+    url = f"/projects/{setup['project']}"
+    _made(app, db, editor, url)
+    providers = get_providers(app.state.settings, app.state.storage)  # the free listen reads files
+    _drain(app, db, providers)
+    assert editor.post(f"{url}/clips/prompts", json={}).status_code == 201
+    _drain(app, db, providers)
+    for c in editor.get(f"{url}/clips").json():
+        editor.post(f"{url}/clips/{c['id']}/prompt-ok")
+    clip = editor.get(f"{url}/clips").json()[0]
+    row = db.get(ProjectClip, clip["id"])
+    check = item_checks.per_take(db, row.project_id)
+    assert (check > 0) is checks
+    from app.clip_takes import take_credits
+
+    monkeypatch.setattr(item_checks, "on", lambda: False)
+    bare = take_credits(db, db.get(Project, row.project_id), row)
+    monkeypatch.setattr(item_checks, "on", lambda: checks)
+    assert Decimal(str(clip["take_credits"])) == bare + check  # Make clip · N includes it
+    for _ in range(2):  # Make clip, then Make another take: never below what it charges
+        price_shown = editor.get(f"{url}/clips").json()[0]["take_credits"]
+        since = _last(db)
+        r = editor.post(f"{url}/clips/{clip['id']}/generate", json={})
+        assert r.status_code == 201, r.text
+        _drain(app, db, providers)
+        assert price(Decimal(str(price_shown))) >= _charged(db, since)
+    shown = editor.get(f"{url}/clips/{clip['id']}/change").json()["credits"]
+    assert Decimal(str(shown)) >= bare + check  # Change it · N (a new take) includes it too
