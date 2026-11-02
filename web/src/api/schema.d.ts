@@ -6889,6 +6889,8 @@ export interface components {
              * @enum {string}
              */
             sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
+            /** Voice File Name */
+            voice_file_name?: string | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -7508,6 +7510,15 @@ export interface components {
              * @default false
              */
             deleted_video_released: boolean;
+            /**
+             * Source
+             * @default person
+             * @enum {string}
+             */
+            source: "director" | "person";
+            /** Library Item Id */
+            library_item_id?: number | null;
+            library_kind?: components["schemas"]["Kind"] | null;
         };
         /** MediaPage */
         MediaPage: {
@@ -7724,6 +7735,13 @@ export interface components {
             credits: number;
             /** Budget Credits */
             budget_credits: number;
+            /**
+             * Director Credits
+             * @default 0
+             */
+            director_credits: number;
+            /** Approved Up To */
+            approved_up_to?: number | null;
             /** Folder Id */
             folder_id: number | null;
             /** Finished At */
@@ -8091,6 +8109,8 @@ export interface components {
              * @enum {string}
              */
             sheet_status: "none" | "drawing" | "waiting_for_owner" | "needs_approval" | "approved";
+            /** Voice File Name */
+            voice_file_name?: string | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
