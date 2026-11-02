@@ -69,6 +69,28 @@ def test_the_brands_name_heard_wrong_in_a_narration_is_found_once_timed():
     ]
 
 
+def test_a_brand_name_of_two_words_heard_wrong_is_found_and_nothing_else_is():
+    def heard(text):
+        return {"words": [{"word": w, "start": float(n)} for n, w in enumerate(text.split())]}
+
+    assert director_song.misheard(heard("Get Iron Pause now"), "Iron Paws") == [
+        {"word": "Iron Paws", "heard": "Iron Pause", "at": 1.0}
+    ]
+    assert director_song.misheard(heard("Get Iron Paws now"), "Iron Paws") == []
+    # QA-13's false alarms (each a paid remake): a possessive, a curly quote, a script word
+    assert director_song.misheard(heard("Fomo’s app, fomo's too"), "fomo") == []
+    assert director_song.misheard(heard("the user said"), "Uber", "Ask the user said Mia") == []
+    assert director_song.misheard(heard("the user said"), "Uber") != []
+
+
+def test_a_number_line_is_heard_however_it_is_written():
+    from app.models.songs import SongTake
+
+    words = [{"word": w, "start": 0.0} for w in "We hit 5000 dollars today.".split()]
+    take = SongTake(kind="narration", timing={"words": words})
+    assert director_song._missing(take, [{"text": "We hit $5,000 today.", "heard": 0.6}]) == []
+
+
 def test_a_narration_sentence_with_one_word_lost_is_missing():
     from app.models.songs import SongTake
 
@@ -208,3 +230,39 @@ def test_a_song_the_service_failed_is_tried_again_free_once_and_a_refusal_says_s
     assert tool().startswith("Refused: the song didn't come out")  # once; then a note
     job = max(db.query(Job).filter(Job.kind == "music"), key=lambda j: j.id)
     assert "fake:fail" in str(job.input)
+
+
+def test_the_real_turns_voice_reaches_the_narration(app, db, owner, monkeypatch):
+    """The stand-in's answer goes through DirectorTurn like the model's: `voice` is kept."""
+    from app import director
+    from app.models.songs import SongTake
+    from app.prompts.schemas import DirectorTurn
+
+    assert DirectorTurn.model_fields["voice"].annotation.__args__[0].__args__ == (
+        director_song.narration.VOICES
+    )  # the schema's voices are the server's
+    choose = director.choose
+
+    def jane(state):
+        move = choose(state)
+        return {**move, "voice": "Jane"} if move["tool"] == "narration" else move
+
+    monkeypatch.setattr(director, "choose", jane)
+    fs = _sent(owner, "narrated", NARRATION)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    assert db.get(SongTake, video.song_take_id).voice == "Jane"
+
+
+def test_a_name_still_wrong_when_the_remakes_are_used_is_said_in_the_delivery(
+    app, db, owner, monkeypatch
+):
+    monkeypatch.setattr(director_song, "REMAKES", 0)  # nothing left to read it again with
+    fs = _sent(owner, "narrated", "Every morning starts the same. Get fake:misheard fomo today.")
+    _run(app, db, ticks=120)
+    out = owner.get(f"/freestyles/{fs['id']}").json()
+    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    assert out["status"] == "delivered", moves
+    assert not any(m.startswith("Making the narration (Say") for m in moves)
+    assert "The narration still says “foma” for fomo at" in moves[-1], moves[-1]

@@ -23,6 +23,7 @@ REMADE = "audio_remakes"  # the run's count of them, a song's or a narration's a
 REMAKES = 2  # a run's song (or narration) made again, with a note (Song-Producer: 2)
 HEARD = 0.6  # a line counts as heard as written from this share of its words (take words)
 HOOK = 0.5  # the first line sung: half its words heard
+CLOSE = 0.8  # a name of more than one word: this close in letters is the name said wrong
 NO_SONG = "Refused: this video has no song."
 NO_NARRATOR = "Refused: this video has no narrator."
 AGAIN = f"Refused: the {{what}} was made again {REMAKES} times this run."
@@ -36,17 +37,43 @@ def kind(db: Session, project: Project) -> str | None:
     return found if found in narration.TIMED else None
 
 
-def misheard(timing: dict | None, brand: str) -> list[dict] | None:
-    """The brand's name heard wrong in a timed narration ("Fobo" for fomo), from its words on
-    the trimmed track, as the words check finds it in a take; None until it's timed."""
+def _bare(word: str) -> str:
+    """A word as compared: "Fomo’s" reads "fomo" (the possessive dropped)."""
+    return re.sub(r"[^a-z0-9]", "", re.sub(r"'s$", "", word.lower().replace("’", "'").strip(
+        ".,!?;:…\"“”")))  # fmt: skip
+
+
+def _near(heard: list[str], name: list[str]) -> bool:
+    """A run of heard words that is the brand's name said wrong: each word one letter off at
+    most, or, for a name of more than one word, its letters close ("Iron Pause")."""
+    if heard == name:
+        return False
+    if all(h == n or take_words._off_by_one(h, n) for h, n in zip(heard, name, strict=True)):
+        return True
+    joined, want = "".join(heard), "".join(name)
+    return len(name) > 1 and joined[:1] == want[:1] and take_words._close(joined, want) >= CLOSE
+
+
+def misheard(timing: dict | None, brand: str, script: str = "") -> list[dict] | None:
+    """The brand's name heard wrong in a timed narration ("Fobo" for fomo, "Iron Pause" for
+    Iron Paws), from its words on the trimmed track; None until it's timed. Words the script
+    itself has, as written ("user"), are never flagged."""
     if timing is None:
         return None
-
-    def wrong(word: str) -> bool:
-        return take_words._off_by_one(re.sub(r"[^a-z0-9']", "", word.lower()), brand.lower())
-
-    return [{"word": brand, "heard": w["word"], "at": w["start"]}
-            for w in timing.get("words") or [] if wrong(w["word"])]  # fmt: skip
+    words = timing.get("words") or []
+    name = [b for w in brand.split() if (b := _bare(w))]
+    written = f" {' '.join(_bare(w) for w in script.split())} "
+    found, i = [], 0
+    while name and i + len(name) <= len(words):
+        run = words[i : i + len(name)]
+        bare = [_bare(w["word"]) for w in run]
+        if _near(bare, name) and f" {' '.join(bare)} " not in written:
+            found.append({"word": brand, "heard": " ".join(w["word"] for w in run),
+                          "at": run[0]["start"]})  # fmt: skip
+            i += len(name)
+        else:
+            i += 1
+    return found
 
 
 def _missing(take: SongTake, lines: list[dict]) -> list[str]:
@@ -73,8 +100,8 @@ def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dic
             "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
             "missing": _missing(take, lines) if take.timing is not None else None,
-            **({"misheard": misheard(take.timing, brand)} if take.kind == narration.KIND
-               else {})}  # fmt: skip
+            **({"misheard": misheard(take.timing, brand, take.lyrics)}
+               if take.kind == narration.KIND else {})}  # fmt: skip
 
 
 def state(db: Session, project: Project) -> dict | None:
@@ -152,7 +179,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         return AGAIN.format(what=what)
     if not _on(db, draft):
         return OFF
-    voice = (decision.get("voice") if found == "narrated" else None) or narration.VOICE
+    kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
+    voice = (decision.get("voice") or kept if found == "narrated" else None) or narration.VOICE
     if voice not in narration.VOICES:  # the Director's pick (None: the default)
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
     song_takes.make(db, user, draft, project, kie=_real(db, found), note=note, voice=voice)

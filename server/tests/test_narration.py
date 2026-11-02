@@ -76,6 +76,21 @@ def test_a_trim_that_would_clip_a_word_keeps_the_pauses(app, db, owner, narrated
     assert take["untrimmed_seconds"] is None  # the untrimmed narration is the one kept
 
 
+def test_a_trim_heard_with_its_number_written_another_way_is_kept(tmp_path):
+    from app.providers.fake_local import narration as voice
+
+    path = tmp_path / "voice.mp3"
+    path.write_bytes(voice("We hit $5,000 today."))
+
+    def hear(file, text):  # Whisper writes the number one way, then the other
+        trim = file.name == "trimmed.mp3"
+        said = "We hit $5,000 today." if trim else "We hit 5000 dollars today."
+        return [{"word": w, "start": 0.0, "end": 0.3} for w in said.split()]
+
+    timing, trimmed = narration.measure(path, "We hit $5,000 today.", hear=hear)
+    assert trimmed is not None and timing["trimmed"]  # the same words: the trim is used
+
+
 def test_a_failed_narration_says_so_and_costs_nothing(app, db, owner, narrated):
     _words(owner, narrated, "fake:fail. " + WORDS)
     owner.post(f"{narrated}/songs", json={})

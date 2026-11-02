@@ -852,8 +852,20 @@ def choose(state: dict) -> dict:
     noticed = " ".join(
         f"I also noticed: {f['says'].rstrip('.')}. Want me to fix it?" for f in older
     )
-    said = " ".join(x for x in (done, keep, noticed) if x)
+    said = " ".join(x for x in (done, keep, _still_wrong(state), noticed) if x)
     return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
+
+
+def _still_wrong(state: dict) -> str:
+    """For the delivery note: the brand's name the narration in use still says wrong, once
+    its remakes are used (director.md: say what's off)."""
+    audio = state.get("narration") or {}
+    used = next((t for t in audio.get("takes") or [] if t["used"]), None)
+    if not used or not used.get("misheard"):
+        return ""
+    w = used["misheard"][0]
+    return (f"The narration still says “{w['heard']}” for {w['word']} at {w['at']:.1f} s: it "
+            "was read again as often as allowed, so listen before you share it.")  # fmt: skip
 
 
 def _audio_move(state: dict, go) -> dict | None:

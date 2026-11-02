@@ -73,8 +73,16 @@ def trim(path: Path, out: Path) -> Path:
     return out
 
 
+def plain(text: str) -> str:
+    """Letters and digits only, money and numbers one way however they're written: "$5,000"
+    and "5000 dollars" both read "5000dollars"; "’" is "'"."""
+    text = re.sub(r"(?<=\d),(?=\d{3})", "", text.lower().replace("’", "'"))
+    text = re.sub(r"\$\s*(\d+(?:\.\d+)?)", r"\1 dollars", text).replace("%", " percent")
+    return re.sub(r"[^a-z0-9]", "", text)
+
+
 def letters(heard: list[dict]) -> str:
-    return "".join(re.sub(r"[^a-z]", "", w["word"].lower()) for w in heard)
+    return plain(" ".join(w["word"] for w in heard))
 
 
 def measure(path: Path, text: str, hear=song_timing.words) -> tuple[dict, Path | None]:
