@@ -1,6 +1,7 @@
 # Skeleton Mascot
 <!-- Reed's skeleton-ad skill (docs/next/skills/skeleton-ad.md, #1095), its "Mascot" skeleton from the Style Library. The same skeleton format as Skeleton: one narrator, one line a rung. -->
-kind: look
+kind: lane
+parent: skeleton
 order: 4.2
 on: no
 own_sample: yes

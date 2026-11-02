@@ -1,6 +1,7 @@
 # Paper Collage
 <!-- Reed's paper skill (docs/next/skills/paper.md, #1095; first from Starpop's paper-animation-ads, docs/research/starpop-2026-10-28, rule 20), its "Mixed-media collage" lane. The style and physicality blocks are the skill's, word for word, except that its newspaper, magazine clippings and stamps become textless scraps: random clipping text comes out garbled, and a readable word appears only when the story needs it (QA-5 on #1110, rule 32). -->
-kind: look
+kind: lane
+parent: paper
 order: 7.3
 on: no
 image_model: auto
