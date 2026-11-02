@@ -6348,6 +6348,11 @@ export interface components {
             text: string;
             /** Status */
             status: ("held" | "queued" | "running" | "refused" | "done") | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
         };
         /** FreestyleOut */
         FreestyleOut: {

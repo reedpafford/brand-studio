@@ -68,6 +68,7 @@ class FreestyleItem(BaseModel):
     who: str
     text: str
     status: Literal["held", "queued", "running", "refused", "done"] | None
+    why: str = ""  # a move's reason when it has one (the director-run types)
 
 
 class FreestyleRow(BaseModel):
