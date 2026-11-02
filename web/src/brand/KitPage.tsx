@@ -166,7 +166,7 @@ function KitForm({ brand, onChanged, quiet }: { brand: Brand; onChanged: (change
           <section className="min-w-0 space-y-5 border-b border-border pb-6 last:border-b-0">
             <h2 className="type-section">Defaults for new scripts</h2>
             {looks && (
-              <Select label="Look" value={kit.default_look} onChange={(e) => set("default_look", e.target.value)} hint={looks.find((l) => l.id === kit.default_look)?.on === false ? "Off for editors: new scripts will start on House until it's on." : undefined}>
+              <Select label="Style for new scripts" value={kit.default_look} onChange={(e) => set("default_look", e.target.value)} hint={looks.find((l) => l.id === kit.default_look)?.on === false ? "Off for editors: new scripts will start on House until it's on." : undefined}>
                 {/* The styles; a brand already on one of a style's lanes keeps it, by its name (one look per style). */}
                 {looks.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}{l.on ? "" : " (off for editors)"}</option>
