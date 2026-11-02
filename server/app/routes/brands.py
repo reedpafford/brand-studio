@@ -2,6 +2,7 @@
 one, and changes BR1's new sections (voice, CTA lines, defaults: app/brand_setup.py; "Only the
 owner changes the brand."); editors still edit what they could before BR1 (Next-Lead)."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -22,6 +23,10 @@ router = APIRouter(prefix="/brands", tags=["brands"])
 FILE_FIELDS = ("logo_file_id", "style_board_file_id", "end_card_file_id")
 OWNER_ONLY = "Only the owner changes the brand."
 BAD_ADDRESS = "Paste a web address (https://…)"
+READ_DIDNT_START = (
+    "The brand is made, but reading its site didn't start. Try Import from website on its page."
+)
+log = logging.getLogger(__name__)
 Language = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=10)]
 
 
@@ -188,6 +193,10 @@ def create_brand(body: BrandIn, request: Request, user: User = Depends(brand_own
         except HTTPException as no:
             db.rollback()
             out.site_read_problem = no.detail
+        except Exception:  # never a 500: the brand is made, so a second press makes another
+            log.exception("couldn't start reading %s for brand %s", body.website, brand.id)
+            db.rollback()
+            out.site_read_problem = READ_DIDNT_START
     return out
 
 

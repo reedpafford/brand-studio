@@ -25,6 +25,17 @@ TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_tak
 def run(db: Session, user: User, project: Project, decision: dict, storage,
         run: dict | None = None) -> str:  # fmt: skip
     """Do one tool; what happened, in plain words (a refusal's own words)."""
+    from app.routes.jobs import DIRECTOR_TOOL
+
+    marked = DIRECTOR_TOOL.set(True)  # the jobs it starts are the director's, not a person's
+    try:
+        return _run(db, user, project, decision, storage, run)
+    finally:
+        DIRECTOR_TOOL.reset(marked)
+
+
+def _run(db: Session, user: User, project: Project, decision: dict, storage,
+         run: dict | None) -> str:  # fmt: skip
     from app import locks, plans, watch_cut
     from app.director import to_mute
     from app.routes import breakdown, project_assets, project_clips, storyboard

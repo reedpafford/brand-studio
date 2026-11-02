@@ -180,7 +180,9 @@ def test_needs_you_says_which_freestyle_and_what_it_asks(owner, editor, db):
     assert row["freestyle"] == {"id": fs["id"], "title": fs["title"], "type": "one_clip",
                                 "said": "Make it night.", "change": True,
                                 "up_to": None, "total": None, "spent": 4.0,
-                                "script_id": None, "slot": None}  # one clip: no script  # fmt: skip
+                                "script_id": None, "slot": None, "script_title": "",
+                                "brand_id": None, "hidden": True}  # one clip: pasted  # fmt: skip
+    assert row["note"] == ""  # a freestyle's change is in `said`, not a redo note
     assert row["prompt_summary"] == "Make it night."
     first = owner.get(f"/jobs/{job.id}").json()["freestyle"]
     assert (first["said"], first["change"]) == (SCRIPT, False)
@@ -202,3 +204,51 @@ def test_freestyle_takes_stay_out_of_the_quick_clip_history(owner, editor, db):
     assert [
         j["freestyle"]["id"] for j in editor.get("/jobs", params={"freestyle": True}).json()
     ] == [fs["id"]]
+
+
+def test_my_credits_lists_my_waiting_and_declined_sends(app, owner, editor, db):
+    """v5 My credits: the editor's own sends waiting for the owner's OK ("up to", nothing spent
+    yet) and declined ones with the owner's words; every brand; never someone else's."""
+    brand = first_brand(owner)
+    first = editor.post("/freestyles", json={**HOUSE, "brand_id": brand, "text": SCRIPT}).json()
+    second = editor.post("/freestyles", json={**HOUSE, "text": "LEO: Nine sharp."}).json()
+    owner.post("/freestyles", json={**HOUSE, "text": "MIA: Mine."})  # the owner's: not listed
+    held = db.query(Job).filter(Job.status == "needs_owner_approval").order_by(Job.id).all()
+    owner.post(f"/jobs/{held[1].id}/decline", json={"reason": "Not this week."})
+    mine = editor.get("/usage/mine", params={"brand_id": brand}).json()
+    sends = {s["freestyle_id"]: s for s in mine["sends"]}
+    assert set(sends) == {first["id"], second["id"]}
+    assert (sends[first["id"]]["status"], sends[first["id"]]["up_to_credits"]) == (
+        "waiting", float(held[0].credits))  # fmt: skip
+    assert (sends[second["id"]]["status"], sends[second["id"]]["reason"],
+            sends[second["id"]]["brand"]) == ("declined", "Not this week.", "")  # fmt: skip
+    assert mine["waiting_credits"] == float(held[0].credits)
+    assert all(v["project_id"] != first.get("project_id") for v in mine["videos"])
+
+    from tests.test_freestyle_dialogue import BODY  # a director-run send, on a hidden video
+
+    run = editor.post("/freestyles", json={**BODY, "brand_id": brand}).json()
+    mine = editor.get("/usage/mine", params={"brand_id": brand}).json()
+    asked = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    shown = sum(j["freestyle"]["up_to"] or j["credits"] for j in asked)  # Needs you's figures
+    assert mine["waiting_credits"] == shown == float(held[0].credits) + run["up_to"]
+    assert [s["status"] for s in mine["sends"]].count("waiting") == 2
+
+    from tests.test_script_media_held import _script  # every kind of held send (QA-13)
+    from tests.test_song_takes import _style
+
+    app.state.settings.fake_providers = True
+    limits = owner.get("/credits/limits").json()
+    owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 0})
+    clip = editor.post("/clips", json={"brand_id": brand, "prompt": "A dog eats.", "duration": 5})
+    assert clip.json()["status"] == "needs_owner_approval"  # a Quick clip past the week
+    song = _script(editor, "song", "Wake up hungry, bowl is bright")
+    _style(editor, song, "pop")
+    assert editor.post(f"{song}/songs", json={}).status_code == 201  # held script media
+    mine = editor.get("/usage/mine", params={"brand_id": brand}).json()
+    asked = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    shown = sum((j["freestyle"] or {}).get("up_to") or j["credits"] for j in asked)
+    waiting = [s for s in mine["sends"] if s["status"] == "waiting"]
+    assert {s["job_id"] for s in waiting} == {j["id"] for j in asked}  # as Needs you lists them
+    assert mine["waiting_credits"] == shown
+    assert next(s for s in waiting if s["job_id"] == clip.json()["id"])["title"] == "Quick clip"

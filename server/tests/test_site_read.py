@@ -192,3 +192,24 @@ def test_a_new_brand_with_a_website_is_made_and_its_site_read(app, db, owner, ed
     off = owner.post("/brands", json={"name": "Still Co", "website": "https://still.example/"})
     assert off.status_code == 201 and off.json()["site_read_job_id"] is None
     assert off.json()["site_read_problem"] == "Generation is switched off on this server."
+
+
+def test_the_logo_waits_for_the_read_and_a_broken_start_still_makes_one_brand(
+    app, db, owner, site, monkeypatch
+):
+    """QA-13 on #1222: the logo row says it's still reading, not "Couldn't get the logo"; and
+    a read that fails to start for any reason answers with the made brand, never a 500, so a
+    second press can't make a second brand."""
+    _, url = site
+    started = owner.post(url, json={"url": "https://ironpaws.example/"}).json()
+    still = owner.get(f"{url}/{started['id']}/logo")
+    assert (still.status_code, still.json()["detail"]) == (409, "Still reading the site.")
+
+    def broken(*args):
+        raise RuntimeError("the queue is down")
+
+    monkeypatch.setattr("app.site_read.start", broken)
+    made = owner.post("/brands", json={"name": "Calm Co", "website": "https://calm.example/"})
+    assert made.status_code == 201 and made.json()["site_read_job_id"] is None
+    assert made.json()["site_read_problem"].startswith("The brand is made, but reading its site")
+    assert db.query(Brand).filter_by(name="Calm Co").count() == 1

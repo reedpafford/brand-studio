@@ -7,7 +7,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -218,6 +218,49 @@ def brand(
 
 
 # --- Lists: a brand's videos and scripts, and every charge (spec items 6-8) ---
+
+
+class PersonRow(BaseModel):
+    user_id: int
+    name: str
+    role: Literal["owner", "editor"]
+    credits: float  # charged in the period, every brand
+    spend_usd: float  # the same in dollars (this page is the owner's only)
+    videos: int  # videos of theirs finished in the period
+    week_used: float  # this week, as the allowance counts it (My credits' week)
+    week_allowance: float | None  # null for the owner (no weekly limit)
+
+
+@router.get("/people", response_model=list[PersonRow])
+def people(period: PeriodName = "week", owner: User = Depends(owner_or_404),
+           db: Session = Depends(get_db)):  # fmt: skip
+    """v5 Usage › By person: what each person in the team spent in the period, most first.
+    Everyone is listed, someone who spent nothing too."""
+    from app.credits import COUNTED, get_limits, quick_clip_used
+
+    when, ws = usage.period(period), owner.workspace_id
+    jobs = (Job.workspace_id == ws, Job.status.in_(COUNTED), *when.has(Job.created_at))
+    credits = dict(db.execute(select(Job.created_by_id, func.sum(Job.credits)).where(*jobs)
+                              .group_by(Job.created_by_id)).all())  # fmt: skip
+    dollars = dict(db.execute(select(Job.created_by_id, func.sum(Usage.cost_usd))
+                              .join(Usage, Usage.job_id == Job.id)
+                              .where(Usage.workspace_id == ws, *when.has(Usage.created_at))
+                              .group_by(Job.created_by_id)).all())  # fmt: skip
+    videos = dict(db.execute(select(Project.created_by_id, func.count()).where(
+        Project.workspace_id == ws, Project.finished_at.is_not(None),
+        *when.has(Project.finished_at)).group_by(Project.created_by_id)).all())  # fmt: skip
+    allowance = float(get_limits(db, ws).weekly_quick_clip_credits)
+    rows = []
+    for person in db.scalars(select(User).where(User.workspace_id == ws)):
+        if not person.active and person.id not in credits:
+            continue  # someone removed who spent nothing in the period
+        rows.append(PersonRow(
+            user_id=person.id, name=person.name, role="owner" if person.is_owner else "editor",
+            credits=float(credits.get(person.id) or 0),
+            spend_usd=usage.money(dollars.get(person.id)), videos=videos.get(person.id, 0),
+            week_used=float(quick_clip_used(db, person)),
+            week_allowance=None if person.is_owner else allowance))  # fmt: skip
+    return sorted(rows, key=lambda r: (-r.credits, r.name.lower()))
 
 
 class Who(BaseModel):
@@ -438,6 +481,21 @@ class MyWeek(BaseModel):
     lines: list[WeekLine]
 
 
+class MySend(BaseModel):
+    """One of the caller's own sends waiting for the owner's OK (any kind: a freestyle send, a
+    Quick clip past the allowance, a script's song or narration, a step past the budget), or
+    a freestyle whose last send the owner declined."""
+
+    job_id: int | None = None  # the held job (Withdraw cancels it); null for a declined one
+    freestyle_id: int | None = None  # a freestyle's send
+    title: str  # the freestyle's title, or what was asked ("Quick clip", "Song · Bo tries salmon")
+    brand: str  # its brand's name, "" with none picked
+    status: Literal["waiting", "declined"]
+    up_to_credits: float  # what it asks for ("up to"); nothing is spent until it's approved
+    reason: str = ""  # declined: the owner's words
+    created_at: UtcTime
+
+
 class MineOut(BaseModel):
     credits: float  # the videos listed, plus quick clips and writing scripts
     quick_clip_credits: float  # in the period
@@ -446,6 +504,8 @@ class MineOut(BaseModel):
     projects: list[MyProject]
     scripts: list[MyScript] = []
     week: MyWeek | None = None  # this week, as the allowance counts it
+    sends: list[MySend] = []  # every brand: each held send of any kind, and declined ones
+    waiting_credits: float = 0  # up to, over the waiting sends (as Needs you): none spent yet
 
 
 @router.get("/mine", response_model=MineOut)
@@ -495,13 +555,64 @@ def mine(
     for v in videos:
         group = groups.setdefault(v.folder_id, [0, 0.0])
         group[0], group[1] = group[0] + 1, group[1] + v.credits
+    sends = _sends(db, user)  # last: it reads Freestyle's hidden rows (hidden.see)
     return MineOut(
+        sends=sends, waiting_credits=sum(s.up_to_credits for s in sends if s.status == "waiting"),
         credits=sum(v.credits for v in videos) + quick_credits + script_total,
         quick_clip_credits=quick_credits, script_credits=script_total,
         scripts=sorted(scripts, key=lambda s: -s.credits), week=_week(db, user),
         videos=sorted(videos, key=lambda v: -v.last_activity_at.timestamp()),
         projects=[MyProject(folder_id=f, name=names.get(f, "No project"), videos=n, credits=c)
                   for f, (n, c) in sorted(groups.items(), key=lambda g: g[0] is None)])  # fmt: skip
+
+
+def _sends(db: Session, user: User) -> list[MySend]:
+    """Every send of the caller's waiting for the owner's OK, of any kind, each at the price
+    Needs you shows the owner (a freestyle's "up to", else the held job's price with what
+    rides along), and the freestyles whose last send was declined (v5 My credits), newest
+    first. A freestyle's video and script are hidden until the OK, so this sees hidden rows."""
+    from app import hidden
+    from app.models.freestyles import Freestyle
+    from app.models.jobs import JobStatus
+    from app.routes import freestyles
+    from app.routes.jobs import _freestyle, _with_check
+
+    hidden.see(db)
+
+    def name(brand_id: int | None) -> str:
+        brand = db.get(Brand, brand_id) if brand_id else None
+        return brand.name if brand and not brand.hidden else ""
+
+    out = []
+    held = select(Job).where(Job.created_by_id == user.id,
+                             Job.status == JobStatus.needs_owner_approval)  # fmt: skip
+    for job in db.scalars(held):
+        ref = _freestyle(db, job)
+        fs = db.get(Freestyle, ref.id) if ref else None
+        price = ref.up_to if ref and ref.up_to is not None else _with_check(db, job)
+        out.append(MySend(job_id=job.id, freestyle_id=fs and fs.id, status="waiting",
+                          title=fs.title if fs else usage.what(db, job),
+                          brand=name(fs.brand_id if fs else job.brand_id),
+                          up_to_credits=float(price), created_at=job.created_at))  # fmt: skip
+    for fs in db.scalars(select(Freestyle).where(Freestyle.created_by_id == user.id)
+                         .order_by(Freestyle.id.desc()).limit(200)):  # fmt: skip
+        seen = freestyles._out(db, fs)
+        if seen.status == "declined":
+            said = next((m.text for m in reversed(seen.thread)
+                         if m.text.startswith("The owner declined: ")), "")  # fmt: skip
+            out.append(MySend(freestyle_id=fs.id, title=fs.title, status="declined",
+                              brand=name(fs.brand_id), created_at=fs.created_at,
+                              up_to_credits=float(seen.up_to or _asked(db, fs)),
+                              reason=said.removeprefix("The owner declined: ")))  # fmt: skip
+    return sorted(out, key=lambda s: s.created_at, reverse=True)
+
+
+def _asked(db: Session, fs) -> Decimal:
+    """A one-clip freestyle's newest send's price (a declined one's too)."""
+    from app.routes.freestyles import _jobs
+
+    jobs, sent = _jobs(db, fs), [m["job"] for m in fs.chat if m.get("job")]
+    return Decimal(jobs[sent[-1]].credits or 0) if sent and sent[-1] in jobs else Decimal(0)
 
 
 def _week(db: Session, user: User) -> MyWeek:

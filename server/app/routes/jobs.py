@@ -1,5 +1,6 @@
 """Jobs as the team sees them (status, output, no money) and usage with dollars (owner only)."""
 
+from contextvars import ContextVar
 from datetime import timedelta
 from decimal import Decimal
 
@@ -31,6 +32,7 @@ from app.models.accounts import User
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project, ProjectStatus
+from app.models.script_library import Script
 from app.schemas import ShortText, UtcTime
 from app.settings import get_settings
 
@@ -52,6 +54,9 @@ class FreestyleRef(BaseModel):
     spent: float = 0  # what the freestyle has spent so far (credits)
     script_id: int | None = None  # its script and version (slot 0 the original), for the
     slot: int | None = None  # owner's request row: "Make a video" from a version, or pasted
+    script_title: str = ""  # its script's title; "" when pasted
+    brand_id: int | None = None  # the freestyle's brand; null with none picked
+    hidden: bool = True  # pasted (no script, or its own hidden one): never read its script
 
 
 class JobOut(BaseModel):
@@ -87,6 +92,7 @@ class JobOut(BaseModel):
     retry_of_id: int | None = None  # P3: the failed take this automatic retry is for
     auto: bool = False  # made on its own (the one automatic retry), not by a press
     freestyle: FreestyleRef | None = None  # a Freestyle take's freestyle (Needs you's row)
+    note: str = ""  # a held step's note as the person typed it ("What's wrong?"), never a prompt
 
     @model_validator(mode="before")
     @classmethod
@@ -142,8 +148,23 @@ class JobOut(BaseModel):
             "declined": bool(job.input.get(DECLINE)),
             "credits": _with_check(db, job) if db else job.credits,
             "freestyle": _freestyle(db, job) if db else None,
+            "note": _note(job),
             **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
         }
+
+
+# Set while a director's tool runs (director_tools.run): every job it starts is marked as the
+# director's, since its tools call the very routes the buttons do.
+DIRECTOR_TOOL: ContextVar[bool] = ContextVar("director_tool", default=False)
+BY_DIRECTOR = "by_director"
+
+
+def _note(job: Job) -> str:
+    """The note a person typed for a redo or a change (Needs you quotes it on the row). The
+    director's own notes are left out: those aren't anyone's words."""
+    note = job.input.get("note")
+    mine = not (job.input.get(BY_DIRECTOR) or job.input.get("director_run"))
+    return note if isinstance(note, str) and mine else ""
 
 
 def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
@@ -154,8 +175,12 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
         return None
     said = job.input.get(SAID, "")
     draft = _draft(db, fs)
+    script = draft and db.get(Script, draft.script_id, execution_options={hidden.SEE: True})
+    secret = not script or script.hidden  # pasted: no script, or its own hidden one
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
                         script_id=draft and draft.script_id, slot=draft and draft.slot,
+                        script_title="" if secret else script.title,
+                        brand_id=fs.brand_id, hidden=secret,
                         up_to=Decimal(job.input[PRICE]) if PRICE in job.input else fs.up_to,
                         total=approved(db, fs) if fs.up_to is not None else None,
                         spent=_spent(db, fs),
@@ -283,6 +308,8 @@ def enqueue(
             wait = PAST_APPROVED if project.hidden else OVER_BUDGET
         elif project is None and input.get(ON_SCRIPT):
             wait = SCRIPT_MEDIA
+    if DIRECTOR_TOOL.get():  # started by a director's tool, through the button's own route
+        input = {**input, BY_DIRECTOR: True}
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,

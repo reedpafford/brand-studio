@@ -304,6 +304,8 @@ def test_a_look_alike_retry_keeps_the_redo_note(app, db, editor, setup, clip, by
     assert [j.input.get("lookalike") for j in takes] == [None, 1, 2]
     assert all(f"Change from the last take: {note}" in j.input["input"]["prompt"]
                for j in takes)  # fmt: skip
+    quoted = [editor.get(f"/jobs/{j.id}").json()["note"] for j in takes]  # Needs you's quote
+    assert quoted == ([note] * 3 if by == "person" else [""] * 3)  # never the director's
 
 
 class Busy(FakeSeedance):
@@ -512,3 +514,12 @@ def test_a_shot_that_is_only_drawn_words_stays_and_gets_advice(app, db, editor, 
     shown = editor.put(url, json=body).json()
     assert "Title card: SALE." in shown["prompt"]  # never emptied (#890)
     assert any(p.startswith("Advice: ") and "only words on screen" in p for p in shown["problems"])
+
+
+def test_a_redo_carries_the_note_as_typed(app, db, editor, setup, clip):  # noqa: F811
+    """Needs you quotes an editor's own "What's wrong?" on a take row (Next-Lead, #1213),
+    never the prompt it went into. The director's notes: test_word_splice's director run."""
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    job = editor.post(f"{url}/generate", json={"note": "Brighter, she smiles."}).json()
+    assert job["note"] == "Brighter, she smiles."
+    assert "Brighter, she smiles." in db.get(Job, job["id"]).input["input"]["prompt"]
