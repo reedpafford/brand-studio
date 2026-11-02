@@ -50,7 +50,7 @@ def main(path: str, words_prompt: str | None = None, study: bool = False,
             "end": round(s.end, 2),
             "text": s.text.strip(),
             "speaker": None,
-            **({"words": _words(s)} if study else {}),
+            **({"words": _words(s)} if study or sounds else {}),  # a take's: for a splice
         }
         for s in segments
         if heard(s)
