@@ -1782,4 +1782,5 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     assert "one framing device" in prompts.system("treatment")
     assert "a comic action and a felt reaction" in prompts.system("plan")
     assert "`extras`" in director and "while `songs_left`" in director
+    assert 'When `style` is "", the first `song`\'s `note` is the style line' in director
     assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"

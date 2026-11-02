@@ -645,8 +645,10 @@ class DirectorTurn(BaseModel):
         default="",
         description="What it must change, in plain words: for make_take as a redo, what to fix "
         "(e.g. 'say fomo as FOH-moh; no extra people'); for redraw_still, what the beat needs "
-        "in the frame; for treatment or plan made again, what changes; for song made again, "
-        "the music's change ('vocals start immediately, no instrumental intro'); for narration "
+        "in the frame; for treatment or plan made again, what changes; for song with no style "
+        "yet, the style line ('laid-back breezy pop, warm female vocal, 100 BPM, acoustic "
+        "guitar, sunny, modern polished'); for song made again, the music's change ('vocals "
+        "start immediately, no instrumental intro'); for narration "
         "made again, the voice's change ('slower and warmer'); else empty.",
     )
     why: str = Field(
