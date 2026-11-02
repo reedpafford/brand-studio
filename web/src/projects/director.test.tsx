@@ -83,7 +83,7 @@ test("Stop asks first, says what still finishes, and stops the run", async () =>
   expect(screen.getByText(/What it already started still finishes, and nothing is undone/)).toBeInTheDocument();
   await userEvent.click(screen.getAllByRole("button", { name: "Stop" }).at(-1)!);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/director/stop")).toBe(true));
-  expect(await screen.findByText(/^Stopped\. · up to 31 credits for this run/)).toBeInTheDocument();
+  expect(await screen.findByText(/^Stopped\. · spent 31 credits on this run/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
 });
 
@@ -106,7 +106,7 @@ test("at 390, the delivered cut plays and downloads, with the total, the note, w
   expect(await screen.findByLabelText("The finished video")).toBeInTheDocument();
   expect(screen.getByText("Delivered")).toBeInTheDocument();
   expect(screen.getAllByText("Every take checked clean; take 2 of clip 3 has the clearest product shot.")[0]).toBeVisible(); // the note, and again in Every move
-  expect(screen.getByText("54 s · up to 58 credits for this run")).toBeInTheDocument(); // its length, and never below the charge
+  expect(screen.getByText("54 s · spent 58 credits on this run")).toBeInTheDocument(); // its length, and never below the charge
   expect(screen.getByText("What it redid on its own (1)")).toBeInTheDocument();
   expect(screen.getAllByText("Take 1 of clip 3 is flagged: the label is hard to read.")[0]).toBeVisible();
   expect(screen.getByRole("link", { name: /Download MP4/ })).toHaveAttribute("download", "cat-buys-the-dip.mp4");

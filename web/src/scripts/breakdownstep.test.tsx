@@ -67,7 +67,7 @@ test("each version has its own tab; a planned one shows its plan, with advice cl
   open();
   expect(await screen.findByRole("tab", { name: "A · Planned" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "B" })).toBeInTheDocument();
-  expect(await screen.findByText("Planned · 4 s · 1 clip · about 56 credits to make")).toBeInTheDocument(); // credits round up
+  expect(await screen.findByText("Planned · 4 s · 1 clip · about 56 credits to make (planned)")).toBeInTheDocument(); // credits round up
   expect(screen.getByText("Advice (1)")).toBeInTheDocument();
   expect(screen.queryByText("Where will it be posted?")).toBeNull();
   expect(screen.getByText("Mia · cast in Cast")).toBeInTheDocument();

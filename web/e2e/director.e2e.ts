@@ -31,7 +31,7 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   await expect(ed.getByLabel("The finished video")).toBeVisible();
   await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible();
-  await expect(ed.getByText(/^\d+ s · up to \d+(\.\d)? credits? for this run$/)).toBeVisible();
+  await expect(ed.getByText(/^\d+ s · spent \d+(\.\d)? credits? on this run$/)).toBeVisible();
   await expect(ed.getByRole("heading", { name: "Talk to the director" })).toBeVisible();
   await expect(ed.getByRole("list", { name: "Locked" })).toBeVisible(); // the locks it builds around, above the conversation
   const thread = ed.getByRole("list", { name: "Conversation with the director" });

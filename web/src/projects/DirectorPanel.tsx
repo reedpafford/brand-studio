@@ -125,7 +125,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const line =
     status === "none" ? (blocked ?? "It makes every step from the script, checks each take, and delivers the finished cut. You can stop it any time.")
     : running ? [phase, credits && `up to ${credits} so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
-    : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `up to ${credits} for this run`, dollars].filter(Boolean).join(" · ");
+    : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `spent ${credits} on this run`, dollars].filter(Boolean).join(" · ");
   const badge = running ? <Badge tone={held ? "warning" : "neutral"}>{held ? "Waiting for approval" : "Working…"}</Badge> : status === "delivered" ? <Badge tone="success">Delivered</Badge> : status === "ended" ? <Badge tone="warning">Stopped</Badge> : null;
 
   const ratio = aspect.replace(":", " / ");
