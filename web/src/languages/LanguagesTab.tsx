@@ -80,7 +80,7 @@ function LanguageCard({ language: l, brandId }: { language: Language; brandId: n
   const s = sample.data;
   const refused = [test, turn, reject].find((m) => m.isError)?.error?.message;
   const testButton = (label: string) => (
-    <Button variant={s?.status === "ready" ? "ghost" : "primary"} charge="estimate" price={s?.credits} busy={test.isPending} disabled={brandId === null} onClick={() => test.mutate()}>
+    <Button variant={s?.status === "ready" ? "ghost" : "secondary"} charge="estimate" price={s?.credits} busy={test.isPending} disabled={brandId === null} onClick={() => test.mutate()}>
       {label}
     </Button>
   );
@@ -119,7 +119,7 @@ function LanguageCard({ language: l, brandId }: { language: Language; brandId: n
               <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(false)}>Switch off</Button>
             ) : s.status === "ready" ? (
               <>
-                <Button busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
+                <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
                 <Button variant="secondary" busy={reject.isPending} onClick={() => reject.mutate()}>Reject</Button>
                 {testButton("Test again")}
               </>
