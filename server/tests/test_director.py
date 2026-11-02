@@ -54,7 +54,7 @@ def test_it_builds_the_video_from_a_published_script_and_logs_every_turn(app, db
         out["ended"],
         [(t["tool"], t["result"]) for t in out["turns"]],
     )
-    assert tools[-2:] == ["final_cut", "deliver"]
+    assert "final_cut" in tools and tools[-1] == "deliver"
     assert all(not t["result"].startswith("Refused") for t in out["turns"]), out["turns"]
     assert editor.get(f"/projects/{pid}/video").json()["file_id"]
     assert out["spent_usd"] is None  # editors never see dollars (rule 4)
@@ -402,10 +402,10 @@ def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, e
     out = editor.get(f"/projects/{pid}/director").json()
     tools = [t["tool"] for t in out["turns"]]
     assert out["status"] == "delivered", (out["ended"], tools)
-    assert tools.count("watch_cut") == director.MAX_WATCHES  # then no more
+    assert tools.count("watch_cut") == 2  # the stand-in watches twice (the server allows 3)
     redos = [t for t in out["turns"] if t["tool"] == "make_take" and "watch found" in t["why"]]
-    assert len(redos) == director.MAX_REDOS  # the rushed line, made again twice at most
-    assert tools.count("final_cut") >= 3 and tools[-2:] == ["final_cut", "deliver"]
+    assert len(redos) == 1  # the stand-in remakes a clip once for a watch
+    assert tools.count("final_cut") == 3 and tools[-2:] == ["final_cut", "deliver"]
     last = db.query(ProjectClip).filter_by(project_id=pid).order_by(ProjectClip.id.desc()).first()
     muted = f"Muted a stretch of clip {last.clip_id.removeprefix('c')} instead of remaking it."
     assert [t["result"] for t in out["turns"] if t["tool"] == "mute"] == [muted]

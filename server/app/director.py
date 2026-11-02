@@ -410,8 +410,9 @@ def video_state(db: Session, project: Project) -> dict:
 def choose(state: dict) -> dict:
     """The stand-in director (no paid call): the agents' order, step by step. A flagged take
     is made again with the take check's notes (the server counts the redos). Once cut, it
-    watches the cut (while watches are left) and fixes one finding at a time: redo, pick or
-    mute, then cuts again and watches again (`allowed`: what its turn may still do)."""
+    watches the cut (while watches are left), fixes what that watch found (a clip remade once,
+    a pick, a mute), then cuts again and watches again (`allowed`: what its turn may still
+    do). Kept short: the browser test walks it in real time."""
 
     def go(tool: str, why: str, **extra) -> dict:
         return {"tool": tool, "why": why, "clip_id": None, "take_id": None, "note": "", **extra}
@@ -451,6 +452,8 @@ def choose(state: dict) -> dict:
                    else f"No take of {c['clip_id']} is clean: using the newest, take "
                    f"{best['number']}.")  # fmt: skip
             return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
+    if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
+        return fix  # every fix the watch of this cut found, then one cut again
     if state["cut"] != "made":
         unclean = [c["clip_id"] for c in clips
                    if not any(t["verdict"] == "clean" for t in c["takes"])]  # fmt: skip
@@ -458,22 +461,21 @@ def choose(state: dict) -> dict:
         return go("final_cut", f"Every clip has its take.{said}")
     if watch.get("state") == "watching":
         return go("wait", "It's watching the cut.")
-    if not watch.get("current") and state.get("allowed", {}).get("watches_left", 0) > 0:
+    left = state.get("allowed", {}).get("watches_left", 0)  # it watches twice (the server: 3)
+    if not watch.get("current") and left > MAX_WATCHES - 2:
         return go("watch_cut", "The cut is made: it watches it as a viewer would.")
-    if fix := _next_fix(found, {c["clip_id"]: c for c in clips}):
-        return fix
     keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
     return go("deliver", f"The cut is made with each clip's best take. {keep}".strip())
 
 
 def _next_fix(found: list[dict], clips: dict) -> dict | None:
-    """The stand-in's next fix from the watch, one at a time (each makes the cut again)."""
+    """The stand-in's next fix from the watch of this cut: a clip is remade once at most."""
     base = {"clip_id": None, "take_id": None, "note": ""}
     for f in found:
         c = clips.get(f.get("clip_id"))
         if c is None:
             continue
-        if f.get("fix") == "redo" and len(c["takes"]) <= MAX_REDOS:
+        if f.get("fix") == "redo" and len(c["takes"]) == 1:
             return {
                 **base,
                 "tool": "make_take",
