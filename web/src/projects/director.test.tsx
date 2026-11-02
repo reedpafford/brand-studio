@@ -115,14 +115,41 @@ test("at 390, the delivered cut plays and downloads, with the total, the note, w
   expect(document.body.textContent).not.toContain("$");
 });
 
-test("while it runs, only the newest 5 moves show, and Show all opens the rest", async () => {
+test("the conversation shows the newest 8, and Show earlier opens the rest", async () => {
   setViewport(390);
-  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: Array.from({ length: 8 }, (_, i) => turn(i + 1, { result: `Move ${i + 1}.` })) })] }));
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: Array.from({ length: 12 }, (_, i) => turn(i + 1, { result: `Move ${i + 1}.` })) })] }));
   show();
-  expect(await screen.findByText("Move 8.")).toBeInTheDocument();
-  expect(screen.queryByText("Move 3.")).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Show all 8 moves" }));
+  expect(await screen.findByText("Move 12.")).toBeInTheDocument();
+  expect(screen.queryByText("Move 4.")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Show earlier (4)" }));
   expect(screen.getByText("Move 1.")).toBeInTheDocument();
+});
+
+const item = (id: string, o: object = {}) => ({ id, kind: "move", at, who: "Director", text: "Made the cut.", status: "done", ...o });
+
+test("after a delivery, a person asks for a change: it's sent, shows in the thread, and the director's moves follow with their reasons", async () => {
+  setViewport(1440);
+  const before = [item("t1", { text: "Made the plan.", why: "There were no shots yet." }), item("t2", { text: "Every take checked clean." })];
+  const delivered = run({ status: "delivered", start_blocked: "", thread: before });
+  const after = run({ thread: [...before, { id: "m0", kind: "message", at, who: "Olu", text: "Make clip 1 slower.", status: null }, item("t3", { text: "Waiting for the owner's OK.", status: "held" })] });
+  const calls = fakeServer(routes({ "GET /projects/9/director": [200, delivered], "POST /projects/9/director/messages": [201, after] }));
+  show();
+  expect(await screen.findByText("There were no shots yet.")).toBeInTheDocument(); // a move's reason under it
+  const box = screen.getByLabelText("Tell the director what to change");
+  expect(screen.getByRole("button", { name: "Send to the director" })).toBeDisabled(); // nothing to send yet
+  await userEvent.type(box, "Make clip 1 slower.{Enter}");
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/director/messages")?.body).toEqual({ text: "Make clip 1 slower." }));
+  const thread = await screen.findByRole("list", { name: "Conversation with the director" });
+  expect(within(thread).getByText("Make clip 1 slower.")).toBeInTheDocument();
+  expect(within(thread).getByRole("link", { name: "See it in Needs you" })).toHaveAttribute("href", "/approvals");
+  expect(box).toHaveValue("");
+});
+
+test("before the first run there's no message box: Make it starts the director", async () => {
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "" })] }));
+  show();
+  expect(await screen.findByRole("button", { name: "Make it" })).toBeInTheDocument();
+  expect(screen.queryByLabelText("Tell the director what to change")).toBeNull();
 });
 
 test("move lines are plain words: no tool names, codes, ids or JSON on screen; said is shown when the server sends it", async () => {

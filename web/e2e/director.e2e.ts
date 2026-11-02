@@ -32,15 +32,22 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await expect(ed.getByLabel("The finished video")).toBeVisible();
   await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible();
   await expect(ed.getByText(/^\d+ s · up to \d+(\.\d)? credits? for this run$/)).toBeVisible();
-  await expect(ed.getByText(/^Every move \(\d+\)$/)).toBeVisible();
-  await expect(ed.getByRole("list", { name: "Locked" })).toBeVisible(); // the locks it builds around, above the moves
-  const moves = await ed.getByRole("complementary", { name: "Locks and moves" }).locator("ol").textContent();
+  await expect(ed.getByRole("heading", { name: "Talk to the director" })).toBeVisible();
+  await expect(ed.getByRole("list", { name: "Locked" })).toBeVisible(); // the locks it builds around, above the conversation
+  const thread = ed.getByRole("list", { name: "Conversation with the director" });
+  if (await ed.getByRole("button", { name: /^Show earlier/ }).isVisible()) await ed.getByRole("button", { name: /^Show earlier/ }).click();
+  const moves = await thread.textContent();
   expect(moves).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words only: no tool names, clip codes or JSON
   expect(moves).toContain("Watching the cut."); // it watched its cut (#1145)
   expect((moves ?? "").match(/Made the cut\./g)?.length ?? 0).toBeGreaterThanOrEqual(2); // and cut again after its fixes
   const noted = /^The cut is made\b.*Muted a stretch of clip \d+ instead of remaking it\./; // the delivery note names the mute
   await expect(ed.locator("p").filter({ hasText: noted }).first()).toBeVisible();
   expect(await ed.locator("main").textContent()).not.toMatch(/\$\d|ask (Reed|the owner)/i);
+  // Chat (v4): ask for a change after the delivery; the stand-in remakes that clip, cuts and delivers again.
+  await ed.getByLabel("Tell the director what to change").fill("Make clip 1 slower.");
+  await ed.getByRole("button", { name: "Send to the director" }).click();
+  await expect(thread.getByText("Make clip 1 slower.")).toBeVisible();
+  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
   await ed.getByRole("button", { name: "Step 1 of 5 · Director" }).click(); // the phone keeps its step sheet, the Director first

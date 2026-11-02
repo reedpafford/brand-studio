@@ -12,10 +12,9 @@ import { ReviewChip } from "./Checks";
 import { useProjectClips, useProjectVideo } from "./useProgress";
 import { useFrames } from "./StoryboardPane";
 import { LockChips } from "./LockChips";
+import { DirectorChat } from "./DirectorChat";
 
 type Run = components["schemas"]["DirectorOut"];
-// `said` is the server's own plain line for a move (Next-Server's follow-up to #1087); until it lands, `result`.
-type Turn = Run["turns"][number] & { said?: string };
 type Clip = components["schemas"]["ProjectClipOut"];
 
 // Never on screen: tool names, codes, ids, JSON or model names (the Producer's condition). A line with any left is dropped
@@ -104,6 +103,11 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const blocked = r?.start_blocked || null;
   const cut = video.data;
   const list = clips.data ?? [];
+  // The conversation; a server without it yet still shows this run's moves (each with its reason).
+  type Said = { said?: string };
+  const thread = r?.thread?.length
+    ? r.thread
+    : turns.map((t) => ({ id: `t${t.turn}`, kind: "move" as const, at: t.created_at, who: "Director", text: plain((t as Said).said || t.result, list) || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : t.tool && DOING[t.tool] ? `${DOING[t.tool]}.` : ""), status: t.status === "needs_owner_approval" ? ("held" as const) : null, why: t.why }));
   const doing = [...turns].reverse().find((t) => t.tool && DOING[t.tool])?.tool;
   const made = list.filter((c) => c.takes.length > 0).length;
   const phase = held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && list.length ? `Making clips: ${made} of ${list.length}` : DOING[doing];
@@ -175,7 +179,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
         {list.length > 0 && <InTheCut clips={list} projectId={projectId} onOpenClips={onOpenClips} />}
         <p className="text-sm text-muted">Advice it leaves stays on Review.</p>
       </section>
-      <aside className="min-w-0 space-y-4 lg:border-l lg:border-border lg:pl-6" aria-label="Locks and moves">
+      <aside className="min-w-0 space-y-4 lg:border-l lg:border-border lg:pl-6" aria-label="Locks and conversation">
         <div className="space-y-2">
           <p className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="font-medium">Locked</span>
@@ -183,13 +187,10 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
           </p>
           <LockChips projectId={projectId} />
         </div>
-        {/* Talking to the director comes once the server has it: no message box until then. */}
-        {turns.length > 0 && (
-          <div className="space-y-2 border-t border-border pt-4">
-            <h3 className="font-medium">Every move ({turns.length})</h3>
-            <Moves turns={turns} newest={running ? 5 : undefined} clips={list} />
-          </div>
-        )}
+        <div className="space-y-2 border-t border-border pt-4">
+          <h3 className="font-medium">Talk to the director</h3>
+          <DirectorChat projectId={projectId} thread={thread} plain={(t) => plain(t, list)} canAsk={status !== "none"} />
+        </div>
       </aside>
       {stopping && (
         <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => stop.mutate()}>
@@ -223,37 +224,5 @@ function InTheCut({ clips, projectId, onOpenClips }: { clips: Clip[]; projectId:
         })}
       </ol>
     </div>
-  );
-}
-
-/** Each move as a message from the director, what it did, with its reason under it. While it runs, only the newest few, with Show all. */
-function Moves({ turns, newest, clips }: { turns: Turn[]; newest?: number; clips: Clip[] }) {
-  const [all, setAll] = useState(false);
-  const shown = newest && !all ? turns.slice(-newest) : turns;
-  return (
-    <>
-      {shown.length < turns.length && (
-        <Button variant="ghost" dense onClick={() => setAll(true)}>
-          Show all {turns.length} moves
-        </Button>
-      )}
-      <ol className="space-y-3">
-        {shown.map((t) => {
-          const said = plain(t.said || t.result, clips) || (t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : t.tool && DOING[t.tool] ? `${DOING[t.tool]}.` : "Deciding what to do next…");
-          const why = plain(t.why, clips);
-          const when = new Date(t.created_at);
-          return (
-            <li key={t.turn} className="flex min-w-0 gap-2.5 text-sm">
-              <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent-text">D</span>
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-xs text-muted tabular-nums">Director{Number.isNaN(when.getTime()) ? "" : ` · ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</p>
-                <p className="break-words">{said}</p>
-                {why && <p className="break-words text-muted">{why}</p>}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </>
   );
 }
