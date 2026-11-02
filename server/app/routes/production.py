@@ -14,7 +14,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 from app.auth import current_user
@@ -67,6 +67,7 @@ class ProductionRow(BaseModel):
     step: Literal["breakdown", "assets", "storyboard", "clips", "downloads"]
     last_activity_at: UtcTime
     credits_used: float
+    director_credits: float = 0  # the director's own spend: the budget leaves it out
     budget_credits: float
     spent_usd: float  # owner only, like the whole page
     poster_file_id: int | None
@@ -111,6 +112,21 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
             func.max(Job.id),
             # counted like the budget gate: failed and cancelled jobs were refunded
             func.coalesce(func.sum(case((Job.status.in_(COUNTED), Job.credits), else_=0)), 0),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Job.status.in_(COUNTED),  # the director's own
+                                Job.input["director_run"].as_string().is_not(None),
+                            ),
+                            Job.credits,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),  # fmt: skip
             func.max(Job.created_at),
             func.max(Job.finished_at),
         ).group_by(Job.project_id),
@@ -148,7 +164,7 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
     out = []
     for project, slot, script_id, title, brand_id, brand_name in found:
         pid = project.id
-        _, used, job_at, done_at = jobs.get(pid, (None, 0, None, None))
+        _, used, director, job_at, done_at = jobs.get(pid, (None, 0, 0, None, None))
         times = [
             project.created_at,
             job_at,
@@ -169,6 +185,7 @@ def rows(db: Session, user: User) -> list[ProductionRow]:
             step=step,
             last_activity_at=last,
             credits_used=float(used),
+            director_credits=float(director),
             budget_credits=float(project.budget_credits),
             spent_usd=round(float((spent.get(pid) or (Decimal(0),))[0] or 0), 4),
             poster_file_id=(frames.get(pid) or (None, None))[1],
@@ -235,7 +252,11 @@ SORTS = {
     "attention": lambda r: (ORDER[r.flag], -r.last_activity_at.timestamp()),
     "activity": lambda r: -r.last_activity_at.timestamp(),
     "credits": lambda r: -r.credits_used,
-    "budget": lambda r: -(r.credits_used / r.budget_credits if r.budget_credits else 0),
+    "budget": lambda r: (
+        -(  # as the budget counts it: the director's own spend left out
+            (r.credits_used - r.director_credits) / r.budget_credits if r.budget_credits else 0
+        )
+    ),
 }
 
 
