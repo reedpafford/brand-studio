@@ -87,7 +87,7 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
   // Assets: looks are made by themselves, then approved
   await state(ed, `${tag} assets`);
   for (let i = 0; i < 8; i++) {
-    if (await btn(ed, /^Next: Make/).isEnabled().catch(() => false)) break;
+    if (await btn(ed, /^Next: Clips/).isEnabled().catch(() => false)) break;
     const st = await state(ed, `${tag} assets ${i}`);
     if (/flavour first/.test(st.next)) {
       const flav = ed.getByRole("region", { name: "Products" }).locator('button[aria-pressed="false"]').first();
@@ -101,26 +101,29 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
     if (i >= 3 && (await look.isEnabled().catch(() => false))) { await look.click(); }
     await ed.waitForTimeout(8_000);
   }
-  if (!(await next(ed, /^Next: Make/, `${tag} assets`, 20_000))) return;
+  if (!(await next(ed, /^Next: Clips/, `${tag} assets`, 20_000))) return;
   // Storyboard
   await state(ed, `${tag} storyboard`);
   if (!(await clickWhenOn(ed, /^Make storyboard/, 20_000))) { await block(ed, `${tag} storyboard`, "Make storyboard not on"); return; }
   if (!(await clickWhenOn(ed, /^Approve all$|^Approve \d+$/, 120_000))) await block(ed, `${tag} storyboard`, "no Approve all for stills");
   await ed.waitForTimeout(1500);
-  if (!(await next(ed, /^Next: Clips/, `${tag} storyboard`, 30_000))) return;
-  // Clips
+  // Clips: the takes are on the same tab, one clip at a time (picked in the list)
+  const rows = ed.getByRole("list", { name: "Clip list" }).getByRole("button");
   await state(ed, `${tag} clips`);
   if (await btn(ed, /^Write clip prompts/).count()) if (!(await clickWhenOn(ed, /^Write clip prompts/, 20_000))) { await block(ed, `${tag} clips`, "Write clip prompts not on"); return; }
   await expect(ed.getByRole("listitem", { name: /^Clip c1$/ })).toBeVisible({ timeout: 60_000 }).catch(async () => block(ed, `${tag} clips`, "no clips listed"));
   await ed.waitForTimeout(2000);
-  for (const b of await ed.getByRole("button", { name: /^Prompt OK for c\d+$/ }).all()) await b.click().catch(() => {});
+  for (const row of await rows.all()) {
+    await row.click().catch(() => {});
+    await ed.getByRole("button", { name: /^Prompt OK for c\d+$/ }).click({ timeout: 3_000 }).catch(() => {});
+  }
   await ed.waitForTimeout(1500);
   await state(ed, `${tag} clips read`);
   if (await btn(ed, /^Make the takes/).count()) { if (!(await clickWhenOn(ed, /^Make the takes/, 20_000))) await block(ed, `${tag} clips`, "Make the takes not on"); }
-  else for (const b of await ed.locator("main").getByRole("button", { name: /^Make clip/ }).all()) await b.click().catch(() => {});
+  else for (const row of await rows.all()) { await row.click().catch(() => {}); await btn(ed, /^Make clip/).click({ timeout: 3_000 }).catch(() => {}); }
   if (!(await clickWhenOn(ed, /^Approve all$|^Approve \d+$/, 180_000))) {
-    const each = ed.getByRole("button", { name: "Approve take" });
-    if (await each.count()) for (const b of await each.all()) await b.click().catch(() => {});
+    const each = ed.getByRole("button", { name: /^Approve take \d+$/ });
+    if (await each.count()) for (const row of await rows.all()) { await row.click().catch(() => {}); await each.click({ timeout: 3_000 }).catch(() => {}); }
     else await block(ed, `${tag} clips`, "no way to approve takes");
   }
   await ed.waitForTimeout(2000);

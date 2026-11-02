@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -17,12 +17,12 @@ const take = (id: number) => ({ id, number: id, file_id: id, created_at: at, ver
 const clips = (made: number, of: number) => Array.from({ length: of }, (_, i) => ({ id: i + 1, clip_id: `c${i + 1}`, seconds: 5, takes: i < made ? [take(i + 1)] : [], picked_take_id: null }));
 const routes = (o: Record<string, [number, unknown]> = {}) => ({ "GET /auth/me": [200, owner] as [number, unknown], "GET /projects/9/clips": [200, []] as [number, unknown], "GET /projects/9/video": [404, { detail: "none" }] as [number, unknown], ...o });
 
-function show(onLookInside = () => {}) {
+function show(onOpenClips = () => {}) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
         <MemoryRouter>
-          <DirectorPanel projectId={9} aspect="9:16" name="Cat buys the dip" onLookInside={onLookInside} />
+          <DirectorPanel projectId={9} aspect="9:16" name="Cat buys the dip" onOpenClips={onOpenClips} />
         </MemoryRouter>
       </ToastProvider>
     </QueryClientProvider>,
@@ -87,7 +87,7 @@ test("Stop asks first, says what still finishes, and stops the run", async () =>
   expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
 });
 
-test("at 390, the delivered cut plays and downloads, with the total, the note, what it redid and why, and Look inside", async () => {
+test("at 390, the delivered cut plays and downloads, with the total, the note, what it redid and why, and All clips", async () => {
   setViewport(390);
   const done = run({
     status: "delivered",
@@ -107,10 +107,10 @@ test("at 390, the delivered cut plays and downloads, with the total, the note, w
   expect(screen.getByText("Delivered")).toBeInTheDocument();
   expect(screen.getAllByText("Every take checked clean; take 2 of clip 3 has the clearest product shot.")[0]).toBeVisible(); // the note, and again in Every move
   expect(screen.getByText("54 s · up to 58 credits for this run")).toBeInTheDocument(); // its length, and never below the charge
-  await userEvent.click(screen.getByText("What it redid (1)"));
+  expect(screen.getByText("What it redid on its own (1)")).toBeInTheDocument();
   expect(screen.getAllByText("Take 1 of clip 3 is flagged: the label is hard to read.")[0]).toBeVisible();
   expect(screen.getByRole("link", { name: /Download MP4/ })).toHaveAttribute("download", "cat-buys-the-dip.mp4");
-  await userEvent.click(screen.getByRole("button", { name: "Look inside" }));
+  await userEvent.click(screen.getByRole("button", { name: "All clips" }));
   expect(inside).toHaveBeenCalled();
   expect(document.body.textContent).not.toContain("$");
 });
@@ -142,4 +142,19 @@ test("move lines are plain words: no tool names, codes, ids or JSON on screen; s
   const moves = screen.getByText("Picked take 3 for clip 2.").closest("ol")!;
   expect(moves.textContent).not.toMatch(NOT_PLAIN);
   expect(moves.textContent).not.toMatch(/make_take|pick_take|final_cut|clip_id|\bc\d+\b|\{/);
+});
+
+test("the locks it builds around: a press locks or unlocks one and keeps the outfits; Screens only shows", async () => {
+  setViewport(1440);
+  const locks = { cast: true, look: false, length: false, song: false, end_line: false, screens: [] };
+  const outfits = { "char:1": "red coat" };
+  const calls = fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [] })], "GET /projects/9/locks": [200, { locks, outfits }], "PUT /projects/9/locks": [200, { locks: { ...locks, look: true }, outfits }] }));
+  show();
+  const chips = await screen.findByRole("list", { name: "Locked" });
+  expect(within(chips).getByRole("button", { name: "Cast" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(within(chips).getByRole("button", { name: "Look" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/locks")?.body).toEqual({ locks: { ...locks, look: true }, outfits }));
+  expect(await within(chips).findByRole("button", { name: "Look", pressed: true })).toBeInTheDocument();
+  expect(within(chips).queryByRole("button", { name: /Screens/ })).toBeNull();
+  expect(within(chips).getByText("Screens")).toBeInTheDocument();
 });
