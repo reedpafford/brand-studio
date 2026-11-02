@@ -6,7 +6,7 @@ import { api, errorText } from "../api/client";
 import { Button, Menu, MenuItem, StepPicker, TextArea, buttonClass } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { useLanguages } from "../languages/useLanguages";
-import { PickLabel, ScriptBox, ScriptTop, SettingsRow, pickClass } from "./ScriptFrame";
+import { PickLabel, ScriptBox, ScriptTop, SettingsRow, ShapeChip, pickClass } from "./ScriptFrame";
 import { useMe } from "../auth/useMe";
 import { useFolders } from "../folders/Projects";
 import { stepStates, stepsFor } from "./flow";
@@ -201,6 +201,7 @@ export function NewScriptPage() {
             }
           </Menu>
         )}
+        <ShapeChip />
         {languages.data && (
           <Menu title="Language" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Language: ${langName(lang)}`} disabled={make.isPending} {...t}><PickLabel label="Language">{langName(lang)}</PickLabel></Button>}>
             {(close) =>

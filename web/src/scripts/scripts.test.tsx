@@ -119,6 +119,7 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   // The script page's frame shows at once (v5 C_NewScript): the breadcrumb, the settings and the steps, later ones locked.
   expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Scripts›New script");
   expect(screen.getByRole("button", { name: "Type: Dialogue" })).toBeInTheDocument();
+  expect(screen.getByTitle("Each video picks its shape")).toHaveTextContent("Shape Each video picks its shape"); // read only (Next-Lead)
   expect(screen.getByText("Nothing is saved until you type or pick a setting. Lines with a NAME: are dialogue.")).toBeInTheDocument();
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: /Cast/ })).toHaveAccessibleDescription("Write a few lines first");
   // No dead press: every later step is locked with its reason, Variations too (QA-3 on #1191).

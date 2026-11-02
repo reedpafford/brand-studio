@@ -22,7 +22,7 @@ import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScr
 import { useScript } from "./useScript";
 import { LookSetting } from "./Looks";
 import { ProjectPicker, useFolders } from "../folders/Projects";
-import { ScriptTop, SettingsRow } from "./ScriptFrame";
+import { ScriptTop, SettingsRow, ShapeChip } from "./ScriptFrame";
 import { FormatAdvice, FormatSetting } from "./Format";
 import { HeldRequests } from "../approvals/HeldRequests";
 import { ScriptOverview } from "./ScriptOverview";
@@ -132,6 +132,7 @@ export function ScriptFlowPage() {
       <FormatSetting script={s} />
       <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
       {(mine || me?.role === "owner") && <ProjectPicker pick brandId={s.brand_id} kind="script" id={s.id} folderId={s.folder_id} />}
+      {step === "script" && <ShapeChip />}
     </>
   );
   // A story's v5 step bar ends at Cast: Publish is "Publish to library", still the step after Cast (Next: Publish).

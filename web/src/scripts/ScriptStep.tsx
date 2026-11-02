@@ -228,7 +228,10 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
   const stuck = dirty && write.isError;
   useEffect(() => onDirty(stuck), [stuck]); // eslint-disable-line react-hooks/exhaustive-deps
   const waiting = useRef<string | null>(null);
-  waiting.current = dirty && !write.isError && (draft ?? "").trim() ? draft : null;
+  const due = dirty && !write.isError && (draft ?? "").trim() ? draft : null;
+  useEffect(() => {
+    waiting.current = due;
+  }, [due]);
   useEffect(
     () => () => {
       const words = waiting.current;
