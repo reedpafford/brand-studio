@@ -641,11 +641,6 @@ class DirectorTurn(BaseModel):
         description="For splice_word: the brand word as the script spells it, e.g. 'fomo', from "
         "that clip's can_splice; else null.",
     )
-    voice: Literal["Sarah", "Alexandra", "Hope", "Jane"] | None = Field(
-        default=None,
-        description="For narration made (or made again): the narrator's voice, Sarah unless the "
-        "brief or a person's note asks for another; null keeps Sarah. Else null.",
-    )  # narration.VOICES
     note: str = Field(
         default="",
         description="What it must change, in plain words: for make_take as a redo, what to fix "
