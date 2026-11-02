@@ -63,10 +63,10 @@ export function LookSheets({ item }: { item: Item }) {
   if (looks.length === 0) return null;
   const refused = (make.error ?? approve.error)?.message;
   return (
-    <section aria-label="Sheets in other looks" className={`${card} space-y-3`}>
+    <section aria-label="Sheets in other styles" className={`${card} space-y-3`}>
       <div>
-        <h2 className="font-medium">Sheets in other looks</h2>
-        <p className="text-sm text-muted">The House sheet is above. A video in a look with no sheet here makes its own look for that video.</p>
+        <h2 className="font-medium">Sheets in other styles</h2>
+        <p className="text-sm text-muted">The House sheet is above. A video in a style with no sheet here makes its own look for that video.</p>
       </div>
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -94,7 +94,7 @@ export function LookSheets({ item }: { item: Item }) {
                   <Button variant="ghost" dense charge="estimate" price={price} busy={make.isPending && make.variables === l.id} onClick={() => make.mutate(l.id)}>Redo</Button>
                 </div>
               )}
-              {!owner && s.status === "none" && <p className="text-muted">Only the owner adds a sheet in a look.</p>}
+              {!owner && s.status === "none" && <p className="text-muted">Only the owner adds a sheet in a style.</p>}
             </li>
           );
         })}
