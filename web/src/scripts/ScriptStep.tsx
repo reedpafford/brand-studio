@@ -5,14 +5,15 @@ import { ChevronDown, ChevronRight, Lock, Pencil, Sparkles, Undo2 } from "lucide
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { useJobs } from "../clip/History";
-import { Badge, Banner, Button, Card, Dialog, Field, TextArea } from "../components";
+import { Badge, Banner, Button, Card, Dialog, Field } from "../components";
 import { ScriptText } from "../projects/ScriptTab";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { DescriptionForm } from "./DescriptionForm";
 import { ReelBlock, useReelImport } from "./ReelImport";
 import { usePatchScript, useWriteWords, type Script } from "./useScript";
-import { SCRIPT_BOX, useTypingOn } from "./NewScriptButton";
+import { useTypingOn } from "./NewScriptButton";
+import { ScriptBox } from "./ScriptFrame";
 import { refreshJobs } from "../jobs/refresh";
 
 const GOING = ["queued", "running"];
@@ -125,7 +126,7 @@ function About({ script: s }: { script: Script }) {
   const [open, setOpen] = useState(!!(useLocation().state as { about?: boolean } | null)?.about); // "Start from what it's for" opens it
   const readOnly = s.published && me?.role !== "owner";
   return (
-    <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group max-w-[680px] rounded-lg border border-border bg-surface px-4">
+    <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group mx-auto max-w-[680px] rounded-lg border border-border bg-surface px-4">
       <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-2 font-medium">
         <span className="min-w-0 flex-1">
           About this script
@@ -160,12 +161,30 @@ function About({ script: s }: { script: Script }) {
   );
 }
 
-/** Step 1, the script: the editor is the main thing (Save is explicit and leaving with unsaved words asks first), with the optional Claude draft and the About fields under it. */
+/** "Saved 10:42", "Saving…", "Not saved yet" or the error with Try again, beside the box's label. */
+function SaveState({ saving, dirty, error, at, onRetry }: { saving: boolean; dirty: boolean; error: string | null; at: Date | null; onRetry: () => void }) {
+  if (error)
+    return (
+      <span role="alert" className="flex items-center gap-2 text-sm text-danger">
+        Not saved: {error}
+        <Button variant="ghost" dense onClick={onRetry}>
+          Try again
+        </Button>
+      </span>
+    );
+  const said = saving ? "Saving…" : dirty ? "Not saved yet" : at ? `Saved ${at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Saved";
+  return (
+    <span role="status" className="text-xs text-muted">
+      {said}
+    </span>
+  );
+}
+
+/** Step 1, the script (v5 C_ScriptWrite): the words autosave, in Courier, with their counts; the optional Claude draft and the About fields under it. */
 export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; brandName?: string; onDirty: (dirty: boolean) => void }) {
   const write = useWriteWords(s.id);
   const reel = useReelImport(s.id);
   const queryClient = useQueryClient();
-  const toast = useToast();
   const original = s.versions.find((v) => v.slot === 0);
   const text = original?.text ?? "";
   const approved = original?.status === "approved";
@@ -192,7 +211,40 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
     }
   };
   const dirty = draft !== null && draft !== text;
-  useEffect(() => onDirty(dirty), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+  // v5 autosaves (C_ScriptWrite "Saved 10:42"): a second after the last key, and when the box loses focus. Empty words are
+  // never saved over a script; leaving while a save is due still asks first.
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const save = () => {
+    if (!dirty || !(draft ?? "").trim() || write.isPending) return;
+    const words = draft ?? "";
+    write.mutate(words, { onSuccess: () => { setSavedAt(new Date()); setDraft(null); } });
+  };
+  useEffect(() => {
+    if (!dirty || write.isError) return;
+    const t = setTimeout(save, 1000);
+    return () => clearTimeout(t);
+  }, [draft]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Leaving saves words not saved yet on the way out (they also stay in the tab's memory); it asks first only after a save failed.
+  const stuck = dirty && write.isError;
+  useEffect(() => onDirty(stuck), [stuck]); // eslint-disable-line react-hooks/exhaustive-deps
+  const waiting = useRef<string | null>(null);
+  waiting.current = dirty && !write.isError && (draft ?? "").trim() ? draft : null;
+  useEffect(
+    () => () => {
+      const words = waiting.current;
+      if (words === null) return;
+      void api.PUT("/scripts/{script_id}/drafts/{slot}", { params: { path: { script_id: s.id, slot: 0 } }, body: { text: words } }).then(({ data }) => {
+        if (!data) return;
+        queryClient.setQueryData(["script-lib", s.id], data);
+        try {
+          sessionStorage.removeItem(memory);
+        } catch {
+          /* private window */
+        }
+      }, () => undefined); // offline: the words wait in the tab's memory
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   useEffect(() => () => onDirty(false), []); // eslint-disable-line react-hooks/exhaustive-deps
   const undoApproval = useMutation({
     mutationFn: async () => {
@@ -250,29 +302,19 @@ export function ScriptStep({ script: s, brandName, onDirty }: { script: Script; 
           />
         </div>
       ) : (
-        <Card className="max-w-[680px] space-y-3">
-          <TextArea {...SCRIPT_BOX} {...typingOn} value={draft ?? text} onChange={(e) => setDraft(e.target.value)} />
-          {write.isError && <p role="alert" className={errorClass}>{write.error.message}</p>}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              busy={write.isPending}
-              disabled={!dirty || !(draft ?? "").trim()}
-              reason={!dirty ? (text.trim() ? "Nothing changed yet" : "Write or paste the script first") : undefined}
-              onClick={() => write.mutate(draft ?? "", { onSuccess: () => { setDraft(null); toast("Saved."); } })}
-            >
-              Save script
-            </Button>
-            {dirty && <span className="text-sm text-warning">Not saved yet</span>}
-            {dirty && (
-              <Button variant="ghost" onClick={() => setDraft(null)}>
-                Discard changes
-              </Button>
-            )}
-          </div>
-        </Card>
+        <ScriptBox
+          label="Script · version A"
+          status={<SaveState saving={write.isPending} dirty={dirty} error={write.isError ? write.error.message : null} at={savedAt} onRetry={save} />}
+          placeholder={"BO: Is that… salmon?\nOWNER: Only the best for you."}
+          words={draft ?? text}
+          value={draft ?? text}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={save}
+          {...typingOn}
+        />
       )}
       {!s.published && !approved && !reel.data && (
-        <Card className="max-w-[680px]">
+        <Card className="mx-auto max-w-[680px]">
           <WriteWithClaude script={s} text={text} hasUnsaved={dirty} onWritten={() => setDraft(null)} />
         </Card>
       )}

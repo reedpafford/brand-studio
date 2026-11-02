@@ -86,7 +86,7 @@ test("a published script shows its look read only; a song shows the Song chip", 
   open("/b/1/scripts/7");
   expect(await screen.findByText("Style: Disney Pixar")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Look:/ })).toBeNull();
-  expect(screen.getByText("Song", { selector: "span" })).toBeInTheDocument();
+  expect(screen.getByText("Type: Song")).toBeInTheDocument();
 });
 
 test("before the server offers looks, there's no Look control", async () => {

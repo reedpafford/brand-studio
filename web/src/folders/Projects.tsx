@@ -164,7 +164,7 @@ export function ProjectsChip({ brandId }: { brandId: number }) {
 }
 
 /** "Project: none ▾" on a script, video or quick clip: pick a project and it moves there, with Undo. */
-export function ProjectPicker({ brandId, kind, id, folderId }: { brandId: number; kind: FolderKind; id: number; folderId: number | null | undefined }) {
+export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: number; kind: FolderKind; id: number; folderId: number | null | undefined; /** v5's settings row: "Project None ▾" */ pick?: boolean }) {
   const folders = useFolders(brandId);
   const toast = useToast();
   const refresh = useRefresh(brandId);
@@ -200,8 +200,14 @@ export function ProjectPicker({ brandId, kind, id, folderId }: { brandId: number
       <Menu
         title="Project"
         trigger={(p) => (
-          <Button {...p} variant="ghost" dense icon={Folder} trailing={ChevronDown} busy={file.isPending} className="max-w-full whitespace-nowrap">
-            Project: {nameOf(folderId)}
+          <Button {...p} variant="ghost" dense icon={pick ? undefined : Folder} trailing={ChevronDown} busy={file.isPending} aria-label={pick ? `Project: ${nameOf(folderId)}` : undefined} className={`max-w-full whitespace-nowrap ${pick ? "border border-border" : ""}`}>
+            {pick ? (
+              <>
+                <span className="text-muted">Project</span> {folderId == null ? "None" : nameOf(folderId)}
+              </>
+            ) : (
+              <>Project: {nameOf(folderId)}</>
+            )}
           </Button>
         )}
       >

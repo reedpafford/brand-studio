@@ -93,7 +93,7 @@ test("on a phone, New script → Dialogue opens with the box focused and no side
   const untitled = await page.getByRole("link", { name: "Untitled script" }).count();
   await page.getByRole("button", { name: "New script" }).first().click();
   await page.getByRole("menuitem", { name: /Dialogue/ }).click();
-  await expect(page.getByLabel("Paste or write your script")).toBeFocused();
+  await expect(page.getByLabel("Write or paste the script")).toBeFocused();
   const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(widths.scroll).toBeLessThanOrEqual(widths.window);
   await page.goBack();

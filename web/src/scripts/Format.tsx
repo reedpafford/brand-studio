@@ -6,6 +6,7 @@ import { Badge, Button, Dialog, Menu, MenuItem } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useSearchParams } from "react-router-dom";
+import { PickLabel, pickClass } from "./ScriptFrame";
 import { stepsFor } from "./flow";
 import type { Script } from "./useScript";
 
@@ -41,10 +42,10 @@ export function FormatSetting({ script: s }: { script: Script }) {
   const swap = useSwap(s);
   const [asking, setAsking] = useState<Swap | null>(null);
   const name = FORMAT[s.kind] ?? "Dialogue";
-  if (s.published || (s.kind !== "story" && s.kind !== "narrated")) return <Badge>{name}</Badge>;
+  if (s.published || (s.kind !== "story" && s.kind !== "narrated")) return <Badge>Type: {name}</Badge>;
   return (
     <>
-      <Menu title="Format" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} busy={swap.isPending} aria-label={`Format: ${name}`} {...t}>{name}</Button>}>
+      <Menu title="Type" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} busy={swap.isPending} className={pickClass} aria-label={`Type: ${name}`} {...t}><PickLabel label="Type">{name}</PickLabel></Button>}>
         {(close) => (
           <>
             {(["story", "narrated"] as const).map((k) => (

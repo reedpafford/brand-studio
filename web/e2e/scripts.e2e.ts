@@ -12,23 +12,17 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   await page.getByRole("button", { name: "New script" }).first().click();
   await page.getByRole("menuitem", { name: /Dialogue/ }).click();
-  // Nothing is saved until the first word (flows S1 U).
-  await expect(page.getByText("Not saved yet · saved when you type, or pick a style or project")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Format: Dialogue" })).toBeVisible(); // the header shows before the save
-  await page.getByLabel("Paste or write your script").fill("BO: Salmon? Again?\nMIA: Try it.");
-  await page.getByRole("button", { name: "Save script" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
-  await page.getByRole("button", { name: "Rename Untitled script" }).click();
+  // Nothing is saved until the first word (flows S1 U); v5's frame shows before the save.
+  await expect(page.getByText("Nothing is saved until you type or pick a setting. Lines with a NAME: are dialogue.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Type: Dialogue" })).toBeVisible();
+  await page.getByLabel("Write or paste the script").fill("BO: Salmon? Again?\nMIA: Try it.");
+  await expect(page.getByText(/^Saved \d/)).toBeVisible(); // autosaved (v5 C_ScriptWrite)
+  await expect(page.getByText("2 speakers · 2 lines")).toBeVisible();
+  // The title is in About this script.
+  await page.getByText("About this script").click();
   await page.getByRole("textbox", { name: "Title" }).fill("Bo tries salmon");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 1, name: /Bo tries salmon/ })).toBeVisible();
-  // The title is the Rename button: at least 44 px tall on a phone.
-  await page.setViewportSize({ width: 390, height: 900 });
-  await expect.poll(async () => (await page.getByRole("button", { name: "Rename Bo tries salmon" }).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
-  await page.setViewportSize({ width: 1280, height: 720 });
-
-  await expect(page.getByRole("heading", { name: "Script", exact: true, level: 2 })).toBeVisible();
-  await expect(page.getByText("Draft · only you can see it")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Bo tries salmon");
   await expect(page.getByRole("button", { name: "Next: Directions" })).toBeEnabled();
 
   // Back in the library it is listed as Writing.
@@ -53,8 +47,8 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("textbox", { name: "Role" }).fill("Zed");
   await page.getByRole("button", { name: "Add role" }).click();
   await expect(page.getByText("3 roles · 0 locked")).toBeVisible();
-  // Plan version A's shots first (stand-in provider, no cost), then publish.
-  await page.getByRole("button", { name: "Next: Breakdown" }).click();
+  // Plan version A's shots (stand-in provider, no cost): Breakdown sits before Cast in v5.
+  await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Breakdown" }).click();
   // The step opens on the scene plan (S6), which is optional: go straight to the shots.
   await page.getByRole("tab", { name: "Shots" }).click();
   await page.getByRole("button", { name: /^Make the breakdown/ }).click();
@@ -71,6 +65,7 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect(page.getByRole("button", { name: /^Make the breakdown/ })).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText(/^Planned · \d+ s/)).toBeVisible();
+  await page.getByRole("button", { name: "Next: Cast" }).click();
   await page.getByRole("button", { name: "Next: Publish" }).click();
   await page.getByRole("button", { name: "Publish 2 versions" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
@@ -127,7 +122,7 @@ test("an empty script with a reel is written from the reference, at the price sh
   await page.goto(`/b/${brandId}/scripts/${(await made.json()).id}?step=script`);
   await expect(page.getByText(/Includes finding the roles\./)).toBeVisible();
   await page.getByRole("button", { name: /^Have Claude write it for me · up to \d+ credits?$/ }).click();
-  await expect(page.getByLabel("Paste or write your script")).not.toHaveValue("", { timeout: 60_000 });
+  await expect(page.getByLabel("Script · version A")).not.toHaveValue("", { timeout: 60_000 });
   // The write also found the roles, so the Cast step already has them.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
   await expect(page.getByText(/^\d+ roles? · 0 locked$/)).toBeVisible();
@@ -167,8 +162,10 @@ test("Directions: Claude suggests lines for a written script, one is accepted an
     await page.getByRole("button", { name: "Apply 1 accepted" }).click();
     await expect(page.getByText("Added 1 direction.")).toBeVisible();
   }
-  await expect(page.getByRole("list", { name: "Script text" })).toContainText("MIA: Hell no!");
-  await expect(page.getByRole("list", { name: "Script text" })).toContainText("BO: Salmon? Again?");
+  // The words themselves never change.
+  await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Script", exact: true }).click();
+  await expect(page.getByLabel("Script · version A")).toHaveValue(/MIA: Hell no!/);
+  await expect(page.getByLabel("Script · version A")).toHaveValue(/BO: Salmon\? Again\?/);
 });
 
 test("Directions shows its result when Suggest is pressed while the page's first jobs list is still loading", async ({ page }) => {
@@ -196,10 +193,10 @@ test("a new script keeps every letter typed through its first save, at typing sp
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
   const brand = await emptyBrand(page, "Typing Speed Co");
-  for (const [kind, label, words] of [["story", "Paste or write your script", "BO: Salmon?"], ["song", "Lyrics", "[Verse] Salmon"]] as const) {
+  for (const [kind, label, then, words] of [["story", "Write or paste the script", "Script · version A", "BO: Salmon?"], ["song", "Lyrics", "Lyrics", "[Verse] Salmon"]] as const) {
     await page.goto(`/b/${brand}/scripts/new?kind=${kind}`);
     await page.getByLabel(label).pressSequentially(words, { delay: 60 });
-    await expect(page.getByRole("list", { name: "Steps" })).toBeVisible(); // it swapped to the script's own page
-    await expect(page.getByLabel(label)).toHaveValue(words);
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).not.toContainText("New script"); // it swapped to the script's own page
+    await expect(page.getByLabel(then)).toHaveValue(words);
   }
 });

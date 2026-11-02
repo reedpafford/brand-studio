@@ -1,9 +1,12 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, FileInput, FileText, Folder, Mic, Music, Palette, Plus } from "lucide-react";
+import { ChevronDown, FileInput, FileText, Mic, Music, Plus } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
-import { Badge, Button, Card, Menu, MenuItem, StepPicker, TextArea, buttonClass } from "../components";
+import { Button, Menu, MenuItem, StepPicker, TextArea, buttonClass } from "../components";
+import { useBrands } from "../shell/useBrands";
+import { useLanguages } from "../languages/useLanguages";
+import { PickLabel, ScriptBox, ScriptTop, SettingsRow, pickClass } from "./ScriptFrame";
 import { useMe } from "../auth/useMe";
 import { useFolders } from "../folders/Projects";
 import { stepStates, stepsFor } from "./flow";
@@ -55,7 +58,6 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
 }
 
 /** The first box of each format, the same here and on the step, so the swap between them can't be seen. */
-export const SCRIPT_BOX = { label: "Paste or write your script", rows: 14, maxLength: 50000, placeholder: "Paste or write the script here" };
 export const LYRICS_BOX = { label: "Lyrics", rows: 12, placeholder: "[Verse]\nPaste or write the lyrics here" };
 
 /** The words typed here go on as the step's unsaved draft (its tab memory), so its Save works as it always does. */
@@ -100,14 +102,16 @@ export function NewScriptPage() {
   const [, setParams] = useSearchParams();
   const me = useMe().data;
   const looks = useLooks();
+  const brand = useBrands().data?.find((b) => b.id === brandId);
+  const languages = useLanguages();
   const folders = useFolders(brandId);
   const [picking, setPicking] = useState(false);
   // A Look or Project pick saves the script with it (flows S1 U: the first press saves it, never just opening the page).
   const make = useMutation({
-    mutationFn: async (start: { text: string; look?: string; folder?: number }) => {
+    mutationFn: async (start: { text: string; look?: string; folder?: number; language?: string }) => {
       const text = keeps() ? "" : start.text;
       // "narrated" is Next-Server's #858; the generated types carry it once that's on next.
-      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind: kind as "story", ...(start.look ? { look: start.look } : {}) } });
+      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind: kind as "story", ...(start.look ? { look: start.look } : {}), ...(start.language ? { language: start.language } : {}) } });
       if (!data) throw new Error(errorText(error));
       if (start.folder != null) await api.POST("/folders/file", { body: { kind: "script", id: data.id, folder_id: start.folder } });
       return data;
@@ -115,7 +119,7 @@ export function NewScriptPage() {
     onError: () => {
       started.current = false;
     },
-    onSuccess: async (made, how) => {
+    onSuccess: async (made) => {
       // The script page opens with its editor already there (no loading screen for keys to fall into): the save returned the
       // script, and a voiced one's takes are loaded first. Typing meanwhile still lands in this box.
       queryClient.setQueryData(["script-lib", made.id], made);
@@ -124,38 +128,51 @@ export function NewScriptPage() {
       const words = latest.current; // read last, just before the swap, so nothing typed while saving is lost
       saved.current = made.id;
       hand(made.id, words);
-      // A Look or Project pick stays on the Script step, ready for the words; Start from what it's for opens About.
-      const picked = how.look !== undefined || how.folder !== undefined;
-      navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : picked ? undefined : { about: true } });
+      // A setting pick stays on the Script step, ready for the words.
+      navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : undefined });
     },
   });
   if (!(kind in KINDS)) return <Navigate to={`/b/${brandId}/scripts`} replace />;
-  const start = (text: string, with_: { look?: string; folder?: number } = {}) => {
+  const start = (text: string, with_: { look?: string; folder?: number; language?: string } = {}) => {
     if (started.current) return;
     started.current = true;
     make.mutate({ text, ...with_ });
   };
   // The script page's own header, before the script exists: the format, Look and Project, and the steps (later ones locked).
-  const look = looks.data?.[0]?.id ?? "house";
+  const look = brand?.default_look ?? looks.data?.[0]?.id ?? "house";
   // The same steps and reasons the script's own page shows for an empty script.
   const empty = { kind, published: false, versions: [{ slot: 0, text: "", status: "draft" }] } as unknown as Script;
   // Every step after the first is locked with its reason: none can be opened before the script exists (QA-3 on #1191).
-  const steps = (kind in KINDS ? stepStates(stepsFor(empty)[0].id, empty) : []).map((x, n) => (n === 0 ? x : { ...x, state: "todo" as const, reason: x.reason ?? (kind === "song" ? "Write or pick the lyrics first" : "Write the script first") }));
+  const steps = (kind in KINDS ? stepStates(stepsFor(empty)[0].id, empty) : [])
+    .filter((x) => kind !== "story" || x.id !== "publish")
+    .map((x, n) => (n === 0 ? x : { ...x, state: "todo" as const, reason: kind === "song" ? "Write or pick the lyrics first" : "Write a few lines first" }));
   const type = (text: string) => {
     latest.current = text;
     if (saved.current !== null) hand(saved.current, text);
     if (text.trim()) start(text);
   };
+  const lang = brand?.default_language ?? "en";
+  const langName = (id: string) => languages.data?.find((l) => l.id === id)?.name ?? (id === "en" ? "English" : id);
+  const picks = (languages.data ?? []).filter((l) => l.on || me?.role === "owner");
   return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
-      <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline lg:min-h-control-dense">
-        <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-        Scripts
-      </Link>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="type-page">{UNTITLED}</h1>
-        <Badge tone="neutral">Not saved yet · saved when you type, or pick a style or project</Badge>
-        <Menu title="Format" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} aria-label={`Format: ${KINDS[kind]}`} {...t}>{KINDS[kind]}</Button>}>
+    <main>
+      <ScriptTop
+        crumbs={[
+          <Link key="s" to={`/b/${brandId}/scripts`} className="hover:text-text hover:underline">
+            Scripts
+          </Link>,
+          <span key="n" className="font-medium text-text">
+            New script
+          </span>,
+        ]}
+      >
+        <Link to={`/b/${brandId}/scripts/import`} className={`${buttonClass("secondary")} whitespace-nowrap lg:min-h-control-dense lg:px-3 lg:text-sm`}>
+          Import a reel instead
+        </Link>
+      </ScriptTop>
+      {/* v5 C_NewScript: Type, Style, Project and Language; each pick saves the script with it (flows S1 U). */}
+      <SettingsRow steps={<StepPicker flat steps={steps} onPick={() => {}} />}>
+        <Menu title="Type" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Type: ${KINDS[kind]}`} {...t}><PickLabel label="Type">{KINDS[kind]}</PickLabel></Button>}>
           {(close) =>
             (Object.keys(KINDS) as Kind[]).map((k) => (
               <MenuItem key={k} onClick={() => { close(); setParams({ kind: k }, { replace: true }); }}>
@@ -165,12 +182,12 @@ export function NewScriptPage() {
           }
         </Menu>
         {looks.data && (
-          <Button variant="ghost" dense icon={Palette} trailing={ChevronDown} aria-haspopup="dialog" disabled={make.isPending} onClick={() => setPicking(true)}>
-            Style: {lookName(looks.data, look)}
+          <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Style: ${lookName(looks.data, look)}`} aria-haspopup="dialog" disabled={make.isPending} onClick={() => setPicking(true)}>
+            <PickLabel label="Style">{lookName(looks.data, look)}</PickLabel>
           </Button>
         )}
         {folders.data && me && (
-          <Menu title="Project" trigger={(t) => <Button variant="ghost" dense icon={Folder} trailing={ChevronDown} disabled={make.isPending} {...t}>Project: none</Button>}>
+          <Menu title="Project" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label="Project: none" disabled={make.isPending} {...t}><PickLabel label="Project">None</PickLabel></Button>}>
             {(close) =>
               folders.data!.length === 0 ? (
                 <p className="p-3 text-sm text-muted">No projects yet. Make one on the Scripts page.</p>
@@ -184,18 +201,36 @@ export function NewScriptPage() {
             }
           </Menu>
         )}
-      </div>
-      <StepPicker steps={steps} onPick={() => {}} />
+        {languages.data && (
+          <Menu title="Language" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Language: ${langName(lang)}`} disabled={make.isPending} {...t}><PickLabel label="Language">{langName(lang)}</PickLabel></Button>}>
+            {(close) =>
+              picks.map((l) => (
+                <MenuItem key={l.id} onClick={() => { close(); start("", { language: l.id }); }}>
+                  {l.name}{l.id === lang ? " ✓" : ""}
+                </MenuItem>
+              ))
+            }
+          </Menu>
+        )}
+      </SettingsRow>
       {picking && looks.data && <LookPicker current={look} looks={looks.data} busy={make.isPending ? look : null} error={null} onPick={(l) => { setPicking(false); start("", { look: l.id }); }} onClose={() => setPicking(false)} />}
-      <Card className="max-w-[680px] space-y-3">
-        <TextArea {...(kind === "song" ? LYRICS_BOX : SCRIPT_BOX)} autoFocus onChange={(e) => type(e.target.value)} />
-        {make.isError && <p role="alert" className={errorClass}>{make.error.message} Type again to try again.</p>}
-      </Card>
-      <div className="space-y-1">
-        <Button variant="secondary" disabled={make.isPending} onClick={() => start("")}>
-          Start from what it's for
-        </Button>
-        <p className="text-sm text-muted">{kind === "song" ? "Saves it and opens Song, where Claude can suggest directions." : "Saves it and opens About, where Claude can write it for you."}</p>
+      <div className="p-4 sm:p-8">
+        {kind === "song" ? (
+          // A song's first box stays the Song step's own, so the swap between them can't be seen (Song takes are a separate board).
+          <div className="max-w-[680px] space-y-3">
+            <TextArea {...LYRICS_BOX} autoFocus onChange={(e) => type(e.target.value)} />
+            {make.isError && <p role="alert" className={errorClass}>{make.error.message} Type again to try again.</p>}
+          </div>
+        ) : (
+          <ScriptBox
+            label="Write or paste the script"
+            placeholder={"BO: Is that… salmon?\nOWNER: Only the best for you."}
+            words=""
+            autoFocus
+            onChange={(e) => type(e.target.value)}
+            note={make.isError ? <span role="alert" className={errorClass}>{make.error.message} Type again to try again.</span> : "Nothing is saved until you type or pick a setting. Lines with a NAME: are dialogue."}
+          />
+        )}
       </div>
     </main>
   );

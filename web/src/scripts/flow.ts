@@ -1,13 +1,14 @@
 import type { StepState } from "../components";
 import type { Script } from "./useScript";
 
-/** The writing flow: six steps. Directions, Variations and Breakdown are optional. */
+/** The writing flow (v5): Script, Directions, Variations, Breakdown, Cast, then Publish. Directions, Variations and Breakdown are
+ *  optional. Publish is not in the v5 step bar (it is "Publish to library"), but stays the step after Cast. */
 export const WRITING_STEPS = [
   { id: "script", label: "Script" },
   { id: "directions", label: "Directions" },
   { id: "variations", label: "Variations" },
-  { id: "cast", label: "Cast" },
   { id: "breakdown", label: "Breakdown" },
+  { id: "cast", label: "Cast" },
   { id: "publish", label: "Publish" },
 ] as const;
 

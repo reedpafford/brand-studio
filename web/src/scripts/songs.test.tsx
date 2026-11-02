@@ -27,16 +27,17 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-test("New script → Song waits for a word, or for Start from what it's for, then opens on its Song step: five steps, Next waits for lyrics", async () => {
+test("New script → Song waits for a word or a setting, then opens on its Song step: five steps, Next waits for lyrics", async () => {
   setViewport(1440);
   const empty = song({ title: "Untitled script" }, { text: "", style_line: "" });
-  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()] });
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /folders/file": [200, { was_folder_id: null }] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Song/ }));
   expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
-  await userEvent.click(screen.getByRole("button", { name: "Start from what it's for" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Project: none" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Launch" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song", text: "" }));
   // The new page shows the same steps before the save, so wait for the script page's own Next first.
   expect(await screen.findByRole("button", { name: "Next: Takes" })).toBeInTheDocument();

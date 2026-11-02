@@ -12,7 +12,7 @@ import { Sheet } from "./Sheet";
 
 export type Mark = components["schemas"]["SuggestionOut"];
 
-const KIND: Record<string, string> = {
+export const KIND: Record<string, string> = {
   camera: "Camera",
   action: "Movement",
   reaction: "Reaction",

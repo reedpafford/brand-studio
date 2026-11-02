@@ -36,7 +36,7 @@ test("New script → Narrated makes a narrated draft on its first word", async (
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Narrated/ }));
-  await userEvent.type(await screen.findByLabelText("Paste or write your script"), "H");
+  await userEvent.type(await screen.findByLabelText("Write or paste the script"), "H");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "narrated" }));
 });
 
@@ -123,7 +123,7 @@ test("the header's format is a picker on a draft: Dialogue → Narrated asks fir
   setViewport(390);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, narrated({}, { kind: "story" })], "PATCH /scripts/7": [200, {}] });
   open("/b/1/scripts/7?step=script");
-  await userEvent.click(await screen.findByRole("button", { name: "Format: Dialogue" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Type: Dialogue" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Narrated" }));
   const ask = screen.getByRole("alertdialog", { name: "Make this Narrated?" });
   expect(within(ask).getByText(/nobody speaks on camera/)).toBeInTheDocument();
@@ -208,10 +208,10 @@ test("switching to Dialogue from the Narration step lands on Script", async () =
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, narrated()], "GET /scripts/7/drafts/0/songs": [200, songs()], "PATCH /scripts/7": [200, {}] });
   open("/b/1/scripts/7?step=narration");
-  await userEvent.click(await screen.findByRole("button", { name: "Format: Narrated" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Type: Narrated" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Dialogue" }));
   await userEvent.click(within(screen.getByRole("alertdialog", { name: "Make this Dialogue?" })).getByRole("button", { name: "Change" }));
-  expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
+  expect(await screen.findByLabelText("Script · version A")).toBeInTheDocument();
 });
 
 
