@@ -1083,19 +1083,18 @@ def test_a_montages_trading_screens_are_the_real_ones_and_climb():
     assert check._screens_climb(falls) == []  # a home balance may fall
     clip.prompt = bigger  # only a montage clip's screens are held to it
     assert check.clip_prompts(bd, cp, 30, 10) == []
+    for step in ("clip_prompts", "storyboard", "improve", "change"):  # Reed's batch-4 review
+        assert "Never invent a screen or a figure" in prompts.system(step), step
+        assert "invented trading screen" not in prompts.system(step), step
+
+
+def test_no_screen_is_invented_and_scenes_stay_original():
+    """Reed's batch-4 review (2 Nov): real UI only, never an invented screen or figure; a loss
+    with no screen is the phone turned away, its red light on the face."""
     for step in ("clip_prompts", "storyboard", "improve"):
-        assert "invented trading screen" in prompts.system(step), step
-    assert "the fomo logo from [ImageN], the word fomo in lowercase" in prompts.system("change")
-
-
-def test_invented_screens_spell_the_logo_and_scenes_stay_original():
-    _, cp = example("clip_prompts")  # QA-Live, video #17: "JOMO", or the icon alone
-    word = "the fomo logo from [Image4], the word fomo in lowercase, sharp and legible"
-    assert word in prompts.system("clip_prompts")  # only for a moment with no screen (rule 14)
-    assert word not in cp.clips[0].prompt
-    assert "with the word “fomo” in lowercase letters" in prompts.system("storyboard")  # quoted
-    for step in ("clip_prompts", "improve"):  # Seedance: quotes are speech, so no quotes
-        assert "the word fomo in lowercase" in prompts.system(step), step
+        text = prompts.system(step)
+        assert "the phone turned away from us with its light on the face" in text, step
+        assert "the word fomo in lowercase, sharp and legible" not in text, step
     for step in ("breakdown", "storyboard", "clip_prompts", "improve"):  # clip 7's Up-like scene
         assert "never recreate a famous film, TV, comic or game scene" in prompts.system(step)
 
@@ -1460,8 +1459,10 @@ def test_the_director_names_every_tool_it_can_choose_and_never_writes_prompts():
     text = prompts.system("director")
     tools = get_args(schemas.DirectorTurn.model_fields["tool"].annotation)
     assert set(tools) == set(re.findall(r"^- `(\w+)`", text, re.M)), tools
-    assert "never write a plan, a still prompt or a clip prompt" in text
-    assert "The script's words are never changed" in text and "2 redos at most" in text
+    # the Producer, 2 Nov: it leads through the treatment; the steps still write the prompts
+    assert "**You lead through the treatment.**" in text and "writes its own prompts" in text
+    assert "never write a plan" not in text and "Story is not yours" not in text
+    assert "the words are never changed (rule 19)" in text and "2 redos at most" in text
     assert "**Be engaging.**" in text  # the rules come with it, to judge the takes
     turn = schemas.DirectorTurn.model_validate({"tool": "plan", "why": "There is no plan yet."})
     assert (turn.clip_id, turn.take_id, turn.note) == (None, None, "")
@@ -1617,3 +1618,128 @@ def test_the_director_revises_from_the_chat_and_never_changes_the_words():
     assert "the published script's words can't change here" in director
     for gone in ("not yet read", "never act on it again", "[{text}]", "[{text, new}]"):
         assert gone not in director, gone
+
+
+def test_the_director_reads_the_story_and_never_delivers_a_weak_cut_as_good():
+    """Reed, 2 Nov, on the first real director video: "didn't watch it for engaging content
+    and story telling... made no sense". It reads the script and plan as the story, a clean
+    take isn't proof of the story, it delivers only a watched cut, and a cut that doesn't land
+    is said plainly."""
+    director = prompts.system("director")
+    assert (
+        "<script> (the published script, numbered" in director
+        and "<plan> (the approved" in director
+    )
+    assert "the take check sees faces, outfits, screens and words, never the story" in director
+    assert "read <script> and <plan> as the story" in director
+    assert "`watch` is done and `current` for this cut" in director
+    assert "never deliver it as good" in director
+    watch = prompts.system("watch_cut")
+    assert "does the video make sense, and does it hold a viewer from the first second" in watch
+
+
+def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
+    """The Producer and Reed, 2 Nov: "The point was the flow we have used in the chats where it
+    understands WHY and what makes these shorts engaging and has creative leeway"; "Reed wrote
+    those skills to be the brain". A treatment first, the whole skill at runtime, the stills
+    reviewed before takes, the watch judged against the treatment, with one re-plan."""
+    docs = Path(prompts.__file__).parents[3] / "docs" / "next" / "skills"
+    for path in (HERE / "skills").glob("*.md"):  # word for word, so nothing of Reed's is lost
+        assert path.read_text() == (docs / path.name).read_text(), path.name
+    expect = {"house": "house", "watercolor": None, "wool-crochet": None,
+              "disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
+              "claymation-goofy": "claymation", "paper-collage": "paper",
+              "skeleton-xray": "skeleton-ad", "skeleton": "skeleton-ad"}  # fmt: skip
+    for look, name in expect.items():
+        text = prompts.skill(look)
+        assert text == ((HERE / "skills" / f"{name}.md").read_text() if name else ""), look
+    assert prompts.skill("watercolor", "song") == (HERE / "skills" / "song-ad.md").read_text()
+    for step in ("treatment", "plan", "director", "review_stills", "watch_cut"):
+        text = prompts.system(step, "claymation-goofy")
+        assert "## Producer craft" in text and "## The style's skill" in text, step
+        assert (HERE / "skills" / "producer-craft.md").read_text() in text, step
+        assert (HERE / "skills" / "claymation.md").read_text() in text, step
+    assert "## The style's skill" not in prompts.system("storyboard", "claymation-goofy")
+    plain = prompts.system("treatment", "watercolor")  # no style skill: producer craft only
+    assert "## Producer craft" in plain and "## The style's skill" not in plain
+    # Reed approved House's camera as a baseline, never forced ("I don't want it to force slow
+    # motion or anything")
+    house = (HERE / "skills" / "house.md").read_text()
+    assert "None of it is mandatory: use a tool when it serves the story, never by habit" in house
+    assert house in prompts.system("treatment", "house")
+    # Reed: producer craft is the story only; the camera is each style's own
+    craft = (HERE / "skills" / "producer-craft.md").read_text().lower()
+    for word in ("camera", "close-up", "push in", "pan ", "transition", "lighting", "framing"):
+        assert word not in craft, word
+    assert prompts.SCHEMAS["treatment"] is schemas.Treatment
+    assert prompts.SCHEMAS["review_stills"] is schemas.StillsReview
+    treatment = prompts.system("treatment")
+    for part in ("the first 2 seconds", "The script never varies (rule 19)", "why_it_holds",
+                 "A beat with nothing happening in it is a beat to rethink"):  # fmt: skip
+        assert part in treatment, part
+    canned = prompts.stand_in_treatment("Mom: Hi.\n\nDad: Bye.")
+    assert [b.lines for b in schemas.Treatment.model_validate(canned).beats] == [[1], [3]]
+    assert "<script>\n1| Mom: Hi." in prompts.treatment_input("Mom: Hi.")
+    assert prompts.treatment_block(None) == "" and "<treatment>" in prompts.treatment_block(canned)
+    for step in ("plan", "breakdown", "storyboard", "clip_prompts", "song_breakdown",
+                 "narrated_clip_prompts"):  # fmt: skip
+        assert "**The treatment (<treatment>, when given)** is the director's" in prompts.system(
+            step
+        ), step
+    director = prompts.system("director")
+    for part in ("**You lead through the treatment.**", "**Story and engagement are yours.**",
+                 "names the beat it serves", "- `treatment` (paid", "- `review_stills` (paid",
+                 "- `redraw_still` (paid, `shot_id`", "re-plan those beats once"):  # fmt: skip
+        assert part in director, part
+    assert "Re-plan:" in prompts.system("watch_cut")
+    assert "is the hook there by 2 seconds" in director
+    turn = schemas.DirectorTurn(tool="redraw_still", shot_id="3.1", note="x", why="b3: x")
+    assert turn.shot_id == "3.1"
+
+
+def test_the_treatment_never_varies_from_the_script():
+    """Reed, 2 Nov: "This can be fixed by saying to not vary from the scripts." Its beats cover
+    every line but the headings once, a quoted line is the script's word for word, and a picture
+    answering an earlier one is a callback, never a rhyme; a format keeps its own structure."""
+    script = (
+        "SCENE 1 — EXT. BUS STOP — NIGHT\nMARCUS: Four dollars... and twelve cents.\nKID: You sure?"
+    )
+    beats = [{"id": "b1", "lines": [2], "purpose": "hook", "picture": "coins"},
+             {"id": "b2", "lines": [3], "purpose": "callback", "picture": "kid"}]  # fmt: skip
+    good = {"hook": 'Coins in a wet palm: "Four dollars... and twelve cents."', "logline": "x",
+            "why_it_holds": "x", "ending": "x", "beats": beats}  # fmt: skip
+    assert check.treatment(good, script) == []
+    bad = {**good, "hook": 'He says "four bucks and change", a rhyme', "beats": good["beats"][:1]}
+    assert check.treatment(bad, script) == [
+        "the beats must cover every line but the scene headings once, in order; missing [3]",
+        "\"four bucks and change\" isn't the script's words: quote lines exactly",
+        check.RHYME,
+    ]
+    treatment = prompts.system("treatment")
+    assert "**The script never varies (rule 19).**" in treatment and "a callback" in treatment
+    assert "that structure guides the beats" in treatment
+    assert "it never changes, adds or reorders a spoken line or on-screen text" in prompts.system(
+        "plan"
+    )
+
+
+def test_reeds_batch_4_craft_notes_reach_the_steps():
+    """FOMO-Producer's batch 4 (Reed, 2 Nov): "scenes don't make sense… we are missing little
+    actions that connect clips", and the screen line didn't show the coin. As craft, never story
+    rules, with no hard timing (rule 29)."""
+    craft = (HERE / "skills" / "producer-craft.md").read_text()
+    assert (
+        "**Show what a line points at.**" in craft and "**Little actions that connect.**" in craft
+    )
+    watch = prompts.system("watch_cut")
+    assert "**Show what a line points at:**" in watch and "**Connecting actions:**" in watch
+    clip = prompts.system("clip_prompts")
+    assert "**Show what a line points at.**" in clip and "about 1.5 s is a good guide" in clip
+    assert "an extreme close-up of the phone in a hand, upright and filling the frame" in clip
+    assert "Every result has its cause on screen" in clip
+    assert '"Language: every spoken line is in American English."' in clip
+    assert "every adult at normal adult scale" in clip
+    assert "Every adult is at normal adult scale" in prompts.system("storyboard")
+    assert "**Show what a line points at.**" in prompts.system("breakdown")
+    assert "an insert of the phone in a hand" in prompts.system("item_check")  # not a fault
+    assert 'never "two quick cuts" inside a shot' in clip

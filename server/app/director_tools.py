@@ -36,6 +36,9 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
     try:
         if tool == "plan":  # the video's plan first when it needs one, as the Plan step does
             status = plans.status(db, project)
+            if (note := (decision.get("note") or "").strip()) and status != "none":
+                plan_route.make(body=plan_route.NoteIn(note=note[:500]), **me)  # Make a new plan
+                return f"Planning again: {note}"  # the watch's "Re-plan:" (once a run)
             if status == "none":
                 plan_route.make(body=None, **me)
                 return "Making the plan."
@@ -95,6 +98,24 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
             return f"Muted {what} of {clip} instead of remaking it."
         if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget
             return watch_cut.start(db, user, project, run)
+        if tool == "review_stills":  # its own look at the stills before any take, own limit
+            from app import still_review
+
+            return still_review.start(db, user, project, run)
+        if tool == "redraw_still":  # a still the review found off-story: Change it…, priced
+            from app import still_review
+
+            sid = decision.get("shot_id")
+            frame = next((f for f in still_review.frames(db, project) if f.shot_id == sid), None)
+            if frame is None:
+                return f"Refused: there's no drawn still for shot {sid}."
+            note = (decision.get("note") or "").strip()[:500]
+            storyboard.change_frame(frame_id=frame.id, body=storyboard.ChangeIn(note=note), **me)
+            return f"Drawing shot {sid} again: {note}"
+        if tool == "treatment":  # the story first (the Director's step), on its own limit
+            from app.director import write_treatment
+
+            return write_treatment(db, user, project, run, decision.get("note") or "")
         if tool == "final_cut":
             project_clips.approve_all(**me)  # the picked takes it cuts with
             project_clips.make_video(request=request, **me)
