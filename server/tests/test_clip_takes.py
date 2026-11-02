@@ -304,6 +304,8 @@ def test_a_look_alike_retry_keeps_the_redo_note(app, db, editor, setup, clip, by
     assert [j.input.get("lookalike") for j in takes] == [None, 1, 2]
     assert all(f"Change from the last take: {note}" in j.input["input"]["prompt"]
                for j in takes)  # fmt: skip
+    quoted = [editor.get(f"/jobs/{j.id}").json()["note"] for j in takes]  # Needs you's quote
+    assert quoted == ([note] * 3 if by == "person" else [""] * 3)  # never the director's
 
 
 class Busy(FakeSeedance):

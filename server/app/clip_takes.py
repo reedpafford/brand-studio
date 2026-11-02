@@ -300,7 +300,10 @@ def _again_without(db: Session, job: Job) -> None:
     except HTTPException as exc:
         log.info("clip %s: no look-alike retry: %s", row.id, exc.detail)
         return
-    _again(db, job, {**data, "lookalike": step + 1}, wait=False)
+    from app.routes.jobs import BY_DIRECTOR
+
+    mark = {BY_DIRECTOR: True} if job.input.get(BY_DIRECTOR) else {}  # the director's still
+    _again(db, job, {**data, "lookalike": step + 1, **mark}, wait=False)
 
 
 GAVE_UP = (
