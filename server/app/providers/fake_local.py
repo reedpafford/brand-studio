@@ -410,7 +410,8 @@ class FakeWriter:
         from app.director import choose
 
         allowed = json.loads(_tag(prompt, "allowed") or "{}")
-        return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed})
+        asked = json.loads(_tag(prompt, "chat") or "[]")
+        return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked})
 
     def _enhance(self, prompt):
         return {"suggestions": [], "notes": []}

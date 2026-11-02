@@ -3789,6 +3789,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Message
+         * @description Tell the director what to change. While a run goes on, its next turn reads it. It never
+         *     starts a run: after Stop or a delivery it waits (`unread`) for the next Make it, which
+         *     reads every unread note and spends as Make it does. Who may: as Make it. At most one
+         *     note a person every 3 s and 30 a run (429). Nothing is charged for a note.
+         */
+        post: operations["message_projects__project_id__director_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/director/stop": {
         parameters: {
             query?: never;
@@ -5994,6 +6017,16 @@ export interface components {
             spent_usd: number | null;
             /** Start Blocked */
             start_blocked: string;
+            /**
+             * Thread
+             * @default []
+             */
+            thread: components["schemas"]["ThreadItem"][];
+            /**
+             * Unread
+             * @default 0
+             */
+            unread: number;
         };
         /** DraftIn */
         DraftIn: {
@@ -6347,7 +6380,7 @@ export interface components {
             /** Text */
             text: string;
             /** Status */
-            status: ("held" | "queued" | "running" | "refused" | "done") | null;
+            status: ("queued" | "running" | "held" | "done" | "refused") | null;
             /**
              * Why
              * @default
@@ -9447,6 +9480,32 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** ThreadItem */
+        ThreadItem: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "message" | "move";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Who */
+            who: string;
+            /** Text */
+            text: string;
+            /** Status */
+            status: ("queued" | "running" | "held" | "done" | "refused") | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
         };
         /** TitleIn */
         TitleIn: {
@@ -18080,6 +18139,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    message_projects__project_id__director_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

@@ -6,7 +6,7 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, EmptyState, MediaCard, Select, Sheet, Skeleton, buttonClass, useToast, PageTop } from "../components";
+import { Badge, Banner, Button, EmptyState, MediaCard, Select, Sheet, Skeleton, buttonClass, useToast, PageTop, pillClass, pillStrip } from "../components";
 import { ProjectsChip } from "../folders/Projects";
 import { useBrands } from "../shell/useBrands";
 import { serverTime } from "../time";
@@ -149,12 +149,11 @@ export function MediaPage() {
     </>
   );
   const active = by ? 1 : 0; // the kind is its tab; the project shows on its own chip
-  const pill = (on: boolean) => `inline-flex min-h-control shrink-0 items-center whitespace-nowrap rounded-md px-3 font-medium ${on ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`;
   // The kinds as tabs (W11), on every width.
   const kinds = (
-    <nav aria-label="Kinds" className="flex gap-1 overflow-x-auto border-b border-border pb-2">
+    <nav aria-label="Kinds" className={pillStrip}>
       {[{ id: "", label: "Everything" }, ...KINDS].map((k) => (
-        <button key={k.id} type="button" aria-pressed={(kind ?? "") === k.id} className={pill((kind ?? "") === k.id)} onClick={() => set("kind", k.id)}>
+        <button key={k.id} type="button" aria-pressed={(kind ?? "") === k.id} className={pillClass((kind ?? "") === k.id)} onClick={() => set("kind", k.id)}>
           {k.label}
         </button>
       ))}

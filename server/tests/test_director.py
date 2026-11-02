@@ -3,10 +3,13 @@ builds the whole video with the site's own actions, each checked as the editor's
 its turns are its log. All on the stand-ins: the fake Claude answers each turn with
 `director.choose` (no paid call)."""
 
+import json
+
 from app import director
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import get_providers
+from app.providers.fake_local import _tag
 from app.worker import run_once
 from tests.helpers import with_sheet
 from tests.test_cast_roles import _video
@@ -605,10 +608,10 @@ def _second_turn(app, db, owner, editor, monkeypatch, when: str):
     providers = get_providers(app.state.settings, app.state.storage)
     real_input, real_run = director.turn_input, providers["claude"].run
 
-    def building(db, project, run):  # QA-7: Stop lands while the prompt is being built
+    def building(db, project, run, job_id=None):  # QA-7: Stop lands while the prompt is being built
         if when == "before" and run["turn"] == 2 and calls:
             editor.post(f"/projects/{pid}/director/stop")
-        return real_input(db, project, run)
+        return real_input(db, project, run, job_id)
 
     def asked(kind, input):
         out = real_run(kind, input)
@@ -714,3 +717,211 @@ def test_the_production_page_counts_the_budget_as_the_hold_does(app, db, owner, 
     assert rows[plain]["director_credits"] == 0
     order = [r["project_id"] for r in owner.get("/production?sort=budget").json()]
     assert order.index(plain) < order.index(ran)  # counting all spend would put ran first
+
+
+def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, editor):
+    """Director chat (director-chat.md §1 item 4): after a delivery, the editor asks for a
+    change; it starts a revision run that reads it, remakes that clip, cuts and delivers
+    again. The thread has both people's words and every move, oldest first."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db)
+    assert editor.get(url).json()["status"] == "delivered"
+    sent = editor.post(f"{url}/messages", json={"text": "Make clip 1 slower and warmer."})
+    assert sent.status_code == 201, sent.text
+    assert (sent.json()["status"], sent.json()["unread"]) == ("delivered", 1)  # never starts one
+    _run(app, db)
+    assert editor.get(url).json()["status"] == "delivered"
+    assert editor.post(url).status_code == 201  # Make it again: it reads the note
+    assert editor.get(url).json()["unread"] == 0
+    _run(app, db)
+    out = editor.get(url).json()
+    assert out["status"] == "delivered", (out["ended"], [t["tool"] for t in out["turns"]])
+    remade = next(t for t in out["turns"] if t["tool"] == "make_take")
+    assert remade["why"] == "Note 1: you asked: Make clip 1 slower and warmer."
+    note = out["turns"][-1]["why"]  # the revision names the ask, fixes nothing it wasn't asked
+    assert "Note 1: done, as you asked (Make clip 1 slower and warmer.)." in note
+    project = db.get(Project, pid)
+    run = director.turns(db, project)
+    touched = {(j.output or {}).get("clip_id") for j in run
+               if (j.output or {}).get("tool") in ("make_take", "mute", "pick_take")}  # fmt: skip
+    assert touched <= {"c1"}, touched
+    assert "Muted" not in note and "I also noticed:" in note and "Want me to fix it?" in note
+    kinds = [m["kind"] for m in out["thread"]]
+    said = kinds.index("message")
+    assert "move" in kinds[:said] and "move" in kinds[said + 1 :]  # between the two runs
+    assert out["thread"][said] == {
+        **out["thread"][said],
+        "who": "Ed",
+        "text": "Make clip 1 slower and warmer.",
+        "status": None,
+        "why": "",
+    }
+    asked = next(m for m in out["thread"] if m["why"].startswith("Note 1:"))
+    assert asked["kind"] == "move" and asked["text"]  # each move keeps its reason
+    assert out["thread"][-1]["why"] == ""  # the delivery's reason is its text
+    assert [m["at"] for m in out["thread"]] == sorted(m["at"] for m in out["thread"])
+    ids = [m["id"] for m in out["thread"]]
+    assert len(set(ids)) == len(ids) and out["thread"][said]["id"] == "m0"
+    assert out["thread"][-1]["text"] == out["turns"][-1]["why"]  # ends on the new delivery note
+
+
+def test_chat_while_it_runs_is_read_at_its_next_turn_and_only_the_maker_may(app, db, owner, editor):
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import PASSWORD
+
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    editor.post(f"{url}/messages", json={"text": "Keep the end line short."})
+    project = db.get(Project, pid)
+    db.refresh(project)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    assert director.chat(project, run["id"]) == [{"text": "Keep the end line short."}]
+    asked = director.turn_input(db, project, run)["prompt"]
+    assert "<chat>" in asked and "Keep the end line short." in asked
+    assert editor.post(f"{url}/messages", json={"text": "   "}).status_code == 422
+    db.commit()
+    token = owner.post("/team/invites", json={"email": "bo@example.com"}).json()["token"]
+    with TestClient(app) as other:  # another editor may read the video but not direct it
+        other.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
+        assert other.post(f"{url}/messages", json={"text": "Hi"}).status_code == 403
+
+
+def test_a_note_sent_during_the_last_turn_waits_for_the_next_make_it(
+    app, db, owner, editor, monkeypatch
+):
+    """The Producer: a note sent while the run's last turn delivers is never lost and never
+    starts a run. It stays unread; the next Make it reads it, once."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    act, sent = director._act, []
+
+    def deliver_with_a_message(db_, job, storage):
+        if (job.output or {}).get("tool") == "deliver" and not sent:
+            sent.append(editor.post(f"{url}/messages", json={"text": "Make clip 1 brighter."}))
+        return act(db_, job, storage)
+
+    monkeypatch.setattr(director, "_act", deliver_with_a_message)
+    editor.post(url)
+    _run(app, db)
+    assert sent[0].status_code == 201, sent[0].text
+    out = editor.get(url).json()
+    assert (out["status"], out["unread"]) == ("delivered", 1)
+    steps = lambda: [j for j in db.query(Job).filter_by(project_id=pid)  # noqa: E731
+                     if j.input.get("step") == director.STEP]  # fmt: skip
+    first = len(steps())
+    _run(app, db, ticks=5)
+    assert len(steps()) == first  # it started nothing by itself
+    assert editor.post(url).status_code == 201
+    _run(app, db)
+    out = editor.get(url).json()
+    assert (out["status"], out["unread"]) == ("delivered", 0), out["ended"]
+    assert [t["why"] for t in out["turns"]].count("Note 1: you asked: Make clip 1 brighter.") == 1
+    assert not any(
+        "c1" in m["text"] + m["why"] for m in out["thread"]
+    )  # "clip 1", as people see it
+
+
+def test_notes_one_every_3_seconds_a_person_and_30_a_run(app, db, owner, editor, monkeypatch):
+    from datetime import timedelta
+
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    assert editor.post(f"{url}/messages", json={"text": "One"}).status_code == 201
+    r = editor.post(f"{url}/messages", json={"text": "Two"})
+    assert r.status_code == 429 and r.json()["detail"] == "Too many messages; wait a moment."
+    monkeypatch.setattr(director, "GAP", timedelta(0))
+    codes = [editor.post(f"{url}/messages", json={"text": f"Ask {n}"}).status_code
+             for n in range(30)]  # fmt: skip
+    assert codes.count(201) == 29 and codes[-1] == 429  # 30 a run at most
+    project = db.get(Project, pid)
+    db.refresh(project)
+    assert len(project.director_chat) == 30
+    assert db.query(Job).filter(Job.kind != "write-claude").count() == 0  # nothing charged
+
+
+def test_each_note_is_new_to_exactly_one_turn_and_one_paid_redo(app, db, owner, editor):
+    """The Producer: a note is shown as new once, on the first turn after it arrives; later
+    turns see it as handled. A note asking for a redo makes exactly one redo."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    providers = get_providers(app.state.settings, app.state.storage)
+    sent = False
+    for _ in range(60):  # the note lands mid-run, once clip 1 has its prompt
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        if not sent and any(t["tool"] == "make_take" for t in editor.get(url).json()["turns"]):
+            r = editor.post(f"{url}/messages", json={"text": "Make clip 1 brighter."})
+            assert r.status_code == 201
+            sent = True
+    assert sent
+    assert editor.get(url).json()["status"] == "delivered"
+    steps = sorted((j for j in db.query(Job).filter_by(project_id=pid)
+                    if j.input.get("step") == director.STEP), key=lambda j: j.id)  # fmt: skip
+    chats = [json.loads(_tag(j.input["prompt"], "chat") or "[]") for j in steps]
+    new = [c for c in chats if any(m["new"] for m in c)]
+    note = {"note": 1, "text": "Make clip 1 brighter."}
+    assert len(new) == 1 and new[0][0] | {"answered": False} == {
+        **note,
+        "new": True,
+        "answered": False,
+    }
+    later = chats[chats.index(new[0]) + 1 :]
+    assert later and all(c[0]["new"] is False and c[0]["text"] == note["text"] for c in later)
+    assert later[-1][0]["answered"]  # the redo named it: answered, so never made twice
+    redos = [
+        j
+        for j in steps
+        if (j.output or {}).get("why") == "Note 1: you asked: Make clip 1 brighter."
+    ]
+    assert len(redos) == 1
+
+
+def test_every_open_note_is_answered_and_delivery_waits_for_them(
+    app, db, owner, editor, monkeypatch
+):
+    """The Producer: an ask stays open until it's made and named, or the director says why it
+    can't; a run with an open note isn't delivered (the server refuses, the director reads it)."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db)
+    editor.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    monkeypatch.setattr(director, "GAP", __import__("datetime").timedelta(0))
+    editor.post(f"{url}/messages", json={"text": "And make clip 9 shorter."})
+    real, calls = director._answers, []
+
+    def forgets_first(state):  # its first delivery names no note: refused, then it answers
+        calls.append(1)
+        return "" if len(calls) == 1 else real(state)
+
+    monkeypatch.setattr(director, "_answers", forgets_first)
+    editor.post(url)
+    _run(app, db)
+    out = editor.get(url).json()
+    assert out["status"] == "delivered", [(t["tool"], t["result"]) for t in out["turns"]]
+    results = [t["result"] for t in out["turns"]]
+    assert any(r.startswith("Refused: note 2 is still open.") for r in results), results
+    whys = [t["why"] for t in out["turns"]]
+    assert whys.count("Note 1: you asked: Make clip 1 warmer.") == 1  # the older note is made
+    assert "Note 2: there's no clip 9 in this video." in whys[-1]
+    assert "Note 1: done, as you asked" in whys[-1]
+
+
+def test_a_note_on_a_clip_not_ready_is_carried_until_it_is():
+    clip = {"clip_id": "c1", "stale": True, "takes": [], "picked_take_id": None}
+    state = {"being_made": False, "held_for_owner": False, "shots": "ready", "missing_looks": [],
+             "stills": {"frames": 1, "drawn": 1}, "clips": [clip], "cut": "none",
+             "chat": [{"note": 1, "text": "Clip 1 slower.", "new": False, "answered": False}],
+             "allowed": {"redos_used": {}, "watches_left": 3}}  # fmt: skip
+    assert director.choose(state)["tool"] == "clip_prompts"  # not ready: carried, not dropped
+    take = {"id": 5, "number": 1, "verdict": "clean", "notes": []}
+    state["clips"] = [{**clip, "stale": False, "takes": [take], "picked_take_id": 5}]
+    made = director.choose(state)
+    assert (made["tool"], made["clip_id"]) == ("make_take", "c1")
+    assert made["why"].startswith("Note 1:")

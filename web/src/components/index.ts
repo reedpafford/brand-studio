@@ -4,7 +4,7 @@ export { Card, MediaCard } from "./Card";
 export { creditsLabel, creditsText, pressLabel, roundUp, wholeCredits, type Charge } from "./credits";
 export { Field, Select, TextArea } from "./Field";
 export { Banner, EmptyState, Skeleton } from "./Feedback";
-export { StepPicker, Tabs, type Step, type StepState, type Tab } from "./Nav";
+export { StepPicker, Tabs, pillClass, pillStrip, type Step, type StepState, type Tab } from "./Nav";
 export { Dialog, Panel, Sheet, SidePanel } from "./Overlay";
 export { ToastProvider, useToast } from "./Toast";
 export { Menu, MenuItem } from "./Menu";
