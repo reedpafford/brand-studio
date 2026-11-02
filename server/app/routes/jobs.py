@@ -13,6 +13,7 @@ from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     FREESTYLE,
+    PAST_APPROVED,
     USD_PER_CREDIT,
     check_clip_cap,
     check_video_cap,
@@ -223,7 +224,7 @@ def enqueue(
         if is_quick_clip(kind, input, project):
             wait = over_allowance(db, user, whole)
         elif needs_approval(db, user, project, whole):
-            wait = OVER_BUDGET
+            wait = PAST_APPROVED if project.hidden else OVER_BUDGET
         elif project is None and input.get(ON_SCRIPT):
             wait = SCRIPT_MEDIA
     job = Job(

@@ -200,7 +200,10 @@ def director_credits(db: Session, project: Project) -> Decimal:
 
 def budget_used(db: Session, project: Project) -> Decimal:
     """What counts against the video's budget: all of it but the director's own turns. The
-    hold and the owner's release both read this, so they always agree."""
+    hold and the owner's release both read this, so they always agree. A freestyle's video
+    counts everything, its director's turns too: the owner's OK covers its whole price."""
+    if project.hidden:
+        return credits_used(db, project)
     return credits_used(db, project) - director_credits(db, project)
 
 
@@ -272,6 +275,7 @@ def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
 
 
 WAIT_OK = "Waiting for the owner's OK: "  # a held press says why it waits, never "ask Reed"
+PAST_APPROVED = f"{WAIT_OK}this goes past the price approved."  # a freestyle's next step
 
 
 def over_allowance(db: Session, user: User, credits: Decimal) -> str:

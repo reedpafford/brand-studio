@@ -20,7 +20,16 @@ from sqlalchemy.orm import Session
 from app import director, hidden, looks, prompts
 from app.auth import current_user
 from app.catalogue import get_model
-from app.credits import COUNTED, FREESTYLE, WAIT_OK, estimate, get_limits, lock, over_cap
+from app.credits import (
+    COUNTED,
+    FREESTYLE,
+    WAIT_OK,
+    estimate,
+    get_limits,
+    lock,
+    over_cap,
+    usd_to_credits,
+)
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand
@@ -172,7 +181,9 @@ def _start(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """A Dialogue send: its video, then the director's first turn (held for an editor's)."""
     at = utcnow().isoformat()  # the message comes before the moves it starts
     project, draft = _video(db, user, fs, text)
-    fs.project_id, fs.up_to = project.id, version_cost(db, draft, video=project)
+    # the video's whole price and the director's own limit: everything the run may spend
+    own = usd_to_credits(director.MAX_USD)
+    fs.project_id, fs.up_to = project.id, version_cost(db, draft, video=project) + own
     cap = get_limits(db, user.workspace_id).per_video_max_credits
     if fs.up_to > cap:
         db.rollback()
@@ -287,8 +298,10 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
         status, words = "withdrawn", {f"t{first.id}": "Withdrawn."}
     elif first is not None and first.status == JobStatus.needs_owner_approval:
         status = "waiting"
-    elif director.active(db, project):
-        status = "working"
+    elif director.active(db, project):  # paused for a new OK, past the price approved
+        held = select(Job.id).where(Job.project_id == project.id,
+                                    Job.status == JobStatus.needs_owner_approval)  # fmt: skip
+        status = "waiting" if db.scalar(held.limit(1)) else "working"
     else:
         rows = director.turns(db, project)
         status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
@@ -323,7 +336,7 @@ def estimate_freestyle(
                        type=type, look=look, shape=shape, chat=[])  # fmt: skip
         db.add(fs)
         db.flush()
-        cost = version_cost(db, _video(db, user, fs, text)[1])
+        cost = version_cost(db, _video(db, user, fs, text)[1]) + usd_to_credits(director.MAX_USD)
         db.rollback()
         return EstimateOut(credits=cost)
     fs = Freestyle(id=0, look=look, shape=shape, brand_id=None)

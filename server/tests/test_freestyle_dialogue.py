@@ -87,3 +87,28 @@ def test_a_declined_or_withdrawn_dialogue_says_so_and_spends_nothing(app, owner,
     assert out["status"] == "withdrawn" and out["thread"][-1]["text"] == "Withdrawn."
     assert director.STEP  # the run is the director's: nothing else was queued
     assert db.query(Job).filter(Job.status == "queued").count() == 0
+
+
+def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner, editor, db):
+    """QA-3 on #1171: approved at 34.46, the run spent 80.53, its director's turns uncounted.
+    The price shown includes the director's own limit, everything counts against it, and the
+    step that would pass it waits for the owner again."""
+    from decimal import Decimal
+
+    from app.credits import COUNTED, PAST_APPROVED, usd_to_credits
+
+    est = Decimal(str(editor.get("/freestyles/estimate", params=BODY).json()["credits"]))
+    fs = editor.post("/freestyles", json=BODY).json()
+    assert Decimal(str(fs["up_to"])) == est >= usd_to_credits(director.MAX_USD)  # its turns too
+    (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    row = db.get(Freestyle, fs["id"])
+    row.up_to = Decimal(3)  # a small approved price, so the run reaches it
+    db.commit()
+    owner.post(f"/jobs/{held['id']}/approve")
+    _run(app, db)
+    jobs = db.query(Job).filter(Job.project_id == row.project_id).all()
+    spent = sum((j.credits for j in jobs if j.status in COUNTED), Decimal(0))
+    waiting = [j for j in jobs if j.status == "needs_owner_approval"]
+    assert waiting and waiting[0].input["held"] == PAST_APPROVED  # it paused, and says why
+    assert spent <= Decimal(3), spent  # never past the price approved without a new OK
+    assert editor.get(f"/freestyles/{fs['id']}").json()["status"] == "waiting"
