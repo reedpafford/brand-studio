@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
-import { GOING, refreshJobs, useJobs } from "../clip/History";
+import { GOING, useJobs } from "../clip/History";
+import { refreshJobs } from "../jobs/refresh";
 import type { EnhanceState } from "../projects/Enhance";
 import { useToast } from "../toast";
 

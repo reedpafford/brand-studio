@@ -1,6 +1,6 @@
 import { ProjectPicker, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { fileUrl } from "../api/upload";
@@ -35,14 +35,6 @@ export function useJobs() {
     queryFn: async () => (await api.GET("/jobs")).data ?? [],
     refetchInterval: (q) => (q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
-}
-
-/** Ask for the jobs list again after a press. A first load still in flight is cancelled first: invalidating alone
- *  hands back that same request (TanStack only cancels a fetch that already has data), whose answer predates the
- *  press, so polling never starts and the new job never shows. */
-export async function refreshJobs(queryClient: QueryClient) {
-  await queryClient.cancelQueries({ queryKey: ["jobs"] });
-  return queryClient.invalidateQueries({ queryKey: ["jobs"] });
 }
 
 export const isRendering = (jobs: { kind: string; status: string }[] = []) =>
