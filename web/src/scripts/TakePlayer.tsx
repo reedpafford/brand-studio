@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { fileUrl } from "../api/upload";
 
@@ -11,9 +11,8 @@ const squeeze = (peaks: number[]) => (peaks.length <= BARS ? peaks : Array.from(
 /** "0:31" */
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-/** A take's player: 44px play/pause, the waveform from the server's peaks as the seek bar (never decoded here), and "0:12 / 0:31".
- *  With a title (a take's row, v5 G_SongTakes) the title sits over a slimmer waveform. */
-export function TakePlayer({ fileId, seconds, peaks, label, title }: { fileId: number; seconds: number; peaks: number[]; label: string; title?: ReactNode }) {
+/** A take's player: 44px play/pause, the waveform from the server's peaks as the seek bar (never decoded here), and "0:12 / 0:31". */
+export function TakePlayer({ fileId, seconds, peaks, label }: { fileId: number; seconds: number; peaks: number[]; label: string }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [on, setOn] = useState(false);
   const [at, setAt] = useState(0);
@@ -34,9 +33,7 @@ export function TakePlayer({ fileId, seconds, peaks, label, title }: { fileId: n
       <button type="button" onClick={toggle} aria-label={`${on ? "Pause" : "Play"} ${label}`} className="grid size-control shrink-0 place-items-center rounded-full bg-surface-3 text-text hover:bg-surface-2">
         {on ? <Pause size={20} strokeWidth={1.75} aria-hidden /> : <Play size={20} strokeWidth={1.75} aria-hidden />}
       </button>
-      <div className={`min-w-0 flex-1 ${title ? "space-y-1" : ""}`}>
-      {title}
-      <div className={`relative min-w-0 ${title ? "h-6" : "h-11"}`}>
+      <div className="relative h-11 min-w-0 flex-1">
         <div aria-hidden className="flex h-full items-center gap-px overflow-hidden">
           {bars.map((p, i) => (
             <span key={i} className={`min-w-0 flex-1 rounded-full ${i / bars.length < done ? "bg-accent" : "bg-border-strong"}`} style={{ height: `${Math.max(8, p * 100)}%` }} />
@@ -58,13 +55,9 @@ export function TakePlayer({ fileId, seconds, peaks, label, title }: { fileId: n
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         />
       </div>
-      </div>
-      {/* In a take's row the length has its own column; the place played is still read out on the seek bar. */}
-      {!title && (
-        <span className="shrink-0 text-sm tabular-nums text-muted">
-          {clock(at)} / {clock(seconds)}
-        </span>
-      )}
+      <span className="shrink-0 text-sm tabular-nums text-muted">
+        {clock(at)} / {clock(seconds)}
+      </span>
     </div>
   );
 }
