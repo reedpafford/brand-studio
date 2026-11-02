@@ -39,8 +39,10 @@ test("the owner edits voice and tone and the defaults; one save sends them, neve
   const calls = fakeServer({ ...routes(owner), "PATCH /brands/1": [200, brand] });
   renderAt("/b/1/brand");
   expect(await screen.findByText("Changes apply to work from now on. Nothing already made changes.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: "Voice & lines" })); // v5: voice has its own tab; one form across both
   await userEvent.type(screen.getByLabelText("Audience"), ", busy ones");
   await userEvent.type(screen.getByLabelText("Add to do"), "Show the bag{Enter}");
+  await userEvent.click(screen.getByRole("tab", { name: "Look" }));
   await userEvent.selectOptions(screen.getByLabelText("Style for new scripts"), "pixar");
   expect(screen.getByText("Off for editors: new scripts will start on House until it's on.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -74,7 +76,7 @@ test("an Off default language says editors' new scripts start in English", async
 test("a deleted default character says so, with Pick another and Remove; only workspace characters are offered", async () => {
   setViewport(390);
   fakeServer(routes(owner));
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   expect(await screen.findByText("Deleted: pick another")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Pick another" }));
   const instead = screen.getByLabelText("Instead");
@@ -94,7 +96,7 @@ test("CTA lines: deleting the Default says which line is Default now, with Undo;
     "PATCH /brands/1/cta-lines/b": [200, brand],
     "POST /brands/1/cta-lines": [201, brand],
   });
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   const list = await screen.findByLabelText("Call to action lines");
   await userEvent.click(within(list).getByRole("button", { name: 'Delete "Find us through the link in my bio."' }));
   expect(await screen.findByText('Deleted. "Try Iron Paws today." is now the Default.')).toBeInTheDocument();
@@ -110,7 +112,7 @@ test("CTA lines: deleting the Default says which line is Default now, with Undo;
 test("with no characters in Cast & places, Default cast says so and offers a way to add one", async () => {
   setViewport(390);
   fakeServer({ ...routes(owner, { ...brand, default_cast: [], cast: [] }), "GET /library/character": [200, [character(8, "Own look", { owner_project_id: 3 })]] });
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   expect(await screen.findByText("No characters yet.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Add one in Cast & places" })).toHaveAttribute("href", "/b/1/library");
   expect(screen.queryByLabelText("Add to the default cast")).toBeNull();
@@ -119,7 +121,7 @@ test("with no characters in Cast & places, Default cast says so and offers a way
 test("no CTA line left: the Advice says videos end without one", async () => {
   setViewport(1440);
   fakeServer(routes(owner, { ...brand, cta_lines: [], advice: ["Videos will end without a saved call to action."] }));
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   expect(await screen.findByText("Videos will end without a saved call to action.")).toBeInTheDocument();
 });
 
@@ -127,12 +129,13 @@ test("an editor edits the whole brand as the owner does: audience, Do and Don't,
   setViewport(390);
   const calls = fakeServer({ ...routes(editor), "PATCH /brands/1": [200, brand] });
   renderAt("/b/1/brand");
+  expect(await screen.findByLabelText("Style for new scripts")).toBeEnabled();
+  expect(screen.queryByRole("button", { name: /Import from website/ })).toBeNull(); // reading the site stays the owner's
+  await userEvent.click(screen.getByRole("tab", { name: "Voice & lines" })); // v5: voice has its own tab; one form across both
   const audience = await screen.findByLabelText("Audience");
   expect(audience).not.toHaveAttribute("readonly");
   expect(screen.queryByText("Only the owner changes the brand.")).toBeNull();
-  expect(await screen.findByLabelText("Style for new scripts")).toBeEnabled();
   expect(screen.getByRole("button", { name: "Add line" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Import from website/ })).toBeNull(); // reading the site stays the owner's
   await userEvent.type(audience, " and their vets");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1")).toBeTruthy());
@@ -145,7 +148,7 @@ test("without brand setup on the server the page is as before", async () => {
   setViewport(1440);
   const old = Object.fromEntries(Object.entries(brand).filter(([k]) => !(k in setup)));
   fakeServer(routes(owner, old));
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   expect(await screen.findByLabelText("How we sound")).toBeInTheDocument();
   expect(screen.getByLabelText("End line")).toBeInTheDocument();
   expect(screen.queryByText(/Changes apply to work from now on/)).toBeNull();
