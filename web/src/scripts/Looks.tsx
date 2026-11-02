@@ -49,8 +49,8 @@ export function useLooks() {
 export function LookPicker({ current, looks, onPick, busy, error, onClose }: { current: string; looks: Look[]; onPick: (l: Look) => void; busy: string | null; error: string | null; onClose: () => void }) {
   const owner = useMe().data?.role === "owner";
   return (
-    <Panel title="Look" onClose={onClose}>
-      <p className="mb-3 text-sm text-muted">How the pictures are drawn. Any look goes with any format.</p>
+    <Panel title="Style" onClose={onClose}>
+      <p className="mb-3 text-sm text-muted">How the pictures are drawn. Any style goes with any format.</p>
       {error && <p role="alert" className={`mb-3 ${errorClass}`}>{error}</p>}
       <ul className="grid gap-3 sm:grid-cols-2 [&>li]:min-w-0">
         {looks.map((l) => {
@@ -71,7 +71,7 @@ export function LookPicker({ current, looks, onPick, busy, error, onClose }: { c
                 {!l.on && owner && <p className="text-sm text-warning">Off for editors: only you can use it.</p>}
                 {!inUse && (
                   <Button variant="secondary" disabled={closed} reason={closed ? "Not switched on yet" : null} busy={busy === l.id} onClick={() => onPick(l)}>
-                    Use this look
+                    Use this style
                   </Button>
                 )}
               </Card>
@@ -108,14 +108,14 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
   if (!looks.data) return null; // the server doesn't offer looks yet
   const id = value ?? looks.data[0]?.id ?? "house";
   const name = lookName(looks.data, id);
-  if (readOnly) return <Badge icon={Palette}>Look: {name}</Badge>;
+  if (readOnly) return <Badge icon={Palette}>Style: {name}</Badge>;
   const change = (l: Look) => {
     const was = id;
     save.mutate(l.id, {
       onSuccess: () => {
         setOpen(false);
         setAsking(null);
-        toast(`The look is ${l.name}.`, () => save.mutate(was));
+        toast(`The style is ${l.name}.`, () => save.mutate(was));
       },
     });
   };
@@ -126,7 +126,7 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
   return (
     <>
       <Button variant="ghost" dense icon={Palette} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Look: {name}
+        Style: {name}
       </Button>
       {refused && !open && <p role="alert" className={errorClass}>{refused}</p>}
       {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} />}

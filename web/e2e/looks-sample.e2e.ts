@@ -9,7 +9,7 @@ for (const [width, look] of [[1440, "Zack D"], [390, "Skeleton"]] as const) {
     await signIn(page, "reed@example.com");
     await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
     await page.goto("/looks"); // the old address lands on Settings › Looks
-    await expect(page.getByRole("tab", { name: "Looks" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Styles" })).toHaveAttribute("aria-selected", "true");
     const card = page.getByRole("listitem", { name: look, exact: true }); // not "Skeleton X-Ray"
     const make = card.getByRole("button", { name: /^Make a sample/ });
     const thumb = card.getByAltText(`${look} sample`);

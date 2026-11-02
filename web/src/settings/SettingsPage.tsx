@@ -7,7 +7,7 @@ import { CreditLimits } from "./CreditLimits";
 import { StudioName } from "./StudioName";
 
 const TABS = [
-  { id: "looks", label: "Looks" },
+  { id: "looks", label: "Styles" },
   { id: "languages", label: "Languages" },
   { id: "name", label: "Studio name" },
   { id: "limits", label: "Credit limits" },

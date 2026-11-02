@@ -13,7 +13,7 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("button", { name: "New script" }).first().click();
   await page.getByRole("menuitem", { name: /Dialogue/ }).click();
   // Nothing is saved until the first word (flows S1 U).
-  await expect(page.getByText("Not saved yet · saved when you type, or pick a look or project")).toBeVisible();
+  await expect(page.getByText("Not saved yet · saved when you type, or pick a style or project")).toBeVisible();
   await expect(page.getByRole("button", { name: "Format: Dialogue" })).toBeVisible(); // the header shows before the save
   await page.getByLabel("Paste or write your script").fill("BO: Salmon? Again?\nMIA: Try it.");
   await page.getByRole("button", { name: "Save script" }).click();
