@@ -486,3 +486,34 @@ def test_a_stop_after_a_turns_call_records_and_charges_it_and_stays_stopped(
     assert second.status == JobStatus.succeeded  # its call went out: kept, logged, charged
     assert db.query(Usage).filter(Usage.job_id == second.id).count() == 1
     assert not second.input.get("result")  # nothing it said was done
+
+
+def test_a_stop_while_the_next_turn_is_made_holds(app, db, owner, editor, monkeypatch):
+    """QA-7, round 3: Stop ended the last turn while the next one was being made, and that
+    new turn carried the run on to deliver. Now a run is over once ANY of its turns says so:
+    the new turn makes no call, and "Stopped." stays."""
+    pid, made, calls = _made(app, owner, editor, db), [], []
+    real_turn, providers = director._turn, get_providers(app.state.settings, app.state.storage)
+    real_run = providers["claude"].run
+
+    def turn(db, user, project, run):  # the next turn is made just as Stop lands
+        if run["turn"] == 1 and not made:
+            made.append(editor.post(f"/projects/{pid}/director/stop").json()["status"])
+        return real_turn(db, user, project, run)
+
+    def asked(kind, input):
+        if input.get("step") == director.STEP:
+            calls.append(input[director.RUN]["turn"])
+        return real_run(kind, input)
+
+    monkeypatch.setattr("app.director._turn", turn)
+    providers["claude"].run = asked
+    editor.post(f"/projects/{pid}/director")
+    for _ in range(30):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert made == ["ended"] and calls == [1]  # no call after the stop
+    assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
+    second = director.turns(db, db.get(Project, pid))[-1]
+    assert second.input[director.RUN]["turn"] == 2 and second.status == JobStatus.cancelled

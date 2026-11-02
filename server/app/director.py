@@ -77,9 +77,23 @@ def turns(db: Session, project: Project) -> list[Job]:
 def active(db: Session, project: Project) -> Job | None:
     """The newest run's last turn while the run goes on (not delivered, stopped or ended)."""
     last = next(reversed(turns(db, project)), None)
-    if last is None or last.input.get("ended") or last.status in (JobStatus.cancelled,):
+    if last is None or last.status == JobStatus.cancelled or over(db, last.input[RUN]["id"]):
         return None
     return last
+
+
+def over(db: Session, run_id: str) -> bool:
+    """Whether a run has ended (delivered, stopped, failed): ANY of its turns says so, read
+    fresh. A turn made while Stop landed (QA-7, round 3) never brings the run back."""
+    return bool(db.scalar(select(func.count()).where(
+        Job.input["step"].as_string() == STEP, Job.input[RUN]["id"].as_string() == run_id,
+        Job.input["ended"].as_string().is_not(None))))  # fmt: skip
+
+
+def ended(db: Session, project: Project) -> str:
+    """Why the newest run ended, in plain words, from whichever of its turns says ("")."""
+    return next((j.input["ended"] for j in reversed(turns(db, project))
+                 if j.input.get("ended")), "")  # fmt: skip
 
 
 def stop(db: Session, project: Project, why: str = "Stopped.") -> None:
@@ -106,7 +120,7 @@ def after(db: Session, job: Job, storage) -> None:
     """The worker finished `job`: a turn's answer is acted on; any other work on a video with
     a run going may wake the next turn."""
     if job.input.get("step") == STEP:
-        if _stopped(db, job):  # Stop was pressed while it ran: it stays stopped (QA)
+        if _stopped(db, job) or over(db, job.input[RUN]["id"]):  # Stop landed while it ran
             return
         if job.status == JobStatus.succeeded:
             _act(db, job, storage)
@@ -193,7 +207,7 @@ def _record(db: Session, job: Job, run: dict, result: str) -> None:
         db.refresh(job)
         job.input = {**job.input, "result": result}
     db.commit()
-    if kept:
+    if kept and not over(db, run["id"]):
         wake(db, db.get(Project, job.project_id))
 
 
@@ -257,14 +271,14 @@ def refresh(db: Session, job: Job) -> bool:
     before the call: the worker then makes no call (nothing is charged)."""
     project = db.get(Project, job.project_id)
     db.refresh(job)
-    if job.input.get("ended"):
+    if job.input.get("ended") or over(db, job.input[RUN]["id"]):
         return False
     asked = turn_input(db, project, job.input[RUN])
     db.refresh(job)  # Stop may land while the prompt is built: checked as it's written
     kept = _write(db, job, {**job.input, **asked})
     db.commit()
     db.refresh(job)
-    return kept
+    return kept and not over(db, job.input[RUN]["id"])  # the last check, right before the call
 
 
 def turn_input(db: Session, project: Project, run: dict) -> dict:
