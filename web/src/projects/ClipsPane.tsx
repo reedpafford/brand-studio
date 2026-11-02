@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Banner, Button, useToast } from "../components";
 import { api, errorText } from "../api/client";
@@ -15,11 +16,13 @@ import { useApproveAll } from "./ApproveAll";
 import { ReviewChip } from "./Checks";
 import { RewriteNote, RewriteOne, useRewritePrice } from "./RewriteClips";
 import { ClipCard } from "./ClipCard";
-import { useCostBarAction } from "./CostBar";
+import { BarAction } from "./BarAction";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 
-export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number }) {
+/** On the Clips tab (`only` set) it shows the one clip picked in the list, puts its presses in `bar` above the list and its
+ *  still's place in `stillSlot`; elsewhere every clip, as a list. */
+export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number; only?: string | null; bar?: HTMLElement | null; stillSlot?: (el: HTMLDivElement | null) => void; line?: (clipId: string) => string }) {
   const { projectId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -208,9 +211,9 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
   // older breakdown, make the takes, then Approve all. Each card's presses stay here.
   const bar = !!props.review && !loading && !clips.isError && !writingNow;
   const rewrite = { price: writeCost ?? null, reason: stopFor(writeCost), busy: write.isPending, onPress: () => write.mutate(undefined) };
-  useCostBarAction(
-    !bar || props.barTaken ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : approveAll.action,
-  );
+  const barAction =
+    !bar || props.barTaken ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : approveAll.action;
+  const barSlot = barAction && <BarAction action={barAction} />;
   const barApproves = bar && list.length > 0 && stale.length === 0 && missing.length === 0;
   if (loading) return <p role="status" className="text-muted">Loading…</p>;
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
@@ -230,6 +233,7 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
   if (list.length === 0)
     return (
       <section className={`${card} space-y-3`} aria-label="Clips">
+        {barSlot}
         {promptsFailed && (
           <Banner title={promptRun?.status === "failed" ? "The clip prompts didn't finish." : "We lost track of the clip prompts."}>
             {promptRun?.status === "failed" ? promptRun.error || "Nothing was charged. Write them again below." : "If they finish, they show up here. Or write them again below."}
@@ -247,10 +251,10 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
       </section>
     );
 
-  return (
-    <div className="space-y-4" aria-label="Clips">
+  const head = (
+    <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {props.review && <ReviewChip projectId={projectId} />}
+        {props.review && !props.bar && <ReviewChip projectId={projectId} />}
         {/* On the video page the step heading above already carries the counts (audit S14). */}
         {!props.review && (
           <h2 className="text-[length:var(--text-md)] font-semibold">
@@ -284,8 +288,14 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
           {waitingForSheet.length} clip{waitingForSheet.length === 1 ? " waits" : "s wait"} for a sheet ({blockerNames(waitingForSheet.flatMap((c) => blocks.forClip(c.clip_id)))}).
         </p>
       )}
+    </>
+  );
+  return (
+    <div className="space-y-4" aria-label="Clips">
+      {barSlot}
+      {props.bar ? createPortal(head, props.bar) : head}
       <ul className="space-y-4">
-        {list.map((c) => {
+        {list.filter((c) => props.only === undefined || c.clip_id === props.only).map((c) => {
           const job = takeJob(c.id);
           return (
             <ClipCard
@@ -319,6 +329,8 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
               onFix={() => fixPrompt.mutate(c)}
               onUndoFix={(before) => undoFix(c, before)}
               undoing={edit.isPending && edit.variables?.clip.id === c.id}
+              line={props.line?.(c.clip_id)}
+              stillSlot={props.stillSlot}
               rewrite={(c.stale || (c.free_fix_used && blocking(c.problems, c.kept).length > 0)) && !writingNow ? <RewriteOne projectId={projectId} clipId={c.clip_id} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(c.clip_id)} /> : null}
             />
           );

@@ -200,7 +200,7 @@ export function FrameCard(props: {
               kind="frame"
               projectId={props.projectId}
               id={f.id}
-              label={f.clip_id}
+              label={`still ${f.clip_id}`}
               change={f.change as ChangeState}
               hold={props.busy ? "This one is still being made" : f.stale ? "Redo storyboard first" : null}
               stopFor={props.stopFor}
