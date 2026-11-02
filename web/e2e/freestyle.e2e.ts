@@ -84,5 +84,6 @@ test("at 1440, Reed sends a Dialogue: the director makes it on the stand-ins, it
   await expect(top.getByRole("link", { name: "Download MP4" })).toBeVisible();
   const thread = page.getByRole("list", { name: "Thread" });
   await expect(thread.getByText(/Made the cut\./).first()).toBeVisible();
-  expect(await thread.textContent()).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // no tool names, clip codes or JSON  await noSidewaysScroll(page);
+  expect(await thread.textContent()).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // no tool names, clip codes or JSON
+  await noSidewaysScroll(page);
 });
