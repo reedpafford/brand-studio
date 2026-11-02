@@ -43,7 +43,7 @@ from app.models.scripts import ScriptVersion
 from app.references import LONG_SIDE
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
-from app.routes.estimate import version_cost
+from app.routes.estimate import run_price
 from app.routes.jobs import CHANGE, DECLINE, PRICE, SAID, WITHDRAWN, enqueue, stop_jobs
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
@@ -185,9 +185,7 @@ def _start(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """A Dialogue send: its video, then the director's first turn (held for an editor's)."""
     at = utcnow().isoformat()  # the message comes before the moves it starts
     project, draft = _video(db, user, fs, text)
-    # the video's whole price and the director's own limit: everything the run may spend
-    own = director.own_limit()
-    fs.project_id, fs.up_to = project.id, version_cost(db, draft, video=project) + own
+    fs.project_id, fs.up_to = project.id, run_price(db, draft, project)  # all a run may spend
     cap = get_limits(db, user.workspace_id).per_video_max_credits
     if fs.up_to > cap:
         db.rollback()
@@ -214,7 +212,7 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
         db.commit()
         return
     draft = db.get(ScriptDraft, project.script_draft_id)
-    price = version_cost(db, draft, video=project) + director.own_limit()
+    price = run_price(db, draft, project)
     total, cap = approved(db, fs) + price, get_limits(db, user.workspace_id).per_video_max_credits
     if total > cap:
         raise HTTPException(409, PAST_CAP.format(cap=cap))
@@ -381,7 +379,8 @@ def estimate_freestyle(
                        type=type, look=look, shape=shape, chat=[])  # fmt: skip
         db.add(fs)
         db.flush()
-        cost = version_cost(db, _video(db, user, fs, text)[1]) + director.own_limit()
+        project, draft = _video(db, user, fs, text)
+        cost = run_price(db, draft, project)
         db.rollback()
         return EstimateOut(credits=cost)
     fs = Freestyle(id=0, look=look, shape=shape, brand_id=None)

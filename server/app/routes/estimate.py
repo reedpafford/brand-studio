@@ -86,6 +86,27 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
                                   breakdown=not bd, video=video)  # fmt: skip
 
 
+def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
+    """A director run's "up to" (Freestyle, rule 32): the version's whole price and all a run
+    may add under its own limits (QA on #1176: 80.898 shown, 82.03 charged): every clip made
+    again MAX_REDOS times with its take check, and the director's own limit (its turns and
+    watches, `director.own_limit`; past it, it waits for an OK). The cut and mutes are free."""
+    from app import director, item_checks
+
+    ws = db.get(Script, draft.script_id).workspace_id
+    bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
+    seconds = lib.seconds(draft)
+    if not bd and not draft.target_seconds:  # as `version_cost` guesses it
+        from app.models.projects import PRE_BREAKDOWN_SECONDS
+
+        seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
+    clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
+    model = {"model": video_model(video).id, "input": {"resolution": "480p"}}
+    takes = (estimate(db, ws, "video", Decimal(seconds), model)
+             + clips * item_checks.per_take(db, ws))  # fmt: skip
+    return version_cost(db, draft, video) + director.MAX_REDOS * takes + director.own_limit()
+
+
 def _looks(db: Session, project: Project) -> tuple:
     """The looks still to make (rule 32: up to what Make a look can charge): each role's
     first look and each one with none in the video's look, by the quote's own rules."""

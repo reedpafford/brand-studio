@@ -54,8 +54,7 @@ Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or
   9. #1140's leftover Advice: FrameCard's "Redo storyboard first" wording, and videoHold shared with the old page instead of copied. #1125's leftover Advice is listed on that PR.
   10. #1141's Advice: a style's card says "No sheet yet" even when one of its lanes has a sheet.
   11. settings.py's item_check_scope comment still says "one frame each"; a take check uses 6 frames under every scope.
-  12. #1168's stand-in: a pacing ask with "says" in it also gets rule 19's answer; match on the script's words being changed, not the word "says" (QA-10).
-  13. Light theme: border-strong one step darker, so a selected pill's ring clears 3:1 with margin (3.17:1 against the page now; QA on #1164).
+  12. Light theme: border-strong one step darker, so a selected pill's ring clears 3:1 with margin (3.17:1 against the page now; QA on #1164).
 - **Next director slice, near the top (Producer, 1 Nov):** "Remake this" makes reel import → script the default path when an editor asks to remake a reel. Reed's main complaint on FOMO batch 3 was remakes that weren't copies; FOMO-Producer found reel import → script is the path that works (Director, 1 Nov).
 - **Waiting:** "Make a copy in another language" (paid translation; every language but English is off until tested).
 - **Dropped by Reed (2026-10-29):** new formats (Podcast, Vox, Whiteboard). Song is a format in any look (30 Oct, #1031).
