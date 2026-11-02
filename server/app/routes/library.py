@@ -110,6 +110,7 @@ class ItemOut(ItemIn):
     version: int
     sheet_file_id: int | None  # the house-style sheet; only an approved one is used in videos
     sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
+    voice_file_name: str | None = None  # a character's voice sample, as it was uploaded
     owner_project_id: int | None = None  # "This video only"
     owner_script_id: int | None = None  # "This script only"
     look_fit: LookFitOut | None = None  # the sheet doesn't read as its role: advice, Redo it
@@ -210,12 +211,21 @@ def _out(item: LibraryItem) -> ItemOut:
         sheet_status=sheet_status(item),
         owner_project_id=item.owner_project_id,
         owner_script_id=item.owner_script_id,
+        voice_file_name=_voice_name(item),
         look_fit=item.look_fit,
         advice=[NO_CLAIM] if item.kind == Kind.prop and not item.main_claim.strip() else [],
         look_sheets=looks,
         **_prices(item),
         **data,
     )
+
+
+def _voice_name(item: LibraryItem) -> str | None:
+    from app.models.files import StoredFile
+
+    db = object_session(item)
+    file = db.get(StoredFile, item.voice_file_id) if db and item.voice_file_id else None
+    return file.filename if file else None
 
 
 def get_item(
