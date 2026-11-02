@@ -1065,11 +1065,11 @@ test("clips made before the storyboard went out of date stay open, with a banner
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]] });
   open("?step=clips");
-  expect(await screen.findByText("The plan changed after these were made. Redo storyboard first.")).toBeInTheDocument();
+  expect(await screen.findByText("The plan changed after these were made. Redo the stills first.")).toBeInTheDocument();
   const bar = screen.getByRole("region", { name: "Cost" });
   const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
   expect(make).toBeDisabled();
-  expect(make).toHaveAccessibleDescription("The plan changed after these were made. Redo storyboard first.");
+  expect(make).toHaveAccessibleDescription("The plan changed after these were made. Redo the stills first.");
   await userEvent.click(screen.getByRole("button", { name: "Open Stills" }));
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(calls.some((c) => c.key.startsWith("POST /projects/9/clips"))).toBe(false);
