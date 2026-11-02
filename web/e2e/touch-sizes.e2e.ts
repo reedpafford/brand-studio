@@ -13,7 +13,7 @@ test("at 390: Cast & places' tabs and New character are 44 px presses, and the B
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   await page.goto(`/b/${brandId}/brand`);
-  await expect(page.getByRole("main").getByRole("heading", { name: "Brand", level: 1 })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Touch Co", level: 1 })).toBeVisible();
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });

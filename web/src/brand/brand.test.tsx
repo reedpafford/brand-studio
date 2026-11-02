@@ -19,10 +19,11 @@ test("saving the kit sends the edited fields", async () => {
     "GET /brands": [200, [brand]],
     "PATCH /brands/1": [200, brand],
   });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   const tone = await screen.findByLabelText("How we sound");
   await userEvent.clear(tone);
   await userEvent.type(tone, "Calm");
+  await userEvent.click(screen.getByRole("tab", { name: "Look" })); // one form across both tabs: the tone is kept
   await userEvent.click(screen.getByRole("button", { name: "Add colour" }));
   await userEvent.clear(screen.getByLabelText("Colour 2"));
   await userEvent.type(screen.getByLabelText("Colour 2"), "#000001");
@@ -48,7 +49,7 @@ test("a bad colour code is explained and blocks saving", async () => {
 
 test("save is disabled until something changes", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]] });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   expect(await screen.findByRole("button", { name: "Save changes" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Save changes" })).toHaveAccessibleDescription("No changes yet");
   await userEvent.type(screen.getByLabelText("Legal line"), "Not advice");
@@ -178,7 +179,7 @@ test("Add product takes a name, a first flavour and its picture, and saves it as
 
 test("the End line's example uses the brand's own name (#749 LW10)", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, name: "Iron Paws", slug: "iron-paws" }]] });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   const end = await screen.findByLabelText(/End line/);
   expect(end).toHaveAccessibleDescription(/Find Iron Paws through the link in my bio/);
   expect(end).not.toHaveAccessibleDescription(/fomo/);
@@ -190,7 +191,7 @@ test("the End line is shown and saved with the kit", async () => {
     "GET /brands": [200, [{ ...brand, end_line: "Download fomo through the link in my bio." }]],
     "PATCH /brands/1": [200, brand],
   });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   const end = await screen.findByLabelText(/End line/);
   expect(end).toHaveValue("Download fomo through the link in my bio.");
   await userEvent.clear(end);
@@ -203,6 +204,7 @@ test("fonts and never-say words are chips: one can be added and one removed, and
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, never_say: ["guaranteed"] }]], "PATCH /brands/1": [200, brand] });
   renderAt("/b/1/brand");
   await userEvent.type(await screen.findByLabelText("Add to fonts"), "Manrope{Enter}");
+  await userEvent.click(screen.getByRole("tab", { name: "Voice & lines" })); // v5: voice fields have their own tab
   await userEvent.click(screen.getByRole("button", { name: "Remove guaranteed" }));
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   expect(await screen.findByText("Saved.")).toBeInTheDocument();
@@ -211,7 +213,7 @@ test("fonts and never-say words are chips: one can be added and one removed, and
 
 test("leaving Look with unsaved changes asks first; Keep editing stays, Leave goes to App screens", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /brands/1/screens": [200, []] });
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   await userEvent.type(await screen.findByLabelText("Legal line"), "Not advice");
   await userEvent.click(screen.getByRole("tab", { name: /^App screens/ }));
   const dialog = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
@@ -224,7 +226,7 @@ test("leaving Look with unsaved changes asks first; Keep editing stays, Leave go
 
 test("a never-say word that was typed but not added is kept when you move on, and a reload asks while there are unsaved changes", async () => {
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "PATCH /brands/1": [200, brand] });
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   const box = await screen.findByLabelText("Add to never say");
   await userEvent.type(box, "guaranteed");
   await userEvent.tab(); // moving on adds it
