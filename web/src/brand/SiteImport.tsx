@@ -219,7 +219,7 @@ export function SiteImport({ brandId, waitFor, onSaved, onReviewing }: { brandId
             }}
           />
         </div>
-        <Button icon={Globe} busy={start.isPending || price.isPending} onClick={go}>
+        <Button variant="secondary" icon={Globe} busy={start.isPending || price.isPending} onClick={go}>
           {price.data !== undefined ? `Read the site · about ${creditsLabel(price.data)}` : "Read the site"}
         </Button>
       </div>

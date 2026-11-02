@@ -129,16 +129,6 @@ export function MediaPage() {
 
   const controls = (
     <>
-      <div className="w-full lg:w-52">
-        <Select label="Kind" value={kind ?? ""} onChange={(e) => set("kind", e.target.value)}>
-          <option value="">Everything</option>
-          {KINDS.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.label}
-            </option>
-          ))}
-        </Select>
-      </div>
       {owner && (
         <div className="w-full lg:w-52">
           <Select label="Made by" value={by ? String(by) : ""} onChange={(e) => set("by", e.target.value)}>
@@ -158,7 +148,18 @@ export function MediaPage() {
       )}
     </>
   );
-  const active = [!!kind, !!by].filter(Boolean).length; // the project shows on its own chip
+  const active = by ? 1 : 0; // the kind is its tab; the project shows on its own chip
+  const pill = (on: boolean) => `inline-flex min-h-control shrink-0 items-center whitespace-nowrap rounded-md px-3 font-medium ${on ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`;
+  // The kinds as tabs (W11), on every width.
+  const kinds = (
+    <nav aria-label="Kinds" className="flex gap-1 overflow-x-auto border-b border-border pb-2">
+      {[{ id: "", label: "Everything" }, ...KINDS].map((k) => (
+        <button key={k.id} type="button" aria-pressed={(kind ?? "") === k.id} className={pill((kind ?? "") === k.id)} onClick={() => set("kind", k.id)}>
+          {k.label}
+        </button>
+      ))}
+    </nav>
+  );
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
@@ -171,14 +172,15 @@ export function MediaPage() {
       <PageTop title="Media" line={brand ? `Everything made in ${brand.name}` : undefined}>
         <div className="flex items-center gap-2">
           <ProjectsChip brandId={brandId} />
-          {!rail && (
+          {!rail && owner && ( // editors have no filter left once the kind is a tab
             <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
               Filters{active > 0 ? ` (${active})` : ""}
             </Button>
           )}
         </div>
       </PageTop>
-      {rail && <div className="flex flex-wrap items-end gap-3">{controls}</div>}
+      {kinds}
+      {rail && (owner || filtered) && <div className="flex flex-wrap items-end gap-3">{controls}</div>}
       {media.isError && <Banner tone="danger" title="Couldn't load the media. Check your connection." action={<Button variant="secondary" onClick={() => media.refetch()}>Try again</Button>} />}
       {media.isPending && (
         <ul role="status" aria-label="Loading" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">

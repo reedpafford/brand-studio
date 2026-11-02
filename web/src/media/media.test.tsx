@@ -71,13 +71,14 @@ test("the kind and who-made-it filters ask the server, and Clear filters puts th
   fakeServer(base(owner, page([item()])));
   open();
   await screen.findByRole("list", { name: "Media" });
-  await userEvent.selectOptions(screen.getByLabelText("Kind"), "Stills");
+  await userEvent.click(screen.getByRole("button", { name: "Stills" }));
   await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("kind=still"))).toBe(true));
+  expect(screen.getByRole("button", { name: "Stills" })).toHaveAttribute("aria-pressed", "true");
   await screen.findByRole("option", { name: "Eli" });
   await userEvent.selectOptions(screen.getByLabelText("Made by"), "Eli");
   await vi.waitFor(() => expect(urls().some((u) => u.includes("kind=still") && u.includes("by=2"))).toBe(true));
   await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-  expect(screen.getByLabelText("Kind")).toHaveValue("");
+  expect(screen.getByRole("button", { name: "Everything" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("a project picked in the side list (?folder=) filters Media too", async () => {
@@ -178,10 +179,12 @@ test("on a phone the filters open in a sheet, the tabs stay five, and Media open
   await userEvent.click(await screen.findByRole("link", { name: "Media" }));
   await screen.findByRole("list", { name: "Media" });
   expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
-  expect(screen.queryByLabelText("Kind")).toBeNull();
+  // The kinds are tabs on the page (W11); who made it sits in the Filters sheet.
+  expect(within(screen.getByRole("navigation", { name: "Kinds" })).getByRole("button", { name: "Stills" })).toBeInTheDocument();
+  expect(screen.queryByLabelText("Made by")).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Filters" }));
   const sheet = await screen.findByRole("dialog", { name: "Filters" });
-  expect(within(sheet).getByLabelText("Kind")).toBeInTheDocument();
+  expect(within(sheet).getByLabelText("Made by")).toBeInTheDocument();
 });
 
 test("a song tile says which script or video it's from (Next-Layout's 390 walk)", async () => {
