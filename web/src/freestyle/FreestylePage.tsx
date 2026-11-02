@@ -36,7 +36,7 @@ export function FreestylePage() {
       <List owner={owner} current={id} className={id ? "hidden lg:flex" : "flex"} />
       <main className="flex min-w-0 flex-col lg:h-screen">
         {id && (
-          <Link to="/freestyle" className="px-4 pt-3 text-sm text-muted underline lg:hidden">
+          <Link to="/freestyle" className="flex min-h-control items-center self-start px-4 text-sm text-muted underline lg:hidden">
             All freestyles
           </Link>
         )}
@@ -60,7 +60,7 @@ export function FreestylePage() {
 function List({ owner, current, className }: { owner: boolean; current: number | null; className: string }) {
   const [everyone, setEveryone] = useState(false);
   const rows = useFreestyles(owner && everyone);
-  const seg = (on: boolean) => `min-h-control-dense flex-1 rounded-md px-2 text-sm ${on ? "bg-surface-3 font-medium" : "text-muted hover:bg-surface-2"}`;
+  const seg = (on: boolean) => `min-h-control flex-1 rounded-md lg:min-h-control-dense px-2 text-sm ${on ? "bg-surface-3 font-medium" : "text-muted hover:bg-surface-2"}`;
   return (
     <aside aria-label="Your freestyles" className={`${className} min-w-0 flex-col border-border lg:sticky lg:top-0 lg:h-screen lg:border-r`}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">

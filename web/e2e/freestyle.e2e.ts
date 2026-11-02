@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { onBrand, signIn } from "./helpers";
 
 // Freestyle (Reed's redesign; replaces Quick clip). One clip works now, made by the free stand-ins on the test server:
@@ -47,9 +47,18 @@ test("at 390, an editor's freestyle waits for approval, Reed approves it in Appr
   await expect(top.getByRole("button", { name: "Withdraw" })).toBeVisible();
   await expect(ed.getByText(/\$/)).toHaveCount(0);
   await noSidewaysScroll(ed);
+  const height = async (l: Locator) => (await l.boundingBox())!.height;
+  expect(await height(ed.getByRole("link", { name: "All freestyles" }))).toBeGreaterThanOrEqual(44); // phones: touch (QA-9 on #1161)
 
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/freestyle");
+  for (const n of ["Mine", "Everyone's"]) expect(await height(page.getByRole("button", { name: n, exact: true }))).toBeGreaterThanOrEqual(44);
   await page.goto("/approvals");
   const row = page.getByRole("listitem").filter({ hasText: `asked by ${name}` }); // its own editor: the only send of theirs
+  await expect(row).toContainText("Freestyle · One clip");
+  await expect(row).toContainText("First send");
+  await expect(row).not.toContainText("Quick clip");
+  await expect(row.getByRole("link", { name: /^Open freestyle/ })).toHaveAttribute("href", /\/freestyle\/\d+$/);
   await row.getByRole("button", { name: /^Approve/ }).click();
   await expect(row).toHaveCount(0);
 
