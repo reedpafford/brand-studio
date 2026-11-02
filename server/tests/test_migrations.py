@@ -259,3 +259,17 @@ def test_n18_gives_every_video_no_locks_and_no_outfits_of_its_own(tmp_path):
         row = conn.execute(text("SELECT locks, outfits FROM projects")).one()
     assert [json.loads(v) for v in row] == [{}, {}]
     command.downgrade(cfg, "n17")
+
+
+def test_n19_gives_every_video_an_empty_director_chat(tmp_path):
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n18")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "projects", id=1, brand_id=1, workspace_id=1, name="V")
+    command.upgrade(cfg, "n19")
+    with engine.connect() as conn:
+        assert json.loads(conn.execute(text("SELECT director_chat FROM projects")).scalar()) == []
+    command.downgrade(cfg, "n18")

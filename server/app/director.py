@@ -9,6 +9,7 @@ Claude time. On the stand-ins (BS_FAKE_PROVIDERS) `choose` answers each turn: no
 
 import json
 import logging
+import re
 import uuid
 from decimal import Decimal
 
@@ -36,6 +37,9 @@ NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
+PENDING = {JobStatus.queued: "Deciding what to do next.",
+           JobStatus.running: "Deciding what to do next.",
+           JobStatus.needs_owner_approval: "Waiting for the owner's OK."}  # fmt: skip
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 
 
@@ -45,6 +49,55 @@ def start(db: Session, user: User, project: Project) -> Job:
         raise HTTPException(409, why)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
     return _turn(db, user, project, run)
+
+
+def say(db: Session, user: User, project: Project, text: str) -> None:
+    """A person's message to the director (director-chat.md §1 item 4): read at its next turn
+    while a run goes on; else it starts a revision run with it, which changes what it asks
+    and delivers again. Spending as ever: inside the budget, past it held for the owner."""
+    from app.db import utcnow
+
+    going = active(db, project)
+    if not going and (why := blocked(db, project)):
+        raise HTTPException(409, why)
+    run = dict(going.input[RUN]) if going else {"id": uuid.uuid4().hex, "turn": 0, "redos": {},
+                                                 "by": user.id, "revision": True}  # fmt: skip
+    said = {"by": user.id, "text": text, "at": utcnow().isoformat(), "run": run["id"]}
+    project.director_chat = [*(project.director_chat or []), said]
+    db.commit()
+    if not going:
+        _turn(db, user, project, run)
+
+
+def chat(project: Project, run_id: str) -> list[dict]:
+    """What people asked of this run, oldest first."""
+    return [{"text": m["text"]} for m in project.director_chat or [] if m.get("run") == run_id]
+
+
+def thread(db: Session, project: Project) -> list[dict]:
+    """The whole conversation on the video, oldest first: what people said and each of the
+    director's moves, as plain lines (a held move says so)."""
+    from app.auth import user_name
+
+    rows = db.scalars(select(Job).where(Job.project_id == project.id,
+                                        Job.input["step"].as_string() == STEP)
+                      .order_by(Job.id)).all()  # fmt: skip
+    out = [{"id": f"m{n}", "kind": "message", "at": m["at"], "who": user_name(db, m["by"]),
+            "text": m["text"], "status": None}
+           for n, m in enumerate(project.director_chat or [])]  # fmt: skip
+    for j in rows:
+        result = j.input.get("result") or ""
+        tool = (j.output or {}).get("tool")
+        text = ((j.output or {}).get("why") if tool == "deliver" else result) or PENDING.get(
+            j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
+        )
+        status = ("held" if j.status == JobStatus.needs_owner_approval
+                  else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
+                  else "refused" if result.startswith("Refused") else "done")  # fmt: skip
+        out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
+                    "who": "Director",
+                    "text": text, "status": status})  # fmt: skip
+    return sorted(out, key=lambda m: m["at"])
 
 
 def blocked(db: Session, project: Project) -> str:
@@ -354,7 +407,9 @@ def turn_input(db: Session, project: Project, run: dict) -> dict:
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD)}  # fmt: skip
-    parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed))
+    asked = chat(project, run["id"])  # what people asked of this run (a revision's reason)
+    parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed),
+             *((("chat", asked),) if asked else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
     return {"system": system, "prompt": f"{brief}\n{tagged}"}
 
@@ -458,6 +513,8 @@ def choose(state: dict) -> dict:
                    else f"No take of {c['clip_id']} is clean: using the newest, take "
                    f"{best['number']}.")  # fmt: skip
             return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
+    if state["cut"] == "made" and (asked := _asked(state)):
+        return asked  # a revision: what the person asked, then cut and deliver again
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
     if state["cut"] != "made":
@@ -472,6 +529,21 @@ def choose(state: dict) -> dict:
         return go("watch_cut", "The cut is made: it watches it as a viewer would.")
     keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
     return go("deliver", f"The cut is made with each clip's best take. {keep}".strip())
+
+
+def _asked(state: dict) -> dict | None:
+    """The stand-in's answer to the newest chat message: a clip it names ("clip 2") is made
+    again with the message as its note, once a run."""
+    if not state.get("chat"):
+        return None
+    text = state["chat"][-1]["text"]
+    named = re.search(r"\bclip (\d+)\b", text, re.I)
+    clip = f"c{named[1]}" if named else None
+    if clip and clip in {c["clip_id"] for c in state["clips"]} and clip not in state.get(
+        "allowed", {}).get("redos_used", {}):  # fmt: skip
+        return {"tool": "make_take", "why": f"You asked: {text}"[:300], "clip_id": clip,
+                "take_id": None, "note": text[:500]}  # fmt: skip
+    return None
 
 
 def _next_fix(found: list[dict], clips: dict) -> dict | None:
