@@ -2,6 +2,8 @@
 their out-of-date still is refused before any charge, never drawn without them (Flow-QA,
 QA-3's note on #947). All on the free stand-ins."""
 
+import pytest
+
 from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.providers import get_providers
@@ -11,6 +13,7 @@ from tests.test_fake_local import _drain
 from tests.test_look_sheets import _video
 
 
+@pytest.mark.usefixtures("own_look")
 def test_a_redraw_after_a_look_switch_waits_for_the_casts_look(app, db, editor, owner):
     project, mia_id = _video(app, owner, editor, db, look="house")
     providers = get_providers(app.state.settings)

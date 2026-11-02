@@ -3,6 +3,8 @@ video. It's never in Cast & places or another video's picker (Current rules 12).
 
 import copy
 
+import pytest
+
 from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
@@ -271,6 +273,7 @@ def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, 
     assert (db.query(Job).count(), db.query(LibraryItem).count()) == (jobs, looks)
 
 
+@pytest.mark.usefixtures("own_look")
 def test_a_roles_own_house_look_holds_after_a_switch_and_is_back_with_house(owner, editor, db):
     """Flow-QA on #967: a look made for this video in House is no picture of Nate once the
     video is Disney Pixar (sheet_for), so nothing is drawn or charged with it in the wrong
@@ -318,6 +321,7 @@ def test_a_roles_own_house_look_holds_after_a_switch_and_is_back_with_house(owne
     assert new != look and db.get(LibraryItem, new).sheet_look == "disney-pixar"
 
 
+@pytest.mark.usefixtures("own_look")
 def test_switching_back_recasts_a_role_to_the_own_look_it_has_in_that_look(owner, editor, db):
     """Flows VS1 "U" and ST1 (the earlier looks come back, kept per look): Nate's own House
     look, then a Disney Pixar one; back to House he's ready with his House look again, free,

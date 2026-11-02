@@ -4,7 +4,6 @@ video, the script's language and the brand's default cast. Free, on the stand-in
 
 from sqlalchemy import select
 
-from app import sheets
 from app import video_settings as vs
 from app.models.brands import BrandScreen
 from app.models.breakdowns import BreakdownVersion
@@ -298,11 +297,10 @@ def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
     auto = editor.post(url).json()
     shown = editor.get(base).json()["versions"][0]["estimate_credits"]
     assert auto == {"credits": shown, "over_cap": False, "reason": ""}  # the card's figure
-    look = owner.post(url, json={"look": "disney-pixar"}).json()  # Mia has only House: one look
-    assert look["credits"] == round(auto["credits"] + float(sheets.look_price(db, 1)), 2)
+    look = owner.post(url, json={"look": "disney-pixar"})  # the script's style stays (item 7)
+    assert look.status_code == 409 and "keeps its script's style, House" in look.text
     cheaper = editor.post(url, json={"video_model": "seedance-2.0"}).json()
     assert 0 < cheaper["credits"] < auto["credits"]
-    assert editor.post(url, json={"look": "zack-d"}).status_code == 409  # Off for editors
     assert editor.post(url, json={"video_model": "nope"}).status_code == 422
     db.add(CreditLimits(workspace_id=1, per_video_max_credits=1))
     db.commit()
@@ -329,8 +327,11 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
     from tests.test_script_library import SCRIPT, _make
 
     monkeypatch.setattr(produce, "_make", lambda c, **kw: _make(c, text=SCRIPT))
-    for picks in ({}, {"look": "disney-pixar"}):
+    for look in ("house", "disney-pixar"):
         base, _ = _published(owner, db)  # Mom is Mia (a House sheet only); Nate has no role
+        db.get(Script, int(base.rsplit("/", 1)[1])).look = look  # its style, kept (item 7)
+        db.commit()
+        picks: dict = {}
         quote = owner.post(f"{base}/drafts/0/estimate", json=picks).json()["credits"]
         card = owner.get(base).json()["versions"][0]["estimate_credits"]
         made = owner.post(f"{base}/drafts/0/produce", json=picks).json()["project_id"]
@@ -339,7 +340,7 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
         assert plan == 3  # Make this version charged the plan call at once
         quote -= plan  # what's left after the press: the video's own to-finish and bar
         assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
-        if not picks:  # the version card shows the same figure (in the script's own look)
+        if look == "house":  # the version card shows the same figure (in the script's own look)
             assert card == pytest.approx(quote + plan, abs=0.001)
         added = breakdown.add_speakers(db, db.get(Script, int(base.rsplit("/", 1)[1])))
         db.commit()
