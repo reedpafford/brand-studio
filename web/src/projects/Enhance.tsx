@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Elapsed, GOING, useJobs } from "../clip/History";
+import { refreshJobs } from "../jobs/refresh";
 import { useToast } from "../toast";
 import { Check, ChevronDown, Sparkles, X } from "lucide-react";
 import { Button, Menu, MenuItem } from "../components";
@@ -49,7 +50,7 @@ export function useEnhance(projectId: number, scriptVersion: number | undefined,
       const { error, response } = await api.POST("/projects/{project_id}/script/enhance", { params: { path } });
       if (!response.ok) throw new Error(errorText(error));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => refreshJobs(queryClient),
   });
   const decide = useMutation({
     mutationFn: ({ id, verb }: { id: number; verb: "accept" | "reject" }) =>
