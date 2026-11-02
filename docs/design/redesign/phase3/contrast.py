@@ -5,12 +5,12 @@ def lum(h):
     return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)
 def cr(a,b):
     la,lb=sorted([lum(a),lum(b)],reverse=True); return (la+0.05)/(lb+0.05)
-D=dict(bg='#0B0B0D',surface='#151517',s2='#1E1E21',s3='#28282C',border='#2A2A2F',bstrong='#64646E',text='#F3F2EF',muted='#A3A1A9',faint='#6E6C75',
- accent='#F4A940',on='#1B1206',asoft='#2E2414',atext='#F7C27A',ok='#5BD08A',oksoft='#12261A',warn='#F2C14E',warnsoft='#2A2312',danger='#FF8A7E',dsoft='#33191A',focus='#F7C27A',
- dis_bg='#26262A',dis_text='#8E8C95',aborder='#F4A940')
-L=dict(bg='#F5F3EE',surface='#FFFFFF',s2='#EFECE5',s3='#E6E2D9',border='#E2DED5',bstrong='#8F8A81',text='#1C1B19',muted='#5E5B55',faint='#8A867E',
- accent='#F4A940',on='#1B1206',asoft='#FCEFD9',atext='#8A4B00',ok='#1F7A3D',oksoft='#E4F3E8',warn='#8A5A00',warnsoft='#FCF0DC',danger='#B42318',dsoft='#FDE8E6',focus='#B45F06',
- dis_bg='#E6E2D9',dis_text='#5E5B55',aborder='#B8740F')
+D=dict(bg='#0E0F11',surface='#141518',s2='#1C1D21',s3='#25262B',border='#23252A',bstrong='#666A73',text='#E6E7EA',muted='#8F929B',faint='#5F626B',
+ accent='#5E63D6',on='#FFFFFF',asoft='#1F2040',atext='#A9ACF7',ok='#4CB782',oksoft='#13261D',warn='#E2A33B',warnsoft='#2A2214',danger='#EB6E5E',dsoft='#331A18',focus='#8B8FF0',
+ dis_bg='#1F2024',dis_text='#8A8D96',aborder='#5E63D6')
+L=dict(bg='#FBFBFC',surface='#FFFFFF',s2='#F4F4F6',s3='#EBEBEF',border='#E7E7EA',bstrong='#8B8E97',text='#1B1C1F',muted='#62656E',faint='#9A9DA5',
+ accent='#5E63D6',on='#FFFFFF',asoft='#EEF0FF',atext='#4146B8',ok='#1A7A4B',oksoft='#E6F4EC',warn='#8F5C12',warnsoft='#FBF1DF',danger='#C23B2F',dsoft='#FDE9E7',focus='#5E63D6',
+ dis_bg='#EBEBEF',dis_text='#62656E',aborder='#5E63D6')
 checks=[('text','bg',4.5),('text','surface',4.5),('text','s2',4.5),('muted','bg',4.5),('muted','surface',4.5),('muted','s2',4.5),('muted','s3',4.5),
  ('on','accent',4.5),('atext','asoft',4.5),('atext','surface',4.5),('ok','oksoft',4.5),('ok','surface',4.5),('warn','warnsoft',4.5),('danger','dsoft',4.5),('danger','surface',4.5),
  ('bstrong','surface',3),('focus','bg',3),('focus','surface',3),('aborder','bg',3),('dis_text','dis_bg',4.5)]

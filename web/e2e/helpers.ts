@@ -25,7 +25,7 @@ export async function signIn(page: Page, email: string, password = PASSWORD) {
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-/** Opens the account menu (the round button in the top bar). */
+/** Opens the account menu (the bottom of the rail on desktop, the round button in the top bar on a phone). */
 export async function openAccountMenu(page: Page) {
   await page.getByRole("button", { name: "Account menu" }).click();
 }
@@ -33,7 +33,7 @@ export async function openAccountMenu(page: Page) {
 /** The account menu shows who is signed in, with Sign out. */
 export async function expectSignedInAs(page: Page, name: string) {
   await openAccountMenu(page);
-  await expect(page.getByRole("banner").getByText(name, { exact: true })).toBeVisible();
+  await expect(page.getByRole("menu", { name: "Account" }).or(page.getByRole("dialog", { name: "Account" })).getByText(name, { exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   await page.keyboard.press("Escape");
 }

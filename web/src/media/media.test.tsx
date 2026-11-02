@@ -88,10 +88,11 @@ test("a project picked in the side list (?folder=) filters Media too", async () 
   expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("folder=none"))).toBe(true);
 });
 
-test("picking a project in the side list stays on Media and filters it", async () => {
+test("picking a project from Project: All ▾ stays on Media and filters it", async () => {
   setViewport(1440);
   fakeServer(base(owner, page([item()]), { "GET /brands/1/folders": [200, [{ id: 4, brand_id: 1, name: "November launch", created_by_id: 1, items: { scripts: 0, videos: 1, clips: 0 }, can_manage: true }]] }));
   open();
+  await userEvent.click(await screen.findByRole("button", { name: /^Project: / }));
   const list = await screen.findByRole("region", { name: "Projects" });
   await userEvent.click(within(list).getByRole("button", { name: "November launch · 1 item" }));
   await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("folder=4"))).toBe(true));

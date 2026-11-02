@@ -41,19 +41,24 @@ function open(at = "/b/1/videos") {
 }
 const urls = () => (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.map(([r]) => (typeof r === "string" ? r : r.url));
 afterEach(() => vi.unstubAllGlobals());
+// The rail has no Projects list any more (nav A): the list opens from "Project: All ▾" at every width.
+async function openList() {
+  await userEvent.click(await screen.findByRole("button", { name: /^Project: / }));
+  return screen.findByRole("region", { name: "Projects" });
+}
 
-test("the side list shows All, each project with its count, and No project; picking one filters the list it's on (flows OR1)", async () => {
+test("Project: All ▾ opens the list: All, each project with its count, and No project; picking one filters the list it's on (flows OR1)", async () => {
   setViewport(1440);
   fakeServer(base(owner, [november]));
   open();
-  const list = await screen.findByRole("region", { name: "Projects" });
+  const list = await openList();
   expect(within(list).getByRole("button", { name: "All" })).toBeInTheDocument();
   expect(within(list).getByRole("button", { name: "November launch · 6 items" })).toBeInTheDocument();
   expect(within(list).getByRole("button", { name: "No project" })).toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "November launch · 6 items" }));
   expect(where()).toBe("/b/1/videos?folder=4");
   await vi.waitFor(() => expect(urls().some((u) => u.includes("/projects?") && u.includes("folder=4"))).toBe(true));
-  await userEvent.click(within(list).getByRole("button", { name: "No project" }));
+  await userEvent.click(within(await openList()).getByRole("button", { name: "No project" })); // picking closes the panel
   expect(where()).toBe("/b/1/videos?folder=none");
   expect(document.body.textContent!.replace(where()!, "")).not.toMatch(/folder/i); // people only ever see "Project"
 });
@@ -62,7 +67,7 @@ test("with no projects yet it says everything works without one, and New project
   setViewport(1440);
   const calls = fakeServer(base(owner, [], { "POST /brands/1/folders": [409, { detail: "A project called November launch already exists. Rename one first." }] }));
   open();
-  const list = await screen.findByRole("region", { name: "Projects" });
+  const list = await openList();
   expect(within(list).getByText("No projects yet. Everything works without one.")).toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "New project" }));
   const ask = await screen.findByRole("alertdialog", { name: "New project" });
@@ -77,6 +82,7 @@ test("Delete says where its items go, nothing inside is deleted, and Undo restor
   setViewport(1440);
   const calls = fakeServer(base(owner, [november], { "DELETE /folders/4": [200, { moved: 6 }], "POST /folders/4/restore": [200, november] }));
   open();
+  await openList();
   await userEvent.click(await screen.findByRole("button", { name: "More for November launch" }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
   const ask = await screen.findByRole("alertdialog", { name: "Delete November launch?" });
@@ -91,6 +97,7 @@ test("an editor gets no Rename or Delete on a project someone else made", async 
   setViewport(1440);
   fakeServer(base(editor, [theirs]));
   open();
+  await openList();
   await screen.findByRole("button", { name: "Spring · 1 item" });
   expect(screen.queryByRole("button", { name: "More for Spring" })).toBeNull();
 });
@@ -192,7 +199,7 @@ test("without the server's projects nothing about projects shows", async () => {
   fakeServer(base(owner, null));
   open();
   await screen.findByRole("heading", { name: "Videos" });
-  expect(screen.queryByRole("region", { name: "Projects" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Project: / })).toBeNull();
 });
 
 test("Scripts and Quick clip ask the server for the picked project too", async () => {
@@ -214,7 +221,7 @@ test("an editor gets no project picker on a script someone else made (the server
   fakeServer(base(editor, [november], { "GET /scripts/7": [200, script()] }));
   open("/b/1/scripts/7");
   await screen.findByRole("heading", { name: "Bowl story" });
-  await screen.findByRole("region", { name: "Projects" }); // the projects have loaded
+  await new Promise((r) => setTimeout(r, 200)); // let the projects load (the next test shows the picker does appear on your own script)
   expect(screen.queryByRole("button", { name: /^Project:/ })).toBeNull();
 });
 
