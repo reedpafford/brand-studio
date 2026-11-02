@@ -12,7 +12,7 @@ const squeeze = (peaks: number[]) => (peaks.length <= BARS ? peaks : Array.from(
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** A take's player: 44px play/pause, the waveform from the server's peaks as the seek bar (never decoded here), and "0:12 / 0:31".
- *  With a title (a take's row, v5 G_SongTakes) the title sits over a slimmer waveform. */
+ *  With a title (a take's row, v5 G_SongTakes) the title sits over the waveform, which stays a 44 px seek bar. */
 export function TakePlayer({ fileId, seconds, peaks, label, title }: { fileId: number; seconds: number; peaks: number[]; label: string; title?: ReactNode }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [on, setOn] = useState(false);
@@ -36,7 +36,7 @@ export function TakePlayer({ fileId, seconds, peaks, label, title }: { fileId: n
       </button>
       <div className={`min-w-0 flex-1 ${title ? "space-y-1" : ""}`}>
       {title}
-      <div className={`relative min-w-0 ${title ? "h-6" : "h-11"}`}>
+      <div className="relative h-11 min-w-0">
         <div aria-hidden className="flex h-full items-center gap-px overflow-hidden">
           {bars.map((p, i) => (
             <span key={i} className={`min-w-0 flex-1 rounded-full ${i / bars.length < done ? "bg-accent" : "bg-border-strong"}`} style={{ height: `${Math.max(8, p * 100)}%` }} />
