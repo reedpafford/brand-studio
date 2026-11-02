@@ -278,6 +278,15 @@ WAIT_OK = "Waiting for the owner's OK: "  # a held press says why it waits, neve
 PAST_APPROVED = f"{WAIT_OK}this goes past the price approved."  # a freestyle's next step
 
 
+def past_approved(db: Session, project: Project, user: User, credits: Decimal) -> str:
+    """A freestyle's step the owner's OK doesn't cover (its turns and watches too, not only
+    its takes): PAST_APPROVED, and it waits for the owner; else "". A video page's turns stay
+    on the director's own limit (DECISIONS #1066)."""
+    if not project.hidden or user.is_owner:
+        return ""
+    return PAST_APPROVED if budget_used(db, project) + credits > budget(db, project) else ""
+
+
 def over_allowance(db: Session, user: User, credits: Decimal) -> str:
     """Plain words if this Quick clip would take an editor past their weekly allowance, else
     "". Past it, the clip waits for the owner (`enqueue`). Call with the row locked."""

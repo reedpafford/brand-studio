@@ -141,8 +141,14 @@ def thread(db: Session, project: Project) -> list[dict]:
     for j in rows:
         result = j.input.get("result") or ""
         tool = (j.output or {}).get("tool")
-        text = ((j.output or {}).get("why") if tool == "deliver" else result) or PENDING.get(
-            j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
+        text = (
+            ((j.output or {}).get("why") if tool == "deliver" else result)
+            or (
+                j.input.get("held")  # a held turn says why it waits
+                if j.status == JobStatus.needs_owner_approval
+                else ""
+            )
+            or PENDING.get(j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped.")
         )
         why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
         text, why = named(text), named(why)
@@ -434,12 +440,11 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
-    if project.hidden and not (wait or user.is_owner):  # a freestyle: its turns count too
-        from app.credits import PAST_APPROVED, budget, budget_used, estimate
+    if not wait:  # a freestyle: its turns count too; past its price the run pauses for an OK
+        from app.credits import estimate, past_approved
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
-        if budget_used(db, project) + turn > budget(db, project):
-            wait = PAST_APPROVED  # the run pauses here until the owner says OK
+        wait = past_approved(db, project, user, turn)
     try:
         return enqueue(db, user, "write-claude", data, project=project, provider="claude",
                        prepaid=not wait, wait=wait)  # fmt: skip

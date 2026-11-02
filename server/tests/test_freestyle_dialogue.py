@@ -112,3 +112,40 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     assert waiting and waiting[0].input["held"] == PAST_APPROVED  # it paused, and says why
     assert spent <= Decimal(3), spent  # never past the price approved without a new OK
     assert editor.get(f"/freestyles/{fs['id']}").json()["status"] == "waiting"
+
+
+def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
+    app, owner, editor, db, monkeypatch
+):
+    """QA-3 on #1171 (MAX_USD 0.50): turns, takes and the watch of the cut all wait for the
+    owner past the price; checks are skipped, never queued unheld. Each step held mid-run
+    shows in the thread."""
+    from decimal import Decimal
+
+    from app.credits import COUNTED, PAST_APPROVED
+
+    monkeypatch.setattr(director, "MAX_USD", Decimal("0.50"))
+    fs = editor.post("/freestyles", json=BODY).json()
+    up_to, released = Decimal(str(fs["up_to"])), Decimal(0)
+    pid = db.get(Freestyle, fs["id"]).project_id
+    holds = 0
+    for _ in range(12):  # the owner releases each step that waits, one at a time
+        db.expire_all()
+        waiting = db.query(Job).filter(Job.project_id == pid,
+                                       Job.status == "needs_owner_approval").all()  # fmt: skip
+        if not waiting:
+            break
+        job = waiting[0]
+        if holds:  # past the first send: a step the approved price didn't cover
+            assert job.input["held"] == PAST_APPROVED
+            moves = editor.get(f"/freestyles/{fs['id']}").json()["thread"]
+            assert any(m["status"] == "held" and m["text"] == PAST_APPROVED for m in moves)
+            released += job.credits
+        holds += 1
+        assert owner.post(f"/jobs/{job.id}/approve").status_code == 200
+        _run(app, db, ticks=40)
+        db.expire_all()
+        spent = sum((j.credits for j in db.query(Job).filter(Job.project_id == pid)
+                     if j.status in COUNTED), Decimal(0))  # fmt: skip
+        assert spent <= up_to + released, (spent, up_to, released)
+    assert holds > 1  # the price ran out mid-run, and it waited

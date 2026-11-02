@@ -23,6 +23,7 @@ from app.catalogue import get_model
 from app.credits import (
     COUNTED,
     FREESTYLE,
+    PAST_APPROVED,
     WAIT_OK,
     estimate,
     get_limits,
@@ -307,6 +308,12 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
         status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
     moves = [FreestyleItem(**{**m, "text": words.get(m["id"], m["text"])})
              for m in director.thread(db, project) if m["kind"] == "move"]  # fmt: skip
+    held = db.scalars(select(Job).where(  # a take or a watch past the price, waiting mid-run
+        Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval,
+        Job.input["step"].as_string() != director.STEP)).all()  # fmt: skip
+    moves += [FreestyleItem(id=f"j{j.id}", kind="move", at=j.created_at, who="Director",
+                            text=j.input.get("held") or PAST_APPROVED, status="held")
+              for j in held]  # fmt: skip
     cut = db.scalar(select(FinalVideo.file_id).where(FinalVideo.project_id == project.id)
                     .order_by(FinalVideo.id.desc()))  # fmt: skip
     file_id = cut if status == "delivered" else None
