@@ -629,7 +629,9 @@ class DirectorTurn(BaseModel):
         "make_take, null makes a first take of every clip that has none. Else null.",
     )
     take_id: int | None = Field(
-        default=None, description="For pick_take: the take's id (not its number); else null."
+        default=None,
+        description="For pick_take: the take's id (not its number). For song with no note: "
+        "the song take to use. Else null.",
     )
     shot_id: str | None = Field(
         default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
@@ -643,8 +645,11 @@ class DirectorTurn(BaseModel):
         default="",
         description="What it must change, in plain words: for make_take as a redo, what to fix "
         "(e.g. 'say fomo as FOH-moh; no extra people'); for redraw_still, what the beat needs "
-        "in the frame; for treatment or plan made again, what changes; for song made again, "
-        "the music's change ('vocals start immediately, no instrumental intro'); else empty.",
+        "in the frame; for treatment or plan made again, what changes; for song with no style "
+        "yet, the style line ('laid-back breezy pop, warm female vocal, 100 BPM, acoustic "
+        "guitar, sunny, modern polished'); for song made again, the music's change ('vocals "
+        "start immediately, no instrumental intro'); for narration "
+        "made again, the voice's change ('slower and warmer'); else empty.",
     )
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "
