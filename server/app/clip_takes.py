@@ -113,7 +113,9 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
                         f"{m.duration.max} s a clip. {then}. Nothing was charged.")  # fmt: skip
 
 
-ENGLISH = "Use English: every spoken line is in English, and any text on screen is in English."
+ENGLISH = ("Language: every spoken line is in American English, and any text on screen is in "
+           "English.")  # fmt: skip
+SAID_AMERICAN = "every spoken line is in American English"  # the clip prompt's own (the Director)
 
 
 def in_english(prompt: str) -> str:
@@ -121,7 +123,7 @@ def in_english(prompt: str) -> str:
     after "Change this…"): one fixed line right after the References line, so the prompt still
     opens and closes on the same audio line. Free; the saved prompt is unchanged."""
     lines = prompt.splitlines()
-    if ENGLISH in lines:
+    if ENGLISH in lines or SAID_AMERICAN in prompt:  # said once, in American English (Reed)
         return prompt
     at = next((i for i, x in enumerate(lines) if x.startswith("References: ")), 0)
     return "\n".join([*lines[: at + 1], ENGLISH, *lines[at + 1 :]])

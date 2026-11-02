@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app import director, hidden, looks, prompts
 from app.auth import current_user
 from app.catalogue import get_model
+from app.clip_takes import in_english
 from app.credits import (
     COUNTED,
     FREESTYLE,
@@ -148,7 +149,7 @@ def _job_input(fs: Freestyle, texts: list[str]) -> dict:
         "brand_id": fs.brand_id,
         "fit_images_to": LONG_SIDE[RESOLUTION],
         "input": {
-            "prompt": f"{style}\n{texts[0]}{changes}".strip(),
+            "prompt": in_english(f"{style}\n{texts[0]}{changes}".strip()),  # American English
             "duration": _seconds(texts[0]),
             "resolution": RESOLUTION,
             "aspect_ratio": fs.shape,
