@@ -253,3 +253,25 @@ def test_a_shot_moved_out_of_order_is_never_0_seconds():
     out = repack(["a", "c", "b"], timed, 12)  # c moved before b
     assert all(v["end"] > v["start"] for v in out.values())
     assert (out["a"]["start"], out["b"]["end"]) == (0, 12)
+
+
+def test_a_clip_with_people_over_16_s_is_split_at_its_shots_and_short_ones_last_4_s():
+    """Song-Producer: faces hold up only so long; a span under 4 s is made 4 s and cut."""
+    from app.song_breakdown import fit
+
+    def shot(sid, who):
+        return {"id": sid, "character_ids": who, "line": None, "seconds": 1}
+
+    timed = {"1.1": {"start": 0, "end": 7}, "1.2": {"start": 7, "end": 13},
+             "1.3": {"start": 13, "end": 20}, "2.1": {"start": 20, "end": 22}}  # fmt: skip
+    data = {"scenes": [{"shots": [shot("1.1", ["char:1"]), shot("1.2", []), shot("1.3", []),
+                                  shot("2.1", [])]}],
+            "clips": [{"id": "c1", "shot_ids": ["1.1", "1.2", "1.3"]},
+                      {"id": "c2", "shot_ids": ["2.1"]}],
+            "song": {"take_id": 1, "shots": timed}}  # fmt: skip
+    clips = fit(data)["clips"]
+    assert [(c["id"], c["shot_ids"], c["seconds"]) for c in clips] == [
+        ("c1", ["1.1", "1.2"], 13),
+        ("c1b", ["1.3"], 7),
+        ("c2", ["2.1"], 4),
+    ]

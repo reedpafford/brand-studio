@@ -20,6 +20,7 @@ from app.models.songs import SongTake
 from app.prompts.schemas import Breakdown, SongBreakdown
 
 MIN_CLIP = 4  # seconds: a shorter span is made 4 s long and cut to it (Song-Producer)
+PEOPLE_MAX = 16  # seconds: a clip with people in it is split past this
 
 
 def take_for(db: Session, project: Project) -> SongTake | None:
@@ -62,14 +63,35 @@ def fit(data: dict) -> dict:
                                                       - timed[sh["id"]]["start"], 2)}
                                if sh["id"] in timed else sh for sh in sc["shots"]]}
               for sc in data.get("scenes", [])]  # fmt: skip
+    peopled = {sh["id"] for sc in data.get("scenes", []) for sh in sc.get("shots", [])
+               if sh.get("character_ids")}  # fmt: skip
     clips = []
     for clip in data.get("clips", []):
-        known = [timed[s] for s in clip.get("shot_ids", []) if s in timed]
-        if known:
-            span = max(t["end"] for t in known) - min(t["start"] for t in known)
-            clip = {**clip, "seconds": max(MIN_CLIP, math.ceil(span - 0.01))}  # cut to its span
-        clips.append(clip)
+        for part in _split(clip, timed, peopled):
+            known = [timed[s] for s in part.get("shot_ids", []) if s in timed]
+            if known:
+                span = max(t["end"] for t in known) - min(t["start"] for t in known)
+                part = {**part, "seconds": max(MIN_CLIP, math.ceil(span - 0.01))}  # its span
+            clips.append(part)
     return {**data, "scenes": scenes, "clips": clips}
+
+
+def _split(clip: dict, timed: dict, peopled: set[str]) -> list[dict]:
+    """A clip with people in it over PEOPLE_MAX seconds of song, split at its shots into
+    pieces of at most that (Song-Producer: faces hold up only so long); "c3", "c3b", "c3c"."""
+    ids = [s for s in clip.get("shot_ids", []) if s in timed]
+    if not ids or not peopled & set(ids):
+        return [clip]
+    if timed[ids[-1]]["end"] - timed[ids[0]]["start"] <= PEOPLE_MAX:
+        return [clip]
+    groups: list[list[str]] = [[]]
+    for s in ids:
+        start = timed[groups[-1][0]]["start"] if groups[-1] else timed[s]["start"]
+        if groups[-1] and timed[s]["end"] - start > PEOPLE_MAX:
+            groups.append([])
+        groups[-1].append(s)
+    return [{**clip, "id": clip["id"] + ("" if n == 0 else chr(ord("a") + n)),
+             "shot_ids": group} for n, group in enumerate(groups)]  # fmt: skip
 
 
 def joined(bd: Breakdown, song: dict) -> SongBreakdown:
