@@ -1784,3 +1784,16 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     assert "`extras`" in director and "while `songs_left`" in director
     assert 'When `style` is "", the first `song`\'s `note` is the style line' in director
     assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"
+
+
+def test_the_director_checks_the_brand_word_in_a_fresh_narration_before_the_plan():
+    """Song-Producer's condition for leaving narration splicing for later (2 Nov): the brand's
+    name is judged right after the narration is made, and remade with a pronunciation note
+    before the plan, never spliced."""
+    director = prompts.system("director")
+    for part in ("misheard: brand words heard wrong in it", "as soon as the narration is timed,"
+                 " before the plan", "a pronunciation note from the brand's notes",
+                 "a narration is never spliced"):  # fmt: skip
+        assert part in director, part
+    turn = schemas.DirectorTurn(tool="narration", note="say fomo as FOH-moh", why="misheard")
+    assert turn.note == "say fomo as FOH-moh"
