@@ -15,6 +15,7 @@ export type Screen = components["schemas"]["ScreenOut"];
 export function useScreens(brandId: number) {
   return useQuery({
     queryKey: ["screens", brandId],
+    enabled: brandId > 0, // not before the brand has loaded (no /brands/0/… 404s)
     queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: brandId } } })).data ?? [],
   });
 }
@@ -23,6 +24,7 @@ export function useScreens(brandId: number) {
 export function useDeletedScreens(brandId: number) {
   return useQuery({
     queryKey: ["screens", brandId, "deleted"],
+    enabled: brandId > 0, // not before the brand has loaded (no /brands/0/… 404s)
     queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: brandId }, query: { deleted: true } } })).data ?? [],
   });
 }
