@@ -1759,3 +1759,16 @@ def test_the_director_splices_a_wrong_brand_word_or_redoes_with_a_note():
     turn = schemas.DirectorTurn(tool="splice_word", clip_id="c3", word="fomo", why="b2: fomo")
     assert (turn.clip_id, turn.word) == ("c3", "fomo")
     assert "names the word and its time in the cut" in prompts.system("watch_cut")
+
+
+def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
+    """Freestyle Song and Narrated (Reed's list): after the treatment and before the plan, the
+    director makes the song or narration, judges the hook, the lyrics, the length and the mood
+    without hearing it, and remakes once with a note in the music's words; never a lyric."""
+    director = prompts.system("director")
+    for part in ("- `song` (paid, `note`)", "- `narration` (paid)", "songs_left",
+                 "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
+                 "never change a lyric (rule 19)", "Sung shots follow the song's own sections",
+                 "Treatment, then the song or the narration"):  # fmt: skip
+        assert part in director, part
+    assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"
