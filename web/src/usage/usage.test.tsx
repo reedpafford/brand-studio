@@ -307,6 +307,15 @@ test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to 
   expect(await screen.findByRole("img", { name: "62% of what was spent" })).toBeInTheDocument(); // 52.30 of 84.12
 });
 
+test("Usage (v5 D_Usage, #1208): the director's own time is its own card, in dollars, outside the credit budget", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, { ...summary, director_spend_usd: 6.4 }], "GET /usage/brands": [200, brands([row()])] });
+  open();
+  const totals = await screen.findByRole("group", { name: "Totals" });
+  expect(await within(totals).findByText("$6.40")).toBeInTheDocument();
+  expect(within(totals).getByText("Outside the credit budget")).toBeInTheDocument();
+});
+
 test("My credits (v5 D_MyCredits): my sends waiting for the owner's OK show what approving would let them spend, and that nothing is spent yet", async () => {
   setViewport(1440);
   const send = { id: 60, kind: "video", project_id: null, credits: 4, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: null, brand_id: 1, freestyle: { id: 4, title: "Bo", type: "dialogue", said: "", change: false, up_to: 204, spent: 0 } };

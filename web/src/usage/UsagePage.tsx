@@ -81,6 +81,12 @@ export function UsagePage() {
         <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className={`${linkText} inline-flex min-h-11 items-center lg:min-h-0`}>{held.count} request{held.count === 1 ? "" : "s"} in Needs you</Link>}>
           {held.count === 0 ? "Nothing" : waitingCredits > 0 ? `up to ${creditsLabel(waitingCredits)}` : `${held.count} request${held.count === 1 ? "" : "s"}`}
         </Stat>
+        {/* v5 D_Usage (#1208): the director's own time, in dollars, outside the credit budgets. */}
+        {summary.data && (
+          <Stat label="The director's own time" link={<span className="text-muted">Outside the credit budget</span>}>
+            {money(summary.data.director_spend_usd ?? 0)}
+          </Stat>
+        )}
       </Stats>
 
       <section aria-label="Brands" className="space-y-3">
