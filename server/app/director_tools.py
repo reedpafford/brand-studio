@@ -67,7 +67,7 @@ def run(db: Session, user: User, project: Project, decision: dict, storage,
             rows = _clips(db, pid, decision.get("clip_id"))
             if not rows:
                 clip = decision.get("clip_id")
-                return (f"Refused: there's no clip {clip}." if clip
+                return (f"Refused: there's no {clip}." if clip  # "c9", read as "clip 9" (`named`)
                         else "Refused: every clip has a take already.")  # fmt: skip
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
