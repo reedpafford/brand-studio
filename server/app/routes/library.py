@@ -101,7 +101,7 @@ class LookSheetOut(BaseModel):
 class UsedIn(BaseModel):
     project_id: int
     name: str
-    status: Literal["making", "done"]  # as the Videos filter says it
+    status: Literal["needs_you", "making", "done"]  # as the Videos tabs group it
 
 
 class ItemOut(ItemIn):
@@ -373,8 +373,14 @@ def used_in(db: Session, item: LibraryItem) -> list[UsedIn]:
     clips = select(ProjectClip.project_id, ProjectClip.references).where(
         ProjectClip.project_id.in_(ids))  # fmt: skip
     used |= {pid for pid, refs in db.execute(clips) if any(r.get("id") == key for r in refs)}
-    return [UsedIn(project_id=v.id, name=v.name, status="done" if v.finished_at else "making")
-            for v in videos if v.id in used]  # fmt: skip
+    from app import needs_you
+    from app.routes.project_clips import out_of_date
+
+    shown = [v for v in videos if v.id in used]
+    waits = needs_you.waiting_on(db, shown, out_of_date(db, shown))
+    return [UsedIn(project_id=v.id, name=v.name,
+                   status="needs_you" if v.id in waits else "done" if v.finished_at else "making")
+            for v in shown]  # fmt: skip
 
 
 @router.patch("/{item_id}", response_model=ItemOut)

@@ -93,7 +93,9 @@ def _rows(db: Session, user: User, brand_id: int, kind: str | None) -> list[dict
         poster = next((i for i in given if i in stills), None)
         add("take", f"take:{take.id}", take.file_id, pid, job.created_by_id, "clips",
             poster_file_id=poster)  # fmt: skip
-    for final in db.scalars(select(FinalVideo).where(FinalVideo.project_id.in_(ids))):
+    finals = select(FinalVideo).where(FinalVideo.project_id.in_(ids),
+                                      FinalVideo.off_media_at.is_(None))  # fmt: skip
+    for final in db.scalars(finals):
         add("final", f"final:{final.id}", final.file_id, final.project_id, final.created_by_id,
             "final")  # fmt: skip
     quick = select(Job).where(
@@ -235,12 +237,17 @@ def remove_media(
     brand_id: int, key: str, owner: User = Depends(owner_only), db: Session = Depends(get_db)
 ) -> None:
     """Owner only: a Quick clip or a script's own song leaves Media (Undo: the clip's or the
-    song's restore). What a video is made of, or a Cast & places sheet, is removed where it's
-    used, so the video never loses a part without its maker seeing it."""
+    song's restore); a final cut leaves Media only, its video keeps it. A still or take a video
+    is made of, or a Cast & places sheet, is removed where it's used, so a video never loses a
+    part without its maker seeing it."""
     from app import song_takes
 
     row, _ = _one(db, owner, brand_id, key)
     what, rest = key.split(":", 1)
+    if what == "final":
+        db.get(FinalVideo, int(rest)).off_media_at = utcnow()
+        db.commit()
+        return
     if row["project_id"]:
         video = db.get(Project, row["project_id"])
         raise HTTPException(409, f"This is part of {video.name}. Remove it from the video instead.")

@@ -5,6 +5,7 @@ from app.models.accounts import User
 from app.models.jobs import Job, JobStatus
 from app.routes import media
 from tests.conftest import first_brand
+from tests.test_clip_takes import clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 from tests.test_media import _file, _media
 
@@ -33,16 +34,18 @@ def test_one_media_item_reads_as_the_list_shows_it(db, owner, editor):
     assert hidden.status_code == 404
 
 
-def test_the_owner_removes_a_quick_clip_and_a_videos_part_is_refused(
+def test_the_owner_takes_quick_clips_and_final_cuts_off_media_never_a_videos_part(
     db,
     owner,
     editor,
-    setup,  # noqa: F811
+    setup,
+    clip,  # noqa: F811
 ):
     from app.models.brands import Brand
-    from app.models.clips import FinalVideo
+    from app.models.clips import FinalVideo, ProjectClip
     from app.models.library import LibraryItem
     from app.models.projects import Project
+    from app.models.storyboards import StoryboardFrame
 
     project = db.get(Project, setup["project"])
     brand = project.brand_id
@@ -59,7 +62,18 @@ def test_the_owner_removes_a_quick_clip_and_a_videos_part_is_refused(
                        take_ids=[], created_by_id=ed.id)  # fmt: skip
     db.add(final)
     db.commit()
-    part = owner.delete(f"/brands/{brand}/media/final:{final.id}")
+    cut = f"/brands/{brand}/media/final:{final.id}"
+    assert owner.delete(cut).status_code == 204  # off Media…
+    assert owner.get(cut).status_code == 404
+    db.expire_all()
+    assert db.get(FinalVideo, final.id).file_id  # …and the video keeps its own copy
+    row = db.get(ProjectClip, clip["id"])
+    png = _file(db, ed.workspace_id)
+    still = StoryboardFrame(project_id=project.id, breakdown_id=row.breakdown_id, clip_id="c1",
+                            shot_id="1.1", prompt="x", file_id=png)  # fmt: skip
+    db.add(still)
+    db.commit()
+    part = owner.delete(f"/brands/{brand}/media/still:{still.id}")
     assert part.status_code == 409
     assert part.json()["detail"] == "This is part of Dip. Remove it from the video instead."
     mom = LibraryItem(workspace_id=ed.workspace_id, kind="character", name="Mom",

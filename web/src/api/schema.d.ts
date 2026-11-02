@@ -5155,8 +5155,9 @@ export interface paths {
         /**
          * Remove Media
          * @description Owner only: a Quick clip or a script's own song leaves Media (Undo: the clip's or the
-         *     song's restore). What a video is made of, or a Cast & places sheet, is removed where it's
-         *     used, so the video never loses a part without its maker seeing it.
+         *     song's restore); a final cut leaves Media only, its video keeps it. A still or take a video
+         *     is made of, or a Cast & places sheet, is removed where it's used, so a video never loses a
+         *     part without its maker seeing it.
          */
         delete: operations["remove_media_brands__brand_id__media__key__delete"];
         options?: never;
@@ -9963,7 +9964,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "making" | "done";
+            status: "needs_you" | "making" | "done";
         };
         /** ValidationError */
         ValidationError: {
