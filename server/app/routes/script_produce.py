@@ -17,7 +17,7 @@ from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.projects import Project
-from app.models.script_library import ScriptCastSlot
+from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.models.scripts import ScriptVersion
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
@@ -82,13 +82,15 @@ def produce(
     return ProduceOut(project_id=project.id, breakdown_job_id=None, plan_job_id=job.id)
 
 
-def make_video(db: Session, user: User, request: Request, script, draft, settings: dict
-               ) -> tuple[Project, ScriptVersion, bool]:  # fmt: skip
-    """A version's one video (Make this version, and a freestyle made from a script): the
+def make_video(db: Session, user: User, request: Request, script, draft, settings: dict,
+               another: bool = False) -> tuple[Project, ScriptVersion, bool]:  # fmt: skip
+    """A version's video (Make this version, and a freestyle made from a script): the
     script's brand, reel, look and locked cast, its words as script v1, its plan (S6), and its
     saved breakdown preview landed free when it follows that plan (#934); whether it landed.
-    Not committed; nothing queued."""
-    if db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
+    One a version, but for a director-first video's "Make another" (`another`, n22). Not
+    committed; nothing queued."""
+    credits.lock(db, ScriptDraft, draft.id)  # two presses at once: the second finds the first
+    if not another and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
         raise HTTPException(409, "This version already has a video.")
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
     name = f"{script.title} — {draft.title}" if draft.slot and draft.title else script.title

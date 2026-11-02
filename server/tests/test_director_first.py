@@ -5,6 +5,7 @@ and the director runs at once (an editor's waits for the owner)."""
 
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
+from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.routes.estimate import run_price
 from tests.conftest import first_brand
@@ -89,5 +90,13 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
     assert again.status_code == 201, again.text
     twice = editor.post("/freestyles", json=pick)  # (the owner's own twice is a double tap)
     assert twice.status_code == 409  # one version, one video, and which one
-    assert twice.json()["detail"] == {"text": "This version already has a video.",
+    up_to = float(run_price(db, db.get(ScriptDraft, draft.id)))
+    assert twice.json()["detail"] == {"text": "This version already has a video.", "up_to": up_to,
                                       "project_id": again.json()["project_id"]}  # fmt: skip
+    another = editor.post("/freestyles", json={**pick, "make_another": True})  # the Producer
+    assert another.status_code == 201, another.text
+    second = another.json()
+    assert second["status"] == "waiting" and second["up_to"] == up_to  # an editor's waits
+    assert second["project_id"] != again.json()["project_id"]  # a new video, same version
+    video = db.get(Project, second["project_id"], execution_options={"see_hidden": True})
+    assert video.hidden and video.script_draft_id == draft.id  # hidden until the OK

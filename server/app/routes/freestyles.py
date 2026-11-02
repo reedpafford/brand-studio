@@ -82,6 +82,7 @@ class FreestyleIn(BaseModel):
     text: Text | None = None
     script_id: int | None = None
     slot: int | None = None  # the script's version (A is 0, the default)
+    make_another: bool | None = None  # a version that has a video: make a new one from it too
 
 
 class MessageIn(BaseModel):
@@ -196,16 +197,23 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
 
 
 def _from_script(db: Session, user: User, request: Request, fs: Freestyle, script: Script,
-                 draft: ScriptDraft) -> tuple[Project, ScriptDraft]:  # fmt: skip
+                 draft: ScriptDraft, another: bool | None = False,
+                 ) -> tuple[Project, ScriptDraft]:  # fmt: skip
     """ "Make a video" from a script's version (P1): the version is frozen, approved, and the
     script published with it (rule 31: an edit after is a new version; the video keeps this
     one), then its one video as Make this version makes it: its cast, plan and saved shots,
-    landed free when they follow its plan (#934, Reed's item 8)."""
+    landed free when they follow its plan (#934, Reed's item 8). A version that has a video
+    makes another only when asked (`make_another`); else the 409 says which, and its price."""
     from app.routes.script_produce import make_video
 
-    if had := db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
-        raise HTTPException(409, {"text": HAS_VIDEO, "project_id": had})  # "Open it"
-    project, _, _ = make_video(db, user, request, script, draft, {"aspect_ratio": fs.shape})
+    lock(db, ScriptDraft, draft.id)  # two sends at once: the second finds the first's video
+    had = db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)
+                    .order_by(Project.id.desc()))  # fmt: skip
+    if had and not another:  # "Open it · Make another · up to N credits"
+        raise HTTPException(409, {"text": HAS_VIDEO, "project_id": had,
+                                  "up_to": float(run_price(db, draft))})  # fmt: skip
+    project, _, _ = make_video(db, user, request, script, draft, {"aspect_ratio": fs.shape},
+                               another=bool(another))  # fmt: skip
     if user.is_owner:
         freeze(db, {"project": project.id, "draft": draft.id, "show": True}, user)
     else:  # an editor's: nothing changes, nothing shows, until the owner's OK
@@ -508,7 +516,8 @@ def create_freestyle(
     db.add(fs)
     db.flush()
     if script is not None:
-        _start(db, user, fs, text, _from_script(db, user, request, fs, script, draft))
+        made = _from_script(db, user, request, fs, script, draft, body.make_another)
+        _start(db, user, fs, text, made)
     else:
         (_start if type in DIRECTED else _send)(db, user, fs, text)
     return _out(db, fs)

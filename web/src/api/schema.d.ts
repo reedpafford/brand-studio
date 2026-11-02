@@ -6377,6 +6377,8 @@ export interface components {
             script_id?: number | null;
             /** Slot */
             slot?: number | null;
+            /** Make Another */
+            make_another?: boolean | null;
         };
         /**
          * FreestyleItem
