@@ -125,3 +125,10 @@ test("a studio stored as a slug shows as Reed's studio, and Save is ready", asyn
   expect(await screen.findByLabelText("Studio name")).toHaveValue("Reed's studio");
   expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
 });
+
+test("Limits (v5 D_Settings, #1208): the director's own time this month, in dollars, for the owner", async () => {
+  setViewport(1440);
+  fakeServer(base({ "GET /usage/summary": [200, { period: "month", starts_at: "2026-11-01T00:00:00Z", previous: null, spend_usd: 10, spend_estimated: false, finished: 0, cost_per_finished_usd: null, in_progress: 0, unassigned_spend_usd: 0, freestyle_spend_usd: 0, director_spend_usd: 6.4 }] }));
+  renderApp("/settings?tab=limits");
+  expect(await screen.findByText("$6.40 this month")).toBeInTheDocument();
+});

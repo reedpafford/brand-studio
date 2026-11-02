@@ -4,6 +4,8 @@ import { api, errorText } from "../api/client";
 import { Button, Dialog, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { useSummary } from "../usage/useUsage";
+import { money } from "../usage/parts";
 
 type Limits = { weekly_quick_clip_credits: number; per_video_max_credits: number };
 
@@ -14,6 +16,7 @@ export function CreditLimits() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const limits = useQuery({ queryKey: ["credit-limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
+  const month = useSummary("month"); // the director's own time this month (#1208)
   const allowances = useQuery({ queryKey: ["allowances"], queryFn: async () => (await api.GET("/credits/allowances")).data ?? [] });
   const [edit, setEdit] = useState<{ weekly: string; cap: string } | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
@@ -87,6 +90,15 @@ export function CreditLimits() {
           </div>
           <p className="text-sm text-muted sm:pt-1.5">Always asks you</p>
         </div>
+        {month.data && (
+          <div className={row}>
+            <div className="space-y-1">
+              <p className="font-medium">The director's own time</p>
+              <p className="text-sm text-muted">Billed in dollars, outside the credit budgets. Only you see it.</p>
+            </div>
+            <p className="text-sm tabular-nums text-muted sm:pt-1.5">{money(month.data.director_spend_usd ?? 0)} this month</p>
+          </div>
+        )}
       </div>
       {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
       <div className="sm:flex sm:justify-end">
