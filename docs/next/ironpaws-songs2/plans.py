@@ -127,9 +127,52 @@ SCENES["song3c"] = [
 ]
 DOGS["song3c"] = DOGS["song3"]
 
+# Song 3 v4 (Reed, 2 Nov: the game-show hook doesn't read; make the dog a vlogger, keep the owner in most shots, she is the viewer).
+# "Rating dog symptoms 1 to 10" is a creator format: the dog films himself on a phone; each symptom is named to camera, shown as
+# "vlog footage" starring his owner, then rated with a crayon card on the sung number. Real-world clips from v2/v3 are reused (REUSE).
+VLOG = "INT. LIVING ROOM — DAY, HIS VLOG CORNER"
+VLOGLOOK = ("the same cozy living room vlog corner, seen as the phone's view: a phone on a small tripod with a ring light, a whiteboard on the wall "
+            "behind, a grey couch, a houseplant, warm daylight")
+CARDV = lambda n, her: ["In his vlog corner, {the dog} thrusts a crayon-drawn card with one big bold number " + n + " on it right up to the lens, clearly readable; " + her]
+SCENES["song3d"] = [
+  ((0.0, 3.34), VLOG, [f"In {VLOGLOOK}: {{the dog}} taps record on the phone, the ring light flicks on, and he leans into the lens grinning like a creator."]),
+  ((3.34, 7.06), VLOG, ["Behind {the dog}, his owner wanders past in pajamas eating a bowl of cereal and gives the camera a casual, unbothered shrug."]),
+  ((7.06, 12.24), VLOG, ["{The dog} slaps four doodles onto the whiteboard one after another: a grass blade, a crusty eye, a paw and a stink cloud.", "On the couch his owner chokes on her coffee and stares."]),
+  ((12.24, 15.6), VLOG, ["{The dog} points a paw at himself with a knowing look; his owner, beside him, gives the camera a slow side-eye."]),
+  ((15.6, 18.85), "EXT. PARK — DAY", ["Vlog footage: on a walk {the dog} grazes on the grass like a cow while two real cows over the fence stare at him; his owner tugs the leash and pleads with him, embarrassed."]),
+  ((18.85, 20.08), VLOG, CARDV("4", "behind him his owner facepalms.")),
+  ((20.08, 25.06), "REUSE v3 c3", []),
+  ((25.06, 28.92), "INT. BEDROOM — MORNING", ["Vlog footage: {the dog} wakes up with his eyes crusted shut and walks straight into the door frame with a bonk; his owner rushes in, wincing."]),
+  ((28.92, 30.3), VLOG, CARDV("6", "behind him his owner winces and covers her mouth.")),
+  ((30.3, 38.0), "REUSE v3 c6", []),
+  ((38.0, 41.2), VLOG + " — FOOTAGE", ["Vlog footage: {the dog} licks his paws so fast his tongue is a blur, the rug soaked around him; on the couch his owner lifts her feet away from the wet patch, horrified."]),
+  ((41.2, 42.44), VLOG, CARDV("8", "behind him his owner buries her face in her hands.")),
+  ((42.44, 51.5), "REUSE v3 c9", []),
+  ((51.5, 54.06), VLOG + " — FOOTAGE", ["Vlog footage: his owner leans in to kiss {the dog} on the couch, gets a whiff of his breath and faints dramatically backward onto the cushions."]),
+  ((54.06, 55.62), VLOG, CARDV("9", "behind him his owner pinches her nose shut.")),
+  ((55.62, 64.36), "REUSE v3 c12", []),
+  ((64.36, 73.18), VLOG, ["{The dog} swings the phone camera around to his owner on the couch; she waves at the lens sheepishly, then hides her face in a cushion, embarrassed."]),
+  ((73.18, 81.54), VLOG, ["{The dog} hops up on the couch beside her and rests his head in her lap; she lowers the cushion, her eyes welling up, and hugs him tight, both in the phone's frame."]),
+  ((81.54, 86.96), VLOG, ["{The dog} and his owner lean into the lens together, as if sharing a secret with the viewer."]),
+  ((86.96, 95.56), VLOG, ["At the whiteboard {the dog} draws big arrows from the four doodles into one big gut doodle in the middle.", "His owner gasps and points at it."]),
+  ((95.56, 102.22), VLOG, ["His owner guiltily pulls a bag of dry kibble, a glass of tap water and a jar of artificial treats from behind her back.", "{The dog} sweeps them off the table into a bin and draws a heart around the gut doodle."]),
+  ((102.22, 108.82), VLOG, ["★ Peanut butter bag — his owner does an unboxing to the camera: she opens a parcel and lifts the bag to the lens as golden five-star sparkles burst around it; {the dog}'s jaw drops."]),
+  ((108.82, 119.8), VLOG, ["At the vlog desk {the dog} presents three little toy figures to the lens like a tier list while his owner holds each one up: a green chlorella wave buddy that splashes, tiny probiotic buddies stacking bricks, and a muscly spirulina hero that flexes."]),
+  ((119.8, 124.72), "REUSE v2 c18", []),
+  ((124.72, 129.1), "REUSE v2 c19", []),
+  ((129.1, 136.5), VLOG, ["Weeks later: his owner wipes the four doodles off the whiteboard one by one.", "{The dog} huffs his breath in her face; she sniffs, then beams and gives a big thumbs up."]),
+  ((136.5, 142.18), "REUSE v2 c21", []),
+  ((142.18, 148.76), VLOG, ["{The dog} and his owner sit side by side facing the lens; she looks into the camera and nods knowingly, and he winks."]),
+  ((148.76, 153.52), VLOG, ["★ Peanut butter bag — his owner holds the bag up to the lens while {the dog} points his paw down, toward the link below."]),
+  ((153.52, 158.0), "REUSE v2 c24", []),
+  ((158.0, 165.44), VLOG, ["★ Peanut butter bag — {the dog} nudges the bag toward the lens with his nose while his owner looks straight into the camera and smiles.", "Then {the dog} reaches up and taps the phone to stop recording."]),
+]
+DOGS["song3d"] = DOGS["song3"]
+REUSE3D = {"v3": {"c3": 0.4, "c6": 0.7, "c9": 0.2, "c12": 0.8}, "v2": {"c18": 0.0, "c19": 0.0, "c21": 0.0, "c24": 0.2}}
+
 def script(song):
     dog = DOGS[song][0]; the, The = f"the {dog}", f"The {dog}"; out = []
-    for n, (first, place, lines) in enumerate(SCENES[song], 1):
+    for n, (first, place, lines) in enumerate([x for x in SCENES[song] if not x[1].startswith("REUSE")], 1):
         out.append(f"SCENE {n} — {place}")
         out += [l.replace("{the dog}", the).replace("{The dog}", The) for l in lines]; out.append("")
     return "\n".join(out).strip() + "\n"
