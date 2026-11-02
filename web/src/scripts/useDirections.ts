@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import { GOING, useJobs } from "../clip/History";
+import { refreshJobs } from "../jobs/refresh";
 import type { EnhanceState } from "../projects/Enhance";
 import { useToast } from "../toast";
 
@@ -32,7 +33,7 @@ export function useDirections(scriptId: number, text: string): EnhanceState {
       const { error, response } = await api.POST("/scripts/{script_id}/drafts/{slot}/enhance", { params: { path } });
       if (!response.ok) throw new Error(errorText(error));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => refreshJobs(queryClient),
   });
   const decide = useMutation({
     mutationFn: ({ id, verb }: { id: number; verb: "accept" | "reject" }) =>
