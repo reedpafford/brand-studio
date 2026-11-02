@@ -152,3 +152,10 @@ test("In production: a video's credits leave the director's own time out, so a d
   const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
   expect(within(link).getByText("100 of 420")).not.toHaveAttribute("title"); // 400 used, 300 of it the director's
 });
+
+test("In production: a row's credits and budget are rounded alike (20 of 32, never 20 of 32.06)", async () => {
+  fakeServer(base([{ ...failed, credits_used: 20.4, budget_credits: 32.06 }, fine]));
+  open();
+  const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
+  expect(within(link).getByText("20 of 32")).toBeInTheDocument();
+});

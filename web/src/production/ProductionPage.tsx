@@ -70,7 +70,7 @@ function FlagLine({ r }: { r: Row }) {
 function Credits({ r }: { r: Row }) {
   return (
     <span title={nearBudget(r) ? CLOSE : undefined} className={nearBudget(r) ? "text-warning" : undefined}>
-      {Math.round(budgetUsed(r))} of {r.budget_credits}
+      {Math.round(budgetUsed(r))} of {Math.round(r.budget_credits)}
     </span>
   );
 }
