@@ -739,9 +739,9 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
     out = editor.get(url).json()
     assert out["status"] == "delivered", (out["ended"], [t["tool"] for t in out["turns"]])
     remade = next(t for t in out["turns"] if t["tool"] == "make_take")
-    assert remade["why"] == "You asked: Make clip 1 slower and warmer."
+    assert remade["why"] == "Note 1: you asked: Make clip 1 slower and warmer."
     note = out["turns"][-1]["why"]  # the revision names the ask, fixes nothing it wasn't asked
-    assert "You asked: Make clip 1 slower and warmer. Done." in note
+    assert "Note 1: done, as you asked (Make clip 1 slower and warmer.)." in note
     project = db.get(Project, pid)
     run = director.turns(db, project)
     touched = {(j.output or {}).get("clip_id") for j in run
@@ -758,7 +758,7 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
         "status": None,
         "why": "",
     }
-    asked = next(m for m in out["thread"] if m["why"].startswith("You asked:"))
+    asked = next(m for m in out["thread"] if m["why"].startswith("Note 1:"))
     assert asked["kind"] == "move" and asked["text"]  # each move keeps its reason
     assert out["thread"][-1]["why"] == ""  # the delivery's reason is its text
     assert [m["at"] for m in out["thread"]] == sorted(m["at"] for m in out["thread"])
@@ -819,7 +819,7 @@ def test_a_note_sent_during_the_last_turn_waits_for_the_next_make_it(
     _run(app, db)
     out = editor.get(url).json()
     assert (out["status"], out["unread"]) == ("delivered", 0), out["ended"]
-    assert [t["why"] for t in out["turns"]].count("You asked: Make clip 1 brighter.") == 1
+    assert [t["why"] for t in out["turns"]].count("Note 1: you asked: Make clip 1 brighter.") == 1
     assert not any(
         "c1" in m["text"] + m["why"] for m in out["thread"]
     )  # "clip 1", as people see it
@@ -865,8 +865,63 @@ def test_each_note_is_new_to_exactly_one_turn_and_one_paid_redo(app, db, owner, 
                     if j.input.get("step") == director.STEP), key=lambda j: j.id)  # fmt: skip
     chats = [json.loads(_tag(j.input["prompt"], "chat") or "[]") for j in steps]
     new = [c for c in chats if any(m["new"] for m in c)]
-    assert new == [[{"text": "Make clip 1 brighter.", "new": True}]]  # new to one turn only
+    note = {"note": 1, "text": "Make clip 1 brighter."}
+    assert len(new) == 1 and new[0][0] | {"answered": False} == {
+        **note,
+        "new": True,
+        "answered": False,
+    }
     later = chats[chats.index(new[0]) + 1 :]
-    assert later and all(c == [{"text": "Make clip 1 brighter.", "new": False}] for c in later)
-    redos = [j for j in steps if (j.output or {}).get("why") == "You asked: Make clip 1 brighter."]
+    assert later and all(c[0]["new"] is False and c[0]["text"] == note["text"] for c in later)
+    assert later[-1][0]["answered"]  # the redo named it: answered, so never made twice
+    redos = [
+        j
+        for j in steps
+        if (j.output or {}).get("why") == "Note 1: you asked: Make clip 1 brighter."
+    ]
     assert len(redos) == 1
+
+
+def test_every_open_note_is_answered_and_delivery_waits_for_them(
+    app, db, owner, editor, monkeypatch
+):
+    """The Producer: an ask stays open until it's made and named, or the director says why it
+    can't; a run with an open note isn't delivered (the server refuses, the director reads it)."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db)
+    editor.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    monkeypatch.setattr(director, "GAP", __import__("datetime").timedelta(0))
+    editor.post(f"{url}/messages", json={"text": "And make clip 9 shorter."})
+    real, calls = director._answers, []
+
+    def forgets_first(state):  # its first delivery names no note: refused, then it answers
+        calls.append(1)
+        return "" if len(calls) == 1 else real(state)
+
+    monkeypatch.setattr(director, "_answers", forgets_first)
+    editor.post(url)
+    _run(app, db)
+    out = editor.get(url).json()
+    assert out["status"] == "delivered", [(t["tool"], t["result"]) for t in out["turns"]]
+    results = [t["result"] for t in out["turns"]]
+    assert any(r.startswith("Refused: note 2 is still open.") for r in results), results
+    whys = [t["why"] for t in out["turns"]]
+    assert whys.count("Note 1: you asked: Make clip 1 warmer.") == 1  # the older note is made
+    assert "Note 2: there's no clip 9 in this video." in whys[-1]
+    assert "Note 1: done, as you asked" in whys[-1]
+
+
+def test_a_note_on_a_clip_not_ready_is_carried_until_it_is():
+    clip = {"clip_id": "c1", "stale": True, "takes": [], "picked_take_id": None}
+    state = {"being_made": False, "held_for_owner": False, "shots": "ready", "missing_looks": [],
+             "stills": {"frames": 1, "drawn": 1}, "clips": [clip], "cut": "none",
+             "chat": [{"note": 1, "text": "Clip 1 slower.", "new": False, "answered": False}],
+             "allowed": {"redos_used": {}, "watches_left": 3}}  # fmt: skip
+    assert director.choose(state)["tool"] == "clip_prompts"  # not ready: carried, not dropped
+    take = {"id": 5, "number": 1, "verdict": "clean", "notes": []}
+    state["clips"] = [{**clip, "stale": False, "takes": [take], "picked_take_id": 5}]
+    made = director.choose(state)
+    assert (made["tool"], made["clip_id"]) == ("make_take", "c1")
+    assert made["why"].startswith("Note 1:")

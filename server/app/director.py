@@ -36,6 +36,8 @@ MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and m
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
+NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
+OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
 READ = "chat_read"  # in a turn's input: how many of its run's messages it read
 GAP, PER_RUN = timedelta(seconds=3), 30  # one note a person every 3 s; notes a run at most
 TOO_MANY = "Too many messages; wait a moment."
@@ -88,6 +90,15 @@ def say(db: Session, user: User, project: Project, text: str) -> None:
 def chat(project: Project, run_id: str) -> list[dict]:
     """What people asked of this run, oldest first."""
     return [{"text": m["text"]} for m in project.director_chat or [] if m.get("run") == run_id]
+
+
+def answered(db: Session, run_id: str) -> set[int]:
+    """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
+    move that wasn't refused, or of the delivery. An ask stays open until then."""
+    mine = Job.input[RUN]["id"].as_string() == run_id
+    rows = db.scalars(select(Job).where(Job.input["step"].as_string() == STEP, mine)).all()
+    return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
+            for n in NOTE.findall((j.output or {}).get("why") or "")}  # fmt: skip
 
 
 def leftover(db: Session, project: Project) -> list[int]:
@@ -265,6 +276,12 @@ def _act(db: Session, job: Job, storage) -> None:
     run = dict(job.input[RUN])
     tool = decision.get("tool")
     if tool == "deliver":
+        named = {int(n) for n in NOTE.findall(decision.get("why") or "")}
+        given = max((t.input.get(READ, 0) for t in turns(db, project)
+                     if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
+        # a note no turn was given yet isn't its to answer: it waits for the next Make it
+        if left := [n for n in range(1, given + 1) if n not in answered(db, run["id"]) | named]:
+            return _record(db, job, run, OPEN.format(left[0]))
         why = " ".join([decision.get("why") or "Delivered.", *_mutes(db, job, run)])
         job.output = {**decision, "why": why}  # the note the video page shows names the mutes
         return _end(job, why, result="Delivered.")  # a note it didn't read waits for Make it
@@ -457,8 +474,10 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "own_time_limit_usd": float(MAX_USD)}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
-    asked = [{**m, "new": n >= given}  # new: no earlier turn was given it; else handled
+    closed = answered(db, run["id"])
+    asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
+    # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
     parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed),
              *((("chat", asked),) if asked else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
@@ -585,25 +604,55 @@ def choose(state: dict) -> dict:
     if not watch.get("current") and left > MAX_WATCHES - 2:
         return go("watch_cut", "The cut is made: it watches it as a viewer would.")
     keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
-    done = " ".join(f"You asked: {m['text']} Done." for m in notes)
+    done = _answers(state)
     noticed = " ".join(f"I also noticed: {f['says']} Want me to fix it?" for f in older)
     said = " ".join(x for x in (done, keep, noticed) if x)
     return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
 
 
+def _clip_of(note: dict) -> str | None:
+    named = re.search(r"\bclip (\d+)\b", note["text"], re.I)
+    return f"c{named[1]}" if named else None
+
+
 def _asked(state: dict) -> dict | None:
-    """The stand-in's answer to the newest new note: a clip it names ("clip 2") is made again
-    with the note as its note. A handled note (`new` false) is never acted on again."""
-    new = [m for m in state.get("chat") or [] if m.get("new")]
-    if not new:
-        return None
-    text = new[-1]["text"]
-    named = re.search(r"\bclip (\d+)\b", text, re.I)
-    clip = f"c{named[1]}" if named else None
-    if clip and any(c["clip_id"] == clip and not c["stale"] for c in state["clips"]):
-        return {"tool": "make_take", "why": f"You asked: {text}"[:300], "clip_id": clip,
-                "take_id": None, "note": text[:500]}  # fmt: skip
+    """The stand-in's next open note it can make: the clip it names made again, with the note
+    as its note and "Note N" in the why (that answers it, so it's made once). A note whose
+    clip isn't ready yet (its prompt is stale) is carried until it is; one it can't make is
+    answered in the delivery note (`_answers`)."""
+    clips = {c["clip_id"]: c for c in state["clips"]}
+    used = state.get("allowed", {}).get("redos_used", {})
+    for m in state.get("chat") or []:
+        clip = _clip_of(m)
+        if m.get("answered") or clip not in clips or clips[clip]["stale"]:
+            continue
+        if used.get(clip, 0) >= MAX_REDOS:
+            continue  # it can't be made again: the delivery note says so
+        return {"tool": "make_take", "why": f"Note {m['note']}: you asked: {m['text']}"[:300],
+                "clip_id": clip, "take_id": None, "note": m["text"][:500]}  # fmt: skip
     return None
+
+
+def _answers(state: dict) -> str:
+    """The delivery note's line for each of the run's notes: what was made, or plainly why not."""
+    clips = {c["clip_id"] for c in state["clips"]}
+    used = state.get("allowed", {}).get("redos_used", {})
+    out = []
+    for m in state.get("chat") or []:
+        clip, n = _clip_of(m), m["note"]
+        if m.get("answered"):
+            out.append(f"Note {n}: done, as you asked ({m['text']}).")
+        elif clip is None:
+            out.append(f"Note {n}: I couldn't tell which clip you meant. Name the clip "
+                       "(for example \"clip 2\") and send it again.")  # fmt: skip
+        elif clip not in clips:
+            out.append(f"Note {n}: there's no clip {clip[1:]} in this video.")
+        elif used.get(clip, 0) >= MAX_REDOS:
+            out.append(f"Note {n}: clip {clip[1:]} was already made again {MAX_REDOS} times, "
+                       "the most a run may.")  # fmt: skip
+        else:
+            out.append(f"Note {n}: not made yet.")
+    return " ".join(out)
 
 
 def _next_fix(found: list[dict], clips: dict) -> dict | None:
