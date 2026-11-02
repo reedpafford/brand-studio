@@ -449,8 +449,10 @@ def _within_real_budget(db: Session, job: Job) -> bool:
 
 
 def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
-    if job.input.get("step") == director.STEP:  # it reads the video as it is now (QA, #1087)
-        director.refresh(db, job)
+    if job.input.get("step") == director.STEP and not director.refresh(db, job):
+        _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
+        db.commit()  # stopped before its call: no call is made, so nothing is charged
+        return True
     try:  # a Claude check that looks at a picture gets it as data, like other providers
         result = provider.run(job.kind, _files_as_data(db, storage, job))
         result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
