@@ -6,7 +6,7 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, EmptyState, MediaCard, Select, Sheet, Skeleton, buttonClass, useToast } from "../components";
+import { Badge, Banner, Button, EmptyState, MediaCard, Select, Sheet, Skeleton, buttonClass, useToast, PageTop } from "../components";
 import { ProjectsChip } from "../folders/Projects";
 import { useBrands } from "../shell/useBrands";
 import { serverTime } from "../time";
@@ -168,11 +168,7 @@ export function MediaPage() {
           Videos
         </Link>
       )}
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="type-eyebrow text-muted">{brand?.name}</p>
-          <h1 className="type-page">Media</h1>
-        </div>
+      <PageTop title="Media" line={brand ? `Everything made in ${brand.name}` : undefined}>
         <div className="flex items-center gap-2">
           <ProjectsChip brandId={brandId} />
           {!rail && (
@@ -181,11 +177,11 @@ export function MediaPage() {
             </Button>
           )}
         </div>
-      </div>
+      </PageTop>
       {rail && <div className="flex flex-wrap items-end gap-3">{controls}</div>}
       {media.isError && <Banner tone="danger" title="Couldn't load the media. Check your connection." action={<Button variant="secondary" onClick={() => media.refetch()}>Try again</Button>} />}
       {media.isPending && (
-        <ul role="status" aria-label="Loading" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ul role="status" aria-label="Loading" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
             <li key={i}>
               <Skeleton className="aspect-[4/5]" />
@@ -204,7 +200,7 @@ export function MediaPage() {
           )
         ) : (
           <>
-            <ul aria-label="Media" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <ul aria-label="Media" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               {items.map((m) => (
                 <Tile key={m.key} m={m} brandId={brandId} meId={me?.id} owner={owner} />
               ))}

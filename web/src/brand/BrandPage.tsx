@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { createPortal } from "react-dom";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
-import { Dialog, Tabs } from "../components";
+import { Dialog, PageTop, Tabs } from "../components";
 import { ArchiveBrand } from "./ArchiveBrand";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
@@ -43,17 +43,10 @@ export function BrandPage() {
   return (
     <FrameContext.Provider value={{ slot, setDirty }}>
       <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-        <div className="flex items-end justify-between gap-3">
-          <div className="flex items-end gap-2">
-            <div>
-              <p className="type-eyebrow text-muted">{brand?.name}</p>
-              <h1 className="type-page">Brand</h1>
-              {brand && setupOf(brand) && <p className="text-sm text-muted">Changes apply to work from now on. Nothing already made changes.</p>}
-            </div>
-            {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
-          </div>
+        <PageTop title="Brand" eyebrow={brand?.name} line={brand && setupOf(brand) ? "Changes apply to work from now on. Nothing already made changes." : undefined}>
+          {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
           {rail && <div ref={setSlot} className="flex flex-col items-end" />}
-        </div>
+        </PageTop>
         <Tabs
           label="Brand"
           tabs={tabs}
