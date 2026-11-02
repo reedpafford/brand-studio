@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -55,6 +55,8 @@ Change = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, m
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 MODEL, RESOLUTION = "seedance-2.5", "480p"  # Quick clip's defaults
 NOT_YET = "Song and Narrated are coming next; One clip and Dialogue work now."
+ONE_SOURCE = "Paste a script, or pick one: not both."
+NO_LOOK = "Pick a look."
 DIRECTED = {"dialogue": "story"}  # the types the director makes: the script kind it reads
 PAST_CAP = (
     "That change would take this freestyle past its limit of {cap} credits. Start a new "
@@ -68,11 +70,16 @@ TOO_LONG = "That's more changes than one clip can carry. Start a new freestyle f
 
 
 class FreestyleIn(BaseModel):
-    type: Type
-    look: str
+    """A pasted script (`text`, with its look), or "Make a video" from a script's version
+    (`script_id`, `slot`): its kind, look and brand are the script's."""
+
+    type: Type = "dialogue"
+    look: str | None = None
     shape: Shape
     brand_id: int | None = None
-    text: Text
+    text: Text | None = None
+    script_id: int | None = None
+    slot: int | None = None  # the script's version (A is 0, the default)
 
 
 class MessageIn(BaseModel):
@@ -111,6 +118,8 @@ class FreestyleOut(FreestyleRow):
     credits: float  # everything asked so far that wasn't declined, withdrawn or stopped unstarted
     file_id: int | None  # the delivered take or cut, for the player and Download MP4
     up_to: float | None = None  # a director-run freestyle: the price the owner's OK covers
+    project_id: int | None = None  # its video (a director-run one): in Videos when it has a brand
+    script_id: int | None = None  # and its script: in Scripts when it has a brand
     thread: list[FreestyleItem]
 
 
@@ -160,10 +169,13 @@ def _freestyle_brand(db: Session, workspace_id: int) -> Brand:
 
 
 def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, ScriptDraft]:
-    """The freestyle's own hidden script (published, its one version approved) and video."""
+    """The freestyle's own script (published, its one version approved) and video: in the
+    brand's Scripts and Videos when a brand is picked (P3: the director-first video), else
+    hidden under the Freestyle brand."""
     brand_id = fs.brand_id or _freestyle_brand(db, user.workspace_id).id
+    hide = fs.brand_id is None
     script = Script(workspace_id=user.workspace_id, brand_id=brand_id, title=fs.title,
-                    kind=DIRECTED[fs.type], look=fs.look, published=True, hidden=True,
+                    kind=DIRECTED[fs.type], look=fs.look, published=True, hidden=hide,
                     created_by_id=user.id)  # fmt: skip
     db.add(script)
     db.flush()
@@ -171,7 +183,7 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
                         approved_at=utcnow(), approved_by_id=user.id)  # fmt: skip
     db.add(draft)
     db.flush()
-    project = Project(workspace_id=user.workspace_id, brand_id=brand_id, hidden=True,
+    project = Project(workspace_id=user.workspace_id, brand_id=brand_id, hidden=hide,
                       name=f"{fs.title[:100]} · freestyle {fs.id}", created_by_id=user.id,
                       script_draft_id=draft.id, look=fs.look, aspect_ratio=fs.shape)  # fmt: skip
     db.add(project)
@@ -181,10 +193,26 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
     return project, draft
 
 
-def _start(db: Session, user: User, fs: Freestyle, text: str) -> None:
-    """A Dialogue send: its video, then the director's first turn (held for an editor's)."""
+def _from_script(db: Session, user: User, request: Request, fs: Freestyle, script: Script,
+                 draft: ScriptDraft) -> tuple[Project, ScriptDraft]:  # fmt: skip
+    """ "Make a video" from a script's version (P1): the version is frozen, approved, and the
+    script published with it (rule 31: an edit after is a new version; the video keeps this
+    one), then its one video as Make this version makes it: its cast, plan and saved shots,
+    landed free when they follow its plan (#934, Reed's item 8)."""
+    from app.routes.script_produce import make_video
+
+    if draft.status != "approved":
+        draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), user.id
+    script.published = True
+    project, _, _ = make_video(db, user, request, script, draft, {"aspect_ratio": fs.shape})
+    return project, draft
+
+
+def _start(db: Session, user: User, fs: Freestyle, text: str, made=None) -> None:
+    """A Dialogue send: its video (`made`: from a script), then the director's first turn
+    (held for an editor's)."""
     at = utcnow().isoformat()  # the message comes before the moves it starts
-    project, draft = _video(db, user, fs, text)
+    project, draft = made or _video(db, user, fs, text)
     fs.project_id, fs.up_to = project.id, run_price(db, draft, project)  # all a run may spend
     cap = get_limits(db, user.workspace_id).per_video_max_credits
     if fs.up_to > cap:
@@ -313,9 +341,12 @@ def _out(db: Session, fs: Freestyle) -> FreestyleOut:
             credits += job.credits  # never a failed, declined, withdrawn or stopped one
     if fs.project_id:  # the director's run: its moves, cut and cost
         status, thread, file_id, credits = _directed(db, fs, jobs, thread)
+    project = db.get(Project, fs.project_id) if fs.project_id else None
+    draft = db.get(ScriptDraft, project.script_draft_id) if project else None
     return FreestyleOut(**_row(fs, names, status).model_dump(), look=fs.look, shape=fs.shape,
                         brand_id=fs.brand_id, credits=credits, file_id=file_id,
-                        up_to=fs.up_to, thread=thread)  # fmt: skip
+                        up_to=fs.up_to, project_id=fs.project_id,
+                        script_id=draft.script_id if draft else None, thread=thread)  # fmt: skip
 
 
 def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
@@ -363,17 +394,42 @@ def _row(fs: Freestyle, names: dict[int, str], status: str) -> FreestyleRow:
                         created_by_name=names.get(fs.created_by_id, ""))  # fmt: skip
 
 
+def _source(db: Session, user: User, body) -> tuple:
+    """(type, look, brand, words, script, draft) of a send: a pasted script, or a script's
+    version ("Make a video", P1) with the script's own kind, look and brand."""
+    if (body.text is None) == (body.script_id is None):
+        raise HTTPException(422, ONE_SOURCE)
+    if body.script_id is None:
+        if not body.look:
+            raise HTTPException(422, NO_LOOK)
+        return body.type, body.look, body.brand_id, body.text, None, None
+    from app import script_library as lib
+
+    script = lib.get_script(db, user, body.script_id)
+    draft = lib.get_draft(db, script, body.slot or 0)
+    kind = next((t for t, k in DIRECTED.items() if k == script.kind), None)
+    if kind is None:
+        raise HTTPException(422, NOT_YET)
+    return kind, script.look, script.brand_id, draft.text, script, draft
+
+
 @router.get("/estimate", response_model=EstimateOut)
 def estimate_freestyle(
-    type: Type,
-    look: str,
     shape: Shape,
-    text: Text,
+    type: Type = "dialogue",
+    look: str | None = None,
+    text: Text | None = None,
+    script_id: int | None = None,
+    slot: int = 0,
     user: User = Depends(current_user),
     db: Session = Depends(_db),
 ):
     """What a send would cost, at most. Free: nothing is queued and nothing is asked of a model."""
+    body = FreestyleIn(type=type, look=look, shape=shape, text=text, script_id=script_id, slot=slot)
+    type, look, brand_id, text, _, draft = _source(db, user, body)
     _check(db, user, type, look, None)
+    if draft is not None:  # a script's version: its own price
+        return EstimateOut(credits=run_price(db, draft))
     if type in DIRECTED:  # the video's own price, from a draft never kept
         fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title="Estimate",
                        type=type, look=look, shape=shape, chat=[])  # fmt: skip
@@ -392,29 +448,36 @@ def estimate_freestyle(
 @router.post("", response_model=FreestyleOut, status_code=201,
              dependencies=[Depends(generation_on)])  # fmt: skip
 def create_freestyle(
-    body: FreestyleIn, user: User = Depends(current_user), db: Session = Depends(_db)
+    body: FreestyleIn,
+    request: Request,
+    user: User = Depends(current_user),
+    db: Session = Depends(_db),
 ):
-    _check(db, user, body.type, body.look, body.brand_id)
+    type, look, brand_id, text, script, draft = _source(db, user, body)
+    _check(db, user, type, look, brand_id)
     lock(db, User, user.id)  # a double tap waits here, then finds the first one
     since = utcnow() - timedelta(seconds=10)
     for fs in db.scalars(select(Freestyle).where(Freestyle.created_by_id == user.id,
                                                  Freestyle.created_at >= since)):  # fmt: skip
-        same = (fs.type, fs.look, fs.shape, fs.brand_id) == (body.type, body.look, body.shape,
-                                                             body.brand_id)  # fmt: skip
+        same = (fs.type, fs.look, fs.shape, fs.brand_id) == (type, look, body.shape, brand_id)
         first = db.get(Job, fs.chat[0]["job"]) if fs.chat and fs.chat[0].get("job") else None
         waiting = first is not None and first.status in (JobStatus.needs_owner_approval,
                                                          JobStatus.queued)  # fmt: skip
-        if same and waiting and fs.chat[0]["text"] == body.text:  # a repeat sent on purpose
+        if same and waiting and fs.chat[0]["text"] == text:  # a repeat sent on purpose
             # (the first done or gone) is a new freestyle
             db.rollback()
             return _out(db, fs)  # the same send twice: one freestyle, one held take
-    title = next(line.strip() for line in body.text.splitlines() if line.strip())[:60]
+    title = (script.title if script else
+             next(line.strip() for line in text.splitlines() if line.strip()))[:60]  # fmt: skip
     fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title=title,
-                   type=body.type, look=body.look, shape=body.shape, brand_id=body.brand_id,
+                   type=type, look=look, shape=body.shape, brand_id=brand_id,
                    chat=[])  # fmt: skip
     db.add(fs)
     db.flush()
-    (_start if body.type in DIRECTED else _send)(db, user, fs, body.text)
+    if script is not None:
+        _start(db, user, fs, text, _from_script(db, user, request, fs, script, draft))
+    else:
+        (_start if type in DIRECTED else _send)(db, user, fs, text)
     return _out(db, fs)
 
 

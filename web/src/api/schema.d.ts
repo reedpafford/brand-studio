@@ -5698,6 +5698,12 @@ export interface components {
             older_plan: boolean;
             /** Was Id */
             was_id?: number | null;
+            /**
+             * Director Run
+             * @default false
+             */
+            director_run: boolean;
+            needs_you?: components["schemas"]["NeedsYou"] | null;
         };
         /** BreakdownReview */
         BreakdownReview: {
@@ -6344,15 +6350,20 @@ export interface components {
             /** Was File Id */
             was_file_id?: number | null;
         };
-        /** FreestyleIn */
+        /**
+         * FreestyleIn
+         * @description A pasted script (`text`, with its look), or "Make a video" from a script's version
+         *     (`script_id`, `slot`): its kind, look and brand are the script's.
+         */
         FreestyleIn: {
             /**
              * Type
+             * @default dialogue
              * @enum {string}
              */
             type: "dialogue" | "song" | "narrated" | "one_clip";
             /** Look */
-            look: string;
+            look?: string | null;
             /**
              * Shape
              * @enum {string}
@@ -6361,7 +6372,11 @@ export interface components {
             /** Brand Id */
             brand_id?: number | null;
             /** Text */
-            text: string;
+            text?: string | null;
+            /** Script Id */
+            script_id?: number | null;
+            /** Slot */
+            slot?: number | null;
         };
         /**
          * FreestyleItem
@@ -6430,6 +6445,10 @@ export interface components {
             file_id: number | null;
             /** Up To */
             up_to?: number | null;
+            /** Project Id */
+            project_id?: number | null;
+            /** Script Id */
+            script_id?: number | null;
             /** Thread */
             thread: components["schemas"]["FreestyleItem"][];
         };
@@ -7634,6 +7653,16 @@ export interface components {
             /** Music */
             music: boolean;
         };
+        /** NeedsYou */
+        NeedsYou: {
+            /** Text */
+            text: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "cast" | "plan" | "approvals";
+        };
         /** NewInviteOut */
         NewInviteOut: {
             /** Id */
@@ -8129,6 +8158,8 @@ export interface components {
              * @default 0
              */
             look_redo_credits: number;
+            /** Freestyle Id */
+            freestyle_id?: number | null;
             /** Planned Seconds */
             planned_seconds: number | null;
             /** Breakdown Seconds */
@@ -11303,10 +11334,12 @@ export interface operations {
     estimate_freestyle_freestyles_estimate_get: {
         parameters: {
             query: {
-                type: "dialogue" | "song" | "narrated" | "one_clip";
-                look: string;
                 shape: "9:16" | "1:1" | "16:9";
-                text: string;
+                type?: "dialogue" | "song" | "narrated" | "one_clip";
+                look?: string | null;
+                text?: string | null;
+                script_id?: number | null;
+                slot?: number;
             };
             header?: never;
             path?: never;
