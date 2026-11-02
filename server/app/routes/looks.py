@@ -16,7 +16,7 @@ from app.routes.brands import get_brand
 from app.routes.clips import generation_on
 
 router = APIRouter(prefix="/looks", tags=["looks"])
-HOUSE_STAYS = "House is the default look, so it stays on."
+HOUSE_STAYS = "House is the default style, so it stays on."
 
 
 class LaneOut(BaseModel):

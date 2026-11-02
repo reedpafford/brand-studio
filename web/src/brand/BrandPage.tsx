@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { createPortal } from "react-dom";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
-import { Dialog, PageTop, Tabs } from "../components";
+import { Button, Dialog, Tabs } from "../components";
 import { ArchiveBrand } from "./ArchiveBrand";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
@@ -13,10 +13,12 @@ import { ProductsTab } from "./ProductsTab";
 import { ScreensTab } from "./ScreensTab";
 import { groupProducts, useScreens } from "./screens";
 
-const IDS = ["look", "products", "screens"] as const;
+const IDS = ["look", "voice", "products", "screens"] as const;
 
-type Frame = { slot: HTMLElement | null; setDirty: (dirty: boolean) => void };
-const FrameContext = createContext<Frame>({ slot: null, setDirty: () => {} });
+type Frame = { slot: HTMLElement | null; setDirty: (dirty: boolean) => void; importing: boolean; setImporting: (on: boolean) => void; goTab: (id: string) => void };
+const FrameContext = createContext<Frame>({ slot: null, setDirty: () => {}, importing: false, setImporting: () => {}, goTab: () => {} });
+/** Import from website, opened from the page's top bar (v5 F_BrandImport), and a tab change from inside the Look tab. */
+export const useBrandFrame = () => useContext(FrameContext);
 
 /** Brand: look and voice, products, and app screens on one page. */
 export function BrandPage() {
@@ -32,31 +34,52 @@ export function BrandPage() {
   const products = groupProducts(screens.data ?? []).length;
   const tabs = [
     { id: "look", label: "Look" },
+    { id: "voice", label: "Voice & lines" },
     { id: "products", label: "Products", count: screens.data ? products : undefined },
     { id: "screens", label: "App screens", count: screens.data?.length },
   ];
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [dirty, setDirty] = useState(false);
   const [leaving, setLeaving] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const go = (id: string) => setParams(id === "look" ? {} : { tab: id }, { replace: true });
 
   return (
-    <FrameContext.Provider value={{ slot, setDirty }}>
+    <FrameContext.Provider value={{ slot, setDirty, importing, setImporting, goTab: go }}>
       <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-        <PageTop title="Brand" eyebrow={brand?.name} line={brand && setupOf(brand) ? "Changes apply to work from now on. Nothing already made changes." : undefined}>
-          {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
-          {rail && <div ref={setSlot} className="flex flex-col items-end" />}
-        </PageTop>
-        <Tabs
-          label="Brand"
-          tabs={tabs}
-          value={tab}
-          onChange={(id) => {
-            if (tab === "look" && dirty && id !== "look") setLeaving(id);
-            else go(id);
-          }}
-        />
-        {tab === "look" ? <KitPage /> : tab === "products" ? <ProductsTab /> : <ScreensTab />}
+        {/* v5 F boards: the brand's dot and name, Import from website (the owner) and More; then the tabs with the note on the right. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+          <h1 className="flex min-w-0 items-center gap-3 type-page">
+            <span aria-hidden className="size-5 shrink-0 rounded-sm" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />
+            <span className="min-w-0 break-words">{brand?.name ?? "Brand"}</span>
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            {owner && brand && (tab === "look" || tab === "voice") && (
+              <Button variant="secondary" onClick={() => { setImporting(true); go("look"); }}>
+                Import from website
+              </Button>
+            )}
+            {/* Products and App screens put their Add here, as F_BrandProducts does (QA-3 on #1210); Look and Voice save in the bottom bar. */}
+            {rail && tab !== "look" && tab !== "voice" && <div ref={setSlot} className="flex items-center gap-2" />}
+            {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <Tabs
+            label="Brand"
+            tabs={tabs}
+            value={tab}
+            onChange={(id) => {
+              const kit = (t: string) => t === "look" || t === "voice";
+              if (kit(tab) && dirty && !kit(id)) setLeaving(id);
+              else go(id);
+            }}
+          />
+          {brand && setupOf(brand) && <p className="text-sm text-muted">Changes apply to work from now on. Nothing already made changes.</p>}
+        </div>
+        {/* Look and Voice & lines are one form: switching between them keeps what's typed. */}
+        {tab === "look" || tab === "voice" ? <KitPage part={tab} /> : tab === "products" ? <ProductsTab /> : <ScreensTab />}
+        {rail && (tab === "look" || tab === "voice") && <div ref={setSlot} className="sticky bottom-0 z-10 -mx-4 flex items-center justify-end gap-3 border-t border-border bg-bg px-4 py-3 sm:-mx-6 sm:px-6" />}
       </main>
       {leaving && (
         <Dialog
@@ -71,7 +94,7 @@ export function BrandPage() {
             setLeaving(null);
           }}
         >
-          Your changes to the look and voice haven't been saved.
+          Your changes to the Look and Voice & lines aren't saved. Leaving drops them.
         </Dialog>
       )}
     </FrameContext.Provider>
