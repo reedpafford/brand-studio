@@ -222,8 +222,8 @@ test("a take the check passed over stays playable and downloadable, with why (Re
   const other = within(card).getByLabelText("Take 1"); // open by itself: a take was passed over
   expect(other).toHaveTextContent("Passed over");
   expect(other).toHaveTextContent("Mia's face may differ from her sheet");
-  await userEvent.click(within(other).getByRole("button", { name: "Play take 1" }));
-  expect(within(other).getByLabelText("Take 1 of clip c1")).toHaveAttribute("src", expect.stringContaining("70"));
+  expect(within(other).getByLabelText("Take 1 of clip c1")).toHaveAttribute("src", expect.stringContaining("70")); // it plays under the pointer (v5)
+  expect(within(other).getByRole("button", { name: "Use take 1" })).toBeEnabled();
   expect(within(other).getByRole("link", { name: "Download take 1" })).toBeInTheDocument();
 });
 

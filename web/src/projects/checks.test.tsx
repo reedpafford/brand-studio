@@ -93,7 +93,7 @@ test("a clean check is only ✓ checked in the chip; checking and a failed check
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips] }));
   open("?step=clips");
   const c1 = await clipCard("c1");
-  expect(within(c1).getByText("Approved · ✓ checked")).toBeInTheDocument();
+  expect(within(c1).getByText("Approved · Check found nothing")).toBeInTheDocument(); // under the picked take (v5)
   expect(within(await clipCard("c2")).getByText("Checking…")).toBeInTheDocument();
   expect(within(await clipCard("c2")).getByRole("button", { name: "Approve take 1" })).toBeEnabled();
   expect(within(await clipCard("c3")).getByText("Couldn't check this one.")).toBeInTheDocument();
