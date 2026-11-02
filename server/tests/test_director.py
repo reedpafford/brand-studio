@@ -615,3 +615,31 @@ def test_a_stop_while_the_next_turn_is_made_holds(app, db, owner, editor, monkey
     assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
     second = director.turns(db, db.get(Project, pid))[-1]
     assert second.input[director.RUN]["turn"] == 2 and second.status == JobStatus.cancelled
+
+
+def test_the_production_page_counts_the_budget_as_the_hold_does(app, db, owner, editor):
+    """Owner's Production page: each row carries director_credits, and "Closest to budget"
+    sorts by what the budget counts, the director's own spend left out (QA-6)."""
+    from decimal import Decimal
+
+    from app import credits
+
+    app.state.settings.fake_providers = True
+    ran, plain = _made_again(app, owner, editor, db), _made_again(app, owner, editor, db)
+    a, b = db.get(Project, ran), db.get(Project, plain)
+
+    def spend(project, cost, **input):
+        db.add(Job(workspace_id=project.workspace_id, created_by_id=project.created_by_id,
+                   kind="write-claude", provider="claude", input=input, project_id=project.id,
+                   credits=Decimal(cost), status=JobStatus.succeeded))  # fmt: skip
+        db.commit()
+
+    budget = a.budget_credits
+    spend(a, budget * Decimal("0.8"), step="director", director_run={"id": "r"})  # its own
+    spend(a, budget * Decimal("0.1"))  # the budget's share: 10%
+    spend(b, budget * Decimal("0.5"))  # 50%: closer to its budget, though less spent in all
+    rows = {r["project_id"]: r for r in owner.get("/production").json()}
+    assert rows[ran]["director_credits"] == float(credits.director_credits(db, a)) > 0
+    assert rows[plain]["director_credits"] == 0
+    order = [r["project_id"] for r in owner.get("/production?sort=budget").json()]
+    assert order.index(plain) < order.index(ran)  # counting all spend would put ran first

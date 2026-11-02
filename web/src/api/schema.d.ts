@@ -7615,6 +7615,11 @@ export interface components {
             last_activity_at: string;
             /** Credits Used */
             credits_used: number;
+            /**
+             * Director Credits
+             * @default 0
+             */
+            director_credits: number;
             /** Budget Credits */
             budget_credits: number;
             /** Spent Usd */
