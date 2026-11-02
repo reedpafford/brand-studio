@@ -52,7 +52,7 @@ export function SetupPage() {
       }
       footer={
         <p className="text-sm text-muted">
-          Already set up? <Link className={`${linkText} inline-flex min-h-control items-center`} to="/login">Sign in</Link>
+          Already set up? <Link className={`${linkText} inline-flex min-h-control min-w-11 items-center justify-center`} to="/login">Sign in</Link>
         </p>
       }
     />

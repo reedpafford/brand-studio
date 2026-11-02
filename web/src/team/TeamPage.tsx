@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy } from "lucide-react";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Dialog, Field, PageTop, Panel, Select, Skeleton } from "../components";
@@ -138,22 +138,25 @@ export function TeamPage() {
                   <span role="cell" className="min-w-0 truncate text-muted">{m.email}</span>
                   <span role="cell">
                     {mine ? (
-                      <select
-                        aria-label={`${m.name}'s role`}
-                        value={m.role}
-                        onChange={(e) => setChanging({ id: m.id, name: m.name, to: e.target.value as "owner" | "editor" })}
-                        className="min-h-control w-full rounded-md border border-border-strong bg-bg px-2.5 sm:w-[120px] lg:min-h-control-dense"
-                      >
-                        <option value="editor">Editor</option>
-                        <option value="owner">Owner</option>
-                      </select>
+                      <span className="relative block sm:w-[120px]">
+                        <select
+                          aria-label={`${m.name}'s role`}
+                          value={m.role}
+                          onChange={(e) => setChanging({ id: m.id, name: m.name, to: e.target.value as "owner" | "editor" })}
+                          className="min-h-control w-full appearance-none rounded-md border border-border-strong bg-bg pl-2.5 pr-8 lg:min-h-control-dense"
+                        >
+                          <option value="editor">Editor</option>
+                          <option value="owner">Owner</option>
+                        </select>
+                        <ChevronDown size={14} strokeWidth={2} aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
+                      </span>
                     ) : (
                       <span className="text-muted">{ROLE[m.role as keyof typeof ROLE] ?? m.role}</span>
                     )}
                   </span>
                   <span role="cell">
                     {mine && (
-                      <Button variant="ghost" dense aria-label={`Remove ${m.name}`} onClick={() => setRemoving({ id: m.id, name: m.name })} className="w-full sm:w-auto">
+                      <Button variant="ghost" dense aria-label={`Remove ${m.name}`} onClick={() => setRemoving({ id: m.id, name: m.name })} className="w-full text-muted sm:w-auto">
                         Remove
                       </Button>
                     )}
@@ -303,7 +306,7 @@ function FreshLink({ invite }: { invite: NewInvite }) {
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="invite-link" className="sr-only">Invite link</label>
         <input id="invite-link" readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="min-h-control w-full min-w-0 rounded-md border border-border-strong bg-bg px-2.5 text-sm sm:w-[360px] lg:min-h-control-dense" />
-        <Button variant="secondary" dense icon={copied ? Check : Copy} onClick={copy} className="w-full sm:w-auto">
+        <Button variant="secondary" dense onClick={copy} className="w-full sm:w-auto">
           {copied ? "Copied" : "Copy link"}
         </Button>
         <span className="text-xs text-muted">Works once · ends in 7 days</span>
