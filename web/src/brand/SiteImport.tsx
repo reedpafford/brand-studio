@@ -10,7 +10,7 @@ import { useRail } from "../useMedia";
 type Read = components["schemas"]["app__routes__site_read__ReadOut"];
 const WEB = /^https?:\/\/[^\s/]+\.[^\s]+$/i;
 // The read in review lives on the server; its id is kept here so a reload comes back to it.
-const stored = (brandId: number) => {
+export const stored = (brandId: number) => {
   try {
     return Number(localStorage.getItem(`site-read:${brandId}`)) || null;
   } catch {

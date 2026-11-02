@@ -22,10 +22,11 @@ test.beforeEach(async ({ page }) => {
 test("brand voice and a call to action are saved and still there after a reload (BR1)", async ({ page }) => {
   await page.getByRole("link", { name: "Brand", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
-  await page.getByLabel("How the brand talks").fill("Calm, confident, never hype.");
+  await page.getByRole("tab", { name: "Voice & lines" }).click(); // v5: voice has its own tab
+  await page.getByLabel("How we sound").fill("Calm, confident, never hype.");
   for (const phrase of ["guaranteed returns", "get rich quick"]) {
-    await page.getByLabel("Add to don't").fill(phrase);
-    await page.getByLabel("Add to don't").press("Enter");
+    await page.getByLabel("Add to never say").fill(phrase);
+    await page.getByLabel("Add to never say").press("Enter");
   }
   await saveKit(page);
   // A CTA line saves at once; the first is the Default.
@@ -34,7 +35,8 @@ test("brand voice and a call to action are saved and still there after a reload 
   await expect(page.getByLabel("Call to action lines").getByText("Default")).toBeVisible();
 
   await page.reload();
-  await expect(page.getByLabel("How the brand talks")).toHaveValue("Calm, confident, never hype.");
+  await page.getByRole("tab", { name: "Voice & lines" }).click();
+  await expect(page.getByLabel("How we sound")).toHaveValue("Calm, confident, never hype.");
   await expect(page.getByRole("button", { name: "Remove guaranteed returns" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Remove get rich quick" })).toBeVisible();
   await expect(page.getByLabel("Call to action lines").getByText("Find us through the link in my bio.")).toBeVisible();

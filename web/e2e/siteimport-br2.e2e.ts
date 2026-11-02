@@ -9,6 +9,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
     const brandId = await emptyBrand(page, `Site Co ${width}-${test.info().retry}`);
     await page.goto(`/b/${brandId}/brand`);
+    await page.getByRole("button", { name: "Import from website" }).first().click(); // v5: opened from the top bar (or the setup list)
     const card = page.locator("div.rounded-lg", { has: page.getByRole("heading", { name: "Import from website" }) });
 
     await card.getByLabel("Paste the brand's website").fill("https://example.com/fail");
@@ -27,7 +28,8 @@ for (const width of [1440, 390]) {
     await save.click();
     await expect(page.getByText(/^Saved /)).toBeVisible();
     await page.getByRole("button", { name: "Undo" }).click();
-    await expect(card.getByLabel("Paste the brand's website")).toBeVisible();
+    // The save closes the import; Undo puts the empty brand back, so its setup list offers Import from website again (F_BrandEmpty).
+    await expect(page.getByRole("region", { name: /^Set up / }).getByRole("button", { name: "Import from website" })).toBeVisible();
     await expect(page.getByText("$")).toHaveCount(0);
   });
 }
