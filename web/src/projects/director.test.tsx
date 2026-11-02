@@ -244,9 +244,9 @@ test("the locks it builds around: a press locks or unlocks one and keeps the out
   show();
   const chips = await screen.findByRole("list", { name: "Locked" });
   expect(within(chips).getByRole("button", { name: "Cast" })).toHaveAttribute("aria-pressed", "true");
-  await userEvent.click(within(chips).getByRole("button", { name: "Look" }));
+  await userEvent.click(within(chips).getByRole("button", { name: "Style" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/locks")?.body).toEqual({ locks: { ...locks, look: true }, outfits }));
-  expect(await within(chips).findByRole("button", { name: "Look", pressed: true })).toBeInTheDocument();
+  expect(await within(chips).findByRole("button", { name: "Style", pressed: true })).toBeInTheDocument();
   expect(within(chips).queryByRole("button", { name: /Screens/ })).toBeNull();
   expect(within(chips).getByText("Screens")).toBeInTheDocument();
 });

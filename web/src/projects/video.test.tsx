@@ -1625,8 +1625,8 @@ test("switching the look re-reads the cast, so a role with no sheet in the new l
   open("?step=storyboard");
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(screen.queryByText("Waiting on the cast")).toBeNull();
-  await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
-  await userEvent.click((await screen.findAllByRole("button", { name: "Use this look" }))[0]);
+  await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
+  await userEvent.click((await screen.findAllByRole("button", { name: "Use this style" }))[0]);
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
   routes["GET /projects/9/assets"] = [200, [asset({ locked: true })]]; // Bo has no sheet in Disney Pixar yet
   await userEvent.click(await within(ask).findByRole("button", { name: "Switch" }));
