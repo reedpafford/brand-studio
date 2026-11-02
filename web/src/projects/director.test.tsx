@@ -115,14 +115,81 @@ test("at 390, the delivered cut plays and downloads, with the total, the note, w
   expect(document.body.textContent).not.toContain("$");
 });
 
-test("while it runs, only the newest 5 moves show, and Show all opens the rest", async () => {
+test("the conversation shows the newest 8, and Show earlier opens the rest", async () => {
   setViewport(390);
-  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: Array.from({ length: 8 }, (_, i) => turn(i + 1, { result: `Move ${i + 1}.` })) })] }));
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: Array.from({ length: 12 }, (_, i) => turn(i + 1, { result: `Move ${i + 1}.` })) })] }));
   show();
-  expect(await screen.findByText("Move 8.")).toBeInTheDocument();
-  expect(screen.queryByText("Move 3.")).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Show all 8 moves" }));
+  expect(await screen.findByText("Move 12.")).toBeInTheDocument();
+  expect(screen.queryByText("Move 4.")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Show earlier (4)" }));
   expect(screen.getByText("Move 1.")).toBeInTheDocument();
+});
+
+const item = (id: string, o: object = {}) => ({ id, kind: "move", at, who: "Director", text: "Made the cut.", status: "done", ...o });
+
+test("after a delivery, a person asks for a change: it's sent, shows in the thread, and the director's moves follow with their reasons", async () => {
+  setViewport(1440);
+  const before = [item("t1", { text: "Made the plan.", why: "There were no shots yet." }), item("t2", { text: "Every take checked clean." })];
+  const delivered = run({ status: "delivered", start_blocked: "", thread: before });
+  const after = run({ thread: [...before, { id: "m0", kind: "message", at, who: "Olu", text: "Make clip 1 slower.", status: null }, item("t3", { text: "Waiting for the owner's OK.", status: "held" })] });
+  const calls = fakeServer(routes({ "GET /projects/9/director": [200, delivered], "POST /projects/9/director/messages": [201, after] }));
+  show();
+  expect(await screen.findByText("There were no shots yet.")).toBeInTheDocument(); // a move's reason under it
+  const box = screen.getByLabelText("Tell the director what to change");
+  expect(screen.getByRole("button", { name: "Send to the director" })).toBeDisabled(); // nothing to send yet
+  await userEvent.type(box, "Make clip 1 slower.{Enter}");
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/director/messages")?.body).toEqual({ text: "Make clip 1 slower." }));
+  const thread = await screen.findByRole("list", { name: "Conversation with the director" });
+  expect(within(thread).getByText("Make clip 1 slower.")).toBeInTheDocument();
+  expect(within(thread).getByRole("link", { name: "See it in Needs you" })).toHaveAttribute("href", "/approvals");
+  expect(box).toHaveValue("");
+});
+
+test("after a delivery a message is saved, not run: Make it again makes the change (the Producer, 2 Nov)", async () => {
+  setViewport(1440);
+  const before = [item("t1", { text: "Every take checked clean." })];
+  const savedThread = [...before, { id: "m0", kind: "message", at, who: "Olu", text: "Make clip 1 slower.", status: null, why: "" }];
+  const saved = run({ status: "delivered", start_blocked: "", thread: savedThread, unread: 1 });
+  const calls = fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "delivered", start_blocked: "", thread: before })], "POST /projects/9/director/messages": [201, saved], "POST /projects/9/director": [201, run({ thread: savedThread })] }));
+  show();
+  await userEvent.type(await screen.findByLabelText("Tell the director what to change"), "Make clip 1 slower.{Enter}");
+  expect(await screen.findByText("Saved. Press Make it again to make this change.")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "POST /projects/9/director")).toBe(false); // the message alone starts nothing
+  await userEvent.click(screen.getByRole("button", { name: "Make it again" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/director")).toBe(true));
+});
+
+test("after a Stop the press reads Start again with this note; too many messages says so plainly", async () => {
+  setViewport(1440);
+  const stopped = run({ status: "ended", ended: "Stopped.", start_blocked: "", unread: 1, thread: [item("t1"), { id: "m0", kind: "message", at, who: "Olu", text: "Shorter, please.", status: null, why: "" }] });
+  fakeServer(routes({ "GET /projects/9/director": [200, stopped], "POST /projects/9/director/messages": [429, { detail: "Too many messages; wait a moment" }] }));
+  show();
+  expect(await screen.findByRole("button", { name: "Start again with this note" })).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Tell the director what to change"), "And louder.{Enter}");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Too many messages; wait a moment");
+});
+
+test("during a run a note says the director reads it on its next move; a double press sends one note; an editor's held move says it waits for approval, with no owner link (QA-11)", async () => {
+  setViewport(390);
+  const going = run({ thread: [item("t1", { text: "Made the plan." })] });
+  const sent = run({ thread: [item("t1", { text: "Made the plan." }), item("t2", { text: "Waiting for the owner's OK.", status: "held" }), { id: "m0", kind: "message", at, who: "Olu", text: "Warmer light.", status: null, why: "" }] });
+  const calls = fakeServer(routes({ "GET /auth/me": [200, editor], "GET /projects/9/director": [200, going], "POST /projects/9/director/messages": [201, sent] }));
+  show();
+  await userEvent.type(await screen.findByLabelText("Tell the director what to change"), "Warmer light.");
+  await userEvent.dblClick(screen.getByRole("button", { name: "Send to the director" }));
+  expect(await screen.findByText("The director will read this on its next move.")).toBeInTheDocument();
+  expect(calls.filter((c) => c.key === "POST /projects/9/director/messages")).toHaveLength(1);
+  expect(screen.queryByRole("alert")).toBeNull();
+  const thread = screen.getByRole("list", { name: "Conversation with the director" });
+  expect(within(thread).getByText("Waiting for approval.")).toBeInTheDocument();
+  expect(within(thread).queryByRole("link", { name: "See it in Needs you" })).toBeNull();
+});
+
+test("before the first run there's no message box: Make it starts the director", async () => {
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "" })] }));
+  show();
+  expect(await screen.findByRole("button", { name: "Make it" })).toBeInTheDocument();
+  expect(screen.queryByLabelText("Tell the director what to change")).toBeNull();
 });
 
 test("move lines are plain words: no tool names, codes, ids or JSON on screen; said is shown when the server sends it", async () => {
