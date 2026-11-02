@@ -75,6 +75,14 @@ def test_a_mute_never_covers_a_script_word_even_misheard():
     assert watch_cut.checked({"findings": [mute]}, CUT, fogo, "MIA: Get fomo.") == []
     near = {**mute, "start": 5.25, "end": 5.6}  # the line's tail, still on it
     assert watch_cut.checked({"findings": [near]}, CUT, fogo, "MIA: Get fomo.") == []
+    for said in (["Foh-moh."], ["Pho", "mo."]):  # the brand word alone, heard in pieces (QA-6)
+        alone = [{"word": w, "start": 6.0 + n * 0.2, "end": 6.2 + n * 0.2, "clip_id": "c2"}
+                 for n, w in enumerate(said)]  # fmt: skip
+        mute_it = {**mute, "start": 5.9, "end": 6.5}
+        assert watch_cut.checked({"findings": [mute_it]}, CUT, alone, "MIA: Get fomo.") == []
+    hmm = [{"word": "Hmm.", "start": 6.0, "end": 6.3, "clip_id": "c2"}]  # "MOM" isn't a word said
+    lone = {**mute, "start": 5.9, "end": 6.4}
+    assert watch_cut.checked({"findings": [lone]}, CUT, hmm, "MOM: Get fomo.")[0]["mute"]
     groan = {**mute, "start": 6.9, "end": 7.5}  # its own line after a pause: may be muted
     assert watch_cut.checked({"findings": [groan]}, CUT, fogo, "MIA: Get fomo.")[0]["mute"]
 
