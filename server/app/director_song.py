@@ -134,7 +134,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again
             return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
         last = run.get("song_note", "")  # the same request again: its style line too
-        song_takes.make(db, user, draft, project, kie=_real(db, found), note=last)
+        voice = run.get("song_voice") or narration.VOICE  # a narration keeps its voice
+        song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice)
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made
         return f"Trying the {what} again: the service failed, nothing was charged."
     if takes and run.get("songs", 0) >= REMAKES:
@@ -145,7 +146,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if voice not in narration.VOICES:  # the Director's pick (None: the default)
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
     song_takes.make(db, user, draft, project, kie=_real(db, found), note=note, voice=voice)
-    run["song_note"] = note
+    run["song_note"], run["song_voice"] = note, voice
     if takes:  # a remake; the first song's note is its style line, not a remake
         run["songs"] = run.get("songs", 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
