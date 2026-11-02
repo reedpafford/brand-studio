@@ -37,9 +37,8 @@ MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); meas
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 RUNNING = "The director is already building this video."
 READ = "chat_read"  # in a turn's input: how many of its run's messages it read
-PER_MINUTE, MAX_UNREAD = 5, 3  # messages a minute on a video; sent and not read yet
-TOO_FAST = "That's a lot of messages at once. Wait a minute, then send again."
-TOO_MANY = "The director hasn't read your last messages yet. Wait for its next move."
+GAP, PER_RUN = timedelta(seconds=3), 30  # one note a person every 3 s; notes a run at most
+TOO_MANY = "Too many messages; wait a moment."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
 PENDING = {JobStatus.queued: "Deciding what to do next.",
@@ -53,32 +52,37 @@ def start(db: Session, user: User, project: Project) -> Job:
     if why := blocked(db, project):
         raise HTTPException(409, why)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
+    lock(db, Project, project.id)  # the notes it takes can't change under it
+    db.refresh(project)
+    left = set(leftover(db, project))  # every note no run has read: this run reads them
+    if left:
+        project.director_chat = [{**m, "run": run["id"]} if n in left else m
+                                 for n, m in enumerate(project.director_chat)]  # fmt: skip
     return _turn(db, user, project, run)
 
 
 def say(db: Session, user: User, project: Project, text: str) -> None:
-    """A person's message to the director (director-chat.md §1 item 4): read at its next turn
-    while a run goes on; else it starts a revision run with it, which changes what it asks
-    and delivers again. Spending as ever: inside the budget, past it held for the owner."""
+    """A person's note to the director (director-chat.md §1 item 4), kept in the thread. While
+    a run goes on, its next turn reads it (a turn already in flight, the one after). It never
+    starts a run: after Stop or a delivery it waits, unread, for the next Make it, which reads
+    every unread note. Nothing is charged for it."""
     from app.db import utcnow
 
-    going = active(db, project)
-    if not going and (why := blocked(db, project)):
-        raise HTTPException(409, why)
-    run = dict(going.input[RUN]) if going else {"id": uuid.uuid4().hex, "turn": 0, "redos": {},
-                                                 "by": user.id, "revision": True}  # fmt: skip
-    minute = (utcnow() - timedelta(minutes=1)).isoformat()
-    if sum(m["at"] >= minute for m in project.director_chat or []) >= PER_MINUTE:
-        raise HTTPException(429, TOO_FAST)
-    if going and len(unread(db, project, run["id"])) >= MAX_UNREAD:
-        raise HTTPException(429, TOO_MANY)
-    said = {"by": user.id, "text": text, "at": utcnow().isoformat(), "run": run["id"]}
-    lock(db, Project, project.id)  # never lost to a delivery moving this run's messages
+    lock(db, Project, project.id)  # never lost to a run starting or ending as it lands
     db.refresh(project)
-    project.director_chat = [*(project.director_chat or []), said]
+    going = active(db, project)
+    run_id = going.input[RUN]["id"] if going else None
+    every = project.director_chat or []
+    now = utcnow()
+    last = next((m["at"] for m in reversed(every) if m["by"] == user.id), "")
+    waiting = ([m for m in every if m.get("run") == run_id] if going
+               else [every[n] for n in leftover(db, project)])  # fmt: skip
+    if last > (now - GAP).isoformat() or len(waiting) >= PER_RUN:
+        db.rollback()
+        raise HTTPException(429, TOO_MANY)
+    said = {"by": user.id, "text": text, "at": now.isoformat(), "run": run_id}
+    project.director_chat = [*every, said]
     db.commit()
-    if not going:
-        _turn(db, user, project, run)
 
 
 def chat(project: Project, run_id: str) -> list[dict]:
@@ -86,33 +90,27 @@ def chat(project: Project, run_id: str) -> list[dict]:
     return [{"text": m["text"]} for m in project.director_chat or [] if m.get("run") == run_id]
 
 
-def unread(db: Session, project: Project, run_id: str) -> list[dict]:
-    """This run's messages no turn has read yet (each turn notes how many it read)."""
-    read = max((t.input.get(READ, 0) for t in turns(db, project)
-                if t.input[RUN]["id"] == run_id), default=0)  # fmt: skip
-    return [m for m in project.director_chat or [] if m.get("run") == run_id][read:]
-
-
-def _again(db: Session, project: Project, run_id: str) -> None:
-    """Messages sent while the run's last turn delivered: they start a revision run, once
-    (they move to it, so nothing reads them twice and none is lost)."""
-    lock(db, Project, project.id)  # read and moved with say() held off
-    db.refresh(project)
-    left = unread(db, project, run_id)
-    if not left:
-        return
-    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": left[-1]["by"],
-           "revision": True}  # fmt: skip
-    mine = [n for n, m in enumerate(project.director_chat) if m.get("run") == run_id]
-    moved = set(mine[len(mine) - len(left) :])
-    project.director_chat = [{**m, "run": run["id"]} if n in moved else m
-                             for n, m in enumerate(project.director_chat)]  # fmt: skip
-    db.commit()  # the delivery and the move are kept whatever the start does
-    try:
-        _turn(db, db.get(User, run["by"]), project, run)
-    except HTTPException as no:  # e.g. the per-video cap: logged; the messages stay in the thread
-        db.rollback()
-        log.warning("project %s: a revision couldn't start: %s", project.id, no.detail)
+def leftover(db: Session, project: Project) -> list[int]:
+    """The notes (by place in the chat) that no run read and none will: sent with no run
+    going, or while a run's last turn delivered or it stopped. The next Make it reads them."""
+    rows = db.scalars(select(Job).where(Job.project_id == project.id,
+                                        Job.input["step"].as_string() == STEP)).all()  # fmt: skip
+    read: dict[str, int] = {}
+    for j in rows:
+        run = j.input[RUN]["id"]
+        read[run] = max(read.get(run, 0), j.input.get(READ, 0))
+    going = active(db, project)
+    live = going.input[RUN]["id"] if going else None
+    seen: dict[str | None, int] = {}
+    out = []
+    for n, m in enumerate(project.director_chat or []):
+        run = m.get("run")
+        if run is not None and run == live:
+            continue  # its next turn reads it
+        seen[run] = seen.get(run, 0) + 1
+        if run is None or seen[run] > read.get(run, 0):
+            out.append(n)
+    return out
 
 
 def thread(db: Session, project: Project) -> list[dict]:
@@ -269,8 +267,7 @@ def _act(db: Session, job: Job, storage) -> None:
     if tool == "deliver":
         why = " ".join([decision.get("why") or "Delivered.", *_mutes(db, job, run)])
         job.output = {**decision, "why": why}  # the note the video page shows names the mutes
-        _end(job, why, result="Delivered.")
-        return _again(db, project, run["id"])  # asked during its last turn: made next
+        return _end(job, why, result="Delivered.")  # a note it didn't read waits for Make it
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
     if tool == "make_take" and decision.get("clip_id"):
