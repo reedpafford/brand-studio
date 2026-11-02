@@ -21,6 +21,7 @@ import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
 import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
 import { SettingsPage } from "./settings/SettingsPage";
+import { NewBrandPage } from "./shell/NewBrand";
 import { UsageBrandPage } from "./usage/UsageBrandPage";
 import { MinePage } from "./usage/MinePage";
 import { UsagePage } from "./usage/UsagePage";
@@ -56,6 +57,7 @@ export function App() {
           <Route path="b/:brandId/clip" element={<Navigate to="/freestyle" replace />} />
           <Route path="b/:brandId/media" element={<MediaPage />} />
           <Route path="b/:brandId/media/:key" element={<MediaItemPage />} />
+          <Route path="brands/new" element={<NewBrandPage />} />
           <Route path="freestyle" element={<FreestylePage />} />
           <Route path="freestyle/:freestyleId" element={<FreestylePage />} />
           <Route path="team" element={<TeamPage />} />
