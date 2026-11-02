@@ -5,7 +5,7 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, Dialog, buttonClass, creditsText } from "../components";
+import { Badge, Banner, Button, Dialog, buttonClass, creditsLabel, wholeCredits } from "../components";
 import { linkText } from "../ui";
 import { useToast } from "../toast";
 import { ReviewChip } from "./Checks";
@@ -116,7 +116,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const doing = [...turns].reverse().find((t) => t.tool && DOING[t.tool])?.tool;
   const made = list.filter((c) => c.takes.length > 0).length;
   const phase = held ? "Waiting for the owner's OK" : !doing ? "Starting" : DOING[doing] === "Making clips" && list.length ? `Making clips: ${made} of ${list.length}` : DOING[doing];
-  const credits = r ? creditsText(r.credits) : null;
+  const credits = r && wholeCredits(r.credits) > 0 ? creditsLabel(r.credits) : null; // what it has spent, in whole credits ("up to" is only for a price before a press)
   const dollars = owner && r?.spent_usd != null ? `the director's own time $${r.spent_usd.toFixed(2)}` : null; // rule 4: the owner only
   const note = plain([...turns].reverse().find((t) => t.tool === "deliver")?.why ?? "", list);
   const firstTake = turns.findIndex((t) => t.tool === "make_take");
@@ -124,7 +124,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const seconds = Math.round(list.reduce((n, c) => n + c.seconds, 0));
   const line =
     status === "none" ? (blocked ?? "It makes every step from the script, checks each take, and delivers the finished cut. You can stop it any time.")
-    : running ? [phase, credits && `up to ${credits} so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
+    : running ? [phase, credits && `${credits} spent so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
     : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `spent ${credits} on this run`, dollars].filter(Boolean).join(" · ");
   const badge = running ? <Badge tone={held ? "warning" : "neutral"}>{held ? "Waiting for approval" : "Working…"}</Badge> : status === "delivered" ? <Badge tone="success">Delivered</Badge> : status === "ended" ? <Badge tone="warning">Stopped</Badge> : null;
 
