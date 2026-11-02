@@ -53,9 +53,10 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
   await page.getByRole("button", { name: "Create invite link" }).click();
   const link = await page.getByRole("region", { name: "Invite link" }).getByLabel("Invite link").inputValue();
   expect(link).toMatch(/\/invite\/.+/);
-  // Invited as an editor (an owner would see dollars), so the role is checked as well as the email.
-  await expect(page.getByRole("region", { name: "Waiting invites" })).toContainText("ed@example.com");
-  await expect(page.getByRole("region", { name: "Waiting invites" })).toContainText("Editor");
+  // Invited as an editor (an owner would see dollars), so the role is checked as well as the email. The link just made
+  // shows in its card at the top, not again under Waiting invites.
+  await expect(page.getByRole("region", { name: "Invite link" })).toContainText("Invite link for an editor · ed@example.com");
+  await expect(page.getByRole("region", { name: "Waiting invites" })).toHaveCount(0);
 
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
