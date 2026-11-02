@@ -410,7 +410,9 @@ def _turn(db: Session, user: User, project: Project, run: dict) -> Job:
             db.commit()
         return last
     run = {**run, "turn": run["turn"] + 1}
-    data = {"step": STEP, RUN: run, **turn_input(db, project, run)}
+    prompt = turn_input(db, project, run)
+    prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
+    data = {"step": STEP, RUN: run, **prompt}
     try:
         return enqueue(
             db, user, "write-claude", data, project=project, provider="claude", prepaid=True
@@ -433,7 +435,7 @@ def refresh(db: Session, job: Job) -> bool:
     db.refresh(job)
     if job.input.get("ended") or over(db, job.input[RUN]["id"]):
         return False
-    asked = turn_input(db, project, job.input[RUN])
+    asked = turn_input(db, project, job.input[RUN], job.id)  # given to this turn as it starts
     db.refresh(job)  # Stop may land while the prompt is built: checked as it's written
     kept = _write(db, job, {**job.input, **asked})
     db.commit()
@@ -441,7 +443,7 @@ def refresh(db: Session, job: Job) -> bool:
     return kept and not over(db, job.input[RUN]["id"])  # the last check, right before the call
 
 
-def turn_input(db: Session, project: Project, run: dict) -> dict:
+def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None) -> dict:
     """The director's prompt (app/prompts/director.md, the Director's) and the brand, then the
     video's state, its run's last actions and what it still may do."""
     from app.enhance import project_context
@@ -453,7 +455,10 @@ def turn_input(db: Session, project: Project, run: dict) -> dict:
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD)}  # fmt: skip
-    asked = chat(project, run["id"])  # what people asked of this run (a revision's reason)
+    given = max((t.input.get(READ, 0) for t in turns(db, project)
+                 if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
+    asked = [{**m, "new": n >= given}  # new: no earlier turn was given it; else handled
+             for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
     parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed),
              *((("chat", asked),) if asked else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
@@ -537,6 +542,8 @@ def choose(state: dict) -> dict:
         return go("storyboard", "The shots are ready; the storyboard is next.")
     if state["stills"]["drawn"] < state["stills"]["frames"]:
         return go("stills", "Some frames have no still yet.")
+    if asked := _asked(state):
+        return asked  # a new note: what the person asked, once; then cut and deliver again
     if not clips or any(c["stale"] for c in clips):
         return go("clip_prompts", "The clips need their prompts.")
     if any(not c["takes"] for c in clips):
@@ -559,8 +566,6 @@ def choose(state: dict) -> dict:
                    else f"No take of {c['clip_id']} is clean: using the newest, take "
                    f"{best['number']}.")  # fmt: skip
             return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
-    if state["cut"] == "made" and (asked := _asked(state)):
-        return asked  # a revision: what the person asked, then cut and deliver again
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
     if state["cut"] != "made":
@@ -578,15 +583,15 @@ def choose(state: dict) -> dict:
 
 
 def _asked(state: dict) -> dict | None:
-    """The stand-in's answer to the newest chat message: a clip it names ("clip 2") is made
-    again with the message as its note, once a run."""
-    if not state.get("chat"):
+    """The stand-in's answer to the newest new note: a clip it names ("clip 2") is made again
+    with the note as its note. A handled note (`new` false) is never acted on again."""
+    new = [m for m in state.get("chat") or [] if m.get("new")]
+    if not new:
         return None
-    text = state["chat"][-1]["text"]
+    text = new[-1]["text"]
     named = re.search(r"\bclip (\d+)\b", text, re.I)
     clip = f"c{named[1]}" if named else None
-    if clip and clip in {c["clip_id"] for c in state["clips"]} and clip not in state.get(
-        "allowed", {}).get("redos_used", {}):  # fmt: skip
+    if clip and any(c["clip_id"] == clip and not c["stale"] for c in state["clips"]):
         return {"tool": "make_take", "why": f"You asked: {text}"[:300], "clip_id": clip,
                 "take_id": None, "note": text[:500]}  # fmt: skip
     return None

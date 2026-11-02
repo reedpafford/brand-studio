@@ -3,10 +3,13 @@ builds the whole video with the site's own actions, each checked as the editor's
 its turns are its log. All on the stand-ins: the fake Claude answers each turn with
 `director.choose` (no paid call)."""
 
+import json
+
 from app import director
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import get_providers
+from app.providers.fake_local import _tag
 from app.worker import run_once
 from tests.helpers import with_sheet
 from tests.test_cast_roles import _video
@@ -605,10 +608,10 @@ def _second_turn(app, db, owner, editor, monkeypatch, when: str):
     providers = get_providers(app.state.settings, app.state.storage)
     real_input, real_run = director.turn_input, providers["claude"].run
 
-    def building(db, project, run):  # QA-7: Stop lands while the prompt is being built
+    def building(db, project, run, job_id=None):  # QA-7: Stop lands while the prompt is being built
         if when == "before" and run["turn"] == 2 and calls:
             editor.post(f"/projects/{pid}/director/stop")
-        return real_input(db, project, run)
+        return real_input(db, project, run, job_id)
 
     def asked(kind, input):
         out = real_run(kind, input)
@@ -831,3 +834,31 @@ def test_notes_one_every_3_seconds_a_person_and_30_a_run(app, db, owner, editor,
     db.refresh(project)
     assert len(project.director_chat) == 30
     assert db.query(Job).filter(Job.kind != "write-claude").count() == 0  # nothing charged
+
+
+def test_each_note_is_new_to_exactly_one_turn_and_one_paid_redo(app, db, owner, editor):
+    """The Producer: a note is shown as new once, on the first turn after it arrives; later
+    turns see it as handled. A note asking for a redo makes exactly one redo."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    providers = get_providers(app.state.settings, app.state.storage)
+    sent = False
+    for _ in range(60):  # the note lands mid-run, once clip 1 has its prompt
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        if not sent and any(t["tool"] == "make_take" for t in editor.get(url).json()["turns"]):
+            r = editor.post(f"{url}/messages", json={"text": "Make clip 1 brighter."})
+            assert r.status_code == 201
+            sent = True
+    assert sent
+    assert editor.get(url).json()["status"] == "delivered"
+    steps = sorted((j for j in db.query(Job).filter_by(project_id=pid)
+                    if j.input.get("step") == director.STEP), key=lambda j: j.id)  # fmt: skip
+    chats = [json.loads(_tag(j.input["prompt"], "chat") or "[]") for j in steps]
+    new = [c for c in chats if any(m["new"] for m in c)]
+    assert new == [[{"text": "Make clip 1 brighter.", "new": True}]]  # new to one turn only
+    later = chats[chats.index(new[0]) + 1 :]
+    assert later and all(c == [{"text": "Make clip 1 brighter.", "new": False}] for c in later)
+    redos = [j for j in steps if (j.output or {}).get("why") == "You asked: Make clip 1 brighter."]
+    assert len(redos) == 1
