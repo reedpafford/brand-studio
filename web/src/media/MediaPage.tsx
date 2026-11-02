@@ -197,7 +197,7 @@ export function MediaPage() {
           filtered ? (
             <EmptyState icon={Images} title="Nothing matches these filters." action={<Button variant="ghost" onClick={clear}>Clear filters</Button>} />
           ) : (
-            <EmptyState icon={Film} title={`Nothing made yet in ${brand?.name ?? "this brand"}.`} action={<Link to="/freestyle" className={buttonClass("primary")}>Make a freestyle</Link>}>
+            <EmptyState icon={Film} title={`Nothing made yet in ${brand?.name ?? "this brand"}.`} action={<Link to={`/b/${brandId}/videos/new`} className={buttonClass("secondary")}>New video</Link>}>
               Stills, takes, songs and final videos show up here as they're made.
             </EmptyState>
           )

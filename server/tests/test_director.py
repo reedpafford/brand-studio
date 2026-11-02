@@ -989,3 +989,21 @@ def test_make_it_shows_the_most_one_run_may_charge(app, db, owner, editor):
     assert shown == float(run_price(db, draft, project)) > float(version_cost(db, draft, project))
     editor.post(url)
     assert editor.get(url).json()["run_price"] == 0  # running: its "so far" is what it shows
+
+
+def test_a_turn_kept_before_its_tool_runs_reads_as_going_never_stopped(app, db, owner, editor):
+    """The worker keeps a turn's answer (succeeded) and only then runs its tool and writes its
+    result: read in between, the move is still going, not "Stopped." (QA on #1194: a "Stopped."
+    flashed after "Making the plan." and the run then delivered)."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db, ticks=3)
+    project = db.get(Project, pid)
+    turn = next(j for j in director.turns(db, project) if j.status == JobStatus.succeeded)
+    turn.input = {
+        k: v for k, v in turn.input.items() if k not in ("result", "ended")
+    }  # as `after` finds it
+    db.commit()
+    move = next(m for m in editor.get(url).json()["thread"] if m["id"] == f"t{turn.id}")
+    assert (move["text"], move["status"]) == ("Deciding what to do next.", "running")

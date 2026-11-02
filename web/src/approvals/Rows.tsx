@@ -134,7 +134,9 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
   // Each editor's own week, from the owner-only allowances.
   const allowances = useQuery({ queryKey: ["allowances"], queryFn: async () => (await api.GET("/credits/allowances")).data ?? [] });
   const week = allowances.data?.find((a) => a.user_id === job.created_by_id);
-  const after = project && project.budget_credits > 0 ? ((budgetUsed(project) + job.credits) / project.budget_credits) * 100 : null;
+  // A freestyle's price is its run's "up to"; its first turn's own credits against the video's budget (budget_credits)
+  // would be a second, different figure (QA on #1194), so it has no budget line or meter.
+  const after = !fs && project && project.budget_credits > 0 ? ((budgetUsed(project) + job.credits) / project.budget_credits) * 100 : null;
   const rail = useRail();
   const askedBy = `${who ? `asked by ${who}, ` : ""}${ago(job.created_at)}`;
   const where = (

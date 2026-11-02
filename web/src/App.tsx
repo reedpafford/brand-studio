@@ -5,7 +5,8 @@ import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProductionPage } from "./production/ProductionPage";
 import { ProjectPage } from "./projects/ProjectPage";
-import { VideoPage } from "./projects/VideoPage";
+import { VideoRoute } from "./videos/VideoChat";
+import { NewVideoPage } from "./videos/NewVideoPage";
 import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { NewScriptPage } from "./scripts/NewScriptButton";
@@ -13,7 +14,7 @@ import { ScriptsRoute } from "./videos/ScriptsRoute";
 import { VideosPage } from "./videos/VideosPage";
 import { MediaPage } from "./media/MediaPage";
 import { MediaItemPage } from "./media/MediaItemPage";
-import { FreestylePage } from "./freestyle/FreestylePage";
+import { FreestylePage, ToNewVideo } from "./freestyle/FreestylePage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
 import { BrandPage, ToBrand } from "./brand/BrandPage";
@@ -47,19 +48,21 @@ export function App() {
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />
           <Route path="b/:brandId/videos" element={<VideosPage />} />
-          <Route path="b/:brandId/videos/:projectId" element={<VideoPage />} />
+          <Route path="b/:brandId/videos/new" element={<NewVideoPage />} />
+          <Route path="b/:brandId/videos/:projectId" element={<VideoRoute />} />
           <Route path="b/:brandId/brand" element={<BrandPage />} />
           <Route path="b/:brandId/kit" element={<ToBrand />} />
           <Route path="b/:brandId/screens" element={<ToBrand tab="screens" />} />
           <Route path="b/:brandId/library" element={<Navigate to="characters" replace />} />
           <Route path="b/:brandId/library/:kindSlug" element={<LibraryPage />} />
           <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />
-          <Route path="b/:brandId/clip" element={<Navigate to="/freestyle" replace />} />
+          <Route path="b/:brandId/clip" element={<Navigate to="../videos/new" relative="path" replace />} />
           <Route path="b/:brandId/media" element={<MediaPage />} />
           <Route path="b/:brandId/media/:key" element={<MediaItemPage />} />
           <Route path="brands/new" element={<NewBrandPage />} />
-          <Route path="freestyle" element={<FreestylePage />} />
+          <Route path="freestyle" element={<ToNewVideo />} />
           <Route path="freestyle/:freestyleId" element={<FreestylePage />} />
+          <Route path="b/:brandId/freestyle/:freestyleId" element={<FreestylePage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="looks" element={<Navigate to="/settings?tab=looks" replace />} />
