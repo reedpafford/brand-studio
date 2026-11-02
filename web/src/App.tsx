@@ -12,6 +12,7 @@ import { NewScriptPage } from "./scripts/NewScriptButton";
 import { ScriptsRoute } from "./videos/ScriptsRoute";
 import { VideosPage } from "./videos/VideosPage";
 import { MediaPage } from "./media/MediaPage";
+import { MediaItemPage } from "./media/MediaItemPage";
 import { FreestylePage } from "./freestyle/FreestylePage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
@@ -54,6 +55,7 @@ export function App() {
           <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />
           <Route path="b/:brandId/clip" element={<Navigate to="/freestyle" replace />} />
           <Route path="b/:brandId/media" element={<MediaPage />} />
+          <Route path="b/:brandId/media/:key" element={<MediaItemPage />} />
           <Route path="freestyle" element={<FreestylePage />} />
           <Route path="freestyle/:freestyleId" element={<FreestylePage />} />
           <Route path="team" element={<TeamPage />} />
