@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Button } from "../components";
-import { useLooks } from "../scripts/Looks";
+import { lookName, useLooks } from "../scripts/Looks";
 import { useToast } from "../toast";
 import { card, errorText as errorClass } from "../ui";
 import { api, must } from "../api/client";
@@ -29,7 +29,7 @@ export function SheetVersions({ item, kind }: { item: { id: number; name: string
   });
   const list = versions.data ?? [];
   if (list.length < 2) return null;
-  const lookName = (id: string) => looks.find((l) => l.id === id)?.name ?? (id === "house" ? "House" : id);
+  const nameOf = (id: string) => lookName(looks, id);
   return (
     <section aria-label="Sheets" className={`${card} space-y-3`}>
       <div>
@@ -41,10 +41,10 @@ export function SheetVersions({ item, kind }: { item: { id: number; name: string
         {list.map((v) => (
           <li key={v.file_id} aria-label={`Sheet ${v.file_id}`} className="space-y-2 text-sm">
             <div className="grid aspect-[9/16] place-items-center overflow-hidden rounded-md bg-surface-2">
-              <img src={fileUrl(v.file_id)} alt={`${item.name}, ${lookName(v.look_id)} sheet`} className="h-full w-full object-cover" loading="lazy" />
+              <img src={fileUrl(v.file_id)} alt={`${item.name}, ${nameOf(v.look_id)} sheet`} className="h-full w-full object-cover" loading="lazy" />
             </div>
             <p className="flex flex-wrap items-center gap-2">
-              <Badge>{lookName(v.look_id)}</Badge>
+              <Badge>{nameOf(v.look_id)}</Badge>
               {v.preferred && <Badge tone="success">In use</Badge>}
             </p>
             {owner && !v.preferred && (

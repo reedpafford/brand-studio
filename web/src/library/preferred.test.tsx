@@ -58,3 +58,12 @@ test("with one sheet, or a server without versions, there's no list", async () =
   expect(await screen.findByDisplayValue("Mia")).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Sheets" })).toBeNull();
 });
+
+test("a sheet made in a lane of a style is named by it, never by its raw id (one look per style)", async () => {
+  setViewport(390);
+  fakeServer(server(owner, { "GET /library/character/5/sheet/versions": [200, [{ file_id: 73, look_id: "paper-flat", made_at: "2026-11-01T10:00:00Z", preferred: true }, ...sheets]], "GET /looks": [200, [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }, { id: "paper", name: "Paper", blurb: "", on: true, sample_still_id: null }]] }));
+  open();
+  const list = await screen.findByRole("region", { name: "Sheets" });
+  expect(within(list).getByText("Paper · Flat")).toBeInTheDocument();
+  expect(list.textContent).not.toContain("paper-flat");
+});
