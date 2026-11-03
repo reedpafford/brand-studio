@@ -8,6 +8,7 @@ import { useMe } from "../auth/useMe";
 import { Badge, Button, Card, Dialog, Panel, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { PickLabel, pickClass } from "./ScriptFrame";
 
 /** A look: how the pictures are drawn (flows ST1; Next-Server's GET /looks, #873). House first, then Reed's order. */
 export type Look = components["schemas"]["LookOut"];
@@ -125,8 +126,8 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
   const n = asking?.change.roles.length ?? 0;
   return (
     <>
-      <Button variant="ghost" dense icon={Palette} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Style: {name}
+      <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Style: ${name}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <PickLabel label="Style">{name}</PickLabel>
       </Button>
       {refused && !open && <p role="alert" className={errorClass}>{refused}</p>}
       {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} />}

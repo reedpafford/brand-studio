@@ -69,3 +69,16 @@ test("at 390, a character page's Edit, More, Archive character, Add outfit, Save
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
 });
+
+test("New script: at 390 the breadcrumb's Scripts link is a 44 px press; at 1440 the settings and steps share one 52 px row (QA-12 on #1221)", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brand = await emptyBrand(page, "Touch Script Co");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/b/${brand}/scripts/new?kind=story`);
+  const link = (await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Scripts" }).boundingBox())!;
+  expect(link.height).toBeGreaterThanOrEqual(44);
+  expect(link.width).toBeGreaterThanOrEqual(44);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(async () => (await page.getByRole("group", { name: "Script settings" }).locator("..").boundingBox())?.height ?? 0).toBeLessThanOrEqual(53);
+});

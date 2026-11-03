@@ -21,8 +21,18 @@ function Mark({ step, n }: { step: Step; n: number }) {
 
 const text = (s: Step) => (s.state === "stale" ? `${s.label} · out of date` : s.label);
 
-/** Six steps. Desktop: a row joined by lines. Phone: one 44px button opening a sheet. */
-export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: string) => void }) {
+/** v5's step mark: a small ring with the number, green with a tick when done, indigo when current. */
+function Ring({ step, n }: { step: Step; n: number }) {
+  const look = step.state === "done" ? "border-success bg-success text-bg" : step.state === "current" ? "border-accent-text text-accent-text" : "border-border";
+  return (
+    <span aria-hidden className={`grid size-[18px] place-items-center rounded-full border text-xs tabular-nums ${look}`}>
+      {step.state === "done" ? <Check size={12} strokeWidth={2.5} /> : step.state === "stale" ? <TriangleAlert size={12} strokeWidth={2} className="text-warning" /> : n}
+    </span>
+  );
+}
+
+/** Six steps. Desktop: a row joined by lines, or (flat, the v5 script steps) a quiet row of rings. Phone: one 44px button opening a sheet. */
+export function StepPicker({ steps, onPick, flat }: { steps: Step[]; onPick: (id: string) => void; flat?: boolean }) {
   const phone = useMedia("(max-width: 1023px)"); // the row of six does not fit below the rail breakpoint
   const uid = useId();
   const [open, setOpen] = useState(false);
@@ -60,6 +70,34 @@ export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: stri
           </Sheet>
         )}
       </>
+    );
+  if (flat)
+    return (
+      <ol aria-label="Steps" className="flex items-center gap-0.5">
+        {steps.map((s, i) => (
+          <li key={s.id}>
+            <button
+              type="button"
+              aria-disabled={s.state === "todo"}
+              aria-current={s.state === "current" ? "step" : undefined}
+              aria-describedby={s.state === "todo" && s.reason ? `${uid}-${s.id}` : undefined}
+              title={s.state === "todo" ? s.reason : undefined}
+              onClick={() => pick(s)}
+              className={`inline-flex min-h-control-dense items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-sm font-medium transition-colors duration-(--dur-fast) ${
+                s.state === "current" ? "bg-surface-2 text-text" : s.state === "todo" ? "cursor-not-allowed text-disabled-text" : "text-muted hover:text-text"
+              }`}
+            >
+              <Ring step={s} n={i + 1} />
+              {text(s)}
+            </button>
+            {s.state === "todo" && s.reason && (
+              <span id={`${uid}-${s.id}`} className="sr-only">
+                {s.reason}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
     );
   return (
     <ol aria-label="Steps" className="flex flex-wrap items-center gap-y-2">

@@ -438,7 +438,44 @@ class FakeWriter:
         return prompts.stand_in_treatment(_tag(prompt, "script") or "")
 
     def _enhance(self, prompt):
-        return {"suggestions": [], "notes": []}
+        """Up to three directions on the script's first lines that have words (a camera move,
+        a movement, a reaction), each quoting its line exactly, and one note: enough to walk
+        Directions on the test site for free."""
+        numbered = re.findall(r"^(\d+)\| (.*\S)\s*$", _tag(prompt, "script"), re.M)
+        said = [
+            (int(n), line) for n, line in numbered if not re.match(r"^(SCENE|INT\.|EXT\.)", line)
+        ]
+        kinds = [
+            ("camera", "Slow push in as this line lands.", "Draws the eye to the moment."),
+            (
+                "action",
+                "A small move that shows the line, not just says it.",
+                "Gives the line a picture.",
+            ),
+            (
+                "reaction",
+                "Hold on the listener's face for a beat.",
+                "Lets the line land before the cut.",
+            ),
+        ]
+        suggestions = [
+            {
+                "id": f"s{i + 1}",
+                "kind": kind,
+                "anchor": {"line": n, "quote": line},
+                "placement": "after",
+                "text": text,
+                "screen_id": None,
+                "reason": reason,
+            }
+            for i, ((n, line), (kind, text, reason)) in enumerate(zip(said, kinds, strict=False))
+        ]
+        notes = (
+            [{"line": said[-1][0], "text": "A practice note: the last line could name the brand."}]
+            if said
+            else []
+        )
+        return {"suggestions": suggestions, "notes": notes}
 
     def _script_draft(self, prompt):
         """A practice script; adapting a reel, it says the reel's lines word for word (each

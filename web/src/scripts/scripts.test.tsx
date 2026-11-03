@@ -107,25 +107,23 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Dialogue/ }));
-  // The script page's header shows at once (Reed's walk item 1): format, Look, Project and the steps, later ones locked.
-  expect(await screen.findByText("Not saved yet · saved when you type, or pick a style or project")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Format: Dialogue" })).toBeInTheDocument();
-  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write the script first");
+  // The script page's frame shows at once (v5 C_NewScript): the breadcrumb, the settings and the steps, later ones locked.
+  expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Scripts›New script");
+  expect(screen.getByRole("button", { name: "Type: Dialogue" })).toBeInTheDocument();
+  expect(screen.getByTitle("Each video picks its shape")).toHaveTextContent("Shape Per video: each video picks its shape"); // read only (Next-Lead)
+  expect(screen.getByText("Nothing is saved until you type or pick a setting. Lines with a NAME: are dialogue.")).toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: /Cast/ })).toHaveAccessibleDescription("Write a few lines first");
   // No dead press: every later step is locked with its reason, Variations too (QA-3 on #1191).
-  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: /Variations/ })).toHaveAccessibleDescription("Write the script first");
+  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: /Variations/ })).toHaveAccessibleDescription("Write a few lines first");
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
-  await userEvent.type(screen.getByLabelText("Paste or write your script"), "B");
+  await userEvent.type(screen.getByLabelText("Write or paste the script"), "B");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ brand_id: 1, title: "Untitled script", description: "", text: "", kind: "story" }));
-  expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
-  const editor = screen.getByLabelText("Paste or write your script");
+  const editor = await screen.findByLabelText("Script · version A");
   expect(editor).toHaveFocus(); // the cursor came along, so typing goes on where it was
   await userEvent.keyboard("o");
   expect(editor).toHaveValue("Bo");
   expect(screen.getByText("Not saved yet")).toBeInTheDocument();
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
-  // The title is one tap away in the header.
-  await userEvent.click(screen.getByRole("button", { name: "Rename Untitled script" }));
-  expect(screen.getByLabelText("Title")).toHaveValue("Untitled script");
 });
 
 test("New script at 390 and desktop: the header shows on load and opening saves nothing; a Look pick saves the script with that look, a Project pick files it", async () => {
@@ -157,10 +155,10 @@ test("New script: the script page opens with its editor already there, so no let
     return req.method === "GET" && new URL(req.url).pathname.endsWith("/scripts/7") ? new Promise<Response>(() => {}) : fake(input, init);
   });
   open("/b/1/scripts/new?kind=story");
-  await userEvent.type(await screen.findByLabelText("Paste or write your script"), "B");
-  expect(await screen.findByRole("heading", { name: "Script", level: 2 })).toBeInTheDocument();
+  await userEvent.type(await screen.findByLabelText("Write or paste the script"), "B");
+  expect(await screen.findByLabelText("Script · version A")).toBeInTheDocument();
   await userEvent.keyboard("o tries"); // straight on, into whatever has the cursor
-  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("Bo tries");
+  expect(screen.getByLabelText("Script · version A")).toHaveValue("Bo tries");
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
 });
 
@@ -168,33 +166,21 @@ test("New script: backing out before a word is typed leaves nothing behind (flow
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []] });
   open("/b/1/scripts/new?kind=story");
-  await userEvent.type(await screen.findByLabelText("Paste or write your script"), "   "); // spaces aren't a word
+  await userEvent.type(await screen.findByLabelText("Write or paste the script"), "   "); // spaces aren't a word
   await userEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Scripts" }));
   expect((await screen.findAllByRole("button", { name: "New script" }))[0]).toBeInTheDocument(); // the page top's, and the empty list's
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
 });
 
-test("New script: Start from what it's for saves one script, with its format, and opens About", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, full({ title: "Untitled script", description: "" })], "GET /scripts/7": [200, full({ title: "Untitled script", description: "" })] });
-  open("/b/1/scripts/new?kind=story");
-  await userEvent.dblClick(await screen.findByRole("button", { name: "Start from what it's for" })); // a fast double tap
-  expect(await screen.findByText("About this script")).toBeInTheDocument();
-  expect(screen.getByText("About this script").closest("details")).toHaveAttribute("open");
-  expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
-  expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", text: "" });
-});
-
-test("a draft script's page: title, a draft badge, six steps, and About this script closed but there to edit", async () => {
+test("a draft script's page: the breadcrumb, the five v5 steps, and About this script closed but there to edit", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PATCH /scripts/7": [200, full({ title: "Bo tries tuna" })] });
   open("/b/1/scripts/7");
-  expect(await screen.findByRole("heading", { level: 1, name: /Bo tries salmon/ })).toBeInTheDocument();
-  expect(screen.getByText("Draft · only you can see it")).toBeInTheDocument(); // Reed on his own draft
+  expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Scripts›Bo tries salmon›Steps");
   const steps = screen.getByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Script", "Directions", "Variations", "Cast", "Breakdown", "Publish"]);
-  expect(within(steps).getByRole("button", { name: "Directions" })).toHaveAccessibleDescription("Write the script first");
-  expect(within(steps).getByRole("button", { name: "Breakdown" })).toHaveAccessibleDescription("Write the script first");
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Script", "Directions", "Variations", "Breakdown", "Cast"]);
+  expect(within(steps).getByRole("button", { name: /Directions/ })).toHaveAccessibleDescription("Write the script first");
+  expect(within(steps).getByRole("button", { name: /Breakdown/ })).toHaveAccessibleDescription("Write the script first");
   const about = screen.getByText("About this script").closest("details")!;
   expect(about.open).toBe(false); // closed, with the title and what it's for in its line
   await userEvent.click(screen.getByText("About this script"));
@@ -205,22 +191,25 @@ test("a draft script's page: title, a draft badge, six steps, and About this scr
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toMatchObject({ title: "Bo tries tuna", description: "Show a picky dog." }));
 });
 
-test("the script step saves the words as the original; Next needs them", async () => {
+test("the script step autosaves the words as the original a moment after typing stops, with their counts; Next needs them", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PUT /scripts/7/drafts/0": [200, full()] });
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, full()], "PUT /scripts/7/drafts/0": [200, full({ versions: [{ ...full().versions[0], text: "BO: Salmon?" }] })] });
   open("/b/1/scripts/7?step=script");
   const next = await screen.findByRole("button", { name: "Next: Directions" });
   expect(next).toBeDisabled();
-  await userEvent.type(screen.getByLabelText("Paste or write your script"), "BO: Salmon?");
-  await userEvent.click(screen.getByRole("button", { name: "Save script" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "BO: Salmon?" }));
+  await userEvent.type(screen.getByLabelText("Script · version A"), "BO: Salmon?");
+  expect(screen.getByText("Not saved yet")).toBeInTheDocument();
+  expect(screen.getByText("1 speaker · 1 line")).toBeInTheDocument();
+  expect(screen.getByText("2 words · about 0 s")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "BO: Salmon?" }), { timeout: 3000 });
+  expect(await screen.findByText(/^Saved \d/)).toBeInTheDocument();
 });
 
-test("a published script is final: a lock badge, and no rename or edit buttons", async () => {
+test("a published script is final: its type reads, and there are no rename or edit buttons", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full({ published: true, status: "published" })] });
   open("/b/1/scripts/7");
-  expect(await screen.findByText("Published · final")).toBeInTheDocument();
+  expect(await screen.findByText("Type: Dialogue")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Rename" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Edit description" })).not.toBeInTheDocument();
 });
@@ -331,7 +320,8 @@ test("the picker locks Characters and Publish until the script has words", async
   open("/b/1/scripts/7");
   const steps = await screen.findByRole("list", { name: "Steps" });
   expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write the script first");
-  expect(within(steps).getByRole("button", { name: "Publish" })).toHaveAccessibleDescription("Write the script first");
+  expect(within(steps).getByRole("button", { name: "Breakdown" })).toHaveAccessibleDescription("Write the script first");
+  expect(within(steps).queryByRole("button", { name: "Publish" })).toBeNull(); // v5: Publish to library, not a step in the bar
 });
 
 test("Publish waits for every version to be approved, as Variations says; its card approves it in one press, then Publish asks and publishes", async () => {
@@ -394,7 +384,7 @@ test("a published script's Publish page is read-only, with Duplicate script", as
     "GET /scripts/8": [200, full({ id: 8 })],
   });
   open("/b/1/scripts/7?step=publish");
-  expect(await screen.findAllByText("Published · final")).not.toHaveLength(0);
+  await screen.findByRole("button", { name: "Duplicate script" });
   expect(screen.queryByRole("button", { name: /^Publish \d/ })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Duplicate script" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/duplicate")).toBe(true));
@@ -418,31 +408,27 @@ test("the reference reels are compact rows with a search once there are more tha
   expect(within(list).getByLabelText("What to change")).toBeInTheDocument();
 });
 
-test("with unsaved words Next is still there; it asks before leaving and Stay keeps the words", async () => {
+test("leaving the box saves the words, so Next goes straight on; a save that failed asks before leaving and Stay keeps the words", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, full({ versions: [{ ...full().versions[0], text: "BO: Salmon?", status: "draft" }] })] });
+  const before = full({ versions: [{ ...full().versions[0], text: "BO: Salmon?", status: "draft" }] });
+  const saved = full({ versions: [{ ...full().versions[0], text: "BO: Salmon? More.", status: "draft" }] });
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, before], "PUT /scripts/7/drafts/0": [200, saved], "GET /scripts/7/drafts/0/suggestions": [200, []], "GET /scripts/7/drafts/0/notes": [200, []], "GET /scripts/7/drafts/0/enhance/estimate": [200, { credits: 3 }] });
   open("/b/1/scripts/7");
-  expect(await screen.findByRole("button", { name: "Next: Directions" })).toBeInTheDocument();
-  await userEvent.type(screen.getByLabelText("Paste or write your script"), " More.");
+  await userEvent.type(await screen.findByLabelText("Script · version A"), " More.");
+  await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
+  expect(await screen.findByRole("heading", { name: "Suggested directions" })).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "BO: Salmon? More." }));
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  fakeServer({ ...base, "GET /scripts/7": [200, before], "PUT /scripts/7/drafts/0": [500, { detail: "The server is busy." }] });
+  open("/b/1/scripts/7");
+  await userEvent.type(await screen.findByLabelText("Script · version A"), " More.");
+  await userEvent.tab();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Not saved: The server is busy.");
   await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
   expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Stay" }));
-  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("BO: Salmon? More.");
-  await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-  await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
-  expect(await screen.findByRole("button", { name: /^Suggest directions/ })).toBeInTheDocument(); // no question once nothing is unsaved
-});
-
-test("the draft badge says who can see it: you, you and the owner, or whose draft it is", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts/7": [200, full({ created_by_id: 2, created_by_name: "Sam" })] });
-  open("/b/1/scripts/7");
-  expect(await screen.findByText("Draft · only you and the owner can see it")).toBeInTheDocument();
-  vi.unstubAllGlobals();
-  document.body.innerHTML = "";
-  fakeServer({ ...base, "GET /scripts/7": [200, full({ created_by_id: 2, created_by_name: "Sam" })] });
-  open("/b/1/scripts/7");
-  expect(await screen.findByText("Draft · Sam's, not published")).toBeInTheDocument();
+  expect(screen.getByLabelText("Script · version A")).toHaveValue("BO: Salmon? More.");
 });
 
 const ver = (slot: number, o: object = {}) => ({ ...full().versions[0], slot, text: "", status: "draft", changes: [], ...o });
@@ -482,8 +468,8 @@ test("Variations side by side: changed lines are marked, a draft can be approved
   expect(within(b).getByText("What changed: a car showroom instead of the church")).toBeInTheDocument();
   const marked = Array.from(b.querySelectorAll("span.bg-mark")).map((e) => e.textContent);
   expect(marked).toEqual(["SCENE 1 — SHOWROOM"]);
-  expect(screen.getByRole("button", { name: /Next: Cast/ })).toBeDisabled();
-  expect(screen.getByRole("button", { name: /Next: Cast/ })).toHaveAccessibleDescription("Approve or remove variation B first.");
+  expect(screen.getByRole("button", { name: /Next: Breakdown/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Next: Breakdown/ })).toHaveAccessibleDescription("Approve or remove variation B first.");
   await userEvent.click(within(b).getByRole("button", { name: "Approve" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/1/approve")).toBe(true));
 });
@@ -558,13 +544,13 @@ test("Make this version is free when a breakdown is already saved", async () => 
   expect(button).not.toHaveTextContent(/credit/);
 });
 
-test("Variations: picking 1 or 2 shows Write and says A's words become final; Next to Cast stays", async () => {
+test("Variations: picking 1 or 2 shows Write and says A's words become final; Next to Breakdown stays", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, approvedOriginal()], "GET /scripts/7/variations/estimate": [200, { credits: 6 }] });
   open("/b/1/scripts/7?step=variations");
-  expect(await screen.findByRole("button", { name: "Next: Cast" })).toBeInTheDocument(); // None: Next is the amber one
+  expect(await screen.findByRole("button", { name: "Next: Breakdown" })).toBeInTheDocument(); // None: Next is the amber one
   await userEvent.click(await screen.findByRole("radio", { name: "1" }));
-  expect(screen.getByRole("button", { name: "Next: Cast" })).toBeEnabled(); // Next always just goes on; Write is a separate button
+  expect(screen.getByRole("button", { name: "Next: Breakdown" })).toBeEnabled(); // Next always just goes on; Write is a separate button
   expect(screen.getByText("Writing variations makes A's words final.")).toBeInTheDocument();
 });
 
@@ -864,7 +850,7 @@ test("a script that isn't from a reel has no reel block", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/import": [404, { detail: "This script isn't made from a reel." }] });
   open("/b/1/scripts/7");
-  await screen.findByRole("heading", { level: 1, name: /Bo tries salmon/ });
+  await screen.findByLabelText("Script · version A");
   expect(screen.queryByText("Got the reel")).not.toBeInTheDocument();
 });
 
@@ -1255,16 +1241,6 @@ test("About saves with only a title: what it's for is optional (a new draft star
   expect(save).toBeEnabled();
   await userEvent.click(save);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toMatchObject({ title: "Bo tries tuna", description: "" }));
-});
-
-test("the header rename field takes the whole row, so the title is readable on a phone", async () => {
-  setViewport(390);
-  fakeServer({ ...base, "GET /scripts/7": [200, full({ title: "Untitled script" })] });
-  open("/b/1/scripts/7");
-  await userEvent.click(await screen.findByRole("button", { name: "Rename Untitled script" }));
-  const form = screen.getByRole("textbox", { name: "Title" }).closest("form")!;
-  expect(form.className).toContain("basis-full");
-  expect(form.className).toContain("w-full");
 });
 
 test("an old /scripts/new link goes to the Scripts list", async () => {

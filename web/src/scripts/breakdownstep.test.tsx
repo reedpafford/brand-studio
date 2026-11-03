@@ -38,13 +38,13 @@ function open() {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("an unplanned version offers the breakdown at its price, and Next: Publish stays the amber button", async () => {
+test("an unplanned version offers the breakdown at its price, and Next: Cast stays the amber button", async () => {
   setViewport(1440);
   const calls = fakeServer(base({ "POST /scripts/7/drafts/0/breakdown": [201, { id: 90, kind: "write-claude", status: "queued", step: "breakdown", script_id: 7 }] }));
   open();
   await userEvent.click(await screen.findByRole("tab", { name: "Shots" }));
   expect(await screen.findByText("Plan the shots now, or let it happen when an editor starts this version.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Publish" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Next: Cast" })).toBeEnabled();
   await userEvent.click(screen.getByRole("button", { name: "Make the breakdown · up to 6 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/breakdown")).toBe(true));
   // This fake server never says it is running, so the run reads as finished with no plan: it can be tried again.
@@ -131,7 +131,7 @@ test("a version opens on its scene plan: none yet says it's optional, and Make t
   const calls = fakeServer(base({ "GET /credits/rates": [200, [{ kind: "write-claude", credits_per_unit: 3 }]], "GET /scripts/7/drafts/0/plan": [404, { detail: "This version has no plan yet." }], "POST /scripts/7/drafts/0/plan": [201, { id: 91, kind: "write-claude", status: "queued" }] }));
   open();
   expect(await screen.findByText(/Skip it and it's made when an editor starts/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Publish" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Next: Cast" })).toBeEnabled();
   await userEvent.click(screen.getByRole("button", { name: "Make the plan · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/plan")).toBe(true));
 });

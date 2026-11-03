@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -37,7 +37,7 @@ test("the script editor is open on an empty script, with Have Claude write it fo
   const calls = fakeServer(base({ "POST /scripts/7/write": [201, { id: 90, kind: "write-claude", status: "queued", script_id: 7 }] }));
   open();
   const write = await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" });
-  expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
+  expect(screen.getByLabelText("Script · version A")).toBeInTheDocument();
   expect(screen.queryByRole("switch")).toBeNull();
   expect(screen.getByText(/Includes finding the roles\./)).toBeInTheDocument();
   expect(screen.queryByText(/Ask Reed/)).toBeNull();
@@ -63,7 +63,7 @@ test("a write that didn't finish says so, says credits came back, and offers Try
   open();
   expect(await screen.findByText("The last try didn't finish. Credits were returned.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Try again · up to 6 credits" })).toBeEnabled();
-  expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
+  expect(screen.getByLabelText("Script · version A")).toBeInTheDocument();
 });
 
 test("a script that already has words shows them in the editor; Claude's draft asks before replacing them, and Undo after it writes puts them back", async () => {
@@ -76,7 +76,7 @@ test("a script that already has words shows them in the editor; Claude's draft a
   Object.defineProperty(routes, "GET /jobs", { enumerable: true, get: () => [200, phase === 0 ? [] : [{ id: 90, kind: "write-claude", status: "succeeded", script_id: 7 }]] });
   const calls = fakeServer(routes);
   open();
-  expect(await screen.findByLabelText("Paste or write your script")).toHaveValue("BO: Salmon?");
+  expect(await screen.findByLabelText("Script · version A")).toHaveValue("BO: Salmon?");
   await userEvent.click(await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" }));
   expect(await screen.findByRole("alertdialog", { name: "Write a new script?" })).toBeInTheDocument();
   phase = 1; // the job is done by the time the list is read again
@@ -95,7 +95,7 @@ test("an imported reel that isn't read yet offers Read this reel, never Have Cla
   expect((await screen.findAllByRole("button", { name: "Read this reel · up to 7 credits" })).length).toBeGreaterThan(0);
   expect(screen.queryByText(/Have Claude write it/)).toBeNull();
   expect(screen.queryByRole("button", { name: /^Have Claude write it/ })).toBeNull();
-  expect(screen.getByLabelText("Paste or write your script")).toBeInTheDocument();
+  expect(screen.getByLabelText("Script · version A")).toBeInTheDocument();
 });
 
 test("a script with a reel that is not read yet (reel_imported still false) shows only Read this reel, never a second paid path", async () => {
@@ -118,41 +118,11 @@ test("unsaved words come back when the editor returns, so no way out of the page
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  await userEvent.type(await screen.findByLabelText("Paste or write your script"), " More.");
+  await userEvent.type(await screen.findByLabelText("Script · version A"), " More.");
   first.unmount(); // left through the tab bar, say
   open();
-  expect(await screen.findByLabelText("Paste or write your script")).toHaveValue("BO: Salmon? More.");
+  expect(await screen.findByLabelText("Script · version A")).toHaveValue("BO: Salmon? More.");
   expect(screen.getByText("Not saved yet")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("BO: Salmon?");
-});
-
-test("Save script is off until the words change; unsaved words say so, leaving asks first, and Save keeps them", async () => {
-  setViewport(1440);
-  const calls = fakeServer(base({ "PUT /scripts/7/drafts/0": [200, script({ versions: [{ ...script().versions[0], text: "BO: Salmon?" }] })] }));
-  open();
-  const box = await screen.findByLabelText("Paste or write your script");
-  expect(screen.getByRole("button", { name: "Save script" })).toBeDisabled();
-  await userEvent.type(box, "BO: Salmon?");
-  expect(screen.getByText("Not saved yet")).toBeInTheDocument();
-  await userEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Scripts" }));
-  expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Stay" }));
-  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("BO: Salmon?");
-  await userEvent.click(screen.getByRole("button", { name: "Save script" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "BO: Salmon?" }));
-  expect(await screen.findByText("Saved.")).toBeInTheDocument();
-  expect(screen.queryByText("Not saved yet")).toBeNull();
-});
-
-test("Discard changes puts the saved words back", async () => {
-  setViewport(1440);
-  fakeServer(base({ "GET /scripts/7": [200, script({ versions: [{ ...script().versions[0], text: "BO: Salmon?" }] })] }));
-  open();
-  const box = await screen.findByLabelText("Paste or write your script");
-  await userEvent.type(box, " More.");
-  await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-  expect(screen.getByLabelText("Paste or write your script")).toHaveValue("BO: Salmon?");
 });
 
 test("when the paid reel read finishes, the open Script step brings in the new words and stops offering to write", async () => {
@@ -189,7 +159,7 @@ test("a draft made by Bulk create opens on the Script screen with its descriptio
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7": [200, script({ description: "Bo meets a kitten." })] }));
   open();
-  expect(await screen.findByLabelText("Paste or write your script")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Script · version A")).toBeInTheDocument();
   expect(screen.getByText(/Bo meets a kitten\./)).toBeInTheDocument(); // in About's line
   expect(await screen.findByRole("button", { name: "Have Claude write it for me · up to 6 credits" })).toBeEnabled();
 });

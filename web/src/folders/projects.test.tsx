@@ -220,7 +220,7 @@ test("an editor gets no project picker on a script someone else made (the server
   setViewport(1440);
   fakeServer(base(editor, [november], { "GET /scripts/7": [200, script()] }));
   open("/b/1/scripts/7");
-  await screen.findByRole("heading", { name: "Bowl story" });
+  expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Bowl story");
   await new Promise((r) => setTimeout(r, 200)); // let the projects load (the next test shows the picker does appear on your own script)
   expect(screen.queryByRole("button", { name: /^Project:/ })).toBeNull();
 });
