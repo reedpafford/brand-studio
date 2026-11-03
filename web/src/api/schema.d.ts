@@ -7777,6 +7777,8 @@ export interface components {
             title: string;
             /** Credits */
             credits: number;
+            /** Brand Id */
+            brand_id: number;
         };
         /**
          * MySend
