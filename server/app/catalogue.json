@@ -45,6 +45,25 @@
    "price_source": "tezu client catalogue provider cost (unverified for Replicate)"
   },
   {
+   "id": "p-video",
+   "name": "P-Video",
+   "kind": "video",
+   "offered": false,
+   "lip_sync": false,
+   "provider_model": "prunaai/p-video",
+   "provider_version": "572fafd86387258df12f7a9fba2d4debe8fc8ed72c0565b2abffe51585f533dd",
+   "default": false,
+   "duration": {"min": 1, "max": 20},
+   "resolutions": ["720p", "1080p"],
+   "aspect_ratios": ["9:16", "1:1", "16:9", "4:3", "3:4", "3:2", "2:3"],
+   "max_reference_images": 0,
+   "first_frame": true,
+   "last_frame": true,
+   "audio": "always",
+   "price": {"unit": "second", "usd": {"720p": 0.02, "1080p": 0.04}},
+   "price_source": "replicate.com/prunaai/p-video/api pricing tiers, 2026-11-03: $0.02/s 720p, $0.04/s 1080p, draft off (draft $0.005/$0.01 isn't used)"
+  },
+  {
    "id": "nano-banana-2.1",
    "name": "Nano Banana 2.1",
    "kind": "image",

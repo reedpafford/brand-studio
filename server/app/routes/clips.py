@@ -86,7 +86,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     """Check everything against the catalogue and the brand; plain-language errors (422)."""
     brand = get_brand(db, user, body.brand_id)
     model = get_model(body.model_id)
-    if not model or model.kind != "video":
+    if not model or model.kind != "video" or not model.offered:
         raise HTTPException(422, "Pick a video model.")
     if body.resolution not in model.resolutions:
         raise HTTPException(422, f"{model.name} offers {', '.join(model.resolutions)}.")

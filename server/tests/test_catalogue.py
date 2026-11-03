@@ -1,5 +1,6 @@
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -15,8 +16,10 @@ def _schema(model):
 
 
 def _enum(schema, field):
-    ref = schema["Input"]["properties"][field]["allOf"][0]["$ref"].split("/")[-1]
-    return schema["enums"][ref]["enum"]
+    prop = schema["Input"]["properties"][field]
+    if "enum" in prop:  # a dereferenced schema (P-Video's) has it in place
+        return prop["enum"]
+    return schema["enums"][prop["allOf"][0]["$ref"].split("/")[-1]]["enum"]
 
 
 def _up_to(schema, field) -> int:
@@ -58,6 +61,16 @@ def test_credit_rates_follow_real_price():
     assert seedance.credits_per_unit("720p") == 2.25
     with pytest.raises(ValueError):
         seedance.credits_per_unit("1080p")
+
+
+def test_p_video_is_priced_at_real_cost_and_kept_out_of_the_pickers(editor):
+    """P-Video (Reed, 2026-11-03: B-roll and the host, 720p): $0.02 a second at 720p; the
+    presenter step will use it, so no picker offers it yet (the takes there are 480p)."""
+    p_video = get_model("p-video")
+    assert p_video.usd_per_unit("720p") == Decimal("0.02")
+    assert p_video.credits_per_unit("720p") == Decimal("0.19")
+    assert "p-video" not in [m["id"] for m in editor.get("/models").json()]
+    assert editor.get("/models/p-video").status_code == 200  # still known by its id
 
 
 def test_editor_sees_models_with_credits_but_no_dollars(editor):

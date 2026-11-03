@@ -1,0 +1,180 @@
+{
+ "Input": {
+  "properties": {
+   "aspect_ratio": {
+    "default": "16:9",
+    "description": "Aspect ratio of the video. Ignored when an input image is provided.",
+    "enum": [
+     "16:9",
+     "9:16",
+     "4:3",
+     "3:4",
+     "3:2",
+     "2:3",
+     "1:1"
+    ],
+    "title": "aspect_ratio",
+    "type": "string",
+    "x-order": 5
+   },
+   "audio": {
+    "description": "Input audio to condition video generation. Supports flac, mp3, wav.",
+    "format": "uri",
+    "nullable": true,
+    "title": "Audio",
+    "type": "string",
+    "x-order": 3
+   },
+   "disable_safety_filter": {
+    "default": true,
+    "description": "Disable safety filter for prompts (and input image). When disabled, prompts are not checked for unsafe content before generation.",
+    "title": "Disable Safety Filter",
+    "type": "boolean",
+    "x-order": 10
+   },
+   "draft": {
+    "default": false,
+    "description": "Draft mode. Generates a lower-quality preview of the video.",
+    "title": "Draft",
+    "type": "boolean",
+    "x-order": 8
+   },
+   "duration": {
+    "default": 5,
+    "description": "Duration of the video in seconds (1-20). Ignored when audio is provided.",
+    "maximum": 20,
+    "minimum": 1,
+    "title": "Duration",
+    "type": "integer",
+    "x-order": 4
+   },
+   "fps": {
+    "default": 24,
+    "description": "Frames per second of the video.",
+    "enum": [
+     24,
+     48
+    ],
+    "title": "fps",
+    "type": "integer",
+    "x-order": 7
+   },
+   "image": {
+    "description": "Input image to generate video from (image-to-video). Supports jpg, jpeg, png, webp.",
+    "format": "uri",
+    "nullable": true,
+    "title": "Image",
+    "type": "string",
+    "x-order": 1
+   },
+   "last_frame_image": {
+    "description": "Reference image for the last frame of the video. Supports jpg, jpeg, png, webp.",
+    "format": "uri",
+    "nullable": true,
+    "title": "Last Frame Image",
+    "type": "string",
+    "x-order": 2
+   },
+   "no_op": {
+    "default": false,
+    "description": "Health check mode - returns status without inference.",
+    "title": "No Op",
+    "type": "boolean",
+    "x-order": 13
+   },
+   "prompt": {
+    "description": "Text prompt for video generation.",
+    "title": "Prompt",
+    "type": "string",
+    "x-order": 0
+   },
+   "prompt_upsampling": {
+    "default": true,
+    "description": "Use prompt upsampling to enhance the prompt.",
+    "title": "Prompt Upsampling",
+    "type": "boolean",
+    "x-order": 9
+   },
+   "resolution": {
+    "default": "720p",
+    "description": "Resolution of the video.",
+    "enum": [
+     "720p",
+     "1080p"
+    ],
+    "title": "resolution",
+    "type": "string",
+    "x-order": 6
+   },
+   "save_audio": {
+    "default": true,
+    "description": "Save the video with audio.",
+    "title": "Save Audio",
+    "type": "boolean",
+    "x-order": 11
+   },
+   "seed": {
+    "description": "Random seed. Set for reproducible generation.",
+    "nullable": true,
+    "title": "Seed",
+    "type": "integer",
+    "x-order": 12
+   }
+  },
+  "required": [
+   "prompt"
+  ],
+  "title": "Input",
+  "type": "object"
+ },
+ "enums": {
+  "Status": {
+   "description": "An enumeration.",
+   "enum": [
+    "starting",
+    "processing",
+    "succeeded",
+    "canceled",
+    "failed"
+   ],
+   "title": "Status",
+   "type": "string"
+  },
+  "aspect_ratio": {
+   "description": "An enumeration.",
+   "enum": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "3:2",
+    "2:3",
+    "1:1"
+   ],
+   "title": "aspect_ratio",
+   "type": "string"
+  },
+  "fps": {
+   "description": "An enumeration.",
+   "enum": [
+    24,
+    48
+   ],
+   "title": "fps",
+   "type": "integer"
+  },
+  "resolution": {
+   "description": "An enumeration.",
+   "enum": [
+    "720p",
+    "1080p"
+   ],
+   "title": "resolution",
+   "type": "string"
+  }
+ },
+ "fetched": "2026-11-03",
+ "model": "prunaai/p-video",
+ "source": "replicate.com/prunaai/p-video/api (the version that page documents)",
+ "version": "572fafd86387258df12f7a9fba2d4debe8fc8ed72c0565b2abffe51585f533dd"
+}
