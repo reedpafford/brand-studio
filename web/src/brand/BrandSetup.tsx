@@ -40,7 +40,7 @@ export function CtaLines({ brandId, lines, advice }: { brandId: number; lines: C
   return (
     <Card className="min-w-0 space-y-3">
       <div>
-        <h2 className="type-section">Call to action</h2>
+        <h2 className="text-md font-semibold">Call to action</h2>
         <p className="text-sm text-muted">The last clip of a video says the Default line.</p>
       </div>
       {advice.map((a) => (

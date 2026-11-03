@@ -517,6 +517,7 @@ class MyScript(BaseModel):
     script_id: int
     title: str
     credits: float  # the caller's own calls writing it, in the period
+    brand_id: int  # for its link (/b/<brand>/scripts/<id>) once My credits covers every brand
 
 
 class WeekLine(BaseModel):
@@ -616,7 +617,8 @@ def mine(
     quick_credits = float(sum(quick, Decimal(0)))
     written = {k: v for b in brand_ids
                for k, v in usage.script_credits(db, b, when, user.id).items()}  # fmt: skip
-    scripts = [MyScript(script_id=s.id, title=s.title, credits=float(written[s.id]))
+    scripts = [MyScript(script_id=s.id, title=s.title, credits=float(written[s.id]),
+                        brand_id=s.brand_id)
                for s in db.scalars(select(Script).where(Script.id.in_(written)))]  # fmt: skip
     script_total = sum(s.credits for s in scripts)
     groups: dict = {}

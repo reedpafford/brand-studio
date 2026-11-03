@@ -36,6 +36,8 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n20 | Freestyle (Reed's v4): new `freestyles` {workspace_id, created_by_id, title, type, look, shape, brand_id (nullable), chat JSON default `[]` (the thread), stopped_at}, indexed by workspace | Next-Server | #1159 |
 | n19 | The director's chat (director-chat.md §1 item 4): `projects.director_chat` JSON not null default `[]`, each `{by, text, at, run}` | Next-Server | #1155 |
 | n21 | Hidden rows (Freestyle 3a): `hidden` bool default false on `projects`, `scripts` and `brands` (a freestyle's own script, video and the workspace's "Freestyle" brand; app/hidden.py leaves them out of every list); `freestyles.project_id` (FK projects, nullable) and `freestyles.up_to` (numeric, the price the owner approved) | Next-Server | #1171 |
+| n22 | More than one video from a version (the Producer on P1): drops the unique `uq_projects_script_draft_id` on `projects`, so "Make another" makes a new video from the same frozen version | Next-Server | #1190 |
+| n23 | A final cut taken off Media (v5 G boards): `final_videos.off_media_at`, nullable. The owner's Delete on a Media item keeps the video's own copy and only marks the cut off Media. Downgrade drops it | Next-Server | #1212 |
 | n24 | Last active (v5 audit, Team): `users.last_active_at`, nullable, no default (null: not seen since it shipped); kept to within 5 minutes by `auth.current_user`. Downgrade drops it | Next-Server | #1247 |
 | n25 | Media uploads (v5 C_Media): new `media_uploads` {workspace_id, brand_id, created_by_id, file_id, seconds (null for a picture), removed_at}; a picture or clip added to a brand's Media, checked by its contents | Next-Server | — |
 
@@ -66,6 +68,9 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 18 | n20 | #1159 | n18 | On `next` (ce0fe386) |
 | 19 | n19 | #1155 | n20 | On `next` (28f3e729) |
 | 20 | n21 | #1171 | n19 | On `next` (ae65863f) |
+| 21 | n22 | #1190 | n21 | On `next` (331bc51f) |
+| 22 | n23 | #1212 | n22 | On `next` (dc0753e7) |
+| 23 | n24 | #1247 | n23 | On `next` (6bef3c48) |
 
 ## 1. Song ads
 
@@ -145,3 +150,11 @@ No storage: the found items wait in the read's own job output until Save or Canc
 
 - **New brand's Website (F_BrandNew):** `POST /brands` takes an optional `website`; the brand is made first, then its site is read as above. The answer carries `site_read_job_id` (the page opens on that review) or `site_read_problem` (why the read didn't start; the brand is made all the same). The price before the press: `GET /brands/site-read/estimate`. The website isn't stored on the brand, only on the read.
 - **The review (F_BrandImport):** a read answers with its `id` and the `url` it read; `GET /brands/{id}/site-read/latest` reopens the newest one. Each found product has a `mark`: new, fills (an empty description gets this one) or have ("Already in your products", no tick). `GET …/{read}/logo` shows the found logo: fetched once with the same checks, kept on the read (`logo_file_id` in its output), and Save uses that same file.
+
+## Team and Usage (v5 audit, #1247)
+
+| Where | Change | Notes |
+|---|---|---|
+| `users` | `last_active_at` (n24): kept to within 5 minutes by `auth.current_user`; shown on Team | A locked write never fails the request. |
+| `invites` | No new column. The standing editor link is an invite with `email` "" (role editor): one per workspace, works once, ends in 7 days; only a hash of its token is kept, so a fresh link replaces it | The person gives their own email when they join. Any email already here, active or removed, is refused with one wording (no "ask the owner", rule 22). The invite is claimed with a conditional update before the user is made, so two joins at once can't both use it. |
+| `/usage/charges.csv?month=YYYY-MM` | No table: the month's charges read from what Usage already reads, owner only | Months 2000–2999. No cell starts a formula. |

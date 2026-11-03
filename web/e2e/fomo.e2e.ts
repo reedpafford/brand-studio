@@ -12,7 +12,7 @@ test("fomo comes with its real screens and logo", async ({ page }) => {
   // fomo's real screens are always used for their moments: the tile says so, and the editor lists both.
   const tile = page.getByRole("button", { name: "Token chart up" });
   await expect(tile).toBeVisible();
-  await expect(tile).toContainText("trading");
+  await expect(page.getByRole("listitem").filter({ has: tile })).toContainText("trading"); // under the tile (v5 F_BrandScreens)
   await tile.click();
   const editor = page.getByRole("dialog", { name: "Edit Token chart up" });
   const moments = editor.getByRole("group", { name: "Always use this screen for" });
