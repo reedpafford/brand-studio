@@ -55,6 +55,7 @@ test("Usage → Show archived has Restore on an archived brand's row", async () 
     "GET /usage/summary": [200, { period: "week", starts_at: "2026-10-19T00:00:00Z", previous: null, spend_usd: 0, spend_estimated: false, finished: 0, cost_per_finished_usd: null, in_progress: 0, unassigned_spend_usd: 0 }],
     "GET /usage/brands": [200, { total: 1, next_cursor: null, items: [row] }],
     "GET /usage/charges": [200, { total: 0, next_cursor: null, items: [] }],
+    "GET /usage/people": [200, []],
     "POST /brands/3/restore": [200, {}],
   }));
   open("/usage?archived=1");

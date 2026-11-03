@@ -27,7 +27,10 @@ export function SettingsPage() {
   const top: SettingsTop = (save) => (
     <>
       <PageTop title="Settings">{save}</PageTop>
-      <Tabs label="Settings" value={tab} onChange={(id) => setParams({ tab: id }, { replace: true })} tabs={TABS} />
+      {/* v5 D_Settings: the tabs in a 44 px band with a line under it across the page. */}
+      <div className="-mx-4 -mt-4 flex min-h-11 items-center border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
+        <Tabs label="Settings" value={tab} onChange={(id) => setParams({ tab: id }, { replace: true })} tabs={TABS} />
+      </div>
     </>
   );
   return (

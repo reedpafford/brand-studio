@@ -6,7 +6,7 @@ From four Iron Paws ads made by hand on 28–29 Oct: two song ads and two narrat
 
 **Creative plan (what Reed liked most)**
 - Read the script line by line and give every line its own vivid, *exaggerated* picture, so the story reads with the sound off. Every action the script mentions is shown.
-- Play symptoms big and funny: a crust-glued eye, a tongue blur, a fur blizzard. Show a hidden cause visually: a translucent glowing x-ray of the character with hot spots, or a trip inside the body. Payoffs are quiet and warm.
+- Play symptoms big and funny: a crust-glued eye, a tongue blur, a fur blizzard. Show a hidden cause visually, in whatever fits the video's world: a cute trip inside the body, the show's big screen, or (mainly for narrated, conspiracy-style ads) a translucent glowing x-ray with hot spots. Reed likes the x-ray but doesn't want it forced into every video. Payoffs are quiet and warm.
 - Structure that works for problem/solution ads:
   1. the symptom hook in the first seconds
   2. the daily routine
@@ -17,6 +17,7 @@ From four Iron Paws ads made by hand on 28–29 Oct: two song ads and two narrat
   7. the apology or hug
   8. proof
   9. the end line with the product pushed to camera
+- Pick one frame for the whole video and keep it throughout (Reed on the game-show song: "it needs to feel more uniform"). For a countdown: every moment is rated on the set, then the camera pans to the show's mega screen and pushes into the real world.
 - The same cast in every scene, and the same owner across a brand's ads when it fits.
 
 **Song ads**
