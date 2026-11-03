@@ -30,9 +30,10 @@ export const breakdownSlot = (script: Script, v: string | null) => {
 export function VersionPick({ script, value, onChange }: { script: Script; value: number; onChange: (slot: number) => void }) {
   const versions = script.versions.filter((x) => x.text.trim() !== "");
   return (
-    <label className="inline-flex min-h-control items-center gap-1.5 rounded-md border border-border px-3 text-sm lg:min-h-control-dense">
+    // The select itself fills the box, so its whole 44 px (32 on a computer) opens the list (QA-12 on #1238).
+    <label className="inline-flex items-center gap-1.5 rounded-md border border-border pl-3 text-sm">
       <span className="text-muted">Version</span>
-      <select aria-label="Version" value={value} onChange={(e) => onChange(Number(e.target.value))} className="bg-transparent text-text">
+      <select aria-label="Version" value={value} onChange={(e) => onChange(Number(e.target.value))} className="min-h-control bg-transparent pr-2 text-text lg:min-h-control-dense">
         {versions.map((v) => (
           <option key={v.slot} value={v.slot}>
             {LETTER[v.slot] ?? v.slot + 1}
@@ -314,9 +315,10 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
   const problemBox = (problem: string) => (
     <div key={problem} role="status" className="my-2 flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft px-3.5 py-2.5">
       <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
-      <span className="min-w-0 flex-1">{plainWords(problem, (id) => (id.startsWith("slot:") ? roles.get(id) || "A role" : refName(id, pieces, roles)))}</span>
+      <span className="min-w-0 flex-1 basis-[calc(100%-1.25rem)] sm:basis-0">{plainWords(problem, (id) => (id.startsWith("slot:") ? roles.get(id) || "A role" : refName(id, pieces, roles)))}</span>
       {!readOnly && (
-        <span className="flex flex-wrap gap-2">
+        // On a phone the presses sit under the words, side by side, so the words keep the full width (QA-12 on #1238).
+        <span className="flex w-full flex-wrap gap-2 pl-5 sm:w-auto sm:pl-0">
           <Button variant="secondary" dense busy={keep.isPending} onClick={() => keep.mutate({ problem })}>
             Keep as is
           </Button>

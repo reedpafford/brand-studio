@@ -82,3 +82,14 @@ test("New script: at 390 the breadcrumb's Scripts link is a 44 px press; at 1440
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect.poll(async () => (await page.getByRole("group", { name: "Script settings" }).locator("..").boundingBox())?.height ?? 0).toBeLessThanOrEqual(53);
 });
+
+test("at 390, Breakdown's Version picker opens from its whole 44 px box (QA-12 on #1238)", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brand = await emptyBrand(page, "Touch Breakdown Co");
+  const made = await page.request.post("/api/scripts", { data: { brand_id: brand, title: "Version pick", description: "", notes: "", reference_replace: "", text: "BO: Salmon?" } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/b/${brand}/scripts/${(await made.json()).id}?step=breakdown`);
+  const pick = (await page.getByRole("combobox", { name: "Version" }).boundingBox())!;
+  expect(pick.height).toBeGreaterThanOrEqual(44);
+});
