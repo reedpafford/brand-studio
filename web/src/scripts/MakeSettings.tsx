@@ -36,7 +36,7 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
     product_variants: variants,
     auto: Object.keys(flavours).filter((p) => !(p in kept)), // may go back to Auto (no default to fall back on)
     language: script.language,
-    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, "480p"), lip_sync: m.lip_sync, default: m.default, over_cap: false })),
+    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, m.resolutions.includes("480p") ? "480p" : m.resolutions[0]), lip_sync: m.lip_sync, default: m.default, over_cap: false })),
     image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default, over_cap: false })),
     shapes: ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"],
     flavours,

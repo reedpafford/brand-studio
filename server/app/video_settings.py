@@ -91,7 +91,7 @@ def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
 
 
 def _models(kind: str) -> list:
-    return [m for m in catalogue().values() if m.kind == kind]
+    return [m for m in catalogue().values() if m.kind == kind and m.offered]
 
 
 def check(db: Session, user: User, project: Project, values: dict) -> dict:
@@ -318,7 +318,7 @@ def settings(db: Session, project: Project) -> dict:
             from app.storyboard import still_credits
 
             return float(still_credits(db, project.workspace_id, m))
-        job = {"model": m.id, "input": {"resolution": "480p"}}
+        job = {"model": m.id, "input": {"resolution": m.take_resolution}}
         return float(estimate(db, project.workspace_id, kind, Decimal(1), job))
 
     def over(field: str, value) -> bool:
