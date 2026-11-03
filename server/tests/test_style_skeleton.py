@@ -1,7 +1,7 @@
-"""Reed's skeleton-ad skill (docs/next/skills/skeleton-ad.md, #1095): Skeleton and its
+"""Reed's skeleton-ad skill (#1095, now in app/guides/styles/skeleton): Skeleton and its
 Style Library (X-Ray, Mascot)."""
 
-from app import prompts
+from app import guides, prompts
 
 
 def ids_after(look: str) -> list[str]:
@@ -12,7 +12,7 @@ def ids_after(look: str) -> list[str]:
 
 
 def test_skeleton_has_reeds_style_library_and_strategy():
-    """Reed's skeleton-ad skill (docs/next/skills, #1095): Bare-Bones by default (Dressed is
+    """Reed's skeleton-ad skill (#1095): Bare-Bones by default (Dressed is
     its outfit), X-Ray and Mascot as their own looks; the hook templates, three spines and the
     angle table; one line, one shot, one rung. Never a studio name outside Disney Pixar."""
     assert ids_after("skeleton") == ["skeleton-xray", "skeleton-cute"]
@@ -26,7 +26,8 @@ def test_skeleton_has_reeds_style_library_and_strategy():
         assert "How many ___ does it take to ___?" in script and "(1, 5, 25, 42)" in script
         assert "transformation is one option, not the default" in script, look
         assert "One line is one shot is one rung" in prompts.system("breakdown", look), look
-        text = "\n".join(prompts.style(look)["sections"].values())
+        own = (*guides.TOKENS, "Stills", "Clips", "Breakdown", "Script")  # the site's own lines
+        text = "\n".join(prompts.style(look)["sections"][k] for k in own)
         assert "pixar" not in text.lower(), look
     assert "never the default skeleton" in prompts.system("storyboard", "skeleton-cute")
 

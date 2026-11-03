@@ -629,13 +629,14 @@ def test_a_song_video_keeps_its_type_in_any_look_and_song_is_never_a_look(
     assert owner.patch(script, json={"look": "song"}).status_code == 422  # a type, not a look
     video = editor.get(_video(app, db, owner, editor, song)).json()
     assert (video["kind"], video["song"], video["look"]) == ("song", True, "claymation")
-    from app import prompts
+    from app import guides, prompts
     from app.enhance import project_context
     from app.models.projects import Project
 
     system, _ = project_context(db, db.get(Project, video["id"]), "clip_prompts")
-    assert prompts.style("song")["sections"]["clip"] in system[0]  # song's guides, any look
-    assert system[0].startswith(prompts.system("clip_prompts", "claymation"))
+    song_guide = guides.format_("song")["sections"]["Clips"]
+    assert song_guide in system[0]  # song's guide, any look
+    assert system[0] == prompts.system("clip_prompts", "claymation", "song")  # its look's tokens
     assert editor.patch(f"/projects/{video['id']}", json={"look": "song"}).status_code == 422
     assert "song" not in [x["id"] for x in owner.get("/looks").json()]
     story = editor.post("/projects", json={"brand_id": video["brand_id"], "name": "Dip"}).json()
