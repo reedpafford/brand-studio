@@ -106,6 +106,26 @@ def test_a_presenter_runs_up_to_holds_the_host_on_p_video(app, db, owner):
     assert run_price(db, draft) - plain >= rate * 4  # every second of the narration, at least
 
 
+def test_a_narrated_quote_is_for_its_words_at_our_slowest_narrator_then_the_narrations_length(
+    app, db, owner
+):
+    """The dry run: a script read in 104 s was quoted at 70 s (4.8 words a second)."""
+    from app.models.songs import SongTake
+    from app.routes.estimate import quoted_seconds
+
+    video = _video(db, _sent(owner, "presenter", NARRATION))
+    draft = db.get(ScriptDraft, video.script_draft_id)
+    draft.text = "Pickles keep for weeks. " * 65  # 260 words: 54 s at 4.8, 100 s at 2.6
+    assert quoted_seconds(db, draft, video) == 100  # the B-roll's and the host's seconds
+    made = SongTake(draft_id=draft.id, project_id=video.id, number=1, kind="narration",
+                    job_id=db.query(Job).first().id, lyrics=draft.text, style_line="",
+                    seconds=112.3)  # fmt: skip
+    db.add(made)
+    db.flush()
+    video.song_take_id = made.id
+    assert quoted_seconds(db, draft, video) == 113  # the narration made: its real length
+
+
 def test_a_short_b_roll_shot_is_its_own_clip_at_the_shortest_and_cut_in_the_edit():
     """F7 (Reed): short B-roll pictures are separate clips spliced in the edit."""
     shots = {"s1": {"start": 0, "end": 1.5}, "s2": {"start": 1.5, "end": 3.0},

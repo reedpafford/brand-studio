@@ -14,12 +14,14 @@ export type Kind = Freestyle["type"];
 export type Shape = Freestyle["shape"];
 export type Settings = { type: Kind; look: string; shape: Shape; brand_id: number | null };
 
-/** What a freestyle can be: each format that is on (the director makes only the story engine's for now), then One clip. */
+/** What the director makes now: a format's engine (a script's kind) but the song's, which comes next. */
+export const directed = (engine: string) => engine !== "song";
+/** What a freestyle can be: each format that is on (Song shows as coming next), then One clip. */
 export function useTypes(): { id: Kind; name: string; soon?: boolean }[] {
   const formats = useFormats().data ?? [];
-  return [...formats.filter((f) => f.on).map((f) => ({ id: f.id, name: f.name, soon: f.engine !== "story" })), { id: "one_clip", name: "One clip" }];
+  return [...formats.filter((f) => f.on).map((f) => ({ id: f.id, name: f.name, soon: !directed(f.engine) })), { id: "one_clip", name: "One clip" }];
 }
-export const SOON = "One clip and Dialogue work now. Song and Narrated are coming next.";
+export const SOON = "One clip, Dialogue, Narrated and Presenter work now. Song is coming next.";
 export const SHAPES: Shape[] = ["9:16", "1:1", "16:9"];
 export function useTypeName() {
   const formatName = useFormatName();

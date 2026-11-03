@@ -1071,8 +1071,15 @@ def _item(db: Session, job: Job) -> str:
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:
+    """What's being made for the video: its own jobs, and its narration's (or song's) timing
+    and music bed, which carry no video (the dry run: two waits through the timing ended it)."""
+    from app.models.songs import SongTake
+
     step = Job.input["step"].as_string()
-    return list(db.scalars(select(Job).where(Job.project_id == project.id,
+    takes = select(SongTake).where(SongTake.project_id == project.id)
+    audio = or_(Job.id.in_(takes.with_only_columns(SongTake.timing_job_id)),
+                Job.id.in_(takes.with_only_columns(SongTake.music_job_id)))  # fmt: skip
+    return list(db.scalars(select(Job).where(or_(Job.project_id == project.id, audio),
                                              Job.status.in_(WAITING),
                                              or_(step.is_(None), step != STEP))))  # fmt: skip
 

@@ -7,6 +7,7 @@ Made with one voice call (ElevenLabs v3 through Replicate, priced from the catal
 trimmed narration is heard again and used only if it says the same letters, and each
 sentence's start and end are measured (the breakdown's clock, as a song's lines are)."""
 
+import math
 import re
 import subprocess
 from pathlib import Path
@@ -21,6 +22,8 @@ VOICE = "Sarah"
 # Natural v3 voices (song-ad-workflow.md); the names are ElevenLabs v3's own (Replicate's enum).
 # Austin (deep, ~81 Hz) and Roger (relaxed, ~115 Hz) are male, from the presenter-1 test.
 VOICES = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
+# Words a second at our slowest voice (the paid test: 2.6; Reed's reference narrator reads 3.37)
+SLOWEST = 2.6
 # Silence only: a quiet stretch (below -40 dB) longer than this is shortened to it
 PAUSE, QUIET = 0.25, "-40dB"
 
@@ -38,6 +41,20 @@ def video_kind(db, project) -> str:
     A video with no script is a story. Its look is a setting apart (Song in any look)."""
     script = video_script(db, project)
     return script.kind if script else "story"
+
+
+def longest(db, draft, video=None) -> int:
+    """A narrated version's length for a quote (rule 36: up to, never below): the narration
+    made for it (the video's own, else the version's Preferred), else its words at our
+    slowest narrator's pace (the dry run quoted 70 s for a script read in 104 s)."""
+    from app import song_takes
+    from app.models.songs import SongTake
+
+    made = video is not None and video.song_take_id and db.get(SongTake, video.song_take_id)
+    made = made or song_takes.preferred(db, draft)
+    if made and made.seconds:
+        return math.ceil(made.seconds)
+    return math.ceil(len(check.narration_text(draft.text or "").split()) / SLOWEST)
 
 
 NO_WORDS = "Write the words first: the narrator reads them as written."
