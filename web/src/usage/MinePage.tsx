@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
-import { Banner, Button, Card, PageTop, Select, Skeleton, creditsLabel } from "../components";
+import { Banner, Button, Card, PageTop, Select, Skeleton, creditsLabel, wholeCredits } from "../components";
 import { lastBrand, useBrands } from "../shell/useBrands";
 import { PeriodControl, periodWord } from "./parts";
 import { periodFrom } from "./useUsage";
@@ -10,7 +10,7 @@ import { periodFrom } from "./useUsage";
 // D_MyCredits: a dot and words, whole credits.
 const VIDEO_STATUS = { in_production: ["Making", "bg-accent"], done: ["Delivered", "bg-success"], failed: ["Didn't finish", "bg-danger"] } as const;
 const whole = (n: number) => {
-  const c = Math.ceil(n - 1e-9);
+  const c = wholeCredits(n);
   return `${c} credit${c === 1 ? "" : "s"}`;
 };
 function Status({ dot, children }: { dot: string; children: string }) {
@@ -121,8 +121,8 @@ export function MinePage() {
                         <span className="text-right tabular-nums text-muted">
                           {/* The Producer, 3 Nov: "spent N", the director's time included; what the owner approved, muted,
                               where there is one (rule 34). The director's split is on Usage only. */}
-                          spent {Math.ceil(v.credits - 1e-9).toLocaleString("en-US")}
-                          {v.approved_up_to != null && <span className="block text-xs">up to {Math.ceil(v.approved_up_to - 1e-9).toLocaleString("en-US")} approved</span>}
+                          spent {wholeCredits(v.credits).toLocaleString("en-US")}
+                          {v.approved_up_to != null && <span className="block text-xs">up to {wholeCredits(v.approved_up_to).toLocaleString("en-US")} approved</span>}
                         </span>
                       </span>
                     </Link>

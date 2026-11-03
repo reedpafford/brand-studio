@@ -377,4 +377,13 @@ test("Usage's Download CSV gives this month's charges (v5 D_Usage, #1247)", asyn
   const csv = await screen.findByRole("link", { name: "Download CSV" });
   expect(csv).toHaveAttribute("href", `/api/usage/charges.csv?month=${new Date().toISOString().slice(0, 7)}`);
   expect(csv).toHaveAttribute("download");
+
+test("By person and My credits never show '-0' for nothing used (UX-Auditor on #1246)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
+  open();
+  const people = await screen.findByRole("region", { name: "By person" });
+  const dee = (await within(people).findByText("Dee")).closest("tr")!;
+  expect(dee).toHaveTextContent("0 of 97 credits this week");
+  expect(dee.textContent).not.toMatch(/-0/);
 });
