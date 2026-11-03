@@ -607,7 +607,9 @@ def save_breakdown(db: Session, job: Job) -> None:
     )
     if job.input.get("song_take_id"):  # the plan, and its song part beside it
         plan, song = song_breakdown.split(
-            SongBreakdown.model_validate(job.output), job.input["song_take_id"]
+            SongBreakdown.model_validate(job.output),
+            job.input["song_take_id"],
+            broll=job.input.get("step") == "narrated_breakdown",
         )
     else:
         plan, song = Breakdown.model_validate(job.output), None

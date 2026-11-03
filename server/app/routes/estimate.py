@@ -92,8 +92,9 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     may add under its own limits (QA on #1176: 80.898 shown, 82.03 charged): every clip made
     again MAX_REDOS times with its take check, and the director's own limit (its turns and
     watches, `director.own_limit`; past it, it waits for an OK); and for a song or narrated
-    version with no song yet, its making and one remake (`director_song.price`). The cut, mutes
-    and splices are free."""
+    version with no song yet, its making and one remake (`director_song.price`); a presenter's
+    host, its still and every second on P-Video (`host.run_price`). The cut, mutes and splices
+    are free."""
     from app import director, item_checks
 
     ws = db.get(Script, draft.script_id).workspace_id
@@ -108,10 +109,11 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     model = {"model": m.id, "input": {"resolution": m.take_resolution}}
     takes = (estimate(db, ws, "video", Decimal(seconds), model)
              + clips * item_checks.per_take(db, ws))  # fmt: skip
-    from app import director_song
+    from app import director_song, host
 
     audio = director_song.price(db, draft)  # a song or narration still to make, and one remake
-    return (version_cost(db, draft, video) + audio + director.MAX_REDOS * takes
+    talks = host.run_price(db, draft, seconds, video)  # a presenter's host on P-Video, once
+    return (version_cost(db, draft, video) + audio + talks + director.MAX_REDOS * takes
             + director.own_limit())  # fmt: skip
 
 

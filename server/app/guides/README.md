@@ -7,7 +7,7 @@ word for word.
 
 ```
 craft.md                         story and engagement, for every video
-formats/<id>/guide.md            one format (dialogue, song, narrated, zack-d)
+formats/<id>/guide.md            one format (dialogue, song, narrated, zack-d, presenter)
 formats/<id>/examples/           its worked examples
 styles/<id>/guide.md             one style (house, disney-pixar, skeleton, ...)
 styles/<id>/lanes/<lane>.md      a lane: one way of making that style
@@ -41,7 +41,9 @@ blurb: One line for the style's card.
   that); `blurb` is the one line on its card.
 - A style also has `image_model` (leave it `auto`). A format also has `engine`: `story`,
   `song` or `narrated`, the machinery that makes it (a song is timed to its track, a narrated
-  video to its narration, a story to its lines).
+  video to its narration, a story to its lines). A narrated format may also have `host: yes`:
+  the site then makes a host who says the narration on camera (one still on green, lip-synced
+  in pieces) and lays them over the B-roll in the final cut (Presenter).
 - Notes for people go in `<!-- ... -->` before the first section; the model never sees them.
 
 Most sections are guidance: write them like advice to a director, and every writing step reads

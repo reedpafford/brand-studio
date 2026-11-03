@@ -618,7 +618,7 @@ class DirectorTurn(BaseModel):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
-        "mute", "splice_word", "song", "narration", "wait", "deliver", "stop",
+        "mute", "splice_word", "song", "narration", "host", "wait", "deliver", "stop",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "

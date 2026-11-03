@@ -26,6 +26,7 @@ def test_reeds_order_and_only_house_starts_on():
         ("song", "song"),
         ("narrated", "narrated"),
         ("zack-d", "narrated"),
+        ("presenter", "narrated"),
     ]
     assert [s["id"] for s in prompts.styles() if s["on"]] == ["house"]
     for s in prompts.styles():

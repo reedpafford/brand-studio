@@ -25,9 +25,15 @@ def clean(prompt: str) -> str:
 
 
 def fit(model_id: str, input: dict, files: dict) -> tuple[dict, dict]:
-    """(input, files) as the model reads them: P-Video gets its own keys, others the same."""
+    """(input, files) as the model reads them: P-Video gets its own keys; a model with no sound
+    of its own (Seedance 1 Lite) no `generate_audio` (Replicate refuses a key it doesn't list);
+    others the same."""
+    from app.catalogue import get_model
+
     if model_id != ID:
-        return input, files
+        silent = (m := get_model(model_id)) is not None and m.audio is None
+        return ({k: v for k, v in input.items() if k != "generate_audio"} if silent
+                else input), files  # fmt: skip
     shaped = {k: input[k] for k in ("duration", "resolution", "aspect_ratio") if k in input}
     shaped |= {"prompt": clean(input["prompt"]), "fps": FPS, "prompt_upsampling": False}
     own = {"image": files.get("reference_images", [])[:1],

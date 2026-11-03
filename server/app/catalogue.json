@@ -63,6 +63,23 @@
    "price_source": "replicate.com/prunaai/p-video/api pricing tiers, 2026-11-03: $0.02/s 720p, $0.04/s 1080p, draft off (draft $0.005/$0.01 isn't used)"
   },
   {
+   "id": "seedance-1-lite",
+   "name": "Seedance 1 Lite",
+   "kind": "video",
+   "lip_sync": false,
+   "provider_model": "bytedance/seedance-1-lite",
+   "provider_version": "6e47dd83529ee0599c68f274f225635080e4fd218360a85e2a3a78396d388b73",
+   "default": false,
+   "duration": {"min": 4, "max": 12},
+   "resolutions": ["480p", "720p", "1080p"],
+   "aspect_ratios": ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9", "9:21"],
+   "max_reference_images": 4,
+   "first_frame": true,
+   "last_frame": true,
+   "price": {"unit": "second", "usd": {"480p": 0.018, "720p": 0.036, "1080p": 0.072}},
+   "price_source": "replicate.com/bytedance/seedance-1-lite pricing tiers, 2026-11-03: $0.018/s 480p, $0.036/s 720p, $0.072/s 1080p; no sound of its own (the paid test presenter-1: best for glossy anatomy B-roll)"
+  },
+  {
    "id": "nano-banana-2.1",
    "name": "Nano Banana 2.1",
    "kind": "image",

@@ -20,6 +20,7 @@ from app import (
     clip_takes,
     credits,
     cut_in,
+    host,
     item_checks,
     looks,
     narration,
@@ -636,14 +637,14 @@ def set_insert(
 
 
 def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[str]:
-    """What the final cut puts over its takes: each insert switched on, and each muted stretch
-    (so a new one shows as changes waiting)."""
+    """What the final cut puts over its takes: each insert switched on, each muted stretch and
+    a presenter's host pieces (so a new one shows as changes waiting)."""
     cuts = [f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c)
             if i.on]  # fmt: skip
     for c in clips:
         take = db.get(ClipTake, c.picked_take_id) if c.picked_take_id else None
         cuts += take_mute.labels(c, take) + word_splice.labels(c, take)
-    return cuts
+    return cuts + host.labels(db, project)
 
 
 @router.post("/clips/{clip_id}/prompt-ok", response_model=ProjectClipOut)
@@ -854,6 +855,9 @@ def make_video(
     narrated = bool(song and song.kind == narration.KIND)
     if narrated and narration_music.state(db, song)[0] == "making":
         raise HTTPException(409, narration_music.MAKING)
+    hosted = host.on(db, project)  # a presenter: the host over the narrated B-roll
+    if hosted and not (narrated and host.ready(db, project)):
+        raise HTTPException(409, host.NOT_READY)
     try:
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
         if song:  # the song is the only sound (V6); a narration keeps the takes' (V6n)
@@ -863,6 +867,7 @@ def make_video(
             sound = storage.get(db.get(StoredFile, song.file_id).key)
             bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
             data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
+            data = host.lay(db, storage, project, data) if hosted else data
         else:
             data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
     except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly
