@@ -225,7 +225,7 @@ def test_the_prompts_carry_what_made_reeds_song_ads_good():
     for part in ("**A shape that has worked.**", "mid-air leap", "nudges the product to the lens",
                  "never gross", "at four moments", "past about 16 s"):  # fmt: skip
         assert part in breakdown, part
-    assert "## Format:" not in prompts.system("breakdown")  # story breakdowns: no song guide
+    assert "## Format: Song" not in prompts.system("breakdown")  # story breakdowns: no song guide
 
 
 STUDY = {
