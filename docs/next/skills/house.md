@@ -21,21 +21,21 @@ In these shorts every role looks like what it is, the moment it appears, so the 
 
 ## The camera moves with purpose
 
-The camera is usually inside the scene and doing something: a slow drift, a push, a follow; a locked-off frame often reads as stiff. At most one camera move per shot, chosen for what the moment is doing, and a quiet move often serves best:
+A held frame with the characters moving is the default; a camera move is the exception, used when it adds something:
 
 - **Push in** on a line that matters or a reaction that matters, so the viewer leans in with the camera. Save it for those moments; a push on everything flattens them.
 - **Follow** a character through a space (a waiter weaving through a crowd) at their pace, so the viewer moves with them.
 - **Hold still** only for a beat that needs stillness (a stare, a breath before a reveal), and briefly.
 
-## Flow: shots that connect
+## How Nate shoots and cuts (from watching the reels)
 
-What makes Nate's fast cuts feel like one smooth ride, as creative direction rather than rules:
+Creative direction, not rules. This is what Nate's reels do and ours didn't:
 
-- **The motion carries through the cut.** A push keeps pushing into the next shot; a pan leaving one frame enters the next going the same way; a whip pan is a natural bridge between two setups. The camera rarely stops dead at a cut and starts something unrelated.
-- **A scene has a geography.** People keep their side of the frame and their eyelines, and the scene returns to a few setups (the wide, the two faces) rather than finding a new angle for every shot. The Ferrari argument plays almost entirely in one wide shot.
-- **Cut in the middle of an action.** The hand starts the reach in one shot and finishes it in the next, so the eye is already moving when the picture changes.
-- **Think in moves, not angles.** A scene can often be one flowing move (follow him to the table, drift round to her face, push in on the reaction) with cuts only where the story jumps.
-- **Clips hand off.** A clip opens on the motion or the picture the last one ended on, so the seam disappears.
+- **The camera mostly holds still; the people move.** Energy comes from the characters: Mom bursts through the door and lunges into the lens, a hoodie is thrust at the camera, a chair spins round. Then a cut, often joined by a quick whip-blur. A camera that pans and drifts around a scene reads as aimless.
+- **Close and simple.** Faces fill the frame: nose-to-nose two-shots, a big frontal close-up, an eye. One or two people, an ordinary place (a bedroom, a stock room, a street), soft daylight, muted colour. Not wide shots of small figures in grand sets full of extras.
+- **Things make sense in order.** Each shot picks up where the last one left off, and the world keeps its state: the wallet slammed on the desk stays on the desk in every later shot; someone who walks out is gone and the door closes behind them; a spilled drink stays spilled.
+- **A scene comes back to the same set-ups.** The same two-shot across the desk, cut against close-ups and inserts, so the viewer always knows where everyone is.
+- **Inserts are big and frontal.** A phone held right up to the lens, the number filling the frame, held long enough to read.
 
 ## A hook that starts close, then reveals
 
