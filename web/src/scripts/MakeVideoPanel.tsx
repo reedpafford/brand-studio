@@ -10,13 +10,13 @@ import { letterOf } from "./status";
 
 /** Make a video from a script (E_ScriptMakeVideo): pick a version (each with its planned price) and a shape; the press
  *  sends it to the director: the owner's runs at once, an editor's goes to the owner. No Publish step first. */
-export function MakeVideoPanel({ scriptId, onClose }: { scriptId: number; onClose: () => void }) {
+export function MakeVideoPanel({ scriptId, slot, onClose }: { scriptId: number; /** The version to open on (the Overview's row). */ slot?: number; onClose: () => void }) {
   const owner = useMe().data?.role === "owner";
   const navigate = useNavigate();
   const looks = useLooks().data;
   const brands = useBrands().data;
   const sent = (fs: Freestyle) => navigate(sentTo(fs, owner, fs.brand_id ?? 0));
-  const m = useMakeFromScript(scriptId, sent);
+  const m = useMakeFromScript(scriptId, sent, slot);
   const s = m.script;
   const footer = s && m.version && !m.video && (
     <>

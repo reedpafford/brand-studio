@@ -1,163 +1,120 @@
-import type { ReactNode } from "react";
-import { Download, FileText, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 import type { components } from "../api/schema";
-import { fileUrl } from "../api/upload";
-import { Button, Card, Dot, StepBars, wholeCredits } from "../components";
+import { Button, Dot, creditsLabel, wholeCredits } from "../components";
+import { useFolders } from "../folders/Projects";
 import { useProjectList } from "../projects/LegacyVideos";
-import { VIDEO_STEPS, creditsOf, videoAt, videoStatus, videoTo } from "../videos/progress";
-import { Who } from "../videos/VideoRows";
-import { stepsFor } from "./flow";
-import { beingMade, letterOf, statusOf } from "./status";
+import { budgetUsed } from "../projects/budget";
+import { videoStatus, videoTo } from "../videos/progress";
+import { finished } from "../freestyle/FromScript";
+import { lookName, useLooks } from "./Looks";
+import { letterOf, statusOf } from "./status";
 import type { Script } from "./useScript";
-import { useStartCost } from "./VersionPanel";
 
 type Version = Script["versions"][number];
 type Project = components["schemas"]["ProjectOut"];
 
-const COLS = "lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.6fr)_minmax(0,0.8fr)_6rem_minmax(0,1.4fr)] lg:items-center lg:gap-4";
+// v5 C_ScriptOverview: Version 52 | Its video | Maker 64 | Credits 200 | press 132.
+const COLS = "lg:grid lg:grid-cols-[52px_minmax(0,1fr)_64px_200px_132px] lg:items-center lg:gap-x-4";
+const KIND: Record<string, string> = { story: "Dialogue", song: "Song", narrated: "Narrated" };
 
-/** A version's name: the original, or what the variation changes. */
-const nameOf = (v: Version) => (v.slot === 0 ? "Original" : v.premise || (v.variation_of ? `Variation of ${v.variation_of}` : "Variation"));
+/** A version's credits as the board says them: what its video spent, or what making it is planned to cost. */
+const creditsText = (v: Version, video?: Project) =>
+  video ? `spent ${creditsLabel(wholeCredits(budgetUsed(video)))}` : v.estimate_credits > 0 ? `about ${creditsLabel(wholeCredits(v.estimate_credits))} (planned)` : "—";
 
 function VersionRow({ v, video, onMake }: { v: Version; video?: Project; onMake: () => void }) {
-  const cost = useStartCost(v.has_breakdown);
-  const s = statusOf(v.status);
-  const at = video ? videoAt(video) : null;
-  const cell = "min-w-0 text-sm text-muted lg:text-base lg:text-text";
+  const status = video ? videoStatus(video) : finished(v) ? { label: "No video yet", tone: "neutral" as const } : statusOf(v.status);
   return (
-    <li aria-label={`Version ${letterOf(v.slot)}`} className={`flex flex-wrap items-center gap-x-4 gap-y-2 p-3 lg:px-4 lg:py-2 ${COLS}`}>
-      <div className="flex min-w-0 basis-full items-center gap-3">
-        <span aria-hidden className="grid h-12 w-8 shrink-0 place-items-center overflow-hidden rounded-sm bg-surface-2 text-muted">
-          {video?.poster_file_id ? <img src={fileUrl(video.poster_file_id)} alt="" className="size-full object-cover" /> : <FileText size={16} strokeWidth={1.75} />}
-        </span>
-        <span className="font-semibold">{letterOf(v.slot)}</span>
-        <span className="min-w-0 break-words lg:truncate">{nameOf(v)}</span>
-      </div>
-      <div className={`${cell} flex flex-wrap items-center gap-2`}>
-        {video && at !== null && <StepBars steps={VIDEO_STEPS} at={at} />}
-        {video && at !== null && at < VIDEO_STEPS.length ? (
-          <span>
-            {VIDEO_STEPS[at]}
-            {video.waiting_on && <span className="text-warning"> · {video.waiting_on}</span>}
-          </span>
-        ) : video ? (
-          <Dot tone={videoStatus(video).tone}>{videoStatus(video).label}</Dot>
-        ) : (
-          <Dot tone={s.tone}>{s.label}</Dot>
-        )}
-      </div>
-      <div className={cell}>{v.editor ? <Who name={v.editor.name} /> : "—"}</div>
-      <div className={`${cell} tabular-nums`}>{video ? creditsOf(video) : v.status === "approved" && v.estimate_credits > 0 ? `about ${wholeCredits(v.estimate_credits)} (planned)` : "—"}</div>
-      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-        {v.status === "approved" && (
-          <Button dense charge="estimate" price={cost} onClick={onMake}>
-            Make this version
-          </Button>
-        )}
-        {video?.finished_at && (
-          <Link to={`/b/${video.brand_id}/videos/${video.id}?step=downloads`} className="inline-flex min-h-control items-center gap-1 rounded-md px-2 text-accent-text hover:underline lg:min-h-control-dense">
-            <Download size={16} strokeWidth={1.75} aria-hidden />
-            Download
-          </Link>
-        )}
-        {video && (
-          <Link to={videoTo(video)} className="inline-flex min-h-control items-center rounded-md px-2 text-accent-text hover:underline lg:min-h-control-dense">
+    <li aria-label={`Version ${letterOf(v.slot)}`} className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-2 lg:min-h-13 lg:py-0 ${COLS}`}>
+      <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-md bg-surface-2 font-semibold">
+        {letterOf(v.slot)}
+      </span>
+      <Dot tone={status.tone}>{status.label}</Dot>
+      <span className={`text-sm ${v.editor ? "" : "text-muted"}`}>{v.editor?.name ?? "—"}</span>
+      <span className={`text-sm tabular-nums ${video ? "" : "text-muted"}`}>{creditsText(v, video)}</span>
+      <span className="ml-auto lg:ml-0 lg:justify-self-end">
+        {video ? (
+          <Link to={videoTo(video)} className="inline-flex min-h-control items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-surface-2 lg:min-h-control-dense">
             Open video
           </Link>
+        ) : (
+          finished(v) && (
+            <Button variant="secondary" dense onClick={onMake}>
+              Make a video
+            </Button>
+          )
         )}
-        {!video && beingMade(v.status) && <span className="text-sm text-muted">{v.editor?.name ?? "Someone"} is making it</span>}
-      </div>
+      </span>
     </li>
   );
 }
 
-function Side({ title, action, children }: { title: string; action?: { label: string; onClick: () => void }; children: ReactNode }) {
-  return (
-    <Card className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold">{title}</h3>
-        {action && (
-          <Button variant="ghost" dense onClick={action.onClick}>
-            {action.label}
-          </Button>
-        )}
-      </div>
-      {children}
-    </Card>
-  );
-}
-
-/** A published script's first tab: its versions as a table (each one's video, who makes it, its credits, and its press),
- *  with the words, cast and plan summed up beside it. */
-export function ScriptOverview({ script: s, brandId, onStep, onMake }: { script: Script; brandId: number; onStep: (step: string) => void; onMake: (slot: number) => void }) {
+/** A script's first tab (v5 C_ScriptOverview): its versions and their videos as a table, the words of the version to make
+ *  next under it, and the script's facts beside it. Each version's Make a video opens the Make a video panel on it. */
+export function ScriptOverview({ script: s, brandId, onMake }: { script: Script; brandId: number; onMake: (slot: number) => void }) {
   const videos = useProjectList(brandId);
+  const looks = useLooks().data;
+  const folders = useFolders(brandId);
   const byId = new Map((videos.data ?? []).map((p) => [p.id, p]));
   const versions = s.versions.filter((v) => v.text.trim() !== "" || v.status !== "draft");
-  const ready = versions.filter((v) => v.status === "approved").length;
-  const a = s.versions.find((v) => v.slot === 0);
-  const words = (a?.text ?? "").split("\n").filter((l) => l.trim()).slice(0, 4);
-  const song = s.kind === "song";
-  const planned = s.versions.filter((v) => v.has_breakdown);
-  const plan = stepsFor(s).find((x) => x.id === "breakdown")?.label ?? "Plan";
-  const lengths = versions.map((v) => Math.round(v.seconds)).filter((n) => n > 0);
+  // The words shown are the next version to make, else the first.
+  const shown = versions.find((v) => finished(v) && !v.project_id) ?? versions[0];
+  const words = shown ? shown.text.split(/\s+/).filter(Boolean).length : 0;
+  const project = folders.data?.find((f) => f.id === s.folder_id)?.name ?? "No project";
+  const fact = (label: string, value: ReactNode) => (
+    <div className="space-y-1.5">
+      <p className="text-xs text-muted">{label}</p>
+      <div className="text-sm">{value}</div>
+    </div>
+  );
+  const locked = s.cast.length > 0 && s.cast.every((x) => x.locked);
   return (
-    <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6 lg:space-y-0">
-      <section aria-label="Versions" className="space-y-3">
-        {s.description && <p className="text-muted">{s.description}</p>}
-        <h2 className="type-section">
-          Versions{" "}
-          <span className="font-normal text-muted tabular-nums">
-            · {versions.length}
-            {ready > 0 ? ` · ${ready} ready to make` : ""}
-          </span>
-        </h2>
-        <Card className="p-0 sm:p-0">
-          <div aria-hidden className={`hidden border-b border-border px-4 py-2 text-xs font-medium text-muted ${COLS}`}>
-            <span className="pl-11">Version</span>
-            <span>Video</span>
-            <span>Made by</span>
+    <div className="gap-8 space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:space-y-0 lg:pt-3">
+      <section aria-label="Versions and their videos" className="min-w-0 space-y-3.5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-[15px] font-semibold">Versions</h2>
+          <p className="text-xs text-muted">Each version can become its own video.</p>
+        </div>
+        <div>
+          <div aria-hidden className={`hidden h-[34px] border-b border-border text-xs text-muted ${COLS}`}>
+            <span>Version</span>
+            <span>Its video</span>
+            <span>Maker</span>
             <span>Credits</span>
             <span />
           </div>
-          <ul className="divide-y divide-border">
+          <ul>
             {versions.map((v) => (
               <VersionRow key={v.slot} v={v} video={v.project_id ? byId.get(v.project_id) : undefined} onMake={() => onMake(v.slot)} />
             ))}
           </ul>
-        </Card>
+        </div>
+        {shown && (
+          <div className="space-y-2 border-t border-border pt-[18px]">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold">Script · version {letterOf(shown.slot)}</h3>
+              {words > 0 && <span className="text-xs tabular-nums text-muted">{`${words} words${shown.seconds > 0 ? ` · about ${Math.round(shown.seconds)} s` : ""}`}</span>}
+            </div>
+            <p className="whitespace-pre-line font-script text-sm leading-[1.6] text-text/85 [overflow-wrap:anywhere]">{shown.text.trim() || "No words yet."}</p>
+          </div>
+        )}
       </section>
-      <aside className="space-y-3">
-        <Side title={song ? "Lyrics" : "Words"} action={{ label: song ? "Open Song" : "Open Script", onClick: () => onStep(song ? "song" : "script") }}>
-          {words.length ? <p className="whitespace-pre-wrap font-script text-sm leading-[1.6] [overflow-wrap:anywhere]">{words.join("\n")}</p> : <p className="text-sm text-muted">No words yet.</p>}
-        </Side>
-        <Side title="Cast" action={{ label: "Open Cast", onClick: () => onStep("cast") }}>
-          {s.cast.length === 0 ? (
-            <p className="text-sm text-muted">Everyone is made in Cast.</p>
+      <aside aria-label="About this script" className="space-y-[18px] border-border lg:border-l lg:pl-6">
+        {fact("Type", [KIND[s.kind] ?? s.kind, !s.language || s.language === "en" ? "English" : s.language].join(" · "))}
+        {fact("Look", lookName(looks, s.look))}
+        {fact("Project", project)}
+        {fact(
+          "Cast",
+          s.cast.length === 0 ? (
+            <span className="text-muted">Made at Cast</span>
           ) : (
-            <ul className="space-y-1 text-sm">
-              {s.cast.map((c) => (
-                <li key={c.id} className="flex items-center gap-2">
-                  <Who name={c.role} />
-                  {c.locked && <Lock size={16} strokeWidth={1.75} aria-label="Locked look" className="text-muted" />}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Side>
-        <Side title={plan} action={{ label: `Open ${plan}`, onClick: () => onStep("breakdown") }}>
-          <p className="text-sm">
-            {planned.length === 0
-              ? "The plan is made when an editor starts a version."
-              : planned.map((v) => [letterOf(v.slot), v.clips ? `${v.clips} clip${v.clips === 1 ? "" : "s"}` : null, v.seconds ? `${Math.round(v.seconds)} s` : null].filter(Boolean).join(" · ")).join("; ")}
-          </p>
-        </Side>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 px-1 text-sm">
-          <dt className="text-muted">Written by</dt>
-          <dd>{s.created_by_name || "—"}</dd>
-          <dt className="text-muted">Length</dt>
-          <dd>{lengths.length ? `about ${Math.min(...lengths)}${Math.max(...lengths) !== Math.min(...lengths) ? `–${Math.max(...lengths)}` : ""} s` : "Set at Plan"}</dd>
-        </dl>
+            <span className="flex flex-wrap items-center gap-x-1.5">
+              {s.cast.map((x) => x.role).join(" · ")}
+              <Dot tone={locked ? "success" : "neutral"}>{locked ? (s.cast.length === 2 ? "Both locked" : "All locked") : "Not all locked"}</Dot>
+            </span>
+          ),
+        )}
+        {fact("In the library", s.published ? <Dot tone="success">Published</Dot> : <Dot tone="neutral">Not published. Publish to let editors find it.</Dot>)}
       </aside>
     </div>
   );

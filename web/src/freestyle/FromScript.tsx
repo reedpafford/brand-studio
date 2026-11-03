@@ -22,11 +22,11 @@ export const finished = (v: { status: string }) => v.status !== "draft";
 /** Making a video from one script's version (E_PickInComposer, E_ScriptMakeVideo): the version and shape picked, the
  *  send's "up to" price, the send itself, and a version that already has a video (the Producer: never a dead end; Open it,
  *  or Make another through the usual holds). */
-export function useMakeFromScript(scriptId: number | null, onCreated: (fs: Freestyle) => void) {
+export function useMakeFromScript(scriptId: number | null, onCreated: (fs: Freestyle) => void, start?: number) {
   const script = useScript(scriptId ?? 0);
   const s = scriptId ? script.data : undefined;
   const versions = (s?.versions ?? []).filter(finished);
-  const [picked, setPicked] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(start ?? null);
   const [shape, setShape] = useState<Shape>("9:16");
   const version = versions.find((v) => v.slot === picked) ?? versions[0];
   const source = s && version ? { script_id: s.id, slot: version.slot, shape } : null;

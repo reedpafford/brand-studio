@@ -33,7 +33,7 @@ test("Deleted and archived lists removed scripts with when, the removal date, an
   expect(screen.getByText(/^Removed for good on \d+ Nov$/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Deleted and archived" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.queryByRole("link", { name: "Bo tries salmon" })).toBeNull();
-  expect(screen.queryByRole("button", { name: /^More for / })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^More for (?!scripts$)/ })).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Restore Bo tries salmon" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/restore")).toBe(true));
   expect(await screen.findByText('Restored "Bo tries salmon".')).toBeInTheDocument();
@@ -62,13 +62,8 @@ test("nothing removed says so and Show all scripts turns the filter off", async 
   open();
   expect(await screen.findByText("Nothing deleted or archived.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Show all scripts" }));
-  expect(screen.getByRole("button", { name: "Deleted and archived" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.queryByRole("button", { name: "Deleted and archived" })).toBeNull(); // the filter is off; the page's ⋯ menu turns it on again
+  await userEvent.click(screen.getByRole("button", { name: "More for scripts" }));
+  expect(screen.getByRole("menuitem", { name: "Deleted and archived" })).toBeInTheDocument();
 });
 
-test("on a phone the filter is in the Filters sheet", async () => {
-  setViewport(390);
-  fakeServer(base({ "GET /scripts": [200, []] }));
-  open("/b/1/scripts");
-  await userEvent.click(await screen.findByRole("button", { name: "Filters" }));
-  expect(await screen.findByRole("button", { name: "Deleted and archived" })).toBeInTheDocument();
-});
