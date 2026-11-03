@@ -265,6 +265,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/team/invite-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invite Link
+         * @description The standing editor link while it works (null: none). Only a hash is kept, so the link
+         *     itself is shown once, when it's made.
+         */
+        get: operations["invite_link_team_invite_link_get"];
+        put?: never;
+        /**
+         * New Invite Link For Anyone
+         * @description A new standing editor link; the one before stops working.
+         */
+        post: operations["new_invite_link_for_anyone_team_invite_link_post"];
+        /** Revoke Invite Link */
+        delete: operations["revoke_invite_link_team_invite_link_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace": {
         parameters: {
             query?: never;
@@ -1244,6 +1270,26 @@ export interface paths {
          *     the last row's id, so new charges never shift a page.
          */
         get: operations["charges_usage_charges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/charges.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Charges Csv
+         * @description The month's charges (UTC), oldest first, as a CSV file to download (owner only).
+         */
+        get: operations["charges_csv_usage_charges_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5380,6 +5426,8 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+            /** Email */
+            email?: string | null;
         };
         /** AdviceOut */
         AdviceOut: {
@@ -6633,6 +6681,15 @@ export interface components {
             /** Created By Name */
             created_by_name: string;
         };
+        /** FreestyleUsage */
+        FreestyleUsage: {
+            /** Credits */
+            credits: number;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Videos */
+            videos: number;
+        };
         /** GuideIn */
         GuideIn: {
             /** Use As Guide */
@@ -7343,6 +7400,14 @@ export interface components {
             /** New Lines */
             new_lines?: boolean | null;
         };
+        /** LinkOut */
+        LinkOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
         /** LockIn */
         LockIn: {
             /** Library Item Id */
@@ -7584,6 +7649,8 @@ export interface components {
             /** Name */
             name: string;
             role: components["schemas"]["Role"];
+            /** Last Active At */
+            last_active_at: string | null;
         };
         /** MergeIn */
         MergeIn: {
@@ -7640,6 +7707,11 @@ export interface components {
              * @default 0
              */
             waiting_credits: number;
+            /**
+             * Videos And Freestyles
+             * @default 0
+             */
+            videos_and_freestyles: number;
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -7844,6 +7916,13 @@ export interface components {
              * Format: date-time
              */
             last_activity_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "delivered" | "making" | "waiting" | "declined" | "stopped" | "failed";
+            /** Brand Id */
+            brand_id: number;
         };
         /**
          * MyWeek
@@ -8034,6 +8113,16 @@ export interface components {
             owner_project_id?: number | null;
             /** Owner Script Id */
             owner_script_id?: number | null;
+        };
+        /** NewLinkOut */
+        NewLinkOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Token */
+            token: string;
         };
         /** NoteIn */
         NoteIn: {
@@ -8349,6 +8438,8 @@ export interface components {
             clips_total: number;
             /** Finished At */
             finished_at?: string | null;
+            /** Approved Up To */
+            approved_up_to?: number | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -10035,6 +10126,16 @@ export interface components {
             versions_left: number;
             /** Last Activity At */
             last_activity_at: string | null;
+            /**
+             * Credits
+             * @default 0
+             */
+            credits: number;
+            /**
+             * Videos
+             * @default 0
+             */
+            videos: number;
             previous: components["schemas"]["UsagePrevious"] | null;
             /** Editors Active */
             editors_active: number;
@@ -10072,6 +10173,16 @@ export interface components {
             versions_left: number;
             /** Last Activity At */
             last_activity_at: string | null;
+            /**
+             * Credits
+             * @default 0
+             */
+            credits: number;
+            /**
+             * Videos
+             * @default 0
+             */
+            videos: number;
         };
         /** UsageBrandsOut */
         UsageBrandsOut: {
@@ -10241,6 +10352,17 @@ export interface components {
              * @default 0
              */
             director_spend_usd: number;
+            /**
+             * Spend Credits
+             * @default 0
+             */
+            spend_credits: number;
+            /**
+             * Unassigned Credits
+             * @default 0
+             */
+            unassigned_credits: number;
+            freestyle: components["schemas"]["FreestyleUsage"];
         };
         /** UsageVideo */
         UsageVideo: {
@@ -11440,6 +11562,64 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    invite_link_team_invite_link_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkOut"] | null;
+                };
+            };
+        };
+    };
+    new_invite_link_for_anyone_team_invite_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewLinkOut"];
+                };
+            };
+        };
+    };
+    revoke_invite_link_team_invite_link_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -13296,6 +13476,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path?: never;
@@ -13327,6 +13508,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
                 q?: string;
                 archived?: boolean;
                 sort?: "spend" | "finished" | "cost" | "activity" | "name";
@@ -13363,6 +13545,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path: {
@@ -13396,6 +13579,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path?: never;
@@ -13498,9 +13682,10 @@ export interface operations {
     };
     mine_usage_mine_get: {
         parameters: {
-            query: {
-                brand_id: number;
+            query?: {
+                brand_id?: number | null;
                 period?: "week" | "month" | "all";
+                month?: string | null;
                 folder?: string | null;
             };
             header?: never;
@@ -13587,6 +13772,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageChargesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    charges_csv_usage_charges_csv_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Validation Error */
