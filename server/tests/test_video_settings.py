@@ -55,6 +55,7 @@ def test_the_choices_carry_their_prices_and_the_scripts_language(owner, editor, 
     assert (
         models["seedance-2.0"]["credits_per_second"] < models["seedance-2.5"]["credits_per_second"]
     )
+    assert models["p-video"]["lip_sync"] and models["p-video"]["credits_per_second"] == 0.19  # 720p
     assert {m["id"] for m in got["image_models"]} == {"nano-banana-2.1", "nano-banana-pro"}
     assert got["language"] == "en" and "1:1" in got["shapes"]
 

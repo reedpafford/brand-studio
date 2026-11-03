@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import screen_figures, video_settings
+from app import p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -29,7 +29,7 @@ from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
 
 log = logging.getLogger(__name__)
-RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
+RESOLUTION = "480p"  # clips are planned at 480p; a model without it uses its own lowest
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
 
 
@@ -69,6 +69,14 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
     model = video_model(project)
+    resolution = model.take_resolution
+    take, sent = p_video.fit(model.id, {
+        "prompt": _with_note(in_english(prompt), note),
+        "duration": clip.seconds,
+        "resolution": resolution,
+        "aspect_ratio": project.aspect_ratio,
+        "generate_audio": True,
+    }, {k: v for k, v in files.items() if v})  # fmt: skip
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -83,16 +91,10 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
         },
         "brand_id": project.brand_id,
-        "fit_images_to": LONG_SIDE[RESOLUTION],
+        "fit_images_to": LONG_SIDE[resolution],
         "exact_file_ids": exact,
-        "input": {
-            "prompt": _with_note(in_english(prompt), note),
-            "duration": clip.seconds,
-            "resolution": RESOLUTION,
-            "aspect_ratio": project.aspect_ratio,
-            "generate_audio": True,
-        },
-        "files": {k: v for k, v in files.items() if v},
+        "input": take,
+        "files": sent,
         "screen_figures": screen_figures.for_job(
             db, [r["id"] for r in clip.references], _shots(breakdown, shots)
         ),
@@ -403,7 +405,8 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     along while checks are on (`item_checks.rides`)."""
     from app import item_checks
 
-    job = {"model": video_model(project).id, "input": {"resolution": RESOLUTION}}
+    m = video_model(project)
+    job = {"model": m.id, "input": {"resolution": m.take_resolution}}
     take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
     return take + item_checks.rides(db, project, clip)
 
