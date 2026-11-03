@@ -1320,6 +1320,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/by-format-and-style": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** By Format And Style */
+        get: operations["by_format_and_style_usage_by_format_and_style_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/scorecard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Card */
+        get: operations["get_card_projects__project_id__scorecard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Score */
+        put: operations["set_score_projects__project_id__score_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/production": {
         parameters: {
             query?: never;
@@ -5981,6 +6032,27 @@ export interface components {
             /** Upload Id */
             upload_id?: number | null;
         };
+        /** CardOut */
+        CardOut: {
+            /** Forecast Credits */
+            forecast_credits: number | null;
+            /** Forecast Basis */
+            forecast_basis: string | null;
+            /** Actual Credits */
+            actual_credits: number;
+            /** Director Credits */
+            director_credits: number;
+            /** Within Forecast */
+            within_forecast: boolean | null;
+            /** Words Exact */
+            words_exact: boolean | null;
+            /** Must Show Ok */
+            must_show_ok: boolean | null;
+            /** Score */
+            score: number | null;
+            /** Note */
+            note: string | null;
+        };
         /** Cast */
         Cast: {
             /** Ref Id */
@@ -8192,6 +8264,29 @@ export interface components {
             /** B Slot Id */
             b_slot_id: number;
         };
+        /** PairRow */
+        PairRow: {
+            /** Format */
+            format: string;
+            /** Look */
+            look: string;
+            /** Videos */
+            videos: number;
+            /** Seconds */
+            seconds: number;
+            /** Credits */
+            credits: number;
+            /** Director Credits */
+            director_credits: number;
+            /** Credits Per Second */
+            credits_per_second: number;
+            /** Redo Rate */
+            redo_rate: number | null;
+            /** Scored */
+            scored: number;
+            /** Average Score */
+            average_score: number | null;
+        };
         /** Person */
         Person: {
             /** Id */
@@ -9132,6 +9227,13 @@ export interface components {
             cast_ids: string[];
             /** Lines */
             lines: components["schemas"]["LineOut"][];
+        };
+        /** ScoreIn */
+        ScoreIn: {
+            /** Score */
+            score: number | null;
+            /** Note */
+            note?: string | null;
         };
         /** ScreenFigure */
         ScreenFigure: {
@@ -13874,6 +13976,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    by_format_and_style_usage_by_format_and_style_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairRow"][];
+                };
+            };
+        };
+    };
+    get_card_projects__project_id__scorecard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_score_projects__project_id__score_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOut"];
                 };
             };
             /** @description Validation Error */
