@@ -114,7 +114,8 @@ def me(user: User = Depends(current_user)):
 
 
 INVALID_INVITE = "This invite link is not valid any more."
-LINK_TAKEN = "That email already has an account here. Ask the owner to bring it back."
+LINK_TAKEN = ("That email already has an account here, so this link can't use it. Sign in, "
+              "or join with another email.")  # fmt: skip
 
 
 def _open_invite(db: Session, token: str) -> Invite | None:
