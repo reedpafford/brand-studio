@@ -302,3 +302,18 @@ test("a blank brand's top bar has no Import from website: it is the set-up card'
   expect(within(card).getByRole("button", { name: "Import from website" })).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Import from website" })).toHaveLength(1);
 });
+
+test("leaving Brand through the rail with unsaved changes asks first; Keep editing stays, Leave goes (QA-12 on #1254)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand");
+  await userEvent.type(await screen.findByLabelText("Name"), " shop");
+  const rail = screen.getByRole("navigation", { name: "Main" });
+  await userEvent.click(within(rail).getByRole("link", { name: "Scripts" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+  await userEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+  expect(screen.getByLabelText("Name")).toHaveValue("fomo shop");
+  await userEvent.click(within(rail).getByRole("link", { name: "Scripts" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave" }));
+  expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
+});

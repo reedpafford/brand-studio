@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useBlocker, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
 import { Button, Dialog, PageTop, Tabs } from "../components";
 import { ArchiveBrand } from "./ArchiveBrand";
@@ -45,6 +45,9 @@ export function BrandPage() {
   const importing = params.get("import") === "1";
   const setImporting = (on: boolean) => setParams(on ? { import: "1" } : {}, { replace: true });
   const go = (id: string) => setParams(id === "look" ? {} : { tab: id }, { replace: true });
+  // Leaving the Brand page another way (the rail, a link, Back) with unsaved Look or Voice changes asks first too (QA-12 on
+  // #1254). Switching tabs stays on the page, so it has its own question.
+  const away = useBlocker(({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname);
 
   return (
     <FrameContext.Provider value={{ slot, setDirty, importing, setImporting, goTab: go }}>
@@ -88,6 +91,11 @@ export function BrandPage() {
         {tab === "look" || tab === "voice" ? <KitPage part={tab} /> : tab === "products" ? <ProductsTab /> : <ScreensTab />}
         {rail && (tab === "look" || tab === "voice") && <div ref={setSlot} className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-auto flex min-h-13 items-center justify-end gap-3 border-t border-border bg-bg px-4 py-2 sm:-mx-6 sm:-mb-6 sm:px-6" />}
       </main>
+      {away.state === "blocked" && (
+        <Dialog title="Leave without saving?" cancelLabel="Keep editing" actionLabel="Leave" danger onCancel={() => away.reset()} onConfirm={() => { setDirty(false); away.proceed(); }}>
+          Your changes to the Look and Voice & lines aren't saved. Leaving drops them.
+        </Dialog>
+      )}
       {leaving && (
         <Dialog
           title="Leave without saving?"
