@@ -97,10 +97,18 @@ export function ScriptBox({ label, status, note, words, ...rest }: { label: stri
 }
 
 /** v5's Shape setting, read only on a script: each video picks its own shape when it's made (Next-Lead, 2 Nov). */
-export function ShapeChip() {
+export function ShapeChip({ value }: { value?: string }) {
   return (
-    <span title="Each video picks its shape" className="inline-flex min-h-control items-center gap-1 rounded-md border border-border px-3 text-sm lg:min-h-control-dense lg:px-2.5">
-      <span className="text-muted">Shape</span> Per video<span className="sr-only">: each video picks its shape</span>
-    </span>
+    value ? (
+      // C_Breakdown's read-only chip: filled, with the usual shape.
+      <span title="Each video picks its shape" className="inline-flex min-h-control items-center gap-1.5 rounded-md bg-surface-2 px-2.5 text-sm text-text/80 lg:min-h-control-dense">
+        <span className="text-muted">Shape</span> {value} · each video picks its shape
+      </span>
+    ) : (
+      // New script and Script: short, so the row fits at 1440 (QA-12 on #1221).
+      <span title="Each video picks its shape" className="inline-flex min-h-control items-center gap-1 rounded-md border border-border px-3 text-sm lg:min-h-control-dense lg:px-2.5">
+        <span className="text-muted">Shape</span> Per video<span className="sr-only">: each video picks its shape</span>
+      </span>
+    )
   );
 }

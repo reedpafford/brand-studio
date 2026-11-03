@@ -166,10 +166,9 @@ test("an unpublished script opens on Overview too: Publish to library, Make a vi
   const panel = await screen.findByRole("dialog", { name: "Make a video from Bo tries salmon" });
   expect(within(panel).getByRole("radio", { name: /^B/ })).toBeChecked();
   await userEvent.click(within(panel).getByRole("button", { name: "Close" }));
-  // Publish to library asks first, on the Publish step.
+  // Publish to library opens the Publish page (#1238's G_Publish), which asks before publishing.
   await userEvent.click(screen.getByRole("button", { name: "Publish to library" }));
-  expect(await screen.findByRole("alertdialog", { name: /^Publish 2 versions of Bo tries salmon\?/ })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Not yet" }));
+  expect(await screen.findByText("Publish to the library")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Back to overview" }));
   await userEvent.click(await screen.findByRole("button", { name: "Open the steps: Script · Directions · Variations · Breakdown · Cast" }));
   expect(await screen.findByRole("group", { name: "Script settings" })).toBeInTheDocument();

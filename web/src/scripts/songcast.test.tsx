@@ -45,11 +45,11 @@ test("Publish on a song lists the song, its style and the singer, and says the l
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song({}, { singer: "Bo" })], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true })])], "GET /scripts/7/cast": [200, cast] });
   open("/b/1/scripts/7?step=publish");
-  const card = await screen.findByRole("listitem", { name: "Version A" });
-  expect(await within(card).findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
-  expect(within(card).getByText("pop, female lead, upbeat")).toBeInTheDocument();
-  expect(within(card).getByText("Bo")).toBeInTheDocument();
-  expect(screen.getByText(/After that the lyrics can't change \(each video still picks its own take\)/)).toBeInTheDocument();
+  expect(await screen.findByRole("listitem", { name: "Version A" })).toBeInTheDocument();
+  expect(await screen.findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
+  expect(screen.getByText("pop, female lead, upbeat")).toBeInTheDocument();
+  expect(screen.getByText("Bo")).toBeInTheDocument();
+  expect(screen.getByText(/Their lyrics become final\./)).toBeInTheDocument();
 });
 
 test("at 390, Make this version on a song shows its song with a 44px play button, and its length in the price line", async () => {

@@ -37,7 +37,7 @@ export type Plan = {
 type Project = { id: number; plan_status?: "none" | "ready" | "approved" | null; plan_credits?: number | null };
 
 // The plan routes are Builder-Server-8's (#893); until they are in the generated schema they are called with fetch.
-async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: object): Promise<T> {
+export async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: object): Promise<T> {
   const r = await fetch(`${location.origin}/api${path}`, { method, credentials: "include", ...(body ? { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } } : {}) });
   if (!r.ok) {
     const detail = await r.json().then((j: { detail?: unknown }) => j.detail, () => null);
@@ -49,7 +49,7 @@ async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: obje
 /** The plan, read again every 3 s while its job runs. After a press (`since`), it keeps reading until a plan or a failed
  *  job comes back: the server answers 404 between a job that just ended and its plan being there, and that once stopped
  *  the reading for good, leaving "No plan yet" with the plan made (Next-Layout, QA-2). It gives up after two minutes. */
-function usePlan(base: string, queryKey: unknown[], since: number | null = null) {
+export function usePlan(base: string, queryKey: unknown[], since: number | null = null) {
   return useQuery({
     queryKey,
     queryFn: async () => {

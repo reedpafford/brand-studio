@@ -1,27 +1,29 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Info, Lock, Undo2 } from "lucide-react";
+import { Copy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
-import { fileUrl } from "../api/upload";
-import { Badge, Button, Card, Dialog } from "../components";
+import { Button, Card, Dialog, Dot, wholeCredits } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
-import { useCast } from "./useCast";
 import { SongFacts } from "./SongParts";
 import type { Script } from "./useScript";
 
 const LETTER = ["A", "B", "C"];
-const NAME = ["Original", "Variation", "Variation"];
+type Version = Script["versions"][number];
 
-/** Step 7: a card per version, then Publish. After it the words are final; a published script can only be duplicated. */
-export function PublishStep({ script: s, brandId, asking, onAsking }: { script: Script; brandId: number; asking: boolean; onAsking: (v: boolean) => void }) {
-  const cast = useCast(s.id);
+/** What a version brings with it, in one quiet line (G_Publish). Planned costs read "about N credits (planned)" (rule 34). */
+function about(v: Version) {
+  if (v.status === "draft") return "Draft: not approved yet";
+  return v.has_breakdown ? `Planned${v.seconds ? ` · ${Math.round(v.seconds)} s` : ""}${v.estimate_credits ? ` · about ${wholeCredits(v.estimate_credits)} credits (planned)` : ""}` : "Words approved · each video plans its own shots";
+}
+
+/** Publish to the library (v5 G_Publish): optional, for sharing with editors. A list of the versions with Approve, a card
+ *  on what publishing does, then Not yet and Publish. After it the words are final; a published script can be duplicated. */
+export function PublishStep({ script: s, brandId, asking, onAsking, onNotYet }: { script: Script; brandId: number; asking: boolean; onAsking: (v: boolean) => void; onNotYet: () => void }) {
   const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const versions = s.versions.filter((v) => v.text.trim() !== "");
-  const slots = cast.data ?? [];
-  // Every version is approved before it is published, here as on Variations: one press on its card (#749 LW7).
   const approve = useMutation({
     mutationFn: async ({ slot, yes }: { slot: number; yes: boolean }) => {
       const args = { params: { path: { script_id: s.id, slot } } };
@@ -57,76 +59,80 @@ export function PublishStep({ script: s, brandId, asking, onAsking }: { script: 
       navigate(`/b/${brandId}/scripts/${made.id}?step=script`);
     },
   });
+  // The server publishes only when every version is approved (or removed), as Variations says.
+  const open = versions.filter((v) => v.status === "draft");
+  const reason = versions.length === 0 ? "Write the script first" : open.length > 0 ? `Approve or remove version ${open.map((v) => LETTER[v.slot]).join(" and ")} first` : null;
+  const words = s.kind === "song" ? "lyrics" : "words";
 
   return (
-    <div className="space-y-4">
+    <section className="flex max-w-[720px] flex-col gap-4" aria-labelledby="publish-title">
+      <div className="flex flex-col gap-1">
+        <h1 id="publish-title" className="font-display text-2xl font-semibold tracking-tight">
+          {s.published ? "In the library" : "Publish to the library"}
+        </h1>
+        <p className="text-text/80">
+          {s.published
+            ? `It's in the team's library, and its ${words} are final. To change them, duplicate the script.`
+            : "Publishing keeps this script for the team: editors can make videos from it. You don't need to publish to make a video yourself."}
+        </p>
+      </div>
+      {(publish.isError || duplicate.isError || approve.isError) && <p role="alert" className={errorClass}>{(publish.error ?? duplicate.error ?? approve.error)?.message}</p>}
+      <ul aria-label="Versions">
+        {versions.map((v) => (
+          <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`} className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-2">
+            <div className="min-w-0">
+              <p className="font-medium">Version {LETTER[v.slot]}</p>
+              <p className="text-xs tabular-nums text-muted">{about(v)}</p>
+            </div>
+            {v.status === "draft" && !s.published ? (
+              <Button variant="secondary" dense busy={approve.isPending && approve.variables?.slot === v.slot} onClick={() => approve.mutate({ slot: v.slot, yes: true })}>
+                Approve version {LETTER[v.slot]}
+              </Button>
+            ) : (
+              <span className="flex items-center gap-2 text-xs">
+                <Dot tone="success">{s.published ? "Published" : "Approved"}</Dot>
+                {!s.published && (
+                  <Button variant="ghost" dense className="text-muted" aria-label={`Undo approval of version ${LETTER[v.slot]}`} busy={approve.isPending && approve.variables?.slot === v.slot} onClick={() => approve.mutate({ slot: v.slot, yes: false })}>
+                    Undo
+                  </Button>
+                )}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {s.kind === "song" && (
+        <dl className="space-y-2 text-sm">
+          <SongFacts script={s} />
+        </dl>
+      )}
       {s.published ? (
-        <div>
+        <div className="flex justify-end">
           <Button variant="secondary" icon={Copy} busy={duplicate.isPending} onClick={() => duplicate.mutate()}>
             Duplicate script
           </Button>
         </div>
       ) : (
-        <p className="flex max-w-[680px] items-start gap-2 text-sm text-muted">
-          <Info size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />
-          {s.kind === "song" ? "Publishing makes this ready to make. After that the lyrics can't change (each video still picks its own take). To change the lyrics, duplicate the script." : "Publishing makes these versions ready to make. After that their words can't change. To change one, duplicate the script."}
-        </p>
+        <>
+          <Card className="flex flex-col gap-2">
+            <p className="font-medium">When it's published</p>
+            <p className="text-text/80">Their {words} become final. Editors see it under Scripts › Ready to make, and each video they start waits for the owner's OK.</p>
+          </Card>
+          <div className="flex flex-wrap items-start justify-end gap-2">
+            <Button variant="ghost" className="text-muted" onClick={onNotYet}>
+              Not yet
+            </Button>
+            <Button disabled={!!reason} reason={reason} onClick={() => onAsking(true)}>
+              Publish {versions.length} version{versions.length === 1 ? "" : "s"}
+            </Button>
+          </div>
+        </>
       )}
-      {(publish.isError || duplicate.isError || approve.isError) && <p role="alert" className={errorClass}>{(publish.error ?? duplicate.error ?? approve.error)?.message}</p>}
-      <ul className="grid gap-4 lg:grid-cols-3">
-        {versions.map((v) => (
-          <li key={v.slot} aria-label={`Version ${LETTER[v.slot]}`}>
-            <Card className="h-full space-y-3 text-sm">
-              <h3 className="font-display text-md font-bold">
-                {LETTER[v.slot]} · {NAME[v.slot] ?? "Variation"}
-              </h3>
-              <p className="line-clamp-4 whitespace-pre-wrap font-script [overflow-wrap:anywhere]">{v.text}</p>
-              <dl className="space-y-2">
-                {s.kind === "song" && <SongFacts script={s} />}
-                <div>
-                  <dt className="font-medium text-muted">Words</dt>
-                  <dd className="flex flex-wrap items-center gap-2">
-                    {v.status !== "draft" && <Check size={16} strokeWidth={1.75} aria-hidden className="text-success" />}
-                    {v.status === "draft" ? "Not approved yet" : "Approved"}
-                    {!s.published &&
-                      (v.status === "draft" ? (
-                        <Button variant="secondary" dense icon={Check} busy={approve.isPending && approve.variables?.slot === v.slot} aria-label={`Approve version ${LETTER[v.slot]}`} onClick={() => approve.mutate({ slot: v.slot, yes: true })}>
-                          Approve
-                        </Button>
-                      ) : (
-                        <Button variant="ghost" dense icon={Undo2} busy={approve.isPending && approve.variables?.slot === v.slot} aria-label={`Undo approval of version ${LETTER[v.slot]}`} onClick={() => approve.mutate({ slot: v.slot, yes: false })}>
-                          Undo approval
-                        </Button>
-                      ))}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-muted">Cast</dt>
-                  <dd className="flex flex-wrap gap-2">
-                    {slots.length === 0 && <span className="text-muted">Everyone is made in Cast</span>}
-                    {slots.map((c) => (
-                      <Badge key={c.id} icon={c.locked ? Lock : undefined}>
-                        {c.sheet_file_id && c.locked && <img src={fileUrl(c.sheet_file_id)} alt="" className="size-4 rounded-sm object-cover" />}
-                        {c.role}
-                        {!c.locked && " · made in Cast"}
-                      </Badge>
-                    ))}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-muted">Breakdown</dt>
-                  <dd>{v.has_breakdown ? `Planned${v.seconds ? ` · ${Math.round(v.seconds)} s` : ""}` : "Runs when an editor starts"}</dd>
-                </div>
-              </dl>
-            </Card>
-          </li>
-        ))}
-      </ul>
       {asking && !s.published && (
         <Dialog title={`Publish ${versions.length} version${versions.length === 1 ? "" : "s"} of ${s.title}?`} cancelLabel="Not yet" actionLabel="Publish" busy={publish.isPending} onCancel={() => onAsking(false)} onConfirm={() => publish.mutate()}>
           {s.kind === "song" ? "Its lyrics become final." : "Their words become final."}
         </Dialog>
       )}
-    </div>
+    </section>
   );
 }
