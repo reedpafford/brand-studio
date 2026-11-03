@@ -82,7 +82,7 @@ test("a refused change (an Off look for an editor) says why in the server's word
 
 test("a published script shows its look read only; a song shows the Song chip", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, song({ published: true, status: "published", look: "pixar" })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [] }] });
+  fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, song({ published: true, status: "published", look: "pixar" })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes: [] }] });
   open("/b/1/scripts/7?step=script");
   expect(await screen.findByText("Style: Disney Pixar")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Look:/ })).toBeNull();

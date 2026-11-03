@@ -117,7 +117,7 @@ class Project(Filed, Entity, Base):
 
         db = object_session(self)
         take = db.get(SongTake, self.song_take_id) if db and self.song_take_id else None
-        return math.ceil(take.trim_to or take.seconds or 0) if take else 0
+        return math.ceil(take.seconds or 0) if take else 0
 
     @property
     def budget_credits(self) -> Decimal:

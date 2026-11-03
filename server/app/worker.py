@@ -25,12 +25,19 @@ from sqlalchemy.orm import Session
 
 from app import director, hidden, music, screen_figures
 from app.clip_takes import still_wanted
-from app.credits import USD_PER_CREDIT, usd_to_credits
+from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
-from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
+from app.providers import (
+    STAND_IN,
+    NetworkError,
+    NotStarted,
+    Provider,
+    Result,
+    get_providers,
+)
 from app.purge import purge_deleted, purge_uploads
 from app.references import fit_image
 from app.steps import explain, recheck, save_step_result, step_failed
@@ -473,7 +480,8 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         _fail(db, job, _plain(job, repr(exc)), repr(exc))
         db.commit()
         return True
-    db.execute(update(Job).where(Job.id == job.id).values(provider_ref="sync"))
+    ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
+    db.execute(update(Job).where(Job.id == job.id).values(provider_ref=ref))  # a stand-in's: marked
     _finish(db, job, provider, result, storage)
     return True
 

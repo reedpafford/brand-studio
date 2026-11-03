@@ -17,7 +17,7 @@ from PIL import Image
 
 from app.prompts import SCHEMAS, check
 from app.prompts.check import DIALOGUE
-from app.providers import Result
+from app.providers import STAND_IN, Result
 
 SIZES = {"9:16": (360, 640), "16:9": (640, 360), "1:1": (512, 512), "4:5": (400, 500)}
 
@@ -366,7 +366,7 @@ class FakeMedia:
         self._ids = itertools.count(1)
 
     def submit(self, kind: str, input: dict) -> str:
-        ref = f"local-{next(self._ids)}"
+        ref = f"{STAND_IN}local-{next(self._ids)}"
         self._jobs[ref] = {"kind": kind, **input.get("input", {})}
         return ref
 
@@ -404,7 +404,7 @@ class FakeSuno:
         self._ids = itertools.count(1)
 
     def submit(self, kind: str, input: dict) -> str:
-        ref = f"suno-{next(self._ids)}"
+        ref = f"{STAND_IN}suno-{next(self._ids)}"
         self._styles[ref] = input["input"]["style"]
         return ref
 

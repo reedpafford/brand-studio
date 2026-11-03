@@ -12,7 +12,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { Pick, SendPress, sendKey, shapeOptions } from "./Composer";
-import { SendError, useEstimate, useFreestyleActions, type Freestyle, type Shape } from "./useFreestyle";
+import { SendError, directed, useEstimate, useFreestyleActions, type Freestyle, type Shape } from "./useFreestyle";
 
 type Row = Script["versions"][number];
 /** "0:32" */
@@ -67,7 +67,7 @@ function useReadyScripts(brandId: number, owner: boolean, q: string) {
     queryKey: ["scripts", "ready-to-make", brandId, owner, q],
     queryFn: async () => {
       const { data } = await api.GET("/scripts", { params: { query: { brand_id: brandId, ...(owner ? {} : { status: "published" }), ...(q ? { q } : {}), sort: "title", limit: 50 } } });
-      return (data ?? []).filter((r) => r.kind === "story" && r.versions.some(finished)); // Dialogue is the director's kind for now
+      return (data ?? []).filter((r) => directed(r.kind) && r.versions.some(finished)); // Song comes next
     },
   });
 }

@@ -25,7 +25,7 @@ export function useVideoSettings(projectId: number) {
 }
 
 /** One choice in a picker, and the one setting it switches (a body with exactly that key; null is Auto). */
-export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; overCap?: boolean; off?: boolean; body: SettingIn };
+export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; off?: boolean; body: SettingIn };
 /** `locked`: why it can't be changed here (a script-made video keeps its script's style, Reed's walk item 7); shown, never picked. */
 export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; locked?: string; choices: Choice[] };
 
@@ -64,7 +64,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       price: perSecond((nowVideo ?? video)?.credits_per_second ?? 0),
       choices: [
         { id: "auto", label: video ? `Auto (${video.name})` : "Auto", price: video && perSecond(video.credits_per_second), noLipSync: video && !video.lip_sync, body: { video_model: null } },
-        ...s.video_models.map((m) => ({ id: m.id, label: m.name, price: perSecond(m.credits_per_second), noLipSync: !m.lip_sync, overCap: m.over_cap, body: { video_model: m.id } })),
+        ...s.video_models.map((m) => ({ id: m.id, label: m.name, price: perSecond(m.credits_per_second), noLipSync: !m.lip_sync, body: { video_model: m.id } })),
       ],
     },
     {
@@ -75,7 +75,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       price: perStill((nowImage ?? image)?.credits_per_still ?? 0),
       choices: [
         { id: "auto", label: image ? `Auto (${image.name})` : "Auto", price: image && perStill(image.credits_per_still), body: { image_model: null } },
-        ...s.image_models.map((m) => ({ id: m.id, label: m.name, price: perStill(m.credits_per_still), overCap: m.over_cap, body: { image_model: m.id } })),
+        ...s.image_models.map((m) => ({ id: m.id, label: m.name, price: perStill(m.credits_per_still), body: { image_model: m.id } })),
       ],
     },
   ];
@@ -172,8 +172,6 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   const pick = (f: Field, c: Choice) => (c.id === f.current ? setPicking(null) : setAsking({ field: f, choice: c }));
   const lookOpen = picking?.key === "look" && looks.data;
   const lines = asking && preview.data ? confirmText(asking.field, asking.choice, preview.data, finished) : null;
-  // Only the cap stops a switch; past the budget an editor's later presses wait for the owner (Hold requests, #1068).
-  const hold = preview.data?.over_cap ? (preview.data.reason ?? "Over the video limit.") : null;
   return (
     <>
       {row}
@@ -193,7 +191,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
           cancelLabel="Not yet"
           actionLabel="Switch"
           busy={apply.isPending || preview.isPending}
-          holdReason={preview.isError ? preview.error.message : apply.isError ? apply.error.message : hold}
+          holdReason={preview.isError ? preview.error.message : apply.isError ? apply.error.message : null}
           onCancel={() => {
             setAsking(null);
             apply.reset();
@@ -219,15 +217,13 @@ export function ChoicePanel({ field, owner, onPick, onClose }: { field: Field; o
             <li key={c.id}>
               <button
                 type="button"
-                disabled={!!c.overCap}
                 aria-pressed={c.id === field.current}
                 onClick={() => onPick(c)}
-                className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left disabled:opacity-60 ${c.id === field.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
+                className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left ${c.id === field.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
               >
                 <span className="font-medium">{c.label}</span>
                 {c.price && <span className="text-sm text-muted tabular-nums">· {c.price}</span>}
                 {c.noLipSync && <Badge>No lip-sync</Badge>}
-                {c.overCap && <span className="w-full text-sm text-muted">Over the video limit</span>}
               </button>
             </li>
           ))}

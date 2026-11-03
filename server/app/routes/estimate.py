@@ -58,6 +58,38 @@ def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -
     return estimate(db, ws, "video", Decimal(seconds), job)
 
 
+def quoted_seconds(db: Session, draft: ScriptDraft, video=None) -> int:
+    """The length a version's price is for: its own (`lib.seconds`), at least the length a
+    video plans for before any plan or target, and a narrated version's at least its B-roll's
+    (`broll_seconds`, rule 36)."""
+    from app.models.projects import PRE_BREAKDOWN_SECONDS
+
+    seconds = lib.seconds(draft)
+    if not draft.breakdown and not draft.target_seconds:
+        seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
+    script = db.get(Script, draft.script_id)
+    if script.kind == "narrated":
+        seconds = max(seconds, broll_seconds(db, script, draft, video))
+    return seconds
+
+
+def broll_seconds(db: Session, script: Script, draft: ScriptDraft, video=None) -> int:
+    """A narrated version's B-roll at most (rule 36): a shot shorter than the clip model's
+    shortest clip is made at that length (F7). With a plan, each of its shots at least that
+    long; before one, the narration's length (`narration.longest`) times max(1, shortest / 2),
+    the references' median shot being about 2 s (Seedance x2, P-Video x1). The model is the
+    one the video's takes will use (`video_model`)."""
+    from app import narration
+
+    low = video_model(video, script.look, script.kind).duration.min
+    row = clip_prompts.newest(db, video) if video is not None else None
+    plan = (row.data if row else draft.breakdown) or {}
+    shots = [sh.get("seconds") or 0 for sc in plan.get("scenes", []) for sh in sc.get("shots", [])]
+    if shots:
+        return math.ceil(sum(max(s, low) for s in shots))
+    return math.ceil(narration.longest(db, draft, video) * max(1, low / 2))
+
+
 def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     """A version's whole price before it's started, by the rules its video will cost by
     (QA-3: 14.73 quoted, its video's to-finish 28.06): `credits.plan_cost` with no breakdown
@@ -70,10 +102,9 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     version's is its Preferred take's card (the song decides the length; the same looks).
     `video`: the video it would make, for its models and look (Make this version's settings)."""
     from app import plans, song_takes
-    from app.models.projects import PRE_BREAKDOWN_SECONDS
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
-    script, seconds = db.get(Script, draft.script_id), lib.seconds(draft)
+    script, seconds = db.get(Script, draft.script_id), quoted_seconds(db, draft, video)
     if script.kind == "song" and (take := song_takes.preferred(db, draft)):
         return song_takes.video_credits(db, take, video=video)  # its plan call included
     plan = plans.plan_first(db, draft)  # charged at the press, before the rest
@@ -81,10 +112,9 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     looks += len(roles_without_a_look(db, script, draft))
     looks_cost = looks * look_price(db, script.workspace_id)  # as the look press shows and holds
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
-    if not bd and not draft.target_seconds:
-        seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
     return plan + looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
-                                  breakdown=not bd, video=video)  # fmt: skip
+                                  breakdown=not bd, video=video, look=script.look,
+                                  kind=script.kind)  # fmt: skip
 
 
 def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
@@ -95,24 +125,22 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     version with no song yet, its making and one remake (`director_song.price`); a presenter's
     host, its still and every second on P-Video (`host.run_price`). The cut, mutes and splices
     are free."""
-    from app import director, item_checks
+    from app import director, item_checks, narration
 
-    ws = db.get(Script, draft.script_id).workspace_id
+    script = db.get(Script, draft.script_id)
+    ws = script.workspace_id
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
-    seconds = lib.seconds(draft)
-    if not bd and not draft.target_seconds:  # as `version_cost` guesses it
-        from app.models.projects import PRE_BREAKDOWN_SECONDS
-
-        seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
+    seconds = quoted_seconds(db, draft, video)  # as `version_cost` guesses it
+    said = narration.longest(db, draft, video) if script.kind == "narrated" else seconds
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    m = video_model(video)
+    m = video_model(video, script.look, script.kind)
     model = {"model": m.id, "input": {"resolution": m.take_resolution}}
     takes = (estimate(db, ws, "video", Decimal(seconds), model)
              + clips * item_checks.per_take(db, ws))  # fmt: skip
     from app import director_song, host
 
     audio = director_song.price(db, draft)  # a song or narration still to make, and one remake
-    talks = host.run_price(db, draft, seconds, video)  # a presenter's host on P-Video, once
+    talks = host.run_price(db, draft, said, video)  # a presenter's host on P-Video, once
     return (version_cost(db, draft, video) + audio + talks + director.MAX_REDOS * takes
             + director.own_limit())  # fmt: skip
 

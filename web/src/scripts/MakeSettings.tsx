@@ -19,6 +19,7 @@ export type Picks = Omit<components["schemas"]["SettingIn"], "undo">;
  *  models, 9:16, each product's first flavour. */
 function useChoices(script: Script, picks: Picks, defaults: Record<string, string>): (SettingsOut & { auto: string[] }) | null {
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
+  const looks = useLooks();
   const screens = useQuery({ queryKey: ["screens", script.brand_id], queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: script.brand_id } } })).data ?? [] });
   if (!models.data || !screens.data) return null;
   const flavours: Record<string, string[]> = {};
@@ -27,6 +28,10 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
   // Auto, never as current. One rule, the server's, the one Make this version uses.
   const kept = defaults;
   const variants = { ...kept, ...picks.product_variants };
+  // Auto is the server's rule (breakdown.video_model): a song gets the catalogue default, else its style's.
+  const look = picks.look ?? script.look;
+  const styled = looks.data?.find((l) => l.id === look || l.lanes.some((x) => x.id === look))?.video_model;
+  const auto = (m: (typeof models.data)[number]) => (script.kind === "song" || !styled ? m.default : m.id === styled);
   const rate = (m: (typeof models.data)[number], at: string) => m.credits_per_unit[at] ?? Object.values(m.credits_per_unit)[0] ?? 0;
   return {
     look: picks.look ?? script.look,
@@ -36,8 +41,8 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
     product_variants: variants,
     auto: Object.keys(flavours).filter((p) => !(p in kept)), // may go back to Auto (no default to fall back on)
     language: script.language,
-    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, m.resolutions.includes("480p") ? "480p" : m.resolutions[0]), lip_sync: m.lip_sync, default: m.default, over_cap: false })),
-    image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default, over_cap: false })),
+    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, m.resolutions.includes("480p") ? "480p" : m.resolutions[0]), lip_sync: m.lip_sync, default: auto(m) })),
+    image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default })),
     shapes: ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"],
     flavours,
   };

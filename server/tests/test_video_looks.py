@@ -241,11 +241,11 @@ def test_not_now_on_the_missing_looks_sticks(owner, editor, db):
     assert made.status_code == 200 and _row(editor, pid, nate)["declined"] is False
 
 
-def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, db):
-    """QA on #482: a limit that fits one sheet but not two makes neither."""
+def test_missing_looks_are_all_or_none_under_the_videos_budget(owner, editor, db):
+    """QA on #482: a budget that fits one sheet but not two makes neither."""
     from decimal import Decimal
 
-    from app.credits import credits_used
+    from app.credits import budget_used
     from app.sheets import look_price
 
     made = _make(owner, text=NATE_ONLY)
@@ -260,13 +260,14 @@ def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, 
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     project = db.get(Project, pid)
     one = look_price(db, project.workspace_id)
-    limits = owner.get("/credits/limits").json()
-    cap = int(credits_used(db, project) + one * Decimal("1.5"))  # room for one, not two
-    put = owner.put("/credits/limits", json={**limits, "per_video_max_credits": max(cap, 1)})
-    assert put.status_code == 200
+    room = one * Decimal("1.5")  # room for one, not two
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=project.created_by_id,
+               kind="write-claude", provider="fake", input={}, project_id=pid, status="succeeded",
+               credits=project.budget_credits - budget_used(db, project) - room))  # fmt: skip
+    db.commit()
     url = f"/projects/{pid}/assets"
     said = editor.get(f"{url}/missing-looks").json()
-    assert said["reason"] and "limit" in said["reason"] and len(said["slot_ids"]) == 2
+    assert said["reason"] and "budget" in said["reason"] and len(said["slot_ids"]) == 2
     jobs, looks = db.query(Job).count(), db.query(LibraryItem).count()
     refused = editor.post(f"{url}/make-missing")
     assert (refused.status_code, refused.json()["detail"]) == (409, said["reason"])

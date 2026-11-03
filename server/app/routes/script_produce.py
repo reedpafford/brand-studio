@@ -154,8 +154,6 @@ def make_video(db: Session, user: User, request: Request, script, draft, setting
 
 class VersionEstimateOut(BaseModel):
     credits: float  # "about N credits to make", every step: the version's estimate_credits
-    over_cap: bool  # over the video limit
-    reason: str  # why it can't be made like this ("" when nothing is in the way)
 
 
 @router.post("/estimate", response_model=VersionEstimateOut)
@@ -181,6 +179,4 @@ def version_estimate(
     for field, value in (body.model_dump(exclude_none=True) if body else {}).items():
         setattr(video, *vs.check(db, user, video, {field: value}).popitem())
     cost = version_cost(db, draft, video)  # every look it will need included
-    cap = credits.get_limits(db, user.workspace_id).per_video_max_credits
-    reason = vs.OVER_CAP.format(cap) if cost > cap else ""
-    return VersionEstimateOut(credits=float(cost), over_cap=cost > cap, reason=reason)
+    return VersionEstimateOut(credits=float(cost))

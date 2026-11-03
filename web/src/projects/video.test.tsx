@@ -34,7 +34,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
   "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145 }],
 };
 
 function open(query = "?step=cast") {
@@ -1719,7 +1719,7 @@ test("switching the look re-reads the cast, so a role with no sheet in the new l
     "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }]],
     "GET /looks": [200, looks],
     "GET /projects/9/settings": [200, settings],
-    "POST /projects/9/settings/preview": [200, { to_finish_credits: 30, was_credits: 30, stills_out_of_date: 1, clips_out_of_date: 0, sung_to_broll: 0, over_budget: false, over_cap: false, reason: null, roles_needing_look: ["Bo"] }],
+    "POST /projects/9/settings/preview": [200, { to_finish_credits: 30, was_credits: 30, stills_out_of_date: 1, clips_out_of_date: 0, sung_to_broll: 0, over_budget: false, reason: null, roles_needing_look: ["Bo"] }],
     "POST /projects/9/settings": [200, { settings: { ...settings, look: "pixar" }, was: { look: "house" } }],
   };
   fakeServer(routes);

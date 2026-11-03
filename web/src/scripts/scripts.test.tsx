@@ -1244,7 +1244,7 @@ const makeServer = (o: Record<string, [number, unknown]> = {}) => ({
   "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }]] as [number, unknown],
   "GET /models": [200, catalogue] as [number, unknown],
   "GET /brands/1/screens": [200, [{ id: 1, product: "Iron Paws", variant: "Salmon" }, { id: 2, product: "Iron Paws", variant: "Chicken" }]] as [number, unknown],
-  "POST /scripts/7/drafts/0/estimate": [200, { credits: 21, over_cap: false, reason: null }] as [number, unknown],
+  "POST /scripts/7/drafts/0/estimate": [200, { credits: 21, reason: null }] as [number, unknown],
   "POST /scripts/7/drafts/0/produce": [201, { project_id: 55, breakdown_job_id: null }] as [number, unknown],
   "GET /projects/55": [404, { detail: "x" }] as [number, unknown],
   ...o,
@@ -1263,7 +1263,7 @@ test("Make this version shows the video's settings, and a pick moves the price l
   expect(within(row).getByText((_, el) => el?.firstElementChild?.textContent === "Style:" && el.textContent === "Style: House · set on the script")).toBeInTheDocument();
   expect(within(row).queryByRole("button", { name: /Look:/ })).toBeNull();
   // The estimate for the new pick; Kling can't lip-sync, and says so in the picker.
-  fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 34, over_cap: false, reason: null }] }));
+  fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 34, reason: null }] }));
   await userEvent.click(within(row).getByRole("button", { name: /Video model: Auto/ }));
   const models = await screen.findByRole("dialog", { name: "Video model" });
   expect(within(models).getByRole("button", { name: /Kling/ })).toHaveTextContent("No lip-sync");
@@ -1284,18 +1284,6 @@ test("Make this version sends the picks as its body, and none when nothing was c
   await userEvent.click(within(await screen.findByRole("dialog", { name: "Flavour" })).getByRole("button", { name: "Chicken" }));
   await userEvent.click(await within(panel).findByRole("button", { name: /Make this version/ }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/drafts/0/produce")?.body).toEqual({ product_variants: { "Iron Paws": "Chicken" } }));
-});
-
-test("over the video limit, Make this version is held back with the reason", async () => {
-  setViewport(1440);
-  const reason = "That would go over the video limit of 729 credits.";
-  fakeServer(makeServer({ "POST /scripts/7/drafts/0/estimate": [200, { credits: 800, over_cap: true, reason }] }));
-  open();
-  await userEvent.click(await screen.findByRole("link", { name: "Version A, ready to make" }));
-  const panel = await screen.findByRole("dialog", { name: "Bo tries salmon · Version A" });
-  const make = await within(panel).findByRole("button", { name: /Make this version/ });
-  await vi.waitFor(() => expect(make).toBeDisabled());
-  expect(panel).toHaveTextContent(reason);
 });
 
 test("on a phone the settings are one line that opens a sheet", async () => {

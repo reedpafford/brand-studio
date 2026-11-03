@@ -99,9 +99,7 @@ def _song(db: Session, row: BreakdownVersion) -> dict | None:
     text = db.scalar(select(ScriptVersion.text).where(
         ScriptVersion.project_id == row.project_id, ScriptVersion.version == row.script_version
     )) or ""  # fmt: skip
-    unsure = song_breakdown.guessed(
-        Breakdown.model_validate(row.data), text, song_breakdown.timing_used(take)
-    )
+    unsure = song_breakdown.guessed(Breakdown.model_validate(row.data), text, take.timing or {})
     shots = {sid: {**t, "guessed": sid in unsure} for sid, t in song["shots"].items()}
     return {**song, "shots": shots}
 

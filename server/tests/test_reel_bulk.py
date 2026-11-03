@@ -89,9 +89,7 @@ def test_write_all_reads_reels_and_writes_the_rest_at_one_price(app, owner, db, 
 def test_write_all_is_never_refused_for_the_week(app, owner, editor, db, clip):
     """One allowance (Reed, 30 Oct): reading reels and writing scripts are a brand's work,
     never the week's, so Write all runs every reel's read even with nothing left."""
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 0, "per_video_max_credits": 729}
-    )
+    owner.put("/credits/limits", json={"weekly_quick_clip_credits": 0})
     ids = [s["id"] for s in bulk_scripts(editor, [{"reel_url": u} for u in LINKS[:2]]).json()]
     plain = bulk_scripts(editor, [{"title": "Plain"}]).json()[0]["id"]
     _drain(app, db, clip)

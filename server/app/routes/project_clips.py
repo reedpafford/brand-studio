@@ -488,8 +488,8 @@ def generate(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Make a new take of this clip (a paid video job, counted against the project budget and
-    its per-video cap). A clip with problems must be fixed first."""
+    """Make a new take of this clip (a paid video job, counted against the project budget).
+    A clip with problems must be fixed first."""
     project, row = _clip(db, user, project_id, clip_id)
     if advice.stops(row):  # advice and problems kept anyway never block
         raise HTTPException(409, "Fix this clip's problems first.")
@@ -922,9 +922,8 @@ AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end
 
 def song_end(take: SongTake) -> float | None:
     """Where a song video ends: its last line heard, and a breath."""
-    from app import song_breakdown
 
-    sung = [x for x in song_breakdown.timing_used(take).get("lines") or []
+    sung = [x for x in (take.timing or {}).get("lines") or []
             if (x.get("heard") or 0) >= 0.5 and x.get("end") is not None]  # fmt: skip
     return round(sung[-1]["end"] + AFTER_LAST_LINE, 2) if sung else None
 
