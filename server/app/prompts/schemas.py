@@ -259,7 +259,8 @@ class SongDirection(BaseModel):
     concept: str = Field(description="1–2 sentences: the song's vibe and the angle it sings.")
     lyrics: str = Field(
         description="The whole song, one sung line a line, with section tags on their own "
-        "lines ([Verse 1], [Chorus], [Bridge]); the last sung line names the brand."
+        "lines ([Verse 1], [Chorus], [Bridge]); the brand where the song brings it in, never "
+        "forced into the last line."
     )
     style_line: str = Field(
         description="Under 25 words: genre, vocal, tempo or BPM, mood, production; never an "

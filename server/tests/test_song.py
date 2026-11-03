@@ -69,7 +69,7 @@ def test_directions_advise_on_length_style_and_the_brand_line():
     result.directions[1].lyrics = "[Chorus]\nShort and sweet"
     problems = check.song_directions(result, "Iron Paws", 30)
     assert "Advice: direction 1: the music style is over 25 words" in problems
-    assert f"Advice: direction 2: {check.NO_CTA}" in problems
+    assert not any(check.NO_CTA in p for p in problems)  # a song isn't forced to end on the brand
     assert any(p.startswith("Advice: direction 2: 3 sung words") for p in problems)
     result.directions.pop()
     assert "1 directions; write exactly 2" in check.song_directions(result, "Iron Paws")
@@ -372,3 +372,29 @@ def test_song_producer_review_the_hook_first_the_rate_the_vocal_and_a_set_that_v
     message = prompts.song_directions_input("Goal: x", [], recent_styles=["folk, 90 BPM"])
     assert "<recent_styles>\nfolk, 90 BPM\n</recent_styles>" in message
     assert round(400 / prompts.SUNG_RATE[0]) == 200  # 400 words: costed at about 3:20
+
+
+def test_a_song_follows_its_script_and_is_never_forced_to_end_on_the_brand():
+    """Reed, 3 Nov: "Only one note is the product being mentioned last line - its really just
+    the song being based on the script - not a force." Lyrics whose last line doesn't name the
+    brand get no advice about it, and no song prompt asks for it."""
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    for d in result.directions:
+        d.lyrics = d.lyrics.rstrip() + "\n[Outro]\nAnd the bowl stayed empty every night"
+    assert not any("brand" in p for p in check.song_directions(result, "Iron Paws", 30))
+    directions = prompts.system("song_directions")
+    assert (
+        "never forced into the last line" in directions and "last sung line names" not in directions
+    )
+    assert "the last sung line names the brand" not in str(
+        schemas.SongDirection.model_json_schema()
+    )
+    lyrics = "[Verse 1]\nBowl stays full\nThen the green goes on\n[Chorus]\nNow the bowl is clean"
+    shots = [_shot("1.1", [1, 2], 0.0, 2.0), _shot("1.2", [3], 2.0, 4.0),
+             _shot("1.3", [4, 5], 4.0, 6.0)]  # fmt: skip
+    end = {"end_line": "Get Iron Paws now", "brand": "Iron Paws"}
+    sung = check.song_breakdown(lyrics, _breakdown(shots), SONG, {}, 4, 15, **end)
+    assert not any(check.NO_CTA in p for p in sung)
+    narrated = check.song_breakdown(lyrics, _breakdown(shots), SONG, {}, 4, 15, sung=False, **end)
+    assert f"Advice: {check.NO_CTA}" in narrated  # a narration is a spoken script (rule 18)
