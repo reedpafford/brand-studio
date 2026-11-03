@@ -131,8 +131,8 @@ class EstimateOut(BaseModel):
 
 
 def _model(fs: Freestyle):
-    """Quick clip's model: the one a spoken script gets (it asks for sound), as its look says."""
-    return video_model(look=fs.look, kind="story")
+    """Quick clip's model: its look's."""
+    return video_model(look=fs.look)
 
 
 def _seconds(text: str, fs: Freestyle) -> int:

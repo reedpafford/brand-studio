@@ -28,10 +28,10 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
   // Auto, never as current. One rule, the server's, the one Make this version uses.
   const kept = defaults;
   const variants = { ...kept, ...picks.product_variants };
-  // Auto is the server's rule (breakdown.video_model): a spoken story script gets the catalogue default, else its style's.
+  // Auto is the server's rule (breakdown.video_model): a song gets the catalogue default, else its style's.
   const look = picks.look ?? script.look;
   const styled = looks.data?.find((l) => l.id === look || l.lanes.some((x) => x.id === look))?.video_model;
-  const auto = (m: (typeof models.data)[number]) => (script.kind !== "narrated" || !styled ? m.default : m.id === styled);
+  const auto = (m: (typeof models.data)[number]) => (script.kind === "song" || !styled ? m.default : m.id === styled);
   const rate = (m: (typeof models.data)[number], at: string) => m.credits_per_unit[at] ?? Object.values(m.credits_per_unit)[0] ?? 0;
   return {
     look: picks.look ?? script.look,
