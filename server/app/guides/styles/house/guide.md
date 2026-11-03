@@ -76,7 +76,13 @@ About four in five of Nate's shots hold still. The energy comes from the charact
 - Fast on information, held on feeling: the turn of the story (hurt hardening into resolve) gets a held shot, then the pace picks up again.
 - The ending holds long enough for the last line to be heard and read.
 - **Is every second earning its place?** The pace is fast because every moment carries something new; a beat that only repeats what we know is cut, and a feeling that matters is given room.
-- (range to be set from the reference videos)
+- Measured in the 10 House reference reels (deep-watch, 3 Nov; cut counts checked by eye; per-reel notes in examples/*/notes.md):
+  - Overall: about 7–10 cuts every 10 s (10 of 10); the median shot is 0.45–1.0 s (10 of 10); half to four in five shots are under 1 s (10 of 10).
+  - Hook: the first line lands at 0–0.3 s (10 of 10). The first shot is short, 0.1–1.8 s, with a cut on the next line (7 of 10), or one held take of 3.5–5.4 s (3 of 10).
+  - Dialogue scenes: shots of 0.9–5 s (median about 1.5–2 s), a cut on each line, the next shot arriving 0.05–0.2 s before the next line; reaction inserts 0.3–0.9 s (10 of 10).
+  - Longest hold: one long take a video, 5–10.6 s (9 of 10; the tenth's longest is 3.9 s): the argument played out, the turn pushing in to an extreme close-up (9–10 s, 3 of 10), or the payoff two-shot.
+  - Wordless montage: shots of 0.1–0.8 s (median 0.35–0.45 s), 13–25 cuts every 10 s, each montage 3–16 s long (10 of 10).
+  - Payoff: singles and two-shots of 0.5–3.3 s, ending on a crash zoom or whip into a reaction close-up (8 of 10).
 
 ## Transitions
 - A quick whip-blur joins most scene changes.
@@ -108,3 +114,36 @@ A screen is a phone in a character's hand: held up to the lens so it fills the f
 - **Slow motion** sometimes comes back at full speed. Name it in the shot as the action ("in slow motion, the drink tips down his shirt").
 - **A mirror shot** only reads if the setup's framing is repeated closely: same side, same height, same distance.
 - **A camera move** written into a still shot tends to make the model drift. Say "static" for a held frame.
+
+## must keep
+<!-- 3 Nov, from the 10 House reference reels (study-house; evidence per reel in examples/*/notes.md). -->
+- Caricatured 3D faces that read on mute: big round eyes with one sharp catchlight, thick dark brows doing the acting, a small nose, a mouth that opens to cartoon extremes on a shout; reactions pushed to the extreme, often in a close-up that fills the frame (10 of 10).
+- One fixed real-world outfit per character in every shot (a plain tee with a small logo, joggers, a chain, a cap; a dark suit), changed only to mark the turn (10 of 10; changed on purpose in 3).
+- Real, ordinary places, densely dressed, with near-photoreal props; inserts with no one in them sit close to photoreal and are cut in with no change of grade (10 of 10).
+- Light that belongs to the place and the time of day, so each scene has its own: a soft warm day interior, a night lit by a screen with a warm doorway behind, golden hour for a turn, blue hour or a bright warehouse for the win (10 of 10).
+- The camera holds while the people move; a move is punctuation on a beat: a push in on a feeling, a pull-out to reveal, a snap or crash zoom into a reaction, a whip into a reveal (10 of 10). No handheld in the animated part.
+- Eye-level framing: close singles and over-the-shoulder shots with a soft shoulder or object in the foreground, nose-to-nose profiles for stare-downs; low angles kept for status objects (10 of 10).
+- Two speeds of cutting, and one long take a video (see pacing).
+- Montages that show time and scale in one locked frame: the same pose with a bigger world behind, day and night flicking past, ghosted fast-motion, stacks growing (7 of 10).
+- Motion carries the transitions: whip and smear blur in every reel, with things thrown or stacked up to the lens, morphs, and a white flash (6 of 10).
+
+## safe to vary
+- How the hook is cut: a burst of short shots or one held take.
+- Which places and times of day appear, and whether there is a night low point at all (7 of 10 have one) or a golden-hour beat.
+- How many montages (1–3) and how long each runs (3–16 s).
+- One-off visual gags: price tags glowing in the pupils, a clock in the frame, a view from inside a box.
+- How a memory is treated (a bloomed, washed-out pink-peach) and how a time card looks (white serif on black, or white capitals on a hero object after a flash).
+
+## combines with
+- **Dialogue** is its format: all 10 references are dialogue skits.
+- **Real footage:** every reference ends on a 1.5–3.7 s live-action handheld tag after the animation (10 of 10), and one cuts a 1.1 s real phone clip into the middle (1 of 10). In the references it is the creator's own life; for a brand it is the slot for the brand's real thing.
+- Not seen in the references, so untested: a narrated or song script over House's wordless montages, which already run on music with no lines.
+
+## measured in the reference videos
+<!-- 3 Nov, deep-watch kit (per-shot colour, per-second camera flow, stems and spectrograms). Facts only; anything that disagrees with the lines above is listed for Reed in the PR, not changed here. -->
+- Colour (average of the frame): day interiors #594a43 to #7d5a49, gently warm, saturation about a quarter to a third; night #0e1d32 to #30343c, blue, saturation about two thirds, blacks deep but not crushed; golden hour #8a5e56 to #997d72; the whole animated part averages about #665650 to #6f5556. The colour comes from props and one hero object, not from a saturated grade.
+- Camera: in the four reels counted second by second, 54–74% of animated shots are static. Slow pushes move about 2–13% of the frame a second; crash zooms 25–30%; the quickest follow pans 13–35%.
+- Depth of field: shallow on close-ups; wides keep the set readable (7 of 10 noted).
+- No slow motion in any of the 10; fast motion and ghosted time-lapse instead.
+- Sound: a music bed under every second (no silence in 10 of 10), about −14 LUFS overall; under lines it is a soft pad or low drone about 10–27 dB below the voice (8 of 10), and it rises with drums when no one speaks. Whooshes and impacts on whips, a ding on each notification. Cuts follow the lines and the sound hits, never the musical beat (10 of 10 at chance).
+- Captions belong to the edit, never the clips (rule 32): in the references one word at a time, bold capitals with a thin black outline at 55–70% of the frame's height, white in the older reels and bright yellow italic in the newer ones; none during wordless montages.
