@@ -109,7 +109,8 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
     calls = len(clip_prompts.batches(bd)) if bd else math.ceil(clips / clip_prompts.BATCH_CLIPS)
     claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + calls)
-    clip = {"model": video_model(video).id, "input": {"resolution": "480p"}}
+    m = video_model(video)
+    clip = {"model": m.id, "input": {"resolution": m.take_resolution}}
     checks = clips * item_checks.per_take(db, ws)  # a take check a clip, while checks are on
     return (claude + clips * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
             + estimate(db, ws, "video", Decimal(seconds), clip) + checks)  # fmt: skip

@@ -53,7 +53,8 @@ def _still(db: Session, ws: int, project: Project | None = None) -> Decimal:
 
 
 def _video(db: Session, ws: int, seconds: int, project: Project | None = None) -> Decimal:
-    job = {"model": video_model(project).id, "input": {"resolution": "480p"}}
+    m = video_model(project)
+    job = {"model": m.id, "input": {"resolution": m.take_resolution}}
     return estimate(db, ws, "video", Decimal(seconds), job)
 
 
@@ -103,7 +104,8 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
 
         seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    model = {"model": video_model(video).id, "input": {"resolution": "480p"}}
+    m = video_model(video)
+    model = {"model": m.id, "input": {"resolution": m.take_resolution}}
     takes = (estimate(db, ws, "video", Decimal(seconds), model)
              + clips * item_checks.per_take(db, ws))  # fmt: skip
     from app import director_song
@@ -184,7 +186,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
             "clips",
             clips_done,
             _video(db, project.workspace_id, seconds_left, project) + checks,
-            f"{seconds_left} s of video at 480p, one take each",
+            f"{seconds_left} s of video at {video_model(project).take_resolution}, one take each",
         ),
         ("video", False, Decimal(0), "putting the clips together is free"),
     ]
