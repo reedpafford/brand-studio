@@ -127,7 +127,7 @@ test("an empty script with a reel is written from the reference, at the price sh
   await expect(page.getByLabel("Script · version A")).not.toHaveValue("", { timeout: 60_000 });
   // The write also found the roles, so the Cast step already has them.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
-  await expect(page.getByText(/^\d+ roles? · 0 locked$/)).toBeVisible();
+  await expect(page.getByText("Not locked").first()).toBeVisible();
 });
 
 test("a deleted script is found under Deleted and archived, and Restore puts it back", async ({ page }) => {

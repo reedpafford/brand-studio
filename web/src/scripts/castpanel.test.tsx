@@ -65,7 +65,7 @@ test("in Lock to a look, a character without a sheet gets Make sheet at its pric
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Lock Mia to a look" }));
   const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
-  expect(within(panel).getByText("No approved sheet yet")).toBeInTheDocument();
+  expect(within(panel).getByText("No sheet yet")).toBeInTheDocument();
   await userEvent.click(within(panel).getByRole("button", { name: "Make sheet · up to 3 credits" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ change: "" }));
 });
@@ -128,7 +128,7 @@ test("a role with no facts shows no facts line", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/cast": [200, [{ ...slot, facts: {} }]] }));
   open();
-  await screen.findByText("Late 20s.");
+  await screen.findByRole("heading", { name: "Mia" });
   expect(screen.queryByText(/\(a guess\)/)).toBeNull();
 });
 
@@ -162,7 +162,7 @@ test("an unlocked role says each video makes its own look, and about what it cos
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/cast": [200, [slot]] }));
   open();
-  expect(await screen.findByText("Not locked: each video makes its own look (about 3 credits each).")).toBeInTheDocument();
+  expect(await screen.findByText("Not locked")).toHaveAttribute("title", "Each video makes its own look (about 3 credits each).");
 });
 
 test("on a song, Find roles reads the lyrics as they are: no Approve step first (the Producer's row 4)", async () => {

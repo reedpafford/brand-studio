@@ -274,13 +274,12 @@ test("Cast: a role can be added, locked to a character with an approved sheet, a
     "POST /scripts/7/cast/31/lock": [200, slot({ locked: true, library_item_id: 4 })],
   });
   open("/b/1/scripts/7?step=cast");
-  expect(await screen.findByText("1 role · 0 locked")).toBeInTheDocument();
-  expect(screen.getByText("Main")).toBeInTheDocument();
+  expect(await screen.findByText("Not locked")).toBeInTheDocument();
   expect(screen.getByText("In A, B and C")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Lock Mia to a look" }));
   const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
   expect(within(panel).getByRole("button", { name: "Bo has no approved sheet yet" })).toBeDisabled();
-  expect(within(panel).getByText("No approved sheet yet")).toBeInTheDocument();
+  expect(within(panel).getByText("No sheet yet")).toBeInTheDocument();
   await userEvent.click(within(panel).getByRole("button", { name: "Lock to Mia" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast/31/lock")?.body).toEqual({ library_item_id: 4 }));
   await userEvent.click(screen.getByRole("button", { name: "Add a role" }));
@@ -291,7 +290,7 @@ test("Cast: a role can be added, locked to a character with an approved sheet, a
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts/7/cast")?.body).toMatchObject({ role: "Bo", kind: "Helper" }));
 });
 
-test("Cast: a locked role says so, with Change and Unlock; Remove role asks first", async () => {
+test("Cast: a locked role says so, with Change; Unlock and Remove role are in its menu, and Remove asks first", async () => {
   setViewport(1440);
   const calls = fakeServer({
     ...base,
@@ -303,8 +302,9 @@ test("Cast: a locked role says so, with Change and Unlock; Remove role asks firs
   });
   open("/b/1/scripts/7?step=cast");
   expect(await screen.findByText("Locked to Mia")).toBeInTheDocument();
-  expect(screen.getByText("Used as-is in every version.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Unlock Mia" }));
+  expect(screen.getByRole("button", { name: "Change the look for Mia" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "More for Mia" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Unlock" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /scripts/7/cast/31/lock")).toBe(true));
   await userEvent.click(screen.getByRole("button", { name: "More for Mia" }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Remove role" }));
