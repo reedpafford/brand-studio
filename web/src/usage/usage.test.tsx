@@ -333,6 +333,7 @@ test("My credits counts every send waiting for the owner, from the server, and l
   expect(within(list).getAllByText("Waiting for the owner's OK")).toHaveLength(3);
   expect(within(list).getByText("Declined")).toBeInTheDocument();
   expect(within(list).getByText('"Let\'s keep this one short"')).toBeInTheDocument();
+  expect(within(list).getByRole("link", { name: "Garden scene" })).toHaveClass("min-h-11"); // a 44 px press on a phone (QA-3 on #1241)
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 

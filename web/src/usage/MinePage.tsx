@@ -129,7 +129,7 @@ export function MinePage() {
                 {m.sends.map((x) => (
                   <li key={`${x.job_id ?? ""}-${x.freestyle_id ?? ""}-${x.created_at}`} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2">
                     <span className="min-w-0 break-words">
-                      {x.freestyle_id ? <Link to={`/freestyle/${x.freestyle_id}`} className="font-medium hover:underline">{x.title}</Link> : <span className="font-medium">{x.title}</span>}
+                      {x.freestyle_id ? <Link to={`/freestyle/${x.freestyle_id}`} className="inline-flex min-h-11 items-center font-medium hover:underline lg:min-h-0">{x.title}</Link> : <span className="font-medium">{x.title}</span>}
                       {x.brand && <span className="text-muted"> · {x.brand}</span>}
                       {x.status === "declined" && x.reason && <span className="block text-muted">"{x.reason}"</span>}
                     </span>

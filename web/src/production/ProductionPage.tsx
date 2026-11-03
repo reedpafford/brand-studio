@@ -188,7 +188,8 @@ export function ProductionPage() {
       {waiting} finished video{waiting === 1 ? " has" : "s have"} changes waiting
     </Link>
   );
-  const count = summary.data && (filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : [`${all} video${all === 1 ? "" : "s"} being made`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
+  const today = summary.data?.delivered_today ?? 0;
+  const count = summary.data && (delivered && !(brand || editor || q) ? `${today} video${today === 1 ? "" : "s"} delivered today` : filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : [`${all} video${all === 1 ? "" : "s"} being made`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
 
   const brandSelect = (
     <Select label="Brand" value={brand} onChange={(e) => set("brand", e.target.value)}>
@@ -213,17 +214,25 @@ export function ProductionPage() {
       ))}
     </Select>
   );
-  const toggle = (
-    <button type="button" aria-pressed={attention} onClick={() => set("attention", attention ? "" : "1")} className={`inline-flex min-h-control items-center whitespace-nowrap rounded-md border px-4 font-medium lg:min-h-control-dense ${attention ? "border-accent bg-accent-soft text-accent-text" : "border-border bg-surface hover:bg-surface-2"}`}>
-      Needs attention
-    </button>
-  );
   const search = (
     <label className="relative block min-w-0 flex-1 lg:w-56 lg:flex-none">
       <span className="sr-only">Search scripts</span>
       <Search size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
       <input type="search" role="searchbox" placeholder="Search scripts" value={text} onChange={(e) => (setText(e.target.value), set("q", e.target.value.trim()))} className="min-h-control w-full rounded-md border border-border bg-surface pl-9 pr-3 lg:min-h-control-dense" />
     </label>
+  );
+  const showTabs = (
+    <Tabs label="Show" value={delivered ? "delivered" : attention ? "attention" : "making"} onChange={(t) => setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("attention");
+      next.delete("delivered");
+      if (t !== "making") next.set(t, "1");
+      return next;
+    }, { replace: true })} tabs={[
+      { id: "making", label: "Making", count: all },
+      { id: "attention", label: rail ? "Needs attention" : "Attention", count: summary.data ? needs : undefined },
+      { id: "delivered", label: rail ? "Delivered today" : "Delivered", count: summary.data?.delivered_today },
+    ]} />
   );
   const clearButton = filtered && <Button variant="ghost" onClick={clear}>Clear filters</Button>;
   const active = [brand, editor, attention, sort !== "attention"].filter(Boolean).length;
@@ -244,17 +253,7 @@ export function ProductionPage() {
       {/* v5 D_Production: Making and Needs attention as tabs in a band, the other filters on its right. */}
       {rail && (
         <div className="-mx-6 -mt-4 flex flex-wrap items-center gap-3 border-b border-border px-6 py-2">
-          <Tabs label="Show" value={delivered ? "delivered" : attention ? "attention" : "making"} onChange={(t) => setParams((prev) => {
-            const next = new URLSearchParams(prev);
-            next.delete("attention");
-            next.delete("delivered");
-            if (t !== "making") next.set(t, "1");
-            return next;
-          }, { replace: true })} tabs={[
-            { id: "making", label: "Making", count: all },
-            { id: "attention", label: "Needs attention", count: summary.data ? needs : undefined },
-            { id: "delivered", label: "Delivered today", count: summary.data?.delivered_today },
-          ]} />
+          {showTabs}
           <span className="flex-1" />
           {clearButton}
           {search}
@@ -263,12 +262,16 @@ export function ProductionPage() {
         </div>
       )}
       {!rail && (
+      <>
+      {/* On a phone the same three tabs, shorter, in their own band (QA-3 on #1241). */}
+      <div className="-mx-4 -mt-4 border-b border-border px-4 py-2 sm:-mx-6 sm:px-6">{showTabs}</div>
       <div className="flex flex-wrap items-end gap-3">
         {search}
         <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
           {active > 0 ? `Filters (${active})` : "Filters"}
         </Button>
       </div>
+      </>
       )}
       {query.isError && <Banner title="Couldn't load the videos being made." action={<Button variant="secondary" onClick={() => void query.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {query.isPending && (
@@ -291,7 +294,6 @@ export function ProductionPage() {
           <div className="space-y-3 pb-2">
             {brandSelect}
             {editorSelect}
-            {toggle}
             {sortSelect}
             {clearButton}
           </div>
@@ -359,7 +361,8 @@ function Cards({ rows, colour, onRelease }: { rows: Row[]; colour: (id: number) 
                   <Dot colour={colour(r.brand.id)} />
                   <span className="min-w-0 break-words">{r.brand.name} · {who(r)}</span>
                 </span>
-                <span className="block text-sm text-muted">{STEPS[r.step]} · {ago(lastText(r.last_activity_at))}</span>
+                {/* Like the computer's Now (QA-3 on #1241); a flagged one keeps its step here and its flag below. */}
+                {r.flag ? <span className="block text-sm text-muted">{STEPS[r.step]} · {ago(lastText(r.last_activity_at))}</span> : <span className="block text-muted"><Now r={r} /></span>}
                 <span className="block text-sm text-muted tabular-nums">
                   <Credits r={r} /> credits · {money(r.spent_usd)}
                 </span>
