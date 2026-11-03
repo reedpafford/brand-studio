@@ -15,6 +15,17 @@ blurb: An animated music video: the song plays over B-roll that shows each line 
 ## Clips
 - One move per shot, cut on the beat: a push in on the hook, a whip pan between places, a slow orbit on the last chorus.
 
+## measured from the reference videos
+Measured on Reed's 7 reference song ads, all drawn in one animated-feature look (notes: the style examples named pixsong-*). Facts, not new rules.
+- Length: 1:46 to 9:19. Three pet songs (1:46–2:43), four storytime songs (5:45–9:19).
+- The voice: one sung lead from the first second (vocals start at 0.0 s in 6 of 7; 0.7 s in the other), present 78–97% of the runtime. Pet songs sing slower and wider (1.8–2.3 words a second); storytime songs sing fast, close to sung speech (3.0–3.5 words a second). Tempo 92–129 BPM.
+- One picture per sung line: a median of 4–8.5 words per shot (7 of 7). Median shot 2.4–3.5 s in the pet songs, 1.3–2.1 s in the storytime songs; 3–6 cuts per 10 s.
+- The picture changes when the line's subject changes: many cuts fall inside a sung word (22 of 30 in one, 207 of 325 in another), and almost none on the first word of a phrase after a pause.
+- Arrangement: a sparse opening without bass for the first 9–24 s (voice with keys or plucks and light percussion), then the full band; the slowest, longest-held pictures (3–8 s: the hug, the turn, the mechanism) sit where the band thins out.
+- Sung on camera: the strongest example is a closing address, the lead singing to the lens for the last ~40 s, lip-synced syllable by syllable, in a seated medium shot, centred, eye level, soft window light, cut with B-roll and a walk-and-talk in the same outfit (pixsong-1a). Elsewhere a side character mouths a sung line for 0.5–2 s (pixsong-1). Animal leads never mouth the words: their faces act the lyric, at most a held howl.
+- Structure seen. Pet songs: the grossest or saddest symptom → the owner misses it → a mentor (an old dog, a vet) → the inside view → what didn't work → the fix → weeks → the bond → proof → the end card with pet and product. Storytime songs: a headline hook → the betrayal or humiliation → backstory → the low point → a mentor (sister, mother, friend) brings the fix at about the halfway mark → mechanism and ingredients → the visible change → payoff → (in one) a sung close to camera.
+- Lyric captions in 6 of 7 (added in editing); two storytime songs open with a two-line headline box.
+
 ## How to make song-style ads
 A song-style ad plays like a micro music video: an original song carries the product story over animated visuals.
 
