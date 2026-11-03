@@ -84,7 +84,8 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     if not bd and not draft.target_seconds:
         seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
     return plan + looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
-                                  breakdown=not bd, video=video)  # fmt: skip
+                                  breakdown=not bd, video=video, look=script.look,
+                                  kind=script.kind)  # fmt: skip
 
 
 def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
@@ -97,7 +98,8 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     are free."""
     from app import director, item_checks
 
-    ws = db.get(Script, draft.script_id).workspace_id
+    script = db.get(Script, draft.script_id)
+    ws = script.workspace_id
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
     seconds = lib.seconds(draft)
     if not bd and not draft.target_seconds:  # as `version_cost` guesses it
@@ -105,7 +107,7 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
 
         seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    m = video_model(video)
+    m = video_model(video, script.look, script.kind)
     model = {"model": m.id, "input": {"resolution": m.take_resolution}}
     takes = (estimate(db, ws, "video", Decimal(seconds), model)
              + clips * item_checks.per_take(db, ws))  # fmt: skip

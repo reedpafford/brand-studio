@@ -187,7 +187,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
         draft = db.get(ScriptDraft, project.script_draft_id)
         context = script_preview.with_slots(db, draft.script_id, context, project)
     cast = [x for x in _tag(context, "cast").splitlines() if x.strip()]
-    model = video_model()
+    model = video_model(project)
     reference = ""
     if project.reference_breakdown:
         reference = prompts.reference_block(project.reference_breakdown, project.reference_replace)

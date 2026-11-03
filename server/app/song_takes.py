@@ -288,7 +288,16 @@ def song_video_cost(db: Session, draft: ScriptDraft, seconds: float, video=None)
     return (
         plan_first(db, draft)
         + looks * look_price(db, script.workspace_id)
-        + plan_cost(db, script.workspace_id, math.ceil(seconds), None, roles=0, video=video)
+        + plan_cost(
+            db,
+            script.workspace_id,
+            math.ceil(seconds),
+            None,
+            roles=0,
+            video=video,
+            look=script.look,
+            kind=script.kind,
+        )
     )
 
 

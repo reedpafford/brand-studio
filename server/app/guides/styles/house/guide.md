@@ -2,6 +2,7 @@ name: House
 order: 0
 on: yes
 image_model: auto
+video_model: seedance-2.5
 blurb: Our style: stylised 3D feature-film animation, light from the time of day (warm days, blue screen-lit nights), big readable faces.
 
 <!-- Our own look (docs/house-style), the default for every brand. Each `## ` section below fills the {{token}} of the same name in the step files, word for word; a style's other sections (still, clip, breakdown, script) are extra guidance added to those steps. House has none: its rules are the step files themselves. -->

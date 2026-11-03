@@ -95,12 +95,12 @@ CLIP_SECONDS_GUESS = 8  # before a breakdown exists: about this many seconds per
 
 
 def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True,
-              video=None) -> Decimal:  # fmt: skip
+              video=None, look=None, kind=None) -> Decimal:  # fmt: skip
     """What making a video costs, every step, not just its seconds (QA-Live, video #17:
     "About 55" quoted, 99 charged): the breakdown (`breakdown`), the frame prompts, a still
     per clip, the clip prompts (a Claude call per few clips), a look per role (`roles`) and
     its seconds of video. `bd` is its Breakdown, if it has one; `video` its models (VS1),
-    else Auto. Redos aren't counted."""
+    else its `look` and script `kind` say which (`breakdown.video_model`). Redos aren't counted."""
     from app import clip_prompts, item_checks
     from app.breakdown import video_model
     from app.sheets import look_usual
@@ -109,7 +109,7 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
     calls = len(clip_prompts.batches(bd)) if bd else math.ceil(clips / clip_prompts.BATCH_CLIPS)
     claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + calls)
-    m = video_model(video)
+    m = video_model(video, look, kind)
     clip = {"model": m.id, "input": {"resolution": m.take_resolution}}
     checks = clips * item_checks.per_take(db, ws)  # a take check a clip, while checks are on
     return (claude + clips * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
@@ -156,7 +156,10 @@ def budget(db: Session, project: Project) -> Decimal:
     bd = Breakdown.model_validate(row.data) if row else None
     roles = sum(s.library_item_id is None for s in all_slots(db, project))
     ws, seconds = project.workspace_id, int(project.estimate_credits)
-    cost = max(plan_cost(db, ws, seconds, bd, roles), plan_cost(db, ws, seconds, None, roles))
+    cost = max(
+        plan_cost(db, ws, seconds, bd, roles, video=project),
+        plan_cost(db, ws, seconds, None, roles, video=project),
+    )
     return min(cost * BUDGET_MULTIPLIER, cap)
 
 
