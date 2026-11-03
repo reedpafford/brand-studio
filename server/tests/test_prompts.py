@@ -30,6 +30,23 @@ def script_of(ex):
 def test_every_step_has_a_system_prompt_with_both_rules(step):
     text = prompts.system(step)
     assert "Be engaging" in text and "required screens" in text
+    # the script's words rule is said once, in rules.md, and the steps point at it by name
+    assert text.count("no step ever cuts, rewords, reorders or adds to them") == 1
+
+
+# Brand and example-character names: the brand block and the worked examples bring them in.
+EXAMPLE_NAMES = re.compile(r"\b(fomo|fogo|FOH-moh|iron ?paws|SNORE|JOMO|pitbull|Nate|Aiden|"
+                           r"Bruno|Malik|Tasha|Maya|Leo|Dre|Biscuit|Kimchi)\b", re.I)  # fmt: skip
+
+
+@pytest.mark.parametrize("path", sorted(HERE.glob("*.md")), ids=lambda p: p.name)
+def test_step_prompts_name_no_brand_or_example_character(path):
+    """Reed, 2 Nov: the step prompts work for any brand; fomo belongs to its examples only."""
+    text = path.read_text()
+    assert not EXAMPLE_NAMES.search(text), EXAMPLE_NAMES.search(text)
+    assert not re.search(r"\brules? \d+\b", text)  # a pointer the model can't follow
+    if '"The editor owns the script", above' in text:  # it points at rules.md
+        assert path.stem not in prompts.NO_RULES
 
 
 @pytest.mark.parametrize("step", prompts.SCHEMAS)
@@ -208,7 +225,7 @@ def test_the_sheet_owns_the_face_in_every_prompt():
         "and their outfit too unless this video gives them one" in (HERE / "rules.md").read_text()
     )
     assert "big glossy eyes" not in clip.split("Style: ", 1)[1].split("\n", 1)[0]
-    assert "Keep: Aiden's identity and clothing stable in every shot" in clip
+    assert "Keep: Theo's identity and clothing stable in every shot" in clip
     for step in ("breakdown", "script_draft", "variations"):
         assert "never a new costume" in prompts.system(step)
     board = prompts.system("storyboard")
@@ -1156,7 +1173,7 @@ def test_a_role_says_its_age_gender_and_job_and_its_sheet_fits_the_part():
 
 def test_the_grind_shows_trading_and_phone_beats_play_for_drama():
     # Reed, after video #17: no tapping in fomo, and phones held up flat to the viewer
-    assert "**Show the trading.** For a trading app (fomo)" in prompts.system("breakdown")
+    assert "**Show the trading.** For a trading app, the grind" in prompts.system("breakdown")
     for step in ("breakdown", "clip_prompts", "storyboard"):
         assert "a phone held up flat to" in prompts.system(step), step
         assert "screen's glow" in prompts.system(step), step
@@ -1383,7 +1400,7 @@ def test_a_brand_names_pronunciation_is_in_the_note_never_the_quote():
     assert "c3: shot 2.2's line isn't there once, word for word" in check.clip_prompts(
         bd, cp, 30, 10
     )
-    assert "saying fomo as FOH-moh" in prompts.system("clip_prompts")
+    assert "saying <brand> as its notes say" in prompts.system("clip_prompts")
 
 
 def test_a_feeling_is_face_and_body_never_words_a_character_could_say():
@@ -1474,7 +1491,7 @@ def test_the_director_names_every_tool_it_can_choose_and_never_writes_prompts():
     # the Producer, 2 Nov: it leads through the treatment; the steps still write the prompts
     assert "**You lead through the treatment.**" in text and "writes its own prompts" in text
     assert "never write a plan" not in text and "Story is not yours" not in text
-    assert "the words are never changed (rule 19)" in text and "2 redos at most" in text
+    assert "within its words (see" in text and "2 redos at most" in text
     assert "**Be engaging.**" in text  # the rules come with it, to judge the takes
     turn = schemas.DirectorTurn.model_validate({"tool": "plan", "why": "There is no plan yet."})
     assert (turn.clip_id, turn.take_id, turn.note) == (None, None, "")
@@ -1595,7 +1612,7 @@ def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
     one fix per finding, never a change to the script's words (rule 19)."""
     watch = prompts.system("watch_cut")
     assert prompts.SCHEMAS["watch_cut"] is schemas.CutWatch and "rules.md" not in watch
-    for part in ("the story reads without the words", "a mispronounced name", "rule 32",
+    for part in ("the story reads without the words", "a mispronounced name", "**Text:**",
                  "never suggest changing a line", "The ending lands", "never a script word",
                  "A gasp or a laugh the story motivates is fine"):  # fmt: skip
         assert part.lower() in watch.lower(), part
@@ -1686,7 +1703,7 @@ def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
     assert prompts.SCHEMAS["treatment"] is schemas.Treatment
     assert prompts.SCHEMAS["review_stills"] is schemas.StillsReview
     treatment = prompts.system("treatment")
-    for part in ("the first 2 seconds", "The script never varies (rule 19)", "why_it_holds",
+    for part in ("the first 2 seconds", "**The script never varies (see", "why_it_holds",
                  "A beat with nothing happening in it is a beat to rethink"):  # fmt: skip
         assert part in treatment, part
     canned = prompts.stand_in_treatment("Mom: Hi.\n\nDad: Bye.")
@@ -1728,7 +1745,7 @@ def test_the_treatment_never_varies_from_the_script():
         check.RHYME,
     ]
     treatment = prompts.system("treatment")
-    assert "**The script never varies (rule 19).**" in treatment and "a callback" in treatment
+    assert "**The script never varies (see" in treatment and "a callback" in treatment
     assert "that structure guides the beats" in treatment
     assert "it never changes, adds or reorders a spoken line or on-screen text" in prompts.system(
         "plan"
@@ -1781,7 +1798,7 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     for part in ("- `song` (paid, `note`)", "- `narration` (paid, `note`)", "songs_left",
                  "never a character's voice", "a take with any speech in it is a fault",
                  "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
-                 "never change a lyric (rule 19)", "With `take_id` and no `note` (free)",
+                 "never change a lyric (see", "With `take_id` and no `note` (free)",
                  "the shorter (fewer seconds to film)", "onto the song's sections",
                  "a voice in a take is a fault to redo", "not a second before",
                  "Treatment, then the song or the narration"):  # fmt: skip
