@@ -178,7 +178,7 @@ function Badge({ n }: { n: number | null }) {
 
 function TopBar({ brands, brand, current, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; waiting: number | null }) {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
+    <header aria-label="Top bar" className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
       <BrandSwitcher brands={brands} brand={brand} current={current} />
       <div className="ml-auto flex items-center gap-2">
         {/* Needs you shows only while something waits (Reed, 30 Oct); the page itself stays at /approvals. */}

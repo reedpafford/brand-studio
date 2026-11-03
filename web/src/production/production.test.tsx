@@ -192,3 +192,22 @@ test("In production's Brand picker is a 44 px press on a phone (QA-3 on #1246)",
   open();
   expect(await screen.findByRole("combobox", { name: "Brand" })).toHaveClass("min-h-control");
 });
+
+test("In production's spend is one line, the director's time included, in whole credits; 'up to N approved' only where the owner approved a run (the Producer, 3 Nov)", async () => {
+  setViewport(1440);
+  fakeServer(base([{ ...failed, credits_used: 97.33, director_credits: 70.4, budget_credits: 729 }, { ...fine, credits_used: 20.06, approved_up_to: 204 }]));
+  open();
+  const director = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
+  expect(within(director).getByText("spent 98")).toBeInTheDocument();
+  expect(within(director).queryByText(/director time|approved/)).toBeNull();
+  const approved = screen.getByRole("link", { name: /Midnight snack/ });
+  expect(within(approved).getByText("spent 21")).toBeInTheDocument();
+  expect(within(approved).getByText("up to 204 approved")).toBeInTheDocument();
+});
+
+test("In production's Brand picker is a 44 px press on a phone (QA-3 on #1246)", async () => {
+  setViewport(390);
+  fakeServer(base());
+  open();
+  expect(await screen.findByRole("combobox", { name: "Brand" })).toHaveClass("min-h-control");
+});
