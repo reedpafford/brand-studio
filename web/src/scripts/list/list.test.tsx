@@ -140,3 +140,15 @@ test("a published script opens on Overview (v5 C_ScriptOverview): each version's
   const panel = await screen.findByRole("dialog", { name: "Make a video from Bo tries salmon" });
   expect(within(panel).getByRole("radio", { name: /^B/ })).toBeChecked();
 });
+
+test("the Overview's credits count the director's time too, and a video with nothing spent yet says '0 credits so far', never 'free' (QA on #1237)", async () => {
+  setViewport(1440);
+  const making = { ...project, id: 6, name: "Bo tries salmon · B", credits_used: 0, director_credits: 0, needs_you: false, waiting_on: null };
+  const versions = full().versions.map((x) => (x.slot === 1 ? { ...x, status: "in_production", project_id: 6 } : x));
+  fakeServer({ ...base, "GET /scripts/7": [200, full({ versions })], "GET /projects": [200, [{ ...project, credits_used: 99, director_credits: 73 }, making]], "GET /scripts/7/cast": [200, []] });
+  renderApp("/b/1/scripts/7");
+  expect(await within(await screen.findByRole("listitem", { name: "Version A" })).findByText("spent 99 credits")).toBeInTheDocument(); // as the video's chat says it
+  const b = screen.getByRole("listitem", { name: "Version B" });
+  expect(await within(b).findByText("0 credits so far")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\bfree\b/);
+});

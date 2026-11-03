@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
 import { useState, type ReactNode } from "react";
 import type { components } from "../api/schema";
-import { Button, Dot, creditsLabel, wholeCredits } from "../components";
+import { Button, Dot, wholeCredits } from "../components";
 import { useFolders } from "../folders/Projects";
 import { useProjectList } from "../projects/LegacyVideos";
-import { budgetUsed } from "../projects/budget";
 import { videoStatus, videoTo } from "../videos/progress";
 import { finished } from "../freestyle/FromScript";
 import { lookName, useLooks } from "./Looks";
@@ -19,9 +18,16 @@ type Project = components["schemas"]["ProjectOut"];
 const COLS = "lg:grid lg:grid-cols-[52px_minmax(0,1fr)_64px_200px_132px] lg:items-center lg:gap-x-4";
 const KIND: Record<string, string> = { story: "Dialogue", song: "Song", narrated: "Narrated" };
 
-/** A version's credits as the board says them: what its video spent, or what making it is planned to cost. */
-const creditsText = (v: Version, video?: Project) =>
-  video ? `spent ${creditsLabel(wholeCredits(budgetUsed(video)))}` : v.estimate_credits > 0 ? `about ${creditsLabel(wholeCredits(v.estimate_credits))} (planned)` : "—";
+/** A version's credits as the board says them: what its video has spent in all, the director's own time included (so it
+ *  matches the video's chat), or what making it is planned to cost. Never "free": nothing spent yet is "0 credits so far". */
+const plural = (n: number) => `${n} credit${n === 1 ? "" : "s"}`;
+const creditsText = (v: Version, video?: Project) => {
+  if (video) {
+    const n = wholeCredits(video.credits_used);
+    return n > 0 ? `spent ${plural(n)}` : video.finished_at ? "—" : "0 credits so far";
+  }
+  return v.estimate_credits > 0 ? `about ${plural(wholeCredits(v.estimate_credits))} (planned)` : "—";
+};
 
 function VersionRow({ v, video, onMake }: { v: Version; video?: Project; onMake: () => void }) {
   const status = video ? videoStatus(video) : finished(v) ? { label: "No video yet", tone: "neutral" as const } : statusOf(v.status);
