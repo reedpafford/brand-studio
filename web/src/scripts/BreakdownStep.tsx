@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Ellipsis, MapPin, Pencil, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
@@ -14,6 +14,7 @@ import { useBreakdownFixes } from "../projects/BreakdownFixes";
 import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
 import type { Script } from "./useScript";
+import { ClipTable, sceneGroups } from "./BreakdownTable";
 import { refreshJobs } from "../jobs/refresh";
 
 type Breakdown = components["schemas"]["Breakdown"];
@@ -301,11 +302,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
       </div>
     );
 
-  // The clip table (C_Breakdown): each clip under the scene its first shot is in.
-  const shotById = new Map(plan.scenes.flatMap((sc) => sc.shots.map((sh) => [sh.id, { shot: sh, scene: sc }] as const)));
-  const groups = plan.scenes
-    .map((sc) => ({ scene: sc, clips: plan.clips.filter((c) => shotById.get(c.shot_ids[0])?.scene.id === sc.id) }))
-    .filter((g) => g.clips.length > 0);
+  const groups = sceneGroups(plan);
   const who = (ids: string[]) => [...new Set(ids.map((id) => (id.startsWith("slot:") ? roles.get(id) || "A role" : refName(id, pieces, roles))))].join(", ") || "—";
   // A problem that names a shot ("shot 2.1") sits under that shot's clip, with a warning dot on the row (C_Breakdown).
   const open = p!.problems.filter((x) => !p!.kept.includes(x));
@@ -332,10 +329,8 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
       )}
     </div>
   );
-  const number = new Map(groups.flatMap((g) => g.clips).map((c, i) => [c.id, i + 1]));
   const credits = v?.estimate_credits ? ` · about ${wholeCredits(v.estimate_credits)} credits to make (planned)` : "";
   const by = v?.planned_by?.name ? ` · planned by ${v.planned_by.name}` : "";
-  const cols = "grid grid-cols-[56px_minmax(0,1fr)_56px] gap-x-4 sm:grid-cols-[64px_minmax(0,1fr)_160px_70px]";
   return (
     <section aria-label="Breakdown" className="mx-auto flex max-w-[1000px] flex-col gap-3.5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -370,61 +365,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
       {loose.map(problemBox)}
       {fixes.all}
       {errors.map((e) => <p key={e.message} role="alert" className={errorClass}>{e.message}</p>)}
-      <div role="table" aria-label="Clips">
-        <div role="row" className={`${cols} h-[34px] items-center border-b border-border px-3 text-xs text-muted`}>
-          <span role="columnheader">Clip</span>
-          <span role="columnheader">What happens</span>
-          <span role="columnheader" className="hidden sm:block">Who</span>
-          <span role="columnheader" className="text-right">Length</span>
-        </div>
-        {groups.map((g, gi) => (
-          <div role="rowgroup" key={g.scene.id}>
-            <div role="row" className="flex h-9 items-center gap-2.5 border-b border-border bg-surface px-3 font-medium">
-              <span role="rowheader">
-                Scene {gi + 1}
-                {g.scene.heading ? ` · ${g.scene.heading}` : ""}
-              </span>
-              <span className="text-xs tabular-nums text-muted">
-                {g.clips.length} clip{g.clips.length === 1 ? "" : "s"} · {Math.round(g.clips.reduce((t, c) => t + c.seconds, 0))} s
-              </span>
-            </div>
-            {g.clips.map((c) => {
-              const n = number.get(c.id);
-              const shots = c.shot_ids.map((id) => shotById.get(id)?.shot).filter((x): x is NonNullable<typeof x> => !!x);
-              const said = shots.map((sh) => [sh.line ? `${sh.speaker ? `${sh.speaker}: ` : ""}${sh.line}` : "", sh.action].filter(Boolean).join(" ")).join(" ");
-              const people = who(shots.flatMap((sh) => sh.character_ids));
-              const cells = (
-                <>
-                  <span role="cell" className="tabular-nums">
-                    Clip {n}
-                    {open.some((x) => clipOf(x) === c.id) && <span aria-label="Has a problem" className="ml-1.5 inline-block size-2 rounded-full bg-warning align-middle" />}
-                  </span>
-                  <span role="cell" className="type-script min-w-0 text-[13px] text-text/80">
-                    {said}
-                    <span className="block font-sans text-xs text-muted sm:hidden">{people}</span>
-                  </span>
-                  <span role="cell" className="hidden min-w-0 truncate sm:block">{people}</span>
-                  <span role="cell" className="text-right tabular-nums">{Math.round(c.seconds)} s</span>
-                </>
-              );
-              return (
-                <Fragment key={c.id}>
-                  {readOnly ? (
-                    <div role="row" className={`${cols} min-h-12 items-center border-b border-border px-3 py-1.5`}>
-                      {cells}
-                    </div>
-                  ) : (
-                    <button type="button" role="row" aria-label={`Clip ${n}: open the shots`} onClick={() => setMode("shots")} className={`${cols} min-h-12 w-full items-center border-b border-border px-3 py-1.5 text-left hover:bg-surface-2`}>
-                      {cells}
-                    </button>
-                  )}
-                  {open.filter((x) => clipOf(x) === c.id).map(problemBox)}
-                </Fragment>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      <ClipTable plan={plan} who={who} readOnly={readOnly} onOpen={() => setMode("shots")} flagged={(id) => open.some((x) => clipOf(x) === id)} under={(id) => open.filter((x) => clipOf(x) === id).map(problemBox)} />
       {removing && (
         <Dialog title="Remove this plan?" cancelLabel="Keep it" actionLabel="Remove" danger busy={remove.isPending} onCancel={() => setRemoving(false)} onConfirm={() => remove.mutate(plan)}>
           Each video will plan its own shots when it starts.
