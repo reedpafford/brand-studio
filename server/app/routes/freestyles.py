@@ -17,7 +17,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import director, hidden, looks, prompts
+from app import director, hidden, looks, prompts, scorecard
 from app.auth import current_user
 from app.catalogue import get_model
 from app.clip_takes import in_english
@@ -192,6 +192,7 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
                       script_draft_id=draft.id, look=fs.look, aspect_ratio=fs.shape)  # fmt: skip
     db.add(project)
     db.flush()
+    scorecard.record_forecast(db, project, draft)
     db.add(ScriptVersion(project_id=project.id, version=1, text=text, source="library",
                          created_by_id=user.id))  # fmt: skip
     return project, draft

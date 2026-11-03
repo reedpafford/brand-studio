@@ -10,6 +10,7 @@ import { linkText } from "../ui";
 import { useRail } from "../useMedia";
 import { useDebounced } from "../scripts/status";
 import { useRestoreBrand } from "../brand/ArchiveBrand";
+import { ByFormat } from "./ByFormat";
 import { Charges } from "./Charges";
 import { Money, PeriodControl, Stat, Stats, lastText, money, periodLine, periodWord } from "./parts";
 import { periodFrom, useBrandRows, useSummary, type BrandRow, type Sort } from "./useUsage";
@@ -143,6 +144,7 @@ export function UsagePage() {
         {summary.data && summary.data.freestyle_spend_usd > 0 && <p className="text-sm text-muted">Freestyle: {money(summary.data.freestyle_spend_usd)} · sends with no brand picked (a brand's own are in its row)</p>}
       </section>
       <People period={period} />
+      <ByFormat />
       <Charges />
       {sheet && (
         <Sheet title="Filters" onClose={() => setSheet(false)}>
