@@ -7,7 +7,7 @@ import { ArchiveBrand } from "./ArchiveBrand";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
-import { KitPage } from "./KitPage";
+import { KitPage, blankBrand } from "./KitPage";
 import { setupOf } from "./BrandSetup";
 import { ProductsTab } from "./ProductsTab";
 import { ScreensTab } from "./ScreensTab";
@@ -48,7 +48,7 @@ export function BrandPage() {
 
   return (
     <FrameContext.Provider value={{ slot, setDirty, importing, setImporting, goTab: go }}>
-      <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
+      <main className="mx-auto flex max-w-content flex-col gap-4 p-4 sm:p-6 lg:min-h-dvh">
         {/* v5 F boards: the brand's dot and name, Import from website (the owner) and More; then the tabs with the note on the right. */}
         <PageTop
           title={
@@ -59,7 +59,8 @@ export function BrandPage() {
           }
         >
           <div className="flex flex-wrap items-center gap-2">
-            {owner && brand && (tab === "look" || tab === "voice") && (
+            {/* A blank brand's Import from website is the set-up card's primary, so the bar holds only ⋯ (F_BrandEmpty). */}
+            {owner && brand && (tab === "look" || tab === "voice") && !blankBrand(brand) && (
               <Button variant="secondary" onClick={() => setImporting(true)}>
                 Import from website
               </Button>
@@ -85,7 +86,7 @@ export function BrandPage() {
         </div>
         {/* Look and Voice & lines are one form: switching between them keeps what's typed. */}
         {tab === "look" || tab === "voice" ? <KitPage part={tab} /> : tab === "products" ? <ProductsTab /> : <ScreensTab />}
-        {rail && (tab === "look" || tab === "voice") && <div ref={setSlot} className="sticky bottom-0 z-10 -mx-4 flex items-center justify-end gap-3 border-t border-border bg-bg px-4 py-3 sm:-mx-6 sm:px-6" />}
+        {rail && (tab === "look" || tab === "voice") && <div ref={setSlot} className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-auto flex min-h-13 items-center justify-end gap-3 border-t border-border bg-bg px-4 py-2 sm:-mx-6 sm:-mb-6 sm:px-6" />}
       </main>
       {leaving && (
         <Dialog

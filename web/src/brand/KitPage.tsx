@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -92,11 +92,13 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
   const save = useMutation({
     mutationFn: async () => {
       const before = saved;
-      await patch(kit);
+      await patch({ ...kit, colours: kit.colours.filter((c) => c !== "") });
       return before;
     },
     onSuccess: (before) => {
-      setSaved(kit);
+      const clean = { ...kit, colours: kit.colours.filter((c) => c !== "") };
+      setSaved(clean);
+      setKit(clean);
       toast("Saved.", async () => {
         await patch(before);
         setSaved(before);
@@ -107,7 +109,8 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
   const changed = JSON.stringify(kit) !== JSON.stringify(saved);
   useReportDirty(changed);
   useEffect(() => onChanged(changed), [changed, onChanged]);
-  const valid = kit.colours.every((c) => HEX.test(c));
+  // A colour whose code is cleared is dropped on save (v5 F_BrandLook has no remove press per colour).
+  const valid = kit.colours.every((c) => c === "" || HEX.test(c));
 
   const err = save.isError && <p role="alert" className={errorClass}>{save.error.message}</p>;
   // v5 F_BrandLook / F_BrandVoice: a 640 px column of fields and a 320 px side column; Save changes sits in the bottom bar.
@@ -119,8 +122,15 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
         if (changed && valid) save.mutate();
       }}
     >
+      {/* v5 F_BrandEdit: why Save waits, Undo changes and Save changes, in one row of the bar along the bottom. */}
       {!quiet && <BrandAction>
-        <Button type="button" busy={save.isPending} disabled={!changed || !valid} reason={!changed ? "No changes yet" : !valid ? "Fix the colour codes first" : undefined} onClick={() => save.mutate()}>
+        <span id={`${brand.id}-save-why`} className="text-sm text-muted">{!changed ? "No changes yet" : !valid ? "Fix the colour codes first" : ""}</span>
+        {changed && (
+          <Button type="button" variant="ghost" onClick={() => setKit(saved)}>
+            Undo changes
+          </Button>
+        )}
+        <Button type="button" busy={save.isPending} disabled={!changed || !valid} aria-describedby={`${brand.id}-save-why`} onClick={() => save.mutate()}>
           Save changes
         </Button>
       </BrandAction>}
@@ -133,7 +143,7 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
               <ImagePicker label="Logo" inline="Change logo" fileId={kit.logo_file_id} onChange={(id) => set("logo_file_id", id)} />
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium">Colours</legend>
-                <p className="text-sm text-muted">The first colour tints the brand's dot.</p>
+                <p className="text-sm text-muted">The first colour tints the brand's dot. Clear a code to remove that colour.</p>
                 {/* v5 F_BrandLook: each colour's swatch and hex side by side, + Add at the end of the row. */}
                 <div className="flex flex-wrap items-start gap-3">
                   {kit.colours.map((c, i) => (
@@ -153,11 +163,8 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
                           value={c}
                           onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
                         />
-                        <button type="button" className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2 lg:w-6" aria-label={`Remove colour ${i + 1}`} onClick={() => set("colours", kit.colours.filter((_, j) => j !== i))}>
-                          <X size={14} strokeWidth={1.75} aria-hidden />
-                        </button>
                       </span>
-                      {c !== "" && !HEX.test(c) && <span className={errorClass}>Use a colour like #12A150.</span>}
+                      {c !== "" && !HEX.test(c) && <span className={`${errorClass} lg:whitespace-nowrap`}>Use a colour like #12A150.</span>}
                     </span>
                   ))}
                   <Button type="button" variant="secondary" icon={Plus} aria-label="Add colour" onClick={() => set("colours", [...kit.colours, kit.colours.at(-1) ?? ""])}>
@@ -236,14 +243,16 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
   );
 }
 
+/** Nothing set yet: no logo, colours, voice or style board. */
+export const blankBrand = (b: Brand) => !b.logo_file_id && (b.colours ?? []).length === 0 && !b.tone_notes && !b.style_board_file_id;
+
 /** A brand with nothing set yet (v5 F_BrandEmpty): three things to do, in any order, and a video can still be made now. */
 function SetUp({ brand, owner, onImport }: { brand: Brand; owner: boolean; onImport: () => void }) {
   const { goTab } = useBrandFrame();
-  const empty = !brand.logo_file_id && (brand.colours ?? []).length === 0 && !brand.tone_notes && !brand.style_board_file_id;
-  if (!empty) return null;
+  if (!blankBrand(brand)) return null;
   const row = "flex min-h-18 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0";
   return (
-    <section aria-label={`Set up ${brand.name}`} className="max-w-[640px] space-y-3">
+    <section aria-label={`Set up ${brand.name}`} className="mx-auto max-w-[640px] space-y-3 lg:pt-6">
       <h2 className="text-[length:var(--text-xl)] font-semibold">Set up {brand.name}</h2>
       <p className="text-muted">Three things make every video look and sound like this brand. Do them in any order.</p>
       <div className="rounded-lg border border-border">

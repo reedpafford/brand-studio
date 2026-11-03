@@ -63,19 +63,19 @@ export function groupProducts(screens: Screen[]): { name: string; screens: Scree
 export const slug = (s: string) => s.trim().toLowerCase().replace(/\s+/g, "-");
 
 /** A side panel on desktop, a sheet on a phone. */
-export function Panel(props: { title: string; onClose: () => void; children: ReactNode }) {
-  return useRail() ? <SidePanel {...props} /> : <Sheet {...props} />;
+export function Panel({ wide, ...props }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
+  return useRail() ? <SidePanel wide={wide} {...props} /> : <Sheet {...props} />;
 }
 
 /** Upload a picture and make it a screen. */
 export function useAddScreen(brandId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (a: { file?: File; fileId?: number; name: string; product?: string; variant?: string }) => {
+    mutationFn: async (a: { file?: File; fileId?: number; name: string; product?: string; variant?: string; tags?: string[] }) => {
       const stored = a.fileId !== undefined ? { id: a.fileId } : await uploadFile(a.file!);
       const { data, error } = await api.POST("/brands/{brand_id}/screens", {
         params: { path: { brand_id: brandId } },
-        body: { name: a.name, file_id: stored.id, tags: [], default_for: [], product: a.product ?? "", variant: a.variant ?? "" },
+        body: { name: a.name, file_id: stored.id, tags: a.tags ?? [], default_for: [], product: a.product ?? "", variant: a.variant ?? "" },
       });
       if (!data) throw new Error(errorText(error));
     },

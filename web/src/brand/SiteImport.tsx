@@ -183,7 +183,7 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
   }
 
   return (
-    <section aria-label="Import from website" className="max-w-[640px] space-y-4">
+    <section aria-label="Import from website" className="max-w-[704px] space-y-4">
       <div>
         <h2 className="text-[15px] font-semibold">Import from website</h2>
         <p className="text-xs text-muted">Reads the logo, colours and products from the brand's site. You pick what to keep.</p>
