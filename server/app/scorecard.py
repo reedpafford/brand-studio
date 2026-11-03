@@ -19,20 +19,14 @@ from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 
 ENOUGH = 3  # finished videos a pair needs before its own rate beats the estimate
-KINDS = {"story": "dialogue", "song": "song", "narrated": "narrated"}  # script kind -> format
 WORDS = "words"  # the take's words check target (take_words.TARGET)
 MUST_SHOW = ("product",)  # item-check finding kinds about the brand's must-show items
-
-
-def format_of(script: Script) -> str:
-    """The script's format. The one place to change when scripts get a `format` of their own."""
-    return getattr(script, "format", None) or KINDS.get(script.kind, script.kind)
 
 
 def pair_of(db: Session, project: Project) -> tuple[str, str] | None:
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     script = db.get(Script, draft.script_id) if draft else None
-    return (format_of(script), project.look) if script else None
+    return (lib.format_id(script), project.look) if script else None
 
 
 @dataclass
@@ -108,7 +102,7 @@ def forecast(db: Session, draft: ScriptDraft, project: Project | None = None) ->
     from app.routes.estimate import version_cost
 
     script = db.get(Script, draft.script_id)
-    pair = (format_of(script), project.look if project else script.look)
+    pair = (lib.format_id(script), project.look if project else script.look)
     seconds = lib.seconds(draft) or int(project.estimate_credits if project else 0)
     same = [f for f in finished(db, script.workspace_id, pair[1]) if f.pair == pair]
     if len(same) >= ENOUGH and seconds:

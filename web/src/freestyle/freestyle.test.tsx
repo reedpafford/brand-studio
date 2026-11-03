@@ -16,7 +16,7 @@ const fs = (o: object = {}) => ({
   thread: [said("Reed", SCRIPT), move("Making the clip.", "running")], ...o,
 });
 const version = (slot: number, o: object = {}) => ({ slot, status: "approved", title: "", seconds: 32 + slot * 3, project_id: null, text: `BO: version ${slot}.`, estimate_credits: 170 + slot, ...o });
-const scriptRow = { id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", look: "house", folder_id: null, versions: [version(0), version(1)], created_at: at };
+const scriptRow = { id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", format: "dialogue", look: "house", folder_id: null, versions: [version(0), version(1)], created_at: at };
 function server(me: object, routes: Record<string, [number, unknown]> = {}) {
   return fakeServer({
     "GET /auth/me": [200, me],

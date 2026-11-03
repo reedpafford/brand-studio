@@ -6,6 +6,7 @@ import { HasVideo, mmss, useMakeFromScript } from "../freestyle/FromScript";
 import { SHAPES, sentTo, type Freestyle } from "../freestyle/useFreestyle";
 import { useBrands } from "../shell/useBrands";
 import { lookName, useLooks } from "./Looks";
+import { useFormatName } from "./useFormats";
 import { letterOf } from "./status";
 
 /** Make a video from a script (E_ScriptMakeVideo): pick a version (each with its planned price) and a shape; the press
@@ -14,6 +15,7 @@ export function MakeVideoPanel({ scriptId, slot, onClose }: { scriptId: number; 
   const owner = useMe().data?.role === "owner";
   const navigate = useNavigate();
   const looks = useLooks().data;
+  const formatName = useFormatName();
   const brands = useBrands().data;
   const sent = (fs: Freestyle) => navigate(sentTo(fs, owner, fs.brand_id ?? 0));
   const m = useMakeFromScript(scriptId, sent, slot);
@@ -60,7 +62,7 @@ export function MakeVideoPanel({ scriptId, slot, onClose }: { scriptId: number; 
           </div>
           <p className="flex flex-wrap gap-x-4 text-sm text-muted">
             <span>
-              Type <span className="text-text">Dialogue</span>
+              Type <span className="text-text">{formatName(s.format)}</span>
             </span>
             <span>
               Style <span className="text-text">{lookName(looks, s.look)}</span>

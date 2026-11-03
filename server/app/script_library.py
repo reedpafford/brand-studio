@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, event, inspect, or_, select
 from sqlalchemy.orm import Session, object_session
 
+from app import guides
 from app.models.accounts import User
 from app.models.clips import ProjectClip
 from app.models.jobs import WAITING, Job, JobStatus
@@ -20,6 +21,19 @@ from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, Scrip
 
 MAX_SLOT = 2  # the original (0) plus up to two variations
 WORDS_PER_SECOND = 4.8
+
+
+def format_id(script: Script) -> str:
+    """The script's format (a guides format id): its own pick, else its kind's."""
+    return script.format or guides.KIND.get(script.kind, script.kind)
+
+
+def pick_format(format_id: str) -> str:
+    """The engine (a script's kind) of a format a script may be given: one that is on."""
+    found = [f for f in guides.formats() if f["id"] == format_id and f["on"]]
+    if not found:
+        raise HTTPException(422, "That format isn't available.")
+    return found[0]["engine"]
 
 
 def visible(user: User, script: Script) -> bool:

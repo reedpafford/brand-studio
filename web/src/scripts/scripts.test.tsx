@@ -10,7 +10,7 @@ const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspac
 const brands = [{ id: 1, name: "Iron Paws", colours: [] }, { id: 2, name: "fomo", colours: [] }];
 const v = (slot: number, status: string, o: object = {}) => ({ slot, status, title: "Bo tries salmon", seconds: 0, project_id: null, ...o });
 const script = (o: object = {}) => ({
-  id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog finally loving Iron Paws salmon.", reference_id: "altar", published: true, status: "published",
+  id: 7, brand_id: 1, kind: "story", format: "dialogue", title: "Bo tries salmon", description: "Show a picky dog finally loving Iron Paws salmon.", reference_id: "altar", published: true, status: "published",
   created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 2, versions: [v(0, "done", { seconds: 24, project_id: 5 }), v(1, "approved", { seconds: 30 }), v(2, "in_production")], ...o,
 });
 const base: Record<string, [number, unknown]> = {
@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 const full = (o: object = {}) => ({
-  id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
+  id: 7, brand_id: 1, kind: "story", format: "dialogue", title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
   notes: "Keep it warm.", reference_replace: "", cast: [], versions: [{ slot: 0, status: "draft", title: "Bo tries salmon", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
 });
 
@@ -131,15 +131,15 @@ test("New script at 390 and desktop: the header shows on load and opening saves 
   for (const width of [1440, 390]) {
     setViewport(width);
     const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { was_folder_id: null }] });
-    const { unmount } = renderApp("/b/1/scripts/new?kind=story");
+    const { unmount } = renderApp("/b/1/scripts/new?format=dialogue");
     await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
     expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
     await userEvent.click(within(await screen.findByRole("dialog", { name: "Style" })).getAllByRole("button", { name: "Use this style" })[0]);
-    await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", look: "noir" }));
+    await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", format: "dialogue", look: "noir" }));
     unmount();
   }
   const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { was_folder_id: null }] });
-  renderApp("/b/1/scripts/new?kind=story");
+  renderApp("/b/1/scripts/new?format=dialogue");
   await userEvent.click(await screen.findByRole("button", { name: /Project: none/ }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Launch" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toMatchObject({ kind: "script", id: 7, folder_id: 3 }));
@@ -154,7 +154,7 @@ test("New script: the script page opens with its editor already there, so no let
     const req = input instanceof Request ? input : new Request(new URL(input, "http://x"), init);
     return req.method === "GET" && new URL(req.url).pathname.endsWith("/scripts/7") ? new Promise<Response>(() => {}) : fake(input, init);
   });
-  open("/b/1/scripts/new?kind=story");
+  open("/b/1/scripts/new?format=dialogue");
   await userEvent.type(await screen.findByLabelText("Write or paste the script"), "B");
   expect(await screen.findByLabelText("Script · version A")).toBeInTheDocument();
   await userEvent.keyboard("o tries"); // straight on, into whatever has the cursor
@@ -165,7 +165,7 @@ test("New script: the script page opens with its editor already there, so no let
 test("New script: backing out before a word is typed leaves nothing behind (flows S1 U)", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts": [200, []] });
-  open("/b/1/scripts/new?kind=story");
+  open("/b/1/scripts/new?format=dialogue");
   await userEvent.type(await screen.findByLabelText("Write or paste the script"), "   "); // spaces aren't a word
   await userEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Scripts" }));
   expect((await screen.findAllByRole("button", { name: "New script" }))[0]).toBeInTheDocument(); // the page top's, and the empty list's

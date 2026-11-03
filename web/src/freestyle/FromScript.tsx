@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { Button, Skeleton } from "../components";
 import { useFolders } from "../folders/Projects";
 import { lookName, useLooks } from "../scripts/Looks";
+import { useFormatName } from "../scripts/useFormats";
 import { letterOf, useDebounced } from "../scripts/status";
 import { useScript, type Script } from "../scripts/useScript";
 import { ActionBar } from "../shell/ActionBar";
@@ -159,6 +160,7 @@ export function FromScript({ brandId, owner, onCreated }: { brandId: number; own
 /** The picked script: its versions, read-only words, the locked chips with Shape, and (desktop) the note and the press. */
 function Picked({ m, brandId, note, press }: { m: Making; brandId: number; note?: string; press?: ReactNode }) {
   const looks = useLooks().data;
+  const formatName = useFormatName();
   const brands = useBrands().data;
   const s = m.script!;
   return (
@@ -169,7 +171,7 @@ function Picked({ m, brandId, note, press }: { m: Making; brandId: number; note?
       </div>
       <p className="whitespace-pre-line break-words rounded-lg border border-border bg-surface p-4 font-script text-sm leading-[1.6] text-muted">{m.version!.text}</p>
       <div className="flex flex-wrap gap-1.5">
-        <Pick locked label="Type" value="Dialogue" />
+        <Pick locked label="Type" value={formatName(s.format)} />
         <Pick locked label="Style" value={lookName(looks, s.look)} />
         <Pick locked label="Brand" value={brands?.find((b) => b.id === s.brand_id)?.name ?? ""} />
         <Pick label="Shape" value={m.shape} options={shapeOptions} onPick={m.setShape} />

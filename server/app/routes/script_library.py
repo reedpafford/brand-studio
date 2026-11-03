@@ -66,6 +66,7 @@ class ScriptIn(BaseModel):
     new_lines: bool | None = None  # write new lines in the reel's style, not its own
     text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
     kind: Literal["story", "song", "narrated"] = "story"  # song: lyrics; narrated: one voice
+    format: str | None = None  # a format on GET /formats; its engine becomes the kind
     look: str | None = None  # how the pictures are drawn (ST1); None: House
     # VS1: the language it's written in; None: the brand's default language
     language: Annotated[str, StringConstraints(min_length=2, max_length=10)] | None = None
@@ -99,9 +100,7 @@ class ScriptPatch(BaseModel):
     reference_id: str | None = None
     reference_replace: LongText | None = None
     new_lines: bool | None = None  # until version A is approved
-    kind: Literal["story", "narrated"] | None = (
-        None  # ST0: Dialogue <-> Narrated, before publishing
-    )
+    format: str | None = None  # ST0: another format for the same words, before publishing
     look: str | None = None  # ST1: before publishing; Undo is a PATCH back (changing back is free)
 
 
@@ -209,6 +208,7 @@ class ScriptRow(BaseModel):
     brand_id: int
     title: str
     kind: Literal["story", "song", "narrated"]
+    format: str  # the guides format id: its own pick, else its kind's
     look: str = "house"
     language: str = "en"  # VS1: its videos follow it (read only there)
     description: str
@@ -360,6 +360,7 @@ def _out(db: Session, script: Script, full: bool = True) -> ScriptRow | ScriptOu
         brand_id=script.brand_id,
         title=script.title,
         kind=script.kind,
+        format=lib.format_id(script),
         look=script.look,
         language=script.language,
         description=script.description,
@@ -480,6 +481,14 @@ def list_scripts(
     return rows
 
 
+def _fields(body: ScriptIn, leave: set[str]) -> dict:
+    """A new script's columns: a format picked sets the kind to that format's engine."""
+    fields = body.model_dump(exclude=leave, exclude_none=True)
+    if body.format:
+        fields["kind"] = lib.pick_format(body.format)
+    return fields
+
+
 @router.post("", response_model=ScriptOut, status_code=201)
 def create_script(
     body: ScriptIn,
@@ -496,7 +505,7 @@ def create_script(
     script = Script(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
-        **body.model_dump(exclude={"text"}, exclude_none=True),
+        **_fields(body, {"text"}),
     )
     if not body.look:  # the brand's default look; an Off one starts editors on House (BR1)
         on = user.is_owner or looks.is_on(db, user.workspace_id, brand.default_look)
@@ -544,6 +553,8 @@ def create_many(
                 raise HTTPException(422, "That video was added for another brand.")
             if not (item.title or item.reel_url or item.upload_id):
                 raise HTTPException(422, "Give it a title.")
+            if item.format:
+                lib.pick_format(item.format)
         except HTTPException as exc:
             raise HTTPException(exc.status_code, f"{row}: {exc.detail}") from None
     if any(links) or any(uploads):  # one batch at a time; the reel worker spaces its fetches
@@ -557,9 +568,7 @@ def create_many(
         script = Script(
             workspace_id=user.workspace_id,
             created_by_id=user.id,
-            **item.model_dump(
-                exclude={"text", "reel_url", "upload_id", "title"}, exclude_none=True
-            ),
+            **_fields(item, {"text", "reel_url", "upload_id", "title"}),
             title=item.title or UNTITLED,
         )
         db.add(script)
@@ -600,9 +609,10 @@ def update_script(
         lib.editable(user, script)
     if "reference_id" in values:
         _check_reference(request, values["reference_id"])
-    if values.get("kind") is not None:  # ST0: same words, other steps; Undo is a PATCH back
+    if values.get("format") is not None:  # ST0: same words, other steps; Undo is a PATCH back
         lib.editable(user, script)
-        if script.kind == "song":
+        values["kind"] = lib.pick_format(values["format"])
+        if (values["kind"] == "song") != (script.kind == "song"):
             raise HTTPException(409, SONG_STAYS)
     if values.get("look") is not None:
         lib.editable(user, script)  # a published script's look is final (ST1)
@@ -918,6 +928,7 @@ def duplicate(script_id: int, user: User = Depends(current_user), db: Session = 
         brand_id=source.brand_id,
         title=f"{source.title} (copy)"[:200],
         kind=source.kind,
+        format=source.format,
         look=source.look,
         language=source.language,
         description=source.description,
