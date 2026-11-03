@@ -1,135 +1,126 @@
 {
  "Input": {
-  "properties": {
-   "aspect_ratio": {
-    "default": "16:9",
-    "description": "Aspect ratio of the video. Ignored when an input image is provided.",
-    "enum": [
-     "16:9",
-     "9:16",
-     "4:3",
-     "3:4",
-     "3:2",
-     "2:3",
-     "1:1"
-    ],
-    "title": "aspect_ratio",
-    "type": "string",
-    "x-order": 5
-   },
-   "audio": {
-    "description": "Input audio to condition video generation. Supports flac, mp3, wav.",
-    "format": "uri",
-    "nullable": true,
-    "title": "Audio",
-    "type": "string",
-    "x-order": 3
-   },
-   "disable_safety_filter": {
-    "default": true,
-    "description": "Disable safety filter for prompts (and input image). When disabled, prompts are not checked for unsafe content before generation.",
-    "title": "Disable Safety Filter",
-    "type": "boolean",
-    "x-order": 10
-   },
-   "draft": {
-    "default": false,
-    "description": "Draft mode. Generates a lower-quality preview of the video.",
-    "title": "Draft",
-    "type": "boolean",
-    "x-order": 8
-   },
-   "duration": {
-    "default": 5,
-    "description": "Duration of the video in seconds (1-20). Ignored when audio is provided.",
-    "maximum": 20,
-    "minimum": 1,
-    "title": "Duration",
-    "type": "integer",
-    "x-order": 4
-   },
-   "fps": {
-    "default": 24,
-    "description": "Frames per second of the video.",
-    "enum": [
-     24,
-     48
-    ],
-    "title": "fps",
-    "type": "integer",
-    "x-order": 7
-   },
-   "image": {
-    "description": "Input image to generate video from (image-to-video). Supports jpg, jpeg, png, webp.",
-    "format": "uri",
-    "nullable": true,
-    "title": "Image",
-    "type": "string",
-    "x-order": 1
-   },
-   "last_frame_image": {
-    "description": "Reference image for the last frame of the video. Supports jpg, jpeg, png, webp.",
-    "format": "uri",
-    "nullable": true,
-    "title": "Last Frame Image",
-    "type": "string",
-    "x-order": 2
-   },
-   "no_op": {
-    "default": false,
-    "description": "Health check mode - returns status without inference.",
-    "title": "No Op",
-    "type": "boolean",
-    "x-order": 13
-   },
-   "prompt": {
-    "description": "Text prompt for video generation.",
-    "title": "Prompt",
-    "type": "string",
-    "x-order": 0
-   },
-   "prompt_upsampling": {
-    "default": true,
-    "description": "Use prompt upsampling to enhance the prompt.",
-    "title": "Prompt Upsampling",
-    "type": "boolean",
-    "x-order": 9
-   },
-   "resolution": {
-    "default": "720p",
-    "description": "Resolution of the video.",
-    "enum": [
-     "720p",
-     "1080p"
-    ],
-    "title": "resolution",
-    "type": "string",
-    "x-order": 6
-   },
-   "save_audio": {
-    "default": true,
-    "description": "Save the video with audio.",
-    "title": "Save Audio",
-    "type": "boolean",
-    "x-order": 11
-   },
-   "seed": {
-    "description": "Random seed. Set for reproducible generation.",
-    "nullable": true,
-    "title": "Seed",
-    "type": "integer",
-    "x-order": 12
-   }
-  },
+  "type": "object",
+  "title": "Input",
   "required": [
    "prompt"
   ],
-  "title": "Input",
-  "type": "object"
+  "properties": {
+   "fps": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/fps"
+     }
+    ],
+    "default": 24,
+    "x-order": 7,
+    "description": "Frames per second of the video."
+   },
+   "seed": {
+    "type": "integer",
+    "title": "Seed",
+    "x-order": 12,
+    "nullable": true,
+    "description": "Random seed. Set for reproducible generation."
+   },
+   "audio": {
+    "type": "string",
+    "title": "Audio",
+    "format": "uri",
+    "x-order": 3,
+    "nullable": true,
+    "description": "Input audio to condition video generation. Supports flac, mp3, wav."
+   },
+   "draft": {
+    "type": "boolean",
+    "title": "Draft",
+    "default": false,
+    "x-order": 8,
+    "description": "Draft mode. Generates a lower-quality preview of the video."
+   },
+   "image": {
+    "type": "string",
+    "title": "Image",
+    "format": "uri",
+    "x-order": 1,
+    "nullable": true,
+    "description": "Input image to generate video from (image-to-video). Supports jpg, jpeg, png, webp."
+   },
+   "no_op": {
+    "type": "boolean",
+    "title": "No Op",
+    "default": false,
+    "x-order": 13,
+    "description": "Health check mode - returns status without inference."
+   },
+   "prompt": {
+    "type": "string",
+    "title": "Prompt",
+    "x-order": 0,
+    "description": "Text prompt for video generation."
+   },
+   "duration": {
+    "type": "integer",
+    "title": "Duration",
+    "default": 5,
+    "maximum": 20,
+    "minimum": 1,
+    "x-order": 4,
+    "description": "Duration of the video in seconds (1-20). Ignored when audio is provided."
+   },
+   "resolution": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/resolution"
+     }
+    ],
+    "default": "720p",
+    "x-order": 6,
+    "description": "Resolution of the video."
+   },
+   "save_audio": {
+    "type": "boolean",
+    "title": "Save Audio",
+    "default": true,
+    "x-order": 11,
+    "description": "Save the video with audio."
+   },
+   "aspect_ratio": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/aspect_ratio"
+     }
+    ],
+    "default": "16:9",
+    "x-order": 5,
+    "description": "Aspect ratio of the video. Ignored when an input image is provided."
+   },
+   "last_frame_image": {
+    "type": "string",
+    "title": "Last Frame Image",
+    "format": "uri",
+    "x-order": 2,
+    "nullable": true,
+    "description": "Reference image for the last frame of the video. Supports jpg, jpeg, png, webp."
+   },
+   "prompt_upsampling": {
+    "type": "boolean",
+    "title": "Prompt Upsampling",
+    "default": true,
+    "x-order": 9,
+    "description": "Use prompt upsampling to enhance the prompt."
+   },
+   "disable_safety_filter": {
+    "type": "boolean",
+    "title": "Disable Safety Filter",
+    "default": true,
+    "x-order": 10,
+    "description": "Disable safety filter for prompts (and input image). When disabled, prompts are not checked for unsafe content before generation."
+   }
+  }
  },
  "enums": {
   "Status": {
-   "description": "An enumeration.",
    "enum": [
     "starting",
     "processing",
@@ -137,11 +128,11 @@
     "canceled",
     "failed"
    ],
+   "type": "string",
    "title": "Status",
-   "type": "string"
+   "description": "An enumeration."
   },
   "aspect_ratio": {
-   "description": "An enumeration.",
    "enum": [
     "16:9",
     "9:16",
@@ -151,30 +142,31 @@
     "2:3",
     "1:1"
    ],
+   "type": "string",
    "title": "aspect_ratio",
-   "type": "string"
+   "description": "An enumeration."
   },
   "fps": {
-   "description": "An enumeration.",
    "enum": [
     24,
     48
    ],
+   "type": "integer",
    "title": "fps",
-   "type": "integer"
+   "description": "An enumeration."
   },
   "resolution": {
-   "description": "An enumeration.",
    "enum": [
     "720p",
     "1080p"
    ],
+   "type": "string",
    "title": "resolution",
-   "type": "string"
+   "description": "An enumeration."
   }
  },
  "fetched": "2026-11-03",
  "model": "prunaai/p-video",
- "source": "replicate.com/prunaai/p-video/api (the version that page documents)",
- "version": "572fafd86387258df12f7a9fba2d4debe8fc8ed72c0565b2abffe51585f533dd"
+ "source": "Replicate models API, latest_version (the version the paid test ran on)",
+ "version": "b5b01a83c4cde2c94a8fa5b68c98f2413b140a923ec910f30f1c782966788ebb"
 }

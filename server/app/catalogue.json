@@ -51,7 +51,7 @@
    "offered": false,
    "lip_sync": false,
    "provider_model": "prunaai/p-video",
-   "provider_version": "572fafd86387258df12f7a9fba2d4debe8fc8ed72c0565b2abffe51585f533dd",
+   "provider_version": "b5b01a83c4cde2c94a8fa5b68c98f2413b140a923ec910f30f1c782966788ebb",
    "default": false,
    "duration": {"min": 1, "max": 20},
    "resolutions": ["720p", "1080p"],
