@@ -126,7 +126,7 @@ def test_a_model_switch_before_the_run_moves_its_price_and_past_the_ok_only_the_
     def switch(who, model):
         return who.post(f"/projects/{video.id}/settings", json={"video_model": model})
 
-    assert switch(owner, "seedance-1-lite").status_code == 200
+    assert switch(owner, "seedance-2.0").status_code == 200
     db.expire_all()
     cheaper = run_price(db, draft, video)
     assert fs.up_to == cheaper  # the quote follows the model; so does what's covered

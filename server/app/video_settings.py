@@ -269,10 +269,11 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     settings it replaced, for Undo (the same call with them). Undo puts back what the video
     already had, so it's never refused: each paid press still checks when it spends."""
     values = check(db, user, project, values)
+    keep = _follow_price(db, user, project, values)  # a freestyle's: past its OK, said first
     found = preview(db, user, project, values)
     if found["reason"] and not undo:
         raise HTTPException(409, found["reason"])
-    _follow_price(db, user, project, values)
+    keep()
     was = {k: getattr(project, k) for k in values}
     could = lip_sync(project)
     for k, v in values.items():
@@ -289,11 +290,11 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     return was
 
 
-def _follow_price(db: Session, user: User, project: Project, values: dict) -> None:
+def _follow_price(db: Session, user: User, project: Project, values: dict):
     """A freestyle's video switched before its run asked for any take: its newest send's
     "up to" (and what the owner's OK covers) is the video's whole price with the switch (rule
-    36). Past what the owner approved, only the owner may switch it: theirs is the new OK
-    (rule 34); an editor's is refused, saying so."""
+    36), kept by the step this returns. Past what the owner approved, only the owner may
+    switch it: theirs is the new OK (rule 34); an editor's is refused here, saying so."""
     from app.credits import approved
     from app.models.freestyles import Freestyle
     from app.models.jobs import Job
@@ -305,17 +306,21 @@ def _follow_price(db: Session, user: User, project: Project, values: dict) -> No
     sent = fs.chat[-1] if fs and fs.chat and "price" in fs.chat[-1] else None
     if sent is None or not project.script_draft_id or db.scalar(select(Job.id).where(
             Job.project_id == project.id, Job.kind == "video", Job.id > sent["job"])):  # fmt: skip
-        return  # not a freestyle's, or its run is making takes: each step holds as it spends
+        return lambda: None  # not a freestyle's, or its run makes takes: each step holds
     with trying(db, project, values):
         price = run_price(db, db.get(ScriptDraft, project.script_draft_id), project)
     ok = Decimal(sent.get("approved", sent["price"]))  # the figure the owner said yes to
     if price > ok and not user.is_owner:
         raise HTTPException(409, PAST_OK.format(credits=math.ceil(ok)))
-    fs.chat = [*fs.chat[:-1], {**sent, "price": str(price),
-                               "approved": str(price if user.is_owner else ok)}]  # fmt: skip
-    turn = db.get(Job, sent["job"])
-    turn.input = {**turn.input, PRICE: str(price)}
-    fs.up_to = approved(db, fs)
+
+    def keep() -> None:
+        fs.chat = [*fs.chat[:-1], {**sent, "price": str(price),
+                                   "approved": str(price if user.is_owner else ok)}]  # fmt: skip
+        turn = db.get(Job, sent["job"])
+        turn.input = {**turn.input, PRICE: str(price)}
+        fs.up_to = approved(db, fs)
+
+    return keep
 
 
 def follow_own_looks(db: Session, project: Project) -> None:

@@ -67,19 +67,21 @@ def quoted_seconds(db: Session, draft: ScriptDraft, video=None) -> int:
     seconds = lib.seconds(draft)
     if not draft.breakdown and not draft.target_seconds:
         seconds = max(seconds, PRE_BREAKDOWN_SECONDS)
-    if db.get(Script, draft.script_id).kind == "narrated":
-        seconds = max(seconds, broll_seconds(db, draft, video))
+    script = db.get(Script, draft.script_id)
+    if script.kind == "narrated":
+        seconds = max(seconds, broll_seconds(db, script, draft, video))
     return seconds
 
 
-def broll_seconds(db: Session, draft: ScriptDraft, video=None) -> int:
+def broll_seconds(db: Session, script: Script, draft: ScriptDraft, video=None) -> int:
     """A narrated version's B-roll at most (rule 36): a shot shorter than the clip model's
     shortest clip is made at that length (F7). With a plan, each of its shots at least that
     long; before one, the narration's length (`narration.longest`) times max(1, shortest / 2),
-    the references' median shot being about 2 s (Seedance 1 Lite x2, P-Video x1)."""
+    the references' median shot being about 2 s (Seedance x2, P-Video x1). The model is the
+    one the video's takes will use (`video_model`)."""
     from app import narration
 
-    low = video_model(video).duration.min
+    low = video_model(video, script.look, script.kind).duration.min
     row = clip_prompts.newest(db, video) if video is not None else None
     plan = (row.data if row else draft.breakdown) or {}
     shots = [sh.get("seconds") or 0 for sc in plan.get("scenes", []) for sh in sc.get("shots", [])]
