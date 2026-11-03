@@ -42,6 +42,10 @@ export function UsagePage() {
   if (summary.error?.message === "404") return <Navigate to="/usage/mine" replace />; // an editor: their own credits (OR4)
   const items = rows.data?.pages.flatMap((p) => p.items) ?? [];
   const f = summary.data;
+  const extra: Extra[] = [
+    ...(f?.freestyle && (f.freestyle.credits > 0 || f.freestyle.videos > 0) ? [{ name: "Freestyle", note: "(no brand picked)", ...f.freestyle }] : []),
+    ...(f && (f.unassigned_credits > 0 || f.unassigned_spend_usd > 0) ? [{ name: "Other", note: "(no brand or video)", credits: f.unassigned_credits, spend_usd: f.unassigned_spend_usd, videos: null }] : []),
+  ];
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
@@ -80,13 +84,12 @@ export function UsagePage() {
         {rows.isError && <Banner title="Couldn't load usage." action={<Button variant="secondary" onClick={() => void rows.refetch()}>Try again</Button>}>Check your connection.</Banner>}
         {rows.isPending && <Skeleton className="h-32" />}
         {rows.data && items.length === 0 && <EmptyState icon={ChartColumn} title="No brands yet.">Add a brand from the brand menu. It shows up here by itself.</EmptyState>}
-        {items.length > 0 && <BrandTable items={items} freestyle={f?.freestyle} spent={f?.spend_credits ?? 0} rail={rail} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} />}
+        {items.length > 0 && <BrandTable items={items} extra={extra} spent={f?.spend_credits ?? 0} rail={rail} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} />}
         {rows.hasNextPage && (
           <Button variant="secondary" busy={rows.isFetchingNextPage} onClick={() => void rows.fetchNextPage()} className="w-full lg:w-auto">
             Show more
           </Button>
         )}
-        {f && f.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {count(f.unassigned_credits)} credits · {money(f.unassigned_spend_usd)} · character looks used by several brands</p>}
       </section>
       <People month={month} />
       <Charges />
@@ -139,7 +142,6 @@ function People({ month }: { month: string }) {
 }
 
 const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
-type Freestyle = components["schemas"]["FreestyleUsage"];
 
 function ShareBar({ part, spent }: { part: number; spent: number }) {
   const pct = share(part, spent);
@@ -150,10 +152,12 @@ function ShareBar({ part, spent }: { part: number; spent: number }) {
   );
 }
 
-/** v5 D_Usage's By brand: Brand | Credits | Dollars | Videos | Share, with Freestyle (no brand picked) as its own row.
+type Extra = { name: string; note: string; credits: number; spend_usd: number; videos: number | null };
+
+/** v5 D_Usage's By brand: Brand | Credits | Dollars | Videos | Share. Freestyle (no brand picked) and Other (no brand
+ *  or video, Next-Lead) follow as their own rows when they have anything, so the rows add up to the month's spend.
  *  On a phone each brand is a card with the same numbers. */
-function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: BrandRow[]; freestyle?: Freestyle; spent: number; rail: boolean; onRestore: (b: BrandRow) => void }) {
-  const fs = freestyle && (freestyle.credits > 0 || freestyle.videos > 0) ? freestyle : null;
+function BrandTable({ items, extra, spent, rail, onRestore }: { items: BrandRow[]; extra: Extra[]; spent: number; rail: boolean; onRestore: (b: BrandRow) => void }) {
   const restore = (b: BrandRow, full?: boolean) => (
     <Button variant="secondary" dense={!full} className={full ? "w-full" : undefined} aria-label={`Restore ${b.name}`} onClick={() => onRestore(b)}>
       Restore
@@ -176,13 +180,13 @@ function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: Brand
             {b.archived && restore(b, true)}
           </li>
         ))}
-        {fs && (
-          <li className="space-y-2 rounded-lg border border-border bg-surface p-4">
-            <span className="block font-medium">Freestyle <span className="font-normal text-muted">(no brand picked)</span></span>
-            <span className="block text-sm tabular-nums text-muted">{count(fs.credits)} credits · {money(fs.spend_usd)} · {fs.videos} video{fs.videos === 1 ? "" : "s"}</span>
-            <ShareBar part={fs.credits} spent={spent} />
+        {extra.map((x) => (
+          <li key={x.name} className="space-y-2 rounded-lg border border-border bg-surface p-4">
+            <span className="block font-medium">{x.name} <span className="font-normal text-muted">{x.note}</span></span>
+            <span className="block text-sm tabular-nums text-muted">{count(x.credits)} credits · {money(x.spend_usd)}{x.videos !== null && ` · ${x.videos} video${x.videos === 1 ? "" : "s"}`}</span>
+            <ShareBar part={x.credits} spent={spent} />
           </li>
-        )}
+        ))}
       </ul>
     );
   return (
@@ -216,16 +220,16 @@ function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: Brand
               </td>
             </tr>
           ))}
-          {fs && (
-            <tr className="text-right">
-              <th scope="row" className="px-4 py-3 text-left font-medium">Freestyle <span className="font-normal text-muted">(no brand picked)</span></th>
-              <td className="px-3 py-3">{count(fs.credits)}</td>
-              <td className="px-3 py-3 text-muted">{money(fs.spend_usd)}</td>
-              <td className="px-3 py-3">{fs.videos}</td>
-              <td className="px-3 py-3"><ShareBar part={fs.credits} spent={spent} /></td>
+          {extra.map((x) => (
+            <tr key={x.name} className="text-right">
+              <th scope="row" className="px-4 py-3 text-left font-medium">{x.name} <span className="font-normal text-muted">{x.note}</span></th>
+              <td className="px-3 py-3">{count(x.credits)}</td>
+              <td className="px-3 py-3 text-muted">{money(x.spend_usd)}</td>
+              <td className="px-3 py-3">{x.videos ?? "—"}</td>
+              <td className="px-3 py-3"><ShareBar part={x.credits} spent={spent} /></td>
               <td />
             </tr>
-          )}
+          ))}
         </tbody>
       </table>
     </div>

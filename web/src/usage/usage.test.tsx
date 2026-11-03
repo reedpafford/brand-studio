@@ -45,7 +45,9 @@ test("Usage (v5 D_Usage): three cards for the month, and By brand reads Brand ·
   expect(fs).toHaveTextContent("(no brand picked)");
   expect(fs).toHaveTextContent("34$3.402");
   expect(within(table).getByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 523 of 841.2
-  expect(screen.getByText("Not tied to one brand: 12 credits · $1.20 · character looks used by several brands")).toBeInTheDocument();
+  const other = within(table).getByText("Other").closest("tr")!; // Next-Lead: the rows add up to the month's spend
+  expect(other).toHaveTextContent("(no brand or video)");
+  expect(other).toHaveTextContent("12$1.20—");
   expect(calls.find((c) => c.key === "GET /usage/summary")?.url).toContain(`month=${month}`);
   expect(calls.find((c) => c.key === "GET /usage/brands")?.url).toContain(`month=${month}`);
 });
