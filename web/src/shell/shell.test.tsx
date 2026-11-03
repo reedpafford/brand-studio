@@ -385,3 +385,15 @@ test("an editor's account menu names their role and how much of the week is left
   expect(await within(menu).findByText("142 of 200 left")).toBeInTheDocument();
   expect(within(menu).getByRole("menuitemradio", { name: "System" })).toBeInTheDocument();
 });
+
+test("the rail's account row says Owner, and the brand menu has a Brands heading over colour squares (v5 A_Shell, A_Account)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/projects");
+  const rail = await screen.findByRole("navigation", { name: "Main" });
+  expect(await within(rail).findByRole("button", { name: "Account menu" })).toHaveTextContent(/Reed\s*Owner/);
+  await userEvent.click(within(rail).getByRole("button", { name: "Brand: fomo" }));
+  const menu = await screen.findByRole("menu", { name: "Brands" });
+  expect(within(menu).getByText("Brands")).toBeInTheDocument();
+  expect(menu.querySelector("span[aria-hidden].rounded-\\[3px\\]")).toHaveStyle({ background: "#ff5500" });
+});

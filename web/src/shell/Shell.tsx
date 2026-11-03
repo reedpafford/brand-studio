@@ -34,7 +34,8 @@ function sectionOf(pathname: string) {
 
 const href = (to: string, brand: number) => `/b/${brand}/${to}`;
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
-const dot = (brand?: Brand) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-brand" style={brand?.colours?.[0] ? { background: brand.colours[0] } : undefined} />;
+// v5 A_Shell/A_Account: a brand is a small colour square.
+const dot = (brand?: Brand) => <span aria-hidden className="size-3.5 shrink-0 rounded-[3px] bg-brand" style={brand?.colours?.[0] ? { background: brand.colours[0] } : undefined} />;
 
 function useOnline() {
   const [online, setOnline] = useState(() => navigator.onLine !== false);
@@ -220,6 +221,7 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
       >
         {(close) => (
           <>
+            {inRail && <p className="px-3 pb-1 pt-1 text-xs font-medium text-muted">Brands</p>}
             {brands.map((b) => (
               <MenuItem
                 key={b.id}
