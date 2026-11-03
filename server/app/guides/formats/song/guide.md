@@ -13,7 +13,7 @@ blurb: An animated music video: the song plays over B-roll that shows each line 
 - A sung shot's place (a stage, a rooftop) stays the same every time the lead sings there, so its stills share one framing and light.
 
 ## Clips
-- One move per shot, cut on the beat: a push in on the hook, a whip pan between places, a slow orbit on the last chorus.
+- One move per shot, cut when the line's picture changes, not on the beat: a push in on the hook, a whip pan between places, a slow orbit on the last chorus.
 
 ## measured from the reference videos
 Measured on Reed's 7 reference song ads, all drawn in one animated-feature look (notes: the style examples named pixsong-*). Facts, not new rules.
@@ -24,7 +24,6 @@ Measured on Reed's 7 reference song ads, all drawn in one animated-feature look 
 - Arrangement: a sparse opening without bass for the first 9–24 s (voice with keys or plucks and light percussion), then the full band; the slowest, longest-held pictures (3–8 s: the hug, the turn, the mechanism) sit where the band thins out.
 - Sung on camera: the strongest example is a closing address, the lead singing to the lens for the last ~40 s, lip-synced syllable by syllable, in a seated medium shot, centred, eye level, soft window light, cut with B-roll and a walk-and-talk in the same outfit (pixsong-1a). Elsewhere a side character mouths a sung line for 0.5–2 s (pixsong-1). Animal leads never mouth the words: their faces act the lyric, at most a held howl.
 - Structure seen. Pet songs: the grossest or saddest symptom → the owner misses it → a mentor (an old dog, a vet) → the inside view → what didn't work → the fix → weeks → the bond → proof → the end card with pet and product. Storytime songs: a headline hook → the betrayal or humiliation → backstory → the low point → a mentor (sister, mother, friend) brings the fix at about the halfway mark → mechanism and ingredients → the visible change → payoff → (in one) a sung close to camera.
-- Lyric captions in 6 of 7 (added in editing); two storytime songs open with a two-line headline box.
 
 ## How to make song-style ads
 A song-style ad plays like a micro music video: an original song carries the product story over animated visuals.
@@ -33,14 +32,14 @@ It wins when the song is a _real song people would actually hear out_ (not a jin
 
 The format's identity (always true): the song is the spine — it sets the pacing, the mood, and the emotional arc, and the visuals ride on top of it.
 
-It is a Mix: shots where the animated lead sings on camera and shots of B-roll cut to the music; where the lead sings is a storyboard decision, and the lead rarely sings continuously.
+It is sung over B-roll by default: lip-sync shots only where the script puts the lead on camera (often the closing address), and the lead rarely sings continuously.
 
 The pacing is audio-first by construction — the generated song's real timestamps are the clock everything else is timed to.
 
 It adds only what is specific to the song format: the genre map, the lyric and style-prompt craft, and the song-as-pacing-spine mechanic.
 
 ## The gate, filled by this format
-- Fixed: deliverable = an animated music-video ad · speech = Mix, sung (lip-sync shots + silent B-roll) · pacing = audio-first (the song).
+- Fixed: deliverable = an animated music-video ad · speech = sung over B-roll by default (lip-sync shots only where the script puts the lead on camera) · pacing = audio-first (the song).
 
 - Open questions (infer each): which product (Stage 1) · genre + duration — inferred from the audience, stated, validated (Stage 1) · the animated lead — one consistent recurring character across shots, and what it is (Stage 2) · where the lead sings — dedicated singing shots, singing through the B-roll, or a mix, marked per shot in the storyboard (Stage 2).
 
@@ -66,9 +65,9 @@ Otherwise write 2–3 distinct song scripts for the user to pick from; the pick 
 
 3. Write 2–3 distinct song scripts in the output format below. Each must feel genuinely different — vary the POV (product POV / customer POV / narrator), the mood (upbeat / emotional / playful / intimate), or the structural hook. Apply every Lyric rule.
 
-4. Prepare the selected song with its title, concise musical direction, and exact lyrics. For user-supplied lyrics, preserve every word and use their style or infer a suitable one. Follow the current execution mode; the finished song is the input to Stage 2. Pace a Suno song with lyrics so the vocals start immediately and run continuously to a tight ending:
-   - Append to the style, outside its 25 words: `, vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending`.
-   - Exclude these styles: `instrumental intro, instrumental break, long outro, spoken word`.
+4. Prepare the selected song with its title, concise musical direction, and exact lyrics. For user-supplied lyrics, preserve every word and use their style or infer a suitable one. Follow the current execution mode; the finished song is the input to Stage 2. Pace a Suno song with lyrics so the vocals start immediately and run almost continuously, with at most one short instrumental break before the turn and a short instrumental tail for the end card. That is the default; when the script or a note asks for a more exaggerated, faster pace, cut faster and keep the song tight (Reed, 3 Nov):
+   - Append to the style, outside its 25 words: `, vocals start immediately, no instrumental intro, at most one short instrumental break, short instrumental ending`.
+   - Exclude these styles: `instrumental intro, long outro, spoken word`.
    - Open the lyrics with `[Intro: vocals start immediately]` and close them with `[End]`, each on its own line; supplied lyrics stay word for word between them.
 
 ### The genre map (infer the genre from the audience)
@@ -102,11 +101,11 @@ No exact match → use the closest fit and say why.
 
 - A real song, not a jingle. Real verses, a real chorus, a real rhyme scheme — never "buy buy buy."
 
-- Write short visual lines: 6–9 words per line. A line often fits a shot of about 2.2–3.5 s. Pair short lines or split longer ones where the visual changes; a continuous performance stays one shot.
+- Write short visual lines: 6–9 words per line. A line often fits a shot of about 2.2–3.5 s; in a storytime song, about 1.3–2.1 s. Pair short lines or split longer ones where the visual changes; a continuous performance stays one shot.
 
 - Match vocabulary + energy to the genre + audience. Hip-hop ≠ country ≠ pop.
 
-- Structure by length — about 40 sung words (≈ 15 s) = hook + one chorus pass; about 75 (≈ 30 s) = verse-chorus-verse-chorus; about 150 (≈ 60 s) = full song with a bridge. Section tags like [Verse] are not sung and do not count.
+- Structure by length — about 40 sung words (≈ 15 s) = hook + one chorus pass; about 75 (≈ 30 s) = verse-chorus-verse-chorus; about 150 (≈ 60 s) = full song with a bridge; 5–9 minutes = a storytime song in acts (hook, betrayal, backstory, low point, mentor, mechanism, change, payoff). Section tags like [Verse] are not sung and do not count.
 
 - Keep the style description tight (<25 words): `[genre], [vocal — e.g. female lead / male rap / choir], [tempo / BPM], [mood], [production — modern polished / lo-fi / vintage]`. Music models do better with a concise style prompt. Never include an artist or band name — Suno rejects it; describe the sound instead.
 

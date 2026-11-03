@@ -6,6 +6,10 @@ blurb: One voice will read it; Cast keeps its roles but nobody speaks on camera.
 
 <!-- 2 Nov: the format of a Narrated script. It has no guidance of its own yet: the narrated steps' own prompts (server/app/prompts/narrated_breakdown.md and narrated_clip_prompts.md) hold how a narration is timed and shot, and they stay step prompts. A style's own narrator lines (Skeleton, Zack D) stay in that style's guide. -->
 
+## shots
+- One shot per sentence, or per phrase when a sentence runs over about 2.5 s (Reed, 3 Nov).
+- Nobody lip-syncs by default. A character may look into the lens at the turns and the offer (Reed, 3 Nov).
+
 ## measured from the reference videos
 Measured on Reed's 2 reference voice-over ads, both drawn in one animated-feature look (notes: the style examples named pixth-*). Facts, not new rules.
 - The voice: one warm, animated voice from the first frame to the end, covering 84–85% of the runtime, with no pause over 0.5–0.7 s (median pause 0.3–0.4 s). 3.4–3.7 words a second. First person (a week-by-week testimonial) or second person (a day-by-day diary).
