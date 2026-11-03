@@ -143,7 +143,7 @@ def test_the_standing_editor_link_works_once_and_can_be_revoked(app, owner, edit
         no_email = c.post("/auth/accept-invite", json={**body, "token": link["token"]})
         assert no_email.status_code == 422
         taken = {**body, "token": link["token"], "email": "ed@example.com"}
-        assert c.post("/auth/accept-invite", json=taken).status_code == 409
+        assert c.post("/auth/accept-invite", json=taken).status_code == 409  # one wording
         joined = c.post("/auth/accept-invite", json={**taken, "email": "lee@example.com"})
         assert joined.status_code == 201 and joined.json()["role"] == "editor"
     with TestClient(app) as c:  # works once
@@ -156,3 +156,66 @@ def test_the_standing_editor_link_works_once_and_can_be_revoked(app, owner, edit
     with TestClient(app) as c:
         gone = {**body, "token": revoked["token"], "email": "kim@example.com"}
         assert c.post("/auth/accept-invite", json=gone).status_code == 400
+
+
+def test_the_standing_link_never_brings_back_a_removed_member(app, owner, editor, db):
+    """QA-13: with the link and a removed member's email, they took over that account."""
+    from app.models.accounts import User
+    from app.routes.auth import LINK_TAKEN
+
+    ed_id = editor.get("/auth/me").json()["id"]
+    owner.delete(f"/team/members/{ed_id}")
+    link = owner.post("/team/invite-link").json()
+    with TestClient(app) as c:
+        body = {"token": link["token"], "name": "Mallory", "password": PASSWORD}
+        for email in ("ed@example.com", "reed@example.com"):  # removed or active: one wording
+            took = c.post("/auth/accept-invite", json={**body, "email": email})
+            assert took.status_code == 409 and took.json()["detail"] == LINK_TAKEN
+    db.expire_all()
+    ed = db.get(User, ed_id)
+    assert (ed.name, ed.active) == ("Ed", False)
+    assert owner.get("/team/invite-link").json() is not None  # still unused
+
+
+def test_two_accepts_at_once_make_one_member(app, owner, db, monkeypatch):
+    """QA-13: both read the link before either claimed it; only one may join."""
+    from app.models.accounts import Invite, User
+    from app.routes import auth
+
+    link = owner.post("/team/invite-link").json()
+    invite_id = db.query(Invite).filter_by(email="").one().id
+
+    def stale(db_, token):  # as a second request would, having read it before the first wrote
+        found = db_.get(Invite, invite_id)
+        found.accepted_at = None  # what that request saw, never written
+        db_.expunge(found)
+        return found
+
+    monkeypatch.setattr(auth, "_open_invite", stale)
+    body = {"token": link["token"], "name": "Lee", "password": PASSWORD}
+    with TestClient(app) as a, TestClient(app) as b:
+        first = a.post("/auth/accept-invite", json={**body, "email": "lee@example.com"})
+        second = b.post("/auth/accept-invite", json={**body, "email": "kim@example.com"})
+    assert (first.status_code, second.status_code) == (201, 400)
+    assert (
+        db.query(User).filter(User.email.in_(["lee@example.com", "kim@example.com"])).count() == 1
+    )
+
+
+def test_a_busy_database_never_fails_a_read_for_last_active(editor, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.orm import Session
+
+    from app.db import utcnow
+    from app.models.accounts import User
+
+    real = Session.commit
+
+    def locked(self):
+        if any(isinstance(o, User) and o.last_active_at for o in self.dirty):
+            raise OperationalError("UPDATE users", {}, Exception("database is locked"))
+        return real(self)
+
+    monkeypatch.setattr(Session, "commit", locked)
+    monkeypatch.setattr("app.auth.ACTIVE", utcnow() - utcnow())  # every request would write
+    assert editor.get("/auth/me").status_code == 200

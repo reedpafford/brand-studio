@@ -5,7 +5,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -114,6 +114,7 @@ def me(user: User = Depends(current_user)):
 
 
 INVALID_INVITE = "This invite link is not valid any more."
+LINK_TAKEN = "That email already has an account here. Ask the owner to bring it back."
 
 
 def _open_invite(db: Session, token: str) -> Invite | None:
@@ -171,8 +172,16 @@ def accept_invite(
     if not email:
         raise HTTPException(422, "Enter your email.")
     user = db.scalar(select(User).where(User.email == email))
+    if user and not invite.email:  # the standing link never brings anyone back (QA-13)
+        raise HTTPException(409, LINK_TAKEN)  # one wording: who is a member stays unsaid
     if user and user.active:
         raise HTTPException(409, "That email already has an account.")
+    claimed = db.execute(update(Invite).where(  # one accept per invite, even two at once
+        Invite.id == invite.id, Invite.accepted_at.is_(None), Invite.expires_at > utcnow())
+        .values(accepted_at=utcnow())).rowcount  # fmt: skip
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(400, INVALID_INVITE)
     # A removed member who is invited again comes back with the new name, password and role.
     user = user or User(email=email)
     user.workspace_id = invite.workspace_id
@@ -180,7 +189,6 @@ def accept_invite(
     user.password_hash = hash_password(body.password)
     user.role = invite.role
     user.active = True
-    invite.accepted_at = utcnow()
     db.add(user)
     db.commit()
     start_session(db, request, response, user)
