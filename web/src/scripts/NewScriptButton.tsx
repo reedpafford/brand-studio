@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, FileInput, FileText, Mic, Music, Plus } from "lucide-react";
+import { ChevronDown, FileText, Mic, Music, Plus } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Button, Menu, MenuItem, StepPicker, TextArea, buttonClass } from "../components";
@@ -241,7 +241,6 @@ export function NewScriptPage() {
 export function ImportReelLink({ brandId }: { brandId: number }) {
   return (
     <Link to={`/b/${brandId}/scripts/import`} className={`${buttonClass("secondary")} shrink-0 whitespace-nowrap`}>
-      <FileInput size={20} strokeWidth={1.75} aria-hidden />
       Import a reel
     </Link>
   );

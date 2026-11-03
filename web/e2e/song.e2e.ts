@@ -18,10 +18,12 @@ async function walk(page: Page, brand: string) {
   await expect(page.getByText("Sung word for word")).toBeVisible();
   await page.getByRole("button", { name: "Next: Takes" }).click();
 
-  await page.getByRole("button", { name: /Make 2 takes · \d+ credits?/ }).click();
+  await page.getByRole("button", { name: /Make 2 takes · up to \d+ credits?/ }).click();
   await expect(page.getByText("Preferred", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Play Take 1" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Next: Cast" })).toBeEnabled();
+  // v5 G_SongTakes: Lyrics · Takes · Breakdown · Cast. Breakdown is optional, so it steps straight on to Cast.
+  await expect(page.getByRole("button", { name: "Next: Breakdown" })).toBeEnabled();
+  await page.getByRole("button", { name: "Next: Breakdown" }).click();
   await page.getByRole("button", { name: "Next: Cast" }).click();
   await expect(page.getByRole("group", { name: "Who sings on camera?" })).toBeVisible();
   await page.getByRole("radio", { name: "Nobody on camera" }).check();
@@ -35,7 +37,7 @@ test("a song script: lyrics saved, 2 takes made on the stand-in, one Preferred, 
 test("the same song walk at 390: no sideways scroll, steps in one button", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await walk(page, "Song Shop Phone");
-  await expect(page.getByRole("button", { name: /Step 3 of 5 · Cast/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Step 4 of 4 · Cast/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
@@ -43,7 +45,6 @@ test("a published song script: Make this version opens a video whose plan, once 
   test.setTimeout(150_000); // the plan, then the shots: two stand-in jobs, queued behind the suite's others
   await page.setViewportSize({ width: 1440, height: 900 });
   await walk(page, "Song Shop Video");
-  await page.getByRole("button", { name: "Next: Plan" }).click();
   await page.getByRole("button", { name: "Next: Publish" }).click();
   await page.getByRole("button", { name: "Approve version A" }).click(); // every version is approved before publishing
   await page.getByRole("button", { name: /Publish 1 version/ }).click();

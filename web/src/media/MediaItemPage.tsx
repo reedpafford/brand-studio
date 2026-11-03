@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Download, Trash2 } from "lucide-react";
+import { Download } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
@@ -120,7 +120,8 @@ export function MediaItemPage() {
                 Download {fileType(m.content_type)}
               </a>
               {deletable && (
-                <Button variant="secondary" icon={Trash2} busy={remove.isPending} onClick={() => setAsking(true)}>
+                // v5 G_MediaItem: a quiet red text press; it still asks first.
+                <Button variant="ghost" busy={remove.isPending} className="text-danger! hover:text-danger!" onClick={() => setAsking(true)}>
                   Delete
                 </Button>
               )}

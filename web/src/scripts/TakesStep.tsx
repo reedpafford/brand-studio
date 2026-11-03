@@ -250,7 +250,7 @@ export function TakesStep({ script: s }: { script: Script }) {
         </Link>
       )
     ) : (
-      <Button variant={primary ? "primary" : "secondary"} icon={primary ? Music : undefined} charge="fixed" price={data.estimate_credits} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+      <Button variant={primary ? "primary" : "secondary"} icon={primary ? Music : undefined} charge="estimate" price={data.estimate_credits} busy={a.make.isPending} onClick={() => a.make.mutate()}>
         {a.ask(label, data.estimate_credits)}
       </Button>
     );

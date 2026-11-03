@@ -7,6 +7,7 @@ import { useProjectList } from "../projects/LegacyVideos";
 import { videoStatus, videoTo } from "../videos/progress";
 import { finished } from "../freestyle/FromScript";
 import { lookName, useLooks } from "./Looks";
+import { useBrands } from "../shell/useBrands";
 import { letterOf, statusOf } from "./status";
 import type { Script } from "./useScript";
 
@@ -29,13 +30,18 @@ const creditsText = (v: Version, video?: Project) => {
 };
 
 function VersionRow({ v, video, onMake }: { v: Version; video?: Project; onMake: () => void }) {
-  const status = video ? videoStatus(video) : finished(v) ? { label: "No video yet", tone: "neutral" as const } : statusOf(v.status);
+  // v5 words: a done video is "Delivered"; nothing made yet is a hollow ring.
+  const made = video && videoStatus(video);
+  const status = made ? { ...made, label: made.label.replace(/^Finished/, "Delivered") } : finished(v) ? { label: "No video yet", tone: "neutral" as const } : statusOf(v.status);
+  const none = !video && (finished(v) || v.status === "draft");
   return (
     <li aria-label={`Version ${letterOf(v.slot)}`} className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-2 lg:min-h-13 lg:py-0 ${COLS}`}>
       <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-md bg-surface-2 font-semibold">
         {letterOf(v.slot)}
       </span>
-      <Dot tone={status.tone}>{status.label}</Dot>
+      <span className="text-xs">
+        <Dot tone={status.tone} hollow={none}>{status.label}</Dot>
+      </span>
       <span className={`text-sm ${v.editor ? "" : "text-muted"}`}>{v.editor?.name ?? "—"}</span>
       <span className={`text-sm tabular-nums ${video ? "" : "text-muted"}`}>{creditsText(v, video)}</span>
       <span className="ml-auto lg:ml-0 lg:justify-self-end">
@@ -60,6 +66,7 @@ function VersionRow({ v, video, onMake }: { v: Version; video?: Project; onMake:
 export function ScriptOverview({ script: s, brandId, onMake }: { script: Script; brandId: number; /** Opens the Make a video panel (#1194's) on that version. */ onMake: (slot: number) => void }) {
   const videos = useProjectList(brandId);
   const looks = useLooks().data;
+  const brand = useBrands().data?.find((b) => b.id === s.brand_id);
   const folders = useFolders(brandId);
   const byId = new Map((videos.data ?? []).map((p) => [p.id, p]));
   const versions = s.versions.filter((v) => v.text.trim() !== "" || v.status !== "draft");
@@ -107,7 +114,7 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
       </section>
       <aside aria-label="About this script" className="space-y-[18px] border-border lg:border-l lg:pl-6">
         {fact("Type", [KIND[s.kind] ?? s.kind, !s.language || s.language === "en" ? "English" : s.language].join(" · "))}
-        {fact("Look", lookName(looks, s.look))}
+        {fact("Look", s.look === "house" ? `House style${brand ? ` (${brand.name})` : ""}` : lookName(looks, s.look))}
         {fact("Project", project)}
         {fact(
           "Cast",
@@ -116,11 +123,11 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
           ) : (
             <span className="flex flex-wrap items-center gap-x-1.5">
               {s.cast.map((x) => x.role).join(" · ")}
-              <Dot tone={locked ? "success" : "neutral"}>{locked ? (s.cast.length === 2 ? "Both locked" : "All locked") : "Not all locked"}</Dot>
+              <Dot tone={locked ? "success" : "neutral"} hollow={!locked}>{locked ? (s.cast.length === 2 ? "Both locked" : "All locked") : "Not all locked"}</Dot>
             </span>
           ),
         )}
-        {fact("In the library", s.published ? <Dot tone="success">Published</Dot> : <Dot tone="neutral">Not published. Publish to let editors find it.</Dot>)}
+        {fact("In the library", <span className="text-xs">{s.published ? <Dot tone="success">Published</Dot> : <Dot hollow>Not published. Publish to let editors find it.</Dot>}</span>)}
       </aside>
     </div>
   );

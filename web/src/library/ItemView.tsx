@@ -18,8 +18,9 @@ const USED: Record<UsedIn["status"], { label: string; dot: string }> = {
 /** One section of the item page: a title, an optional quiet press on the right, then its content (v5 G boards). */
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section aria-label={title} className="space-y-3 border-t border-border py-4">
-      <div className="flex min-h-control items-center justify-between gap-2">
+    // v5 G_Prop: the title sits about 8 px over its words; a section with a press keeps a 44 px row for it.
+    <section aria-label={title} className="space-y-2 border-t border-border py-4">
+      <div className={`flex items-center justify-between gap-2 ${action ? "min-h-control" : ""}`}>
         <h2 className="text-sm font-medium">{title}</h2>
         {action}
       </div>

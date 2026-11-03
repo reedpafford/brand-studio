@@ -244,7 +244,7 @@ export function ScriptsPage() {
         <span className="hidden flex-1 lg:block" />
         {owner ? (
           <div className="flex flex-wrap items-center gap-1">
-            <ProjectsChip brandId={brandId} />
+            <ProjectsChip brandId={brandId} plain />
             <BandMenu label="Group" value={flat ? "none" : ""} options={[["", "Project"], ["none", "None"]]} onPick={(v) => set("group", v)} />
             <BandMenu label="Sort" value={sort} options={SORTS} onPick={(v) => set("sort", v)} />
             {more}

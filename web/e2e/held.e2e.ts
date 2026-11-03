@@ -19,7 +19,7 @@ test("at 390, an editor's song takes on a script are sent for approval and wait 
   await ed.getByLabel("Music style").fill("pop, upbeat");
   await ed.getByRole("button", { name: "Save lyrics" }).click();
   await ed.getByRole("button", { name: /Next: Takes/ }).click();
-  await ed.getByRole("button", { name: /^Send for approval · \d+ credits?/ }).click();
+  await ed.getByRole("button", { name: /^Send for approval · up to \d+ credits?/ }).click();
   await expect(ed.getByText("Sent for approval. It waits for the owner's OK; nothing is charged until then.")).toBeVisible();
   await expect(ed.getByText("Waiting for approval")).toBeVisible();
   await expect(ed.getByText(/Your song or music · .*Songs, narration and music on a script wait for the owner's OK\./)).toBeVisible();

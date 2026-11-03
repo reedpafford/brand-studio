@@ -44,7 +44,7 @@ test("New script → Song waits for a word or a setting, then opens on its Song 
   expect(await screen.findByRole("list", { name: "Steps" })).toBeInTheDocument();
   expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
   const steps = screen.getByRole("list", { name: "Steps" });
-  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Song", "Takes", "Cast", "Plan", "Publish"]);
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Lyrics", "Takes", "Breakdown", "Cast"]); // v5 G_SongTakes; Publish is "Publish to library", not in the bar
   expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Write or pick the lyrics first");
   expect(screen.getByRole("button", { name: "Next: Takes" })).toBeDisabled();
   expect(screen.getByLabelText("Music style")).toHaveAttribute("placeholder", "pop, female lead, 120 BPM, upbeat, modern polished");
@@ -120,7 +120,7 @@ test("Takes, empty: Make 2 takes shows its price and makes one request; Cast sta
   open("/b/1/scripts/7?step=takes");
   const steps = await screen.findByRole("list", { name: "Steps" });
   expect(within(steps).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Make the song first");
-  await userEvent.click(screen.getByRole("button", { name: /Make 2 takes · 1 credit/ }));
+  await userEvent.click(screen.getByRole("button", { name: /Make 2 takes · up to 1 credit/ }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /scripts/7/drafts/0/songs")).toHaveLength(1));
 });
 
@@ -145,7 +145,7 @@ test("Takes: Preferred in words; one being made, one still being timed (can't be
   expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
   expect(screen.getByRole("button", { name: "Make take 4 Preferred" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Use timing spread evenly/ })).toBeNull(); // the file can't be read: spreading can't help
-  expect(screen.getByRole("button", { name: "Next: Cast" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Next: Breakdown" })).toBeEnabled();
 });
 
 test("Takes: a timing failure a retry can help offers Use timing spread evenly (free) and Try again", async () => {
@@ -193,11 +193,11 @@ test("at 390: New script opens a sheet with Close and the three formats, each wi
   expect(within(sheet).getByRole("menuitem", { name: /Narrated.*One voice reads your script over B-roll, with music/ })).toBeInTheDocument();
 });
 
-test("at 390 on a song script, the steps are one button: Step 1 of 5 · Song", async () => {
+test("at 390 on a song script, the steps are one button: Step 1 of 4 · Lyrics", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs()] });
   open("/b/1/scripts/7?step=script");
-  expect(await screen.findByRole("button", { name: "Step 1 of 5 · Song" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Step 1 of 4 · Lyrics" })).toBeInTheDocument();
 });
 
 test("a song script in the Library carries a Song badge", async () => {
@@ -220,7 +220,7 @@ test("after the lyrics change, a Preferred take that sings the older words doesn
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true, out_of_date: true }), take({ id: 2, number: 2, out_of_date: true })])] });
   open("/b/1/scripts/7?step=takes");
   expect(await screen.findByText("These takes sing older words.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Cast" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Next: Breakdown" })).toBeDisabled();
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("Make takes of the new lyrics first");
 });
 
@@ -316,7 +316,7 @@ test("a Preferred take too long for a video doesn't open Cast, whatever the serv
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true, seconds: 800, over_cap: true, fits_until: 55 })])] });
   open("/b/1/scripts/7?step=takes");
-  expect(await screen.findByRole("button", { name: "Next: Cast" })).toBeDisabled();
+  expect(await screen.findByRole("button", { name: "Next: Breakdown" })).toBeDisabled();
   expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("The Preferred take is too long for a video. Use the first part of it first");
 });
 
@@ -342,7 +342,7 @@ test("at 390, an editor's Make 2 takes reads Send for approval, and once pressed
   const routes = { ...base, "GET /auth/me": [200, editor] as [number, unknown], "GET /scripts/7": [200, song()] as [number, unknown], "GET /scripts/7/drafts/0/songs": [200, songs()] as [number, unknown], "POST /scripts/7/drafts/0/songs": [201, songs()] as [number, unknown] };
   fakeServer(routes);
   open("/b/1/scripts/7?step=takes");
-  const ask = await screen.findByRole("button", { name: /Send for approval · 1 credit/ });
+  const ask = await screen.findByRole("button", { name: /Send for approval · up to 1 credit/ });
   expect(screen.queryByRole("button", { name: /Make 2 takes/ })).toBeNull();
   expect(screen.getByText("Songs, narration and music on a script wait for the owner's OK. Nothing is charged until they say yes.")).toBeInTheDocument();
   fakeServer({ ...routes, "GET /jobs": [200, [waiting]] });

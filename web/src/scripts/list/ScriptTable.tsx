@@ -20,13 +20,13 @@ export function ProjectGroups({ rows, folders, row }: { rows: Row[]; folders: Fo
   const known = new Set((folders ?? []).map((f) => f.id));
   const loose = rows.filter((r) => r.folder_id == null || !known.has(r.folder_id)); // a deleted project's scripts read as No project
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  if (groups.length === 0) return <ScriptTable rows={rows} row={row} />;
+  // With no projects yet there is still the one group bar, "No project 17" (C_Scripts), open since it's all there is.
   const all = [...groups, ...(loose.length ? [{ key: "none", name: "No project", rows: loose }] : [])];
   return (
     <div className="-mx-4 sm:-mx-6">
       <TableHead />
       {all.map((g) => {
-        const shown = open[g.key] ?? g.key !== "none";
+        const shown = open[g.key] ?? (g.key !== "none" || groups.length === 0);
         const Icon = shown ? ChevronDown : ChevronRight;
         return (
           <section key={g.key} aria-label={g.name}>

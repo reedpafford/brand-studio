@@ -12,12 +12,13 @@ export const WRITING_STEPS = [
   { id: "publish", label: "Publish" },
 ] as const;
 
-/** A song script (song ads): the lyrics and style, the takes, then Cast, Plan and Publish as a story's. No Directions or Variations (flows S1–S7). */
+/** A song script (v5 G_SongTakes): Lyrics, Takes, Breakdown, Cast, as a story's; Publish stays the step after Cast but not in
+ *  the bar ("Publish to library"). No Directions or Variations (flows S1–S7). */
 export const SONG_STEPS = [
-  { id: "song", label: "Song" },
+  { id: "song", label: "Lyrics" },
   { id: "takes", label: "Takes" },
+  { id: "breakdown", label: "Breakdown" },
   { id: "cast", label: "Cast" },
-  { id: "breakdown", label: "Plan" }, // the owner's breakdown preview (flows, UX audit #749)
   { id: "publish", label: "Publish" },
 ] as const;
 

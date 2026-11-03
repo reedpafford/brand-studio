@@ -114,7 +114,7 @@ export function FromScript({ brandId, owner, onCreated }: { brandId: number; own
             const where = folders?.find((f) => f.id === r.folder_id)?.name ?? "No project";
             const meta = [on && m.version && !rail ? `Version ${letterOf(m.version.slot)}` : `${ready.length} version${ready.length === 1 ? "" : "s"}`, span(on && m.version && !rail ? [m.version] : ready), lookName(looks, r.look)].filter(Boolean).join(" · ");
             return (
-              <li key={r.id} role="option" aria-selected={on} tabIndex={0} onClick={() => choose(r.id)} onKeyDown={(e) => e.key === "Enter" && !(e.metaKey || e.ctrlKey) && choose(r.id)} className={`flex min-h-14 cursor-pointer items-center gap-3 px-4 py-2.5 lg:rounded-md lg:border lg:px-3 ${on ? "bg-surface-2 shadow-[inset_3px_0_0_var(--accent)] lg:border-accent lg:bg-surface lg:shadow-none" : "border-transparent hover:bg-surface-2"} border-b border-border lg:border-b`}>
+              <li key={r.id} role="option" aria-selected={on} tabIndex={0} onClick={() => choose(r.id)} onKeyDown={(e) => e.key === "Enter" && !(e.metaKey || e.ctrlKey) && choose(r.id)} className={`flex min-h-[73px] cursor-pointer items-center gap-3 px-4 py-2.5 lg:min-h-14 lg:rounded-md lg:border lg:px-3 ${on ? "bg-surface-2 shadow-[inset_3px_0_0_var(--accent)] lg:border-accent lg:bg-surface lg:shadow-none" : "border-transparent hover:bg-surface-2"} border-b border-border lg:border-b`}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{r.title}</p>
                   <p className="truncate text-sm text-muted">{meta}</p>
