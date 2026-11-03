@@ -1,7 +1,7 @@
 """The director's tools (docs/next/director-chat.md §6 item 3): each is a site action, run
 through the very function its button calls, as the director's user, on this video only. So
 every check stays the button's: price, the video's budget (past it: held for the owner,
-Hold requests), the per-video cap, rule 32, ownership. Nothing here spends another way, and no
+Hold requests), the per-video cap, rule 36, ownership. Nothing here spends another way, and no
 tool can change Limits or another person's work. A refusal comes back as its plain words.
 The approvals a person gives on the step screens are the director's own here: it approves a
 step when it moves on from it (rule 21's self-approval)."""

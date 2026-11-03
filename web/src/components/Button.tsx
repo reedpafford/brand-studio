@@ -20,7 +20,7 @@ export const buttonClass = (variant: Variant = "primary") => `${base} ${look[var
 
 /** A paid action says its price inside the button: "Make the takes · 8 credits". `null`: not known yet, so a grey
  *  placeholder holds its place (the label never changes length after it shows) and a press waits for it. A price
- *  always comes with its `charge`, so no paid button can skip saying "up to" when the charge can be lower (rule 32). */
+ *  always comes with its `charge`, so no paid button can skip saying "up to" when the charge can be lower (rule 36). */
 type Priced = { price?: never; charge?: never } | { price: number | null | undefined; charge: Charge };
 
 export type ButtonProps = Priced & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> & {

@@ -350,8 +350,27 @@ def test_an_insert_shot_is_never_a_cast_problem(owner, db):
     owner.post(f"{base}/cast/{mom}/lock", json={"library_item_id": mia})
     bd = copy.deepcopy(BREAKDOWN)
     bd["scenes"][0]["shots"][1].update(
-        character_ids=[f"char:{mia}"], speaker=None, line=None,
+        character_ids=[f"char:{mia}"], speaker=None, line=None, script_lines=[3],
         action="Extreme close-up: the vacuum's canister fills with a fur mountain.",
     )  # fmt: skip
     problems = owner.put(f"{base}/drafts/0/breakdown", json=bd).json()["problems"]
     assert not [p for p in problems if p.startswith("Check the cast")]
+
+
+def test_a_shot_about_a_person_is_still_checked_even_when_it_names_nobody(owner, db):
+    """QA on #812: "Close on a frown" plays an unnamed role (the vet), so a wrong look there
+    is still flagged; only a shot about a thing is an insert."""
+    made = _make(owner, text=SCRIPT)
+    base = f"/scripts/{made['id']}"
+    mia = owner.post("/library/character", json={"name": "Mia", "image_file_ids": [upload(owner)]})
+    mia = mia.json()["id"]
+    with_sheet(db, mia)
+    mom = owner.post(f"{base}/cast", json={"role": "Mom"}).json()[0]["id"]
+    owner.post(f"{base}/cast", json={"role": "Nate"})
+    owner.post(f"{base}/cast/{mom}/lock", json={"library_item_id": mia})
+    bd = copy.deepcopy(BREAKDOWN)
+    bd["scenes"][0]["shots"][1].update(character_ids=[f"char:{mia}"], speaker=None, line=None,
+                                       script_lines=[3],  # NATE's line, Mom's look
+                                       action="Close on a frown, eyes narrowing.")  # fmt: skip
+    problems = owner.put(f"{base}/drafts/0/breakdown", json=bd).json()["problems"]
+    assert any(p.startswith("Check the cast: shot 1.2") for p in problems), problems

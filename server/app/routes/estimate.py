@@ -62,7 +62,7 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     (QA-3: 14.73 quoted, its video's to-finish 28.06): `credits.plan_cost` with no breakdown
     call when one is saved; with neither a saved breakdown nor a target, at least the length
     the video plans for until its plan exists (PRE_BREAKDOWN_SECONDS); and up to a look
-    (`look_price`, rule 32) for every role that will need one: each not cast yet, each speaker
+    (`look_price`, rule 36) for every role that will need one: each not cast yet, each speaker
     the cast hasn't got yet (it becomes a role) and each cast one with no look in the video's
     look (`sheets.roles_without_a_look`, `roles_needing_look`, as the video's cost bar); and
     the plan call the press charges first (`plans.plan_first`, QA-3: 31.06 against 28.06). A Song
@@ -87,7 +87,7 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
 
 
 def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
-    """A director run's "up to" (Freestyle, rule 32): the version's whole price and all a run
+    """A director run's "up to" (Freestyle, rule 36): the version's whole price and all a run
     may add under its own limits (QA on #1176: 80.898 shown, 82.03 charged): every clip made
     again MAX_REDOS times with its take check, and the director's own limit (its turns and
     watches, `director.own_limit`; past it, it waits for an OK); and for a song or narrated
@@ -114,7 +114,7 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
 
 
 def _looks(db: Session, project: Project) -> tuple:
-    """The looks still to make (rule 32: up to what Make a look can charge): each role's
+    """The looks still to make (rule 36: up to what Make a look can charge): each role's
     first look and each one with none in the video's look, by the quote's own rules."""
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 

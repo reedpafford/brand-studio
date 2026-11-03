@@ -267,7 +267,7 @@ def _fits(db: Session, take: SongTake, draft: ScriptDraft) -> bool:
 def video_credits(db: Session, take: SongTake, seconds: float | None = None,
                   video=None) -> Decimal:  # fmt: skip
     """About what a video of this take (or its first `seconds`) costs, every step at plan:
-    the song decides the video's length (spec §1), plus up to a look (`look_price`, rule 32)
+    the song decides the video's length (spec §1), plus up to a look (`look_price`, rule 36)
     for each role that will need one, by the rules the video's cost bar uses
     (`sheets.roles_without_a_look`, `roles_needing_look`), and the plan call Make this version
     charges first (`plans.plan_first`). The take card and the version show this one figure,

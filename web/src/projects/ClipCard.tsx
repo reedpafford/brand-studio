@@ -179,6 +179,8 @@ export function ClipCard(props: {
                 {!status && <JobClock queued={props.job?.status === "queued"} making="Making…" since={props.job?.status === "queued" ? props.job.created_at : (props.job?.started_at ?? props.job?.created_at)} />}
               </span>
             )}
+            {/* Its take shows an older Cast & places look (N6): still approved, and the Advice below says what to do. */}
+            {c.take_stale && !props.busy && status !== "Out of date" && <Badge tone="warning">Out of date</Badge>}
           </h3>
           {props.line && <p className={`break-words font-script ${props.review ? "text-xs text-text/80" : ""}`}>{props.line}</p>}
         </div>
