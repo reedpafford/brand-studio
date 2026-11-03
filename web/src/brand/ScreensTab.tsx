@@ -31,7 +31,7 @@ export function ScreensTab() {
       {screens.isPending && (
         <div className="grid grid-cols-3 gap-3 lg:grid-cols-6">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="aspect-[9/16] rounded-lg" />
+            <Skeleton key={i} className="aspect-[9/19.5] rounded-lg" />
           ))}
         </div>
       )}
@@ -58,11 +58,12 @@ export function ScreensTab() {
               </div>
             </div>
           )}
-          <ul className="grid grid-cols-3 gap-3 lg:grid-cols-8">
+          {/* v5 F_BrandScreens: phone screenshots at 9:19.5, six to a row in a 900 px area (about 137 × 297). */}
+          <ul className="grid max-w-[900px] grid-cols-3 gap-3 lg:grid-cols-6">
             {shown.map((s) => (
               <li key={s.id}>
                 <button type="button" onClick={() => setEditing(s)} className="block w-full space-y-1 text-left">
-                  <span className="block aspect-[9/16] overflow-hidden rounded-lg bg-surface-2 hover:opacity-90">
+                  <span className="block aspect-[9/19.5] overflow-hidden rounded-lg bg-surface-2 hover:opacity-90">
                     <img src={fileUrl(s.file_id)} alt="" className="size-full object-cover" />
                   </span>
                   <span className="block truncate text-sm">{s.name}</span>
