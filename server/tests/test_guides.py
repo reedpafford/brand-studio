@@ -97,3 +97,30 @@ def test_hidden_lanes_still_load_but_are_off_the_picker_and_the_menu():
     for lane in ("claymation-clean", "claymation-puppet"):
         assert guides.style(lane)["hidden"] and guides.style(lane)["parent"] == "claymation"
         assert lane not in menu
+
+
+def test_camera_behaviour_is_each_styles_own_and_house_follows_the_reels():
+    """Reed, 3 Nov (F8, H2): no global camera rule; the style's camera section decides. House:
+    "Sure follow the reels, but remain incredibly engaging"."""
+    rules = (APP / "prompts" / "rules.md").read_text()
+    assert "Camera behaviour follows the style guide's camera section." in rules
+    assert "Most shots carry a camera move" not in rules
+    camera = guides.style("house")["sections"]["camera"]
+    assert "mostly holds and moves on beats" in camera and "incredibly engaging" in camera
+    assert "It holds still, the people move." in camera
+    assert f"### camera\n{camera}" in prompts.system("breakdown", "house")
+
+
+def test_house_light_is_the_time_of_day_and_its_guides_leave_captions_to_post():
+    """Reed, 3 Nov (H1; "Captions, on all videos, come in post production")."""
+    house = guides.style("house")
+    assert all("cool blue shadows" not in v for v in guides.tokens("house").values())
+    assert "time of day" in house["sections"]["place_look"] and "time of day" in house["blurb"]
+    for guide in (guides.ROOT / "styles" / "house", guides.ROOT / "formats" / "dialogue"):
+        assert "caption" not in (guide / "guide.md").read_text().lower(), guide
+
+
+def test_dialogue_has_an_optional_closing_slot_for_the_brands_real_thing():
+    """Reed, 3 Nov (H8)."""
+    slot = guides.format_("dialogue")["sections"]["closing slot"]
+    assert "optional closing slot for the brand's real thing" in slot
