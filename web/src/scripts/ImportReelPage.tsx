@@ -10,7 +10,7 @@ export function ImportReelPage() {
   const scripts = `/b/${brandId}/scripts`;
   return (
     <main className="space-y-6 p-4 sm:p-6">
-      <PageTop title="Import a reel">
+      <PageTop title="Import a reel" crumb={{ to: scripts, label: "Scripts" }}>
         <Link to={scripts} className={buttonClass("ghost")}>
           Cancel
         </Link>

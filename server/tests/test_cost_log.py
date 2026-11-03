@@ -158,7 +158,8 @@ def test_the_owner_downloads_a_months_charges_as_a_csv(owner, editor, db):
     november = list(csv.reader(io.StringIO(
         owner.get("/usage/charges.csv", params={"month": "2026-11"}).text)))  # fmt: skip
     assert [r[3] for r in november[1:]] == ["Quick clip"]
-    assert owner.get("/usage/charges.csv", params={"month": "2026-13"}).status_code == 422
+    for bad in ("2026-13", "0000-01", "9999-12"):  # never a 500 (QA-10 on #1249)
+        assert owner.get("/usage/charges.csv", params={"month": bad}).status_code == 422
     assert editor.get("/usage/charges.csv").status_code == 404
 
 

@@ -873,7 +873,7 @@ def _cell(value) -> str:
 @router.get("/charges.csv", response_class=Response,
             responses={200: {"content": {"text/csv": {}}}})  # fmt: skip
 def charges_csv(
-    month: str | None = Query(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),  # "2026-11"; now's
+    month: str | None = Query(None, pattern=r"^2\d{3}-(0[1-9]|1[0-2])$"),  # "2026-11"; now's
     owner: User = Depends(owner_or_404),
     db: Session = Depends(get_db),
 ):
