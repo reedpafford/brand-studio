@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { ChartColumn, ChevronRight, Search } from "lucide-react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
-import { Badge, Banner, Button, creditsLabel, EmptyState, PageTop, Select, Sheet, Skeleton } from "../components";
+import { useQuery } from "@tanstack/react-query";
+import { api, must } from "../api/client";
+import type { components } from "../api/schema";
+import { Badge, Banner, Button, creditsLabel, creditsText, EmptyState, PageTop, Select, Sheet, Skeleton } from "../components";
 import { useHeld } from "../approvals/useHeld";
 import { linkText } from "../ui";
 import { useRail } from "../useMedia";
@@ -10,6 +13,8 @@ import { useRestoreBrand } from "../brand/ArchiveBrand";
 import { Charges } from "./Charges";
 import { Money, PeriodControl, Stat, Stats, lastText, money, periodLine, periodWord } from "./parts";
 import { periodFrom, useBrandRows, useSummary, type BrandRow, type Sort } from "./useUsage";
+
+type Person = components["schemas"]["PersonRow"];
 
 const SORTS: { id: Sort; label: string }[] = [
   { id: "spend", label: "Most spent" },
@@ -137,6 +142,7 @@ export function UsagePage() {
         {summary.data && summary.data.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {money(summary.data.unassigned_spend_usd)} · character looks used by several brands</p>}
         {summary.data && summary.data.freestyle_spend_usd > 0 && <p className="text-sm text-muted">Freestyle: {money(summary.data.freestyle_spend_usd)} · sends with no brand picked (a brand's own are in its row)</p>}
       </section>
+      <People period={period} />
       <Charges />
       {sheet && (
         <Sheet title="Filters" onClose={() => setSheet(false)}>
@@ -147,6 +153,50 @@ export function UsagePage() {
         </Sheet>
       )}
     </main>
+  );
+}
+
+/** v5 D_Usage's By person (#1232): each person's credits, dollars, videos and week, for the period. */
+function People({ period }: { period: ReturnType<typeof periodFrom> }) {
+  const people = useQuery({
+    queryKey: ["usage", "people", period],
+    retry: false, // a failed read says so at once, with Try again
+    queryFn: async () => (await must(api.GET("/usage/people", { params: { query: { period } } }))).data!,
+  });
+  const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${creditsText(p.week_used)} of ${creditsText(p.week_allowance)} this week`);
+  return (
+    <section aria-label="By person" className="space-y-3">
+      <h2 className="type-section">By person</h2>
+      {people.isError && <Banner title="Couldn't load usage by person." action={<Button variant="secondary" onClick={() => void people.refetch()}>Try again</Button>}>Check your connection.</Banner>}
+      {people.isPending && <Skeleton className="h-24" />}
+      {people.data && people.data.length === 0 && <p className="text-sm text-muted">Nobody has used anything {periodWord(period)}.</p>}
+      {people.data && people.data.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm tabular-nums">
+            <thead className="text-muted">
+              <tr className="border-b border-border text-right">
+                <th scope="col" className="px-4 py-3 text-left font-medium">Person</th>
+                <th scope="col" className="px-3 py-3 font-medium">Credits</th>
+                <th scope="col" className="px-3 py-3 font-medium">Dollars</th>
+                <th scope="col" className="px-3 py-3 font-medium">Videos</th>
+                <th scope="col" className="px-3 py-3 text-left font-medium">Week allowance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border border-b border-border">
+              {people.data.map((p) => (
+                <tr key={p.user_id} className="text-right">
+                  <th scope="row" className="px-4 py-3 text-left font-medium">{p.name} <span className="font-normal text-muted">· {p.role === "owner" ? "Owner" : "Editor"}</span></th>
+                  <td className="px-3 py-3">{creditsText(p.credits)}</td>
+                  <td className="px-3 py-3 text-muted">{money(p.spend_usd)}</td>
+                  <td className="px-3 py-3">{p.videos}</td>
+                  <td className="px-3 py-3 text-left text-muted">{week(p)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
-import { Badge, Banner, Button, Card, PageTop, Select, Skeleton, creditsText } from "../components";
+import { Badge, Banner, Button, Card, PageTop, Select, Skeleton, creditsLabel, creditsText } from "../components";
 import { lastBrand, useBrands } from "../shell/useBrands";
 import { PeriodControl, periodWord } from "./parts";
 import { periodFrom } from "./useUsage";
@@ -25,6 +25,7 @@ export function MinePage() {
     queryFn: async () => (await must(api.GET("/usage/mine", { params: { query: { brand_id: brandId!, period } } }))).data!,
   });
   const m = mine.data;
+  const waiting = (m?.sends ?? []).filter((x) => x.status === "waiting");
   const week = m?.week;
   const filters = (
     <>
@@ -44,7 +45,7 @@ export function MinePage() {
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
       <PageTop title="My credits" line="What your work has used, in credits." />
       {mine.isError && <Banner title="Couldn't load your credits." action={<Button variant="secondary" onClick={() => void mine.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-      <div>
+      <div className="grid gap-3 lg:grid-cols-2">
       <Card className="space-y-2">
         <h2 className="type-section">Your allowance this week</h2>
         {!week ? (
@@ -70,8 +71,20 @@ export function MinePage() {
           </>
         )}
       </Card>
-      {/* D_MyCredits' "Waiting for the owner's OK" waits for the server's count of my held sends: today's list leaves out
-          sends on hidden Freestyle videos, and an undercount is worse than none (QA-3 on #1218). */}
+      {/* D_MyCredits: my sends waiting for the owner's OK, every one counted by the server across brands (#1232). */}
+      <Card className="space-y-2">
+        <h2 className="type-section">Waiting for the owner's OK</h2>
+        {!m ? (
+          <Skeleton className="h-12" />
+        ) : waiting.length === 0 ? (
+          <p className="text-sm text-muted">Nothing waiting.</p>
+        ) : (
+          <>
+            <p className="font-medium tabular-nums">up to {creditsLabel(m.waiting_credits)}</p>
+            <p className="text-sm text-muted">{waiting.length} send{waiting.length === 1 ? "" : "s"}. Nothing is spent until it's approved.</p>
+          </>
+        )}
+      </Card>
       </div>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end">{filters}</div>
       {!m ? (
@@ -109,6 +122,26 @@ export function MinePage() {
               </ul>
             )}
           </Card>
+          {m.sends.length > 0 && (
+            <Card className="space-y-2">
+              <h2 className="type-section">Sends</h2>
+              <ul aria-label="My sends" className="divide-y divide-border text-sm">
+                {m.sends.map((x) => (
+                  <li key={`${x.job_id ?? ""}-${x.freestyle_id ?? ""}-${x.created_at}`} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2">
+                    <span className="min-w-0 break-words">
+                      {x.freestyle_id ? <Link to={`/freestyle/${x.freestyle_id}`} className="inline-flex min-h-11 items-center font-medium hover:underline lg:min-h-0">{x.title}</Link> : <span className="font-medium">{x.title}</span>}
+                      {x.brand && <span className="text-muted"> · {x.brand}</span>}
+                      {x.status === "declined" && x.reason && <span className="block text-muted">"{x.reason}"</span>}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <Badge tone={x.status === "declined" ? "danger" : "warning"}>{x.status === "declined" ? "Declined" : "Waiting for the owner's OK"}</Badge>
+                      <span className="tabular-nums text-muted">{x.status === "declined" ? "0 credits" : `up to ${creditsLabel(x.up_to_credits)}`}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           <Card className="space-y-2">
             <h2 className="type-section">Quick clips and scripts</h2>
             <ul className="divide-y divide-border text-sm">

@@ -7,7 +7,7 @@ import { useMe } from "../auth/useMe";
 export type Row = components["schemas"]["ProductionRow"];
 export type Step = Row["step"];
 export type Sort = NonNullable<NonNullable<operations["in_production_production_get"]["parameters"]["query"]>["sort"]>;
-export type Filters = { brand: string; editor: string; attention: boolean; q: string; sort: Sort };
+export type Filters = { brand: string; editor: string; attention: boolean; delivered?: boolean; q: string; sort: Sort };
 
 const PAGE = 25;
 const REFRESH = 30_000;
@@ -51,7 +51,7 @@ export function useProduction(f: Filters) {
     refetchInterval: REFRESH,
     queryFn: async ({ pageParam }) => {
       const { data, response } = await api.GET("/production", {
-        params: { query: { ...(f.brand ? { brand_id: Number(f.brand) } : {}), ...(f.editor ? { editor_id: Number(f.editor) } : {}), ...(f.attention ? { attention: true } : {}), ...(f.q ? { q: f.q } : {}), sort: f.sort, limit: PAGE, offset: pageParam } },
+        params: { query: { ...(f.brand ? { brand_id: Number(f.brand) } : {}), ...(f.editor ? { editor_id: Number(f.editor) } : {}), ...(f.attention ? { attention: true } : {}), ...(f.delivered ? { delivered: "today" as const } : {}), ...(f.q ? { q: f.q } : {}), sort: f.sort, limit: PAGE, offset: pageParam } },
       });
       if (!data) throw new Error(response.status === 404 ? "404" : "load");
       const total = Number(response.headers.get("X-Total-Count"));
