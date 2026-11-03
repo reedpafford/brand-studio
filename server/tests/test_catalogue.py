@@ -41,17 +41,18 @@ def test_limits_match_replicate_schema(model):
     if model.duration:
         assert model.duration.max == props["duration"]["maximum"]
         assert model.duration.smart == (props["duration"]["minimum"] == -1)
+    opening = "image" in props and model.kind == "video"  # MMAudio's `image` is a sound's source
     images = "reference_images" if "reference_images" in props else None
     images = images or ("image_input" if "image_input" in props else "images")
     if images in props:
         assert model.max_reference_images == _up_to(schema, images)
     else:  # speech: no pictures; P-Video: its one `image`, the opening frame
-        assert model.max_reference_images == int("image" in props)
+        assert model.max_reference_images == int(opening)
     for kind in ("videos", "audios"):
         field = f"reference_{kind}" if f"reference_{kind}" in props else kind
         if field in props:
             assert getattr(model, f"max_reference_{kind}") == _up_to(schema, field)
-    assert model.first_frame == ("image" in props)
+    assert model.first_frame == opening
     assert model.last_frame == ("last_frame_image" in props)
     assert (model.audio == "switch") == ("generate_audio" in props)
 

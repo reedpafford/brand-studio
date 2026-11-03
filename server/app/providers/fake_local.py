@@ -279,11 +279,14 @@ def png(aspect: str) -> bytes:
     return out.getvalue()
 
 
-def mp4(aspect: str, seconds: int) -> bytes:
+def mp4(aspect: str, seconds: int, sound: bool = False) -> bytes:
+    """A few grey seconds; with `sound` a soft tone too (MMAudio's stand-in: the take with the
+    sound it made)."""
     w, h = SIZES.get(aspect, (512, 512))
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "fake.mp4"
         grey = ["-f", "lavfi", "-i", f"color=c=gray:s={w}x{h}:d={seconds}"]
+        grey += ["-f", "lavfi", "-i", f"sine=f=330:d={seconds}", "-c:a", "aac"] if sound else []
         command = ["ffmpeg", "-v", "error", *grey, "-pix_fmt", "yuv420p", str(path)]
         subprocess.run(command, check=True, timeout=60)  # noqa: S603 - fixed arguments
         return path.read_bytes()
@@ -381,8 +384,8 @@ class FakeMedia:
     def fetch(self, url: str) -> tuple[bytes, str]:
         job = self._jobs[url.removeprefix("fake://")]
         aspect = job.get("aspect_ratio", "9:16")
-        if job["kind"] == "video":
-            return mp4(aspect, int(job.get("duration", 5))), "video/mp4"
+        if job["kind"] in ("video", "sound"):
+            return mp4(aspect, int(job.get("duration", 5)), job["kind"] == "sound"), "video/mp4"
         if job["kind"] == "speech":
             return narration(job["prompt"]), "audio/mpeg"
         if job["kind"] == "music_bed":
@@ -434,7 +437,9 @@ class FakeWriter:
 
         allowed = json.loads(_tag(prompt, "allowed") or "{}")
         asked = json.loads(_tag(prompt, "chat") or "[]")
-        return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked})
+        done = [a["tool"] for a in json.loads(_tag(prompt, "last_actions") or "[]")]
+        return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked,
+                       "done": done})  # fmt: skip
 
     def _review_stills(self, prompt):
         """The stand-in look at the stills: they tell the treatment (a test that walks a

@@ -29,10 +29,11 @@ from app import (
     screen_figures,
     take_approval,
     take_mute,
+    take_sound,
     video_settings,
     word_splice,
 )
-from app.advice import Said
+from app.advice import Said, SaidText
 from app.auth import current_user
 from app.db import get_db, utcnow
 from app.item_checks import CheckOut
@@ -82,6 +83,16 @@ class TakeOut(BaseModel):
     verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
     approved_by: str | None = None  # "check": it approved itself, clean (rule 21)
     mutes: list[list[float]] = []  # stretches muted, as added: Undo takes back one (take_mute)
+
+
+class SoundOut(BaseModel):
+    """Sound effects added to the picked take on request (app/take_sound.py)."""
+
+    state: Literal["none", "making", "ready", "failed"]
+    how: str  # slight, normal or strong: how loud under the take's own sound
+    asked: str  # what the person asked for, in their words
+    error: SaidText = ""  # its last run failed: why, in plain words (Make again)
+    credits: float  # Add sound effects: one run, at its real cost
 
 
 class NarrationOut(BaseModel):
@@ -156,6 +167,7 @@ class ProjectClipOut(BaseModel):
     auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
     look_fix: str | None = None  # the look's fix to offer when its takes are refused (ST2)
     versions: list[PromptVersionOut] = []  # OR3: this prompt's versions, the one in hand first
+    sound: SoundOut | None = None  # the picked take's added sound effects; null with no take
 
 
 def _versions(db: Session, row: ProjectClip) -> list[PromptVersionOut]:
@@ -179,7 +191,7 @@ _stale = clip_prompts.is_stale
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
-                "look_fix", "versions")  # fmt: skip
+                "look_fix", "versions", "sound")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -226,6 +238,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
         versions=_versions(db, row),
+        sound=take_sound.state(db, next((t for t in takes if t.id == row.picked_take_id), None)),
     )
 
 
@@ -637,13 +650,13 @@ def set_insert(
 
 
 def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[str]:
-    """What the final cut puts over its takes: each insert switched on, each muted stretch and
-    a presenter's host pieces (so a new one shows as changes waiting)."""
+    """What the final cut puts over its takes: each insert switched on, each muted stretch, each
+    added sound and a presenter's host pieces (so a new one shows as changes waiting)."""
     cuts = [f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c)
             if i.on]  # fmt: skip
     for c in clips:
         take = db.get(ClipTake, c.picked_take_id) if c.picked_take_id else None
-        cuts += take_mute.labels(c, take) + word_splice.labels(c, take)
+        cuts += take_mute.labels(c, take) + word_splice.labels(c, take) + take_sound.labels(c, take)
     return cuts + host.labels(db, project)
 
 
@@ -934,7 +947,8 @@ def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> 
         return storage.get(db.get(StoredFile, db.get(ClipTake, take_id).file_id).key)
 
     video = word_splice.apply(video, word_splice.spliced(take), source)  # the brand said right
-    return take_mute.apply(video, take_mute.spans(take))  # stretches muted by hand
+    video = take_mute.apply(video, take_mute.spans(take))  # stretches muted by hand
+    return take_sound.under(db, storage, take, video)  # sound effects added on request
 
 
 @router.get("/video", response_model=VideoOut)
