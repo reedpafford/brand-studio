@@ -82,7 +82,7 @@ const mine = {
     { project_id: 9, title: "Bo tries salmon · B", status: "in_production", credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
     { project_id: 10, title: "Kimchi at the vet · A", status: "done", credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
   ],
-  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }],
+  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }], sends: [], waiting_credits: 0,
   week: { used: 72, allowance: 145, lines: [{ label: "Videos", credits: 50 }, { label: "Quick clips", credits: 8 }, { label: "Scripts", credits: 3 }, { label: "A look", credits: 11 }] },
 };
 
@@ -316,12 +316,39 @@ test("Usage (v5 D_Usage, #1208): the director's own time is its own card, in dol
   expect(within(totals).getByText("Outside the credit budget")).toBeInTheDocument();
 });
 
-test("My credits shows no waiting figure until the server counts every held send: never an undercount (QA-3 on #1218)", async () => {
+test("My credits counts every send waiting for the owner, from the server, and lists sends with Declined and its reason (#1232, QA-3 on #1218)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, mine], "GET /jobs": [200, []] });
+  const at = "2026-11-02T20:00:00Z";
+  const sends = [
+    { freestyle_id: 4, title: "Garden scene", brand: "", status: "waiting", up_to_credits: 143.06, reason: "", created_at: at },
+    { freestyle_id: 5, title: "Rain on neon", brand: "fomo", status: "waiting", up_to_credits: 4, reason: "", created_at: at },
+    { job_id: 70, title: "Another take", brand: "fomo", status: "waiting", up_to_credits: 5.6, reason: "", created_at: at },
+    { freestyle_id: 6, title: "Gym bro", brand: "", status: "declined", up_to_credits: 20, reason: "Let's keep this one short", created_at: at },
+  ];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, sends, waiting_credits: 152.66 }] });
   open("/usage/mine");
-  expect(await screen.findByRole("heading", { name: "Your allowance this week" })).toBeInTheDocument();
-  expect(screen.queryByText(/Waiting for the owner/)).toBeNull();
+  expect(await screen.findByText("up to 153 credits")).toBeInTheDocument(); // QA-3's case: 143.06 + 4 + 5.6, in whole credits as Needs you shows
+  expect(screen.getByText("3 sends. Nothing is spent until it's approved.")).toBeInTheDocument();
+  const list = screen.getByRole("list", { name: "My sends" });
+  expect(within(list).getAllByText("Waiting for the owner's OK")).toHaveLength(3);
+  expect(within(list).getByText("Declined")).toBeInTheDocument();
+  expect(within(list).getByText('"Let\'s keep this one short"')).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\$/);
+});
+
+test("Usage's By person lists each person's credits, dollars, videos and week (#1232)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [
+    { user_id: 2, name: "Dee", role: "editor", credits: 804, spend_usd: 80.4, videos: 7, week_used: 40, week_allowance: 100 },
+    { user_id: 1, name: "Reed", role: "owner", credits: 448, spend_usd: 44.8, videos: 5, week_used: 0, week_allowance: null },
+  ]] });
+  open();
+  const people = await screen.findByRole("region", { name: "By person" });
+  const dee = (await within(people).findByText("Dee")).closest("tr")!;
+  expect(dee).toHaveTextContent("804 credits");
+  expect(dee).toHaveTextContent("$80.40");
+  expect(dee).toHaveTextContent("40 credits of 100 credits this week");
+  expect(within(people).getByText("No limit")).toBeInTheDocument();
 });
 
 test("My credits shows a video's credits without the director's own time, that time apart, and a director-run video against what was approved (#1216, QA-3 on #1218)", async () => {

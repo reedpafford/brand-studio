@@ -81,15 +81,20 @@ function Now({ r }: { r: Row }) {
   const f = r.flag ? FLAGS[r.flag] : null;
   return (
     <span className="flex min-w-0 items-start gap-2 text-sm">
-      <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${!f ? "bg-accent" : f.tone === "danger" ? "bg-danger" : "bg-warning"}`} />
+      <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${f ? (f.tone === "danger" ? "bg-danger" : "bg-warning") : r.finished_at ? "bg-success" : "bg-accent"}`} />
       <span className="min-w-0 break-words">
         {f ? (
           <>
             <span className="font-medium">{f.label}</span> <span className="text-muted">{reason(r)}</span>
           </>
+        ) : r.finished_at ? (
+          <>
+            Delivered <span className="text-muted">· {ago(lastText(r.finished_at))}</span>
+          </>
         ) : (
           <>
-            {NOW[r.step]} <span className="text-muted">· {ago(lastText(r.last_activity_at))}</span>
+            {NOW[r.step]}
+            {r.step === "clips" && (r.clips_total ?? 0) > 0 && `: ${r.clips_made} of ${r.clips_total}`} <span className="text-muted">· {ago(lastText(r.last_activity_at))}</span>
           </>
         )}
       </span>
@@ -141,6 +146,7 @@ export function ProductionPage() {
   const brand = params.get("brand") ?? "";
   const editor = params.get("editor") ?? "";
   const attention = params.get("attention") === "1";
+  const delivered = params.get("delivered") === "1"; // the Delivered today tab (#1232)
   const sort = sortFrom(params.get("sort"));
   const [text, setText] = useState(params.get("q") ?? "");
   const q = useDebounced(text.trim());
@@ -158,7 +164,7 @@ export function ProductionPage() {
     );
   const owner = me?.role === "owner";
   const summary = useProductionSummary(owner);
-  const { query, rows, total } = useProduction({ brand, editor, attention, q, sort });
+  const { query, rows, total } = useProduction({ brand, editor, attention, delivered, q, sort });
   // Everyone with a video in the list, kept as filters narrow it.
   const [people, setPeople] = useState(new Map<number, string>());
   const seen = rows.flatMap((r): [number, string][] => (r.editor ? [[r.editor.id, r.editor.name]] : []));
@@ -167,7 +173,7 @@ export function ProductionPage() {
   if (isPending) return null;
   if (!owner || summary.error?.message === "404" || query.error?.message === "404") return <p className="p-6">Page not found.</p>;
 
-  const filtered = !!(brand || editor || attention || q);
+  const filtered = !!(brand || editor || attention || delivered || q);
   const clear = () => {
     setText("");
     setParams({}, { replace: true });
@@ -225,6 +231,7 @@ export function ProductionPage() {
   let empty: ReactNode = null;
   if (query.isSuccess && rows.length === 0) {
     if (!filtered) empty = <EmptyState icon={Clapperboard} title="Nothing is being made right now.">Videos show up here when someone starts a version from the library.</EmptyState>;
+    else if (delivered && !(brand || editor || q)) empty = <EmptyState icon={Clapperboard} title="Nothing delivered today yet.">Videos show here on the day their final cut is made.</EmptyState>;
     else if (attention && !(brand || editor || q)) empty = <EmptyState icon={Check} title="Nothing needs attention." action={<Button variant="ghost" onClick={() => set("attention", "")}>Show all</Button>}>Every video is moving.</EmptyState>;
     else empty = <EmptyState icon={Search} title="Nothing matches these filters." action={clearButton || undefined} />;
   }
@@ -237,9 +244,16 @@ export function ProductionPage() {
       {/* v5 D_Production: Making and Needs attention as tabs in a band, the other filters on its right. */}
       {rail && (
         <div className="-mx-6 -mt-4 flex flex-wrap items-center gap-3 border-b border-border px-6 py-2">
-          <Tabs label="Show" value={attention ? "attention" : "making"} onChange={(t) => set("attention", t === "attention" ? "1" : "")} tabs={[
+          <Tabs label="Show" value={delivered ? "delivered" : attention ? "attention" : "making"} onChange={(t) => setParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("attention");
+            next.delete("delivered");
+            if (t !== "making") next.set(t, "1");
+            return next;
+          }, { replace: true })} tabs={[
             { id: "making", label: "Making", count: all },
             { id: "attention", label: "Needs attention", count: summary.data ? needs : undefined },
+            { id: "delivered", label: "Delivered today", count: summary.data?.delivered_today },
           ]} />
           <span className="flex-1" />
           {clearButton}

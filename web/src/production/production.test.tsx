@@ -179,3 +179,17 @@ test("In production on a phone: the director's time follows the whole spend line
   const card = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
   expect(card).toHaveTextContent(/6 of 729 credits · \$0\.00\s*15 credits of director time/);
 });
+
+test("In production (#1232): a video at Clips says how many are made, and Delivered today is a tab that asks the server for today's", async () => {
+  setViewport(1440);
+  const making = row({ project_id: 21, script: { id: 9, title: "Walk day" }, letter: "C", clips_made: 4, clips_total: 6, last_activity_at: minutesAgo(5) });
+  const done = row({ project_id: 22, script: { id: 10, title: "Market open" }, letter: "B", step: "downloads", finished_at: minutesAgo(30), last_activity_at: minutesAgo(30) });
+  const calls = fakeServer({ ...base([making]), "GET /production/summary": [200, { in_production: 1, needs_attention: 0, changes_waiting: 0, delivered_today: 1 }], "GET /production?delivered=today&sort=attention&limit=25&offset=0": [200, [done]] });
+  open();
+  const link = await screen.findByRole("link", { name: /Walk day/ });
+  expect(within(link).getByText(/^Making clips: 4 of 6/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: /^Delivered today\s*1$/ }));
+  const shipped = await screen.findByRole("link", { name: /Market open/ });
+  expect(within(shipped).getByText(/^Delivered/)).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "GET /production")).toBe(true);
+});
