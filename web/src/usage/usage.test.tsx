@@ -369,3 +369,12 @@ test("My credits' rows read 'spent N' with the director's time included, in whol
   expect(beach).toHaveTextContent("up to 204 approved");
   expect(within(beach).getByText("Delivered")).toBeInTheDocument();
 });
+
+test("Usage's Download CSV gives this month's charges (v5 D_Usage, #1247)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, []] });
+  open();
+  const csv = await screen.findByRole("link", { name: "Download CSV" });
+  expect(csv).toHaveAttribute("href", `/api/usage/charges.csv?month=${new Date().toISOString().slice(0, 7)}`);
+  expect(csv).toHaveAttribute("download");
+});

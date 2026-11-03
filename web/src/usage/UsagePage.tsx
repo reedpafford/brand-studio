@@ -4,7 +4,7 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Banner, Button, creditsLabel, EmptyState, PageTop, Select, Sheet, Skeleton } from "../components";
+import { Badge, Banner, Button, buttonClass, creditsLabel, EmptyState, PageTop, Select, Sheet, Skeleton } from "../components";
 import { useHeld } from "../approvals/useHeld";
 import { linkText } from "../ui";
 import { useRail } from "../useMedia";
@@ -78,6 +78,8 @@ export function UsagePage() {
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
       <PageTop title="Usage" line={summary.data ? periodLine(period, summary.data.starts_at) : undefined}>
         {rail && <PeriodControl value={period} onChange={(p) => set("period", p === "week" ? "" : p)} />}
+        {/* v5 D_Usage: this month's charges as a spreadsheet, one row per charge (#1247). */}
+        <a href={`/api/usage/charges.csv?month=${thisMonth()}`} download className={buttonClass("secondary")}>Download CSV</a>
       </PageTop>
       {!rail && <PeriodControl value={period} onChange={(p) => set("period", p === "week" ? "" : p)} />}
       {summary.isError && <Banner title="Couldn't load usage." action={<Button variant="secondary" onClick={() => void summary.refetch()}>Try again</Button>}>Check your connection.</Banner>}
@@ -201,6 +203,8 @@ function People({ period }: { period: ReturnType<typeof periodFrom> }) {
   );
 }
 
+/** "2026-11": the month the CSV covers. */
+const thisMonth = () => new Date().toISOString().slice(0, 7);
 const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 const label = (b: BrandRow) => `${b.name}: ${money(b.spend_usd)} spent, ${b.finished} finished`;
 const each = (b: BrandRow) => (b.cost_per_finished_usd === null ? "—" : money(b.cost_per_finished_usd));
