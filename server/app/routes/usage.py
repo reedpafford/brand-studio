@@ -33,11 +33,17 @@ from app.schemas import UtcTime
 router = APIRouter(prefix="/usage", tags=["usage"])
 PeriodName = Literal["week", "month", "all"]
 # A calendar month picked ("2026-11", UTC): it wins over `period` (v5 month picker)
-Month = Annotated[str | None, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
+MONTH = r"^2\d{3}-(0[1-9]|1[0-2])$"  # 2000-2999: datetime never overflows
+Month = Annotated[str | None, Query(pattern=MONTH)]
 
 
 def _when(period: PeriodName, month: str | None) -> tuple[PeriodName, usage.Period]:
-    return ("month", usage.month(month)) if month else (period, usage.period(period))
+    if not month:
+        return period, usage.period(period)
+    try:
+        return "month", usage.month(month)
+    except ValueError:  # QA-10: never a 500 for a month out of range
+        raise HTTPException(422, "Pick a month as YYYY-MM.") from None
 
 
 SORTS = {
@@ -84,6 +90,7 @@ class UsageSummaryOut(BaseModel):
     freestyle_spend_usd: float = 0  # Freestyle sends with no brand (its hidden brand)
     director_spend_usd: float = 0  # the director's own time: its turns, watches and looks
     spend_credits: float = 0  # every charge in the period, in credits
+    unassigned_credits: float = 0  # "Other (no brand or video)", as unassigned_spend_usd
     freestyle: FreestyleUsage  # "Freestyle (no brand picked)": its own row
 
 
@@ -169,6 +176,7 @@ def summary(
     free = _freestyle_brands(db, owner)
     return UsageSummaryOut(
         spend_credits=float(sum(f.credits.values(), Decimal(0))),
+        unassigned_credits=float(f.credits.get(None) or 0),
         freestyle=FreestyleUsage(
             credits=float(sum((f.credits.get(b) or 0 for b in free), Decimal(0))),
             spend_usd=usage.money(sum(f.spend.get(b, 0) for b in free)),
