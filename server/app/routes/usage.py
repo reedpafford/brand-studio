@@ -3,11 +3,11 @@ finished video per brand, for this week, this month or all time. Editors get 404
 /usage/mine: their own videos in credits (OR4)."""
 
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select, true
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -29,6 +29,20 @@ from app.schemas import UtcTime
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 PeriodName = Literal["week", "month", "all"]
+# A calendar month picked ("2026-11", UTC): it wins over `period` (v5 month picker)
+MONTH = r"^2\d{3}-(0[1-9]|1[0-2])$"  # 2000-2999: datetime never overflows
+Month = Annotated[str | None, Query(pattern=MONTH)]
+
+
+def _when(period: PeriodName, month: str | None) -> tuple[PeriodName, usage.Period]:
+    if not month:
+        return period, usage.period(period)
+    try:
+        return "month", usage.month(month)
+    except ValueError:  # QA-10: never a 500 for a month out of range
+        raise HTTPException(422, "Pick a month as YYYY-MM.") from None
+
+
 SORTS = {
     "spend": lambda r: (-r.spend_usd, r.name.lower()),
     "finished": lambda r: (-r.finished, r.name.lower()),
@@ -54,6 +68,12 @@ class UsagePrevious(BaseModel):
     cost_per_finished_usd: float | None
 
 
+class FreestyleUsage(BaseModel):
+    credits: float
+    spend_usd: float
+    videos: int  # finished in the period, plus being made now
+
+
 class UsageSummaryOut(BaseModel):
     period: PeriodName
     starts_at: UtcTime | None  # null for all time
@@ -66,6 +86,9 @@ class UsageSummaryOut(BaseModel):
     unassigned_spend_usd: float  # "Not tied to one brand"
     freestyle_spend_usd: float = 0  # Freestyle sends with no brand (its hidden brand)
     director_spend_usd: float = 0  # the director's own time: its turns, watches and looks
+    spend_credits: float = 0  # every charge in the period, in credits
+    unassigned_credits: float = 0  # "Other (no brand or video)", as unassigned_spend_usd
+    freestyle: FreestyleUsage  # "Freestyle (no brand picked)": its own row
 
 
 class UsageBrandRow(BaseModel):
@@ -81,6 +104,8 @@ class UsageBrandRow(BaseModel):
     scripts: int
     versions_left: int
     last_activity_at: UtcTime | None
+    credits: float = 0  # charged in the period, in credits
+    videos: int = 0  # finished in the period, plus being made now
 
 
 class UsageBrandsOut(BaseModel):
@@ -109,6 +134,8 @@ def _row(brand: Brand, f: usage.Figures) -> UsageBrandRow:
         scripts=f.scripts.get(b, 0),
         versions_left=f.versions_left.get(b, 0),
         last_activity_at=f.last_activity.get(b),
+        credits=float(f.credits.get(b) or 0),
+        videos=f.finished.get(b, 0) + f.in_progress.get(b, 0),
     )
 
 
@@ -136,13 +163,22 @@ def _before(db: Session, workspace_id: int, name: str, now: usage.Period, brand_
 @router.get("/summary", response_model=UsageSummaryOut)
 def summary(
     period: PeriodName = "week",
+    month: Month = None,
     owner: User = Depends(owner_or_404),
     db: Session = Depends(get_db),
 ):
-    now = usage.period(period)
+    period, now = _when(period, month)
     f = usage.figures(db, owner.workspace_id, now)
     done, spent = sum(f.finished.values()), sum(f.finished_spend.values())
+    free = _freestyle_brands(db, owner)
     return UsageSummaryOut(
+        spend_credits=float(sum(f.credits.values(), Decimal(0))),
+        unassigned_credits=float(f.credits.get(None) or 0),
+        freestyle=FreestyleUsage(
+            credits=float(sum((f.credits.get(b) or 0 for b in free), Decimal(0))),
+            spend_usd=usage.money(sum(f.spend.get(b, 0) for b in free)),
+            videos=_freestyle_videos(db, free, now),
+        ),
         period=period,
         starts_at=now.start,
         previous=_before(db, owner.workspace_id, period, now),
@@ -152,11 +188,18 @@ def summary(
         cost_per_finished_usd=usage.money(spent / done) if done else None,
         in_progress=sum(f.in_progress.values()),
         unassigned_spend_usd=usage.money(f.spend.get(None)),
-        freestyle_spend_usd=usage.money(
-            sum(f.spend.get(b, 0) for b in _freestyle_brands(db, owner))
-        ),
+        freestyle_spend_usd=usage.money(sum(f.spend.get(b, 0) for b in free)),
         director_spend_usd=usage.money(usage.director_spend(db, owner.workspace_id, now)),
     )
+
+
+def _freestyle_videos(db: Session, brands: list[int], when: usage.Period) -> int:
+    """Freestyle's videos, hidden from the brand figures: finished in the period, or not yet."""
+    from app import hidden
+
+    done = Project.finished_at.is_(None) | and_(true(), *when.has(Project.finished_at))
+    found = select(func.count(Project.id)).where(Project.brand_id.in_(brands), done)
+    return db.scalar(found.execution_options(**{hidden.SEE: True})) or 0
 
 
 def _freestyle_brands(db: Session, owner: User) -> list[int]:
@@ -170,6 +213,7 @@ def _freestyle_brands(db: Session, owner: User) -> list[int]:
 @router.get("/brands", response_model=UsageBrandsOut)
 def brands(
     period: PeriodName = "week",
+    month: Month = None,
     q: str = "",
     archived: bool = False,
     sort: Literal["spend", "finished", "cost", "activity", "name"] = "spend",
@@ -185,7 +229,7 @@ def brands(
         query = query.where(Brand.archived.is_(False))
     if q.strip():
         query = query.where(Brand.name.ilike(f"%{q.strip()}%"))
-    f = usage.figures(db, owner.workspace_id, usage.period(period))
+    f = usage.figures(db, owner.workspace_id, _when(period, month)[1])
     rows = sorted((_row(b, f) for b in db.scalars(query)), key=SORTS[sort])
     # Archived first, so one just archived is never behind "Show more"; the sort holds in each.
     if archived:
@@ -202,13 +246,14 @@ def brands(
 def brand(
     brand_id: int,
     period: PeriodName = "week",
+    month: Month = None,
     owner: User = Depends(owner_or_404),
     db: Session = Depends(get_db),
 ):
     found = db.get(Brand, brand_id)
     if not found or found.workspace_id != owner.workspace_id:
         raise HTTPException(404, "No such brand.")
-    now = usage.period(period)
+    period, now = _when(period, month)
     row = _row(found, usage.figures(db, owner.workspace_id, now))
     return UsageBrandOut(
         **row.model_dump(),
@@ -232,13 +277,13 @@ class PersonRow(BaseModel):
 
 
 @router.get("/people", response_model=list[PersonRow])
-def people(period: PeriodName = "week", owner: User = Depends(owner_or_404),
-           db: Session = Depends(get_db)):  # fmt: skip
+def people(period: PeriodName = "week", month: Month = None,
+           owner: User = Depends(owner_or_404), db: Session = Depends(get_db)):  # fmt: skip
     """v5 Usage › By person: what each person in the team spent in the period, most first.
     Everyone is listed, someone who spent nothing too."""
     from app.credits import COUNTED, get_limits, quick_clip_used
 
-    when, ws = usage.period(period), owner.workspace_id
+    when, ws = _when(period, month)[1], owner.workspace_id
     jobs = (Job.workspace_id == ws, Job.status.in_(COUNTED), *when.has(Job.created_at))
     credits = dict(db.execute(select(Job.created_by_id, func.sum(Job.credits)).where(*jobs)
                               .group_by(Job.created_by_id)).all())  # fmt: skip
@@ -453,6 +498,9 @@ class MyVideo(BaseModel):
     folder_id: int | None
     finished_at: UtcTime | None
     last_activity_at: UtcTime
+    # v5 My credits' words: a freestyle's own status, else the video's (failed: its last step)
+    state: Literal["delivered", "making", "waiting", "declined", "stopped", "failed"]
+    brand_id: int  # the hidden Freestyle brand's for a freestyle
 
 
 class MyProject(BaseModel):
@@ -506,12 +554,14 @@ class MineOut(BaseModel):
     week: MyWeek | None = None  # this week, as the allowance counts it
     sends: list[MySend] = []  # every brand: each held send of any kind, and declined ones
     waiting_credits: float = 0  # up to, over the waiting sends (as Needs you): none spent yet
+    videos_and_freestyles: int = 0  # the videos listed (a freestyle's video among them)
 
 
 @router.get("/mine", response_model=MineOut)
 def mine(
-    brand_id: int,
+    brand_id: int | None = None,  # none: every brand, freestyles too (v5 My credits)
     period: PeriodName = "week",
+    month: Month = None,
     folder: str | None = None,  # a project's id, or none: No project
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
@@ -520,9 +570,19 @@ def mine(
     never someone else's video), and their quick clips' and script writing's credits in the
     period (both come out of an editor's week). Videos are
     picked by the period as on the owner's list: done ones finished in it, others active."""
-    get_brand(db, user, brand_id)
-    when, names = usage.period(period), _names(db, brand_id)
-    query = select(Project).where(Project.brand_id == brand_id, Project.created_by_id == user.id)
+    from app import hidden
+
+    when = _when(period, month)[1]
+    if brand_id is not None:
+        get_brand(db, user, brand_id)
+        brand_ids, names = [brand_id], _names(db, brand_id)
+    else:  # every brand, the hidden Freestyle one too (its video, script and brand)
+        hidden.see(db)
+        ours = select(Brand.id).where(Brand.workspace_id == user.workspace_id)
+        brand_ids = list(db.scalars(ours))
+        names = {k: v for b in brand_ids for k, v in _names(db, b).items()}
+    query = select(Project).where(Project.brand_id.in_(brand_ids),
+                                  Project.created_by_id == user.id)  # fmt: skip
     if (filed := folders.where(Project.folder_id, folder)) is not None:
         query = query.where(filed)
     projects = list(db.scalars(query))
@@ -536,18 +596,23 @@ def mine(
     for p in projects:
         active = max(filter(None, [last.get(p.id), p.created_at]))
         moment = p.finished_at if states[p.id] == "done" else active
-        if when.start is not None and moment < when.start:
+        if (when.start is not None and moment < when.start) or (when.end and moment >= when.end):
             continue
         videos.append(MyVideo(
             project_id=p.id, title=usage.video_title(db, p)[0], status=states[p.id],
             credits=float(credits.get(p.id, 0)), budget_credits=float(p.budget_credits),
             director_credits=float(director_credits(db, p)),
             approved_up_to=float(approved(db, sent[p.id])) if p.id in sent else None,
-            folder_id=p.live_folder_id, finished_at=p.finished_at,
-            last_activity_at=active))  # fmt: skip
-    quick = usage.filed(db, brand_id, when, made_by=user.id, quick_only=True)
-    quick_credits = float(sum((c["credits"] for c in quick.values()), Decimal(0)))
-    written = usage.script_credits(db, brand_id, when, user.id)
+            folder_id=p.live_folder_id, finished_at=p.finished_at, brand_id=p.brand_id,
+            state=_state(db, states[p.id], sent.get(p.id)), last_activity_at=active))  # fmt: skip
+    quick = [
+        c["credits"]
+        for b in brand_ids
+        for c in usage.filed(db, b, when, made_by=user.id, quick_only=True).values()
+    ]
+    quick_credits = float(sum(quick, Decimal(0)))
+    written = {k: v for b in brand_ids
+               for k, v in usage.script_credits(db, b, when, user.id).items()}  # fmt: skip
     scripts = [MyScript(script_id=s.id, title=s.title, credits=float(written[s.id]))
                for s in db.scalars(select(Script).where(Script.id.in_(written)))]  # fmt: skip
     script_total = sum(s.credits for s in scripts)
@@ -558,12 +623,26 @@ def mine(
     sends = _sends(db, user)  # last: it reads Freestyle's hidden rows (hidden.see)
     return MineOut(
         sends=sends, waiting_credits=sum(s.up_to_credits for s in sends if s.status == "waiting"),
+        videos_and_freestyles=len(videos),
         credits=sum(v.credits for v in videos) + quick_credits + script_total,
         quick_clip_credits=quick_credits, script_credits=script_total,
         scripts=sorted(scripts, key=lambda s: -s.credits), week=_week(db, user),
         videos=sorted(videos, key=lambda v: -v.last_activity_at.timestamp()),
         projects=[MyProject(folder_id=f, name=names.get(f, "No project"), videos=n, credits=c)
                   for f, (n, c) in sorted(groups.items(), key=lambda g: g[0] is None)])  # fmt: skip
+
+
+FREESTYLE_STATES = {"working": "making", "withdrawn": "stopped"}  # else its own word
+
+
+def _state(db: Session, status: str, fs) -> str:
+    """A row's v5 words: a freestyle's own status, else delivered, making or failed."""
+    if fs is not None:
+        from app.routes import freestyles
+
+        said = freestyles._out(db, fs).status
+        return FREESTYLE_STATES.get(said, said)
+    return {"done": "delivered", "in_production": "making"}.get(status, status)
 
 
 def _sends(db: Session, user: User) -> list[MySend]:
