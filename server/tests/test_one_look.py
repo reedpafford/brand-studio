@@ -19,7 +19,7 @@ LANES = {s["id"] for s in prompts.styles() if s["kind"] == "lane"}
 
 
 def test_a_lane_is_found_named_by_its_style_and_follows_its_switch(db, owner, editor):
-    assert {"paper-flat", "claymation-goofy", "skeleton-xray"} <= LANES
+    assert {"paper-flat", "claymation-goofy", "skeleton-bare"} <= LANES
     flat = looks.get("paper-flat")
     assert (flat["name"], flat["parent"]) == ("Paper · Flat", "paper")
     assert looks.base("paper-flat") == "paper" and looks.base("paper") == "paper"

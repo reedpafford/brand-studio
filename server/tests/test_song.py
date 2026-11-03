@@ -225,7 +225,7 @@ def test_the_prompts_carry_what_made_reeds_song_ads_good():
     for part in ("**A shape that has worked.**", "mid-air leap", "nudges the product to the lens",
                  "never gross", "at four moments", "past about 16 s"):  # fmt: skip
         assert part in breakdown, part
-    assert "## Format:" not in prompts.system("breakdown")  # story breakdowns: no song guide
+    assert "## Format: Song" not in prompts.system("breakdown")  # story breakdowns: no song guide
 
 
 STUDY = {
@@ -350,7 +350,7 @@ def test_reeds_song_skill_is_folded_in():
     sent = prompts.song_request("[Chorus]\nWe sing.", "indie pop, 100 BPM")
     assert sent["lyrics"].startswith("[Intro: vocals start immediately]\n")
     assert sent["lyrics"].endswith("\n[End]") and "spoken word" in sent["exclude_styles"]
-    assert sent["style"].endswith("continuous singing, tight ending")
+    assert sent["style"].endswith("at most one short instrumental break, short instrumental ending")
 
 
 def test_song_producer_review_the_hook_first_the_rate_the_vocal_and_a_set_that_varies():
