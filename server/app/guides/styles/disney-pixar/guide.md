@@ -55,15 +55,21 @@ product: Change this… "the real product from its image, the label facing the c
 ## sample
 A cheerful man in his thirties with sculpted wavy brown hair and big glossy eyes, in one plain teal jacket, adult proportions.
 
+## The videos
+The videos are animated with AI video models: stylized 3D characters.
+
+## pacing
+(range to be set from the reference videos)
+
 ## disney-pixar-animation SKILL
 The Disney-Pixar visual style for AI video ads: one look, a frame from a 3D animated feature film. Every image made under this skill exists to be animated: a start frame, shot reference, or canonical reference for a video generation — one shot of the ad, visualizing what the voiceover says at that moment. Two things make the output win: **appealing, designed characters** (caricatured proportions, big expressive eyes, sculpted hair), and **a warm, cinematically lit stylized 3D world** where every object is a designed asset, never a photograph.
 
 ## Scope
-This is solely a visual rendering style, nothing more. It never drives scene content — the storyboard belongs to the ad; this skill only decides how the world is designed, lit, and rendered. Canonical references, speech, workflow, and video models follow the visual and media generation foundations. The style carries lifestyle, emotion, exterior, product-only, and mechanism shots (a serum absorbing through skin layers) equally well. "Pixar" and "Disney" name a visual style, not a franchise: every character is original, never a recreation of an existing one, and no studio logo appears in frame.
+This is solely a visual rendering style, nothing more. It never drives scene content — the storyboard belongs to the ad; this skill only decides how the world is designed, lit, and rendered. The style carries lifestyle, emotion, exterior, product-only, and mechanism shots (a serum absorbing through skin layers) equally well. "Pixar" and "Disney" name a visual style, not a franchise: every character is original, never a recreation of an existing one, and no studio logo appears in frame.
 
 ## What makes anything read as Disney-Pixar
 1. **Everything is a designed 3D asset.** Objects and surfaces have simplified, appealing shapes and believable stylized materials, never photographic texture.
-2. **Caricature with structure.** Heads slightly large for the body, about four to five heads tall, a readable silhouette, and a face built from clear simple masses.
+2. **Caricature with structure.** Heads slightly large for the body, a readable silhouette, and a face built from clear simple masses.
 3. **The eye.** Large and expressive, with glossy catch-lights. This is what makes a face read as Pixar.
 4. **Sculpted hair and matte skin.** At its best the hair is solid sculpted shapes with crisp light-and-shadow bands rather than fine strands, and the skin has soft subsurface warmth with a subtle matte finish.
 5. **Cinematic light.** Soft global illumination, warm bounce light, gentle colour in the shadows, shallow depth of field, saturated but harmonious colour.
@@ -76,8 +82,8 @@ Every image is a still the video model will animate, so it is a self-contained s
 - **Light:** rain, night, a cold screen — "soft grey light from a window with rain-speckled glass. Muted and cool in mood."
 - **Framing:** "A close-up of a hand holding up…", "A zoomed-in macro view…". Close-ups suit hands, products, and mechanism shots.
 
-## Image model
-**Nano Banana 2.1 by default for stills, start frames, and canonical references.** Set the model in the generation settings. Recommend Nano Banana 2.1: it renders this style best and follows the blocks closely. For a softer, more rounded look, Seedream 4.5 can also be a good variant. When a result misses, **reroll the identical prompt before rewriting it** — once the blocks are locked, variance is almost always the cause.
+## When a result misses
+When a result misses, **reroll the identical prompt before rewriting it** — once the blocks are locked, variance is almost always the cause.
 
 ## The style blocks
 Every image prompt is assembled in one order: **style block → character block (only when people are in frame) → the scene → camera block.** Paste each block word for word.
@@ -85,13 +91,13 @@ Every image prompt is assembled in one order: **style block → character block 
 **Style block** — opens every image prompt:
 
 ```
-A frame from a Pixar animated feature film: high-end stylized 3D animation in which every object and surface is a designed, stylized 3D asset with simplified, appealing shapes. Rich cinematic lighting with soft global illumination, warm bounce light and gentle colour in the shadows, a detailed lived-in environment with believable stylized materials, shallow cinematic depth of field, and saturated but harmonious colour.
+A frame in the style of a Pixar animated feature film: high-end stylized 3D animation in which every object and surface is a designed, stylized 3D asset with simplified, appealing shapes. Rich cinematic lighting with soft global illumination, warm bounce light and gentle colour in the shadows, a detailed lived-in environment with believable stylized materials, shallow cinematic depth of field, and saturated but harmonious colour.
 ```
 
 **Character block** — add it only when the shot has people in frame. Leave it out of product-only and mechanism shots: its character language summons people into scenes that should have none.
 
 ```
-Characters are stylized Pixar humans with caricatured, appealing proportions: heads slightly large for their bodies, about four to five heads tall, with strong readable shape design — a distinctive silhouette and a face built from clear, simple masses. Large expressive eyes with glossy catch-lights, defined expressive eyebrows, a simplified nose and a wide expressive mouth. Smooth skin with soft subsurface scattering and a subtle matte finish, hair sculpted into clear stylized clumps and locks, and clothing with simplified, believable fabric folds. Every face is distinctive and full of personality.
+Characters are stylized Pixar humans with caricatured, appealing proportions: heads slightly large for their bodies, with strong readable shape design — a distinctive silhouette and a face built from clear, simple masses. Large expressive eyes with glossy catch-lights, defined expressive eyebrows, a simplified nose and a wide expressive mouth. Smooth skin with soft subsurface scattering and a subtle matte finish, hair sculpted into clear stylized clumps and locks, and clothing with simplified, believable fabric folds. Every face is distinctive and full of personality.
 ```
 
 **Camera block** — closes every image prompt:
@@ -111,7 +117,7 @@ A product-only shot drops the character block and keeps the same grammar: "A whi
 
 ## Prompt rules
 - **Blocks verbatim in every prompt, canonical references included.** A canonical character sheet opens with the style block and the character block, so every shot built from it inherits the look. Consistency comes from the blocks plus canonical references, never from "same style as before."
-- **Character design.** Design a new character following the visual foundations and lock it as a canonical reference sheet. Seedream 4.5 can be good for a more rounded, Disney-style look — a natural variant to offer when the user wants to see a few directions for the character.
+- **Character design.** Design a new character and lock it as a canonical reference sheet.
 - **Describe every character in full in the scene.** Age, build, hair colour and style, and clothing ride on each character — anything left unstated is dice-rolled and drifts between shots. When a canonical character reference is attached, name it and its job right after the style block, and describe only what this shot changes: the action and the expression. The reference carries the look.
 - **Animals and creatures.** The character block describes people. For an animal or creature lead, leave it out and describe the animal in the scene as a stylized Pixar animal — simplified appealing shapes, large expressive eyes with glossy catch-lights. When people and an animal share a frame, keep the character block for the people.
 - **Name the feeling, then write it as face mechanics.** State what the viewer should feel, then direct the face: "her inner brows pushed up and her mouth a flat tired line." An adjective alone ("sad," "tired") renders a pleasantly neutral face.
@@ -130,7 +136,7 @@ Smooth cinematic 3D animation in the style of a Pixar feature film, fluid and ex
 The start frame carries the look; after the motion line, the clip prompt describes the action, the speech, and the camera. One motion action per clip — stacked actions multiply drift.
 
 ## Pixar transitions
-For any transition clip, **build the frame pair by the media generation foundations' start/end-frame guidance** — one shared anchor generated from the same references in both frames, one action, compositional continuity, explained fates. Classic animated-feature moves that suit ads:
+For any transition clip, **build the frame pair** — one shared anchor generated from the same references in both frames, one action, compositional continuity, explained fates. Classic animated-feature moves that suit ads:
 
 - **Camera-bridge** (anchor fixed, camera moves): push in from the scene to the product label; push into the skin at macro to reveal the mechanism (problem shot → mechanism shot); pull back from a face to reveal the room.
 - **World-bridge** (camera fixed, the world changes around the anchor): a magical shimmer sweeps the frame and the dull, grey scene turns warm and bright (problem → solution); the light shifts from grey morning to golden evening around the character (time passing); the product glows and the scene transforms around it (reveal).

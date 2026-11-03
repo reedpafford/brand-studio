@@ -25,26 +25,6 @@ A format, not a rendering style: it is defined by the blue stage, the narrator v
 
 The output wins on continuity: an original Zack D. video plays as one continuous camera journey where every shot change is a designed transition — imitations cut every few seconds, and that cut rate is exactly what makes them read as imitations.
 
-This skill builds on the parent prompt (the voiceover-first doctrine, the storyboard table, the two generation workflows) and adds only what is Zack D: the stage, the voice, the music, and the format's shot grammar.
-
-Move fast — batch questions, state defaults, and end every stage on its hand-off line.
-
-## Step map — resume from what the conversation already establishes
-| They gave you…                                    | Run                          |
-| ------------------------------------------------- | ---------------------------- |
-| Nothing settled yet — the skill just fired        | Step 1 — Kickoff         |
-| A stage pick and a script (pasted, or "write it") | Step 2 — Lock the script |
-| An approved script                                | Step 3 — Voiceover       |
-| A generated, timed voiceover take                 | Step 4 — Storyboard      |
-| An settled storyboard                            | Step 5 — Seam plan       |
-| A confirmed seam plan                             | Step 6 — Stills          |
-| Approved stills                                   | Step 7 — Video legs      |
-| All legs generated                                | Step 8 — Music and post  |
-
-A partial answer moves the same way: bank what they gave — never re-ask a settled choice — ask once for what is missing, and run the furthest step the inputs allow.
-
-When one message answers everything a step needs, run the next step in the same reply.
-
 ## Step 2 — Lock the script
 The format does not require a product.
 
@@ -56,27 +36,10 @@ Every line earns a picture — each script line is the brief for a shot. Find a 
 
 The hook line carries the video: it gets the strongest visual and the most options later.
 
-Hand-off: _"Approve the script (or edit it) and I'll generate the voiceover."_
-
 ## Step 3 — Voiceover in the Zack D voice
-Narrator voiceover is a format pillar — never on-camera character speech — so the choice is already made: on script approval, generate the take immediately per the parent's voiceover-first doctrine.
+Narrator voiceover is a format pillar — never on-camera character speech.
 
-Prepare the narration with the chosen verified voice.
-
-In Starpop, the Zack D. Films voices are ready for use:
-
-| Voice                      | Provider   | Voice reference (ready in Starpop)        |
-| -------------------------- | ---------- | ---------------------------------- |
-| zach d films (default) | Fish Audio | `voice:fish-audio:30d59f6eb137417ab0c463028323f4a8` |
-| Zach D (alternate)     | Fish Audio | `voice:fish-audio:b2f2bd4f04cb45ad917be899a868f288` |
-
-Alternatively, the voices can be accessed on Fish Audio, or cloned on ElevenLabs.
-
-These verified voice references belong to this workflow.
-
-Use the default immediately unless the user explicitly asks for the alternate.
-
-Reuse these verified voices without searching for them again. Preserve the approved spoken script and keep delivery directions separate.
+Preserve the approved spoken script and keep delivery directions separate.
 
 Direct the delivery: calm, matter-of-fact, unhurried, slight deadpan — the surprising fact does the work, never an ad read.
 
@@ -84,26 +47,17 @@ Generate the voiceover as one continuous audio take and analyze its real timing,
 
 The narration never enters a generation — it is laid under the assembled edit in post (slice it on natural phrase boundaries only when a clip must sync to specific words).
 
-Hand-off: _"Generate the take; once it's in I'll time it and build the storyboard."_
-
 ## Step 7 — Video legs
 Never add music to any generation — diegetic SFX only.
 
 ## Step 8 — Music and post
 The format's background music is "Hide and Sneak" by The Fly Guy Five — a muted plucked-bass arpeggio with a ticking pulse, ~95 BPM.
 
-It ships with this skill as a downloadable track:
-
-`https://f.starpop.org/skill-refs/zack-d-music-hide-and-sneak-v1.mp3`
-
-This is the background music for the finished ad: tell the user to download the track from that link and lay it under the full edit in their editor, at low level beneath the voiceover.
+This is the background music for the finished ad: lay it under the full edit in their editor, at low level beneath the voiceover.
 
 It is not a generation input — never attach it to a video or speech generation, and never ask a model to generate the music.
 
 Captions (small, thin, light white sans, centred in the clean background above the subject) and all screen text are added in the editor, never generated.
-
-## Rules
-2. Every seam is chosen. One visible change roughly every second; a designed transition every 4–8 seconds; shots run 4–8s carrying a single continuous camera move. A cut is a decision, not a default.
 
 ## Self-check before presenting
 - Is the voiceover one timed take in a Zack D. Films voice, with the storyboard built against it and the narration laid under the edit in post?

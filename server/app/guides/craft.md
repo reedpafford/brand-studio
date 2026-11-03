@@ -13,10 +13,10 @@ Reed gives guidance, not rules: "I dont want to set any strict rules that ruin c
 1. **Take structure from a reference, never its creative.** Reed: references "should not be weighed heavily". The creative comes from his script.
 2. **Understand the story before making anything.** Who wants what, what goes wrong, what changes, what the payoff is. Ask of every beat "why does this happen?", so each scene causes the next.
 3. **Picture every line.** Read the script line by line and ask, of each, what the funniest, clearest picture of exactly this is. Every action the script mentions is shown, exaggerated and readable with the sound off. Abstract lines become concrete ("she finally understood" becomes her scrolling, then looking up, surprised). Make the hidden thing visible: the cause, the feeling, the change.
-4. **Recommend, and say why.** When a story could go two real ways, name both in a line each and recommend one; Reed picks in a word. Once the words are chosen they are locked.
+4. **Recommend, and say why.** When a story could go two real ways, name both in a line each and recommend one. Once the words are chosen they are locked.
 5. **Show the plan before anything is paid for,** and check each stage before the next: the pictures against the plan, every take against the script. Remake only real problems, with a precise note; a small flaw that still serves the story can stay, said plainly.
 6. **Rewatch the whole cut as Reed would.** Not "are there errors?" but "is this good?" Reed: "critically watch the reels and see if they make sense and are continuous, telling a good story, and are entertaining/will drive engagement." And: "You are meant to catch these and make these changes."
-7. **Explain, plainly.** Say what was done and why, what's still imperfect and where, and the one real decision left for Reed. Proceed on what's approved; ask only real decisions; say plainly what went wrong and what you're doing about it.
+7. **Explain, plainly.** Say what was done and why, what's still imperfect and where. Proceed on what's approved; say plainly what went wrong and what you're doing about it.
 
 ## What makes these shorts engaging
 
@@ -24,6 +24,9 @@ Reed gives guidance, not rules: "I dont want to set any strict rules that ruin c
 - **Something happening.** "its not really about CUTS its about visual interest, something happening." Every beat has an action, not people standing and talking. Tell the story visually, not through dialogue alone; every action a line mentions is shown, and what a line claims is on screen.
 - **Show what a line points at.** When a line names something ("That's my face", the coin, the balance), the viewer sees that very thing, big and readable, as the line lands. Reed: "the screen line doesn't show the coin."
 - **Little actions that connect.** Every result has its cause on screen (the peanut on the tray needs the flick), or the beat goes. Reed: "scenes don't make sense… we are missing little actions that connect clips." A prop moment too short to read is cut, not squeezed in.
+- **Hand-offs between scenes.** Each scene ends on the thing that sets off the next (her hand flicks the lamp, then he's caught frozen mid-lick), and a new place always has a bridge: a matching action, a look, or the screen the story moves into. The viewer always knows where they are and why we moved. (Song-Producer)
+- **A flashback for what was lost.** When the story turns on a promise broken or a past that changed (she said she'd marry him; now she's on another man's shoulder), a short flashback of what was, then a cut back to what is, says it in one line. It can come back later as a flash when the other person realises what they gave up.
+- **The picture lands on its word.** What a line points at (a number, the product, a reveal) appears as the word is said, never before it; a reaction stays until it lands, then the story moves on with no empty hold. (Song-Producer: a scorecard shown a beat before "four" "felt wrong immediately")
 - **Exaggeration.** "keep it engaging, scenes exaggerated." Problems and symptoms played big and funny; a hidden cause made visible (the invisible shown, separate signs tied to one cause).
 - **Cause and effect, and continuity.** The order of events makes sense; what's lost is what gets won back; every fall has a cause the viewer sees. A time jump is signalled. Reed: "video one has poor continuity"; "the end doesn't really make sense with the story".
 - **A relatable person.** Someone the viewer sees themselves in, in a setting they recognise, with what they're going through visible.
@@ -32,6 +35,18 @@ Reed gives guidance, not rules: "I dont want to set any strict rules that ruin c
 - **An edge.** A moment the viewer will comment about. Reed on a tame version: "Not edgy enough." Don't pre-soften an idea: "dont do safer versions until they get rejected".
 - **Value, then the product softly.** The product is the saviour, worked into the story "in flow of conversation", never like an ad, and shown only where the story brings it in ("Don't show the product unless it is mentioned"). Viewers stay for the entertainment and the value: "They want to probably LEARN stuff... we must first start by being entertaining though."
 - **The ending.** One simple question viewers can argue over, asked straight with no set-up ("Would you take her back?"), then a single call to action. A song needs only one call to action: "engagement will come natural as reactions to the video".
+
+## Thinking like a short-form producer (the @nateassets reels)
+
+Reed's bar for entertainment shorts is Nate's reels: fast, edgy, funny, and easy to follow on mute. Bring Song-Producer's way of thinking to them: understand why each moment will hold a thumb, then make every picture serve that. These are questions to ask, not a template; each story answers them its own way.
+
+- **What does the viewer want to happen?** These reels run on a want the viewer feels in the first second: the doubter proven wrong, the ex regretting it, the underdog paid. Find it, sharpen it, and make the viewer wait for it just long enough.
+- **Where is the sting in the opening?** A rejection, an insult or a dare in the first line, with the stakes plain ("Hell no!", "In that junk car?"). The viewer should take a side at once.
+- **Who are these people at a glance?** Every role looks and acts like what it is, so nobody needs explaining: the glamorous ex, the smug rich rival, the plain likeable hero.
+- **What proves it?** The middle shows the change happening, in small visible wins that each look bigger than the last, and things the viewer can read with the sound off (the ring box, the watch, the car, the balance).
+- **Where is the laugh?** Every beat has an edge: something petty, smug or absurd. The payback is funny, not just earned (he sings "La la la, I can't hear you!" and drives off; the rich guy is now washing his own car).
+- **How does it end?** On the reversal and one last comic face or line that flips the opening, then out. No wind-down.
+- **Would you send it to a friend?** Watch the cut as a stranger scrolling: if a moment wouldn't make them laugh, wince or want the next second, rethink it.
 
 ## What Reed praised
 

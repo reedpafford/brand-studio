@@ -52,3 +52,35 @@ def test_only_guides_py_reads_the_guide_files():
         text = path.read_text()
         assert "guides.ROOT" not in text and '"guides"' not in text, path
         assert "guides/" not in text.replace("app/guides/", ""), path
+
+
+RELEASE = ("house", "disney-pixar", "claymation", "skeleton", "zack-d")  # Reed's Drive, 3 Nov
+
+
+def test_each_release_style_holds_its_own_pacing_and_3d_only_where_it_is_3d():
+    """Reed, 3 Nov: pacing is a per-style range (set later from the reference videos), and
+    "stylized 3D characters" belongs to the 3D styles only, never to every video."""
+    assert "stylized 3D" not in (APP / "prompts" / "rules.md").read_text()
+    for look in RELEASE:
+        pacing = guides.style(look)["sections"]["pacing"]
+        assert pacing.endswith("(range to be set from the reference videos)"), look
+        assert f"### pacing\n{pacing}" in prompts.system("breakdown", look), look
+        said = "stylized 3D characters" in guides.style(look)["sections"].get("The videos", "")
+        assert said == (look != "claymation"), look
+
+
+def test_release_guides_hold_no_chat_steps_starpop_assets_or_unused_models():
+    """Reed, 3 Nov: "Automated steps shouldn't contain chat instructions. Just stay true to the
+    ux flow we built." No waiting on a user, hand-off lines, Starpop links or voice ids, models
+    the site doesn't use, Starpop's parent prompt, or Pixar wording outside Disney Pixar."""
+    texts = {s: guides.style(s)["sections"] for s in RELEASE}
+    texts |= {f: guides.format_(f)["sections"] for f in ("dialogue", "song", "narrated", "zack-d")}
+    texts["craft"] = {"craft": (guides.ROOT / "craft.md").read_text()}
+    for name, sections in texts.items():
+        text = "\n".join(v for k, v in sections.items() if k != "banned").lower()
+        for gone in ("wait for the user", "wait for each", "hand-off:", "starpop", "fish-audio",
+                     "elevenlabs", "seedream", "nano banana", "gpt image", "seedance",
+                     "foundations", "parent's", "reed picks"):  # fmt: skip
+            assert gone not in text, (name, gone)
+        if name not in ("house", "disney-pixar"):  # House is built on that look (test_styles)
+            assert "pixar" not in text, name
