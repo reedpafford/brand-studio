@@ -27,6 +27,7 @@ class User(Entity, Base):
     password_hash: Mapped[str] = mapped_column(String(200))
     role: Mapped[Role] = mapped_column(String(20))
     active: Mapped[bool] = mapped_column(default=True)
+    last_active_at: Mapped[datetime | None]  # signed in and using the studio (auth.ACTIVE)
 
     workspace: Mapped[Workspace] = relationship()
 

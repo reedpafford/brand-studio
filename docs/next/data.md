@@ -36,6 +36,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n20 | Freestyle (Reed's v4): new `freestyles` {workspace_id, created_by_id, title, type, look, shape, brand_id (nullable), chat JSON default `[]` (the thread), stopped_at}, indexed by workspace | Next-Server | #1159 |
 | n19 | The director's chat (director-chat.md §1 item 4): `projects.director_chat` JSON not null default `[]`, each `{by, text, at, run}` | Next-Server | #1155 |
 | n21 | Hidden rows (Freestyle 3a): `hidden` bool default false on `projects`, `scripts` and `brands` (a freestyle's own script, video and the workspace's "Freestyle" brand; app/hidden.py leaves them out of every list); `freestyles.project_id` (FK projects, nullable) and `freestyles.up_to` (numeric, the price the owner approved) | Next-Server | #1171 |
+| n24 | Last active (v5 audit, Team): `users.last_active_at`, nullable, no default (null: not seen since it shipped); kept to within 5 minutes by `auth.current_user`. Downgrade drops it | Next-Server | #1247 |
 
 ## Merge order (the chain on `next`)
 
