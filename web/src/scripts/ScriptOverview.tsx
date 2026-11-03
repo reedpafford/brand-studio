@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { components } from "../api/schema";
 import { Button, Dot, creditsLabel, wholeCredits } from "../components";
 import { useFolders } from "../folders/Projects";
@@ -8,6 +8,7 @@ import { budgetUsed } from "../projects/budget";
 import { videoStatus, videoTo } from "../videos/progress";
 import { finished } from "../freestyle/FromScript";
 import { lookName, useLooks } from "./Looks";
+import { MakeVideoPanel } from "./MakeVideoPanel";
 import { letterOf, statusOf } from "./status";
 import type { Script } from "./useScript";
 
@@ -51,7 +52,9 @@ function VersionRow({ v, video, onMake }: { v: Version; video?: Project; onMake:
 
 /** A script's first tab (v5 C_ScriptOverview): its versions and their videos as a table, the words of the version to make
  *  next under it, and the script's facts beside it. Each version's Make a video opens the Make a video panel on it. */
-export function ScriptOverview({ script: s, brandId, onMake }: { script: Script; brandId: number; onMake: (slot: number) => void }) {
+export function ScriptOverview({ script: s, brandId }: { script: Script; brandId: number; onStep?: (step: string) => void; onMake?: (slot: number) => void }) {
+  // The Make a video panel (#1194's), opened on the row's version. It lives here until the script page's top moves to v5.
+  const [making, setMaking] = useState<number | null>(null);
   const videos = useProjectList(brandId);
   const looks = useLooks().data;
   const folders = useFolders(brandId);
@@ -85,7 +88,7 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
           </div>
           <ul>
             {versions.map((v) => (
-              <VersionRow key={v.slot} v={v} video={v.project_id ? byId.get(v.project_id) : undefined} onMake={() => onMake(v.slot)} />
+              <VersionRow key={v.slot} v={v} video={v.project_id ? byId.get(v.project_id) : undefined} onMake={() => setMaking(v.slot)} />
             ))}
           </ul>
         </div>
@@ -116,6 +119,7 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
         )}
         {fact("In the library", s.published ? <Dot tone="success">Published</Dot> : <Dot tone="neutral">Not published. Publish to let editors find it.</Dot>)}
       </aside>
+      {making !== null && <MakeVideoPanel scriptId={s.id} slot={making} onClose={() => setMaking(null)} />}
     </div>
   );
 }

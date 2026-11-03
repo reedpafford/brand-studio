@@ -233,7 +233,11 @@ export function ScriptsPage() {
   return (
     <main className={`mx-auto max-w-content space-y-0 p-4 sm:p-6 ${rail ? "" : "pb-28"}`}>
       <PageTop title="Scripts">{rail && presses}</PageTop>
-      {!rail && <ActionBar phone><div className="flex gap-2">{presses}</div></ActionBar>}
+      {!rail && (
+        <ActionBar phone>
+          <div className="flex gap-2 [&>*]:min-w-0 [&>*]:flex-1 [&_a]:w-full [&_button]:w-full">{presses}</div>
+        </ActionBar>
+      )}
       {bulk && <BulkCreate brandId={brandId} onClose={() => setBulk(false)} />}
       <div className="-mx-4 flex min-h-11 flex-wrap items-center gap-x-2 gap-y-2 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
         <StageTabs status={removed ? "removed" : status} owner={owner} ask={ask} onPick={pickStage} />

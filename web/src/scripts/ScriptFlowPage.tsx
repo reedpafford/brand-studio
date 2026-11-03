@@ -185,7 +185,7 @@ export function ScriptFlowPage() {
           {mayDelete(s) && <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />}
         </div>
       </div>
-      {params.get("video") && <MakeVideoPanel scriptId={s.id} slot={params.has("slot") ? Number(params.get("slot")) : undefined} onClose={() => setParams({})} />}
+      {params.get("video") && <MakeVideoPanel scriptId={s.id} onClose={() => setParams({})} />}
       {del.dialog}
       <HeldRequests where={{ scriptId: s.id }} />
       {leaving && (
@@ -194,7 +194,7 @@ export function ScriptFlowPage() {
         </Dialog>
       )}
       <StepPicker steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...steps] : steps} onPick={(to) => go(to)} />
-      {overview && <ScriptOverview script={s} brandId={brandId} onMake={(slot) => setParams({ video: "1", slot: String(slot) })} />}
+      {overview && <ScriptOverview script={s} brandId={brandId} onStep={go} onMake={(slot) => setParams({ make: String(slot) })} />}
       {making && <VersionPanel scriptId={s.id} slot={Number(making[1])} brandId={brandId} onClose={() => setParams({})} />}
       {!overview && (
         <>
