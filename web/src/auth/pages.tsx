@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useEffect, useState } from "react";
 import { Link2Off } from "lucide-react";
 import { Button, Card, Skeleton } from "../components";
-import { linkText } from "../ui";
 import { AuthForm, AuthShell } from "./AuthForm";
 
 export function LoginPage() {
@@ -96,14 +95,8 @@ export function InvitePage() {
         <Card className="space-y-3 p-5 text-center sm:p-6">
           <Link2Off size={24} strokeWidth={1.75} aria-hidden className="mx-auto text-muted" />
           <h1 className="type-page">Invite not valid</h1>
-          <p role="alert">This invite link is not valid any more.</p>
-          <p className="text-sm text-muted">Ask whoever invited you to send a new link.</p>
-          <p>
-            Already have an account?{" "}
-            <Link className={`${linkText} inline-flex min-h-control items-center`} to="/login">
-              Sign in
-            </Link>
-          </p>
+          {/* v5 A_Invite: one line; it sends nobody to the owner (rule 22). */}
+          <p role="alert">This invite has been used or has run out. You'll need a new link.</p>
         </Card>
       </AuthShell>
     );

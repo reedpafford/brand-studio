@@ -42,7 +42,7 @@ test("signing in lands on the app", async () => {
   });
 });
 
-test("a wrong password says so in v5's words, as plain red text under the fields", async () => {
+test("a wrong password says so in v5's words, as plain red text under the fields; the labels are muted", async () => {
   fakeServer({ "GET /auth/me": [401, {}], "POST /auth/login": [401, { detail: "Wrong email or password." }] });
   renderAt("/login");
   await userEvent.type(await screen.findByLabelText("Email"), "a@b.co");
@@ -50,6 +50,8 @@ test("a wrong password says so in v5's words, as plain red text under the fields
   await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("That email and password don't match.");
   expect(screen.getByRole("alert")).toHaveClass("text-danger");
+  expect(document.querySelector("form label")).toHaveClass("text-sm"); // 13 px
+  expect(document.querySelector("form")).toHaveClass("[&_label]:text-muted");
 });
 
 const lookup = { workspace_name: "Studio", invited_by_name: "Ada", owner_name: "Reed", email: "ada@x.co", role: "editor" };
@@ -75,10 +77,10 @@ test("the invite page says who invited you, to which studio, and as what; the to
 test("an invite link that is not valid says so and offers no form", async () => {
   fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [404, { detail: "This invite link is not valid any more." }] });
   renderAt("/invite/old");
-  expect(await screen.findByRole("alert")).toHaveTextContent("This invite link is not valid any more.");
-  expect(screen.getByText("Ask whoever invited you to send a new link.")).toBeInTheDocument();
+  // v5 A_Invite: one line, sending nobody to the owner (rule 22).
+  expect(await screen.findByRole("alert")).toHaveTextContent("This invite has been used or has run out. You'll need a new link.");
+  expect(screen.queryByText(/owner|Ask /)).toBeNull();
   expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
 });
 
 test("setup tells you when the studio already exists", async () => {

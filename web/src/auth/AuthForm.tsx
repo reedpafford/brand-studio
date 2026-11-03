@@ -81,7 +81,8 @@ export function AuthForm(props: {
           {props.eyebrow && <p className="text-xs text-muted">{props.eyebrow}</p>}
           <h1 className={`text-xl font-semibold ${props.logo ? "text-center" : ""}`}>{props.title}</h1>
           {props.intro}
-          <form ref={form} onSubmit={onSubmit} className="flex flex-col gap-4">
+          {/* v5 A_SignIn, A_Setup, A_Invite: the field labels are muted, 13 px. */}
+          <form ref={form} onSubmit={onSubmit} className="flex flex-col gap-4 [&_label]:font-normal [&_label]:text-muted">
             {props.fields.map((f) =>
               <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} minLength={f.minLength} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />,
             )}
