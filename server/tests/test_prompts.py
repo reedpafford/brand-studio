@@ -296,6 +296,18 @@ def test_variations_example_passes_and_every_check_says_what_to_do():
     ]
 
 
+def test_a_song_variation_gets_no_last_line_advice_and_a_spoken_one_still_does():
+    """Reed, 3 Nov: a song follows its script, never forced to end on the brand (QA-10, #1236)."""
+    original, result, end = _variation_case()
+    v = result.variations[0]
+    v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: And the night was ours."
+    spoken = check.variations(original, result, {}, end, [], 1, [], "fomo")
+    assert f"Advice: variation 1: {check.NO_CTA}" in spoken  # rule 18 for a spoken script
+    sung = check.variations(original, result, {}, end, [], 1, [], "fomo", sung=True)
+    assert not any(check.NO_CTA in p for p in sung)
+    assert "A song's variations follow its lyrics" in prompts.system("variations")
+
+
 def test_variations_advice_covers_length_closeness_and_format():
     original, result, end = _variation_case()
     v = result.variations[0]

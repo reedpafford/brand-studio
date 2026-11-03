@@ -605,6 +605,7 @@ def variations(
     cast: list[str] = (),
     brand: str = "",  # the brand's name: the closing call to action says it
     note: str = "",  # the author's note: a length it asks for ("about 45 s") is the target
+    sung: bool = False,  # a song: it follows its lyrics, never asked to end on the brand
 ) -> list[str]:
     """Alternates of an approved script (workflow v2): the brand, the end line and the locked
     cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
@@ -620,7 +621,7 @@ def variations(
         name = f"variation {i}"
         lines = [line.strip() for line in script.splitlines() if line.strip()]
         said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
-        if end_line.strip() and not says_brand(said[-1] if said else "", brand):
+        if not sung and end_line.strip() and not says_brand(said[-1] if said else "", brand):
             problems.append(f"{ADVICE}{name}: {NO_CTA}")
         for star in sorted(stars - _stars(script)):
             problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
