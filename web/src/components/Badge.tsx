@@ -35,12 +35,12 @@ export function Dot({ tone = "neutral", children }: { tone?: Tone; children: Rea
 
 /** Small bars for a run of steps: done ones green, the current one in the text colour, the rest dim. `at` is the current
  *  step's index, or steps.length when all are done. Read out as words. */
-export function StepBars({ steps, at }: { steps: readonly string[]; at: number }) {
+export function StepBars({ steps, at, attention }: { steps: readonly string[]; at: number; /** the current step waits on someone: amber */ attention?: boolean }) {
   const said = at >= steps.length ? `All ${steps.length} steps done` : `Step ${at + 1} of ${steps.length}: ${steps[at]}`;
   return (
     <span role="img" aria-label={said} title={said} className="inline-flex shrink-0 gap-1">
       {steps.map((s, i) => (
-        <span key={s} className={`h-1 w-3 rounded-full ${i < at ? "bg-success" : i === at ? "bg-text" : "bg-surface-3"}`} />
+        <span key={s} className={`h-1 w-3 rounded-full ${i < at ? "bg-success" : i === at ? (attention ? "bg-warning" : "bg-text") : "bg-surface-3"}`} />
       ))}
     </span>
   );

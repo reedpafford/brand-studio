@@ -1,96 +1,75 @@
-import { ProjectsChip, folderQuery, useFolderFilter } from "../folders/Projects";
-import { useEffect, useState } from "react";
+import { ProjectsChip, folderQuery, useFolderFilter, useFolders } from "../folders/Projects";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Film, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Film, Plus } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
+import { useMyRequests } from "../approvals/HeldRequests";
+import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, EmptyState, PageTop, Skeleton, Tabs, buttonClass } from "../components";
-import { useDebounced } from "../scripts/status";
+import { Banner, Button, buttonClass, EmptyState, Menu, MenuItem, PageTop, Skeleton } from "../components";
 import { useRail } from "../useMedia";
-import { VideoTable, type MadeFrom } from "./VideoRows";
+import { RequestRow, VideoHead, VideoRow } from "./VideoRows";
 
 type Project = components["schemas"]["ProjectOut"];
-type Ask = { brandId: number; q: string; mine: boolean; status: "" | "making" | "done" | "needs_you"; archived: boolean; folder: string | null };
 
-const load = async ({ brandId, q, mine, status, archived, folder }: Ask) => {
-  const { data } = await api.GET("/projects", { params: { query: { brand_id: brandId, ...folderQuery(folder), ...(q ? { q } : {}), ...(mine ? { mine: true } : {}), ...(status ? { status } : {}), ...(archived ? { archived: true } : {}) } } });
+const load = async (brandId: number, folder: string | null, mine: boolean, archived: boolean) => {
+  const { data } = await api.GET("/projects", { params: { query: { brand_id: brandId, ...folderQuery(folder), ...(mine ? { mine: true } : {}), ...(archived ? { archived: true } : {}) } } });
   if (!data) throw new Error("load");
   return data;
 };
 
-// The groups with no tab picked (audit M6): what waits on you, what's being made, what's done.
-const needsYou = (p: Project) => p.needs_you;
-const making = (p: Project) => !p.needs_you && !p.finished_at;
-const done = (p: Project) => !p.needs_you && !!p.finished_at;
+/** A group bar (v5 C_Videos): a coloured dot, the name and its count. */
+function Bar({ tone, title, n }: { tone: string; title: string; n: number }) {
+  return (
+    <h2 className="flex items-center gap-2 border-b border-border bg-surface-2/40 px-4 py-1.5 text-xs font-semibold">
+      <span aria-hidden className={`size-2 rounded-full ${tone}`} />
+      {title} <span className="font-normal tabular-nums text-muted">{n}</span>
+    </h2>
+  );
+}
 
-/** The brand's videos as a table: yours (or everyone's, for Reed), in tabs All · Needs you · Making · Done · Archived,
- *  with search and Mine. Everything lives in the address. */
+/** The brand's videos (v5 C_Videos): yours (or everyone's, for Reed) in groups Needs you / Making / Done, with an editor's
+ *  held sends as request rows. Project and Maker narrow it; Archived shows the archive. Everything lives in the address. */
 export function VideosPage() {
   const brandId = Number(useParams().brandId);
   const { data: me } = useMe();
   const rail = useRail();
   const [params, setParams] = useSearchParams();
   const owner = me?.role === "owner";
-  const set = (changes: Record<string, string>) =>
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        for (const [key, value] of Object.entries(changes)) {
-          if (value) next.set(key, value);
-          else next.delete(key);
-        }
-        return next;
-      },
-      { replace: true },
-    );
-  const asked = params.get("status");
-  const status = asked === "making" || asked === "done" || asked === "needs_you" ? asked : "";
   const archived = params.get("archived") === "1";
-  const mine = !owner || params.get("mine") === "1"; // an editor only ever sees their own
-  const folder = useFolderFilter(); // a project picked in the Projects list (flows OR1)
-  const [text, setText] = useState(params.get("q") ?? "");
-  const q = useDebounced(text.trim());
-  useEffect(() => set({ q }), [q]); // eslint-disable-line react-hooks/exhaustive-deps
+  const maker = Number(params.get("maker")) || null; // Reed only: an editor only ever sees their own
+  const folder = useFolderFilter();
+  const folders = useFolders(brandId);
+  const videos = useQuery({ enabled: me !== undefined, queryKey: ["videos", { brandId, folder, mine: !owner, archived }], queryFn: () => load(brandId, folder, !owner, archived) });
+  const gone = useQuery({ enabled: me !== undefined && !archived, queryKey: ["videos", { brandId, folder, mine: !owner, archived: true }], queryFn: () => load(brandId, folder, !owner, true) });
+  // Held sends with no video yet: Reed sees every editor's (the rail counts them), an editor their own.
+  const held = useHeld();
+  const mineHeld = useMyRequests();
+  const asks = (owner ? held.heldJobs : (mineHeld.data ?? []).filter((j) => j.status === "needs_owner_approval")).filter((j) => j.project_id == null && j.brand_id === brandId && (!maker || j.created_by_id === maker) && !archived && !folder);
 
-  const ask = { brandId, q, mine, folder };
-  const videos = useQuery({ enabled: me !== undefined, queryKey: ["videos", { ...ask, status, archived }], queryFn: () => load({ ...ask, status, archived }) });
-  // The tabs' counts: every live video (the same ask as All, so it is one request there), and the archived ones.
-  const live = useQuery({ enabled: me !== undefined, queryKey: ["videos", { ...ask, status: "", archived: false }], queryFn: () => load({ ...ask, status: "", archived: false }) });
-  const gone = useQuery({ enabled: me !== undefined, queryKey: ["videos", { ...ask, status: "", archived: true }], queryFn: () => load({ ...ask, status: "", archived: true }) });
-  // Which script and version each video was made from: the scripts list names them (a video only knows its script's id).
-  const scripts = useQuery({ queryKey: ["scripts", "made-from", brandId], queryFn: async () => (await api.GET("/scripts", { params: { query: { brand_id: brandId, limit: 200 } } })).data ?? [] });
-  const madeFrom = new Map<number, MadeFrom>();
-  for (const s of scripts.data ?? []) for (const v of s.versions) if (v.project_id) madeFrom.set(v.project_id, { scriptId: s.id, title: s.title, slot: v.slot });
-
-  const filtered = !!(q || status || archived || (owner && mine));
-  const clear = () => {
-    setText("");
-    setParams({}, { replace: true });
-  };
-  const rows = videos.data ?? [];
-  const all = live.data ?? [];
-  const tab = archived ? "archived" : status || "all";
-  const tabs = [
-    { id: "all", label: "All", count: live.data ? all.length : undefined },
-    { id: "needs_you", label: "Needs you", count: live.data ? all.filter(needsYou).length : undefined },
-    { id: "making", label: "Making", count: live.data ? all.filter(making).length : undefined },
-    { id: "done", label: "Done", count: live.data ? all.filter(done).length : undefined },
-    { id: "archived", label: "Archived", count: gone.data?.length },
-  ];
-  const groups: [string, Project[]][] =
-    status || archived
-      ? [["", rows]]
-      : ([
-          ["Needs you", rows.filter(needsYou)],
-          ["Making", rows.filter(making)],
-          ["Done", rows.filter(done)],
-        ] as [string, Project[]][]).filter(([, ps]) => ps.length > 0);
+  const set = (changes: Record<string, string>) => setParams((prev) => { const next = new URLSearchParams(prev); for (const [k, v] of Object.entries(changes)) { if (v) next.set(k, v); else next.delete(k); } return next; }, { replace: true });
+  const project = (id?: number | null) => folders.data?.find((f) => f.id === id)?.name ?? "No project";
+  const all = videos.data ?? [];
+  const makers = [...new Map(all.map((v) => [v.created_by_id, v.created_by_name])).entries()].filter(([id]) => id != null) as [number, string][];
+  const rows = all.filter((v) => !maker || v.created_by_id === maker);
+  const filtered = !!(folder || maker || archived);
+  const clear = () => setParams({}, { replace: true });
+  const row = (v: Project) => <VideoRow key={v.id} p={v} project={project(v.folder_id)} />;
+  const request = (j: (typeof asks)[number]) => <RequestRow key={`job-${j.id}`} job={j} project={project(null)} owner={owner} maker={j.created_by_name} />;
+  const needs = rows.filter((p) => p.needs_you);
+  const making = rows.filter((p) => !p.needs_you && !p.finished_at);
+  const done = rows.filter((p) => !p.needs_you && !!p.finished_at);
+  const empty = rows.length + asks.length === 0;
+  const group = (title: string, tone: string, items: React.ReactNode[]) => items.length > 0 && (
+    <section key={title} aria-label={title}>
+      <Bar tone={tone} title={title} n={items.length} />
+      <ul className="divide-y divide-border">{items}</ul>
+    </section>
+  );
 
   return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      {/* v5 C_Videos: "Videos" and the one primary, + New video, in the flush 52 px bar. */}
+    <main className="mx-auto max-w-content p-4 sm:p-6">
       <PageTop title="Videos">
         {!rail && ( // the phone's five tabs have no Media: it opens from here
           <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline">
@@ -98,69 +77,69 @@ export function VideosPage() {
             <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
           </Link>
         )}
-        {rail && (
-          <Link to={`/b/${brandId}/videos/new`} className={`${buttonClass("primary")} lg:min-h-control-dense lg:px-3`}>
+        {rail && ( // on a phone the bottom tabs have New
+          <Link to={`/b/${brandId}/videos/new`} className={`${buttonClass("primary")} lg:min-h-9 lg:px-3`}>
             <Plus size={16} strokeWidth={1.75} aria-hidden />
             New video
           </Link>
         )}
       </PageTop>
-      <Tabs label="Status" tabs={tabs} value={tab} onChange={(id) => set({ status: id === "all" || id === "archived" ? "" : id, archived: id === "archived" ? "1" : "" })} />
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative block w-full sm:w-[320px]">
-          <span className="sr-only">Search videos</span>
-          <Search size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search videos" className="min-h-control w-full rounded-md border border-border-strong bg-surface pl-9 pr-3 text-base text-text placeholder:text-muted" />
-        </label>
+      <div className="-mx-4 flex min-h-11 flex-wrap items-center gap-2 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
         <ProjectsChip brandId={brandId} />
         {owner && (
-          <Button variant={mine ? "primary" : "secondary"} dense aria-pressed={mine} onClick={() => set({ mine: mine ? "" : "1" })}>
-            Mine
+          <Menu title="Maker" trigger={(p) => (
+            <Button variant="secondary" dense trailing={ChevronDown} {...p}>
+              {maker ? `Maker: ${makers.find(([id]) => id === maker)?.[1] ?? "…"}` : "Maker"}
+            </Button>
+          )}>
+            {(close) => (
+              <>
+                <MenuItem checked={!maker} onClick={() => { close(); set({ maker: "" }); }}>Everyone</MenuItem>
+                {makers.map(([id, name]) => <MenuItem key={id} checked={maker === id} onClick={() => { close(); set({ maker: String(id) }); }}>{name}</MenuItem>)}
+              </>
+            )}
+          </Menu>
+        )}
+        {(archived || (gone.data?.length ?? 0) > 0) && (
+          <Button variant="ghost" dense aria-pressed={archived} onClick={() => set({ archived: archived ? "" : "1" })}>
+            {archived ? "Back to videos" : `Archived · ${gone.data?.length}`}
           </Button>
         )}
-        {filtered && rows.length > 0 && (
-          <Button variant="ghost" dense onClick={clear}>
-            Clear filters
-          </Button>
-        )}
+        {filtered && <Button variant="ghost" dense onClick={clear}>Clear filters</Button>}
+        <span className="ml-auto hidden text-xs text-muted lg:block">Steps: Plan · Cast · Clips · Final cut</span>
       </div>
       {videos.isError && (
         <Banner tone="danger" title="Couldn't load your videos. Check your connection." action={<Button variant="secondary" onClick={() => videos.refetch()}>Try again</Button>} />
       )}
       {videos.isPending && (
-        <div role="status" aria-label="Loading" className="space-y-2">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-14" />
-          ))}
+        <div role="status" aria-label="Loading" className="space-y-2 pt-4">
+          {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14" />)}
         </div>
       )}
-      {videos.data && (
-        <>
-          <p className="text-sm text-muted tabular-nums" role="status">
-            {`${rows.length} video${rows.length === 1 ? "" : "s"}`}
-          </p>
-          {rows.length === 0 ? (
-            filtered ? (
+      {videos.data &&
+        (empty ? (
+          <div className="pt-4">
+            {filtered ? (
               <EmptyState icon={Film} title="Nothing matches these filters." action={<Button variant="ghost" onClick={clear}>Clear filters</Button>} />
             ) : (
               <EmptyState icon={Film} title={owner ? "No videos yet." : "You haven't started a video yet."} action={<Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center text-accent-text hover:underline">Show scripts</Link>}>
                 {owner ? "Videos made from your scripts show up here." : "Pick a version that's Ready to make."}
               </EmptyState>
-            )
-          ) : (
-            groups.map(([title, ps]) => (
-              <section key={title} aria-label={title || undefined} className="space-y-2">
-                {title && (
-                  <h2 className="type-section">
-                    {title} <span className="font-normal text-muted tabular-nums">· {ps.length}</span>
-                  </h2>
-                )}
-                <VideoTable rows={ps} madeFrom={madeFrom} />
-              </section>
-            ))
-          )}
-        </>
-      )}
+            )}
+          </div>
+        ) : (
+          <div role="status" className="-mx-4 sm:-mx-6">
+            <span className="sr-only">{rows.length + asks.length} videos</span>
+            <VideoHead />
+            {archived ? group("Archived", "bg-muted", rows.map(row)) : (
+              <>
+                {group("Needs you", "bg-warning", [...asks.map(request), ...needs.map(row)])}
+                {group("Making", "bg-accent", making.map(row))}
+                {group("Done", "bg-success", done.map(row))}
+              </>
+            )}
+          </div>
+        ))}
     </main>
   );
 }

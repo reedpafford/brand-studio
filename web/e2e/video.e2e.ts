@@ -211,9 +211,8 @@ for (const width of [1440, 390]) {
     await page.getByRole("navigation", { name: width === 1440 ? "Main" : "Tabs" }).getByRole("link", { name: "Videos" }).click();
     await expect(page).toHaveURL(new RegExp(`/b/${brandId}/videos$`));
     await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible();
-    await expect(page.getByText("1 video", { exact: true })).toBeVisible();
-    await expect(page.getByText(/\(earlier way\)/)).toBeVisible();
-    await page.getByRole("searchbox", { name: "Search videos" }).fill("nothing like this");
+    await expect(page.getByRole("region", { name: "Making" })).toBeVisible();
+    await page.goto(`/b/${brandId}/videos?archived=1`);
     await expect(page.getByText("Nothing matches these filters.")).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible();
