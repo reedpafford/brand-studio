@@ -25,7 +25,7 @@ test("a new character shows up in this brand's library with its image", async ({
   await expect(page.getByText("No characters for this brand yet.")).toBeVisible();
   await newCharacter(page, "Max", true);
   await expect(page.getByRole("img", { name: "Max" })).toBeVisible();
-  await expect(page.getByText("v1")).toBeVisible();
+  await expect(page.getByText("No sheet yet")).toBeVisible();
 });
 
 test("search narrows the list by name", async ({ page }) => {
