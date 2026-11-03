@@ -43,7 +43,7 @@ const BAR: Record<Step, number> = { breakdown: 0, assets: 1, storyboard: 2, clip
 function BarSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
   return (
     <span className="relative inline-flex">
-      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="min-h-control-dense appearance-none rounded-md border border-border bg-transparent pl-3 pr-8 text-sm font-medium hover:bg-surface-2">
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="min-h-control appearance-none rounded-md lg:min-h-control-dense border border-border bg-transparent pl-3 pr-8 text-sm font-medium hover:bg-surface-2">
         {options.map(([v, name]) => (
           <option key={v} value={v}>{name}</option>
         ))}

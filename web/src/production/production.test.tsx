@@ -185,3 +185,10 @@ test("In production's spend is one line, the director's time included, in whole 
   expect(within(approved).getByText("spent 21")).toBeInTheDocument();
   expect(within(approved).getByText("up to 204 approved")).toBeInTheDocument();
 });
+
+test("In production's Brand picker is a 44 px press on a phone (QA-3 on #1246)", async () => {
+  setViewport(390);
+  fakeServer(base());
+  open();
+  expect(await screen.findByRole("combobox", { name: "Brand" })).toHaveClass("min-h-control");
+});
