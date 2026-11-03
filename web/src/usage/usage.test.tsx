@@ -377,6 +377,7 @@ test("Usage's Download CSV gives this month's charges (v5 D_Usage, #1247)", asyn
   const csv = await screen.findByRole("link", { name: "Download CSV" });
   expect(csv).toHaveAttribute("href", `/api/usage/charges.csv?month=${new Date().toISOString().slice(0, 7)}`);
   expect(csv).toHaveAttribute("download");
+});
 
 test("By person and My credits never show '-0' for nothing used (UX-Auditor on #1246)", async () => {
   setViewport(1440);
