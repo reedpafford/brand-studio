@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Smartphone } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
@@ -107,9 +107,9 @@ type Pick = { file: File; name: string; tag: string; error?: string };
 
 /** A picked file's own picture, for as long as it is picked. */
 function Thumb({ file }: { file: File }) {
+  // The picture's address is let go once it has drawn; the drawn picture stays.
   const url = useMemo(() => (typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : null), [file]);
-  useEffect(() => () => void (url && URL.revokeObjectURL(url)), [url]);
-  return <span className="block h-20 w-11 shrink-0 overflow-hidden rounded-md bg-surface-2">{url && <img src={url} alt="" className="size-full object-cover" />}</span>;
+  return <span className="block h-20 w-11 shrink-0 overflow-hidden rounded-md bg-surface-2">{url && <img src={url} alt="" onLoad={() => URL.revokeObjectURL(url)} className="size-full object-cover" />}</span>;
 }
 
 /** A drop zone that takes several pictures; each becomes a screen, named from its file. */
