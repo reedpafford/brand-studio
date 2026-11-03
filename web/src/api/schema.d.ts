@@ -7694,6 +7694,8 @@ export interface components {
             sample_still_id?: number | null;
             /** Sample Clip Id */
             sample_clip_id?: number | null;
+            /** Video Model */
+            video_model: string;
             /**
              * Own Sample
              * @default false

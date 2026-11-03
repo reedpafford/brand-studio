@@ -2,6 +2,7 @@ name: Zack D
 order: 3
 on: no
 image_model: auto
+video_model: seedance-1-lite
 blurb: One continuous camera follows the thing being explained through one real set, in realistic game-engine 3D: cutaways and glowing marks show what happens inside.
 
 <!-- Reed's Zack D skill (docs/next/skills/zack-d.md, #1097). Reed, 1 Nov: "Skill, drop realistic": the skill's format replaces the semi-realistic cutscene look of 29 Oct. A format worn as a look: a friendly, rounded 3D world on an infinite blue ground, one calm narrator, one continuous camera journey. Not wired (Reed decides later): the skill's background plates, narrator voices and music track, so the world is described in words. The word "stage" never goes in a picture prompt (it draws a stage set): the banned list repairs it. -->

@@ -3,6 +3,7 @@ order: 4
 on: no
 own_sample: yes
 image_model: auto
+video_model: seedance-1-lite
 blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365.
 
 <!-- Reed's skeleton-ad skill (docs/next/skills/skeleton-ad.md, #1095; first from Starpop's skeleton-ads, docs/research/starpop-2026-10-28, rule 20): its Bare-Bones Cinematic skeleton, the default (Dressed is this look with an outfit in the description); X-Ray and Cute Mascot are their own looks (skeleton-xray, skeleton-cute). A look usable on any story script (flows Q4): "What happens if you ___?" told as an escalating ladder (Day 1, Day 30, Day 365) lived by one lovable cartoon skeleton, under one narrator. -->

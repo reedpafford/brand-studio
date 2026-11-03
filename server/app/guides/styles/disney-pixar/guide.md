@@ -2,6 +2,7 @@ name: Disney Pixar
 order: 1
 on: no
 image_model: auto
+video_model: seedance-2.5
 blurb: Like a frame from a Pixar feature: designed 3D characters with big glossy eyes and sculpted hair, in a warm, softly lit world.
 
 <!-- From Starpop's disney-pixar-ads skill (docs/research/starpop-2026-10-28, rule 20), Reed's skill file (docs/next/skills/disney-pixar.md, #1095) and the Nano Banana and Seedance docs. Closer to a Pixar feature than House ("in the style of": a studio's frame could be refused as a copy): sculpted hair, glossy eyes, soft global light, saturated colour. Adults keep adult proportions (look_fit): Starpop's 4–5 heads tall drew our adults as children. -->

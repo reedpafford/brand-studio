@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import looks, prompts
+from app import looks, p_video, prompts
 from app.breakdown import video_model
 from app.clip_takes import KEYS, LONG_SIDE, RESOLUTION
 from app.credits import USD_PER_CREDIT, estimate
@@ -87,17 +87,27 @@ def clip_input(look_id: str, brand_id: int, still_id: int, name: str) -> dict:
     style = prompts.style(look_id)["sections"].get("clip_style", "").strip()
     prompt = (f"{style}. [Image1] is the first frame: {name} turns to the camera and smiles, "
               "a slow push-in. No one speaks.")  # fmt: skip
-    return {"step": CLIP, "look_id": look_id, "brand_id": brand_id, "name": name,
-            "model": video_model().id, "fit_images_to": LONG_SIDE[RESOLUTION],
-            "files": {KEYS["image"]: [still_id]},
-            "input": {"prompt": prompt, "duration": SECONDS, "resolution": RESOLUTION,
-                      "aspect_ratio": ASPECT, "generate_audio": False}}  # fmt: skip
+    model = video_model(look=look_id)  # the look's own default model
+    take, files = p_video.fit(model.id, {"prompt": prompt, "duration": SECONDS,
+                                         "resolution": RESOLUTION, "aspect_ratio": ASPECT,
+                                         "generate_audio": False},
+                              {KEYS["image"]: [still_id]})  # fmt: skip
+    return {
+        "step": CLIP,
+        "look_id": look_id,
+        "brand_id": brand_id,
+        "name": name,
+        "model": model.id,
+        "fit_images_to": LONG_SIDE[RESOLUTION],
+        "files": files,
+        "input": take,
+    }
 
 
-def price(db: Session, ws: int) -> Decimal:
-    """The still and the 5 s clip, as one press."""
+def price(db: Session, ws: int, look_id: str = looks.DEFAULT) -> Decimal:
+    """The still and the 5 s clip (made with the look's own video model), as one press."""
     still = image_job_input(image_model(), "", ASPECT)
-    clip = clip_input(looks.DEFAULT, 0, 0, "")
+    clip = clip_input(look_id, 0, 0, "")
     return estimate(db, ws, "image", Decimal(1), still) + estimate(db, ws, "video", SECONDS, clip)
 
 
@@ -141,7 +151,7 @@ def retry_price(db: Session, ws: int, look_id: str) -> Decimal:
     """Make a sample's price now: only the clip when its still is kept, else both."""
     if again := _failed_clip(db, ws, look_id):
         return estimate(db, ws, "video", SECONDS, again)
-    return price(db, ws)
+    return price(db, ws, look_id)
 
 
 def lane(db: Session, settings, credits: Decimal) -> str:
@@ -160,7 +170,6 @@ def lane(db: Session, settings, credits: Decimal) -> str:
 def _fits(db: Session, settings, credits: Decimal) -> bool:
     """A sample's still counts with the clip it holds (QA-3: two presses before the first
     still is back both went real); the clip made from it then isn't counted again."""
-    clip = estimate(db, 0, "video", SECONDS, clip_input(looks.DEFAULT, 0, 0, ""))
     spent = Decimal(0)
     for j in db.scalars(select(Job).where(Job.provider == REAL_SAMPLES)):
         if j.status == JobStatus.cancelled and not j.provider_ref:
@@ -171,7 +180,7 @@ def _fits(db: Session, settings, credits: Decimal) -> bool:
         held = j.status in WAITING or j.status == JobStatus.succeeded
         if j.input["step"] == STILL and held and not (j.input.get("no_still")
                                                      or j.input.get("clip_refused")):  # fmt: skip
-            spent += clip
+            spent += estimate(db, 0, "video", SECONDS, clip_input(j.input["look_id"], 0, 0, ""))
     return (spent + credits) * USD_PER_CREDIT <= Decimal(str(settings.look_samples_budget_usd))
 
 

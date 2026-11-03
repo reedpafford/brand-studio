@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app import director, guides, hidden, looks, prompts, scorecard
 from app import script_library as lib
 from app.auth import current_user
-from app.catalogue import get_model
+from app.breakdown import video_model
 from app.clip_takes import in_english
 from app.credits import (
     COUNTED,
@@ -55,7 +55,6 @@ Status = Literal["waiting", "working", "delivered", "declined", "stopped", "with
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=5000)]
 Change = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-MODEL, RESOLUTION = "seedance-2.5", "480p"  # Quick clip's defaults
 ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a style."
 HAS_VIDEO = "This version already has a video."
@@ -131,9 +130,14 @@ class EstimateOut(BaseModel):
     credits: float
 
 
-def _seconds(text: str) -> int:
+def _model(fs: Freestyle):
+    """Quick clip's model: the one a spoken script gets (it asks for sound), as its look says."""
+    return video_model(look=fs.look, kind="story")
+
+
+def _seconds(text: str, fs: Freestyle) -> int:
     """One clip's length: about 2.5 words a second spoken, within the model's limits."""
-    span = get_model(MODEL).duration
+    span = _model(fs).duration
     return max(span.min, min(span.max, math.ceil(prompts.spoken_words(text) / 2.5)))
 
 
@@ -142,15 +146,17 @@ def _job_input(fs: Freestyle, texts: list[str]) -> dict:
     own, base = (prompts.style(i)["sections"] for i in (fs.look, looks.base(fs.look)))
     style = own.get("clip_style") or base.get("clip_style", "")  # a lane's, else its look's
     changes = "".join(f"\nChange: {t}" for t in texts[1:])
+    model = _model(fs)
+    resolution = model.take_resolution
     return {
         FREESTYLE: fs.id,
-        "model": MODEL,
+        "model": model.id,
         "brand_id": fs.brand_id,
-        "fit_images_to": LONG_SIDE[RESOLUTION],
+        "fit_images_to": LONG_SIDE[resolution],
         "input": {
             "prompt": in_english(f"{style}\n{texts[0]}{changes}".strip()),  # American English
-            "duration": _seconds(texts[0]),
-            "resolution": RESOLUTION,
+            "duration": _seconds(texts[0], fs),
+            "resolution": resolution,
             "aspect_ratio": fs.shape,
             "generate_audio": True,
         },

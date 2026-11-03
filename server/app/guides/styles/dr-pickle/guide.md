@@ -3,6 +3,7 @@ order: 10
 on: no
 own_sample: yes
 image_model: auto
+video_model: seedance-1-lite
 blurb: Stylized b-roll: a blunt cartoon doctor in the corner talks while a skeleton behind him acts out every line.
 
 <!-- New style, 3 Nov 2026, from Reed's reference videos in Drive ("Dr. Pickle"; Reed calls it "stylized b-roll"). Studied with the deep-watch kit; the per-video notes are in examples/*/notes.md (evidence only, not sent to the model). Five videos: the sixth (a countdown of found footage with a different doctor) was dropped (Reed, 3 Nov, D6). Reed's note on the folder, verbatim: "Dr pickle infamously is very blunt and cusses a lot - this is very important. His background green screens are typically skeleton/body diagrams, showing stuff as it happens" -->

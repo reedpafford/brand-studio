@@ -2,6 +2,7 @@ name: Paper
 order: 7
 on: no
 image_model: auto
+video_model: seedance-1-lite
 blurb: A layered papercraft world: stacked cardstock with visible edges and deep layered shadows, in strong colour.
 
 <!-- Reed's paper skill (docs/next/skills/paper.md, #1095; first from Starpop's paper-animation-ads, docs/research/starpop-2026-10-28, rule 20), its "Layered papercraft world" lane. The style and physicality blocks are the skill's, word for word. -->

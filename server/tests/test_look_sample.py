@@ -45,7 +45,7 @@ def test_a_sample_of_the_brands_hero_is_made_then_the_look_switched_on(app, db, 
     said = still.input["input"]["prompt"]  # who Mia is, never how she's drawn (#1009)
     assert "Mia, the same person as in [Image1]" in said and "exactly as" not in said
     assert clip.input["input"]["duration"] == 5 and clip.input["files"]
-    assert clip.input["input"]["generate_audio"] is False  # no sound to be refused (Zack D)
+    assert "generate_audio" not in clip.input["input"]  # silent: Seedance 1 Lite has no sound
 
     on = owner.patch("/looks/zack-d", json={"on": True})
     assert on.status_code == 200 and on.json()["on"]  # Switch on for editors
@@ -95,7 +95,7 @@ def test_after_a_clip_that_didnt_finish_only_the_clip_is_made_again(app, db, own
     assert db.query(Job).count() == jobs + 1  # only the clip, no new still
     again = db.query(Job).order_by(Job.id.desc()).first()
     assert again.input["files"] == {"reference_images": [kept]}  # from the kept still
-    assert again.input["input"]["generate_audio"] is False  # silent, as every sample clip
+    assert "generate_audio" not in again.input["input"]  # silent, as every sample clip
     db.expire_all()
     _work(app, db, ticks=3)
     ready = owner.get(url).json()
@@ -136,11 +136,13 @@ def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, 
 
     settings = app.state.settings
     settings.fake_providers, settings.real_look_samples = True, True
-    settings.look_samples_budget_usd = 0.6  # one sample (a still and a 5 s clip, about $0.55)
+    settings.look_samples_budget_usd = (
+        0.6  # one sample (a still and a 5 s clip, about $0.55 in Pixar)
+    )
     brand = _brand(owner)
-    url = f"/looks/zack-d/sample?brand_id={brand}"
+    url = f"/looks/disney-pixar/sample?brand_id={brand}"
     assert owner.get(url).json()["test_site"] == look_samples.REAL_NOTE  # said before the press
-    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    owner.post("/looks/disney-pixar/sample", json={"brand_id": brand})
     still = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
     assert still.provider == REAL_SAMPLES
     still.status, still.output = "succeeded", {"file_ids": [upload(owner)]}
@@ -186,7 +188,7 @@ def test_two_presses_before_the_first_still_is_back_never_pass_the_budget(app, d
 
     settings = app.state.settings
     settings.fake_providers, settings.real_look_samples = True, True
-    settings.look_samples_budget_usd = 1.0  # one sample is about $0.55
+    settings.look_samples_budget_usd = 0.6  # a Pixar sample is about $0.55, a Zack D one $0.13
     brand = _brand(owner)
     owner.post("/looks/disney-pixar/sample", json={"brand_id": brand})
     shown = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()

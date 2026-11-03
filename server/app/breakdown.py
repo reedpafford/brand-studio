@@ -6,9 +6,9 @@ from decimal import Decimal
 from inspect import signature
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from app import prompts, song_breakdown
+from app import guides, prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
@@ -21,14 +21,31 @@ from app.models.songs import SongTake
 from app.prompts import check
 from app.prompts.schemas import Breakdown, SongBreakdown
 
+# Script kinds where people speak or sing on camera: they keep the default model, whatever the
+# style (Seedance 1 Lite has no sound or lip-sync). Narrated videos are B-roll under a voice.
+SPEAKS = ("", "story", "song")
 
-def video_model(project: Project | None = None) -> CatalogueModel:
-    """The video model a video's clips are made with: its own pick (VS1), else Auto, the
-    catalogue default (FIT row 23). No video yet (a script's preview): Auto."""
+
+def video_model(project: Project | None = None, look: str | None = None,
+                kind: str | None = None) -> CatalogueModel:  # fmt: skip
+    """The video model for a video, the one answer for its takes, quotes and "up to" prices:
+    its own pick (VS1) always wins; else the catalogue default (Seedance 2.5) where people
+    speak or sing on camera (`SPEAKS`: Seedance 1 Lite has no sound; Reed, 3 Nov); else its
+    look's `video_model:` (Seedance 2.5 for Pixar, Seedance 1 Lite for the rest). With no
+    video yet (a script's preview, a sample), pass its `look` and script `kind`."""
     models = catalogue()
     if project is not None and project.video_model in models:
         return models[project.video_model]
-    return next(m for m in models.values() if m.kind == "video" and m.default)
+    default = next(m for m in models.values() if m.kind == "video" and m.default)
+    if kind is None and project is not None and (db := object_session(project)) is not None:
+        from app.narration import video_kind
+
+        kind = video_kind(db, project)
+    if kind in SPEAKS:
+        return default
+    look = look or (project.look if project is not None else None) or "house"
+    named = next((s["video_model"] for s in guides.styles() if s["id"] == look), "")
+    return models.get(named, default)
 
 
 def video_model_block(m: CatalogueModel) -> str:
