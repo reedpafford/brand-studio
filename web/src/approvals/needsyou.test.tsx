@@ -326,18 +326,20 @@ test("on a computer who asked follows the title and the tab says Changes waiting
 
 test("a held send from a script names the script and its version, linked by the script's own brand even with none on the send (#1207, QA-3 on #1213)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /jobs": [200, [{ ...freestyle({ type: "dialogue", script_id: 3, slot: 1, up_to: 144 }), brand_id: null, credits: 3 }]], "GET /scripts/3": [200, { id: 3, brand_id: 2, title: "Bo tries salmon", versions: [] }] });
+  const calls = fakeServer({ ...base, "GET /jobs": [200, [{ ...freestyle({ type: "dialogue", script_id: 3, slot: 1, up_to: 144, script_title: "Bo tries salmon", brand_id: 2, hidden: false }), brand_id: null, credits: 3 }]] });
   open();
   expect(await screen.findByRole("link", { name: "From Bo tries salmon › B" })).toHaveAttribute("href", "/b/2/scripts/3");
   expect(screen.getByText("Up to 144 credits · your OK covers the whole run")).toBeInTheDocument();
   expect(screen.queryByText("3 credits")).toBeNull(); // the first charge isn't a second price
+  expect(calls.some((c) => c.key.startsWith("GET /scripts/"))).toBe(false); // all from the send (#1232)
 });
 
 test("a pasted Dialogue send says Pasted text, not a script (QA-3 on #1213)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", script_id: 8, slot: 0 })]], "GET /scripts/8": [404, { detail: "Not found" }] });
+  const calls = fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", script_id: 8, slot: 0, script_title: "", hidden: true })]] });
   open();
   expect(await screen.findByText("Pasted text")).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "GET /scripts/8")).toBe(false); // no refused read per row (#1232)
   expect(screen.queryByRole("link", { name: /^From / })).toBeNull();
 });
 
@@ -348,5 +350,13 @@ test("a held take on a video has Open, Decline and Approve, and never quotes the
   expect(await screen.findByRole("link", { name: "Open Mia buys the dip" })).toHaveAttribute("href", "/b/1/videos/9?step=clips");
   expect(screen.getByRole("button", { name: /^Decline/ })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Approve a new take/ })).toBeInTheDocument();
+  expect(screen.queryByText(/Audio: only the spoken lines/)).toBeNull();
+});
+
+test("a held take quotes the editor's note as typed, never the model's prompt (#1232)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ prompt_summary: "Audio: only the spoken lines…", note: "Hold the chart a second longer" })]] });
+  open();
+  expect(await screen.findByText('"Hold the chart a second longer"')).toBeInTheDocument();
   expect(screen.queryByText(/Audio: only the spoken lines/)).toBeNull();
 });

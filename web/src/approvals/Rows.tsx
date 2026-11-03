@@ -12,7 +12,6 @@ import { errorText as errorClass } from "../ui";
 import { serverTime } from "../time";
 import { typeName, type Kind } from "../freestyle/useFreestyle";
 import { STEPS } from "./steps";
-import { useScript } from "../scripts/useScript";
 import { stepOf } from "./HeldRequests";
 import { letterOf } from "../scripts/status";
 import type { Job, Project } from "./useHeld";
@@ -82,15 +81,16 @@ function Row({ id, status, where, children, actions, ...rest }: { id?: string; s
   );
 }
 
-/** The script and version a held send was made from ("From Bo tries salmon › B"), linked by the script's own brand (a
- *  Freestyle send has none of its own, QA-3 on #1213). A pasted Dialogue's script is hidden and can't be read: that one
- *  reads "Pasted text". */
-function FromScript({ scriptId, slot }: { scriptId: number; slot: number | null | undefined }) {
-  const { data: script, isPending } = useScript(scriptId);
-  if (isPending) return null;
-  if (!script) return <p className="text-xs text-muted">Pasted text</p>;
-  const label = `From ${script.title}${slot != null ? ` › ${letterOf(slot)}` : ""}`;
-  return <Link className="inline-flex min-h-11 items-center text-xs text-accent-text hover:underline lg:min-h-0" to={`/b/${script.brand_id}/scripts/${scriptId}`}>{label}</Link>;
+/** The script and version a held send was made from ("From Bo tries salmon › B"), linked by the script's own brand, all
+ *  from the send itself (#1232): a pasted Dialogue's hidden script reads "Pasted text", with nothing to read. */
+function FromScript({ fs }: { fs: NonNullable<Job["freestyle"]> }) {
+  if (fs.hidden) return <p className="text-xs text-muted">Pasted text</p>;
+  const label = `From ${fs.script_title}${fs.slot != null ? ` › ${letterOf(fs.slot)}` : ""}`;
+  return fs.brand_id != null ? (
+    <Link className="inline-flex min-h-11 items-center text-xs text-accent-text hover:underline lg:min-h-0" to={`/b/${fs.brand_id}/scripts/${fs.script_id}`}>{label}</Link>
+  ) : (
+    <p className="text-xs text-muted">{label}</p>
+  );
 }
 
 export function useRefresh() {
@@ -178,15 +178,16 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
       {fs ? (
         <>
           <p className="text-xs text-muted">{fs.change ? "Change asked" : "First send"}</p>
-          {fs.script_id != null && <FromScript scriptId={fs.script_id} slot={fs.slot} />}
+          {fs.script_id != null && <FromScript fs={fs} />}
           {fs.said && <p className="line-clamp-6 whitespace-pre-line font-mono text-xs leading-relaxed">"{fs.said}"</p>}
           {fs.up_to != null && <p className="tabular-nums">Up to {creditsLabel(fs.up_to)}{fs.change ? " for this change" : " · your OK covers the whole run"}</p>}
           {/* Only what's spent so far: "in all" read as a second price (QA-3 on #1213, as on the video page). */}
           {fs.change && <p className="tabular-nums text-muted">{fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "Nothing spent yet"}</p>}
         </>
       ) : (
-        // A Quick clip's prompt is the editor's own words; a step's is model text, never quoted to the owner (QA-3 on #1213).
-        !job.step && job.prompt_summary && <p className="text-muted">"{job.prompt_summary}"</p>
+        // The editor's own words: a redo or change note as typed (#1232), or a Quick clip's prompt. A step's prompt is model
+        // text, never quoted to the owner (QA-3 on #1213).
+        (job.note || (!job.step && job.prompt_summary)) && <p className="whitespace-pre-line text-muted">"{job.note || job.prompt_summary}"</p>
       )}
       {/* A Freestyle shows its whole price above; its first charge beside it read as a second price (QA-3 on #1213). */}
       {!(fs && fs.up_to != null) && (

@@ -323,9 +323,10 @@ test("tabs show counts and tell you which is selected", async () => {
   const change = vi.fn();
   render(<Tabs label="Cast and places" value="characters" onChange={change} tabs={[{ id: "characters", label: "Characters", count: 5 }, { id: "places", label: "Places", count: 2 }]} />);
   expect(screen.getByRole("tab", { name: "Characters 5" })).toHaveAttribute("aria-selected", "true");
-  // The chosen pill has a 3:1 edge and semibold words; the others have neither (QA-3 on #1164).
-  expect(screen.getByRole("tab", { name: "Characters 5" })).toHaveClass("ring-1", "ring-border-strong", "font-semibold");
-  expect(screen.getByRole("tab", { name: "Places 2" })).not.toHaveClass("ring-1", "font-semibold");
+  // v5: the chosen pill is a plain fill with bright words, no ring and no bold; the others are muted words with no fill.
+  expect(screen.getByRole("tab", { name: "Characters 5" })).toHaveClass("bg-surface-2", "text-text");
+  expect(screen.getByRole("tab", { name: "Characters 5" })).not.toHaveClass("ring-1", "font-semibold");
+  expect(screen.getByRole("tab", { name: "Places 2" })).not.toHaveClass("bg-surface-2");
   await userEvent.click(screen.getByRole("tab", { name: "Places 2" }));
   expect(change).toHaveBeenCalledWith("places");
 });

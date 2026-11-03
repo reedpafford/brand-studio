@@ -272,7 +272,7 @@ test("at 1440, with products and screens already there, Add product and Add scre
   setViewport(1440);
   withScreens([bag]);
   renderAt("/b/1/brand?tab=products");
-  const top = (await screen.findByRole("heading", { name: "fomo", level: 1 })).parentElement!;
+  const top = (await screen.findByRole("heading", { name: "fomo", level: 1 })).closest("header")!;
   expect(await within(top).findByRole("button", { name: "Add product" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("tab", { name: /App screens/ }));
   expect(await within(top).findByRole("button", { name: "Add screens" })).toBeInTheDocument();

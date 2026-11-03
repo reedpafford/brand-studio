@@ -1,0 +1,14 @@
+{
+ "model": "ai-music-api/generate",
+ "callBackUrl": "https://example.com/cb",
+ "input": {
+  "model": "V6",
+  "custom_mode": true,
+  "instrumental": false,
+  "title": "Not My Weird Habits",
+  "lyrics": "[Intro: vocals start immediately]\n[Hook]\nYeah, I eat grass every chance I get\nMy paws smell like fish, I know\nAnd I scratch myself all day like something is crawling on me\nBut these are not just my weird habits\nEvery single one is my body trying to tell you something is wrong inside me\n\n[Verse 1]\nAnd she has been trying so hard to fix it\nShe switched my food, she bought the special shampoo\nShe wipes my paws every time we come inside\nAnd for a few days it seems to work\nThen it all comes right back\nThe grass, the smell, the scratching\nShe has no idea she is treating this where it shows up\nNot where it actually starts\n\n[Chorus]\n'Cause none of it starts where she is looking\nIt all starts in my gut\nWhen the good bacteria in there runs low\nMy whole body goes out of balance\nThat's what makes me eat grass to settle my stomach\nWhat makes my paws smell, what keeps me itching all day\nAnd no matter what food or shampoo she buys\nAs long as my gut stays off, it all just keeps coming back\n\n[Verse 2]\nThankfully, I have an owner who does not give up\nOne day she stopped guessing and started digging\nShe called some friends who knew about dog health\nShe watched videos, she tried everything\nUntil she finally understood the real problem\nShe got a greens powder with over three thousand five-star reviews\nProbiotics to put the good bacteria back in my gut\nChlorella to flush out what had been building up inside me\nAnd chicory root to settle my gut, so my body could get back in balance\nIt was called Iron Paws\n\n[Bridge]\nShe mixed it into my food that night without saying much\nPeanut butter flavor\nI finished the bowl before she even put it down\nA few weeks went by, one morning she realized\nShe had not caught me eating grass in days\nMy paws did not smell anymore, and the scratching had almost stopped\nShe scratched my ear and said she was sorry\nShe had not figured it out sooner\n\n[Outro]\nYou just did not know what the signs meant\nBut now you do\nIron Paws is linked below, human grade and vet formulated\nThe only thing that finally made me feel like myself again\nDo not wait as long as she did\nYour pup has been waiting on you\n[End]",
+  "style": "laid-back sunny pop, sweet confident female vocal, 98 BPM, breezy and feel-good, fingerpicked acoustic guitar, soft drums, whistled hook, modern polished, vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending",
+  "negative_tags": "instrumental intro, instrumental break, long outro, spoken word, rap",
+  "vocal_gender": "f"
+ }
+}
