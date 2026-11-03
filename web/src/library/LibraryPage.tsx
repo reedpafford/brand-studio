@@ -57,7 +57,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   const shown = items.data?.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase()) && (sheet === "any" || (SHEET[i.sheet_status] ?? SHEET.none).filter === sheet));
 
   return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
+    <main className="mx-auto max-w-content p-4 sm:p-6">
       <PageTop title="Cast & places">
         {!archived && !adding && (
           <Button className="lg:min-h-9 lg:px-3" onClick={() => setAdding(true)}>
@@ -66,7 +66,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
         )}
       </PageTop>
       {/* One 44 px band: the kinds as pills, then search and the sheet filter on the right (v5 C_CastPlaces). */}
-      <div className="-mx-4 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
+      <div className="-mx-4 mb-4 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 sm:-mx-6 sm:px-6 lg:h-11 [&_button]:text-[13px] [&_button]:font-medium">
         <nav aria-label="Kinds" className="flex flex-wrap items-center gap-1">
           {Object.entries(KINDS).map(([s, k], n) => (
             <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>
@@ -76,14 +76,14 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
           ))}
         </nav>
         <span className="hidden flex-1 sm:block" />
-        <label className="relative block w-full sm:w-64">
+        <label className="relative block w-full sm:w-60">
           <span className="sr-only">Search {them === "them" ? "characters" : title.toLowerCase()}</span>
           <Search size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input className={`${input} pl-9`} type="search" placeholder={`Search ${title.toLowerCase()}`} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="min-h-11 w-full rounded-sm border border-border-strong bg-surface pl-9 pr-3 text-base text-text placeholder:text-muted lg:h-8 lg:min-h-0 lg:text-[13px]" type="search" placeholder={`Search ${title.toLowerCase()}`} value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
         {kind !== "prop" && (
           <Menu title="Sheet" align="right" trigger={(p) => (
-            <Button variant="secondary" dense trailing={ChevronDown} {...p}>
+            <Button variant="ghost" dense trailing={ChevronDown} {...p}>
               Sheet: {sheet === "any" ? "Any" : FILTERS[sheet]}
             </Button>
           )}>
@@ -94,6 +94,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
           {archived ? "Back" : "Archived"}
         </Button>
       </div>
+      <div className="space-y-4">
       {!archived && adding && <NewItem brandId={brandId} kind={kind} one={one} onDone={refresh} onClose={() => setAdding(false)} />}
       {items.isError && <p role="alert" className={errorClass}>Could not load the library. Try again.</p>}
       {(unarchive.isError || purge.isError) && (
@@ -120,7 +121,7 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
                 <Thumb id={cover(i)} name={i.name} />
               </Link>
             )}
-            <div className="truncate font-medium">{i.name}</div>
+            <div className="truncate pt-3 font-medium">{i.name}</div>
             {archived ? (
               <div className="flex flex-wrap items-center gap-3">
                 <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs text-muted">Archived</span>
@@ -138,11 +139,12 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
                 )}
               </div>
             ) : (
-              kind !== "prop" && <SheetLine status={i.sheet_status} />
+              kind !== "prop" && <SheetLine status={i.sheet_status} used={i.used_in_count} />
             )}
           </li>
         ))}
       </ul>
+      </div>
     </main>
   );
 }
@@ -158,12 +160,13 @@ const FILTERS = { any: "Any", approved: "Approved", check: "To check", drawing: 
 type Filter = keyof typeof FILTERS;
 
 /** A card's status: a dot and words (a hollow ring for no sheet). */
-function SheetLine({ status }: { status: string }) {
+function SheetLine({ status, used }: { status: string; used?: number }) {
   const line = SHEET[status] ?? SHEET.none;
   return (
     <p className="flex items-center gap-1.5 text-xs text-muted">
       <span aria-hidden className={`size-2 shrink-0 rounded-full ${line.dot}`} />
       {line.text}
+      {status === "approved" && !!used && ` · in ${used} video${used === 1 ? "" : "s"}`}
     </p>
   );
 }

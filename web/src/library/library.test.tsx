@@ -276,10 +276,10 @@ test("a failed sheet says credits came back and offers Try again", async () => {
 });
 
 test("library cards say where each sheet stands, and Sheet: narrows them", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, sheet_status: "none" }, { ...mia, id: 6, name: "Dex", sheet_status: "approved" }, { ...mia, id: 7, name: "Rex", sheet_status: "drawing" }, { ...mia, id: 8, name: "Val", sheet_status: "needs_approval" }]] });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, sheet_status: "none" }, { ...mia, id: 6, name: "Dex", sheet_status: "approved", used_in_count: 3 }, { ...mia, id: 7, name: "Rex", sheet_status: "drawing" }, { ...mia, id: 8, name: "Val", sheet_status: "needs_approval" }]] });
   renderAt("/b/1/library/characters");
   await screen.findByText("Dex");
-  for (const line of ["No sheet yet", "Sheet approved", "Drawing the sheet", "Sheet to check"]) expect(screen.getAllByText(line)).toHaveLength(1);
+  for (const line of ["No sheet yet", "Sheet approved · in 3 videos", "Drawing the sheet", "Sheet to check"]) expect(screen.getAllByText(line)).toHaveLength(1);
   await userEvent.click(screen.getByRole("button", { name: /Sheet: Any/ }));
   await userEvent.click(screen.getByRole("menuitemradio", { name: "To check" }));
   expect(screen.getByText("Val")).toBeInTheDocument();
