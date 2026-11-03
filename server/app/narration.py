@@ -18,7 +18,9 @@ KIND = "narration"
 TIMED = ("song", "narrated")  # script kinds whose videos are timed to a take
 MODEL = "elevenlabs-v3"
 VOICE = "Sarah"
-VOICES = (VOICE, "Alexandra", "Hope", "Jane")  # natural v3 voices (song-ad-workflow.md)
+# Natural v3 voices (song-ad-workflow.md); the names are ElevenLabs v3's own (Replicate's enum).
+# Austin (deep, ~81 Hz) and Roger (relaxed, ~115 Hz) are male, from the presenter-1 test.
+VOICES = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # Silence only: a quiet stretch (below -40 dB) longer than this is shortened to it
 PAUSE, QUIET = 0.25, "-40dB"
 
