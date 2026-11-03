@@ -213,7 +213,7 @@ pictures below are how to stage them.
 | Left alone | No words | Hold wide and centred on the hero, alone. Let shots run 1.5 s or more. |
 | Memory or vow | One tender line, then a few words of it echoed | Warm, hazy flashback with a white flash in and a dissolve out; echo the last words over a slow push on the hero's still face. |
 | The rise | No words (or the brand's screens) | A montage at 0.2 to 0.5 s per shot: same pose, same framing, bigger world each cut (match cuts). End on one longer move that shows he has arrived. |
-| Time jump | A short card | Plain black card, small text, under 2 s. |
+| Time jump | A short card | A plain black beat, under 2 s; the time-jump words are added in editing, not in the clip (rule 32). |
 | Reversal | The other side reacts | The ex or the doubter spots him: two-shot, then a snap push onto their shock. |
 | Payoff | The hero's one comeback line | The longest hold in the video: start wide, slow push in all the way to his face as he says it. |
 | End | The brand's end line | Short and fast, ends abruptly so it loops. |
@@ -235,9 +235,12 @@ pictures below are how to stage them.
 - The exact characters, names and wedding: the structure carries over, the story does not.
 - The look itself belongs to the chosen style, not to this format; the camera grammar above
   carries over to any style.
-- The yellow caption look is this creator's; captions in ours follow the brand and style.
-- The flash shot of the priest at 0.10 s works in an edit; a generated clip that short is
-  rarely usable *(inferred)*: aim for 0.25 s and up.
+- The burned-in yellow captions, the "2 YEARS LATER..." card and the tag caption: this reel
+  burns words into the picture; ours don't (Current rule 32: no captions, subtitles, titles or
+  overlay text in stills or clips; words on screen are added in editing).
+- *(Inferred, not seen in the reel; not one of Reed's rules)* The flash shot of the priest at
+  0.10 s works in an edit, but a generated clip that short is rarely usable: aim for 0.25 s and
+  up.
 
 ## Gaps in this study
 
