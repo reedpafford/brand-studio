@@ -71,7 +71,7 @@ test("a brand screen can be added, given tags and a moment, and deleted", async 
   await panel.getByLabel("Add to always use this screen for").press("Enter");
   await panel.getByRole("button", { name: "Save screen" }).click();
   await expect(panel).toBeHidden();
-  await expect(tile.getByText("trading")).toBeVisible(); // the moment badge on its tile
+  await expect(page.getByRole("listitem").filter({ has: tile }).getByText(/trading/)).toBeVisible(); // its tag and moment, under the tile (v5 F_BrandScreens)
 
   await tile.click();
   // The tag was saved too: it is there when the screen is opened again.
