@@ -52,7 +52,7 @@ export function VideoRow({ p, project, held, owner }: { p: Project; project: str
     : <Dot tone={p.needs_you ? "warning" : "accent"}>{p.waiting_on || (at !== null && at < VIDEO_STEPS.length ? `Making ${VIDEO_STEPS[at].toLowerCase()}` : status.label)}</Dot>;
   return (
     <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:py-2 ${COLS} ${p.archived_at ? "opacity-70" : ""}`}>
-      <Name poster={p.poster_file_id} title={p.name} under={project} to={videoTo(p)} chip={p.freestyle_id != null ? <Director /> : undefined} />
+      <Name poster={p.poster_file_id} title={p.name.replace(/ · freestyle \d+$/, "")} under={project} to={videoTo(p)} chip={p.freestyle_id != null ? <Director /> : undefined} />
       <div className={cell}>{at !== null && <StepBars steps={VIDEO_STEPS} at={at} attention={p.needs_you} />}</div>
       <div className={cell}>
         {waits}
@@ -67,7 +67,8 @@ export function VideoRow({ p, project, held, owner }: { p: Project; project: str
 /** A held send with no video yet: the editor's request (v5 C_Videos "Request" row). The owner can open it in Needs you. */
 export function RequestRow({ job, project, owner, maker }: { job: Job; project: string; owner: boolean; maker: string }) {
   const fs = job.freestyle;
-  const title = fs ? `${fs.script_title || "New video"}${fs.slot != null ? ` · ${letterOf(fs.slot)}` : ""}` : "Quick clip";
+  // A version of a script reads "Script · A"; a pasted video reads by its own first line, never "freestyle 5" or a letter.
+  const title = fs ? (fs.script_id ? `${fs.script_title} · ${letterOf(fs.slot ?? 0)}` : fs.title) : "Quick clip";
   return (
     <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:py-2 ${COLS}`}>
       <Name title={title} under={`${fs ? "New video" : "Quick clip"} from ${maker} · not made yet · ${project}`} chip="request" />

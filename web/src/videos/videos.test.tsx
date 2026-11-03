@@ -140,7 +140,7 @@ test("videos are grouped Needs you, Making, Done; a video that needs you says wh
 });
 
 // A real held Freestyle send: no brand on the job, a hidden project (not in /projects), the brand on the freestyle.
-const heldSend = { id: 60, kind: "video", project_id: 99, brand_id: null, script_id: null, credits: 12, status: "needs_owner_approval", created_at: new Date().toISOString(), step: null, declined: false, created_by_id: 5, created_by_name: "Dee", freestyle: { id: 8, title: "freestyle 5", brand_id: 1, script_title: "Bo tries salmon", slot: 1, type: "dialogue", said: "", change: false, up_to: 190, spent: 0, hidden: true } };
+const heldSend = { id: 60, kind: "video", project_id: 99, brand_id: null, script_id: null, credits: 12, status: "needs_owner_approval", created_at: new Date().toISOString(), step: null, declined: false, created_by_id: 5, created_by_name: "Dee", freestyle: { id: 8, title: "Bo tries salmon", brand_id: 1, script_id: 4, script_title: "Bo tries salmon", slot: 1, type: "dialogue", said: "", change: false, up_to: 190, spent: 0, hidden: true } };
 
 test("a held send whose video is hidden is a Request row in Needs you: Reed opens it in Needs you, the editor sees it waits for the owner", async () => {
   setViewport(1440);
@@ -156,10 +156,31 @@ test("a held send whose video is hidden is a Request row in Needs you: Reed open
   cleanup();
   vi.unstubAllGlobals();
   setViewport(1440);
-  fakeServer(base(editor, [], { "GET /jobs?mine=true": [200, [heldSend]] }));
+  fakeServer(base(editor, [], { "GET /jobs?mine=true&freestyle=true": [200, [heldSend]] }));
   open();
   expect(await screen.findByText("Waiting for the owner's OK")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Open in Needs you" })).toBeNull();
+});
+
+test("a pasted video reads by its own first line, in its row and in its request, never \"freestyle 5\" or a letter", async () => {
+  setViewport(1440);
+  const pasted = { ...heldSend, id: 62, freestyle: { ...heldSend.freestyle, id: 9, title: "MIA: Green candles only.", script_id: null, script_title: "", slot: 0 } };
+  fakeServer(base(editor, [video({ id: 12, name: "MIA: Green candles only. · freestyle 5", freestyle_id: 5 })], { "GET /jobs?mine=true&freestyle=true": [200, [pasted]] }));
+  open();
+  expect(await screen.findByRole("link", { name: "MIA: Green candles only." })).toBeInTheDocument();
+  const needs = await screen.findByRole("region", { name: "Needs you" });
+  expect(within(needs).getByText("MIA: Green candles only.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/freestyle 5|New video · A/);
+});
+
+test("an editor's delivered video with a change waiting says Waiting for the owner's OK, not Delivered", async () => {
+  setViewport(1440);
+  const change = { ...heldSend, id: 63, project_id: 9, freestyle: null, step: "change" };
+  fakeServer(base(editor, [video({ finished_at: "2026-10-24T10:00:00Z", needs_you: true })], { "GET /jobs?mine=true&freestyle=true": [200, [change]] }));
+  open();
+  const line = await screen.findByRole("link", { name: /Bo tries salmon · B/ });
+  expect(await within(line.closest("li") as HTMLElement).findByText("Waiting for the owner's OK")).toBeInTheDocument();
+  expect(within(line.closest("li") as HTMLElement).queryByText(/Delivered/)).toBeNull();
 });
 
 test("a delivered video with a change waiting for the owner says so, not Delivered", async () => {

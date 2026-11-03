@@ -4,7 +4,6 @@ import { ChevronDown, ChevronRight, Film, Plus } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
-import { useMyRequests } from "../approvals/HeldRequests";
 import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, buttonClass, EmptyState, Menu, MenuItem, PageTop, Skeleton } from "../components";
@@ -45,7 +44,13 @@ export function VideosPage() {
   const gone = useQuery({ enabled: me !== undefined && !archived, queryKey: ["videos", { brandId, folder, mine: !owner, archived: true }], queryFn: () => load(brandId, folder, !owner, true) });
   // Held sends with no video yet: Reed sees every editor's (the rail counts them), an editor their own.
   const held = useHeld();
-  const mineHeld = useMyRequests();
+  // An editor's own held sends: /jobs?mine=true leaves Freestyle jobs out, so ask for them too.
+  const mineHeld = useQuery({
+    enabled: me !== undefined && !owner,
+    queryKey: ["jobs", "mine", "freestyle"],
+    refetchInterval: 15_000,
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { mine: true, freestyle: true } } })).data ?? [],
+  });
   // A held send with no visible video yet: its project is hidden (not in /projects) or it has none. A Freestyle's brand is on
   // the freestyle (the job's own is empty). Reed sees every editor's (the rail counts them), an editor their own.
   const heldAll = owner ? held.allHeldJobs : (mineHeld.data ?? []).filter((j) => j.status === "needs_owner_approval");
@@ -89,7 +94,7 @@ export function VideosPage() {
           </Link>
         )}
       </PageTop>
-      <div className="-mx-4 flex min-h-11 flex-wrap items-center gap-2 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
+      <div className="-mx-4 flex min-h-11 flex-wrap items-center gap-2 border-b border-border px-4 sm:-mx-6 sm:px-6 lg:h-11 [&_button]:text-[13px] [&_button]:font-medium">
         <ProjectsChip brandId={brandId} />
         {owner && (
           <Menu title="Maker" trigger={(p) => (
