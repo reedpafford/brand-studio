@@ -77,14 +77,14 @@ export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?:
           {/* v5 A_Account: Theme as one segmented control, Dark / Light / System. */}
           <div role="group" aria-label="Theme" className="mt-1 flex items-center gap-3 border-t border-border px-3 pb-1 pt-2">
             <span className="text-sm text-muted">Theme</span>
-            <span className="ml-auto inline-flex rounded-md border border-border p-0.5">
+            <span className="ml-auto inline-flex rounded-md border border-border-strong bg-bg p-0.5">
               {THEMES.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   role="menuitemradio"
                   aria-checked={theme === t.id}
-                  className={`min-h-control rounded px-2.5 text-sm lg:min-h-control-dense ${theme === t.id ? "bg-surface-3 font-medium text-text" : "text-muted hover:text-text"}`}
+                  className={`min-h-control rounded px-2.5 text-sm lg:min-h-control-dense ${theme === t.id ? "bg-surface-3 font-medium text-text ring-1 ring-inset ring-border-strong" : "text-muted hover:text-text"}`}
                   onClick={() => {
                     applyTheme(t.id);
                     setTheme(t.id);
