@@ -27,6 +27,16 @@ The camera is usually inside the scene and doing something: a slow drift, a push
 - **Follow** a character through a space (a waiter weaving through a crowd) at their pace, so the viewer moves with them.
 - **Hold still** only for a beat that needs stillness (a stare, a breath before a reveal), and briefly.
 
+## Flow: shots that connect
+
+What makes Nate's fast cuts feel like one smooth ride, as creative direction rather than rules:
+
+- **The motion carries through the cut.** A push keeps pushing into the next shot; a pan leaving one frame enters the next going the same way; a whip pan is a natural bridge between two setups. The camera rarely stops dead at a cut and starts something unrelated.
+- **A scene has a geography.** People keep their side of the frame and their eyelines, and the scene returns to a few setups (the wide, the two faces) rather than finding a new angle for every shot. The Ferrari argument plays almost entirely in one wide shot.
+- **Cut in the middle of an action.** The hand starts the reach in one shot and finishes it in the next, so the eye is already moving when the picture changes.
+- **Think in moves, not angles.** A scene can often be one flowing move (follow him to the table, drift round to her face, push in on the reaction) with cuts only where the story jumps.
+- **Clips hand off.** A clip opens on the motion or the picture the last one ended on, so the seam disappears.
+
 ## A hook that starts close, then reveals
 
 One strong way in: open on an extreme close-up of the one detail that tells the situation (coins in a wet palm, a cracked phone, a hand frozen mid-reach), then push out or pull back to reveal where we are and who it is. The viewer understands the detail first and the world a second later, which holds them through the first two seconds.
