@@ -1,4 +1,4 @@
-"""Pictures and clips added to a brand's Media (n25, v5 C_Media).
+"""Pictures and clips added to a brand's Media, and each final cut's length (n25, v5 C_Media).
 
 Revision ID: n25
 Revises: n24
@@ -32,9 +32,13 @@ def upgrade() -> None:
     )
     op.create_index("ix_media_uploads_workspace_id", "media_uploads", ["workspace_id"])
     op.create_index("ix_media_uploads_brand_id", "media_uploads", ["brand_id"])
+    with op.batch_alter_table("final_videos", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("seconds", sa.Double(), nullable=True))
 
 
 def downgrade() -> None:
+    with op.batch_alter_table("final_videos", schema=None) as batch_op:
+        batch_op.drop_column("seconds")
     op.drop_index("ix_media_uploads_brand_id", table_name="media_uploads")
     op.drop_index("ix_media_uploads_workspace_id", table_name="media_uploads")
     op.drop_table("media_uploads")

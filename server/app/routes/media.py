@@ -112,7 +112,7 @@ def _rows(db: Session, user: User, brand_id: int, kind: str | None) -> list[dict
                                       FinalVideo.off_media_at.is_(None))  # fmt: skip
     for final in db.scalars(finals):
         add("final", f"final:{final.id}", final.file_id, final.project_id, final.created_by_id,
-            "final")  # fmt: skip
+            "final", duration_seconds=final.seconds)  # fmt: skip
     quick = select(Job).where(
         Job.brand_id == brand_id, Job.project_id.is_(None), Job.status == JobStatus.succeeded,
         Job.removed_at.is_(None),
@@ -222,9 +222,11 @@ def list_media(
         rows = [r for r in rows if ((r["made_at"], r["key"]) < mark) == newest
                 and (r["made_at"], r["key"]) != mark]  # fmt: skip
     page = rows[:PAGE]
-    for r in page:  # a final cut's length, read from the file (only the page's few)
-        if r["kind"] == "final":
-            r["duration_seconds"] = _length(request.app.state.storage, files[r["file_id"]])
+    for r in page:  # a final cut made before lengths were kept: read once, then kept
+        if r["kind"] == "final" and r["duration_seconds"] is None:
+            final_id = int(r["key"].split(":")[1])
+            r["duration_seconds"] = _length(db, request.app.state.storage, final_id,
+                                            files[r["file_id"]])  # fmt: skip
     items = _items(db, page, files)
     last = page[-1] if len(rows) > PAGE else None
     return MediaPage(items=items, next=last and _cursor(last["made_at"], last["key"]))
@@ -261,7 +263,8 @@ def media_counts(
 
 
 def _probe(data: bytes) -> tuple[set[str], float | None]:
-    """A video's streams ({"video", "audio"}) and its length in seconds, by ffprobe."""
+    """A video's streams ({"video", "audio"}) and its length in seconds: the longer of what its
+    header says and where its last packet ends (QA-13: a header can be patched to lie)."""
     import json
     import tempfile
     from pathlib import Path
@@ -271,22 +274,36 @@ def _probe(data: bytes) -> tuple[set[str], float | None]:
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "media"
         path.write_bytes(data)
-        args = ["ffprobe", "-v", "error", "-show_entries", "format=duration"]
-        done = _run([*args, "-show_entries", "stream=codec_type", "-of", "json", str(path)], 30)
+        wanted = "format=duration:stream=codec_type:packet=pts_time,duration_time"
+        done = _run(["ffprobe", "-v", "error", "-show_entries", wanted, "-of", "json",
+                     str(path)], 60)  # fmt: skip
     info = json.loads(done.stdout or "{}") if done.returncode == 0 else {}
     kinds = {st.get("codec_type") for st in info.get("streams", [])}
-    try:
-        return kinds, round(float(info["format"]["duration"]), 2)
-    except (KeyError, ValueError, TypeError):
-        return kinds, None
+    ends = [_num(p.get("pts_time")) + _num(p.get("duration_time"))
+            for p in info.get("packets", []) if p.get("pts_time") not in (None, "N/A")]  # fmt: skip
+    told = _num((info.get("format") or {}).get("duration"))
+    seconds = max([told, *ends])
+    return kinds, round(seconds, 2) if seconds > 0 else None
 
 
-def _length(storage, file: StoredFile) -> float | None:
-    """A final cut's length in seconds, or None when it can't be read."""
+def _num(value) -> float:
     try:
-        return _probe(storage.get(file.key))[1]
-    except OSError:  # its file is gone from storage
-        return None
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _length(db: Session, storage, final_id: int, file: StoredFile) -> float | None:
+    """A final cut's length in seconds: kept on it when it's made; one made before that is read
+    from its file once and kept (None when its file can't be read)."""
+    final = db.get(FinalVideo, final_id)
+    if final.seconds is None:
+        try:
+            final.seconds = _probe(storage.get(file.key))[1]
+        except OSError:  # its file is gone from storage
+            return None
+        db.commit()
+    return final.seconds
 
 
 def _files(db: Session, user: User, rows: list[dict]) -> dict[int, StoredFile]:
@@ -383,6 +400,20 @@ NOT_MEDIA = "That isn't a picture or clip we can use. Add a PNG, JPEG or WebP, o
 CLIP_MAX = 180  # seconds a clip added to Media may be
 
 
+def _whole_picture(data: bytes) -> bool:
+    """The picture reads to its end (a PNG cut off mid-way isn't stored broken)."""
+    import io
+
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(data)) as picture:
+            picture.load()
+        return True
+    except Exception:  # noqa: BLE001 - any reading error: not a usable picture
+        return False
+
+
 def _sniff(head: bytes) -> str | None:
     """The file's type from its first bytes, whatever its name or label says."""
     from app.filetypes import matches
@@ -414,8 +445,11 @@ def add_media(
     if content_type is None:
         raise HTTPException(415, NOT_MEDIA)
     seconds = None
-    if SNIFFED[content_type] == "image" and (problem := too_many_pixels(data)):
-        raise HTTPException(422, problem)
+    if SNIFFED[content_type] == "image":
+        if not _whole_picture(data):
+            raise HTTPException(415, NOT_MEDIA)
+        if problem := too_many_pixels(data):
+            raise HTTPException(422, problem)
     if SNIFFED[content_type] == "video":
         kinds, seconds = _probe(data)
         if "video" not in kinds or seconds is None:

@@ -871,6 +871,8 @@ def make_video(
         raise HTTPException(
             422, "The clips couldn't be put together. Redo the odd one out."
         ) from exc
+    from app.routes.media import _probe as media_probe
+
     key = f"{project.workspace_id}/{uuid.uuid4().hex}"
     storage.put(key, data)
     stored = StoredFile(
@@ -891,6 +893,7 @@ def make_video(
         cut_ins=_cut_ins(db, project, clips),
         song_take_id=song.id if song else None,
         created_by_id=user.id,
+        seconds=media_probe(data)[1],  # Media shows its length without reading it again
     )
     db.add(video)
     project.finished_at = project.finished_at or utcnow()

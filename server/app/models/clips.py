@@ -71,3 +71,4 @@ class FinalVideo(Entity, Base):
     song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id"))  # laid under
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     off_media_at: Mapped[datetime | None]  # the owner took it off Media; its video keeps it
+    seconds: Mapped[float | None]  # its length, kept when it's made (Media shows it)

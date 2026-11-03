@@ -1,6 +1,9 @@
 """v5 Media (C_Media, Builder-V5-C): tabs by group with their counts, each clip's and song's
 length, newest or oldest first, and a picture or clip added to a brand's Media. Free."""
 
+import struct
+import subprocess
+
 from app.models.clips import FinalVideo
 from app.models.files import MediaUpload
 from app.models.jobs import Job, JobStatus
@@ -91,3 +94,78 @@ def test_oldest_first_pages_walk_the_list_once(db, owner, monkeypatch):
              .json()["items"]]  # fmt: skip
     assert len(seen) == len(set(seen)) == 5
     assert seen[:2] == every[:2]
+
+
+def _long(seconds: int) -> bytes:
+    """A real MP4 of `seconds` (tiny: 32 px, 2 frames a second, no sound)."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "long.mp4"
+        args = (f"-v error -f lavfi -i color=c=red:s=32x32:r=2:d={seconds} -c:v libx264 "
+                "-pix_fmt yuv420p").split()  # fmt: skip
+        subprocess.run(["ffmpeg", *args, str(path)], check=True)  # noqa: S603, S607
+        return path.read_bytes()
+
+
+def _lying(data: bytes, seconds: int) -> bytes:
+    """The same MP4 with only its mvhd, tkhd and mdhd durations rewritten (QA-13's attack)."""
+    out, scale = bytearray(data), {}
+
+    def walk(start, end):
+        i = start
+        while i + 8 <= end:
+            size, kind = struct.unpack(">I4s", out[i : i + 8])
+            if size < 8:
+                return
+            body = i + 8
+            if kind in (b"moov", b"trak", b"mdia"):
+                walk(body, i + size)
+            elif kind in (b"mvhd", b"mdhd") and out[body] == 0:
+                scale[kind] = struct.unpack(">I", out[body + 12 : body + 16])[0]
+                out[body + 16 : body + 20] = struct.pack(">I", scale[kind] * seconds)
+            elif kind == b"tkhd" and out[body] == 0:
+                out[body + 20 : body + 24] = struct.pack(">I", scale[b"mvhd"] * seconds)
+            i += size
+
+    walk(0, len(out))
+    return bytes(out)
+
+
+def test_a_clip_whose_header_lies_about_its_length_is_measured_by_its_packets(owner):
+    """QA-13: a 185 s clip with its durations patched to 10 s got past the 3-minute cap."""
+    from app.routes.media import _probe
+
+    lie = _lying(_long(185), 10)
+    assert _probe(lie)[1] >= 184  # the header says 10
+    refused = _add(owner, first_brand(owner), "short.mp4", lie)
+    assert refused.status_code == 422 and "185 seconds" in refused.json()["detail"]
+    honest = _add(owner, first_brand(owner), "ok.mp4", _lying(_long(20), 5)).json()
+    assert 19 <= honest["duration_seconds"] <= 21  # its packets, not its header
+
+
+def test_a_picture_cut_off_part_way_is_refused(owner):
+    assert _add(owner, first_brand(owner), "cut.png", PNG[: len(PNG) // 2]).status_code == 415
+
+
+def test_a_final_cuts_length_is_kept_once(app, db, owner, monkeypatch):
+    from app.routes import media
+
+    brand = first_brand(owner)
+    project = Project(workspace_id=1, brand_id=brand, name="Dip", created_by_id=1)
+    db.add(project)
+    db.commit()
+    stored = owner.post("/files", files={"upload": ("f.mp4", _mp4("red"), "video/mp4")}).json()
+    final = FinalVideo(project_id=project.id, file_id=stored["id"], take_ids=[], created_by_id=1)
+    db.add(final)
+    db.commit()
+    reads = []
+    real = media._probe
+    monkeypatch.setattr(media, "_probe", lambda data: reads.append(1) or real(data))
+    for _ in range(2):
+        (item,) = owner.get(f"/brands/{brand}/media", params={"kind": "final"}).json()["items"]
+        assert 0.9 <= item["duration_seconds"] <= 1.1
+    assert len(reads) == 1  # read once, then kept on the final
+    db.expire_all()
+    assert db.get(FinalVideo, final.id).seconds == item["duration_seconds"]

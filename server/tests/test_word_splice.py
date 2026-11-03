@@ -89,6 +89,7 @@ def test_wrong_brand_is_spliced_from_same_voice(app, db, editor, setup, clip, mo
 
     (final,) = db.query(FinalVideo).filter_by(project_id=setup["project"]).all()
     assert "c1/splice:1.37-1.8" in final.cut_ins  # a new splice shows as changes waiting
+    assert final.seconds and final.seconds > 0  # its length is kept when it's made (Media)
 
 
 def test_no_clean_copy_is_refused(app, db, editor, setup, clip, monkeypatch):  # noqa: F811
