@@ -151,7 +151,8 @@ def test_reeds_looks_are_one_per_style_and_their_lanes_choose_per_video():
     assert lanes == {"paper-flat": "paper", "paper-handmade": "paper", "paper-collage": "paper",
                      "paper-origami": "paper", "claymation-goofy": "claymation",
                      "claymation-clean": "claymation", "claymation-puppet": "claymation",
-                     "skeleton-xray": "skeleton", "skeleton-cute": "skeleton"}  # fmt: skip
+                     "skeleton-bare": "skeleton", "skeleton-cute": "skeleton",
+                     "skeleton-xray": "skeleton"}  # fmt: skip
     assert not set(lanes) & set(looks) and set(lanes.values()) <= set(looks)
     for parent in set(lanes.values()):
         plan = prompts.system("plan", parent)
@@ -189,7 +190,7 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     assert prompts.look_sample("zack-d").rstrip(".") in own and "[Image1]" not in own
     # Skeleton's sample is always its own skeleton, never the brand's human hero
     own = [s["id"] for s in prompts.styles() if s["own_sample"]]
-    assert own == ["skeleton", "skeleton-xray", "skeleton-cute"]
+    assert own == ["skeleton", "skeleton-bare", "skeleton-cute", "skeleton-xray"]
 
 
 def test_a_look_is_described_by_its_own_tells_never_by_another_studio():

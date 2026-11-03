@@ -6,35 +6,36 @@ image_model: auto
 blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365.
 
 <!-- Reed's skeleton-ad skill (docs/next/skills/skeleton-ad.md, #1095; first from Starpop's skeleton-ads, docs/research/starpop-2026-10-28, rule 20): its Bare-Bones Cinematic skeleton, the default (Dressed is this look with an outfit in the description); X-Ray and Cute Mascot are their own looks (skeleton-xray, skeleton-cute). A look usable on any story script (flows Q4): "What happens if you ___?" told as an escalating ladder (Day 1, Day 30, Day 365) lived by one lovable cartoon skeleton, under one narrator. -->
+<!-- Reed, 3 Nov (S1–S6, F6; from his six reference videos, examples/*/notes.md): the clear glass body shell is the default look; bare bones is the lane skeleton-bare; X-Ray folded into the glass shell (old videos on skeleton-xray read as Skeleton); Mascot in warm real homes; shots without the skeleton allowed; cool or neutral clean sets allowed, inside the body always warm; hard cuts as the base, music none or a low bed; the dive goes into the object named in a non-body script; the picture changes per sentence or phrase. -->
 <!-- Moved 2 Nov from server/app/prompts/styles/skeleton.md and prompts/skills/skeleton-ad.md into one place. -->
 <!-- Reed's skill file (was prompts/skills/skeleton-ad.md), its chat front matter: name: skeleton-ads; description: "Activate when the user asks for a skeleton ad or a 'What happens if you ___' / Day 1 → Day 30 progression ad: a narrated escalating journey lived by one locked 3D cartoon skeleton." -->
 
 ## sheet_look
-Cinematic 3D animated render. A skeleton character (the description says so) is a full anatomical skeleton with natural adult human proportions, tall and lanky, smooth ivory-cream bones with realistic bone detail (not toy-smooth, not chibi, not scary), and large expressive cartoon eyes with white sclera and dark pupils set in the eye sockets: an emotive, lovable face; its bones are bare, with no outfit, unless the description dresses it, and then it wears that one outfit with the skull and hands still showing. Anyone else is a stylised 3D cartoon human whose body and face follow their age: an adult has an adult's height, build and face, never a child's. One fixed look, identical in every view.
+Cinematic 3D animated render. A skeleton character (the description says so) is a full anatomical skeleton with natural adult human proportions, tall and lanky, smooth ivory-cream bones with realistic bone detail (not toy-smooth, not chibi, not scary), and large expressive cartoon eyes with white sclera and dark pupils set in the eye sockets: an emotive, lovable face. It stands inside a clear, glossy, glass-like body shell in a human silhouette (clear, never tinted), through which the bones show; organs inside are soft natural pinks and browns, shown only when the description asks. When the description gives it one identity accessory or outfit, it wears that, the same in every view, with the skull and hands still showing. Anyone else is a stylised 3D cartoon human whose body and face follow their age: an adult has an adult's height, build and face, never a child's. One fixed look, identical in every view.
 
 ## place_look
-Cinematic 3D animated render of a photoreal, richly dressed environment, warm colour grade, soft volumetric light with drifting atmosphere (steam, dust, haze), shallow depth of field.
+Cinematic 3D animated render of a photoreal, richly dressed environment, warm colour grade, soft volumetric light with drifting atmosphere (steam, dust, haze), shallow depth of field; or a clean set (a white room, a flat blue gradient, a bright medical lab) in cool or neutral light, soft and even with a gentle rim. Inside the body is always warm: glossy reds, golds and ambers.
 
 ## still_look
-The Skeleton look, unless the brand block says otherwise: "Cinematic 3D animated render: a photoreal environment for the story's world, a warm colour grade, soft volumetric light with drifting atmosphere, shallow depth of field. The skeleton and everyone else come from the character sheets: the same ivory, cartoon-eyed skeleton in every shot. Its eyes and posture carry the feeling, big and readable with the sound off. The skeleton is the only cartoon element: the place is photoreal, never a cartoon set or a toy."
+The Skeleton look, unless the brand block says otherwise: "Cinematic 3D animated render: a photoreal environment for the story's world with a warm colour grade, soft volumetric light with drifting atmosphere and shallow depth of field, or a clean set (a white room, a flat blue gradient, a bright medical lab) in soft, even cool or neutral light. The skeleton and everyone else come from the character sheets: the same ivory, cartoon-eyed skeleton in its clear glass body shell in every shot of its world. Its eyes and posture carry the feeling, big and readable with the sound off. The skeleton is the only cartoon element: the place is photoreal, never a cartoon set or a toy. A shot inside its body is a glossy macro 3D render of the part the line names, in warm reds, golds and ambers with wet highlights and a soft glow, never gory."
 
 ## clip_style
-Cinematic 3D animation, the same ivory cartoon-eyed skeleton in every shot, its bones moving with natural weight, photoreal environment, warm grade, soft volumetric light
+Cinematic 3D animation, the same ivory cartoon-eyed skeleton in its clear glass body shell in every shot of its world, its bones moving with natural weight, a photoreal room or a clean set, soft light, inside the body always warm
 
 ## fit_look
-a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton with big expressive eyes)
+a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton with big expressive eyes inside a clear glass body shell)
 
 ## Stills
-- The skeleton is in every shot and is always the same character, from its sheet: never change its eyes, bones or proportions.
+- The skeleton is in every shot of its world and is always the same character, from its sheet: never change its eyes, bones or proportions. A shot inside its body (a macro of the part the line names) or of the product needs no skeleton.
 - Each shot shows one rung of the ladder, literally (Day 1: the first try, in an ordinary place; later rungs: bigger reactions, a grander place), so the climb reads with the sound off: the picture is the proof of the line. Vary the framing: a wide of the world, a medium on the skeleton, a two-shot with someone reacting, a close-up of the product in its bony hands, a hero shot for the payoff. People who react (townsfolk, coworkers, a crowd) make the climb bigger, from a stare to awe.
 - Describe the body gently and dry: bones and glow, never wounds or anything gory.
 
 ## Clips
 - Each shot shows what the line says at that moment. When the video is narrated, the narrator's voiceover carries it and no one on screen speaks.
-- One move and one camera move per shot; each change of rung or place has a transition (a push through, a whip pan, the light moving on).
+- One move and one camera move per shot. Hard cuts are the base; for the big moments a dive (a push through) goes into what the line names.
 
 ## Breakdown
-- One line is one shot is one rung of the ladder; never two ideas in a shot. The skeleton is in every shot's `character_ids`.
+- One shot per sentence, or per phrase when a sentence runs over about 2.5 s, so a rung of the ladder can take several shots; never two ideas in a shot. The skeleton is in every shot's `character_ids`, except a shot inside its body or of the product alone.
 
 ## Script
 - Open on a curiosity-gap question: "What would happen if you ___?", "What happens if you ___ every day?", "How long can you ___ before ___?", "How many ___ does it take to ___?", "What if you NEVER ___?". Then 5 to 7 escalating rungs, each one line: by time (Day 1, Day 30, Day 365; or hour, week, year), by amount (1, 5, 25, 42) or by stage (Stage 1 to Stage 5). Then the payoff, a triumph (transformed, unstoppable, crowned) or a catastrophe (a system failure, ruin), with the end line. About 110–160 words.
@@ -45,8 +46,8 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 
 ## lanes
 This look has lanes, ways of making it; choose one for this video in `lane`:
-- "" (the default, Bare-Bones): one lovable cartoon skeleton; for most stories.
-- "skeleton-xray": Skeleton X-Ray: a glowing x-ray body with its organs lit; for a story about what happens inside the body (health, food, sleep).
+- "" (the default, Glass shell): one lovable cartoon skeleton in a clear glass body shell; for most stories, and for anything about what happens inside the body (health, food, sleep).
+- "skeleton-bare": Skeleton Bare-Bones: the bare skeleton, no shell; for origin, scenario and transformation stories that never go inside the body.
 - "skeleton-cute": Skeleton Mascot: a cute chibi skeleton mascot; for a playful brand or a younger audience.
 
 ## banned
@@ -66,7 +67,7 @@ outfit: Change this… naming what the skeleton wears, this video's outfit when 
 product: Change this… "the real product from its image in the skeleton's hand, the label facing the camera".
 
 ## sample
-One friendly full anatomical skeleton, tall and lanky, bare ivory-cream bones with no outfit, large expressive cartoon eyes in its sockets, smiling in a warm, softly hazy real kitchen.
+One friendly anatomical skeleton, tall and lanky, ivory-cream bones inside a clear glass body shell, large expressive cartoon eyes in its sockets, smiling in a warm, softly hazy real kitchen.
 
 ## The videos
 The videos are animated with AI video models: stylized 3D characters.
@@ -74,44 +75,46 @@ The videos are animated with AI video models: stylized 3D characters.
 ## pacing
 Measured on Reed's six skeleton references (narrated, 99–161 s each; studies in examples/*/notes.md):
 - Shot length: median 1.8–2.45 s (6 of 6); shortest real shot 0.4–0.9 s; longest hold 4.3–6 s (5 of 6).
-- Cuts per 10 s: 3.8–5.2 (5 of 6 measured; the sixth about 3.8–4 once its hidden jump cuts and dissolves are counted). In a dive run (below), 7–10 cuts per 10 s for 5–15 s (3 of 6).
+- Cuts per 10 s: 3.8–5.2 (5 of 6 measured; the sixth about 3.8–4 once its hidden jump cuts and dissolves are counted). In a dive run (see camera), 7–10 cuts per 10 s for 5–15 s (3 of 6).
 - Hook: the first shot holds 0.9–4.0 s (6 of 6); the second picture arrives by 1–4 s.
 - The picture changes on the phrase: a median of 5–8 spoken words per shot (6 of 6).
-- Camera speed: the slow push-in runs 2–7 %/s (median per video; full range 1.6–15 %/s), the same speed from the shot's first frame to its last, no ease (4 of 6). A dive into a named body part runs 20–67 %/s for 0.4–2.5 s and ends 1.5–2.5x tighter, often speeding up (5 of 6). The rare pull back out runs about 27–56 %/s (2 of 6).
-- Timing: a dive starts on a word and lands by the next word (seen in white-room-dives). Cuts land on a word's start more often than chance in 3 of 6 and at chance in the rest; they are not locked to the music's beat (5 of 6 at or below chance).
+- Timing: cuts are hard cuts on the voice's phrases, not on the music's beat (5 of 6 at or below chance on the beat). Cuts land on a word's start more often than chance in 3 of 6 and at chance in the rest.
+
+## camera
+Measured on the six references; this is the "visuals zooming in and showing whatever is being said" (Reed).
+- The creep-in (must keep): a slow, steady push-in through most shots: 51–64% of shots, 54–66% of the runtime, a new push every 2.4–3.8 s (4 of 6; the other two hold more and keep the eye busy with acting and glows). Speed 2–7 %/s (median per video; full range 1.6–15 %/s), the same from the shot's first frame to its last, no ease, ending about 5–35% tighter.
+- The dive (must keep): when the line names a body part, the camera dives into it, through the ribs or the skin, and lands on a glossy macro of the inside (5 of 6). It runs 20–67 %/s for 0.4–2.5 s, ends 1.5–2.5x tighter and often speeds up. It starts on the word and lands by the next word. Used 1–3 times a video, or once as a chain of 5–9 shots, each one level deeper. In a script that isn't about the body, the dive goes into the object the line names (Reed, 3 Nov).
+- What the camera goes to: the named body part, organ, object or product, not the face for emphasis (5 of 6; one video has a single crash push onto the face). Showing what is said is mostly done by cutting to it: the next shot is already framed on the named thing (6 of 6).
+- The moves are made in the clip (parallax shows), not added as a zoom in the edit (6 of 6). Edit-made zooms are rare extras: a quick zoom-blur into the next shot (2 of 6).
+- Rare: the reverse pull back out of the body, about 27–56 %/s (2 of 6); an orbit of 160–180° for a "spreading" beat (1 of 6); a short tilt-drop from the whole body to the legs or feet (2 of 6).
+- Shot sizes: medium and medium close-up on the skeleton; close-ups on the named body part from the top, low or front; macros inside. Full-body wides are rare and short. No handheld feel.
 
 ## must keep
-- The creep-in: a slow, steady push-in through most shots: 51–64% of shots, 54–66% of the runtime, a new push every 2.4–3.8 s (4 of 6; the other two hold more and keep the eye busy with acting and glows).
-- The dive: when the line names a body part, the camera dives into it (through the ribs or skin) and lands on a glossy macro of the inside; 1–3 times a video, or once as a chain of 5–9 shots, each one level deeper (5 of 6).
-- Show what is said by cutting to it: when a body part, prop or the product is named, the next shot is already framed on it: a close-up of that part of the skeleton's body, or a macro of the inside of it (6 of 6).
-- Zooms go to the named body part, organ or product, not to the face for emphasis (5 of 6; one video has a single crash push onto the face).
-- The pushes and dives are made in the clip (parallax shows; the captions never scale with them), not added as a zoom in the edit (6 of 6). Edit-made zooms are rare extras: a quick zoom-blur into the next shot (2 of 6).
+- The creep-in and the dive (see camera), and cutting to what the line names.
 - The hook shows the problem in the body (a glowing belly, swollen feet, red ribs); the face can come later (6 of 6 show the problem first; 4 of 6 hold the face back).
 - Everything inside the body is glossy, tactile and friendly: beads, syrup, sludge, crystals, glow (6 of 6).
-- The insides are warm and saturated: reds, golds and ambers, warmth +20 to +45, saturation 49–72 (6 of 6). Contrast stays low and soft, 17–22 (6 of 6).
+- Inside the body is warm and saturated: reds, golds and ambers, warmth +20 to +45, saturation 49–72 (6 of 6). Contrast stays low and soft, 17–22 (6 of 6).
 - When narrated, the voice runs wall to wall: 3.2–3.7 words a second, pitch variability 4.2–5.8 semitones (animated, never flat), pauses no longer than about 0.5–0.65 s, voice mixed at about −14 LUFS (6 of 6).
 
 ## safe to vary
 - How much the camera pushes: from most shots (66% of the runtime) down to a few dives in a mostly held video (16%).
 - How many dives: none to a 9-shot chain.
-- How the inside shows on the body: a glow or coloured fluid that marks the problem, or organs that glow when the line names them.
+- How the inside shows on the body: a glow or coloured fluid that marks the problem, organs always visible, or organs that glow when the line names them.
 - The skeleton's identity accessory or outfit (a cap, headphones, a headband, a beanie, hair): one, never changing (4 of 6).
-- Shot sizes: medium and medium close-up on the skeleton; close-ups on the named body part from the top, low or front; macros inside. Full-body wides are rare and short.
+- The place: a warm, lived-in real room (2 of 6: brightness about 47, warmth +12 to +21) or a clean cool or neutral set (4 of 6: a white room, a flat blue gradient about #4A657E, a lab; warmth −3 to +9).
 - Light on the body as meaning: red for pain, orange for bloat, gold for healing or the product working.
-- An occasional orbit (160–180°) for a "spreading" beat, or a short tilt-drop from the whole body to the legs or feet.
-- Music, where there is any: 11–33 dB under the voice, a soft pulse in the middle third, rising or dropping out for the close. Sound effects are nearly absent: no whoosh on the dives (6 of 6); one whoosh and one riser in all 12 minutes.
-- Captions (for the editor, never in the footage): word-synced, a heavy white rounded sans with a thin dark outline or shadow, centred at 64–72% of the frame's height in every shot (6 of 6); one word at a time (3 of 6) or 2–4-word pages with the spoken word in yellow, about #E5F000 (2 of 6); all caps (4 of 6); a small pop-in, 10–30% oversize settling in about 0.2 s (2 of 6).
-- Warm homes measure brightness about 47 and warmth +12 to +21 (2 of 6).
+- Music: none (2 of 6) or a low bed 11–33 dB under the voice (4 of 6), a soft pulse in the middle third, rising or dropping out for the close. Sound effects are nearly absent: no whoosh on the dives (6 of 6); one whoosh and one riser in all 12 minutes.
 
 ## combines with
 - Narrated scripts: all six are one narrator over the pictures.
 - Ladder scripts: 3 of 6 count days; a 0.7–1.1 s locked-off desk-calendar page or big day number marks each rung (2 of 6).
 - Problem-to-fix explainers: 3 of 6 aren't ladders at all; the look carries any script about the body or how something works inside.
+- Real product footage: 4 of 6 close on product shots or real phone footage (allowed, Reed 3 Nov: shots without the skeleton).
 
 ## How to make skeleton ads
 A skeleton ad is a narrated, escalating-progression video: a recurring literal cartoon skeleton lives out a second-person journey — _"What happens if you \_\_\_?
 
-Day 1… Day 30… Day 365"_ — carried by a single voiceover, with generated animated visuals and one consistent skeleton in every shot.
+Day 1… Day 30… Day 365"_ — carried by a single voiceover, with generated animated visuals and one consistent skeleton in every shot of its world.
 
 Borrowed from viral "What happens if you \_\_\_?" Shorts.
 
@@ -140,7 +143,7 @@ Three spine types:
 
 - Stage / Level — Stage 1 → Stage 5.
 
-One VO line → one shot → one rung of the ladder.
+One VO sentence → one shot (or one per phrase when it runs over about 2.5 s) → one rung of the ladder.
 
 C. Diagnose the product, then pick the angle + spine + payoff (don't default to "transformation"):
 
@@ -162,11 +165,11 @@ An e-commerce product usually wants triumph (you use it) or catastrophe-from-ina
 ---
 
 ## The skeleton is the constant (the recurring character)
-The same skeleton appears in every shot — protecting its visual consistency is the single most important production rule.
+The same skeleton appears in every shot of its world (a shot inside its body or of the product needs none) — protecting its visual consistency is the single most important production rule.
 
 It is a recurring character; this skill supplies a _pre-made_ skeleton design (the Style Library below) instead of designing from scratch.
 
-Lock one canonical character reference, then re-attach it and re-state its description in every shot's still — never chain off a previous shot's output.
+Lock one canonical character reference, then re-attach it and re-state its description in every still it is in — never chain off a previous shot's output.
 
 Fill each style's `[THEME]`, palette, and (for Dressed) wardrobe to the ad's world; never change the character-defining wording between shots.
 
@@ -174,11 +177,19 @@ Fill each style's `[THEME]`, palette, and (for Dressed) wardrobe to the ad's wor
 
 Recommend the best style for the product with a one-line reason.
 
-Default to Bare-Bones Cinematic unless the product points elsewhere (health/body/supplement → X-Ray with Organs; wearable/identity/lifestyle → Dressed Skeleton; a brand that is intentionally playful → Cute Mascot).
+Default to the Glass Shell unless the product points elsewhere (an origin/scenario story that never goes inside the body → Bare-Bones Cinematic; wearable/identity/lifestyle → Dressed Skeleton; a brand that is intentionally playful → Cute Mascot). Health/body/supplement → the Glass Shell, which also carries what X-Ray did.
 
 Never silently default to the cute look.
 
-1. Bare-Bones Cinematic — _default; the proven house look._ Best for origin/scenario and transformation ads.
+1. Glass Shell — _default (Reed, 3 Nov: five of his six reference videos); X-Ray folded into it._ Best for health, body, supplement and "what happens inside you" angles, and most others.
+
+> CHARACTER: A full anatomical skeleton with natural adult human proportions, tall and lanky, smooth ivory-cream bones with realistic bone detail (NOT toy-smooth, NOT chibi, NOT scary), and large expressive cartoon eyes with white sclera and dark pupils set in the eye sockets, inside a clear, glossy, glass-like body shell in a human silhouette (never tinted); organs show inside only when the story needs them, glowing on the line that names them.
+
+Same character in every shot of its world.
+
+STYLE: cinematic 3D animated render, photoreal [THEME] environment with a warm [palette] grade and soft haze, OR a clean set (white room, flat blue gradient, medical lab) in soft cool or neutral light; inside the body always warm.
+
+2. Bare-Bones Cinematic — _the lane skeleton-bare (the default until 3 Nov)._ Best for origin/scenario and transformation ads.
 
 > CHARACTER: A full anatomical skeleton with natural adult human proportions, tall and lanky, smooth ivory-cream bones with realistic bone detail (NOT toy-smooth, NOT chibi, NOT scary), and large expressive cartoon eyes with white sclera and dark pupils set in the eye sockets, giving an emotive, lovable face.
 
@@ -188,7 +199,7 @@ Same character in every shot.
 
 STYLE: cinematic 3D animated render, photoreal [THEME] environment, warm [palette] color grade, soft volumetric light with drifting steam/atmosphere, shallow depth of field.
 
-2. Dressed Skeleton — the same skeleton wearing a full themed outfit. Best for wearable, fashion, lifestyle, or identity products.
+3. Dressed Skeleton — the same skeleton (Glass Shell or Bare-Bones) wearing a full themed outfit. Best for wearable, fashion, lifestyle, or identity products.
 
 > CHARACTER: The same friendly skeleton (ivory bones, large expressive cartoon eyes with white sclera and dark pupils) wearing a complete [THEME-appropriate wardrobe, e.g. tailored suit / cowboy attire / varsity jacket and cap]; skull, hands and any exposed bones still visible.
 
@@ -196,21 +207,13 @@ Same character in every shot.
 
 STYLE: cinematic 3D animated render, photoreal [THEME] environment, warm [palette] color grade, soft volumetric light, shallow depth of field.
 
-3. X-Ray with Organs — a translucent glowing body showing skeleton + internal organs. Best for health, body, supplement, or "what happens inside you" angles.
-
-> CHARACTER: A translucent glowing anatomical human body revealing the full white skeleton PLUS visible internal organs (heart, lungs, intestines) glowing red and orange through a blue-tinted translucent skin outline, with large expressive cartoon eyes.
-
-Same character in every shot.
-
-STYLE: clean sci-fi medical 3D render, cool blue translucent body with warm organ glow, [environment: a real setting with x-ray glow OR a clean blue gradient backdrop], soft rim light.
-
 4. Cute Mascot — chibi, toy-like, friendly. Best for playful, fun, or lighthearted brands only.
 
 > CHARACTER: A cute chibi cartoon skeleton with an oversized round skull, big adorable eyes, a small rounded body, and smooth toy-like bones; bright, friendly, non-scary.
 
 Same character in every shot.
 
-STYLE: playful 3D animated render, simple clean [pastel/theme] background, soft even studio lighting, glossy finish.
+STYLE: playful 3D animated render, a warm, lived-in real home in the [theme], lamp or window light, soft depth of field, glossy finish.
 
 (Aspect ratio and resolution are generation settings — never write them into the prompt.)
 
@@ -225,9 +228,9 @@ The whole voiceover is generated first and becomes the factual pacing source; th
 
 2. Pick the angle + spine with the strategy above. State the chosen angle + spine in one line with a one-line rationale.
 
-3. Write the script in the swipe-file voice: a curiosity-gap question, then 5–7 escalating shots, then the payoff + a soft CTA tied to the offer. ~110–160 words (≈30–60s of VO), one sentence per shot. Open the question in the first line, land the product on one clean turn, and answer the question at the payoff.
+3. Write the script in the swipe-file voice: a curiosity-gap question, then 5–7 escalating shots, then the payoff + a soft CTA tied to the offer. ~110–160 words (≈30–60s of VO), one shot per sentence, or per phrase when a sentence runs over about 2.5 s. Open the question in the first line, land the product on one clean turn, and answer the question at the payoff.
 
-4. The full script and the same script as a numbered VO line list (one line = one shot, one clip's worth of narration each).
+4. The full script and the same script as a numbered VO line list (one line = one sentence, one clip's worth of narration each; a long sentence takes a shot per phrase).
 
 ```
 Angle: [angle + spine] — [one-line rationale]
@@ -236,7 +239,7 @@ Loop → turn: [the question the hook opens] → [the shot where the product ent
 ## Script — "[Hook title]"
 [Full script: hook question + 5–7 escalating shots + payoff/CTA, swipe-file voice.]
 
-## Voiceover line list (one line = one shot)
+## Voiceover line list (one line = one sentence)
 1. [hook question]
 2. [shot 1] …
 N. [payoff + CTA]
@@ -252,17 +255,17 @@ The board needs only the lines; the take's word timings, analyzed in Stage 4, se
 
 2. Lock the world — recommend the recurring theme/setting that dramatizes the angle, plus 1–2 alternative theme directions (modern office, 1940s, the product's literal industry, post-apocalyptic…).
 
-3. Map every VO line to a shot in a grid — one row per line. The skeleton is in every row; what changes is its situation, the setting rung, and the props. Vary the framing across shots (wide establishing → medium → two-shot with a reacting human → close product handling → hero/triumph), and use reaction characters (period townsfolk, coworkers) to amplify the arc.
+3. Map every VO line to a shot in a grid — one row per line. The skeleton is in every row of its world; what changes is its situation, the setting rung, and the props. Vary the framing across shots (wide establishing → medium → two-shot with a reacting human → close product handling → hero/triumph), and use reaction characters (period townsfolk, coworkers) to amplify the arc.
 
 ```
 ## Visual concept board — "[Hook title]"
-Style: [one of the 4] — [why it fits]   Theme: [world] — [why]   Alternatives: [B] · [C]
+Style: [one of the library] — [why it fits]   Theme: [world] — [why]   Alternatives: [B] · [C]
 
-| # | VO line | Skeleton's situation & emotion | Setting (the spine rung) | Props / product | Caption idea (editor only — NOT in prompts) | Join (editor only) |
-|---|---|---|---|---|---|---|
-| 1 | [line] | [pose, expression, action] | [where] | [props] | "[optional editor caption]" | [join into the shot] |
+| # | VO line | Skeleton's situation & emotion | Setting (the spine rung) | Props / product | Join (editor only) |
+|---|---|---|---|---|---|
+| 1 | [line] | [pose, expression, action] | [where] | [props] | [cut or dive into the shot] |
 
-The last two columns are notes for the editor to add later — they never go into a prompt (generated footage stays clean of text).
+The last column is a note for the editor — it never goes into a prompt (generated footage stays clean of text).
 ```
 
 ### Stage 3 — Lock the skeleton reference + per-shot start frames
@@ -279,14 +282,14 @@ The last two columns are notes for the editor to add later — they never go int
 
 2. Batch the shots into multi-shot video generations (start frames per shot) — group consecutive shots up to the 15s cap, role-label each shot's start frame ("image N is shot N's start frame"), describe each shot's motion + one camera move + the transition to the next, and keep the clips silent (no dialogue — the VO is overlaid in the editor). Tell the model the pacing so the visuals land with their lines.
 
-3. Assemble the clips over the voiceover in the editor with the board's joins — a motion transition on every change of rung or setting — background music (tense under the build, lift at the payoff), and captions — never burned into the footage.
+3. Assemble the clips over the voiceover in the editor with the board's joins — hard cuts as the base, a dive into what the line names for the big moments — and no music or a low bed well under the voice; nothing is burned into the footage.
 
 ---
 
 ## Locked rules
-- R1 — The skeleton is the constant. One canonical character reference; re-attach it and identify it in every shot's still; never chain off a previous shot's output. The Style Library block is locked once chosen — don't drift the eyes, bones, or proportions mid-ad.
+- R1 — The skeleton is the constant. One canonical character reference; re-attach it and identify it in every still it is in; never chain off a previous shot's output. The Style Library block is locked once chosen — don't drift the eyes, bones, or proportions mid-ad.
 
-- R2 — One VO line = one shot = one rung of the spine. Cramming two ideas into a shot kills the rhythm and the loop.
+- R2 — One VO sentence = one shot (one per phrase when it runs over about 2.5 s) = one rung of the spine. Cramming two ideas into a shot kills the rhythm and the loop.
 
 - R3 — The visual is the proof of the line. Each shot literally shows what the VO says at that moment — a viewer should follow the story with the sound off.
 
