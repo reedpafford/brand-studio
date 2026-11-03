@@ -27,7 +27,8 @@ def explain(db: Session, job: Job) -> None:
 
 def step_failed(db: Session, job: Job) -> None:
     """A step's job failed at the provider: the reel watch retries, then falls back; a
-    refused or busy take, and a presenter's host, is tried again once on its own (P3)."""
+    refused or busy take, a presenter's host and a take's added sound are tried again once on
+    their own (P3)."""
     from app.clip_takes import retry
     from app.reel_read import watch_failed
 
@@ -41,13 +42,13 @@ def step_failed(db: Session, job: Job) -> None:
             retry(db, job)
         except Exception:  # never let a retry break the worker
             log.exception("job %s: retrying the take failed", job.id)
-    if job.input.get("step") in ("host_still", "host_piece"):  # once on its own (rule 22)
-        from app.host import failed
+    if job.input.get("step") in ("host_still", "host_piece", "take_sound"):  # once (rule 22)
+        from app.clip_takes import once_more
 
         try:
-            failed(db, job)
+            once_more(db, job)
         except Exception:  # never let a retry break the worker
-            log.exception("job %s: retrying the host failed", job.id)
+            log.exception("job %s: trying it again failed", job.id)
     if job.input.get("step") == "reel_watch":
         try:
             watch_failed(db, job)
@@ -143,6 +144,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.song_takes import save_take as save_song
     from app.song_takes import save_timing
     from app.storyboard import save_frames, save_still
+    from app.take_sound import saved as save_sound
     from app.take_words import save as save_words
     from app.watch_cut import heard_cut
     from app.watch_cut import save as save_watch_cut
@@ -168,6 +170,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "look_sample_clip": save_sample_clip,
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
+        "take_sound": save_sound,
         "host_still": save_host,
         "host_piece": save_host,
         "variations": save_variations,

@@ -217,7 +217,7 @@ def _song(db: Session, project: Project) -> str | None:
     take = song_breakdown.take_for(db, project)
     if take is None or take.timing is None:
         return None
-    return escape_block(prompts.song_block(song_breakdown.timing_used(take)))
+    return escape_block(prompts.song_block(take.timing or {}))
 
 
 def _plan_of(plan: dict) -> ScenePlan:

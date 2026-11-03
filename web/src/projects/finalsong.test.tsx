@@ -29,7 +29,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
   "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145 }],
 };
 
 function open(query = "?step=cast") {
@@ -44,8 +44,8 @@ const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)]
 
 afterEach(() => vi.unstubAllGlobals());
 
-const songTake = (o: object = {}) => ({ id: 1, number: 2, status: "ready", failed_reason: null, retry_helps: true, file_id: 80, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, in_video: false, ...o });
-const songs = (takes: object[], song_take_id = 1) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes, song_take_id });
+const songTake = (o: object = {}) => ({ id: 1, number: 2, status: "ready", failed_reason: null, retry_helps: true, file_id: 80, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, in_video: false, ...o });
+const songs = (takes: object[], song_take_id = 1) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes, song_take_id });
 
 test("a song video's final cut names the take laid under it and downloads the song", async () => {
   setViewport(390);

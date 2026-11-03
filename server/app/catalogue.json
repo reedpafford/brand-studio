@@ -167,6 +167,17 @@
    "duration": {"min": 1, "max": 190},
    "price": {"unit": "call", "usd": {"any": 0.20}},
    "price_source": "Replicate model page 2026-10-29: $0.20 per output audio file"
+  },
+  {
+   "id": "mmaudio",
+   "name": "MMAudio",
+   "kind": "sound",
+   "provider_model": "zsxkib/mmaudio",
+   "provider_version": "62871fb59889b2d7c13777f08deb3b36bdff88f7e1d53a50ad7694548a41b484",
+   "default": true,
+   "offered": false,
+   "price": {"unit": "call", "usd": {"any": 0.0061}, "gpu_usd_per_second": 0.000975},
+   "price_source": "Replicate model page 2026-11-03: about $0.0061 a run (163 runs per $1) on an Nvidia L40S; billed by GPU time, $0.000975 a second (replicate.com/pricing), so the real cost is the run's predict_time at that rate"
   }
  ]
 }

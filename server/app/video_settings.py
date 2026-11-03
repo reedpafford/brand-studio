@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app import looks
 from app.catalogue import catalogue
-from app.credits import budget_used, credits_used, get_limits
+from app.credits import budget_used
 from app.models.accounts import User
 from app.models.brands import BrandScreen
 from app.models.breakdowns import BreakdownVersion
@@ -31,7 +31,6 @@ from app.models.storyboards import StoryboardFrame
 
 SHAPES = ("9:16", "1:1", "16:9", "4:3", "3:4", "21:9")
 OVER_BUDGET = "That's more than this video's budget."
-OVER_CAP = "Over the video limit ({} credits)."
 ONE = "Change one setting at a time."
 NOT_A_MODEL = "There's no such {} model."
 PAST_OK = (
@@ -196,18 +195,15 @@ def preview(db: Session, user: User, project: Project, values: dict) -> dict:
         stills, clips = out_of_date(db, project)
         roles = [r for r in roles_needing_look(db, project) if r not in roles_now]
         now = to_finish(db, project)
-    used = credits_used(db, project)
-    cap = get_limits(db, project.workspace_id).per_video_max_credits
-    over_cap = used + now > cap
     budget = project.budget_credits
     over_budget = bool(budget) and budget_used(db, project) + now > budget  # as the hold counts
-    reason = OVER_CAP.format(cap) if over_cap else OVER_BUDGET if over_budget else ""
+    reason = OVER_BUDGET if over_budget else ""
     return {
         "to_finish_credits": float(now), "was_credits": float(was),
         "stills_out_of_date": len({s.id for s in stills} - {s.id for s in stills_now}),
         "clips_out_of_date": len({c.id for c in clips} - {c.id for c in clips_now}),
         "roles_needing_look": roles,
-        "sung_to_broll": flips, "over_budget": over_budget, "over_cap": over_cap,
+        "sung_to_broll": flips, "over_budget": over_budget,
         "reason": reason,
     }  # fmt: skip
 
@@ -268,7 +264,7 @@ def follow_lip_sync(db: Session, project: Project, could: bool) -> int:
 
 
 def switch(db: Session, user: User, project: Project, values: dict, undo: bool = False) -> dict:
-    """Switch one setting (refused over the budget or the cap, with the reason); returns the
+    """Switch one setting (refused over the budget, with the reason); returns the
     settings it replaced, for Undo (the same call with them). Undo puts back what the video
     already had, so it's never refused: each paid press still checks when it spends."""
     values = check(db, user, project, values)
@@ -350,12 +346,9 @@ def script_of(db: Session, project: Project):
 
 
 def settings(db: Session, project: Project) -> dict:
-    """The row's choices, each with its price in credits and whether it's over the cap."""
+    """The row's choices, each with its price in credits."""
     from app.breakdown import video_model
     from app.credits import estimate
-
-    used = credits_used(db, project)
-    cap = get_limits(db, project.workspace_id).per_video_max_credits
 
     def price(kind: str, m) -> float:
         if kind != "video":  # a still, priced as its job will be
@@ -364,10 +357,6 @@ def settings(db: Session, project: Project) -> dict:
             return float(still_credits(db, project.workspace_id, m))
         job = {"model": m.id, "input": {"resolution": m.take_resolution}}
         return float(estimate(db, project.workspace_id, kind, Decimal(1), job))
-
-    def over(field: str, value) -> bool:
-        with trying(db, project, {field: value}):
-            return used + to_finish(db, project) > cap
 
     screens = db.scalars(select(BrandScreen).where(BrandScreen.brand_id == project.brand_id,
                                                    BrandScreen.deleted_at.is_(None)))  # fmt: skip
@@ -384,10 +373,10 @@ def settings(db: Session, project: Project) -> dict:
         "product_variants": project.product_variants or {},
         "language": script.language if script else "en",
         "video_models": [{"id": m.id, "name": m.name, "credits_per_second": price("video", m),
-                          "lip_sync": m.lip_sync, "default": m.id == auto,
-                          "over_cap": over("video_model", m.id)} for m in _models("video")],
+                          "lip_sync": m.lip_sync, "default": m.id == auto}
+                         for m in _models("video")],
         "image_models": [{"id": m.id, "name": m.name, "credits_per_still": price("image", m),
-                          "default": m.default, "over_cap": over("image_model", m.id)}
+                          "default": m.default}
                          for m in _models("image")],
         "shapes": list(SHAPES), "flavours": flavours,
     }  # fmt: skip

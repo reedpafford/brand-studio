@@ -41,6 +41,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n24 | Last active (v5 audit, Team): `users.last_active_at`, nullable, no default (null: not seen since it shipped); kept to within 5 minutes by `auth.current_user`. Downgrade drops it | Next-Server | #1247 |
 | n25 | Forecast and score (app/scorecard.py): four nullable columns on `projects` for what Make forecast and the owner's 1–5 score and note. Downgrade drops them | Spend-metrics | #1258 |
 | n26 | A script's format (stream D): `scripts.format`, nullable text, a guides format id (null: the format its `kind` stands for); `scripts.kind` is always that format's engine. `freestyles.type` widens to 40 characters and now holds a format id (or `one_clip`). Downgrade drops the column and narrows the type | Format-picker | — |
+| n28 | No per-video cap (Reed, 2026-11-03: "Just remove the cap entirely"): drops `credit_limits.per_video_max_credits` and `song_takes.trim_to` ("Use the first 0:55", which only existed to fit a song video under the cap). A take that was trimmed is used whole. Downgrade adds both back (the cap at 729, trims empty) | No-video-cap | — |
 
 ## Merge order (the chain on `next`)
 
@@ -74,6 +75,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 23 | n24 | #1247 | n23 | On `next` (6bef3c48) |
 | 24 | n25 | #1258 | n24 | On `next` (a8e8b9d2) |
 | 25 | n26 | — | n25 | On its PR |
+| 26 | n28 | — | n27 | On its PR |
 
 ## 1. Song ads
 
@@ -81,7 +83,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 |---|---|---|
 | `scripts` | `kind` text: the **Format**. `story` (shown as **Dialogue**), `song` or `narrated`, default `story` | Set at New script (S1). Dialogue ↔ Narrated can change before publishing (ST0); Song never changes. `narrated` needs no migration (text). Since n26 it is the engine of the script's `format` (a guides format id), set whenever the format is. |
 | `script_drafts` (a version) | The lyrics are the version's `text`, as a story's words are. Add `style_line` text (default ""), `song_directions` JSON list (default [], each `{concept, lyrics, style_line, visual_concept, recommended}`), `singer` text (the cast role who sings, "" = nobody on camera) and `spoken_end_line` text (default "", S2) | Rule 19: only the owner's typing or **Use this one** writes `text`. |
-| New: `song_takes` | `id`, `draft_id` (FK script_drafts, cascade), `project_id` (nullable FK projects: set when an editor made it in their video, V2a), `job_id`, `file_id` (null until made), `lyrics` and `style_line` (the exact text it was made from), `seconds` (null until measured), `timing` (JSON: sections, beats, lines, words `[{word, start, end}]`; null until measured), `timing_job_id`, `trim_to` (seconds, null = whole take; "Use the first 0:55"), `advice` (JSON list), `preferred` bool, `batch` (each "Make 2" press), `track` (0 or 1: which of the Suno request's two songs this is; `job_id` is shared by the pair), `timing_guessed` bool, `created_by_id`, `deleted_at` (Undo) | A take can be Preferred only when `lyrics` and `style_line` equal the version's and its timing is measured (S4). At most one preferred per version, enforced in code and tested. Takes with a `project_id` are seen only in that video. |
+| New: `song_takes` | `id`, `draft_id` (FK script_drafts, cascade), `project_id` (nullable FK projects: set when an editor made it in their video, V2a), `job_id`, `file_id` (null until made), `lyrics` and `style_line` (the exact text it was made from), `seconds` (null until measured), `timing` (JSON: sections, beats, lines, words `[{word, start, end}]`; null until measured), `timing_job_id`, `advice` (JSON list), `preferred` bool, `batch` (each "Make 2" press), `track` (0 or 1: which of the Suno request's two songs this is; `job_id` is shared by the pair), `timing_guessed` bool, `created_by_id`, `deleted_at` (Undo) | A take can be Preferred only when `lyrics` and `style_line` equal the version's and its timing is measured (S4). At most one preferred per version, enforced in code and tested. Takes with a `project_id` are seen only in that video. |
 | Breakdown shots (inside `breakdowns.data` and `script_drafts.breakdown`) | A song breakdown keeps the plain plan as it is, with a song part beside it: `data["song"] = {take_id, shots: {shot id: {start, end, sung}}}` (seconds in the song, at word or line edges). New rows carry the newest row's song part for the shots they keep (Next-Server, #799). | No migration. The ~43 readers of a plain Breakdown never see or drop it. A changed `take_id` versus the video's `song_take_id` is how a take change is noticed. |
 | `project_clips` | `song_slice` JSON: `{start, end}` of the song this clip covers, and `sung_shots` | The slice is what a Sung clip lip-syncs. |
 | `final_videos` | `song_take_id` (nullable FK) | The song laid underneath; null for a story video. |

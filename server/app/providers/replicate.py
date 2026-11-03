@@ -138,6 +138,9 @@ def _usage(model: CatalogueModel, prediction: dict, file_count: int) -> UsageIte
     unit = model.price.unit
     metrics = prediction.get("metrics") or {}
     request = prediction.get("input") or {}
+    rate, ran = model.price.gpu_usd_per_second, metrics.get("predict_time")
+    if rate and ran is not None:  # billed by GPU time (MMAudio): what this run really cost
+        return UsageItem(Decimal(1), unit, Decimal(str(ran)) * rate, False)
     reported = metrics.get(METRIC_FOR_UNIT.get(unit, ""))
     estimated = reported is None
     if reported is not None:

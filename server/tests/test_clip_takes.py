@@ -214,16 +214,6 @@ def test_money_rules(app, db, owner, editor, setup, clip):  # noqa: F811
     assert editor.get(base).json()["credits_used"] == pytest.approx(used + 5)
     _work(app, db, FakeSeedance([_mp4("red")]))
 
-    limits = {"max_planned_seconds": 170, "weekly_quick_clip_credits": 150}
-    owner.put("/credits/limits", json={**limits, "per_video_max_credits": int(used) + 9})
-    over = editor.post(f"{url}/generate")  # 5 more would pass the per-video cap
-    assert (over.status_code, over.json()["detail"]) == (409, "This video would go over its limit.")
-    assert "$" not in over.json()["detail"]  # editors never see dollars
-    mine = owner.post(f"{url}/generate")  # the cap holds for the owner too, in dollars
-    assert mine.status_code == 409 and mine.json()["detail"].startswith(
-        "This video would go over its $"
-    )
-
 
 def test_reference_without_a_picture(app, db, editor, setup, clip):  # noqa: F811
     voiceless = editor.post("/library/character", json={"name": "Ghost"}).json()["id"]

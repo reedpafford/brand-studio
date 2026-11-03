@@ -2,7 +2,7 @@
 second costs in credits, how often takes are made again, and how Reed scored the videos.
 
 A finished video is a Project with `finished_at`. Its credits are everything charged to it, the
-director's own turns included (kept apart too). The forecast is shown beside the prices, caps
+director's own turns included (kept apart too). The forecast is shown beside the prices
 and rule 34's bound; it changes none of them. Credits only: nothing here is in dollars."""
 
 from dataclasses import dataclass

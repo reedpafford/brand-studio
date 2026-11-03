@@ -356,6 +356,14 @@ def after_fix(db: Session, row: ProjectClip, failed_id: int) -> None:
     _again(db, failed, again, wait=False)
 
 
+def once_more(db: Session, job: Job) -> None:
+    """A failed host still or piece, or a take's added sound: tried again once on its own
+    (never charged twice); after that Make again makes it (rule 22)."""
+    if job.auto or db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
+        return
+    _again(db, job, job.input, wait=bool(BUSY_SAID.search(job.error_detail or "")))
+
+
 def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
     project = db.get(Project, job.project_id)
     user = db.get(User, job.created_by_id)
@@ -384,6 +392,8 @@ def still_wanted(db: Session, job: Job) -> bool:
     prompt is the one it was made from (Flow-QA: an edit during a busy wait)."""
     row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
     project = db.get(Project, job.project_id) if job.project_id else None
+    if row is None and job.input.get("step") in ("host_still", "host_piece", "take_sound"):
+        return bool(project and project.archived_at is None)  # not a take: only its video
     return bool(row and project and project.archived_at is None
                 and row.prompt == job.input.get("clip_prompt"))  # fmt: skip
 

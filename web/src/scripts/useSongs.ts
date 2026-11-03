@@ -3,7 +3,6 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
-import { clock } from "./TakePlayer";
 import { refreshJobs } from "../jobs/refresh";
 
 export type SongTake = components["schemas"]["SongTakeOut"];
@@ -67,21 +66,6 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
       toast(`${words.noun} ${data?.take.number} ${words.picked}.`, was ? () => void ok(api.POST("/songs/{take_id}/preferred", take(was))).then(refresh) : undefined);
     },
   });
-  // "Use the first 0:55": with no other take Preferred, the trimmed take also becomes the one used (flows S4).
-  // One toast, one Undo: un-trimming puts the whole take back (the server drops Preferred from a take over the cap).
-  const trim = useMutation({
-    mutationFn: async ({ t, prefer }: { t: SongTake; prefer: boolean }) => {
-      const trimmed = await ok(api.POST("/songs/{take_id}/trim", take(t.id)));
-      if (prefer) await ok(api.POST("/songs/{take_id}/preferred", take(t.id)));
-      return { trimmed, prefer };
-    },
-    onSuccess: async ({ trimmed, prefer }) => {
-      await refresh();
-      const first = trimmed?.trim_to ? clock(trimmed.trim_to) : "part";
-      toast(`Take ${trimmed?.number} now uses its first ${first}${prefer ? " and is Preferred" : ""}. The whole take is kept.`, () => void ok(api.DELETE("/songs/{take_id}/trim", take(trimmed!.id))).then(refresh));
-    },
-    onError: refresh, // a trim that landed before a refused Preferred still shows
-  });
   const remove = useMutation({
     mutationFn: async (t: SongTake) => {
       await ok(api.DELETE("/songs/{take_id}", take(t.id)));
@@ -92,5 +76,5 @@ export function useSongActions(scriptId: number, words: { noun: string; picked: 
       toast(`${words.noun} ${t.number} deleted.`, () => void ok(api.POST("/songs/{take_id}/restore", take(t.id))).then(refresh));
     },
   });
-  return { make, tryAgain, musicAgain, spread, prefer, trim, remove, ask, sends };
+  return { make, tryAgain, musicAgain, spread, prefer, remove, ask, sends };
 }

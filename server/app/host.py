@@ -180,12 +180,10 @@ def state(db: Session, project: Project) -> dict:
 def _spans(take: SongTake, whole: bool = False) -> list[tuple[float, float]]:
     """The narration's pieces, cut at its sentence ends (`host_layer.pieces`); a UGC
     talker's (`whole`) is one piece, the whole narration."""
-    from app.song_breakdown import timing_used
-
     end = float(take.seconds)
     if whole:
         return talker.whole(end)
-    ends = [ln["end"] for ln in timing_used(take).get("lines") or [] if ln.get("end")]
+    ends = [ln["end"] for ln in (take.timing or {}).get("lines") or [] if ln.get("end")]
     return host_layer.pieces(sorted({round(e, 2) for e in ends if 0 < e < end}) + [end])
 
 
@@ -342,16 +340,6 @@ def saved(db: Session, job: Job) -> None:
     user = db.get(User, job.created_by_id)
     for piece in rows(db, project)[1:]:
         _piece(db, user, project, piece, row.file_id, prepaid=True)
-
-
-def failed(db: Session, job: Job) -> None:
-    """A failed still or piece is tried again once on its own (never charged twice); after that
-    Make again makes it."""
-    from app.clip_takes import BUSY_SAID, _again
-
-    if job.auto or db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
-        return
-    _again(db, job, job.input, wait=bool(BUSY_SAID.search(job.error_detail or "")))
 
 
 def labels(db: Session, project: Project) -> list[str]:

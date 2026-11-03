@@ -16,8 +16,6 @@ from app.credits import (
     FREESTYLE,
     PAST_APPROVED,
     USD_PER_CREDIT,
-    check_clip_cap,
-    check_video_cap,
     estimate,
     is_quick_clip,
     lock,
@@ -279,10 +277,10 @@ def enqueue(
     writing runs free), is held for the owner (Reed: "Hold requests"): it waits as
     `needs_owner_approval`, charged nothing until the owner approves it, and `held` says why.
     `wait`: hold it with that reason anyway (the rest of a press whose first job was held).
-    The per-video cap, an archived video and a length not approved yet are refused (409).
+    An archived video and a length not approved yet are refused (409).
     The check and the reservation are one locked transaction. `prepaid`: a later step of work
     the editor already pressed for at its full price (a run's next step, the reel read chain),
-    so it's never held again; caps, brand, credits and Usage stay as for any job. `hold`: a
+    so it's never held again; brand, credits and Usage stay as for any job. `hold`: a
     later step this press already pays for (e.g. Change it's still or take), checked together."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if no := real_budget_refusal(db, get_settings(), provider, credits + hold):
@@ -292,10 +290,8 @@ def enqueue(
         db.refresh(project)  # read its status after taking the lock
         if project.archived_at is not None:
             raise HTTPException(409, "This video is archived. Bring it back to work on it.")
-        check_video_cap(db, user, project, credits + hold)
     else:
         lock(db, User, user.id)
-        check_clip_cap(db, user, credits)
     if project is not None and project.status != ProjectStatus.active and not user.is_owner:
         db.rollback()
         raise HTTPException(409, NOT_APPROVED)
@@ -439,10 +435,6 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
     """Owner lets a job that goes over its project budget run."""
     hidden.see(db)  # a freestyle's turn is on its hidden video
     job = _get_job(db, owner, job_id)
-    if job.project_id is not None and job.status == JobStatus.needs_owner_approval:
-        project = db.get(Project, job.project_id)
-        lock(db, Project, project.id)
-        check_video_cap(db, owner, project, job.credits)  # not even the owner goes past it
     done = db.execute(
         update(Job)
         .where(Job.id == job.id, Job.status == JobStatus.needs_owner_approval)

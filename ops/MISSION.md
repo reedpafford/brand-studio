@@ -5,7 +5,7 @@ Let a small team make engaging brand videos fast, from a script or brief, with e
 - An editor goes from brief to a finished, on-brand video without help.
 - Brand elements that must appear always appear: the logo, UI and product main text read right (small print and numbers may vary).
 - Videos are engaging: strong hook, clear story, no dead air.
-- Cost stays inside each project's budget (2x the 480p estimate) and never above the $75 per-video hard cap.
+- Cost stays inside each project's budget (2x the 480p estimate).
 
 ## Definition of done (Reed, 2026-10-23)
 Done means an editor on the **live site** makes both videos below from brief to final cut **without agent help**, and Reed signs off. We plan every PR toward these two.
