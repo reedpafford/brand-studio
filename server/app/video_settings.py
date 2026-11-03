@@ -318,7 +318,7 @@ def settings(db: Session, project: Project) -> dict:
             from app.storyboard import still_credits
 
             return float(still_credits(db, project.workspace_id, m))
-        job = {"model": m.id, "input": {"resolution": "480p"}}
+        job = {"model": m.id, "input": {"resolution": m.take_resolution}}
         return float(estimate(db, project.workspace_id, kind, Decimal(1), job))
 
     def over(field: str, value) -> bool:

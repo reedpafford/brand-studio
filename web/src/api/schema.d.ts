@@ -6135,11 +6135,8 @@ export interface components {
              * @default 5
              */
             duration: number;
-            /**
-             * Resolution
-             * @default 480p
-             */
-            resolution: string;
+            /** Resolution */
+            resolution?: string | null;
             /**
              * Generate Audio
              * @default true
@@ -6906,11 +6903,8 @@ export interface components {
              * @default 5
              */
             duration: number;
-            /**
-             * Resolution
-             * @default 480p
-             */
-            resolution: string;
+            /** Resolution */
+            resolution?: string | null;
             /**
              * Generate Audio
              * @default true
