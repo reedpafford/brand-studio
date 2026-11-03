@@ -1767,7 +1767,7 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     without hearing it, and remakes once with a note in the music's words; never a lyric."""
     director = prompts.system("director")
     for part in ("- `song` (paid, `note`)", "- `narration` (paid, `note`)", "songs_left",
-                 "never the pet's voice", "a take with any speech in it is a fault",
+                 "never a character's voice", "a take with any speech in it is a fault",
                  "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
                  "never change a lyric (rule 19)", "With `take_id` and no `note` (free)",
                  "the shorter (fewer seconds to film)", "onto the song's sections",
