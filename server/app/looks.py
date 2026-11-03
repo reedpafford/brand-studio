@@ -1,6 +1,6 @@
 """Looks (flows ST1–ST3, Reed 2026-10-29): how a video's pictures are drawn, a setting apart
-from its format. Each look is a file in app/prompts/styles/ with `kind: look` (the
-Director's paragraphs); the formats there are not looks. A look is On for editors only once
+from its format. Each look is a guide in app/guides/styles/ (formats are app/guides/formats/).
+A look is On for editors only once
 the owner switches it on, and that needs its sample first (ST3); with no switch, the file's
 own `on:` applies (House alone). The owner may try an Off look on their own drafts."""
 
