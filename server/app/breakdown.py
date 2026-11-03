@@ -22,7 +22,8 @@ from app.prompts import check
 from app.prompts.schemas import Breakdown, SongBreakdown
 
 # Script kinds where people speak or sing on camera: they keep the default model, whatever the
-# style (Seedance 1 Lite has no sound or lip-sync). Narrated videos are B-roll under a voice.
+# style. PENDING REED: what dialogue and drama scenes use (a "Movie" style on Omni is coming).
+# Narrated videos are B-roll under a voice, so they follow their style.
 SPEAKS = ("", "story", "song")
 
 
@@ -30,8 +31,8 @@ def video_model(project: Project | None = None, look: str | None = None,
                 kind: str | None = None) -> CatalogueModel:  # fmt: skip
     """The video model for a video, the one answer for its takes, quotes and "up to" prices:
     its own pick (VS1) always wins; else the catalogue default (Seedance 2.5) where people
-    speak or sing on camera (`SPEAKS`: Seedance 1 Lite has no sound; Reed, 3 Nov); else its
-    look's `video_model:` (Seedance 2.5 for Pixar, Seedance 1 Lite for the rest). With no
+    speak or sing on camera (`SPEAKS`, pending Reed); else its
+    look's `video_model:` (Seedance 2.5 for Pixar, Seedance 2.0 for B-roll in the rest). With no
     video yet (a script's preview, a sample), pass its `look` and script `kind`."""
     models = catalogue()
     if project is not None and project.video_model in models:

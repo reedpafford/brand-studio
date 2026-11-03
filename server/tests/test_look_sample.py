@@ -45,7 +45,7 @@ def test_a_sample_of_the_brands_hero_is_made_then_the_look_switched_on(app, db, 
     said = still.input["input"]["prompt"]  # who Mia is, never how she's drawn (#1009)
     assert "Mia, the same person as in [Image1]" in said and "exactly as" not in said
     assert clip.input["input"]["duration"] == 5 and clip.input["files"]
-    assert "generate_audio" not in clip.input["input"]  # silent: Seedance 1 Lite has no sound
+    assert clip.input["input"]["generate_audio"] is False  # no sound to be refused (Zack D)
 
     on = owner.patch("/looks/zack-d", json={"on": True})
     assert on.status_code == 200 and on.json()["on"]  # Switch on for editors
@@ -95,7 +95,7 @@ def test_after_a_clip_that_didnt_finish_only_the_clip_is_made_again(app, db, own
     assert db.query(Job).count() == jobs + 1  # only the clip, no new still
     again = db.query(Job).order_by(Job.id.desc()).first()
     assert again.input["files"] == {"reference_images": [kept]}  # from the kept still
-    assert "generate_audio" not in again.input["input"]  # silent, as every sample clip
+    assert again.input["input"]["generate_audio"] is False  # silent, as every sample clip
     db.expire_all()
     _work(app, db, ticks=3)
     ready = owner.get(url).json()

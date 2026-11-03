@@ -2,7 +2,7 @@ name: Anime comic
 order: 6
 on: no
 image_model: auto
-video_model: seedance-1-lite
+video_model: seedance-2.0
 blurb: Original cel-shaded anime: clean ink lines, two-tone shading, strong key poses and impact frames.
 
 <!-- Reed's anime-comic skill (docs/next/skills/anime-comic.md, #1097; first from Starpop's anime-comic-ads, docs/research/starpop-2026-10-28, rule 20): one original graphic language held across the ad. We pick cel-shaded anime; inked comic or manga screentone could be their own entries. -->
