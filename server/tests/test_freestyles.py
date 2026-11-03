@@ -6,6 +6,7 @@ from app.credits import credits_left
 from app.models.accounts import User
 from app.models.jobs import Job
 from app.providers.fake_local import FakeMedia
+from app.routes.freestyles import MAX_PROMPT
 from app.worker import run_once
 from tests.conftest import first_brand
 
@@ -137,13 +138,16 @@ def test_changes_stop_where_one_clip_prompt_would_overflow(owner, db):
     fs = owner.post("/freestyles", json={**HOUSE, "text": "A cat trades at dawn."}).json()
     change = "Make the light warmer and the cat slower. " * 45  # about 1,900 letters
     codes = []
-    for _ in range(4):
+    for _ in range(6):  # how many fit depends on the look's own clip wording; the cap doesn't
         db.query(Job).update({Job.status: "succeeded"})  # each take done before the next
         db.commit()
         codes.append(
             owner.post(f"/freestyles/{fs['id']}/messages", json={"text": change[:2000]}).status_code
         )
-    assert codes[:3] == [201, 201, 201] and codes[3] == 409
+    accepted = codes.index(409)
+    assert accepted >= 2 and set(codes[:accepted]) == {201} and set(codes[accepted:]) == {409}
+    sent = [j.input["input"]["prompt"] for j in db.query(Job).all() if "input" in (j.input or {})]
+    assert sent and max(len(p) for p in sent) <= MAX_PROMPT
     r = owner.post(f"/freestyles/{fs['id']}/messages", json={"text": change[:2000]})
     assert "Start a new freestyle" in r.json()["detail"]
 

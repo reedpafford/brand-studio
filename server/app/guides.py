@@ -54,6 +54,7 @@ def _style(path: Path, parent: dict | None = None) -> dict:
         "order": float(meta["order"]),
         "on": meta.get("on") == "yes",  # only the starting switch: the server keeps Reed's own
         "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero
+        "hidden": meta.get("hidden") == "yes",  # a lane kept but off the picker (Reed, 3 Nov)
         "image_model": meta.get("image_model", "auto"),
         "blurb": meta["blurb"],
         "sections": sections,

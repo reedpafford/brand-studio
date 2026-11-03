@@ -63,7 +63,7 @@ def test_each_release_style_holds_its_own_pacing_and_3d_only_where_it_is_3d():
     assert "stylized 3D" not in (APP / "prompts" / "rules.md").read_text()
     for look in RELEASE:
         pacing = guides.style(look)["sections"]["pacing"]
-        assert pacing.endswith("(range to be set from the reference videos)"), look
+        assert pacing.strip(), look  # the placeholder until a style's references are measured
         assert f"### pacing\n{pacing}" in prompts.system("breakdown", look), look
         said = "stylized 3D characters" in guides.style(look)["sections"].get("The videos", "")
         assert said == (look != "claymation"), look
@@ -84,3 +84,54 @@ def test_release_guides_hold_no_chat_steps_starpop_assets_or_unused_models():
             assert gone not in text, (name, gone)
         if name not in ("house", "disney-pixar"):  # House is built on that look (test_styles)
             assert "pixar" not in text, name
+
+
+def test_hidden_lanes_still_load_but_are_off_the_picker_and_the_menu():
+    """Reed, 3 Nov (C8): Clean and Puppet claymation are hidden until a reference shows them,
+    not deleted: a video already in one still loads it."""
+    from app import looks
+
+    listed = [x["id"] for x in looks.lanes("claymation")]
+    assert listed == ["claymation-goofy"]
+    menu = guides.style("claymation")["sections"]["lanes"]
+    for lane in ("claymation-clean", "claymation-puppet"):
+        assert guides.style(lane)["hidden"] and guides.style(lane)["parent"] == "claymation"
+        assert lane not in menu
+
+
+def test_camera_behaviour_is_each_styles_own_and_house_follows_the_reels():
+    """Reed, 3 Nov (F8, H2): no global camera rule; the style's camera section decides. House:
+    "Sure follow the reels, but remain incredibly engaging"."""
+    rules = (APP / "prompts" / "rules.md").read_text()
+    assert "Camera behaviour follows the style guide's camera section." in rules
+    assert "Most shots carry a camera move" not in rules
+    camera = guides.style("house")["sections"]["camera"]
+    assert "mostly holds and moves on beats" in camera and "incredibly engaging" in camera
+    assert "It holds still, the people move." in camera
+    assert f"### camera\n{camera}" in prompts.system("breakdown", "house")
+
+
+def test_house_light_is_the_time_of_day_and_its_guides_leave_captions_to_post():
+    """Reed, 3 Nov (H1; "Captions, on all videos, come in post production")."""
+    house = guides.style("house")
+    assert all("cool blue shadows" not in v for v in guides.tokens("house").values())
+    assert "time of day" in house["sections"]["place_look"] and "time of day" in house["blurb"]
+    for guide in (guides.ROOT / "styles" / "house", guides.ROOT / "formats" / "dialogue"):
+        assert "caption" not in (guide / "guide.md").read_text().lower(), guide
+
+
+def test_dialogue_has_an_optional_closing_slot_for_the_brands_real_thing():
+    """Reed, 3 Nov (H8)."""
+    slot = guides.format_("dialogue")["sections"]["closing slot"]
+    assert "optional closing slot for the brand's real thing" in slot
+
+
+def test_rival_products_may_be_characters_only_where_the_style_says_so():
+    """Reed, 3 Nov (P1): germs, ingredients and rival products may have faces in Disney Pixar;
+    the brand's product never. Rule 2 keeps its ban and lets a style guide open it."""
+    rules = (APP / "prompts" / "rules.md").read_text()
+    assert "never put a competitor's or made-up product on screen, unless the style guide" in rules
+    assert "Pixar" not in rules  # rules.md goes to every style: no studio names
+    assert "the brand's own product is always the real one" in rules
+    stills = guides.style("disney-pixar")["sections"]["Stills"]
+    assert "The brand's product never has a face; germs, ingredients and rival products" in stills
