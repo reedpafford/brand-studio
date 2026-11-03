@@ -75,7 +75,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "duration": clip.seconds,
         "resolution": resolution,
         "aspect_ratio": project.aspect_ratio,
-        "generate_audio": True,
+        "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
     }, {k: v for k, v in files.items() if v})  # fmt: skip
     return {
         "step": "clip_take",
@@ -134,6 +134,25 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
 def _shots(breakdown: dict, ids: list[str]) -> list[dict]:
     by_id = {s["id"]: s for scene in breakdown["scenes"] for s in scene["shots"]}
     return [by_id[i] for i in ids if i in by_id]
+
+
+VOICE_OVER = re.compile(r"v\.?o\b|narrator|voice-?over|off.?screen", re.I)  # a speaker nobody sees
+
+
+def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: list[dict]) -> bool:
+    """Whether someone speaks or sings on camera in this clip, so its take keeps sound (Reed,
+    3 Nov: B-roll won't all need sound; sound effects are added on request afterwards). A
+    narrated video's clips and a song's B-roll shots are silent; a song's sung shots and a
+    story's spoken lines are not."""
+    from app.narration import video_kind
+
+    kind = video_kind(db, project)
+    if kind == "narrated":
+        return False
+    if kind == "song" or clip.song_slice:
+        return bool((clip.song_slice or {}).get("sung_shots"))
+    return any(s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
+               for s in shots)  # fmt: skip
 
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
