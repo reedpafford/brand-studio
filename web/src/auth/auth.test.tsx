@@ -70,7 +70,7 @@ test("the invite page says who invited you, to which studio, and as what; the to
   const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup] });
   renderAt("/invite/abc123");
   expect(await screen.findByRole("heading", { name: "Join Studio" })).toBeInTheDocument();
-  expect(screen.getByText("Ada invited you as an editor. You can write scripts and make videos; Ada approves anything past your weekly credits. Your email is ada@x.co.")).toBeInTheDocument();
+  expect(screen.getByText("Ada invited you as an editor. You can write scripts and make videos; Ada approves anything past your weekly credits.")).toBeInTheDocument();
   expect(calls.find((c) => c.key === "POST /auth/invite")?.body).toEqual({ token: "abc123" });
 });
 
@@ -133,7 +133,7 @@ test("a bad sign-in puts the focus back on Email, and the footer says how to get
   await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
   await screen.findByRole("alert");
   expect(screen.getByLabelText("Email")).toHaveFocus();
-  expect(screen.getByText("No account? Ask the owner for an invite link.")).toBeInTheDocument();
+  expect(screen.getByText("No account? You'll need an invite link.")).toBeInTheDocument();
 });
 
 test("the setup password says at least 10 characters and the browser holds a shorter one; there's no Sign in line", async () => {

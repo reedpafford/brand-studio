@@ -19,7 +19,7 @@ export function LoginPage() {
         { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
       ]}
       submit={(v) => api.POST("/auth/login", { body: { email: v.email, password: v.password } })}
-      footer={<p className="text-center text-xs text-muted">No account? Ask the owner for an invite link.</p>}
+      footer={<p className="text-center text-xs text-muted">No account? You'll need an invite link.</p>}
     />
   );
 }
@@ -108,7 +108,7 @@ export function InvitePage() {
       intro={
         <p className="text-sm text-muted">
           {/* v5 A_Invite, keeping the inviter's name (Reed, 3 Nov). */}
-          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} as {i.role === "owner" ? "an owner" : "an editor"}.{i.role === "owner" ? "" : ` You can write scripts and make videos; ${i.invited_by_name || "the owner"} approves anything past your weekly credits.`} Your email is {i.email}.
+          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} as {i.role === "owner" ? "an owner" : "an editor"}.{i.role === "owner" ? "" : ` You can write scripts and make videos; ${i.invited_by_name || "the owner"} approves anything past your weekly credits.`}
         </p>
       }
       submitLabel="Join"
