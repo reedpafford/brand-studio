@@ -33,7 +33,7 @@ export function VersionPick({ script, value, onChange }: { script: Script; value
     // The select itself fills the box, so its whole 44 px (32 on a computer) opens the list (QA-12 on #1238).
     <label className="inline-flex items-center gap-1.5 rounded-md border border-border pl-3 text-sm">
       <span className="text-muted">Version</span>
-      <select aria-label="Version" value={value} onChange={(e) => onChange(Number(e.target.value))} className="min-h-control bg-transparent pr-2 text-text lg:min-h-control-dense">
+      <select aria-label="Version" value={value} onChange={(e) => onChange(Number(e.target.value))} className="min-h-control min-w-11 bg-transparent pr-2 text-text lg:min-h-control-dense">
         {versions.map((v) => (
           <option key={v.slot} value={v.slot}>
             {LETTER[v.slot] ?? v.slot + 1}
