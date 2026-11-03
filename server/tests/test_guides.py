@@ -62,8 +62,8 @@ def test_each_release_style_holds_its_own_pacing_and_3d_only_where_it_is_3d():
     "stylized 3D characters" belongs to the 3D styles only, never to every video."""
     assert "stylized 3D" not in (APP / "prompts" / "rules.md").read_text()
     for look in RELEASE:
-        pacing = guides.style(look)["sections"]["pacing"]  # placeholder until measured
-        assert pacing.strip(), look
+        pacing = guides.style(look)["sections"]["pacing"]
+        assert pacing.strip(), look  # the placeholder until a style's references are measured
         assert f"### pacing\n{pacing}" in prompts.system("breakdown", look), look
         said = "stylized 3D characters" in guides.style(look)["sections"].get("The videos", "")
         assert said == (look != "claymation"), look
