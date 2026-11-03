@@ -97,3 +97,17 @@ def test_the_owner_reads_what_is_spent_so_far(app, owner, editor, db):
     assert (got["on"], got["budget_usd"], got["since"]) == (True, 20.0, "2026-01-01T00:00:00Z")
     assert got["spent_usd"] == float(job.credits * USD_PER_CREDIT)
     assert editor.get("/credits/real-budget").status_code == 403
+
+
+def test_stand_in_work_never_counts_against_the_real_budget(app, owner, db):
+    """The dry run: the counter counted the stand-ins' clips (fake://) as spent."""
+    from app.models.jobs import Job as J
+    from app.providers import get_providers
+
+    app.state.settings.real_budget_since = SINCE
+    app.state.settings.fake_providers = True
+    boss = db.query(User).filter_by(email="reed@example.com").one()
+    _take(db, boss)
+    run_once(db, get_providers(app.state.settings, app.state.storage))
+    assert db.query(J).one().provider_ref  # sent to the stand-in, at its price
+    assert owner.get("/credits/real-budget").json()["spent_usd"] == 0

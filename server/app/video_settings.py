@@ -11,6 +11,7 @@ app/looks.py, called here, never copied. Stills and takes made before n09 carry 
 
 import hashlib
 import json
+import math
 from contextlib import contextmanager
 from decimal import Decimal
 
@@ -32,6 +33,10 @@ SHAPES = ("9:16", "1:1", "16:9", "4:3", "3:4", "21:9")
 OVER_BUDGET = "That's more than this video's budget."
 ONE = "Change one setting at a time."
 NOT_A_MODEL = "There's no such {} model."
+PAST_OK = (
+    "That takes this video past the price approved (up to {credits} credits), so it needs a "
+    "new OK. Nothing changed: pick a model that costs the same or less."
+)
 OTHER = "{} made with other video settings. Make them again, then make the video."
 
 
@@ -256,13 +261,15 @@ def follow_lip_sync(db: Session, project: Project, could: bool) -> int:
 
 
 def switch(db: Session, user: User, project: Project, values: dict, undo: bool = False) -> dict:
-    """Switch one setting (refused over the budget or the cap, with the reason); returns the
+    """Switch one setting (refused over the budget, with the reason); returns the
     settings it replaced, for Undo (the same call with them). Undo puts back what the video
     already had, so it's never refused: each paid press still checks when it spends."""
     values = check(db, user, project, values)
+    keep = _follow_price(db, user, project, values)  # a freestyle's: past its OK, said first
     found = preview(db, user, project, values)
     if found["reason"] and not undo:
         raise HTTPException(409, found["reason"])
+    keep()
     was = {k: getattr(project, k) for k in values}
     could = lip_sync(project)
     for k, v in values.items():
@@ -277,6 +284,39 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
         follow_own_looks(db, project)
     db.commit()
     return was
+
+
+def _follow_price(db: Session, user: User, project: Project, values: dict):
+    """A freestyle's video switched before its run asked for any take: its newest send's
+    "up to" (and what the owner's OK covers) is the video's whole price with the switch (rule
+    36), kept by the step this returns. Past what the owner approved, only the owner may
+    switch it: theirs is the new OK (rule 34); an editor's is refused here, saying so."""
+    from app.credits import approved
+    from app.models.freestyles import Freestyle
+    from app.models.jobs import Job
+    from app.models.script_library import ScriptDraft
+    from app.routes.estimate import run_price
+    from app.routes.jobs import PRICE
+
+    fs = db.scalar(select(Freestyle).where(Freestyle.project_id == project.id))
+    sent = fs.chat[-1] if fs and fs.chat and "price" in fs.chat[-1] else None
+    if sent is None or not project.script_draft_id or db.scalar(select(Job.id).where(
+            Job.project_id == project.id, Job.kind == "video", Job.id > sent["job"])):  # fmt: skip
+        return lambda: None  # not a freestyle's, or its run makes takes: each step holds
+    with trying(db, project, values):
+        price = run_price(db, db.get(ScriptDraft, project.script_draft_id), project)
+    ok = Decimal(sent.get("approved", sent["price"]))  # the figure the owner said yes to
+    if price > ok and not user.is_owner:
+        raise HTTPException(409, PAST_OK.format(credits=math.ceil(ok)))
+
+    def keep() -> None:
+        fs.chat = [*fs.chat[:-1], {**sent, "price": str(price),
+                                   "approved": str(price if user.is_owner else ok)}]  # fmt: skip
+        turn = db.get(Job, sent["job"])
+        turn.input = {**turn.input, PRICE: str(price)}
+        fs.up_to = approved(db, fs)
+
+    return keep
 
 
 def follow_own_looks(db: Session, project: Project) -> None:
@@ -304,6 +344,7 @@ def script_of(db: Session, project: Project):
 
 def settings(db: Session, project: Project) -> dict:
     """The row's choices, each with its price in credits."""
+    from app.breakdown import video_model
     from app.credits import estimate
 
     def price(kind: str, m) -> float:
@@ -321,13 +362,16 @@ def settings(db: Session, project: Project) -> dict:
         if s.product and s.variant and s.variant not in flavours.setdefault(s.product, []):
             flavours[s.product].append(s.variant)
     script = script_of(db, project)
+    with trying(db, project, {"video_model": None}):
+        auto = video_model(project).id  # what Auto means for this video
     return {
         "look": project.look, "video_model": project.video_model,
         "image_model": project.image_model, "aspect_ratio": project.aspect_ratio,
         "product_variants": project.product_variants or {},
         "language": script.language if script else "en",
         "video_models": [{"id": m.id, "name": m.name, "credits_per_second": price("video", m),
-                          "lip_sync": m.lip_sync, "default": m.default} for m in _models("video")],
+                          "lip_sync": m.lip_sync, "default": m.id == auto}
+                         for m in _models("video")],
         "image_models": [{"id": m.id, "name": m.name, "credits_per_still": price("image", m),
                           "default": m.default}
                          for m in _models("image")],

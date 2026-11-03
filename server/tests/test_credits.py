@@ -70,7 +70,7 @@ def test_budget_is_twice_the_whole_estimate(project, editor, ed, db):
     body, model = project
     enqueue(db, ed, "video-480p", {"seconds": 15}, units=15, project=model)
     got = editor.get(f"/projects/{body['id']}").json()
-    whole = plan_cost(db, model.workspace_id, 10, None, 0)  # 10 s, no breakdown, no roles
+    whole = plan_cost(db, model.workspace_id, 10, None, 0, video=model)  # 10 s, no breakdown
     assert got["estimate_credits"] == 10 and got["budget_credits"] == float(2 * whole) > 20
     assert (got["credits_used"], got["budget_pct"]) == (15, round(15 / float(2 * whole) * 100, 1))
 

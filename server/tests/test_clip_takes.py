@@ -544,3 +544,21 @@ def test_a_redo_carries_the_note_as_typed(app, db, editor, setup, clip):  # noqa
     job = editor.post(f"{url}/generate", json={"note": "Brighter, she smiles."}).json()
     assert job["note"] == "Brighter, she smiles."
     assert "Brighter, she smiles." in db.get(Job, job["id"]).input["input"]["prompt"]
+
+
+def test_a_b_roll_take_asks_for_no_sound_and_a_dialogue_take_does(app, db, editor, setup, clip):  # noqa: F811
+    """Reed, 3 Nov: B-roll won't all need sound; sound effects are added on request later."""
+    from app.models.breakdowns import BreakdownVersion
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}/generate"
+    fake = FakeSeedance([_mp4("red"), _mp4("blue")])
+    editor.post(url)
+    _work(app, db, fake)  # Mom and Nate speak on camera
+    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    shots = [{**s, "speaker": None, "line": None} for s in row.data["scenes"][0]["shots"]]
+    row.data = {**row.data, "scenes": [{**row.data["scenes"][0], "shots": shots}]}
+    db.commit()
+    editor.post(url)
+    _work(app, db, fake)  # nobody speaks: B-roll
+    asked = [json.loads(q.content)["input"] for q in fake.requests if q.method == "POST"]
+    assert [a["generate_audio"] for a in asked] == [True, False]

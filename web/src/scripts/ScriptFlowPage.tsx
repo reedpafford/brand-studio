@@ -28,7 +28,7 @@ import { HeldRequests } from "../approvals/HeldRequests";
 import { ScriptOverview } from "./ScriptOverview";
 import { MakeVideoPanel } from "./MakeVideoPanel";
 import { finished } from "../freestyle/FromScript";
-import { useEstimate } from "../freestyle/useFreestyle";
+import { directed, useEstimate } from "../freestyle/useFreestyle";
 
 const nextToMake = (s: Script) => {
   const ready = s.versions.filter(finished);
@@ -176,7 +176,7 @@ export function ScriptFlowPage() {
           </Button>
         )}
         {/* Any finished version becomes a video from here; publishing isn't needed (E_ScriptMakeVideo, #1194). */}
-        {s.kind === "story" && toMake && (
+        {directed(s.kind) && toMake && (
           <Button variant={overview ? "primary" : "secondary"} dense icon={overview ? Plus : Clapperboard} price={overview ? (estimate.data ?? (estimate.isError ? undefined : null)) : undefined} charge="estimate" onClick={() => setParams({ ...(overview ? {} : { step }), video: String(toMake.slot) })}>
             Make a video
           </Button>

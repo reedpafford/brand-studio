@@ -2,7 +2,7 @@
 # Runs ON the VPS, piped in over SSH by .github/workflows/deploy-next.yml. Safe to run again.
 # Brand Studio Next (the test site): its own checkout (~/brand-studio-next, branch next), its own
 # Compose project (brand-studio-next) and deploy/.env. Never touches the live checkout or stack.
-# Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC (keys only when FAKE=false),
+# Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC, HEYGEN (keys only when FAKE=false),
 # KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on), LOOK_SAMPLES,
 # LOOK_BUDGET (with REPLICATE while real look samples are switched on), and LANGUAGE_TESTS,
 # LANGUAGE_BUDGET (with ANTHROPIC while real language tests are switched on), and with the
@@ -50,6 +50,7 @@ main() {
       echo "BS_GENERATION_ENABLED=${GENERATION:-false}"
       echo "REPLICATE_API_TOKEN=$REPLICATE"
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
+      echo "HEYGEN_API_KEY=${HEYGEN:-}"  # UGC talkers (HeyGen Avatar IV)
       echo "BS_REAL_BUDGET_USD=${REAL_BUDGET:-0}"  # every paid call stops at it (0: none runs)
       if [ -n "${REAL_SINCE:-}" ]; then echo "BS_REAL_BUDGET_SINCE=$REAL_SINCE"; fi  # unset: none runs
       # Each paid path that's off until a real test is approved (all inside the budget above).
