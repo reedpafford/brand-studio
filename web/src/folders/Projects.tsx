@@ -152,8 +152,8 @@ export function ProjectsChip({ brandId }: { brandId: number }) {
   const name = folder === "none" ? "No project" : folder ? (folders.data.find((f) => String(f.id) === folder)?.name ?? "All") : "All";
   return (
     <>
-      <Button variant="secondary" dense icon={Folder} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Project: {name}
+      <Button variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" aria-label={`Project: ${name}`} onClick={() => setOpen(true)}>
+        {name === "All" ? "Project" : `Project: ${name}`}
       </Button>
       {open && (
         <Panel title="Projects" onClose={() => setOpen(false)}>

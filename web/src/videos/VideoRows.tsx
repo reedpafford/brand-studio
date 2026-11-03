@@ -4,8 +4,8 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { WaitingCount } from "../approvals/HeldRequests";
 import type { Job } from "../approvals/useHeld";
-import { buttonClass, Dot, StepBars } from "../components";
-import { budgetUsed } from "../projects/budget";
+import { buttonClass, Dot, StepBars, wholeCredits } from "../components";
+import { letterOf } from "../scripts/status";
 import { VIDEO_STEPS, videoAt, videoStatus, videoTo } from "./progress";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -37,12 +37,17 @@ function Name({ poster, title, under, chip, to }: { poster?: number | null; titl
   );
 }
 
+/** A change waiting for the owner's OK: Reed opens it in Needs you; an editor is told it waits. */
+function HeldChange({ owner }: { owner: boolean }) {
+  return owner ? <Link to="/approvals" className={`${buttonClass("secondary")} min-h-control-dense px-3 text-xs`}>Open in Needs you</Link> : <Dot tone="warning">Waiting for the owner's OK</Dot>;
+}
+
 /** A video: poster, name over its project, four step bars, what it waits on, who made it, what it spent. */
-export function VideoRow({ p, project }: { p: Project; project: string }) {
+export function VideoRow({ p, project, held, owner }: { p: Project; project: string; /** a change of this video waits for the owner's OK */ held?: boolean; owner: boolean }) {
   const at = videoAt(p);
   const status = videoStatus(p);
   const making = !p.needs_you && !p.finished_at;
-  const waits = p.finished_at ? (p.final_out_of_date ? <Dot tone="warning">Finished · changes waiting</Dot> : <span className="text-muted">Delivered {day(p.finished_at)}</span>)
+  const waits = held ? <HeldChange owner={owner} /> : p.finished_at ? (p.final_out_of_date ? <Dot tone="warning">Finished · changes waiting</Dot> : <span className="text-muted">Delivered {day(p.finished_at)}</span>)
     : p.archived_at ? <Dot tone={status.tone}>{status.label}</Dot>
     : <Dot tone={p.needs_you ? "warning" : "accent"}>{p.waiting_on || (at !== null && at < VIDEO_STEPS.length ? `Making ${VIDEO_STEPS[at].toLowerCase()}` : status.label)}</Dot>;
   return (
@@ -54,23 +59,24 @@ export function VideoRow({ p, project }: { p: Project; project: string }) {
         <WaitingCount projectId={p.id} className="block" />
       </div>
       <div className={cell}>{p.created_by_name || "Someone"}</div>
-      <div className={`${cell} tabular-nums lg:text-right`}>{making || p.needs_you || p.finished_at ? `spent ${credits(Math.round(budgetUsed(p)))}` : ""}</div>
+      <div className={`${cell} tabular-nums lg:text-right`}>{making || p.needs_you || p.finished_at ? `spent ${credits(wholeCredits(p.credits_used) || 0)}` : ""}</div>
     </li>
   );
 }
 
 /** A held send with no video yet: the editor's request (v5 C_Videos "Request" row). The owner can open it in Needs you. */
 export function RequestRow({ job, project, owner, maker }: { job: Job; project: string; owner: boolean; maker: string }) {
-  const title = job.freestyle?.title || "Quick clip";
+  const fs = job.freestyle;
+  const title = fs ? `${fs.script_title || "New video"}${fs.slot != null ? ` · ${letterOf(fs.slot)}` : ""}` : "Quick clip";
   return (
     <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:py-2 ${COLS}`}>
-      <Name title={title} under={`${job.freestyle ? "New video" : "Quick clip"} from ${maker} · not made yet · ${project}`} chip="request" />
+      <Name title={title} under={`${fs ? "New video" : "Quick clip"} from ${maker} · not made yet · ${project}`} chip="request" />
       <div className={cell}>{owner ? "Starts at your OK" : ""}</div>
       <div className={cell}>
         {owner ? <Link to="/approvals" className={`${buttonClass("secondary")} min-h-control-dense px-3 text-xs`}>Open in Needs you</Link> : "Waiting for the owner's OK"}
       </div>
       <div className={cell}>{maker}</div>
-      <div className={`${cell} tabular-nums lg:text-right`}>up to {credits(Math.round(job.freestyle?.up_to ?? job.credits))}</div>
+      <div className={`${cell} tabular-nums lg:text-right`}>up to {credits(wholeCredits(job.freestyle?.up_to ?? job.credits) || 0)}</div>
     </li>
   );
 }
@@ -79,7 +85,7 @@ export function RequestRow({ job, project, owner, maker }: { job: Job; project: 
 export function VideoHead() {
   return (
     <div aria-hidden className={`hidden border-b border-border px-4 py-2 text-xs font-medium text-muted ${COLS}`}>
-      <span>Video</span>
+      <span className="lg:pl-11">Video</span>
       <span>Steps</span>
       <span>Waits on</span>
       <span>Maker</span>

@@ -46,7 +46,12 @@ export function VideosPage() {
   // Held sends with no video yet: Reed sees every editor's (the rail counts them), an editor their own.
   const held = useHeld();
   const mineHeld = useMyRequests();
-  const asks = (owner ? held.heldJobs : (mineHeld.data ?? []).filter((j) => j.status === "needs_owner_approval")).filter((j) => j.project_id == null && j.brand_id === brandId && (!maker || j.created_by_id === maker) && !archived && !folder);
+  // A held send with no visible video yet: its project is hidden (not in /projects) or it has none. A Freestyle's brand is on
+  // the freestyle (the job's own is empty). Reed sees every editor's (the rail counts them), an editor their own.
+  const heldAll = owner ? held.allHeldJobs : (mineHeld.data ?? []).filter((j) => j.status === "needs_owner_approval");
+  const known = new Set([...(videos.data ?? []), ...(gone.data ?? [])].map((v) => v.id));
+  const asks = heldAll.filter((j) => (j.freestyle?.brand_id ?? j.brand_id) === brandId && (j.project_id == null || !known.has(j.project_id)) && (!maker || j.created_by_id === maker) && !archived && !folder);
+  const heldOn = new Set(heldAll.map((j) => j.project_id));
 
   const set = (changes: Record<string, string>) => setParams((prev) => { const next = new URLSearchParams(prev); for (const [k, v] of Object.entries(changes)) { if (v) next.set(k, v); else next.delete(k); } return next; }, { replace: true });
   const project = (id?: number | null) => folders.data?.find((f) => f.id === id)?.name ?? "No project";
@@ -55,7 +60,7 @@ export function VideosPage() {
   const rows = all.filter((v) => !maker || v.created_by_id === maker);
   const filtered = !!(folder || maker || archived);
   const clear = () => setParams({}, { replace: true });
-  const row = (v: Project) => <VideoRow key={v.id} p={v} project={project(v.folder_id)} />;
+  const row = (v: Project) => <VideoRow key={v.id} p={v} project={project(v.folder_id)} held={heldOn.has(v.id)} owner={owner} />;
   const request = (j: (typeof asks)[number]) => <RequestRow key={`job-${j.id}`} job={j} project={project(null)} owner={owner} maker={j.created_by_name} />;
   const needs = rows.filter((p) => p.needs_you);
   const making = rows.filter((p) => !p.needs_you && !p.finished_at);
@@ -88,7 +93,7 @@ export function VideosPage() {
         <ProjectsChip brandId={brandId} />
         {owner && (
           <Menu title="Maker" trigger={(p) => (
-            <Button variant="secondary" dense trailing={ChevronDown} {...p}>
+            <Button variant="ghost" dense trailing={ChevronDown} {...p}>
               {maker ? `Maker: ${makers.find(([id]) => id === maker)?.[1] ?? "…"}` : "Maker"}
             </Button>
           )}>

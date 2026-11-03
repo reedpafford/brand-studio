@@ -139,22 +139,37 @@ test("videos are grouped Needs you, Making, Done; a video that needs you says wh
   expect(within(screen.getByRole("region", { name: "Done" })).getByRole("link", { name: /All done · C/ })).toBeInTheDocument();
 });
 
-test("a held send with no video yet is a Request row in Needs you: Reed opens it in Needs you, the editor sees it waits for the owner", async () => {
+// A real held Freestyle send: no brand on the job, a hidden project (not in /projects), the brand on the freestyle.
+const heldSend = { id: 60, kind: "video", project_id: 99, brand_id: null, script_id: null, credits: 12, status: "needs_owner_approval", created_at: new Date().toISOString(), step: null, declined: false, created_by_id: 5, created_by_name: "Dee", freestyle: { id: 8, title: "freestyle 5", brand_id: 1, script_title: "Bo tries salmon", slot: 1, type: "dialogue", said: "", change: false, up_to: 190, spent: 0, hidden: true } };
+
+test("a held send whose video is hidden is a Request row in Needs you: Reed opens it in Needs you, the editor sees it waits for the owner", async () => {
   setViewport(1440);
-  const held = { id: 60, kind: "video", project_id: null, brand_id: 1, script_id: null, credits: 12, status: "needs_owner_approval", created_at: new Date().toISOString(), step: null, declined: false, created_by_id: 5, created_by_name: "Dee", freestyle: { id: 8, title: "Bo tries salmon", type: "dialogue", said: "", change: false, up_to: 190, spent: 0 } };
-  fakeServer(base(owner, [], { "GET /jobs?status=needs_owner_approval": [200, [held]] }));
+  fakeServer(base(owner, [], { "GET /jobs?status=needs_owner_approval": [200, [heldSend]] }));
   open();
   const needs = await screen.findByRole("region", { name: "Needs you" });
+  expect(within(needs).getByText("Bo tries salmon · B")).toBeInTheDocument(); // the script's title and the version letter, never "freestyle 5"
+  expect(within(needs).queryByText(/freestyle 5/)).toBeNull();
   expect(within(needs).getByText("Request")).toBeInTheDocument();
   expect(within(needs).getByText("up to 190 credits")).toBeInTheDocument();
+  expect(within(needs).getByText("Starts at your OK")).toBeInTheDocument();
   expect(within(needs).getByRole("link", { name: "Open in Needs you" })).toHaveAttribute("href", "/approvals");
   cleanup();
   vi.unstubAllGlobals();
   setViewport(1440);
-  fakeServer(base(editor, [], { "GET /jobs?mine=true": [200, [held]] }));
+  fakeServer(base(editor, [], { "GET /jobs?mine=true": [200, [heldSend]] }));
   open();
   expect(await screen.findByText("Waiting for the owner's OK")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Open in Needs you" })).toBeNull();
+});
+
+test("a delivered video with a change waiting for the owner says so, not Delivered", async () => {
+  setViewport(1440);
+  const change = { ...heldSend, id: 61, project_id: 9, freestyle: null, step: "change" };
+  fakeServer(base(owner, [video({ finished_at: "2026-10-24T10:00:00Z", needs_you: true })], { "GET /jobs?status=needs_owner_approval": [200, [change]] }));
+  open();
+  const line = await screen.findByRole("link", { name: /Bo tries salmon · B/ });
+  expect(await within(line.closest("li") as HTMLElement).findByRole("link", { name: "Open in Needs you" })).toHaveAttribute("href", "/approvals");
+  expect(within(line.closest("li") as HTMLElement).queryByText(/Delivered/)).toBeNull();
 });
 
 test("a video with my request waiting says so on its row: 1 request waiting for the owner", async () => {
@@ -167,9 +182,9 @@ test("a video with my request waiting says so on its row: 1 request waiting for 
   expect(within(row(/Bo tries tuna · A/)).queryByText(/waiting for the owner/)).toBeNull();
 });
 
-test("an earlier-style video's credits count its budget without the director's own time (DECISIONS #1066)", async () => {
+test("spent counts everything the video used, the director's own time too, in whole credits", async () => {
   setViewport(390);
-  fakeServer(base(editor, [video({ script_draft_id: null, credits_used: 500, budget_credits: 600, director_credits: 380 })]));
+  fakeServer(base(editor, [video({ script_draft_id: null, credits_used: 93.4, budget_credits: 600, director_credits: 70.4 })]));
   open();
-  expect(await screen.findByText("spent 120 credits")).toBeInTheDocument();
+  expect(await screen.findByText("spent 94 credits")).toBeInTheDocument();
 });
