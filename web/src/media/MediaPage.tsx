@@ -170,7 +170,7 @@ export function MediaPage() {
           Videos
         </Link>
       )}
-      <PageTop title="Media" line={brand ? `Everything made in ${brand.name}` : undefined}>
+      <PageTop title="Media">
         <div className="flex items-center gap-2">
           <ProjectsChip brandId={brandId} />
           {!rail && owner && ( // editors have no filter left once the kind is a tab

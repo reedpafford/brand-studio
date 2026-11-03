@@ -10,13 +10,15 @@ const base =
   "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-[transform,opacity,background-color] duration-(--dur-fast) active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100";
 const look: Record<Variant, string> = {
   primary: "border border-accent-border bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-pressed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
-  secondary: "border border-border bg-surface-2 text-text hover:bg-surface-3 disabled:bg-disabled disabled:text-disabled-text",
+  // v5: outlined on the page's colour, no fill; 32 px and 13/500 on a computer, 44 px on a phone.
+  secondary: "border border-border-button bg-transparent text-text hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text lg:text-sm",
   ghost: "text-muted hover:bg-surface-2 hover:text-text disabled:text-disabled-text",
   danger: "border border-danger bg-danger-soft text-danger hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
 };
 
 /** The same look as a Button, for a link that downloads or goes somewhere (an <a>). */
-export const buttonClass = (variant: Variant = "primary") => `${base} ${look[variant]} min-h-control px-4`;
+export const buttonClass = (variant: Variant = "primary") => `${base} ${look[variant]} ${variant === "secondary" ? secondarySize : "min-h-control px-4"}`;
+const secondarySize = "min-h-control px-4 lg:min-h-control-dense lg:px-3";
 
 /** A paid action says its price inside the button: "Make the takes · 8 credits". `null`: not known yet, so a grey
  *  placeholder holds its place (the label never changes length after it shows) and a press waits for it. A price
@@ -52,7 +54,7 @@ export function Button({ variant = "primary", dense, busy, price, charge, usuall
   const lookOnly = useViewOnly() && !(reads ?? (rest["aria-expanded"] !== undefined && price === undefined));
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
   const label = children;
-  const size = dense && variant !== "primary" ? "min-h-control px-4 lg:min-h-control-dense lg:px-3" : "min-h-control px-4";
+  const size = (dense && variant !== "primary") || variant === "secondary" ? secondarySize : "min-h-control px-4";
   const waiting = busy || price === null; // a press never goes before its price is shown
   const button = (
     <button

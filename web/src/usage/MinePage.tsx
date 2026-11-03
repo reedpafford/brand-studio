@@ -42,7 +42,7 @@ export function MinePage() {
   );
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <PageTop title="My credits" line="What your work has used, in credits." />
+      <PageTop title="My credits" />
       {mine.isError && <Banner title="Couldn't load your credits." action={<Button variant="secondary" onClick={() => void mine.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       <div>
       <Card className="space-y-2">

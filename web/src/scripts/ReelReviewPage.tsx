@@ -127,7 +127,7 @@ export function ReelReviewPage() {
   );
   return (
     <main className={`space-y-6 p-4 sm:p-6 ${rail ? "" : "pb-28"}`}>
-      <PageTop title="Review the breakdown">
+      <PageTop title="Review the breakdown" crumb={{ to: `/b/${brandId}/scripts`, label: "Scripts" }}>
         {rail && presses}
       </PageTop>
       {review.isPending && <Skeleton className="h-64" />}
