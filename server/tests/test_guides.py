@@ -84,3 +84,13 @@ def test_release_guides_hold_no_chat_steps_starpop_assets_or_unused_models():
             assert gone not in text, (name, gone)
         if name not in ("house", "disney-pixar"):  # House is built on that look (test_styles)
             assert "pixar" not in text, name
+
+
+def test_rival_products_may_be_characters_only_where_the_style_says_so():
+    """Reed, 3 Nov (P1): germs, ingredients and rival products may have faces in Disney Pixar;
+    the brand's product never. Rule 2 keeps its ban and lets a style guide open it."""
+    rules = (APP / "prompts" / "rules.md").read_text()
+    assert "never put a competitor's or made-up product on screen, unless the style guide" in rules
+    assert "the brand's own product is always the real one" in rules
+    stills = guides.style("disney-pixar")["sections"]["Stills"]
+    assert "The brand's product never has a face; germs, ingredients and rival products" in stills
