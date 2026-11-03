@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, must } from "../api/client";
 import { Banner, Button, Card, PageTop, Skeleton, creditsLabel, wholeCredits } from "../components";
-import { MonthPicker, useMonth } from "./parts";
+import { MonthPicker, Stat, useMonth } from "./parts";
 
 // D_MyCredits: a dot and words, whole credits.
 const STATE = {
@@ -45,57 +45,21 @@ export function MinePage() {
         <MonthPicker value={month} options={options} onChange={set} />
       </PageTop>
       {mine.isError && <Banner title="Couldn't load your credits." action={<Button variant="secondary" onClick={() => void mine.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-      <div className="grid gap-3 lg:grid-cols-3">
-      <Card className="space-y-2">
-        <h2 className="type-section">Spent {when}</h2>
+      {/* v5 D_MyCredits: two cards, as Usage's. */}
+      <div role="group" aria-label="Totals" className="grid gap-3 sm:grid-cols-2 lg:max-w-[900px]">
         {!m ? (
-          <Skeleton className="h-12" />
+          [0, 1].map((i) => <Skeleton key={i} className="h-28" />)
         ) : (
           <>
-            <p className="font-medium tabular-nums">{whole(m.credits)}</p>
-            <p className="text-sm text-muted">On {m.videos_and_freestyles} video{m.videos_and_freestyles === 1 ? "" : "s"} and freestyles</p>
+            <Stat label={thisMonth ? "Spent this month" : `Spent in ${label}`} link={<span className="text-muted">On {m.videos_and_freestyles} video{m.videos_and_freestyles === 1 ? "" : "s"} and freestyles</span>}>
+              {whole(m.credits)}
+            </Stat>
+            {/* My sends waiting for the owner's OK, every one counted by the server across brands (#1232). */}
+            <Stat label="Waiting for the owner's OK" link={<span className="text-muted">{waiting.length === 0 ? "Nothing is spent until it's approved." : `${waiting.length} send${waiting.length === 1 ? "" : "s"}. Nothing is spent until it's approved.`}</span>}>
+              {waiting.length === 0 ? "Nothing" : `up to ${creditsLabel(m.waiting_credits)}`}
+            </Stat>
           </>
         )}
-      </Card>
-      <Card className="space-y-2">
-        <h2 className="type-section">Your allowance this week</h2>
-        {!week ? (
-          <Skeleton className="h-16" />
-        ) : (
-          <>
-            <p className="font-medium">
-              {week.allowance === null ? `${whole(week.used)} used` : `${whole(week.used)} of ${whole(week.allowance)} used`}
-              {week.allowance !== null && <span className="text-sm font-normal text-muted"> · resets on Monday</span>}
-            </p>
-            {week.lines.length === 0 ? (
-              <p className="text-sm text-muted">Nothing used yet this week.</p>
-            ) : (
-              <ul aria-label="This week's charges" className="divide-y divide-border text-sm">
-                {week.lines.map((l) => (
-                  <li key={l.label} className="flex justify-between gap-3 py-2">
-                    <span>{l.label}</span>
-                    <span className="tabular-nums">{whole(l.credits)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </Card>
-      {/* D_MyCredits: my sends waiting for the owner's OK, every one counted by the server across brands (#1232). */}
-      <Card className="space-y-2">
-        <h2 className="type-section">Waiting for the owner's OK</h2>
-        {!m ? (
-          <Skeleton className="h-12" />
-        ) : waiting.length === 0 ? (
-          <p className="text-sm text-muted">Nothing waiting.</p>
-        ) : (
-          <>
-            <p className="font-medium tabular-nums">up to {creditsLabel(m.waiting_credits)}</p>
-            <p className="text-sm text-muted">{waiting.length} send{waiting.length === 1 ? "" : "s"}. Nothing is spent until it's approved.</p>
-          </>
-        )}
-      </Card>
       </div>
       {!m ? (
         !mine.isError && <Skeleton className="h-40" />
@@ -146,6 +110,31 @@ export function MinePage() {
               </ul>
             </Card>
           )}
+          <Card className="space-y-2">
+            <h2 className="type-section">Your allowance this week</h2>
+            {!week ? (
+              <Skeleton className="h-16" />
+            ) : (
+              <>
+                <p className="font-medium">
+                  {week.allowance === null ? `${whole(week.used)} used` : `${whole(week.used)} of ${whole(week.allowance)} used`}
+                  {week.allowance !== null && <span className="text-sm font-normal text-muted"> · resets on Monday</span>}
+                </p>
+                {week.lines.length === 0 ? (
+                  <p className="text-sm text-muted">Nothing used yet this week.</p>
+                ) : (
+                  <ul aria-label="This week's charges" className="divide-y divide-border text-sm">
+                    {week.lines.map((l) => (
+                      <li key={l.label} className="flex justify-between gap-3 py-2">
+                        <span>{l.label}</span>
+                        <span className="tabular-nums">{whole(l.credits)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </Card>
           <Card className="space-y-2">
             <h2 className="type-section">Quick clips and scripts</h2>
             <ul className="divide-y divide-border text-sm">

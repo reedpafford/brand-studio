@@ -34,9 +34,9 @@ test("Usage (v5 D_Usage): three cards for the month, and By brand reads Brand ·
   const totals = await screen.findByRole("group", { name: "Totals" });
   expect(await within(totals).findByText("842 credits")).toBeInTheDocument(); // whole credits, rounded up
   expect(within(totals).getByText("$84.12")).toBeInTheDocument();
-  expect(within(totals).getByText(/^Spent in /)).toBeInTheDocument();
+  expect(within(totals).getByText("Spent this month")).toBeInTheDocument();
   const table = await screen.findByRole("table", { name: "By brand" });
-  expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Brand", "Credits", "Dollars", "Videos", "Share", ""]);
+  expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Brand", "Credits", "Dollars", "Videos", "Share", "Restore"]);
   const iron = within(table).getByRole("link", { name: "Iron Paws" });
   expect(iron).toHaveAttribute("href", "/usage/brands/1");
   expect(iron.closest("tr")).toHaveTextContent("523$52.305");
@@ -66,12 +66,11 @@ test("Usage: picking a month asks the server for that month, puts it in the addr
 
 test("Usage on a phone: each brand is a card with credits, dollars, videos and its share, then Freestyle", async () => {
   setViewport(390);
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row({ colour: null, videos: 1 })])] });
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row({ videos: 1 })])] });
   open();
   const card = await screen.findByRole("link", { name: /Iron Paws/ });
   expect(card).toHaveTextContent("523 credits · $52.30 · 1 video");
   expect(within(card).getByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument();
-  expect(card.querySelector("span[aria-hidden].bg-faint")).not.toBeNull(); // no colour: a neutral dot
   expect(screen.getByText("Freestyle").closest("li")).toHaveTextContent("34 credits · $3.40 · 2 videos");
 });
 
@@ -99,7 +98,7 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   expect(within(videos).getByRole("link", { name: /Kimchi at the vet · A.*Delivered/ })).toHaveAttribute("href", "/b/2/videos/10"); // every brand, each row to its own
   expect(screen.getByText('Writing "Bo tries salmon"')).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
-  const spent = screen.getByRole("heading", { name: "Spent this month" }).parentElement!;
+  const spent = within(screen.getByRole("group", { name: "Totals" })).getByText("Spent this month").parentElement!;
   expect(spent).toHaveTextContent("61 credits");
   expect(spent).toHaveTextContent("On 3 videos and freestyles");
   expect(urls()[0]).toContain(`month=${month}`);
@@ -108,7 +107,7 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   const last = (picker as HTMLSelectElement).options[1];
   await userEvent.selectOptions(picker, last.value);
   await vi.waitFor(() => expect(urls().some((u) => u.includes(`month=${last.value}`))).toBe(true));
-  expect(await screen.findByRole("heading", { name: `Spent in ${last.textContent}` })).toBeInTheDocument();
+  expect(await screen.findByText(`Spent in ${last.textContent}`)).toBeInTheDocument();
 });
 
 test("Usage: an editor's account menu links My credits; the owner's links Usage instead", async () => {
@@ -347,7 +346,7 @@ test("Usage's By person lists each person's credits, dollars, videos and week (#
   const dee = (await within(people).findByText("Dee")).closest("tr")!;
   expect(within(dee).getByText("804")).toBeInTheDocument(); // whole credits, no unit (D_Usage)
   expect(dee).toHaveTextContent("$80.40");
-  expect(dee).toHaveTextContent("40 of 100 credits this week");
+  expect(dee).toHaveTextContent("40 of 100 quick credits");
   expect(within(people).getByText("No limit")).toBeInTheDocument();
 });
 
@@ -386,6 +385,6 @@ test("By person and My credits never show '-0' for nothing used (UX-Auditor on #
   open();
   const people = await screen.findByRole("region", { name: "By person" });
   const dee = (await within(people).findByText("Dee")).closest("tr")!;
-  expect(dee).toHaveTextContent("0 of 97 credits this week");
+  expect(dee).toHaveTextContent("0 of 97 quick credits");
   expect(dee.textContent).not.toMatch(/-0/);
 });

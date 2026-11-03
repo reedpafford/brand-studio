@@ -14,7 +14,6 @@ import { useBrandRows, useSummary, type BrandRow } from "./useUsage";
 
 type Person = components["schemas"]["PersonRow"];
 
-const Dot = ({ colour }: { colour: string | null }) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-faint" style={colour ? { background: colour } : undefined} />;
 
 const count = (n: number) => wholeCredits(n).toLocaleString("en-US");
 
@@ -23,7 +22,7 @@ const count = (n: number) => wholeCredits(n).toLocaleString("en-US");
 export function UsagePage() {
   const [params, setParams] = useSearchParams();
   const rail = useRail();
-  const { month, label, options, set: setMonth } = useMonth();
+  const { month, label, thisMonth, options, set: setMonth } = useMonth();
   const archived = params.get("archived") === "1";
   const set = (key: string, value: string) =>
     setParams(
@@ -57,7 +56,7 @@ export function UsagePage() {
           [0, 1, 2].map((i) => <Skeleton key={i} className="h-28" />)
         ) : (
           <>
-            <Stat label={`Spent in ${label}`} link={<span className="text-muted"><Money value={f.spend_usd} estimated={f.spend_estimated} /></span>}>
+            <Stat label={thisMonth ? "Spent this month" : `Spent in ${label}`} link={<span className="text-muted"><Money value={f.spend_usd} estimated={f.spend_estimated} /></span>}>
               {count(f.spend_credits)} credits
             </Stat>
             <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className={`${linkText} inline-flex min-h-11 items-center lg:min-h-0`}>{held.count} request{held.count === 1 ? "" : "s"} in Needs you</Link>}>
@@ -102,7 +101,7 @@ function People({ month }: { month: string }) {
     retry: false, // a failed read says so at once, with Try again
     queryFn: async () => (await must(api.GET("/usage/people", { params: { query: { month } } }))).data!,
   });
-  const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${count(p.week_used)} of ${count(p.week_allowance)} credits this week`);
+  const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${count(p.week_used)} of ${count(p.week_allowance)} quick credits`);
   return (
     <section aria-label="By person" className="space-y-3 lg:max-w-[1100px]">
       <h2 className="type-section">By person</h2>
@@ -145,11 +144,8 @@ type Freestyle = components["schemas"]["FreestyleUsage"];
 function ShareBar({ part, spent }: { part: number; spent: number }) {
   const pct = share(part, spent);
   return (
-    <span className="flex items-center gap-2">
-      <span role="img" aria-label={`${pct}% of the month's credits`} className="block h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
-        <i className="block h-full bg-accent" style={{ width: `${pct}%` }} />
-      </span>
-      <span className="w-9 text-right text-muted">{pct}%</span>
+    <span role="img" aria-label={`${pct}% of the month's credits`} className="block h-1.5 overflow-hidden rounded-full bg-surface-3">
+      <i className="block h-full bg-accent" style={{ width: `${pct}%` }} />
     </span>
   );
 }
@@ -170,7 +166,6 @@ function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: Brand
           <li key={b.brand_id} className="space-y-2">
             <Link to={`/usage/brands/${b.brand_id}`} className="block space-y-2 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
               <span className="flex items-center gap-2 font-medium">
-                <Dot colour={b.colour} />
                 <span className="min-w-0 flex-1 break-words">{b.name}</span>
                 {b.archived && <Badge>Archived</Badge>}
                 <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
@@ -200,7 +195,7 @@ function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: Brand
             <th scope="col" className="px-3 py-3 font-medium">Dollars</th>
             <th scope="col" className="px-3 py-3 font-medium">Videos</th>
             <th scope="col" className="w-48 px-3 py-3 text-left font-medium">Share</th>
-            <th scope="col" className="w-8" />
+            <th scope="col" className="w-8"><span className="sr-only">Restore</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border border-b border-border">
@@ -208,7 +203,6 @@ function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: Brand
             <tr key={b.brand_id} className="relative text-right hover:bg-surface-2">
               <th scope="row" className="px-4 py-3 text-left font-medium">
                 <Link to={`/usage/brands/${b.brand_id}`} className="flex items-center gap-2 after:absolute after:inset-0">
-                  <Dot colour={b.colour} />
                   {b.name}
                   {b.archived && <Badge>Archived</Badge>}
                 </Link>
@@ -218,7 +212,7 @@ function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: Brand
               <td className="px-3 py-3">{b.videos}</td>
               <td className="px-3 py-3"><ShareBar part={b.credits} spent={spent} /></td>
               <td className="pr-3 text-muted">
-                {b.archived ? <span className="relative z-10 inline-flex">{restore(b)}</span> : <ChevronRight size={20} strokeWidth={1.75} aria-hidden />}
+                {b.archived && <span className="relative z-10 inline-flex">{restore(b)}</span>}
               </td>
             </tr>
           ))}
