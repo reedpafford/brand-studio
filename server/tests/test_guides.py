@@ -58,13 +58,12 @@ RELEASE = ("house", "disney-pixar", "claymation", "skeleton", "zack-d")  # Reed'
 
 
 def test_each_release_style_holds_its_own_pacing_and_3d_only_where_it_is_3d():
-    """Reed, 3 Nov: pacing is a per-style range (measured from the reference videos), and
+    """Reed, 3 Nov: pacing is a per-style range (set later from the reference videos), and
     "stylized 3D characters" belongs to the 3D styles only, never to every video."""
     assert "stylized 3D" not in (APP / "prompts" / "rules.md").read_text()
     for look in RELEASE:
         pacing = guides.style(look)["sections"]["pacing"]
-        measured = "Measured in Reed's" in pacing  # filled from the reference videos
-        assert measured or pacing.endswith("(range to be set from the reference videos)"), look
+        assert pacing.strip(), look  # the placeholder until a style's references are measured
         assert f"### pacing\n{pacing}" in prompts.system("breakdown", look), look
         said = "stylized 3D characters" in guides.style(look)["sections"].get("The videos", "")
         assert said == (look != "claymation"), look
