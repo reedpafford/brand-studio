@@ -72,7 +72,41 @@ One friendly full anatomical skeleton, tall and lanky, bare ivory-cream bones wi
 The videos are animated with AI video models: stylized 3D characters.
 
 ## pacing
-(range to be set from the reference videos)
+Measured on Reed's six skeleton references (narrated, 99–161 s each; studies in examples/*/notes.md):
+- Shot length: median 1.8–2.45 s (6 of 6); shortest real shot 0.4–0.9 s; longest hold 4.3–6 s (5 of 6).
+- Cuts per 10 s: 3.8–5.2 (5 of 6 measured; the sixth about 3.8–4 once its hidden jump cuts and dissolves are counted). In a dive run (below), 7–10 cuts per 10 s for 5–15 s (3 of 6).
+- Hook: the first shot holds 0.9–4.0 s (6 of 6); the second picture arrives by 1–4 s.
+- The picture changes on the phrase: a median of 5–8 spoken words per shot (6 of 6).
+- Camera speed: the slow push-in runs 2–7 %/s (median per video; full range 1.6–15 %/s), the same speed from the shot's first frame to its last, no ease (4 of 6). A dive into a named body part runs 20–67 %/s for 0.4–2.5 s and ends 1.5–2.5x tighter, often speeding up (5 of 6). The rare pull back out runs about 27–56 %/s (2 of 6).
+- Timing: a dive starts on a word and lands by the next word (seen in white-room-dives). Cuts land on a word's start more often than chance in 3 of 6 and at chance in the rest; they are not locked to the music's beat (5 of 6 at or below chance).
+
+## must keep
+- The creep-in: a slow, steady push-in through most shots: 51–64% of shots, 54–66% of the runtime, a new push every 2.4–3.8 s (4 of 6; the other two hold more and keep the eye busy with acting and glows).
+- The dive: when the line names a body part, the camera dives into it (through the ribs or skin) and lands on a glossy macro of the inside; 1–3 times a video, or once as a chain of 5–9 shots, each one level deeper (5 of 6).
+- Show what is said by cutting to it: when a body part, prop or the product is named, the next shot is already framed on it: a close-up of that part of the skeleton's body, or a macro of the inside of it (6 of 6).
+- Zooms go to the named body part, organ or product, not to the face for emphasis (5 of 6; one video has a single crash push onto the face).
+- The pushes and dives are made in the clip (parallax shows; the captions never scale with them), not added as a zoom in the edit (6 of 6). Edit-made zooms are rare extras: a quick zoom-blur into the next shot (2 of 6).
+- The hook shows the problem in the body (a glowing belly, swollen feet, red ribs); the face can come later (6 of 6 show the problem first; 4 of 6 hold the face back).
+- Everything inside the body is glossy, tactile and friendly: beads, syrup, sludge, crystals, glow (6 of 6).
+- The insides are warm and saturated: reds, golds and ambers, warmth +20 to +45, saturation 49–72 (6 of 6). Contrast stays low and soft, 17–22 (6 of 6).
+- When narrated, the voice runs wall to wall: 3.2–3.7 words a second, pitch variability 4.2–5.8 semitones (animated, never flat), pauses no longer than about 0.5–0.65 s, voice mixed at about −14 LUFS (6 of 6).
+
+## safe to vary
+- How much the camera pushes: from most shots (66% of the runtime) down to a few dives in a mostly held video (16%).
+- How many dives: none to a 9-shot chain.
+- How the inside shows on the body: a glow or coloured fluid that marks the problem, or organs that glow when the line names them.
+- The skeleton's identity accessory or outfit (a cap, headphones, a headband, a beanie, hair): one, never changing (4 of 6).
+- Shot sizes: medium and medium close-up on the skeleton; close-ups on the named body part from the top, low or front; macros inside. Full-body wides are rare and short.
+- Light on the body as meaning: red for pain, orange for bloat, gold for healing or the product working.
+- An occasional orbit (160–180°) for a "spreading" beat, or a short tilt-drop from the whole body to the legs or feet.
+- Music, where there is any: 11–33 dB under the voice, a soft pulse in the middle third, rising or dropping out for the close. Sound effects are nearly absent: no whoosh on the dives (6 of 6); one whoosh and one riser in all 12 minutes.
+- Captions (for the editor, never in the footage): word-synced, a heavy white rounded sans with a thin dark outline or shadow, centred at 64–72% of the frame's height in every shot (6 of 6); one word at a time (3 of 6) or 2–4-word pages with the spoken word in yellow, about #E5F000 (2 of 6); all caps (4 of 6); a small pop-in, 10–30% oversize settling in about 0.2 s (2 of 6).
+- Warm homes measure brightness about 47 and warmth +12 to +21 (2 of 6).
+
+## combines with
+- Narrated scripts: all six are one narrator over the pictures.
+- Ladder scripts: 3 of 6 count days; a 0.7–1.1 s locked-off desk-calendar page or big day number marks each rung (2 of 6).
+- Problem-to-fix explainers: 3 of 6 aren't ladders at all; the look carries any script about the body or how something works inside.
 
 ## How to make skeleton ads
 A skeleton ad is a narrated, escalating-progression video: a recurring literal cartoon skeleton lives out a second-person journey — _"What happens if you \_\_\_?
