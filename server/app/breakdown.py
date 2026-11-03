@@ -6,9 +6,9 @@ from decimal import Decimal
 from inspect import signature
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from app import prompts, song_breakdown
+from app import guides, prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
@@ -21,14 +21,31 @@ from app.models.songs import SongTake
 from app.prompts import check
 from app.prompts.schemas import Breakdown, SongBreakdown
 
+# A song's sung shots need lip-sync (Seedance 2.5), whatever the style. Every other kind follows
+# its style (dialogue, narrated; a Movie style on Omni comes later).
+LIP_SYNC_KINDS = ("song",)
 
-def video_model(project: Project | None = None) -> CatalogueModel:
-    """The video model a video's clips are made with: its own pick (VS1), else Auto, the
-    catalogue default (FIT row 23). No video yet (a script's preview): Auto."""
+
+def video_model(project: Project | None = None, look: str | None = None,
+                kind: str | None = None) -> CatalogueModel:  # fmt: skip
+    """The video model for a video, the one answer for its takes, quotes and "up to" prices:
+    its own pick (VS1) always wins; else the catalogue default (Seedance 2.5) for a song
+    (lip-sync); else its look's `video_model:` (Reed, 3 Nov: Seedance 2.5 for Pixar and House,
+    Seedance 2.0 for the rest). With no video yet (a script's preview, a sample), pass its
+    `look` and script `kind`."""
     models = catalogue()
     if project is not None and project.video_model in models:
         return models[project.video_model]
-    return next(m for m in models.values() if m.kind == "video" and m.default)
+    default = next(m for m in models.values() if m.kind == "video" and m.default)
+    if kind is None and project is not None and (db := object_session(project)) is not None:
+        from app.narration import video_kind
+
+        kind = video_kind(db, project)
+    if kind in LIP_SYNC_KINDS:
+        return default
+    look = look or (project.look if project is not None else None) or "house"
+    named = next((s["video_model"] for s in guides.styles() if s["id"] == look), "")
+    return models.get(named, default)
 
 
 def video_model_block(m: CatalogueModel) -> str:

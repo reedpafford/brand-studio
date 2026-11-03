@@ -343,6 +343,7 @@ def script_of(db: Session, project: Project):
 
 def settings(db: Session, project: Project) -> dict:
     """The row's choices, each with its price in credits and whether it's over the cap."""
+    from app.breakdown import video_model
     from app.credits import estimate
 
     used = credits_used(db, project)
@@ -367,13 +368,15 @@ def settings(db: Session, project: Project) -> dict:
         if s.product and s.variant and s.variant not in flavours.setdefault(s.product, []):
             flavours[s.product].append(s.variant)
     script = script_of(db, project)
+    with trying(db, project, {"video_model": None}):
+        auto = video_model(project).id  # what Auto means for this video
     return {
         "look": project.look, "video_model": project.video_model,
         "image_model": project.image_model, "aspect_ratio": project.aspect_ratio,
         "product_variants": project.product_variants or {},
         "language": script.language if script else "en",
         "video_models": [{"id": m.id, "name": m.name, "credits_per_second": price("video", m),
-                          "lip_sync": m.lip_sync, "default": m.default,
+                          "lip_sync": m.lip_sync, "default": m.id == auto,
                           "over_cap": over("video_model", m.id)} for m in _models("video")],
         "image_models": [{"id": m.id, "name": m.name, "credits_per_still": price("image", m),
                           "default": m.default, "over_cap": over("image_model", m.id)}

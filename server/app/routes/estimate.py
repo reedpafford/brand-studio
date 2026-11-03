@@ -111,7 +111,8 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     looks_cost = looks * look_price(db, script.workspace_id)  # as the look press shows and holds
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
     return plan + looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
-                                  breakdown=not bd, video=video)  # fmt: skip
+                                  breakdown=not bd, video=video, look=script.look,
+                                  kind=script.kind)  # fmt: skip
 
 
 def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
@@ -130,7 +131,7 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     seconds = quoted_seconds(db, draft, video)  # as `version_cost` guesses it
     said = narration.longest(db, draft, video) if script.kind == "narrated" else seconds
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    m = video_model(video)
+    m = video_model(video, script.look, script.kind)
     model = {"model": m.id, "input": {"resolution": m.take_resolution}}
     takes = (estimate(db, ws, "video", Decimal(seconds), model)
              + clips * item_checks.per_take(db, ws))  # fmt: skip
