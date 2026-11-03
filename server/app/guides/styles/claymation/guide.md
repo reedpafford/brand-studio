@@ -54,7 +54,44 @@ product: Change this… "the product sculpted in clay with a real printed paper 
 A sculpted clay woman in her thirties with a bob of brown hair and visible thumbprints, in one knitted green jumper.
 
 ## pacing
-(range to be set from the reference videos)
+Measured from Reed's five claymation reference videos (examples/*/notes.md):
+- Voiceover over B-roll (4 of 5): 2.2–4.5 cuts per 10 seconds (3 of 4 at 4.0–4.5). Median shot 2.1–3.4 s; most shots 1.5–3.3 s. Longest hold 4.5–6 s (3 of 4); one video holds a single story beat for up to 11.4 s with one slow move.
+- Character dialogue (1 of 5): 2.0 cuts per 10 seconds, median shot 4.3 s, most shots 3.2–6.1 s. Wides hold 5–8 s while the comedy plays; close-ups 2–5 s for each line; one 14 s shot carries the turn.
+- Shortest holds are inserts and chapter cards: 0.2–0.5 s (4 of 5); calendar pages 0.5–1.1 s, a sculpted 3-2-1 countdown 3 s.
+- Hook: a voice from the first frame and a face or character on screen by frame 1 (5 of 5 have a word at 0.00 s; 4 of 5 open on a face). The first cut comes at 2.2–5.2 s (5 of 5).
+- Cuts land on the narrator's phrases or between lines, never on a beat (5 of 5: none has a beat to cut to).
+- Inside a hidden world (inside a body, a mind, a machine) the camera moves more and faster than around the people (4 of 5).
+
+## must keep
+- Clay that shows it was made by hand: fingerprint whorls, pores and fine tool striations, readable in every close-up (5 of 5).
+- Macro lens and shallow depth of field: soft, blurred backgrounds behind every close-up and insert (5 of 5).
+- Warm practical light as the base: lamps and windows, real cast shadows; the average colour of every reference is warm (5 of 5).
+- The fix or payoff is the brightest, warmest, sunniest part of the video: golden window light (5 of 5).
+- A calm camera: mostly locked off or a slow push in (about 2–8% of the frame a second); faster moves are saved for travelling into or through a hidden world (5 of 5).
+- Graphics are sculpted props in the scene, never flat overlays: calendar pages with sculpted letters, sculpted countdown numbers, checklists on clay cards, glowing clay marks, arrows, charts on clipboards (4 of 5).
+- The camera stays inside the miniature world; the set's edges and the workbench are never seen (5 of 5).
+
+## safe to vary
+- How much of the world is clay: fully sculpted rooms (4 of 5) or realistic, film-like rooms around clay people (1 of 5).
+- Music: none at all (2 of 5) or a quiet tonal bed 11–25 dB under the voice, no drums (3 of 5).
+- Sound effects: none, or literal effects on clay events (a thump when something lands, a whoosh on a fly-through or whip, alarms, ticks on a countdown).
+- Caption style (added in editing, never in the clips): ALL CAPS heavy white sans with a dark shadow (2 of 5), the same with the spoken word turning yellow (1 of 5), or sentence-case white sans (2 of 5), one with the key word in white italic serif. All five use 1–4 words at a time, no box, about 50–75% down the frame.
+- Aspect: 9:16 (4 of 5) or 4:5 (1 of 5). Length: 1 to 4 minutes seen.
+- The character: any age and walk of life, held the same across the video (the sheet carries the face).
+
+## combines with
+- Formats seen: voiceover over B-roll (4 of 5) and character dialogue (1 of 5). Reed: "this can be used with other formats as well."
+- A person and a hidden world (4 of 5): a relatable clay person in ordinary rooms, cut against a clay world that shows what can't be seen (inside the body, inside the head, a little machine). The way in is a push into the face or body, then a cut (2 of 5), or a fly-through a window frame (1 of 5).
+- Clay anatomy and sculpted diagrams for explaining (2 of 5): organ cutaways, cells, tiny clay factories with switches, side-by-side clay dioramas.
+- Clay chapter cards for a timeline or a list (2 of 5): a tear-off calendar page per week, a sculpted 3-2-1 countdown between sections.
+- A live-action end card after the clay (1 of 5).
+
+## measured from the references
+- Average colour (one frame a second): #906c5e, #896c5a, #866b55, #7c593f, #544737; brightness 77–113 of 255; hue 17–33°, warm (red above blue) in 76–100% of seconds. Inside-the-body scenes run more saturated (coral, maroon, orange) than the rooms.
+- Transitions seen: hard cuts on phrases (5 of 5), a push into a face then a cut into the hidden world (2 of 5), a fly-through a window into the next world (1 of 5), a warm light flash (2 of 5). No reference melts, kneads or smears clay between shots.
+- Expression is big and readable: knitted brows, heavy lids, wide open mouths, tears, a sweat drop (5 of 5).
+- Voice: 2.6–3.7 words a second while speaking for a narrator, pauses under about half a second (3 of 4 narrated); dialogue is slower, 1.8 words a second, with comic pauses up to 6 s.
+- Loudness −14.2 to −16.9 LUFS; narration is very even (loudness range 1.2–4.3 LU), the dialogue piece much more dynamic (12.8 LU).
 
 ## How to make claymation videos
 The claymation visual style for AI video ads.
