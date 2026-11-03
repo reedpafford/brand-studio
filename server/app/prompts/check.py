@@ -605,6 +605,7 @@ def variations(
     cast: list[str] = (),
     brand: str = "",  # the brand's name: the closing call to action says it
     note: str = "",  # the author's note: a length it asks for ("about 45 s") is the target
+    sung: bool = False,  # a song: it follows its lyrics, never asked to end on the brand
 ) -> list[str]:
     """Alternates of an approved script (workflow v2): the brand, the end line and the locked
     cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
@@ -620,7 +621,7 @@ def variations(
         name = f"variation {i}"
         lines = [line.strip() for line in script.splitlines() if line.strip()]
         said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
-        if end_line.strip() and not says_brand(said[-1] if said else "", brand):
+        if not sung and end_line.strip() and not says_brand(said[-1] if said else "", brand):
             problems.append(f"{ADVICE}{name}: {NO_CTA}")
         for star in sorted(stars - _stars(script)):
             problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
@@ -1076,8 +1077,6 @@ def song_directions(
             continue
         if len(d.style_line.split()) > 25:
             problems.append(f"{ADVICE}direction {n}: the music style is over 25 words")
-        if not says_brand(sung[-1], brand):
-            problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
         if named := [x for x in names if f" {_words(x)} " in f" {_words(d.style_line)} "]:
             problems.append(
                 f"{ADVICE}direction {n}: the music style names “{named[0]}”; the music service "
@@ -1094,17 +1093,27 @@ def song_directions(
 
 
 def song_breakdown(
-    lyrics: str, bd: SongBreakdown, song: dict, *args, written: bool = False, **kwargs
+    lyrics: str,
+    bd: SongBreakdown,
+    song: dict,
+    *args,
+    written: bool = False,
+    sung: bool = True,
+    **kwargs,
 ) -> list[str]:
     """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
     back over the whole take (a fix: the slices are cut from them), B-roll silent, and edges on
     beats, inside a section (advice). Only on a breakdown the AI `written` (off unless said, so
     an edit stays quiet): a Sung shot the
     script didn't ask for (advice); an editor's own Sung flips are theirs (rule 31), and the
-    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's."""
+    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's.
+    A `sung` song follows its script and is never asked to end on the brand (Reed, 3 Nov); a
+    narration (`sung` False) is a spoken script and keeps rule 18's closing-line advice."""
     clean = "\n".join("" if SECTION.match(x) else LIP_SYNC.sub("", x).strip()
                       for x in lyrics.splitlines())  # fmt: skip
     problems = breakdown(clean, bd, *args, **kwargs)
+    if sung:
+        problems = [p for p in problems if p != f"{ADVICE}{NO_CTA}"]
     shots = [shot for scene in bd.scenes for shot in scene.shots]
     if not shots:
         return problems

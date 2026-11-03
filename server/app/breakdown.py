@@ -188,7 +188,8 @@ def problems(
     if take:
         timed, timing = song_breakdown.joined(bd, song), song_breakdown.timing_used(take)
         found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
-                                     m.duration.max, written=written, **extra)  # fmt: skip
+                                     m.duration.max, written=written,
+                                     sung=take.kind != "narration", **extra)  # fmt: skip
     else:
         found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     from app.advice import names, plain

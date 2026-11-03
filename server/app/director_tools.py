@@ -19,7 +19,8 @@ from app.models.storyboards import StoryboardFrame
 
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
-         "pick_take", "mute", "splice_word", "final_cut", "watch_cut")  # fmt: skip
+         "pick_take", "mute", "splice_word", "song", "narration", "final_cut",
+         "watch_cut")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -112,6 +113,12 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
             (row,) = _clips(db, pid, decision.get("clip_id"))
             said = word_splice.splice(db, project, row, decision.get("word") or "")
+            db.commit()
+            return said
+        if tool in ("song", "narration"):  # the audio first in a song or narrated video
+            from app import director_song
+
+            said = director_song.run(db, user, project, decision, run if run is not None else {})
             db.commit()
             return said
         if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget

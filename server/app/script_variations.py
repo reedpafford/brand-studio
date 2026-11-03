@@ -85,7 +85,7 @@ def save_variations(db: Session, job: Job) -> None:
     slots = job.input["slots"]
     found = check.variations(
         original.text, result, screens, brand.end_line, brand.dont_list, len(slots), cast=names,
-        brand=brand.name, note=job.input.get("note", ""),
+        brand=brand.name, note=job.input.get("note", ""), sung=script.kind == "song",
     )  # fmt: skip
     for n, (slot, made) in enumerate(zip(slots, result.variations, strict=False), 1):
         draft = db.scalar(

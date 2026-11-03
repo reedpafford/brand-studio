@@ -90,7 +90,9 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     """A director run's "up to" (Freestyle, rule 32): the version's whole price and all a run
     may add under its own limits (QA on #1176: 80.898 shown, 82.03 charged): every clip made
     again MAX_REDOS times with its take check, and the director's own limit (its turns and
-    watches, `director.own_limit`; past it, it waits for an OK). The cut and mutes are free."""
+    watches, `director.own_limit`; past it, it waits for an OK); and for a song or narrated
+    version with no song yet, its making and one remake (`director_song.price`). The cut, mutes
+    and splices are free."""
     from app import director, item_checks
 
     ws = db.get(Script, draft.script_id).workspace_id
@@ -104,7 +106,11 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     model = {"model": video_model(video).id, "input": {"resolution": "480p"}}
     takes = (estimate(db, ws, "video", Decimal(seconds), model)
              + clips * item_checks.per_take(db, ws))  # fmt: skip
-    return version_cost(db, draft, video) + director.MAX_REDOS * takes + director.own_limit()
+    from app import director_song
+
+    audio = director_song.price(db, draft)  # a song or narration still to make, and one remake
+    return (version_cost(db, draft, video) + audio + director.MAX_REDOS * takes
+            + director.own_limit())  # fmt: skip
 
 
 def _looks(db: Session, project: Project) -> tuple:

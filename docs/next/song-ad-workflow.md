@@ -40,7 +40,7 @@ The pilot log, with every problem hit along the way, is in `docs/next/song-pilot
   - "weeks later" with the reveal, then the apology and the hug
   - the proof lines
   - the pet pushing the product to camera on the last line
-- **The editor's script becomes the lyrics, beat for beat.** Keep its story, its key lines ("That is my gut breaking down", "We were good", "You just didn't know… now you do… waiting on you") and its claims word for word. Add only the brand name to the last line.
+- **The editor's script becomes the lyrics, beat for beat.** Keep its story, its key lines ("That is my gut breaking down", "We were good", "You just didn't know… now you do… waiting on you") and its claims word for word. The brand appears where the script has it; it isn't forced into the last line (Reed, 3 Nov: "its really just the song being based on the script - not a force").
 - **The hook is the symptom list, sung in the first 5 seconds,** each symptom a chanted line ending in the same phrase.
 - **A style line that describes the sound,** never an artist. For Reed's older audience: laid-back, breezy pop, warm female vocal, about 100 BPM, strummed acoustic guitar, light drums and handclaps. Suno's pacing add-on: "vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending".
 - **The song is the clock.** Measure the real take; every clip covers one piece of it, and every shot inside covers one line. Pick the tighter take: it's cheaper.

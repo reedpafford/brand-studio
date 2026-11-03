@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_tools, take_mute, word_splice
+from app import director_song, director_tools, take_mute, word_splice
 from app.credits import COUNTED, lock
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -617,6 +617,8 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
+               "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
+               "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
@@ -704,6 +706,10 @@ def treatment_block(db: Session, project: Project) -> str:
     return f"{told}\n" if told else ""
 
 
+def _audio_key(db: Session, project: Project) -> str:
+    return "song" if director_song.kind(db, project) == "song" else "narration"
+
+
 def video_state(db: Session, project: Project) -> dict:
     """Where the video is, as the director reads it (and `choose` on the stand-ins)."""
     from app.clip_prompts import newest
@@ -746,8 +752,10 @@ def video_state(db: Session, project: Project) -> dict:
         Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
     from app.plans import status
 
+    audio = director_song.state(db, project)  # a song or narrated video's song or narration
     return {
         "plan": status(db, project),  # none, ready (waits for approval) or approved
+        **({_audio_key(db, project): audio} if audio else {}),  # the clock its shots follow
         # choices fixed for it (director-chat.md §1), kept as is; a person's own look pick isn't
         "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
@@ -788,6 +796,8 @@ def choose(state: dict) -> dict:
         return go("wait", "Something is still being made or waits for the owner.")
     if state.get("treatment") == "none":  # the story first, on every run (the Director)
         return go("treatment", "The story first: what holds a viewer, beat by beat.")
+    if audio := _audio_move(state, go):  # a song or narrated video: its audio is the clock
+        return audio
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
     if state["missing_looks"]:
@@ -854,8 +864,69 @@ def choose(state: dict) -> dict:
     noticed = " ".join(
         f"I also noticed: {f['says'].rstrip('.')}. Want me to fix it?" for f in older
     )
-    said = " ".join(x for x in (done, keep, noticed) if x)
+    said = " ".join(x for x in (done, keep, _still_wrong(state), noticed) if x)
     return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
+
+
+def _still_wrong(state: dict) -> str:
+    """For the delivery note: the brand's name the narration in use still says wrong, once
+    its remakes are used (director.md: say what's off)."""
+    audio = state.get("narration") or {}
+    used = next((t for t in audio.get("takes") or [] if t["used"]), None)
+    if not used or not used.get("misheard"):
+        return ""
+    w = used["misheard"][0]
+    return (f"The narration still says “{w['heard']}” for {w['word']} at {w['at']:.1f} s: it "
+            "was read again as often as allowed, so listen before you share it.")  # fmt: skip
+
+
+STAND_IN_STYLE = "bright pop, warm female vocal, 110 bpm"  # a song version with no style line
+
+
+def _audio_move(state: dict, go) -> dict | None:
+    """The stand-in's song or narration: make it, wait for it, then use its best take; a
+    failed one is tried again (free when the service failed; refused, it says so). A narration
+    that says the brand's name wrong is read again with the pronunciation note (while
+    narrations are left), and the plan follows one that says it right."""
+    tool = "song" if "song" in state else "narration" if "narration" in state else None
+    audio = state.get(tool) if tool else None
+    if audio is None:
+        return None
+    if tool == "narration" and (said := _say_it_right(audio, state, go)):
+        return said
+    if audio.get("used_take_id"):
+        return None
+    what = "song" if tool == "song" else "narration"
+    if audio["state"] == "none":
+        style = {} if audio.get("style", True) else {"note": STAND_IN_STYLE}  # a song's first
+        return go(tool, f"The {what} first: its timing is what the shots follow.", **style)
+    if audio["state"] == "making":
+        return go("wait", f"The {what} is being made.")
+    if audio["state"] == "ready":
+        return go(tool, f"The {what} is made and timed: use its best take.")
+    return go(tool, f"The {what} didn't come out: try it again.")  # free once; then a note
+
+
+def _say_it_right(audio: dict, state: dict, go) -> dict | None:
+    """A narration that says the brand's name wrong, before the plan: read again with the
+    pronunciation note while narrations are left, then the one that says it right is used."""
+    if audio["state"] not in ("ready", "making") or state["shots"] != "none":
+        return None
+    timed = [t for t in audio["takes"] if t["state"] == "ready" and t["timed"]]
+    used = next((t for t in timed if t["used"]), None)
+    good = [t for t in timed if not t.get("misheard")]
+    if used and not used.get("misheard") or not timed:
+        return None
+    if audio["state"] == "making":
+        return go("wait", "The narration is being read again.")
+    if good:
+        return go("narration", "This narration says the brand's name right: use it.",
+                  take_id=good[-1]["id"])  # fmt: skip
+    wrong = timed[-1]["misheard"][0]
+    if state.get("allowed", {}).get("narrations_left", 0) > 0:
+        return go("narration", f"The narration says “{wrong['heard']}” for {wrong['word']} at "
+                  f"{wrong['at']:.1f} s: read it again.", note=audio["say"])  # fmt: skip
+    return None
 
 
 # Rule 19, not here: an ask to change the script's words ("change the line to ...", "make her
