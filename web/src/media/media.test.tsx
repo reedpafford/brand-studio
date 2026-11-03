@@ -68,45 +68,38 @@ test("with nothing made yet it says so and offers New video", async () => {
   expect(within(screen.getByRole("main")).getByRole("link", { name: "New video" })).toHaveAttribute("href", expect.stringMatching(/^\/b\/\d+\/videos\/new$/));
 });
 
-test("the kind and who-made-it filters ask the server, and Clear filters puts them back", async () => {
+test("the kind tabs ask the server; Video narrows to one video's own media and Oldest first reverses; Clear filters puts them back", async () => {
   setViewport(1440);
-  fakeServer(base(owner, page([item()])));
+  fakeServer(base(owner, page([
+    item({ key: "take:3", made_at: "2026-10-28T10:00:00Z" }),
+    item({ key: "take:4", made_at: "2026-10-27T10:00:00Z", project_id: 10, video_name: "Cat buys the dip" }),
+    item({ key: "quick:5:0", made_at: "2026-10-26T10:00:00Z", project_id: null, video_name: "Haunted fridge", freestyle_id: 4, open_step: "quick" }),
+  ])));
   open();
-  await screen.findByRole("list", { name: "Media" });
+  const names = async () => within(await screen.findByRole("list", { name: "Media" })).getAllByRole("listitem").map((li) => li.querySelector("p")?.textContent);
+  expect(await names()).toEqual(["Bo tries salmon", "Cat buys the dip", "Haunted fridge"]);
   await userEvent.click(screen.getByRole("button", { name: "Stills" }));
   await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("kind=still"))).toBe(true));
   expect(screen.getByRole("button", { name: "Stills" })).toHaveAttribute("aria-pressed", "true");
-  await userEvent.click(await screen.findByRole("button", { name: "Made by" }));
-  await userEvent.click(await screen.findByRole("menuitemradio", { name: "Eli" }));
-  await vi.waitFor(() => expect(urls().some((u) => u.includes("kind=still") && u.includes("by=2"))).toBe(true));
+  await userEvent.click(screen.getByRole("button", { name: "All" }));
+  await userEvent.click(screen.getByRole("button", { name: "Video" }));
+  expect(screen.getAllByRole("menuitemradio").map((o) => o.textContent)).toEqual(["All videos", "Bo tries salmon", "Cat buys the dip", "Haunted fridge"]); // a Freestyle counts as a video
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "Haunted fridge" }));
+  expect(await names()).toEqual(["Haunted fridge"]);
   await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-  expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(screen.getByRole("button", { name: "Newest first" }));
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "Oldest first" }));
+  expect(await names()).toEqual(["Haunted fridge", "Cat buys the dip", "Bo tries salmon"]);
+  await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  expect(await names()).toEqual(["Bo tries salmon", "Cat buys the dip", "Haunted fridge"]);
 });
 
-test("a project picked in the side list (?folder=) filters Media too", async () => {
+test("Media has no Project or Made by filter (the board draws Video and Newest first only)", async () => {
   setViewport(1440);
   fakeServer(base(owner, page([item()])));
-  open("/b/1/media?folder=none");
-  await screen.findByRole("list", { name: "Media" });
-  expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("folder=none"))).toBe(true);
-});
-
-test("picking a project from Project: All ▾ stays on Media and filters it", async () => {
-  setViewport(1440);
-  fakeServer(base(owner, page([item()]), { "GET /brands/1/folders": [200, [{ id: 4, brand_id: 1, name: "November launch", created_by_id: 1, items: { scripts: 0, videos: 1, clips: 0 }, can_manage: true }]] }));
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: /^Project: / }));
-  const list = await screen.findByRole("region", { name: "Projects" });
-  await userEvent.click(within(list).getByRole("button", { name: "November launch · 1 item" }));
-  await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("folder=4"))).toBe(true));
-  expect(await screen.findByRole("heading", { name: "Media" })).toBeInTheDocument();
-});
-
-test("an editor gets no who-made-it filter (the server shows them their own work)", async () => {
-  setViewport(1440);
-  fakeServer(base(editor, page([item()])));
   open();
   await screen.findByRole("list", { name: "Media" });
+  expect(screen.queryByRole("button", { name: /^Project/ })).toBeNull();
   expect(screen.queryByRole("button", { name: /Made by/ })).toBeNull();
 });
 
@@ -179,9 +172,7 @@ test("on a phone the filters open in a sheet, the tabs stay five, and Media open
   await userEvent.click(await screen.findByRole("link", { name: "Media" }));
   await screen.findByRole("list", { name: "Media" });
   expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
-  // The kinds are tabs on the page (W11); who made it is a plain "Made by ▾" beside them.
   expect(within(screen.getByRole("navigation", { name: "Kinds" })).getByRole("button", { name: "Stills" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Made by" })).toBeInTheDocument();
 });
 
 test("a song tile says which script or video it's from (Next-Layout's 390 walk)", async () => {

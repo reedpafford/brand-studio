@@ -5,8 +5,7 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, EmptyState, Menu, MenuItem, Skeleton, buttonClass, useToast, PageTop, pillClass, pillStrip } from "../components";
-import { ProjectsChip } from "../folders/Projects";
+import { Banner, Button, EmptyState, Menu, MenuItem, Skeleton, buttonClass, useToast, PageTop, pillClass, pillStrip } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { serverTime } from "../time";
 import { useRail } from "../useMedia";
@@ -79,7 +78,7 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
       <p className="truncate text-xs text-muted">{meta}</p>
       {m.from_deleted_video && (
         <div className="mt-1 space-y-1">
-          <Badge tone="warning">{!gone ? "From a deleted video" : gone.id === meId ? "From your deleted video" : `From ${gone.name}'s deleted video`}</Badge>
+          <span className="block rounded-sm bg-warning-soft px-1.5 py-0.5 text-xs text-warning [overflow-wrap:anywhere]">{!gone ? "From a deleted video" : gone.id === meId ? "From your deleted video" : `From ${gone.name}'s deleted video`}</span>
           {mayRestore && (
             <Button variant="ghost" dense busy={restore.isPending} onClick={() => restore.mutate()}>
               Restore the video
@@ -101,39 +100,38 @@ export function MediaPage() {
   const rail = useRail();
   const [params, setParams] = useSearchParams();
   const kind = (KINDS.find((k) => k.id === params.get("kind"))?.id ?? null) as Kind | null;
-  const folder = params.get("folder");
-  const by = owner ? Number(params.get("by")) || null : null;
+  const video = params.get("video"); // one video's own media (a Freestyle counts as a video)
+  const oldest = params.get("sort") === "oldest";
   const set = (key: string, value: string) =>
     setParams((p) => {
       if (value) p.set(key, value);
       else p.delete(key);
       return p;
     }, { replace: true });
-  const clear = () => setParams((p) => { ["kind", "by", "folder"].forEach((k) => p.delete(k)); return p; }, { replace: true });
+  const clear = () => setParams((p) => { ["kind", "video", "sort"].forEach((k) => p.delete(k)); return p; }, { replace: true });
 
-  const people = useQuery({ enabled: owner, queryKey: ["team-members"], queryFn: async () => (await api.GET("/team/members")).data ?? [] });
   const media = useInfiniteQuery({
-    queryKey: ["media", brandId, kind, folder, by],
+    queryKey: ["media", brandId, kind],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) =>
-      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(kind ? { kind } : {}), ...(folder ? { folder } : {}), ...(by ? { by } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
+      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(kind ? { kind } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
     getNextPageParam: (last) => last.next,
   });
-  const items = media.data?.pages.flatMap((p) => p.items) ?? [];
-  const filtered = !!kind || !!folder || !!by;
+  const loaded = media.data?.pages.flatMap((p) => p.items) ?? [];
+  const videoKey = (m: Item) => (m.project_id ? `p${m.project_id}` : m.freestyle_id ? `f${m.freestyle_id}` : null);
+  const videos = [...new Map(loaded.flatMap((m) => (videoKey(m) && m.video_name ? [[videoKey(m)!, m.video_name] as const] : []))).entries()];
+  const picked = videos.find(([k]) => k === video)?.[1];
+  const shown = loaded.filter((m) => !video || videoKey(m) === video);
+  const items = oldest ? [...shown].reverse() : shown;
+  const filtered = !!kind || !!video;
 
-  const maker = owner && (
-    <Menu title="Made by" align="right" trigger={(p) => (
-      <Button variant="ghost" dense trailing={ChevronDown} {...p}>
-        {by ? `Made by: ${(people.data ?? []).find((u) => u.id === by)?.name ?? "…"}` : "Made by"}
+  const menu = (title: string, label: string, options: [string, string][], current: string, onPick: (v: string) => void) => (
+    <Menu title={title} align="right" trigger={(p) => (
+      <Button variant="ghost" dense trailing={ChevronDown} className="text-[13px] lg:min-h-11" {...p}>
+        {label}
       </Button>
     )}>
-      {(close) => (
-        <>
-          <MenuItem checked={!by} onClick={() => { close(); set("by", ""); }}>Anyone</MenuItem>
-          {(people.data ?? []).map((u) => <MenuItem key={u.id} checked={by === u.id} onClick={() => { close(); set("by", String(u.id)); }}>{u.name}</MenuItem>)}
-        </>
-      )}
+      {(close) => options.map(([id, name]) => <MenuItem key={id} checked={current === id} onClick={() => { close(); onPick(id); }}>{name}</MenuItem>)}
     </Menu>
   );
   // The board's band: the kinds as pills on the left, the filters as plain text on the right.
@@ -160,9 +158,9 @@ export function MediaPage() {
       <div className="-mx-4 mb-4 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
         {tabs}
         <span className="hidden flex-1 sm:block" />
-        <ProjectsChip brandId={brandId} />
-        {maker}
-        {filtered && <Button variant="ghost" dense onClick={clear}>Clear filters</Button>}
+        {menu("Video", picked ? `Video: ${picked}` : "Video", [["", "All videos"], ...videos], video ?? "", (v) => set("video", v))}
+        {menu("Sort", oldest ? "Oldest first" : "Newest first", [["", "Newest first"], ["oldest", "Oldest first"]], oldest ? "oldest" : "", (v) => set("sort", v))}
+        {(filtered || oldest) && <Button variant="ghost" dense onClick={clear}>Clear filters</Button>}
       </div>
       {media.isError && <Banner tone="danger" title="Couldn't load the media. Check your connection." action={<Button variant="secondary" onClick={() => media.refetch()}>Try again</Button>} />}
       {media.isPending && (
