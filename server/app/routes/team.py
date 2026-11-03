@@ -1,5 +1,6 @@
 """The team: list members, invite people, change a role, remove people and bring them back.
-Changes are owner-only."""
+Changes are owner-only. Besides invites by email, the owner can keep one standing editor link
+(v5 audit): it works once, ends in LINK_DAYS days, and the person gives their own email."""
 
 from datetime import timedelta
 
@@ -21,6 +22,7 @@ class MemberOut(BaseModel):
     email: str
     name: str
     role: Role
+    last_active_at: UtcTime | None  # null: never signed in since it was kept
 
 
 class RoleIn(BaseModel):
@@ -54,7 +56,8 @@ def members(
     found = select(User).where(User.workspace_id == user.workspace_id, User.active.is_(not removed))
     hide = not user.is_owner  # editors see Reed's name, not his email (Producer's default)
     return [MemberOut(id=u.id, email="" if hide and u.is_owner else u.email, name=u.name,
-                      role=u.role) for u in db.scalars(found.order_by(User.id))]  # fmt: skip
+                      role=u.role, last_active_at=u.last_active_at)
+            for u in db.scalars(found.order_by(User.id))]  # fmt: skip
 
 
 def _member(db: Session, owner: User, member_id: int, active: bool = True) -> User:
@@ -106,6 +109,7 @@ def invites(owner: User = Depends(owner_only), db: Session = Depends(get_db)):
     return db.scalars(
         select(Invite).where(
             Invite.workspace_id == owner.workspace_id,
+            Invite.email != LINK,
             Invite.accepted_at.is_(None),
             Invite.expires_at > utcnow(),
         )
@@ -166,4 +170,49 @@ def cancel_invite(
     if not invite or invite.workspace_id != owner.workspace_id or invite.accepted_at:
         raise HTTPException(404, "No such invite.")
     db.delete(invite)
+    db.commit()
+
+
+LINK = ""  # an invite with no email: the standing editor link (they give their own email)
+LINK_DAYS = 7
+
+
+class LinkOut(BaseModel):
+    expires_at: UtcTime
+
+
+class NewLinkOut(LinkOut):
+    token: str  # shown once, like an invite's; a new link replaces it
+
+
+def _links(db: Session, owner: User):
+    return select(Invite).where(Invite.workspace_id == owner.workspace_id, Invite.email == LINK,
+                                Invite.accepted_at.is_(None))  # fmt: skip
+
+
+@router.get("/invite-link", response_model=LinkOut | None)
+def invite_link(owner: User = Depends(owner_only), db: Session = Depends(get_db)):
+    """The standing editor link while it works (null: none). Only a hash is kept, so the link
+    itself is shown once, when it's made."""
+    return db.scalar(_links(db, owner).where(Invite.expires_at > utcnow()))
+
+
+@router.post("/invite-link", response_model=NewLinkOut, status_code=201)
+def new_invite_link_for_anyone(owner: User = Depends(owner_only), db: Session = Depends(get_db)):
+    """A new standing editor link; the one before stops working."""
+    for old in db.scalars(_links(db, owner)):
+        db.delete(old)
+    raw, digest = new_token()
+    link = Invite(workspace_id=owner.workspace_id, email=LINK, role=Role.editor,
+                  token_hash=digest, invited_by_id=owner.id,
+                  expires_at=utcnow() + timedelta(days=LINK_DAYS))  # fmt: skip
+    db.add(link)
+    db.commit()
+    return NewLinkOut(expires_at=link.expires_at, token=raw)
+
+
+@router.delete("/invite-link", status_code=204)
+def revoke_invite_link(owner: User = Depends(owner_only), db: Session = Depends(get_db)) -> None:
+    for old in db.scalars(_links(db, owner)):
+        db.delete(old)
     db.commit()
