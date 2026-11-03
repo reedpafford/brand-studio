@@ -369,3 +369,13 @@ test("My credits' rows read 'spent N' with the director's time included, in whol
   expect(beach).toHaveTextContent("up to 204 approved");
   expect(within(beach).getByText("Delivered")).toBeInTheDocument();
 });
+
+test("By person and My credits never show '-0' for nothing used (UX-Auditor on #1246)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
+  open();
+  const people = await screen.findByRole("region", { name: "By person" });
+  const dee = (await within(people).findByText("Dee")).closest("tr")!;
+  expect(dee).toHaveTextContent("0 of 97 credits this week");
+  expect(dee.textContent).not.toMatch(/-0/);
+});

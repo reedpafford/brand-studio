@@ -3,7 +3,7 @@ import { Check, ChevronDown, CircleAlert, Clapperboard, Clock, Film, TriangleAle
 import { Link, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, EmptyState, PageTop, Skeleton, Tabs, type Tone } from "../components";
+import { Badge, Banner, Button, EmptyState, PageTop, Skeleton, Tabs, wholeCredits, type Tone } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { lastText } from "../usage/parts";
 import { useRail } from "../useMedia";
@@ -116,8 +116,8 @@ function FlagLine({ r }: { r: Row }) {
 function Spent({ r }: { r: Row & { approved_up_to?: number | null } }) {
   return (
     <>
-      <span className="block">spent {Math.ceil(r.credits_used - 1e-9).toLocaleString("en-US")}</span>
-      {r.approved_up_to != null && <span className="block text-xs text-muted">up to {Math.ceil(r.approved_up_to - 1e-9).toLocaleString("en-US")} approved</span>}
+      <span className="block">spent {wholeCredits(r.credits_used).toLocaleString("en-US")}</span>
+      {r.approved_up_to != null && <span className="block text-xs text-muted">up to {wholeCredits(r.approved_up_to).toLocaleString("en-US")} approved</span>}
     </>
   );
 }
