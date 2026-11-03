@@ -33,12 +33,12 @@ test("a script is made in the library: describe it, write its words, and it is l
   // Write one variation (stand-in provider, no cost), read it next to the original, approve it.
   await page.getByRole("link", { name: "Bo tries salmon", exact: true }).click();
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Variations" }).click();
-  await page.getByRole("radio", { name: "1", exact: true }).click();
+  await page.getByLabel("How many?").selectOption("1");
   await page.getByRole("button", { name: /^Write 1 variation/ }).click();
   const b = page.getByLabel("Version B", { exact: true });
   await expect(b).toBeVisible({ timeout: 60_000 });
-  await b.getByRole("button", { name: "Approve" }).click();
-  await expect(b.getByText("Approved · words final")).toBeVisible();
+  await b.getByRole("button", { name: "Approve B" }).click();
+  await expect(b.getByText("Approved", { exact: true })).toBeVisible();
 
   // The write already found the roles (Bo and Mia); add one more by hand, step over the optional steps, publish: it becomes Ready to make.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
@@ -49,10 +49,10 @@ test("a script is made in the library: describe it, write its words, and it is l
   await expect(page.getByText("3 roles · 0 locked")).toBeVisible();
   // Plan version A's shots (stand-in provider, no cost): Breakdown sits before Cast in v5.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Breakdown" }).click();
-  // The step opens on the scene plan (S6), which is optional: go straight to the shots.
-  await page.getByRole("tab", { name: "Shots" }).click();
-  await page.getByRole("button", { name: /^Make the breakdown/ }).click();
-  await expect(page.getByText(/^Planned · \d+ s/)).toBeVisible({ timeout: 60_000 });
+  // v5 C_Breakdown: plan the shots straight away (the scene plan is optional, behind the menu).
+  await page.getByRole("button", { name: /^Plan the shots/ }).click();
+  await expect(page.getByText(/^Planned · \d+ scenes? · \d+ clips?/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("table", { name: "Clips" })).toBeVisible();
   // Resizing the open page re-lays it out for the new width a moment later (the layout follows a media query), so wait for it to settle; measuring at once can catch the old layout squeezed into the new width.
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -62,9 +62,9 @@ test("a script is made in the library: describe it, write its words, and it is l
   await page.getByRole("button", { name: "More for this plan" }).click();
   await page.getByRole("menuitem", { name: "Remove the plan" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
-  await expect(page.getByRole("button", { name: /^Make the breakdown/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Plan the shots/ })).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(page.getByText(/^Planned · \d+ s/)).toBeVisible();
+  await expect(page.getByText(/^Planned · \d+ scenes?/)).toBeVisible();
   await page.getByRole("button", { name: "Next: Cast" }).click();
   await page.getByRole("button", { name: "Next: Publish" }).click();
   await page.getByRole("button", { name: "Publish 2 versions" }).click();

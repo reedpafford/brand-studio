@@ -6,7 +6,7 @@ import { Button, Dialog, Skeleton, StepPicker } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
-import { BreakdownStep } from "./BreakdownStep";
+import { BreakdownStep, VersionPick, breakdownSlot } from "./BreakdownStep";
 import { CastStep } from "./CastStep";
 import { DirectionsStep } from "./DirectionsStep";
 import { VariationsStep, variationsReason } from "./VariationsStep";
@@ -88,23 +88,29 @@ export function ScriptFlowPage() {
   const { prev, next } = around(s, step);
   const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : lockReason(next.id, s, song);
   const label = stepsFor(s).find((x) => x.id === step)!.label;
-  const toPublish = s.versions.filter((v) => v.text.trim() !== "").length;
-  const toApprove = s.versions.filter((v) => v.text.trim() !== "" && v.status === "draft").length; // approved on its card first, as Variations says
-  const publishReason = toPublish === 0 ? "Write the script first" : toApprove > 0 ? `Approve every version first (${toApprove} left)` : null;
-  const publishButton = step === "publish" && !s.published && (
-    <Button disabled={!!publishReason} reason={publishReason} onClick={() => setAsking(true)}>
-      Publish {toPublish} version{toPublish === 1 ? "" : "s"}
-    </Button>
-  );
   // A script from a reel isn't ready to move on until the reel is read: Read this reel is the one amber button until then.
   const unread = step === "script" && !!reel.data && reel.data.status !== "done";
   const reelReady = unread && !s.published && !rail && (reel.data?.status === "ready" || reel.data?.status === "failed") && reel.data?.failed_step !== "prepare";
   // While accepted directions wait, "Apply N accepted" is the one indigo press, so Next turns secondary (C_Directions).
-  const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : publishButton || (next && !unread && (
-    <Button variant={step === "directions" && waiting > 0 ? "secondary" : "primary"} disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
+  // v5 G_Publish: Publish is its own page, with its presses at the end of it, so the top has no Next there.
+  const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : step !== "publish" && next && !unread && (
+    <Button variant={(step === "directions" && waiting > 0) || step === "breakdown" ? "secondary" : "primary"} disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
-  ));
+  );
+  // In the 52 px top bar a held Next says why on its left, so the bar keeps its height.
+  const topNext = !reelReady && step !== "publish" && next && !unread && nextReason ? (
+    <span className="flex items-center gap-3">
+      <span id="next-why" className="text-xs text-muted">
+        {nextReason}
+      </span>
+      <Button disabled aria-describedby="next-why">
+        Next: {next.label}
+      </Button>
+    </span>
+  ) : (
+    nextButton
+  );
   const backButton = prev && (
     <Button variant="ghost" icon={ChevronLeft} aria-label={rail ? undefined : "Back"} onClick={() => go(prev.id)}>
       {rail ? "Back" : ""}
@@ -126,10 +132,17 @@ export function ScriptFlowPage() {
     </Link>,
     ...(project ? [<span key="p">{project.name}</span>] : []),
     <span key="t" className="font-medium text-text">{s.title}</span>,
-    ...(overview ? [] : [<span key="x">Steps</span>]),
+    ...(overview || step === "publish" ? [] : [<span key="x">Steps</span>]),
   ];
   // v5 settings per step (C_ScriptWrite: Type, Style, Project and Shape; C_Directions: Type, Style, Project).
-  const settings = (
+  const slot = breakdownSlot(s, params.get("v"));
+  const settings = step === "breakdown" ? (
+    // C_Breakdown: the version and the shape (read only: each video picks its own).
+    <>
+      <VersionPick script={s} value={slot} onChange={(v) => setParams({ step: "breakdown", ...(v ? { v: String(v) } : {}) })} />
+      <ShapeChip value="9:16" />
+    </>
+  ) : (
     <>
       <FormatSetting script={s} />
       <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
@@ -139,7 +152,9 @@ export function ScriptFlowPage() {
   );
   // A story's v5 step bar ends at Cast: Publish is "Publish to library", still the step after Cast (Next: Publish).
   const barSteps = stepsFor(s) === WRITING_STEPS && step !== "publish" ? steps.filter((x) => x.id !== "publish") : steps;
-  const v5 = step === "script" || step === "directions"; // the steps built to v5 so far: their own headings, no step title row
+  const v5 = ["script", "directions", "variations", "breakdown", "publish"].includes(step); // the steps built to v5 so far: their own headings, no step title row
+  // v5 settings rows: Variations shows only the steps (G_Variations); Publish has neither (G_Publish).
+  const row = overview || (step !== "variations" && step !== "publish");
 
   return (
     <main className={rail || overview ? "" : "pb-28"}>
@@ -156,11 +171,13 @@ export function ScriptFlowPage() {
           </Button>
         )}
         {mayDelete(s) && <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />}
-        {!overview && rail && nextButton}
+        {!overview && rail && topNext}
       </ScriptTop>
-      <SettingsRow steps={<StepPicker flat steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...barSteps] : barSteps} onPick={(to) => go(to)} />}>
-        {settings}
-      </SettingsRow>
+      {step !== "publish" || overview ? (
+        <SettingsRow steps={<StepPicker flat steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...barSteps] : barSteps} onPick={(to) => go(to)} />}>
+          {row && settings}
+        </SettingsRow>
+      ) : null}
       {params.get("video") && <MakeVideoPanel scriptId={s.id} onClose={() => setParams({})} />}
       <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
       {del.dialog}
@@ -192,8 +209,8 @@ export function ScriptFlowPage() {
           {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => { setWaiting(n); setHold(n > 0 ? { title: `Leave without applying ${n} accepted?`, body: "They stay accepted but are not applied to the script. Leaving doesn't apply them." } : null); }} />}
           {step === "variations" && <VariationsStep script={s} own={mine} />}
           {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
-          {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
-          {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
+          {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} slot={slot} />}
+          {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} onNotYet={() => (prev ? go(prev.id) : go(first))} />}
         </>
       )}
       </div>
