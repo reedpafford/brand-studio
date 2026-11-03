@@ -72,3 +72,17 @@ def test_my_credits_across_every_brand_with_each_rows_status(app, owner, editor,
     ed = db.query(User).filter_by(role=Role.editor).one()
     assert all(v["project_id"] not in states for v in editor.get("/usage/mine").json()["videos"])
     assert ed.id  # an editor sees only their own
+
+
+def test_a_freestyles_video_on_production_says_what_the_oks_cover(app, owner, db):
+    """Next-Lead (the Producer's rule 34): production's row has approved_up_to, as My credits."""
+    from tests.conftest import first_brand
+
+    fs = owner.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)}).json()
+    _run_fakes(app, db, ticks=5)
+    rows = owner.get("/production").json()
+    mine = [r for r in owner.get("/usage/mine").json()["videos"]
+            if r["project_id"] == fs["project_id"]]  # fmt: skip
+    row = next((r for r in rows if r["project_id"] == fs["project_id"]), None)
+    assert row["approved_up_to"] == mine[0]["approved_up_to"] > 0
+    assert all(r["approved_up_to"] is None for r in rows if r["project_id"] != fs["project_id"])

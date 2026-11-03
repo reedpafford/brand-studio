@@ -8358,6 +8358,8 @@ export interface components {
             clips_total: number;
             /** Finished At */
             finished_at?: string | null;
+            /** Approved Up To */
+            approved_up_to?: number | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
