@@ -1,0 +1,6 @@
+# Guidance changes only when Reed approves them.
+/server/app/guides/          @reedpafford
+/server/app/prompts/rules.md @reedpafford
+/ops/DECISIONS.md            @reedpafford
+/ops/MISSION.md              @reedpafford
+/.github/CODEOWNERS          @reedpafford

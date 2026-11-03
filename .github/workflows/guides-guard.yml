@@ -1,0 +1,33 @@
+name: guides-guard
+# Guidance (guides, rules.md, DECISIONS, MISSION, CODEOWNERS) changes only with Reed's approval.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions:
+  pull-requests: read
+  contents: read
+jobs:
+  guides-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Guidance changes need Reed's approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          touched=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename' \
+            | grep -E '^(server/app/guides/|server/app/prompts/rules\.md$|ops/DECISIONS\.md$|ops/MISSION\.md$|\.github/CODEOWNERS$)' || true)
+          if [ -z "$touched" ]; then echo "No guidance files changed."; exit 0; fi
+          if [ "$AUTHOR" = "reedpafford" ]; then echo "Reed's own PR."; exit 0; fi
+          echo "Guidance files changed:"; echo "$touched"
+          state=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" \
+            --jq "[.[] | select(.user.login==\"reedpafford\" and .commit_id==\"$HEAD\" and .state!=\"COMMENTED\" and .state!=\"PENDING\")] | last | .state // \"NONE\"")
+          echo "Reed's latest review on this commit: $state"
+          [ "$state" = "APPROVED" ] || { echo "::error::Guidance changed. Needs Reed's approval on the latest commit."; exit 1; }
