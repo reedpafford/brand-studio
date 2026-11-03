@@ -5,6 +5,7 @@ follow it. Stand-ins only."""
 import pytest
 
 from app import director_song, music
+from app.director import STAND_IN_STYLE
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
 from app.models.projects import Project
@@ -52,8 +53,10 @@ def test_a_song_freestyle_makes_the_song_first_then_the_video_to_it(app, db, own
                if j.input.get("step") == "plan"]  # fmt: skip
     assert "<song seconds=" in plan.input["prompt"]  # it maps its beats onto the real song
     assert picked["extras"] == []  # the stand-in sings the lyrics as written
-    assert state["style"] == "" and state["recent_styles"] == []  # the stand-in gave none
     job = db.get(Job, db.get(SongTake, video.song_take_id).job_id)
+    sent = job.input["input"]  # what KIE gets: the stand-in's style line first (QA-10)
+    assert sent["style"].startswith(STAND_IN_STYLE) and sent["vocal_gender"] == "f"
+    assert state["style"] == STAND_IN_STYLE == state["recent_styles"][0]
     job.input = music.job(LYRICS, "breezy pop, warm female vocal")  # as the request sung it
     db.commit()
     state = director_song.state(db, video)
@@ -157,6 +160,20 @@ def test_the_director_picks_the_narrators_voice_from_ours(app, db, owner):
     assert tool("Jane") == "Making the narration (warmer)."
     newest = max(director_song.state(db, video)["takes"], key=lambda t: t["id"])
     assert db.get(SongTake, newest["id"]).voice == "Jane"
+
+
+def test_a_first_song_with_no_style_line_is_refused_for_free(app, db, owner):
+    """QA-10: a version with no style line and no note would reach KIE with no genre."""
+    from app import director_tools
+    from app.models.accounts import User
+
+    fs = _sent(owner, "song", LYRICS)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+    out = director_tools.run(db, me, video, {"tool": "song"}, app.state.storage, {})
+    assert out == director_song.NO_STYLE
+    assert not db.query(Job).filter(Job.project_id == video.id, Job.kind == "music").count()
 
 
 def test_a_song_runs_price_holds_its_song_and_one_remake(app, db, owner):

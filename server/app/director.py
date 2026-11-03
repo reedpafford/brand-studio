@@ -880,6 +880,9 @@ def _still_wrong(state: dict) -> str:
             "was read again as often as allowed, so listen before you share it.")  # fmt: skip
 
 
+STAND_IN_STYLE = "bright pop, warm female vocal, 110 bpm"  # a song version with no style line
+
+
 def _audio_move(state: dict, go) -> dict | None:
     """The stand-in's song or narration: make it, wait for it, then use its best take; a
     failed one is tried again (free when the service failed; refused, it says so). A narration
@@ -895,7 +898,8 @@ def _audio_move(state: dict, go) -> dict | None:
         return None
     what = "song" if tool == "song" else "narration"
     if audio["state"] == "none":
-        return go(tool, f"The {what} first: its timing is what the shots follow.")
+        style = {} if audio.get("style", True) else {"note": STAND_IN_STYLE}  # a song's first
+        return go(tool, f"The {what} first: its timing is what the shots follow.", **style)
     if audio["state"] == "making":
         return go("wait", f"The {what} is being made.")
     if audio["state"] == "ready":

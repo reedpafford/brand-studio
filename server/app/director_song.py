@@ -29,6 +29,7 @@ NO_SONG = "Refused: this video has no song."
 NO_NARRATOR = "Refused: this video has no narrator."
 AGAIN = f"Refused: the {{what}} was made again {REMAKES} times this run."
 OFF = "Refused: songs aren't switched on here yet."
+NO_STYLE = "Refused: the first song needs its style line as the note (genre, vocal, tempo)."
 REFUSED = (music.REFUSED, music.REFUSED_IN_VIDEO)  # the words or style refused: never as is
 
 
@@ -198,6 +199,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         return f"Trying the {what} again: the service failed, nothing was charged."
     if takes and run.get(REMADE, 0) >= REMAKES:
         return AGAIN.format(what=what)
+    if found == "song" and not note and not draft.style_line.strip():
+        return NO_STYLE  # free: never a song with no genre, vocal or tempo (QA-10)
     if not _on(db, draft):
         return OFF
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
