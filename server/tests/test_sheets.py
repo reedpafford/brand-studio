@@ -132,9 +132,7 @@ def test_sheet_rules(app, editor, outsider):
 
 def test_a_sheet_is_never_refused_for_the_week(owner, editor):
     """One allowance (Reed, 30 Oct): a look is a brand's work, not a Quick clip."""
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 1, "per_video_max_credits": 729}
-    )
+    owner.put("/credits/limits", json={"weekly_quick_clip_credits": 1})
     mia = editor.post("/library/character", json={"name": "Mia", "notes": "teen trader"}).json()
     url = f"/library/character/{mia['id']}"
     made = editor.post(f"{url}/sheet", json={})

@@ -576,9 +576,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
     try:
         return enqueue(db, user, "write-claude", data, project=project, provider="claude",
                        prepaid=not wait, wait=wait)  # fmt: skip
-        # its own limit (MAX_USD), never the video's budget; the per-video cap still counts
-        # it (director-chat.md §2, DECISIONS #1066)
-    except HTTPException as no:  # e.g. the per-video cap: the run ends, saying why
+        # its own limit (MAX_USD), never the video's budget (director-chat.md §2, DECISIONS #1066)
+    except HTTPException as no:  # e.g. the video was archived: the run ends, saying why
         if last is None or run["turn"] == 1:  # its first turn: the start itself is refused
             raise
         last = db.get(Job, last.id)

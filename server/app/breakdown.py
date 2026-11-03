@@ -137,7 +137,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     if told := treatment_block(db, project):  # the story it serves (the director's treatment)
         parts.append(told.rstrip())
     if take:
-        parts.append(escape_block(prompts.song_block(song_breakdown.timing_used(take))))
+        parts.append(escape_block(prompts.song_block(take.timing or {})))
     return {
         "step": step,
         **({"song_take_id": take.id} if take else {}),
@@ -186,7 +186,7 @@ def problems(
         song = song_breakdown.carried(db, project.id, order)
     take = db.get(SongTake, song["take_id"]) if song else None
     if take:
-        timed, timing = song_breakdown.joined(bd, song), song_breakdown.timing_used(take)
+        timed, timing = song_breakdown.joined(bd, song), take.timing or {}
         found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
                                      m.duration.max, written=written,
                                      sung=take.kind != "narration", **extra)  # fmt: skip

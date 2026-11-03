@@ -8,7 +8,6 @@ from app import video_settings as vs
 from app.models.brands import BrandScreen
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
-from app.models.credits import CreditLimits
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -102,21 +101,6 @@ def test_a_flavour_switch_outdates_only_what_shows_the_bag(owner, editor, db):
     assert (seen["stills_out_of_date"], seen["clips_out_of_date"]) == (0, 1)
     assert editor.post(f"{video}/settings/preview",
                        json={"product_variants": {"bag": "Kale"}}).status_code == 422  # fmt: skip
-
-
-def test_over_the_cap_is_refused_with_the_reason(owner, editor, db):
-    video, _ = _made(owner, editor, db)
-    db.add(CreditLimits(workspace_id=1, per_video_max_credits=1))
-    db.commit()
-    seen = editor.post(f"{video}/settings/preview", json={"aspect_ratio": "1:1"}).json()
-    assert seen["over_cap"] and seen["reason"] == vs.OVER_CAP.format(1)
-    no = editor.post(f"{video}/settings", json={"aspect_ratio": "1:1"})
-    assert (no.status_code, no.json()["detail"]) == (409, vs.OVER_CAP.format(1))
-    # Undo puts back what the video already had, even over the limit (Flow-QA's case)
-    was = editor.post(f"{video}/settings", json={"aspect_ratio": "1:1", "undo": True})
-    assert was.status_code == 200 and was.json()["was"] == {"aspect_ratio": "9:16"}
-    back = editor.post(f"{video}/settings", json={**was.json()["was"], "undo": True})
-    assert back.json()["settings"]["aspect_ratio"] == "9:16"
 
 
 def test_who_may_switch_and_what_may_be_sent(app, owner, editor, db):
@@ -297,16 +281,12 @@ def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
     url = f"{base}/drafts/0/estimate"
     auto = editor.post(url).json()
     shown = editor.get(base).json()["versions"][0]["estimate_credits"]
-    assert auto == {"credits": shown, "over_cap": False, "reason": ""}  # the card's figure
+    assert auto == {"credits": shown}  # the card's figure
     look = owner.post(url, json={"look": "disney-pixar"})  # the script's style stays (item 7)
     assert look.status_code == 409 and "keeps its script's style, House" in look.text
     cheaper = editor.post(url, json={"video_model": "seedance-2.0"}).json()
     assert 0 < cheaper["credits"] < auto["credits"]
     assert editor.post(url, json={"video_model": "nope"}).status_code == 422
-    db.add(CreditLimits(workspace_id=1, per_video_max_credits=1))
-    db.commit()
-    over = editor.post(url).json()
-    assert over["over_cap"] and over["reason"] == vs.OVER_CAP.format(1)
     assert db.query(Project).count() == 0  # nothing is made
     models = {m["id"]: m["lip_sync"] for m in editor.get("/models?kind=video").json()}
     assert models["seedance-2.5"] and not models["seedance-2.0"]

@@ -9,7 +9,6 @@ import math
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -18,7 +17,6 @@ from app.db import utcnow
 from app.models.accounts import User
 from app.models.credits import (
     BUDGET_MULTIPLIER,
-    DEFAULT_PER_VIDEO_MAX_CREDITS,
     DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
     USD_PER_CREDIT,
     CreditLimits,
@@ -139,25 +137,24 @@ def budget(db: Session, project: Project) -> Decimal:
     its takes never use up the budget (QA-2: a 12 s video's fixed steps came to 12.73 of a
     24-credit budget, and its 12-credit take was refused). A look for each role its script
     doesn't lock, made or not, so the budget never drops as Assets makes them, and never below
-    its guess before a breakdown (a plan with fewer clips than guessed). Never above the
-    per-video cap, so editors are never shown more than can be spent (QA on #679)."""
+    its guess before a breakdown (a plan with fewer clips than guessed). There is no cap above
+    it (Reed, 2026-11-03)."""
     from app import clip_prompts
     from app.cast_roles import all_slots
     from app.prompts.schemas import Breakdown
 
-    cap = Decimal(get_limits(db, project.workspace_id).per_video_max_credits)
     if project.hidden:  # a freestyle's video: the owner's OK covers the price shown, no more
         from app.models.freestyles import Freestyle
 
         fs = db.scalar(select(Freestyle).where(Freestyle.project_id == project.id))
         if fs is not None and fs.up_to is not None:
-            return min(approved(db, fs), cap)
+            return approved(db, fs)
     row = clip_prompts.newest(db, project)
     bd = Breakdown.model_validate(row.data) if row else None
     roles = sum(s.library_item_id is None for s in all_slots(db, project))
     ws, seconds = project.workspace_id, int(project.estimate_credits)
     cost = max(plan_cost(db, ws, seconds, bd, roles), plan_cost(db, ws, seconds, None, roles))
-    return min(cost * BUDGET_MULTIPLIER, cap)
+    return cost * BUDGET_MULTIPLIER
 
 
 def usd_to_credits(usd: Decimal) -> Decimal:
@@ -171,31 +168,7 @@ def get_limits(db: Session, workspace_id: int) -> CreditLimits:
     ) or CreditLimits(
         workspace_id=workspace_id,
         weekly_quick_clip_credits=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
-        per_video_max_credits=DEFAULT_PER_VIDEO_MAX_CREDITS,
     )
-
-
-def over_cap(user: User, cap: int) -> HTTPException:
-    """The per-video hard limit. The owner sees dollars; editors never do."""
-    if user.is_owner:
-        dollars = (cap * USD_PER_CREDIT).quantize(Decimal(1))
-        return HTTPException(409, f"This video would go over its ${dollars} limit.")
-    return HTTPException(409, "This video would go over its limit.")
-
-
-def check_clip_cap(db: Session, user: User, credits: Decimal) -> None:
-    """A single job outside a project (a quick clip) is one video too: same hard cap."""
-    cap = get_limits(db, user.workspace_id).per_video_max_credits
-    if credits > cap:
-        raise over_cap(user, cap)
-
-
-def check_video_cap(db: Session, user: User, project: Project, credits: Decimal) -> None:
-    """Refuse (for everyone) a job that would take the project past the per-video maximum.
-    Call with the project row locked."""
-    cap = get_limits(db, project.workspace_id).per_video_max_credits
-    if credits_used(db, project) + credits > cap:
-        raise over_cap(user, cap)
 
 
 def _sum_credits(db: Session, *where) -> Decimal:
@@ -283,12 +256,8 @@ def price(total: Decimal) -> int:
 
 
 def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
-    """Why `total` more credits on this video would go over, or "" when it fits: the
-    per-video limit (for everyone), else the video's budget (the owner's too: work made by
-    itself stays within it)."""
-    cap = get_limits(db, project.workspace_id).per_video_max_credits
-    if credits_used(db, project) + total > cap:
-        return "would go over this video's limit."
+    """Why `total` more credits on this video would go over, or "" when it fits its budget
+    (the owner's too: work made by itself stays within it)."""
     if budget_used(db, project) + total <= project.budget_credits:  # as the hold counts it
         return ""
     return "would go over this video's budget."

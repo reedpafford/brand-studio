@@ -12,7 +12,7 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   "GET /team/members": [200, [{ id: 1, name: "Reed", email: "reed@b.co", role: "owner" }]],
   "GET /team/invites": [200, []],
   "GET /workspace": [200, { id: 1, name: "Iron Paws Studio" }],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145 }],
   "GET /credits/allowances": [200, [{ user_id: 2, name: "Sam", quick_clip_credits_used: 120, quick_clip_credits_allowed: 145 }]],
   "GET /usage/summary?period=month": [200, { director_spend_usd: 6.4 }],
   ...o,
@@ -22,12 +22,12 @@ function open(tab = "limits") {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("Limits shows both limits in credits, says editors' new videos always ask, and the director's time this month in dollars; Save waits for a change", async () => {
+test("Limits shows the editors' week in credits, says editors' new videos always ask, and the director's time this month in dollars; Save waits for a change", async () => {
   setViewport(1440);
   fakeServer(base());
   open();
   expect(await screen.findByLabelText("Each editor's own week")).toHaveValue("145");
-  expect(screen.getByLabelText("Most one video may spend")).toHaveValue("729");
+  expect(screen.queryByLabelText("Most one video may spend")).toBeNull();
   const limits = screen.getByRole("region", { name: "Limits" });
   expect(limits).toHaveTextContent("Always asks you");
   expect(await within(limits).findByText("$6.40 this month")).toBeInTheDocument();
@@ -36,23 +36,23 @@ test("Limits shows both limits in credits, says editors' new videos always ask, 
   expect(screen.getByRole("button", { name: "Save" })).toHaveAccessibleDescription("No changes yet");
 });
 
-test("raising the cap saves both values, and Undo saves the old ones back", async () => {
+test("raising the allowance saves it, and Undo saves the old one back", async () => {
   setViewport(1440);
-  const calls = fakeServer(base({ "PUT /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 800 }] }));
+  const calls = fakeServer(base({ "PUT /credits/limits": [200, { weekly_quick_clip_credits: 200 }] }));
   open();
-  const cap = await screen.findByLabelText("Most one video may spend");
-  await userEvent.clear(cap);
-  await userEvent.type(cap, "800");
+  const weekly = await screen.findByLabelText("Each editor's own week");
+  await userEvent.clear(weekly);
+  await userEvent.type(weekly, "200");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /credits/limits")?.body).toEqual({ weekly_quick_clip_credits: 145, per_video_max_credits: 800 }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /credits/limits")?.body).toEqual({ weekly_quick_clip_credits: 200 }));
   expect(await screen.findByText("Limits saved.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /credits/limits").at(-1)?.body).toEqual({ weekly_quick_clip_credits: 145, per_video_max_credits: 729 }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /credits/limits").at(-1)?.body).toEqual({ weekly_quick_clip_credits: 145 }));
 });
 
 test("lowering the allowance below what an editor has used asks first, in plain words", async () => {
   setViewport(1440);
-  const calls = fakeServer(base({ "PUT /credits/limits": [200, { weekly_quick_clip_credits: 100, per_video_max_credits: 729 }] }));
+  const calls = fakeServer(base({ "PUT /credits/limits": [200, { weekly_quick_clip_credits: 100 }] }));
   open();
   const weekly = await screen.findByLabelText("Each editor's own week");
   await userEvent.clear(weekly);

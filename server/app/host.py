@@ -175,10 +175,8 @@ def state(db: Session, project: Project) -> dict:
 
 def _spans(take: SongTake) -> list[tuple[float, float]]:
     """The narration's pieces, cut at its sentence ends (`host_layer.pieces`)."""
-    from app.song_breakdown import timing_used
-
     end = float(take.seconds)
-    ends = [ln["end"] for ln in timing_used(take).get("lines") or [] if ln.get("end")]
+    ends = [ln["end"] for ln in (take.timing or {}).get("lines") or [] if ln.get("end")]
     return host_layer.pieces(sorted({round(e, 2) for e in ends if 0 < e < end}) + [end])
 
 

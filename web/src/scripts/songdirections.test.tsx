@@ -14,7 +14,7 @@ const song = (v: object = {}) => ({
   id: 7, brand_id: 1, kind: "song", format: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)],
 });
-const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [] }] };
+const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes: [] }] };
 
 function open() {
   renderApp("/b/1/scripts/7?step=script");
@@ -134,8 +134,8 @@ test("Use this one while typing unsaved lyrics: the confirm says so, and Undo pu
 
 test("Use this one when takes exist says the takes go out of date, as Edit lyrics does", async () => {
   setViewport(1440);
-  const take = { id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null };
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song({ text: LYRICS, song_directions: [direction()] })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [take, { ...take, id: 2, number: 2, preferred: false }] }] });
+  const take = { id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [], advice: [], timing_guessed: false, refused_for: null, video_credits: 34 };
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song({ text: LYRICS, song_directions: [direction()] })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes: [take, { ...take, id: 2, number: 2, preferred: false }] }] });
   open();
   await userEvent.click(await screen.findByText("Directions · 1"));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts/7/drafts/0/songs")).toBe(true));

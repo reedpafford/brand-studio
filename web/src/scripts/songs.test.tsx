@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
-import { keepFirst } from "./SongStep";
 import { renderApp } from "../test/render";
 import { editor, owner } from "../test/people";
 
@@ -14,8 +13,8 @@ const song = (o: object = {}, v: object = {}) => ({
   id: 7, brand_id: 1, kind: "song", format: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, retry_credits: 0, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
-const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, retry_credits: 0, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, ...o });
+const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes, ...o });
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
 function open(path: string) {
@@ -245,18 +244,6 @@ test("a refused take offers Edit lyrics or style, which opens the Song step's bo
   expect(screen.queryByRole("alertdialog")).toBeNull();
 });
 
-test("a take too long for the video limit can't be Preferred yet and offers Use the first 0:55, free, with Undo", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true }), take({ id: 2, number: 2, seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/2/trim": [200, take({ id: 2, number: 2, seconds: 72, over_cap: false, trim_to: 55 })], "DELETE /songs/2/trim": [200, take({ id: 2, number: 2, seconds: 72, over_cap: true, fits_until: 55 })] });
-  open("/b/1/scripts/7?step=takes");
-  expect(await screen.findByText("This take is 1:12: a video of it would go over the limit.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make Preferred" })).toBeDisabled();
-  await userEvent.click(screen.getByRole("button", { name: /Use the first 0:55 · free/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/2/trim")).toBe(true));
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /songs/2/trim")).toBe(true));
-});
-
 test("a refusal over the style offers Use the default style instead (clears the style line, Undo) and Edit style", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "failed", file_id: null, seconds: null, refused_for: "style", failed_reason: "Suno won't use an artist's name. Describe the sound instead." })])], "PUT /scripts/7/drafts/0": [200, song({}, { style_line: "" })] });
@@ -285,62 +272,6 @@ test("a failed take that isn't a refusal offers Try again on its row; Edit lyric
   expect(screen.getAllByRole("link", { name: "Edit lyrics or music style" })).toHaveLength(1);
 });
 
-test("trimming a take when nothing else is Preferred makes it the Preferred one", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/1/trim": [200, take({ seconds: 72, trim_to: 55 })], "POST /songs/1/preferred": [200, { take: take({ preferred: true, trim_to: 55 }), was_preferred_id: null }], "DELETE /songs/1/trim": [200, take({ seconds: 72, over_cap: true, fits_until: 55 })] });
-  open("/b/1/scripts/7?step=takes");
-  await userEvent.click(await screen.findByRole("button", { name: /Use the first 0:55/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/1/preferred")).toBe(true));
-  // One toast with one Undo for both: Undo puts the whole take back.
-  expect(await screen.findByText("Take 1 now uses its first 0:55 and is Preferred. The whole take is kept.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /songs/1/trim")).toBe(true));
-});
-
-test("keepFirst counts sung lines as the server does: tags, [Lip-sync] marks and blank lines don't count", () => {
-  const lyrics = "[Verse]\nOne\n\n[Chorus] [Lip-sync]\nTwo [Lip-sync]\nThree\n[Outro]\nFour";
-  expect(keepFirst(lyrics, 2)).toEqual({ kept: "[Verse]\nOne\n\n[Chorus] [Lip-sync]\nTwo [Lip-sync]", dropped: 2 });
-});
-
-test("lyrics over the video limit: Make gives way to Keep the first N lines (free), which asks, saves and has Undo", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([], { video_estimate_credits: 812, keep_lines: 1 })], "PUT /scripts/7/drafts/0": [200, song()] });
-  open("/b/1/scripts/7?step=takes");
-  expect(await screen.findByText(/A song this long would go over the video limit \(about 812 credits to make, planned\)/)).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Make 2 takes/ })).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Keep the first 1 line · free" }));
-  const ask = screen.getByRole("alertdialog", { name: "Keep the first 1 line?" });
-  expect(ask).toHaveTextContent("Bo would never touch his bowl");
-  expect(ask).toHaveTextContent("1 sung line is dropped.");
-  await userEvent.click(within(ask).getByRole("button", { name: "Keep them" }));
-  await vi.waitFor(() => expect((calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body as { text: string }).text).toBe("[Verse]\nBo would never touch his bowl"));
-  expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
-});
-
-test("when not even one line fits the video limit, the press is Shorten the lyrics", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([], { video_estimate_credits: 900, keep_lines: 0 })] });
-  open("/b/1/scripts/7?step=takes");
-  expect(await screen.findByRole("link", { name: "Shorten the lyrics" })).toBeInTheDocument();
-});
-
-test("a Preferred take too long for a video doesn't open Cast, whatever the server says", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true, seconds: 800, over_cap: true, fits_until: 55 })])] });
-  open("/b/1/scripts/7?step=takes");
-  expect(await screen.findByRole("button", { name: "Next: Cast" })).toBeDisabled();
-  expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: "Cast" })).toHaveAccessibleDescription("The Preferred take is too long for a video. Use the first part of it first");
-});
-
-test("Keep the first N lines says so when the part dropped holds the brand's end line (Advice)", async () => {
-  setViewport(1440);
-  const withEnd = song({}, { text: `${LYRICS}\n[Outro]\nGet Iron Paws through the link in my bio.` });
-  fakeServer({ ...base, "GET /scripts/7": [200, withEnd], "GET /scripts/7/drafts/0/songs": [200, songs([], { video_estimate_credits: 812, keep_lines: 2 })] });
-  open("/b/1/scripts/7?step=takes");
-  await userEvent.click(await screen.findByRole("button", { name: "Keep the first 2 lines · free" }));
-  expect(screen.getByRole("alertdialog")).toHaveTextContent("The brand's end line is in the part dropped.");
-});
-
 test("a song take that hasn't started says Waiting to start, with a timer", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ status: "making", file_id: null, seconds: null, made_at: null, started_at: null })])] });
@@ -367,11 +298,10 @@ test("at 390, an editor's Make 2 takes reads Send for approval, and once pressed
 
 test("Takes (v5): the takes are rows under the header's Edit and Make 2 more, and the card under them says what a video costs and the song's last line", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: true, trim_to: 25 }), take({ id: 3, number: 3 })])] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: true }), take({ id: 3, number: 3 })])] });
   open("/b/1/scripts/7?step=takes");
   const list = await screen.findByRole("list", { name: "Takes" });
   expect(within(list).getAllByRole("listitem").map((r) => r.getAttribute("aria-label"))).toEqual(["Take 2", "Take 1", "Take 3"]); // the Preferred one first
-  expect(within(list).getByText("0:25 of 0:31 · Trimmed")).toBeInTheDocument();
   expect(screen.getByText("Pick the Preferred take; the video is cut to it.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Make 2 more/ })).toBeInTheDocument();
   expect(screen.getByText("A video this long: about 40 credits to make (planned).")).toBeInTheDocument();

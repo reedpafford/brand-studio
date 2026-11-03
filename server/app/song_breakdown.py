@@ -28,20 +28,6 @@ def take_for(db: Session, project: Project) -> SongTake | None:
     return db.get(SongTake, project.song_take_id) if project.song_take_id else None
 
 
-def timing_used(take: SongTake) -> dict:
-    """The take's timing, cut to its trim ("Use the first 0:55") if it has one."""
-    timing = take.timing or {}
-    end = take.trim_to
-    if not end:
-        return timing
-    sections = [{**s, "end": min(s["end"], end),
-                 "cuts": [c for c in s.get("cuts", []) if c < end]}
-                for s in timing.get("sections", []) if s["start"] < end]  # fmt: skip
-    return {**timing, "seconds": end, "beats": [b for b in timing.get("beats", []) if b < end],
-            "lines": [ln for ln in timing.get("lines", []) if ln["start"] < end],
-            "sections": sections}  # fmt: skip
-
-
 def split(bd: SongBreakdown, take_id: int, broll: bool = False) -> tuple[Breakdown, dict]:
     """The AI's song breakdown as the plan every step reads, plus its song part, the shots'
     and clips' lengths taken from the song (`fit`; `broll`: a narration's)."""
@@ -132,7 +118,7 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
     with Session(bind=connection) as db:
         if row.data.get("song"):
             take = db.get(SongTake, row.data["song"].get("take_id") or 0)
-            row.data = snap(row.data, timing_used(take) if take else {})
+            row.data = snap(row.data, take.timing or {} if take else {})
         else:
             order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
             if song := carried(db, row.project_id, order):
@@ -333,7 +319,7 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     old, new = db.get(SongTake, song["take_id"]) if song else None, take_for(db, project)
     if not old or not new or old.id == new.id:
         return None
-    moved = reflow(song, timing_used(old), timing_used(new), new.id)
+    moved = reflow(song, old.timing or {}, new.timing or {}, new.id)
     plan = Breakdown.model_validate(row.data)
     text = db.scalar(
         select(ScriptVersion.text).where(ScriptVersion.project_id == project.id,

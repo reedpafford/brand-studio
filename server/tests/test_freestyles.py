@@ -102,18 +102,12 @@ def test_the_estimate_is_free_and_a_style_that_isnt_one_is_refused(owner, editor
     assert db.query(Job).count() == 0
 
 
-def test_a_freestyle_is_one_video_under_the_cap_and_a_failed_take_costs_nothing(app, owner, db):
-    one = owner.get("/freestyles/estimate", params={**HOUSE, "text": SCRIPT}).json()["credits"]
-    limits = owner.get("/credits/limits").json()
-    cap = int(one * 2) + 1  # room for two takes, not three
-    owner.put("/credits/limits", json={**limits, "per_video_max_credits": cap})
+def test_a_failed_take_costs_nothing(app, owner, db):
     fs = owner.post("/freestyles", json={**HOUSE, "text": SCRIPT}).json()
     _run(app, db)
     url = f"/freestyles/{fs['id']}/messages"
     assert owner.post(url, json={"text": "Brighter."}).status_code == 201
     _run(app, db)
-    r = owner.post(url, json={"text": "Warmer."})
-    assert r.status_code == 409, r.text  # the third take would pass the cap, owner or not
     assert db.query(Job).count() == 2
 
     other = owner.post("/freestyles", json={**HOUSE, "text": "A cat trades at dawn."}).json()

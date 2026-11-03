@@ -48,9 +48,7 @@ def test_write_all_after_bulk_create_with_its_estimate(app, db, owner):
 
 def test_write_all_is_never_refused_for_the_week(owner, editor, db):
     """One allowance (Reed, 30 Oct): writing scripts is a brand's work, never the week's."""
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 0, "per_video_max_credits": 729}
-    )
+    owner.put("/credits/limits", json={"weekly_quick_clip_credits": 0})
     ids = _bulk(editor, 2)
     est = editor.post("/scripts/write/estimate", json={"script_ids": ids}).json()
     assert (est["credits"], est["credits_left"]) == (12, None)

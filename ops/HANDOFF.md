@@ -3,7 +3,7 @@ as of ba7e973 · 2026-10-29 10:10 UTC
 Read first: ops/MISSION.md, ops/AGENTS.md, the **Current rules** at the top of ops/DECISIONS.md (#609: 31 numbered rules, newest wins; re-read before every task). Detail of what merged, when and why is in ops/LOG.md.
 
 ## Built (on main) - short summary, detail in LOG
-- Foundation: server, accounts, invites, files, brands, libraries, jobs/worker/usage, credits, per-video cap.
+- Foundation: server, accounts, invites, files, brands, libraries, jobs/worker/usage, credits.
 - Generation: Replicate adapter, Claude client, Nano Banana and Seedance prompt rules (official docs only), house style, Quick clip.
 - Video path, brief to final cut, works end to end: Brief, Script (Enhance, variations, Accept all), Cast/Assets (per-video looks, character sheets, merge roles), Breakdown, Storyboard, Clips (takes, pick, Approve all, Rewrite clip prompts), stitched download.
 - Workflow v2: Script Library, owner/editor split, weekly allowances, reel import and Bulk create, In production view, Delete/Archive with Undo.
