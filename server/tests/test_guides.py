@@ -40,7 +40,7 @@ def test_a_lane_holds_only_its_differences_and_inherits_the_rest():
 
 def test_the_format_picker_lists_every_format(owner):
     found = owner.get("/formats").json()
-    assert [f["id"] for f in found] == ["dialogue", "song", "narrated", "zack-d"]
+    assert [f["id"] for f in found] == ["dialogue", "song", "narrated", "zack-d", "presenter"]
     assert set(found[0]) == {"id", "name", "engine", "blurb", "on"} and found[0]["on"]
 
 
@@ -74,7 +74,10 @@ def test_release_guides_hold_no_chat_steps_starpop_assets_or_unused_models():
     ux flow we built." No waiting on a user, hand-off lines, Starpop links or voice ids, models
     the site doesn't use, Starpop's parent prompt, or Pixar wording outside Disney Pixar."""
     texts = {s: guides.style(s)["sections"] for s in RELEASE}
-    texts |= {f: guides.format_(f)["sections"] for f in ("dialogue", "song", "narrated", "zack-d")}
+    texts |= {
+        f: guides.format_(f)["sections"]
+        for f in ("dialogue", "song", "narrated", "zack-d", "presenter")
+    }
     texts["craft"] = {"craft": (guides.ROOT / "craft.md").read_text()}
     for name, sections in texts.items():
         text = "\n".join(v for k, v in sections.items() if k != "banned").lower()

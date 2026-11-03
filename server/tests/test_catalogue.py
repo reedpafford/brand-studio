@@ -24,7 +24,8 @@ def _enum(schema, field):
 
 def _up_to(schema, field) -> int:
     text = schema["Input"]["properties"][field]["description"]
-    return int(re.search(r"(?:up to|max) (\d+)", text).group(1))
+    found = re.search(r"(?:up to|max) (\d+)|\(\d+-(\d+) ", text)  # Seedance 1 Lite: "(1-4 images)"
+    return int(found.group(1) or found.group(2))
 
 
 @pytest.mark.parametrize("model", catalogue().values(), ids=lambda m: m.id)
@@ -85,6 +86,7 @@ def test_editor_sees_models_with_credits_but_no_dollars(editor):
         "seedance-2.5",
         "seedance-2.0",
         "p-video",
+        "seedance-1-lite",
     ]
     assert editor.get("/models/seedance-2.5").json()["credits_per_unit"]["480p"] == 1
     assert [m["id"] for m in editor.get("/models", params={"kind": "image"}).json()] == [

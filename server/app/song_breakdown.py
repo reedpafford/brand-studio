@@ -42,21 +42,22 @@ def timing_used(take: SongTake) -> dict:
             "sections": sections}  # fmt: skip
 
 
-def split(bd: SongBreakdown, take_id: int) -> tuple[Breakdown, dict]:
+def split(bd: SongBreakdown, take_id: int, broll: bool = False) -> tuple[Breakdown, dict]:
     """The AI's song breakdown as the plan every step reads, plus its song part, the shots'
-    and clips' lengths taken from the song (`fit`)."""
+    and clips' lengths taken from the song (`fit`; `broll`: a narration's)."""
     shots = {s.id: {"start": s.song_start, "end": s.song_end, "sung": s.sung}
              for scene in bd.scenes for s in scene.shots}  # fmt: skip
     song = {"take_id": take_id, "shots": shots}
-    return Breakdown.model_validate(fit({**bd.model_dump(), "song": song})), song
+    return Breakdown.model_validate(fit({**bd.model_dump(), "song": song}, broll)), song
 
 
-def fit(data: dict) -> dict:
+def fit(data: dict, broll: bool = False) -> dict:
     """The song is the clock (V2, V6): each shot lasts its time in the song and each clip its
     shots' span, rounded up to whole seconds, whatever the plan said (the stand-in counted
     spoken words: a 0:24 song read "1 clip · 14 s"). A clip over the video model's limit
     keeps it: the breakdown check names it, never cut to fit. `data` is a plan with its
-    song part; shots the song part doesn't know keep their own."""
+    song part; shots the song part doesn't know keep their own. `broll`: under a narration,
+    a shot too short to be a clip is a clip of its own (`_apart`)."""
     timed = (data.get("song") or {}).get("shots") or {}
     if not timed:
         return data
@@ -68,13 +69,26 @@ def fit(data: dict) -> dict:
                if sh.get("character_ids")}  # fmt: skip
     clips = []
     for clip in data.get("clips", []):
-        for part in _split(clip, timed, peopled):
+        whole = _apart(clip, timed) if broll else [clip]
+        for part in (p for c in whole for p in _split(c, timed, peopled)):
             known = [timed[s] for s in part.get("shot_ids", []) if s in timed]
             if known:
                 span = max(t["end"] for t in known) - min(t["start"] for t in known)
                 part = {**part, "seconds": max(MIN_CLIP, math.ceil(span - 0.01))}  # its span
             clips.append(part)
     return {**data, "scenes": scenes, "clips": clips}
+
+
+def _apart(clip: dict, timed: dict) -> list[dict]:
+    """F7 (Reed, 3 Nov: "generating several clips and splicing them together"): a B-roll clip
+    with a shot shorter than a clip can be (MIN_CLIP) is made as one clip a shot, each at least
+    MIN_CLIP long and cut to its shot's time in the edit (clip_takes.song_cut); "c3", "c3b"."""
+    ids = clip.get("shot_ids", [])
+    short = [s for s in ids if s in timed and timed[s]["end"] - timed[s]["start"] < MIN_CLIP]
+    if len(ids) < 2 or not short:
+        return [clip]
+    return [{**clip, "id": clip["id"] + ("" if n == 0 else chr(ord("a") + n)), "shot_ids": [s]}
+            for n, s in enumerate(ids)]  # fmt: skip
 
 
 def _split(clip: dict, timed: dict, peopled: set[str]) -> list[dict]:
@@ -123,8 +137,10 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
             order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
             if song := carried(db, row.project_id, order):
                 row.data = {**row.data, "song": song}
+        take = db.get(SongTake, (row.data.get("song") or {}).get("take_id") or 0)
+        broll = bool(take and take.kind == "narration")  # every shot under a narration
     if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
-        row.data = fit(row.data)
+        row.data = fit(row.data, broll)
 
 
 LEAD = 0.1  # seconds: a shot that shows what a word names lands just before it's sung

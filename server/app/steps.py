@@ -27,7 +27,7 @@ def explain(db: Session, job: Job) -> None:
 
 def step_failed(db: Session, job: Job) -> None:
     """A step's job failed at the provider: the reel watch retries, then falls back; a
-    refused or busy take is tried again once on its own (P3)."""
+    refused or busy take, and a presenter's host, is tried again once on its own (P3)."""
     from app.clip_takes import retry
     from app.reel_read import watch_failed
 
@@ -41,6 +41,13 @@ def step_failed(db: Session, job: Job) -> None:
             retry(db, job)
         except Exception:  # never let a retry break the worker
             log.exception("job %s: retrying the take failed", job.id)
+    if job.input.get("step") in ("host_still", "host_piece"):  # once on its own (rule 22)
+        from app.host import failed
+
+        try:
+            failed(db, job)
+        except Exception:  # never let a retry break the worker
+            log.exception("job %s: retrying the host failed", job.id)
     if job.input.get("step") == "reel_watch":
         try:
             watch_failed(db, job)
@@ -115,6 +122,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_prompts import save_clip_prompts
     from app.clip_takes import save_take
     from app.enhance import save_suggestions
+    from app.host import saved as save_host
     from app.item_checks import save as save_check
     from app.look_samples import save_clip as save_sample_clip
     from app.look_samples import save_still as save_sample_still
@@ -160,6 +168,8 @@ def save_step_result(db: Session, job: Job) -> None:
         "look_sample_clip": save_sample_clip,
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
+        "host_still": save_host,
+        "host_piece": save_host,
         "variations": save_variations,
         "script_draft": save_written,
         "cast_slots": save_cast_slots,

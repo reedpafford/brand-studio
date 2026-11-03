@@ -3904,6 +3904,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/host": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_projects__project_id__host_get"];
+        put?: never;
+        /**
+         * Make
+         * @description Make what isn't made yet: the still first, then each piece from it.
+         */
+        post: operations["make_projects__project_id__host_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/host/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Again
+         * @description Make again one piece; the still (0) makes every piece again from the new one.
+         */
+        post: operations["again_projects__project_id__host__number__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/director": {
         parameters: {
             query?: never;
@@ -6799,6 +6840,45 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HostOut */
+        HostOut: {
+            /** On */
+            on: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "making" | "ready" | "failed";
+            /** Pieces */
+            pieces: components["schemas"]["HostPieceOut"][];
+            /** Credits */
+            credits: number;
+        };
+        /** HostPieceOut */
+        HostPieceOut: {
+            /** Number */
+            number: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "making" | "ready" | "failed";
+            /** File Id */
+            file_id: number | null;
+            /** Earlier */
+            earlier: number[];
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Credits */
+            credits: number;
         };
         /** ImageModelOut */
         ImageModelOut: {
@@ -19036,6 +19116,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__host_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_projects__project_id__host_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    again_projects__project_id__host__number__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOut"];
                 };
             };
             /** @description Validation Error */

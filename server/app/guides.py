@@ -73,13 +73,15 @@ def styles() -> list[dict]:
 
 @cache
 def formats() -> list[dict]:
-    """Every format, in Reed's order: {id, name, order, on, engine, blurb, sections}."""
+    """Every format, in Reed's order: {id, name, order, on, engine, host, blurb, sections}.
+    `host`: a host says the narration on camera over the B-roll (app/host.py, Presenter)."""
     out = []
     for path in (ROOT / "formats").glob("*/guide.md"):
         meta, sections = _read(path)
         out.append({"id": path.parent.name, "name": meta["name"], "order": float(meta["order"]),
                     "on": meta.get("on") == "yes", "engine": meta["engine"],
-                    "blurb": meta["blurb"], "sections": sections})  # fmt: skip
+                    "host": meta.get("host") == "yes", "blurb": meta["blurb"],
+                    "sections": sections})  # fmt: skip
     return sorted(out, key=lambda f: f["order"])
 
 

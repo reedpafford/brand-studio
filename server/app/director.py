@@ -753,7 +753,11 @@ def video_state(db: Session, project: Project) -> dict:
     from app.plans import status
 
     audio = director_song.state(db, project)  # a song or narrated video's song or narration
+    from app import host
+
+    hosted = {"host": host.state(db, project)} if host.on(db, project) else {}  # a presenter's
     return {
+        **hosted,
         "plan": status(db, project),  # none, ready (waits for approval) or approved
         **({_audio_key(db, project): audio} if audio else {}),  # the clock its shots follow
         # choices fixed for it (director-chat.md §1), kept as is; a person's own look pick isn't
@@ -847,6 +851,10 @@ def choose(state: dict) -> dict:
                    else f"No take of {c['clip_id']} is clean: using the newest, take "
                    f"{best['number']}.")  # fmt: skip
             return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
+    if (host := state.get("host")) and host["state"] != "ready":  # a presenter: before the cut
+        if host["state"] == "making":
+            return go("wait", "The host is being made.")
+        return go("host", "all: the host says the narration on camera over the B-roll.")
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
     if state["cut"] != "made":
@@ -1054,6 +1062,11 @@ def _item(db: Session, job: Job) -> str:
     if clip := job.input.get("project_clip_id"):
         row = db.get(ProjectClip, clip)
         return f"Clip {row.clip_id.removeprefix('c')}'s take" if row else "A take"
+    if piece := job.input.get("host_piece_id"):
+        from app.models.clips import HostPiece
+
+        row = db.get(HostPiece, piece)
+        return f"The host's piece {row.number}" if row and row.number else "The host's still"
     return f"The {str(job.input.get('step') or job.kind).replace('_', ' ')}"
 
 
