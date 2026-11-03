@@ -39,6 +39,12 @@ def period(name: str) -> Period:
     return Period(None)
 
 
+def month(text: str) -> Period:
+    """A calendar month, UTC ("2026-11")."""
+    year, number = map(int, text.split("-"))
+    return Period(datetime(year, number, 1), datetime(year + number // 12, number % 12 + 1, 1))
+
+
 def previous(name: str, now: Period) -> Period | None:
     """The period before (last week, last month); none for all time."""
     if now.start is None:
@@ -64,6 +70,7 @@ class Figures:
     scripts: dict
     versions_left: dict
     last_activity: dict
+    credits: dict  # charged in the period, in credits (as the owner's Needs you prices them)
 
     def cost_per(self, brand_id) -> float | None:
         done = self.finished.get(brand_id, 0)
@@ -157,9 +164,13 @@ def figures(db: Session, workspace_id: int, when: Period) -> Figures:
         for brand_id, at in db.execute(query).all():
             if at and (brand_id not in last or at > last[brand_id]):
                 last[brand_id] = at
-    return Figures(
-        spend, estimated, finished, finished_spend, in_progress, scripts, versions_left, last
-    )
+    from app.credits import COUNTED
+
+    credits = _grouped(db, select(Job.brand_id, func.sum(Job.credits)).where(
+        Job.workspace_id == workspace_id, Job.status.in_(COUNTED), *when.has(Job.created_at))
+        .group_by(Job.brand_id))  # fmt: skip
+    return Figures(spend, estimated, finished, finished_spend, in_progress, scripts,
+                   versions_left, last, credits)  # fmt: skip
 
 
 def editors_active(db: Session, brand_id: int, when: Period) -> int:

@@ -78,6 +78,7 @@ class ProductionRow(BaseModel):
     clips_made: int = 0  # clips with a take: "Making clips: 4 of 6"
     clips_total: int = 0
     finished_at: UtcTime | None = None  # a delivered one (?delivered=today)
+    approved_up_to: float | None = None  # a freestyle's video: what the owner's OKs cover
 
 
 class Summary(BaseModel):
@@ -177,6 +178,11 @@ def rows(db: Session, user: User, delivered: bool = False) -> list[ProductionRow
     editors = {
         u.id: u.name for u in db.scalars(select(User).where(User.workspace_id == user.workspace_id))
     }
+    from app.credits import approved
+    from app.models.freestyles import Freestyle
+
+    sent = {fs.project_id: fs for fs in db.scalars(select(Freestyle).where(
+        Freestyle.project_id.in_(ids)))}  # fmt: skip
     out = []
     for project, slot, script_id, title, brand_id, brand_name in found:
         pid = project.id
@@ -208,6 +214,7 @@ def rows(db: Session, user: User, delivered: bool = False) -> list[ProductionRow
             clips_total=(clips.get(pid) or (0, 0))[0],
             clips_made=(clips.get(pid) or (0, 0))[1],
             finished_at=project.finished_at,
+            approved_up_to=float(approved(db, sent[pid])) if pid in sent else None,
         )
         job = newest.get(pid)
         if delivered:  # done: nothing to flag

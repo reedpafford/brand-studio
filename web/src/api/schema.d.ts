@@ -6681,6 +6681,15 @@ export interface components {
             /** Created By Name */
             created_by_name: string;
         };
+        /** FreestyleUsage */
+        FreestyleUsage: {
+            /** Credits */
+            credits: number;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Videos */
+            videos: number;
+        };
         /** GuideIn */
         GuideIn: {
             /** Use As Guide */
@@ -7693,6 +7702,11 @@ export interface components {
              * @default 0
              */
             waiting_credits: number;
+            /**
+             * Videos And Freestyles
+             * @default 0
+             */
+            videos_and_freestyles: number;
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -7895,6 +7909,13 @@ export interface components {
              * Format: date-time
              */
             last_activity_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "delivered" | "making" | "waiting" | "declined" | "stopped" | "failed";
+            /** Brand Id */
+            brand_id: number;
         };
         /**
          * MyWeek
@@ -8405,6 +8426,8 @@ export interface components {
             clips_total: number;
             /** Finished At */
             finished_at?: string | null;
+            /** Approved Up To */
+            approved_up_to?: number | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -10091,6 +10114,16 @@ export interface components {
             versions_left: number;
             /** Last Activity At */
             last_activity_at: string | null;
+            /**
+             * Credits
+             * @default 0
+             */
+            credits: number;
+            /**
+             * Videos
+             * @default 0
+             */
+            videos: number;
             previous: components["schemas"]["UsagePrevious"] | null;
             /** Editors Active */
             editors_active: number;
@@ -10128,6 +10161,16 @@ export interface components {
             versions_left: number;
             /** Last Activity At */
             last_activity_at: string | null;
+            /**
+             * Credits
+             * @default 0
+             */
+            credits: number;
+            /**
+             * Videos
+             * @default 0
+             */
+            videos: number;
         };
         /** UsageBrandsOut */
         UsageBrandsOut: {
@@ -10297,6 +10340,12 @@ export interface components {
              * @default 0
              */
             director_spend_usd: number;
+            /**
+             * Spend Credits
+             * @default 0
+             */
+            spend_credits: number;
+            freestyle: components["schemas"]["FreestyleUsage"];
         };
         /** UsageVideo */
         UsageVideo: {
@@ -13410,6 +13459,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path?: never;
@@ -13441,6 +13491,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
                 q?: string;
                 archived?: boolean;
                 sort?: "spend" | "finished" | "cost" | "activity" | "name";
@@ -13477,6 +13528,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path: {
@@ -13510,6 +13562,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path?: never;
@@ -13612,9 +13665,10 @@ export interface operations {
     };
     mine_usage_mine_get: {
         parameters: {
-            query: {
-                brand_id: number;
+            query?: {
+                brand_id?: number | null;
                 period?: "week" | "month" | "all";
+                month?: string | null;
                 folder?: string | null;
             };
             header?: never;
