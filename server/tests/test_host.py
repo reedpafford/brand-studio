@@ -111,19 +111,40 @@ def test_a_narrated_quote_is_for_its_words_at_our_slowest_narrator_then_the_narr
 ):
     """The dry run: a script read in 104 s was quoted at 70 s (4.8 words a second)."""
     from app.models.songs import SongTake
-    from app.routes.estimate import quoted_seconds
+    from app.narration import longest
 
     video = _video(db, _sent(owner, "presenter", NARRATION))
     draft = db.get(ScriptDraft, video.script_draft_id)
     draft.text = "Pickles keep for weeks. " * 65  # 260 words: 54 s at 4.8, 100 s at 2.6
-    assert quoted_seconds(db, draft, video) == 100  # the B-roll's and the host's seconds
+    assert longest(db, draft, video) == 100  # the host's seconds, and the B-roll's clock
     made = SongTake(draft_id=draft.id, project_id=video.id, number=1, kind="narration",
                     job_id=db.query(Job).first().id, lyrics=draft.text, style_line="",
                     seconds=112.3)  # fmt: skip
     db.add(made)
     db.flush()
     video.song_take_id = made.id
-    assert quoted_seconds(db, draft, video) == 113  # the narration made: its real length
+    assert longest(db, draft, video) == 113  # the narration made: its real length
+
+
+def test_a_narrated_quotes_b_roll_allows_every_short_shot_at_the_models_shortest_clip(
+    app, db, owner
+):
+    """Rule 36 (F7): a 1 s shot is made as a 4 s Seedance clip, and the quote counted 1 s."""
+    from app.models.breakdowns import BreakdownVersion
+    from app.routes.estimate import quoted_seconds
+
+    video = _video(db, _sent(owner, "presenter", NARRATION))
+    draft = db.get(ScriptDraft, video.script_draft_id)
+    draft.text = "Pickles keep for weeks. " * 65  # 100 s at our slowest narrator
+    for model, times in (("seedance-1-lite", 2), ("p-video", 1)):  # shortest clip 4 s, 1 s
+        video.video_model = model
+        assert quoted_seconds(db, draft, video) == 100 * times  # before a plan: ~2 s shots
+    video.video_model = "seedance-1-lite"
+    shots = [{"id": f"1.{n}", "seconds": s} for n, s in enumerate([1, 1.5] * 10 + [6], 1)]
+    db.add(BreakdownVersion(project_id=video.id, script_version=1, source="edit",
+                            data={"scenes": [{"shots": shots}], "clips": []}))  # fmt: skip
+    db.flush()
+    assert quoted_seconds(db, draft, video) == 20 * 4 + 6  # the plan's shots, each at least 4 s
 
 
 def test_a_short_b_roll_shot_is_its_own_clip_at_the_shortest_and_cut_in_the_edit():
