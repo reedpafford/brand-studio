@@ -2,26 +2,26 @@ name: House
 order: 0
 on: yes
 image_model: auto
-blurb: Our style: stylised 3D feature-film animation, warm amber light against cool blue shadows, big readable faces.
+blurb: Our style: stylised 3D feature-film animation, light from the time of day (warm days, blue screen-lit nights), big readable faces.
 
 <!-- Our own look (docs/house-style), the default for every brand. Each `## ` section below fills the {{token}} of the same name in the step files, word for word; a style's other sections (still, clip, breakdown, script) are extra guidance added to those steps. House has none: its rules are the step files themselves. -->
 <!-- Moved 2 Nov from server/app/prompts/styles/house.md and prompts/skills/house.md into one place. -->
 <!-- Reed's skill file (was prompts/skills/house.md), its chat front matter: name: house-camera; description: "The House look's creative direction, from the @nateassets reels: how the story is told in pictures, the camera, framing, cutting, transitions, montage, light and cast." (#1227) -->
 
 ## sheet_look
-Stylised 3D animated feature-film look (Pixar/Disney-like CG) with expressive eyes and brows. The body and face follow the character's age: an adult has an adult's height, build and face (a defined jaw, adult proportions, about 7 heads tall), never a child's; a teenager looks like a teenager, a child like a child. One fixed outfit, simple, clean and real-world, with fine cloth detail, identical in every view, and one silhouette-defining item that reads at a glance.
+Stylised 3D animated feature-film look (Pixar/Disney-like CG) with expressive eyes and brows. Faces are caricatured by role so they read at a glance: a doubter or rival adult can carry one exaggerated feature, such as a huge square jaw. The body and face follow the character's age: an adult has an adult's height, build and face (a defined jaw, adult proportions, about 7 heads tall), never a child's; a teenager looks like a teenager, a child like a child. One fixed outfit, simple, clean and real-world, with fine cloth detail, identical in every view, and one silhouette-defining item that reads at a glance.
 
 ## place_look
-Stylised 3D animated feature-film look (Pixar/Disney-like CG), dense and specific set dressing with photoreal props, motivated cinematic light: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights.
+Stylised 3D animated feature-film look (Pixar/Disney-like CG), dense and specific set dressing with photoreal props, motivated light that belongs to the time of day: soft, gently warm daylight indoors with warm-neutral shadows; at night a blue room lit by a screen or lamp with a warm doorway or window behind; golden-hour sun with a warm rim; blue hour with warm windows and city lights, deep but not crushed blacks, no blown highlights.
 
 ## still_look
-The house look, unless the brand block says otherwise: "Stylised 3D animated feature-film look (Pixar/Disney-like CG). Faces and builds come from the character sheets, and outfits too unless this video gives its own. Fine cloth and prop detail. Lighting is motivated and cinematic: warm amber practicals or golden-hour sun against cool blue shadows, deep but not crushed blacks, no blown highlights. The camera is mostly at eye level and alive, pushing, panning and tracking with the action, with a shallow depth of field and creamy background blur. Expressions are big and readable with the sound off."
+The house look, unless the brand block says otherwise: "Stylised 3D animated feature-film look (Pixar/Disney-like CG). Faces and builds come from the character sheets, and outfits too unless this video gives its own. Fine cloth and prop detail. Lighting is motivated by the time of day: soft warm daylight with warm-neutral shadows, a blue screen-lit night with a warm doorway behind, golden-hour backlight. Deep but not crushed blacks, no blown highlights. The camera is at eye level and mostly holds while the people move; close-ups have a shallow depth of field and creamy background blur, and wides keep the set readable. Expressions are big and readable with the sound off."
 
 ## clip_style
-Pixar-style 3D animation, warm amber key against cool blue shadows, shallow depth of field, dynamic cinematic camera moves, big readable expressions
+Pixar-style 3D animation in a real-world place lit by its time of day, eye-level framing, big readable acting that keeps it incredibly engaging; the camera holds or makes one purposeful move (a push on a feeling, a pull-out reveal, a whip or crash zoom on a beat), shallow depth of field on close-ups
 
 ## fit_look
-a stylised 3D cartoon look with expressive eyes
+a stylised 3D cartoon look with expressive eyes; plain real-world clothes with fine cloth detail and one silhouette item, worn the same in every shot
 
 ## banned
 photorealistic → stylised
@@ -52,14 +52,18 @@ This is House's creative direction: how Nate's reels tell a story in pictures, s
 - **Start at the fight.** The first line is the insult, the rejection or the dare, at 0 s, with the stakes plain. No setup before it.
 - **One underdog, one doubter, one promise.** The doubter (a parent, an ex, a rich rival) mocks the hero; the hero answers with a short dare or simply leaves. Everything after pays that off.
 - **Flashbacks for what was lost.** A promise broken or a past that changed is shown, not told: a short flashback ("6 MONTHS AGO…", "PREVIOUSLY…"), soft, overexposed, warm and dreamy, then a cut back to the present in the same pose with the other person. It can return later as a flash when someone realises what they gave up.
-- **A low point the viewer feels.** The hero alone, often at night or on the steps outside: the one place the pace slows, a close-up held 3–5 s with a slow push in.
+- **A low point the viewer feels.** The hero alone, often at night or on the steps outside: the one place the pace slows, a close-up held 3–10 s with a slow push in.
 - **Proof, not talk.** The middle is a mostly wordless montage of the hero doing the thing that changes his life (trading on the phone, packing orders), with the result growing in frame.
 - **A time jump, signalled.** A white flash into a card ("2 YEARS LATER…") over a hero object.
 - **The reversal mirrors the opening.** The same people, often the same place, the same words turned around. The hero underplays it (a small smirk, a calm "Yeah"); the doubters overplay (screams, begging, tears), and their reaction is the punchline.
 - **A comic button.** The last image is the funniest face or the doubters getting exactly what they gave (the whole wedding eating outside).
 
-## Camera: it holds still, the people move
-About four in five of Nate's shots hold still. The energy comes from the characters: Mom bursts through the door and lunges at the lens, a hoodie is thrust at the camera, a chair spins round, a car pulls up into frame. A slow push in (about 7 of every 100 shots) is kept for emotion and status: the face falling, the tear, the resolve, the car grille. Pans, follows and orbits are rare (about 1 in 20). A camera that drifts or circles round a scene reads as aimless.
+## camera
+<!-- 3 Nov (F8): House's camera lines in one place; the step rules now point here. The heading line and the paragraph are moved word for word from "## Camera: it holds still, the people move"; the first bullet is Reed's H2 answer ("Sure follow the reels, but remain incredibly engaging"); the last two are moved from must keep and the measured facts. -->
+- **Follow the reels, and stay incredibly engaging.** The camera mostly holds and moves on beats, and the video stays incredibly engaging through the performance, the reactions, the cut rhythm and the beats.
+- **It holds still, the people move.** About four in five of Nate's shots hold still. The energy comes from the characters: Mom bursts through the door and lunges at the lens, a hoodie is thrust at the camera, a chair spins round, a car pulls up into frame. A slow push in (about 7 of every 100 shots) is kept for emotion and status: the face falling, the tear, the resolve, the car grille. Pans, follows and orbits are rare (about 1 in 20). A camera that drifts or circles round a scene reads as aimless.
+- The camera holds while the people move; a move is punctuation on a beat: a push in on a feeling, a pull-out to reveal, a snap or crash zoom into a reaction, a whip into a reveal (10 of 10). No handheld in the animated part.
+- Measured: in the four reels counted second by second, 54–74% of animated shots are static. Slow pushes move about 2–13% of the frame a second; crash zooms 25–30%; the quickest follow pans 13–35%.
 
 ## Framing: close, frontal, simple
 - Mostly medium shots and close-ups, frontal, at eye level. Faces fill the frame.
@@ -97,13 +101,13 @@ A locked-off frame, the same pose, with jump cuts as time passes: day and night 
 - Soft, motivated light with the face always lit: a warm, soft key from the front or side, the shadow side light and warm, never grey or black.
 - Nate's usual set-ups: a warm day interior (soft window key, cool grey walls); night lit by a phone or laptop with a warm doorway behind (the grind, the low point); golden hour or sunrise backlight (the turn, romance); a high sun exterior (status); blue hour city (the reveal after the time jump); a bright warehouse or showroom (the scale-up).
 - Flashbacks: overexposed, warm pink-peach, soft bloom.
-- Colour: warm skin and neutral rooms, moderate saturation, one saturated hero object per scene (the red car, the ring box). A phone's glow is an accent on the hands and a cheek, never a coloured wash over a face.
+- Colour: warm skin and neutral rooms, moderate saturation, one saturated hero object per scene (the red car, the ring box). At night a phone or laptop can be the key: cool light from below on the face, with a warm doorway or window behind so the frame isn't one colour.
 
 ## Cast who read at a glance
 Every role looks like what it is the moment it appears: the love interest or the ex strikingly attractive and glamorous, the rival broad, square-jawed and smug, the doubting parent the part, the hero likeable and plain. One fixed outfit each. After the turn the hero can be visibly upgraded, or, as the power move, come back in exactly the same clothes. Attractive, never sexual: the video model refuses anything that could read that way. Status lives in props you can see.
 
 ## Screens
-A screen is a phone in a character's hand: held up to the lens so it fills the frame and reads, turned to someone, tapped. Every time the brand is named, its logo and real UI are clearly visible.
+A screen is a phone in a character's hand or a laptop seen over the hands, filling the frame so it reads; a notification can float as a card beside the face. Every time the brand is named, its logo and real UI are clearly visible.
 
 ## Emphasis, entrances and mirrors
 - **Slow motion** for the one moment the story turns on, if any; many videos need none.
@@ -121,7 +125,6 @@ A screen is a phone in a character's hand: held up to the lens so it fills the f
 - One fixed real-world outfit per character in every shot (a plain tee with a small logo, joggers, a chain, a cap; a dark suit), changed only to mark the turn (10 of 10; changed on purpose in 3).
 - Real, ordinary places, densely dressed, with near-photoreal props; inserts with no one in them sit close to photoreal and are cut in with no change of grade (10 of 10).
 - Light that belongs to the place and the time of day, so each scene has its own: a soft warm day interior, a night lit by a screen with a warm doorway behind, golden hour for a turn, blue hour or a bright warehouse for the win (10 of 10).
-- The camera holds while the people move; a move is punctuation on a beat: a push in on a feeling, a pull-out to reveal, a snap or crash zoom into a reaction, a whip into a reveal (10 of 10). No handheld in the animated part.
 - Eye-level framing: close singles and over-the-shoulder shots with a soft shoulder or object in the foreground, nose-to-nose profiles for stare-downs; low angles kept for status objects (10 of 10).
 - Two speeds of cutting, and one long take a video (see pacing).
 - Montages that show time and scale in one locked frame: the same pose with a bigger world behind, day and night flicking past, ghosted fast-motion, stacks growing (7 of 10).
@@ -136,14 +139,12 @@ A screen is a phone in a character's hand: held up to the lens so it fills the f
 
 ## combines with
 - **Dialogue** is its format: all 10 references are dialogue skits.
-- **Real footage:** every reference ends on a 1.5–3.7 s live-action handheld tag after the animation (10 of 10), and one cuts a 1.1 s real phone clip into the middle (1 of 10). In the references it is the creator's own life; for a brand it is the slot for the brand's real thing.
+- **Real footage:** every reference ends on a 1.5–3.7 s live-action handheld tag after the animation (10 of 10), and one cuts a 1.1 s real phone clip into the middle (1 of 10). In the references it is the creator's own life; for a brand it is an optional slot for the brand's real thing (see the Dialogue format).
 - Not seen in the references, so untested: a narrated or song script over House's wordless montages, which already run on music with no lines.
 
 ## measured in the reference videos
-<!-- 3 Nov, deep-watch kit (per-shot colour, per-second camera flow, stems and spectrograms). Facts only; anything that disagrees with the lines above is listed for Reed in the PR, not changed here. -->
+<!-- 3 Nov, deep-watch kit (per-shot colour, per-second camera flow, stems and spectrograms). Facts only; Reed's answers of 3 Nov applied. -->
 - Colour (average of the frame): day interiors #594a43 to #7d5a49, gently warm, saturation about a quarter to a third; night #0e1d32 to #30343c, blue, saturation about two thirds, blacks deep but not crushed; golden hour #8a5e56 to #997d72; the whole animated part averages about #665650 to #6f5556. The colour comes from props and one hero object, not from a saturated grade.
-- Camera: in the four reels counted second by second, 54–74% of animated shots are static. Slow pushes move about 2–13% of the frame a second; crash zooms 25–30%; the quickest follow pans 13–35%.
 - Depth of field: shallow on close-ups; wides keep the set readable (7 of 10 noted).
 - No slow motion in any of the 10; fast motion and ghosted time-lapse instead.
 - Sound: a music bed under every second (no silence in 10 of 10), about −14 LUFS overall; under lines it is a soft pad or low drone about 10–27 dB below the voice (8 of 10), and it rises with drums when no one speaks. Whooshes and impacts on whips, a ding on each notification. Cuts follow the lines and the sound hits, never the musical beat (10 of 10 at chance).
-- Captions belong to the edit, never the clips (rule 32): in the references one word at a time, bold capitals with a thin black outline at 55–70% of the frame's height, white in the older reels and bright yellow italic in the newer ones; none during wordless montages.
