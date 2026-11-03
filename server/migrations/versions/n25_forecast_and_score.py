@@ -1,14 +1,14 @@
 """What Make forecast for a video, and Reed's 1-5 score and note on it (app/scorecard.py).
 
-Revision ID: n24
-Revises: n23
+Revision ID: n25
+Revises: n24
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n24"
-down_revision = "n23"
+revision = "n25"
+down_revision = "n24"
 branch_labels = None
 depends_on = None
 
