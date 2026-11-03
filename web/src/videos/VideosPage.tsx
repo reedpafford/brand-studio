@@ -67,9 +67,11 @@ export function VideosPage() {
   const clear = () => setParams({}, { replace: true });
   const row = (v: Project) => <VideoRow key={v.id} p={v} project={project(v.folder_id)} held={heldOn.has(v.id)} owner={owner} />;
   const request = (j: (typeof asks)[number]) => <RequestRow key={`job-${j.id}`} job={j} project={project(null)} owner={owner} maker={j.created_by_name} />;
-  const needs = rows.filter((p) => p.needs_you);
-  const making = rows.filter((p) => !p.needs_you && !p.finished_at);
-  const done = rows.filter((p) => !p.needs_you && !!p.finished_at);
+  // A video with a change waiting for the owner's OK sits with the held sends, in Needs you (for the editor too).
+  const waits = (p: Project) => p.needs_you || heldOn.has(p.id);
+  const needs = rows.filter(waits);
+  const making = rows.filter((p) => !waits(p) && !p.finished_at);
+  const done = rows.filter((p) => !waits(p) && !!p.finished_at);
   const empty = rows.length + asks.length === 0;
   const group = (title: string, tone: string, items: React.ReactNode[]) => items.length > 0 && (
     <section key={title} aria-label={title}>

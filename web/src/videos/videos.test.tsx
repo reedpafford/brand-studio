@@ -162,6 +162,16 @@ test("a held send whose video is hidden is a Request row in Needs you: Reed open
   expect(screen.queryByRole("link", { name: "Open in Needs you" })).toBeNull();
 });
 
+test("a held send whose script is hidden reads by its own first line, with no letter (not \"· A\")", async () => {
+  setViewport(1440);
+  const hidden = { ...heldSend, id: 64, freestyle: { ...heldSend.freestyle, id: 10, title: "BO: Is that... salmon?", script_id: 4, script_title: "", slot: 0 } };
+  fakeServer(base(editor, [], { "GET /jobs?mine=true&freestyle=true": [200, [hidden]] }));
+  open();
+  const needs = await screen.findByRole("region", { name: "Needs you" });
+  expect(within(needs).getByText("BO: Is that... salmon?")).toBeInTheDocument();
+  expect(within(needs).queryByText(/^· A$/)).toBeNull();
+});
+
 test("a pasted video reads by its own first line, in its row and in its request, never \"freestyle 5\" or a letter", async () => {
   setViewport(1440);
   const pasted = { ...heldSend, id: 62, freestyle: { ...heldSend.freestyle, id: 9, title: "MIA: Green candles only.", script_id: null, script_title: "", slot: 0 } };
@@ -181,6 +191,8 @@ test("an editor's delivered video with a change waiting says Waiting for the own
   const line = await screen.findByRole("link", { name: /Bo tries salmon · B/ });
   expect(await within(line.closest("li") as HTMLElement).findByText("Waiting for the owner's OK")).toBeInTheDocument();
   expect(within(line.closest("li") as HTMLElement).queryByText(/Delivered/)).toBeNull();
+  expect(within(await screen.findByRole("region", { name: "Needs you" })).getByRole("link", { name: /Bo tries salmon · B/ })).toBeInTheDocument(); // with the held sends, not under Done
+  expect(screen.queryByRole("region", { name: "Done" })).toBeNull();
 });
 
 test("a delivered video with a change waiting for the owner says so, not Delivered", async () => {

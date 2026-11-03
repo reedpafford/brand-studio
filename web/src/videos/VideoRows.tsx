@@ -67,8 +67,8 @@ export function VideoRow({ p, project, held, owner }: { p: Project; project: str
 /** A held send with no video yet: the editor's request (v5 C_Videos "Request" row). The owner can open it in Needs you. */
 export function RequestRow({ job, project, owner, maker }: { job: Job; project: string; owner: boolean; maker: string }) {
   const fs = job.freestyle;
-  // A version of a script reads "Script · A"; a pasted video reads by its own first line, never "freestyle 5" or a letter.
-  const title = fs ? (fs.script_id ? `${fs.script_title} · ${letterOf(fs.slot ?? 0)}` : fs.title) : "Quick clip";
+  // A version of a script reads "Script · A"; a pasted video (or one whose script is hidden) reads by its own first line, never "freestyle 5" or a letter.
+  const title = fs ? (fs.script_title ? `${fs.script_title} · ${letterOf(fs.slot ?? 0)}` : fs.title) : "Quick clip"; // a hidden script reads like a pasted one
   return (
     <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:py-2 ${COLS}`}>
       <Name title={title} under={`${fs ? "New video" : "Quick clip"} from ${maker} · not made yet · ${project}`} chip="request" />
