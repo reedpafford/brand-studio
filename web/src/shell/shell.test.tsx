@@ -97,7 +97,7 @@ test("signing out returns to sign in", async () => {
   renderAt("/");
   await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
-  expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Sign in to Brand Studio" })).toBeInTheDocument();
 });
 
 test("an unknown brand in the address does not pretend to be selected", async () => {

@@ -1,16 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useEffect, useState } from "react";
 import { Link2Off } from "lucide-react";
 import { Button, Card, Skeleton } from "../components";
-import { linkText } from "../ui";
 import { AuthForm, AuthShell } from "./AuthForm";
 
 export function LoginPage() {
   return (
     <AuthForm
-      title="Sign in"
+      logo
+      title="Sign in to Brand Studio"
+      refusedText="That email and password don't match."
       submitLabel="Sign in"
       busyLabel="Signing in…"
       fields={[
@@ -18,7 +19,7 @@ export function LoginPage() {
         { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
       ]}
       submit={(v) => api.POST("/auth/login", { body: { email: v.email, password: v.password } })}
-      footer={<p className="text-sm text-muted">Forgot your password? Ask the owner.</p>}
+      footer={<p className="text-center text-xs text-muted">No account? You'll need an invite link.</p>}
     />
   );
 }
@@ -27,7 +28,6 @@ export function LoginPage() {
 export function SetupPage() {
   return (
     <AuthForm
-      bare
       eyebrow="First run · this page shows once"
       title="Set up your studio"
       intro={<p className="text-muted">You'll be the owner: you approve what editors spend and set the budgets.</p>}
@@ -36,7 +36,7 @@ export function SetupPage() {
         { name: "workspace_name", label: "Studio name" },
         { name: "name", label: "Your name", autoComplete: "name" },
         { name: "email", label: "Email", type: "email", autoComplete: "email" },
-        { name: "password", label: "Password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
+        { name: "password", label: "Password (at least 10 characters)", type: "password", autoComplete: "new-password", minLength: 10 },
         { name: "setup_token", label: "Setup code (from the server's environment)", type: "password" },
       ]}
       submit={(v) =>
@@ -49,11 +49,6 @@ export function SetupPage() {
             password: v.password,
           },
         })
-      }
-      footer={
-        <p className="text-sm text-muted">
-          Already set up? <Link className={`${linkText} inline-flex min-h-control min-w-11 items-center justify-center`} to="/login">Sign in</Link>
-        </p>
       }
     />
   );
@@ -100,14 +95,8 @@ export function InvitePage() {
         <Card className="space-y-3 p-5 text-center sm:p-6">
           <Link2Off size={24} strokeWidth={1.75} aria-hidden className="mx-auto text-muted" />
           <h1 className="type-page">Invite not valid</h1>
-          <p role="alert">This invite link is not valid any more.</p>
-          <p className="text-sm text-muted">Ask whoever invited you to send a new link.</p>
-          <p>
-            Already have an account?{" "}
-            <Link className={`${linkText} inline-flex min-h-control items-center`} to="/login">
-              Sign in
-            </Link>
-          </p>
+          {/* v5 A_Invite: one line; it sends nobody to the owner (rule 22). */}
+          <p role="alert">This invite has been used or has run out. You'll need a new link.</p>
         </Card>
       </AuthShell>
     );
@@ -120,15 +109,16 @@ export function InvitePage() {
       title={`Join ${studio}`}
       intro={
         <p className="text-sm text-muted">
-          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}.
+          {/* v5 A_Invite, keeping the inviter's name (Reed, 3 Nov). */}
+          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} as {i.role === "owner" ? "an owner" : "an editor"}.{i.role === "owner" ? "" : ` You can write scripts and make videos; ${i.invited_by_name || "the owner"} approves anything past your weekly credits.`}
         </p>
       }
-      submitLabel="Create my account"
+      submitLabel="Join"
       fields={[
         // v5 A_Invite: an email invite shows its email, read-only; the standing link asks for one (#1247).
         open ? { name: "email", label: "Email", type: "email", autoComplete: "email" } : { name: "invited_email", label: "Email", type: "email", value: i.email },
         { name: "name", label: "Your name", autoComplete: "name" },
-        { name: "password", label: "Choose a password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
+        { name: "password", label: "Choose a password (at least 10 characters)", type: "password", autoComplete: "new-password", minLength: 10 },
       ]}
       submit={(v) => api.POST("/auth/accept-invite", { body: { token, name: v.name, password: v.password, ...(open ? { email: v.email } : {}) } })}
       welcome={(v) => `Welcome to ${studio}, ${v.name}.`}

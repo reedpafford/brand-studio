@@ -18,7 +18,7 @@ afterEach(() => vi.unstubAllGlobals());
 test("signed-out visitors are sent to sign in", async () => {
   fakeServer({ "GET /auth/me": [401, { detail: "no" }] });
   renderAt("/");
-  expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Sign in to Brand Studio" })).toBeInTheDocument();
 });
 
 test("signing in lands on the app", async () => {
@@ -42,13 +42,16 @@ test("signing in lands on the app", async () => {
   });
 });
 
-test("a wrong password shows the server's message", async () => {
+test("a wrong password says so in v5's words, as plain red text under the fields; the labels are muted", async () => {
   fakeServer({ "GET /auth/me": [401, {}], "POST /auth/login": [401, { detail: "Wrong email or password." }] });
   renderAt("/login");
   await userEvent.type(await screen.findByLabelText("Email"), "a@b.co");
   await userEvent.type(screen.getByLabelText("Password"), "nope");
   await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Wrong email or password.");
+  expect(await screen.findByRole("alert")).toHaveTextContent("That email and password don't match.");
+  expect(screen.getByRole("alert")).toHaveClass("text-danger");
+  expect(document.querySelector("form label")).toHaveClass("text-sm"); // 13 px
+  expect(document.querySelector("form")).toHaveClass("[&_label]:text-muted");
 });
 
 const lookup = { workspace_name: "Studio", invited_by_name: "Ada", owner_name: "Reed", email: "ada@x.co", role: "editor" };
@@ -58,7 +61,7 @@ test("accepting an invite sends the link's token", async () => {
   renderAt("/invite/abc123");
   await userEvent.type(await screen.findByLabelText("Your name"), "Ada");
   await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
-  await userEvent.click(screen.getByRole("button", { name: "Create my account" }));
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /auth/accept-invite")).toBe(true));
   expect(calls.find((c) => c.key === "POST /auth/accept-invite")?.body).toMatchObject({ token: "abc123", name: "Ada" });
 });
@@ -67,7 +70,7 @@ test("the invite page says who invited you, to which studio, and as what; the to
   const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup] });
   renderAt("/invite/abc123");
   expect(await screen.findByRole("heading", { name: "Join Studio" })).toBeInTheDocument();
-  expect(screen.getByText("Ada invited you to Studio as an editor.")).toBeInTheDocument();
+  expect(screen.getByText("Ada invited you as an editor. You can write scripts and make videos; Ada approves anything past your weekly credits.")).toBeInTheDocument();
   const email = screen.getByLabelText("Email"); // v5 A_Invite: the invite's email, read-only, above Your name
   expect(email).toHaveValue("ada@x.co");
   expect(email).toHaveAttribute("readonly");
@@ -78,10 +81,10 @@ test("the invite page says who invited you, to which studio, and as what; the to
 test("an invite link that is not valid says so and offers no form", async () => {
   fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [404, { detail: "This invite link is not valid any more." }] });
   renderAt("/invite/old");
-  expect(await screen.findByRole("alert")).toHaveTextContent("This invite link is not valid any more.");
-  expect(screen.getByText("Ask whoever invited you to send a new link.")).toBeInTheDocument();
+  // v5 A_Invite: one line, sending nobody to the owner (rule 22).
+  expect(await screen.findByRole("alert")).toHaveTextContent("This invite has been used or has run out. You'll need a new link.");
+  expect(screen.queryByText(/owner|Ask /)).toBeNull();
   expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
 });
 
 test("setup tells you when the studio already exists", async () => {
@@ -107,15 +110,12 @@ test("a dropped connection on the invite page says it could not check, with Try 
   expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
 });
 
-test("the password has an eye that shows and hides it", async () => {
+test("the password is a plain password box: no eye, no counter (v5 A_SignIn, A_Setup)", async () => {
   fakeServer({ "GET /auth/me": [401, {}] });
   renderAt("/login");
   const password = await screen.findByLabelText("Password");
   expect(password).toHaveAttribute("type", "password");
-  await userEvent.click(screen.getByRole("button", { name: "Show password" }));
-  expect(password).toHaveAttribute("type", "text");
-  await userEvent.click(screen.getByRole("button", { name: "Hide password" }));
-  expect(password).toHaveAttribute("type", "password");
+  expect(screen.queryByRole("button", { name: "Show password" })).toBeNull();
 });
 
 test("a throttled sign-in says to wait and holds the button off", async () => {
@@ -129,7 +129,7 @@ test("a throttled sign-in says to wait and holds the button off", async () => {
   expect(button).toHaveAccessibleDescription("Too many tries. Wait a minute and try again.");
 });
 
-test("a bad sign-in puts the focus back on Email, and the setup password counter turns on at 10 characters", async () => {
+test("a bad sign-in puts the focus back on Email, and the footer says how to get an account", async () => {
   fakeServer({ "GET /auth/me": [401, {}], "POST /auth/login": [401, { detail: "Wrong email or password." }] });
   renderAt("/login");
   await userEvent.type(await screen.findByLabelText("Email"), "a@b.co");
@@ -137,17 +137,15 @@ test("a bad sign-in puts the focus back on Email, and the setup password counter
   await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
   await screen.findByRole("alert");
   expect(screen.getByLabelText("Email")).toHaveFocus();
-  expect(screen.getByText("Forgot your password? Ask the owner.")).toBeInTheDocument();
+  expect(screen.getByText("No account? You'll need an invite link.")).toBeInTheDocument();
 });
 
-test("the setup password counter turns green at 10 characters", async () => {
+test("the setup password says at least 10 characters and the browser holds a shorter one; there's no Sign in line", async () => {
   fakeServer({ "GET /auth/me": [401, {}] });
   renderAt("/setup");
-  const box = await screen.findByLabelText(/^Password/);
-  await userEvent.type(box, "123456789");
-  expect(screen.getByText("9 / 10")).toHaveClass("text-muted");
-  await userEvent.type(box, "0");
-  expect(screen.getByText("10 / 10")).toHaveClass("text-success");
+  const box = await screen.findByLabelText("Password (at least 10 characters)");
+  expect(box).toHaveAttribute("minLength", "10");
+  expect(screen.queryByText(/^Already set up/)).toBeNull();
 });
 
 test("when the server can't be reached, it is retried quietly first, then shows Try again, and that works once it is back", async () => {
@@ -176,7 +174,7 @@ test("an invite to a studio stored as a slug says Join {owner}'s studio, in the 
   fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, workspace_name: "owner-reed", invited_by_name: "Reed", owner_name: "Reed" }], "POST /auth/accept-invite": [201, me] });
   renderAt("/invite/abc123");
   expect(await screen.findByRole("heading", { name: "Join Reed's studio" })).toBeInTheDocument();
-  expect(screen.getByText(/Reed invited you to Reed's studio as an editor/)).toBeInTheDocument();
+  expect(screen.getByText(/^Reed invited you as an editor/)).toBeInTheDocument();
   expect(screen.queryByText(/owner-reed/)).toBeNull();
 });
 
@@ -197,7 +195,7 @@ test("the studio's standing editor link asks for an email and sends it; an email
   await userEvent.type(await screen.findByLabelText("Email"), "new@x.co");
   await userEvent.type(screen.getByLabelText("Your name"), "Neo");
   await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
-  await userEvent.click(screen.getByRole("button", { name: "Create my account" }));
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("That email already has an account here, so this link can't use it. Sign in, or join with another email.");
   expect(calls.find((c) => c.key === "POST /auth/accept-invite")?.body).toMatchObject({ token: "link9", email: "new@x.co", name: "Neo" });
   expect(screen.queryByText(/Your email is/)).toBeNull();
@@ -209,6 +207,6 @@ test("a standing link that was used or stopped shows the server's words when the
   await userEvent.type(await screen.findByLabelText("Email"), "new@x.co");
   await userEvent.type(screen.getByLabelText("Your name"), "Neo");
   await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
-  await userEvent.click(screen.getByRole("button", { name: "Create my account" }));
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("This invite link is not valid any more.");
 });

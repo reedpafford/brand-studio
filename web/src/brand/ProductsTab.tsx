@@ -4,7 +4,7 @@ import { Ellipsis, Package, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Banner, Button, Card, EmptyState, Field, Menu, MenuItem, MediaCard, Skeleton } from "../components";
+import { Banner, Button, Card, EmptyState, Field, Menu, MenuItem, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { BrandAction } from "./BrandPage";
@@ -19,13 +19,14 @@ export function ProductsTab() {
   const [adding, setAdding] = useState<{ product?: string } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const groups = groupProducts(screens.data ?? []);
-  const addButton = <Button onClick={() => setAdding({})}>Add product</Button>;
+  const addButton = <Button icon={Plus} onClick={() => setAdding({})}>Add product</Button>;
   return (
     <div className="space-y-4">
       <BrandAction>{addButton}</BrandAction>
       {/* BR1: a product's line and main claim live on its page in Cast & places (its prop), not on these screens. */}
       <p className="text-sm text-muted">
-        <Link className="inline-flex min-h-control items-center underline sm:min-h-control-dense" to={`/b/${brandId}/library/props`}>Each product's line and main claim are on its page in Cast & places →</Link>
+        Each product's line and main claim are on its page in Cast & places.{" "}
+        <Link className="inline-flex min-h-control items-center text-accent-text hover:underline sm:min-h-0" to={`/b/${brandId}/library/props`}>Open Cast & places</Link>
       </p>
       {screens.isError && <Banner title="Couldn't load the products." action={<Button variant="secondary" onClick={() => void screens.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {screens.isPending && (
@@ -41,11 +42,17 @@ export function ProductsTab() {
         </EmptyState>
       )}
       {groups.map(({ name: product, screens: list }) => (
-        <Card key={product.toLowerCase()} className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="type-section">
-              {product} <span className="text-muted">· {list.length} flavour{list.length === 1 ? "" : "s"}</span>
+        // v5 F_BrandProducts: a 960 px card per product; its name with the count small and muted, Add flavour and ⋯ on the
+        // right, then each flavour as a 120 px square with its name under it.
+        <Card key={product.toLowerCase()} className="max-w-[960px] space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-baseline gap-2 text-md font-semibold">
+              {product} <span className="text-xs font-normal text-muted">{list.length} flavour{list.length === 1 ? "" : "s"}</span>
             </h2>
+            <span className="ml-auto flex items-center gap-1">
+              <Button variant="secondary" dense icon={Plus} aria-label={`Add a flavour to ${product}`} onClick={() => setAdding({ product })}>
+                Add flavour
+              </Button>
             <Menu title={product} align="right" trigger={(t) => <button type="button" {...t} aria-label={`More for ${product}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2"><Ellipsis size={20} strokeWidth={1.75} aria-hidden /></button>}>
               {(close) => (
                 <MenuItem
@@ -58,21 +65,19 @@ export function ProductsTab() {
                 </MenuItem>
               )}
             </Menu>
+            </span>
           </div>
-          <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <ul className="flex flex-wrap gap-3">
             {list.map((s) => (
-              <li key={s.id}>
-                <MediaCard title={s.variant || s.name} aspect="1 / 1" image={fileUrl(s.file_id)} icon={Package} onOpen={() => setEditing(s)} />
+              <li key={s.id} className="w-30">
+                <button type="button" onClick={() => setEditing(s)} className="block w-full space-y-1.5 text-left">
+                  <span className="grid aspect-square w-full place-items-center overflow-hidden rounded-lg bg-surface-2 text-muted hover:opacity-90">
+                    {s.file_id ? <img src={fileUrl(s.file_id)} alt="" className="size-full object-cover" /> : <Package size={24} strokeWidth={1.75} aria-hidden />}
+                  </span>
+                  <span className="block truncate text-sm">{s.variant || s.name}</span>
+                </button>
               </li>
             ))}
-            <li>
-              <button type="button" onClick={() => setAdding({ product })} className="grid aspect-square w-full place-items-center rounded-lg border-2 border-dashed border-border-strong text-muted hover:bg-surface-2" aria-label={`Add a flavour to ${product}`}>
-                <span className="flex flex-col items-center gap-1">
-                  <Plus size={24} strokeWidth={1.75} aria-hidden />
-                  Add flavour
-                </span>
-              </button>
-            </li>
           </ul>
         </Card>
       ))}
