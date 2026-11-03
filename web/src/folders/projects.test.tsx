@@ -228,6 +228,6 @@ test("an editor gets no project picker on a script someone else made (the server
 test("an editor gets the project picker on their own script", async () => {
   setViewport(1440);
   fakeServer(base(editor, [november], { "GET /scripts/7": [200, script({ created_by_id: 2, published: false, status: "draft" })] }));
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   expect(await screen.findByRole("button", { name: "Project: none" })).toBeInTheDocument();
 });

@@ -175,7 +175,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
   };
   const [asking, setAsking] = useState(false);
   useEffect(() => {
-    if (asked) setParams({}, { replace: true }); // done: a reload shows the step as usual
+    if (asked) setParams({ step: "song" }, { replace: true }); // done: a reload shows the step as usual
   }, [asked]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = draft !== null && (draft.text !== saved.text || draft.style !== saved.style_line);
   useEffect(() => onDirty(dirty), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps

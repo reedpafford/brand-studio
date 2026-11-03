@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, Clapperboard } from "lucide-react";
+import { ChevronLeft, Clapperboard, ListOrdered, Plus } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
 import { Button, Dialog, Skeleton, StepPicker } from "../components";
@@ -19,16 +19,21 @@ import { SongStep } from "./SongStep";
 import { TakesStep } from "./TakesStep";
 import { useSongs } from "./useSongs";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
-import { useScript } from "./useScript";
+import { useScript, type Script } from "./useScript";
 import { LookSetting } from "./Looks";
 import { ProjectPicker, useFolders } from "../folders/Projects";
 import { ScriptTop, SettingsRow, ShapeChip } from "./ScriptFrame";
 import { FormatAdvice, FormatSetting } from "./Format";
 import { HeldRequests } from "../approvals/HeldRequests";
 import { ScriptOverview } from "./ScriptOverview";
-import { VersionPanel } from "./VersionPanel";
 import { MakeVideoPanel } from "./MakeVideoPanel";
 import { finished } from "../freestyle/FromScript";
+import { useEstimate } from "../freestyle/useFreestyle";
+
+const nextToMake = (s: Script) => {
+  const ready = s.versions.filter(finished);
+  return ready.find((v) => !v.project_id) ?? ready[0];
+};
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -51,6 +56,9 @@ export function ScriptFlowPage() {
   const [hold, setHold] = useState<{ title: string; body: string } | null>(null);
   const [waiting, setWaiting] = useState(0); // accepted directions not applied yet: Apply is the step's one primary press
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
+  // The Overview's Make a video opens on the next version to make, else the first finished one, and says its price.
+  const toMake = script.data && nextToMake(script.data);
+  const estimate = useEstimate(script.data && toMake ? { script_id: script.data.id, slot: toMake.slot, shape: "9:16" } : null);
   useEffect(() => {
     if (!hold) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -73,17 +81,16 @@ export function ScriptFlowPage() {
   const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
   const fit = takes.find((t) => t.preferred && !t.out_of_date);
   const song = voiced ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date && t.status === "ready").length, making: takes.some((t) => t.status === "making" || t.status === "timing"), older: takes.filter((t) => t.out_of_date).length } : undefined;
-  // A published script opens on its Overview; a draft on its first step, as before.
-  const overview = s.published && (params.get("step") ?? "overview") === "overview";
+  // Every script opens on its Overview (C_ScriptOverview); one with no words yet opens on its first step.
+  const overview = (params.get("step") ?? "overview") === "overview" && (hasWords(s) || s.published);
   const step = stepFromParam(s, params.get("step"));
   if (!overview && lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
-  const first = s.published ? "overview" : stepsFor(s)[0].id;
   const move = (to: string) => {
     setHold(null);
-    setParams(to === first ? {} : { step: to });
+    setParams(to === "overview" ? {} : { step: to });
   };
   const steps = stepStates(step, s, song).map((x) => (overview && x.state === "current" ? { ...x, state: "open" as const } : x));
-  const making = /^(\d+)$/.exec(params.get("make") ?? ""); // ?make=1: Version B's panel, opened from the Overview
+  const videoSlot = /^(\d+)$/.exec(params.get("video") ?? ""); // ?video=2: the Make a video panel, on version C
   const go = (to: string) => (hold ? setLeaving(() => () => move(to)) : move(to));
   const { prev, next } = around(s, step);
   const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : lockReason(next.id, s, song);
@@ -159,26 +166,43 @@ export function ScriptFlowPage() {
   return (
     <main className={rail || overview ? "" : "pb-28"}>
       <ScriptTop crumbs={crumbs}>
-        {!overview && published && (
+        {!overview && (hasWords(s) || published) && (
           <Button variant="ghost" dense className="text-muted" onClick={() => go("overview")}>
             Back to overview
           </Button>
         )}
+        {overview && !published && (
+          <Button variant="secondary" dense disabled={lockReason("publish", s, song) !== null} reason={lockReason("publish", s, song)} onClick={() => go("publish")}>
+            Publish to library
+          </Button>
+        )}
         {/* Any finished version becomes a video from here; publishing isn't needed (E_ScriptMakeVideo, #1194). */}
-        {s.kind === "story" && s.versions.some(finished) && (
-          <Button variant="secondary" dense icon={Clapperboard} onClick={() => setParams({ video: "1" })}>
+        {s.kind === "story" && toMake && (
+          <Button variant={overview ? "primary" : "secondary"} dense icon={overview ? Plus : Clapperboard} price={overview ? (estimate.data ?? (estimate.isError ? undefined : null)) : undefined} charge="estimate" onClick={() => setParams({ ...(overview ? {} : { step }), video: String(toMake.slot) })}>
             Make a video
           </Button>
         )}
         {mayDelete(s) && <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />}
         {!overview && rail && topNext}
       </ScriptTop>
-      {step !== "publish" || overview ? (
-        <SettingsRow steps={<StepPicker flat steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...barSteps] : barSteps} onPick={(to) => go(to)} />}>
-          {row && settings}
-        </SettingsRow>
-      ) : null}
-      {params.get("video") && <MakeVideoPanel scriptId={s.id} onClose={() => setParams({})} />}
+      {overview ? (
+        // C_ScriptOverview's band: the Overview tab, and the writing steps behind one quiet press.
+        <div className="flex min-h-13 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2 sm:px-6">
+          <span aria-current="page" className="inline-flex min-h-control items-center rounded-md bg-surface-2 px-3 text-sm font-medium lg:min-h-control-dense lg:px-2.5">
+            Overview
+          </span>
+          <Button variant="ghost" dense icon={ListOrdered} className="justify-start text-left" onClick={() => go(stepsFor(s)[0].id)}>
+            Open the steps: {barSteps.map((x) => x.label).join(" · ")}
+          </Button>
+        </div>
+      ) : (
+        step !== "publish" && (
+          <SettingsRow steps={<StepPicker flat steps={barSteps} onPick={(to) => go(to)} />}>
+            {row && settings}
+          </SettingsRow>
+        )
+      )}
+      {videoSlot && <MakeVideoPanel scriptId={s.id} slot={Number(videoSlot[1])} onClose={() => setParams(overview ? {} : { step })} />}
       <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
       {del.dialog}
       <HeldRequests where={{ scriptId: s.id }} />
@@ -187,8 +211,7 @@ export function ScriptFlowPage() {
           {hold?.body}
         </Dialog>
       )}
-      {overview && <ScriptOverview script={s} brandId={brandId} onStep={go} onMake={(slot) => setParams({ make: String(slot) })} />}
-      {making && <VersionPanel scriptId={s.id} slot={Number(making[1])} brandId={brandId} onClose={() => setParams({})} />}
+      {overview && <ScriptOverview script={s} brandId={brandId} onMake={(slot) => setParams({ video: String(slot) })} />}
       {!overview && (
         <>
           {/* Steps not yet rebuilt to v5 keep their title row; Next sits in the top bar on a computer, in the action bar on a phone. */}
@@ -210,7 +233,7 @@ export function ScriptFlowPage() {
           {step === "variations" && <VariationsStep script={s} own={mine} />}
           {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
           {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} slot={slot} />}
-          {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} onNotYet={() => (prev ? go(prev.id) : go(first))} />}
+          {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} onNotYet={() => (prev ? go(prev.id) : go("overview"))} />}
         </>
       )}
       </div>

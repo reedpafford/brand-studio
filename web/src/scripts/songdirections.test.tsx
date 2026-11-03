@@ -17,7 +17,7 @@ const song = (v: object = {}) => ({
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [] }] };
 
 function open() {
-  renderApp("/b/1/scripts/7");
+  renderApp("/b/1/scripts/7?step=script");
 }
 
 afterEach(() => {

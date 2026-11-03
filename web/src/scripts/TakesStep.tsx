@@ -135,7 +135,7 @@ function TakeRow({ t, a, readOnly, others, onDefaultStyle }: { t: SongTake; a: R
               )}
               {/* A timeout or a stall: Try again here, and "Edit lyrics or music style" stays in the header (v5). */}
               {t.refused_for && (
-                <Link to="?edit=1" className={buttonClass("secondary")}>
+                <Link to="?step=song&edit=1" className={buttonClass("secondary")}>
                   <Pencil size={20} strokeWidth={1.75} aria-hidden />
                   {t.refused_for === "words" ? "Edit lyrics" : "Edit music style"}
                 </Link>
@@ -244,7 +244,7 @@ export function TakesStep({ script: s }: { script: Script }) {
           Keep the first {data.keep_lines} line{data.keep_lines === 1 ? "" : "s"} · free
         </Button>
       ) : (
-        <Link to="?edit=1" className={buttonClass(primary ? "primary" : "secondary")}>
+        <Link to="?step=song&edit=1" className={buttonClass(primary ? "primary" : "secondary")}>
           <Pencil size={20} strokeWidth={1.75} aria-hidden />
           Shorten the lyrics
         </Link>
@@ -310,7 +310,7 @@ export function TakesStep({ script: s }: { script: Script }) {
             <p className="text-sm text-muted sm:pt-2">Pick the Preferred take; the video is cut to it.</p>
             {!readOnly && (
               <div className="flex flex-wrap items-center gap-2">
-                <Link to="?edit=1" className={`${buttonClass("ghost")} lg:min-h-control-dense lg:px-3`}>
+                <Link to="?step=song&edit=1" className={`${buttonClass("ghost")} lg:min-h-control-dense lg:px-3`}>
                   Edit lyrics or music style
                 </Link>
                 {data.songs_on && make(current.length === 0 ? "Make 2 takes" : "Make 2 more", current.length === 0)}

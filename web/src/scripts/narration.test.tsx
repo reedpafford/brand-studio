@@ -43,7 +43,7 @@ test("New script → Narrated makes a narrated draft on its first word", async (
 test("a narrated script has five steps; Narration waits for words, and Cast for a narration in use", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, narrated({ text: "" })], "GET /scripts/7/drafts/0/songs": [200, songs()] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   const steps = await screen.findByRole("list", { name: "Steps" });
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Script", "Narration", "Cast", "Plan", "Publish"]);
   expect(within(steps).getByRole("button", { name: "Narration" })).toHaveAccessibleDescription("Write the words first");
@@ -137,7 +137,7 @@ test("the header's format is a picker on a draft: Dialogue → Narrated asks fir
 test("a song, or a published script, shows its format as a plain chip", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs()] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   expect((await screen.findAllByText("Song")).length).toBeGreaterThan(0);
   expect(screen.queryByRole("button", { name: /^Format:/ })).toBeNull();
 });

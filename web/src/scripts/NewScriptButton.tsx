@@ -128,8 +128,8 @@ export function NewScriptPage() {
       const words = latest.current; // read last, just before the swap, so nothing typed while saving is lost
       saved.current = made.id;
       hand(made.id, words);
-      // A setting pick stays on the Script step, ready for the words.
-      navigate(`/b/${brandId}/scripts/${made.id}`, { replace: true, state: words ? { typing: true } : undefined });
+      // A new script stays on its first step, ready for the words (the Overview is for scripts with some).
+      navigate(`/b/${brandId}/scripts/${made.id}?step=${stepsFor(made)[0].id}`, { replace: true, state: words ? { typing: true } : undefined });
     },
   });
   if (!(kind in KINDS)) return <Navigate to={`/b/${brandId}/scripts`} replace />;
