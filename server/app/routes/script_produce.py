@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import breakdown, credits, narration, plans, script_preview, song_takes
+from app import breakdown, credits, narration, plans, scorecard, script_preview, song_takes
 from app import script_library as lib
 from app import video_settings as vs
 from app.auth import current_user
@@ -127,6 +127,7 @@ def make_video(db: Session, user: User, request: Request, script, draft, setting
     )
     db.add(version)
     plans.copy_to_video(project, draft)  # S6: the owner's approved plan is its start
+    scorecard.record_forecast(db, project, draft)  # shown beside the price; changes no cap
     if draft.breakdown and plans.preview_follows(draft):
         plan = Breakdown.model_validate(draft.breakdown)
         named = {r for sc in plan.scenes for sh in sc.shots for r in sh.character_ids}

@@ -39,6 +39,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n22 | More than one video from a version (the Producer on P1): drops the unique `uq_projects_script_draft_id` on `projects`, so "Make another" makes a new video from the same frozen version | Next-Server | #1190 |
 | n23 | A final cut taken off Media (v5 G boards): `final_videos.off_media_at`, nullable. The owner's Delete on a Media item keeps the video's own copy and only marks the cut off Media. Downgrade drops it | Next-Server | #1212 |
 | n24 | Last active (v5 audit, Team): `users.last_active_at`, nullable, no default (null: not seen since it shipped); kept to within 5 minutes by `auth.current_user`. Downgrade drops it | Next-Server | #1247 |
+| n25 | Forecast and score (app/scorecard.py): four nullable columns on `projects` for what Make forecast and the owner's 1–5 score and note. Downgrade drops them | Spend-metrics | #1258 |
 
 ## Merge order (the chain on `next`)
 
@@ -70,6 +71,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 21 | n22 | #1190 | n21 | On `next` (331bc51f) |
 | 22 | n23 | #1212 | n22 | On `next` (dc0753e7) |
 | 23 | n24 | #1247 | n23 | On `next` (6bef3c48) |
+| 24 | n25 | #1258 | n24 | On its PR |
 
 ## 1. Song ads
 
