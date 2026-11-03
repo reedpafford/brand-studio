@@ -135,12 +135,13 @@ def _lying(data: bytes, seconds: int) -> bytes:
 
 def test_a_clip_whose_header_lies_about_its_length_is_measured_by_its_packets(owner):
     """QA-13: a 185 s clip with its durations patched to 10 s got past the 3-minute cap."""
+    from app.routes import media
     from app.routes.media import _probe
 
     lie = _lying(_long(185), 10)
     assert _probe(lie)[1] >= 184  # the header says 10
     refused = _add(owner, first_brand(owner), "short.mp4", lie)
-    assert refused.status_code == 422 and "185 seconds" in refused.json()["detail"]
+    assert (refused.status_code, refused.json()["detail"]) == (422, media.TOO_LONG)
     honest = _add(owner, first_brand(owner), "ok.mp4", _lying(_long(20), 5)).json()
     assert 19 <= honest["duration_seconds"] <= 21  # its packets, not its header
 
@@ -169,3 +170,71 @@ def test_a_final_cuts_length_is_kept_once(app, db, owner, monkeypatch):
     assert len(reads) == 1  # read once, then kept on the final
     db.expire_all()
     assert db.get(FinalVideo, final.id).seconds == item["duration_seconds"]
+
+
+def _dense(seconds: int, rate: int) -> bytes:
+    """A legal clip of tiny frames: `rate` packets a second (QA-13's dense clip)."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "dense.mp4"
+        args = (f"-v error -f lavfi -i color=c=red:s=16x16:r={rate} -t {seconds} -c:v libx264 "
+                "-preset ultrafast -pix_fmt yuv420p -g 100000").split()  # fmt: skip
+        subprocess.run(["ffmpeg", *args, str(path)], check=True)  # noqa: S603, S607
+        return path.read_bytes()
+
+
+def test_a_dense_clip_is_read_as_a_stream_and_stops_once_past_the_cap(owner, monkeypatch):
+    """QA-13: every packet held as JSON took gigabytes; now only the latest end is kept, and
+    a clip past the cap stops being read as soon as a packet ends after it."""
+    import subprocess as sp
+
+    from app.routes import media
+
+    lines = []
+    real = sp.Popen
+
+    class Counting(real):  # counts the packet lines the probe reads
+        def __init__(self, args, *a, **k):
+            super().__init__(args, *a, **k)
+            if any("packet=" in str(x) for x in args):  # the packet read only
+                self.stdout = (lines.append(line) or line for line in self.stdout)
+
+    monkeypatch.setattr(sp, "Popen", Counting)
+    clip = _lying(_dense(190, 200), 10)  # 38,000 packets, 36,000 to the cap; the header: 10 s
+    refused = _add(owner, first_brand(owner), "dense.mp4", clip)
+    assert (refused.status_code, refused.json()["detail"]) == (422, media.TOO_LONG)
+    assert 36_000 <= len(lines) < 37_000  # stopped just past 180 s, never read to the end
+    lines.clear()
+    kept = _add(owner, first_brand(owner), "dense.mp4", _dense(20, 200))
+    assert kept.status_code == 201 and 19.5 <= kept.json()["duration_seconds"] <= 20.5
+
+
+def test_a_clip_too_slow_to_check_is_refused_plainly(owner, monkeypatch):
+    from app.routes import media
+
+    monkeypatch.setattr(media, "PROBE_SECONDS", 0)  # any check runs out of time
+    slow = _add(owner, first_brand(owner), "a.mp4", _mp4("red"))
+    assert (slow.status_code, slow.json()["detail"]) == (422, media.SLOW)
+
+
+def test_a_final_whose_file_cant_be_read_is_tried_once(db, owner, monkeypatch):
+    """QA-13: an unreadable final was read again on every Media load."""
+    from app.routes import media
+
+    brand = first_brand(owner)
+    project = Project(workspace_id=1, brand_id=brand, name="Dip", created_by_id=1)
+    db.add(project)
+    db.commit()
+    final = FinalVideo(project_id=project.id, file_id=_file(db, 1, "video/mp4"), take_ids=[],
+                       created_by_id=1)  # its file isn't in storage  # fmt: skip
+    db.add(final)
+    db.commit()
+    reads = []
+    monkeypatch.setattr(media, "_probe", lambda data, **k: reads.append(1))
+    for _ in range(2):
+        (item,) = owner.get(f"/brands/{brand}/media", params={"kind": "final"}).json()["items"]
+        assert item["duration_seconds"] is None
+    db.expire_all()
+    assert db.get(FinalVideo, final.id).seconds == media.UNREAD and reads == []  # gone: no read

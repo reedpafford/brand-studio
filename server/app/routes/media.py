@@ -227,6 +227,8 @@ def list_media(
             final_id = int(r["key"].split(":")[1])
             r["duration_seconds"] = _length(db, request.app.state.storage, final_id,
                                             files[r["file_id"]])  # fmt: skip
+        elif r["kind"] == "final":
+            r["duration_seconds"] = r["duration_seconds"] or None  # UNREAD: none
     items = _items(db, page, files)
     last = page[-1] if len(rows) > PAGE else None
     return MediaPage(items=items, next=last and _cursor(last["made_at"], last["key"]))
@@ -262,28 +264,63 @@ def media_counts(
                        songs=groups.count("song"))  # fmt: skip
 
 
-def _probe(data: bytes) -> tuple[set[str], float | None]:
+PROBE_SECONDS = 30  # a clip's check takes at most this long; longer is refused plainly
+
+
+class ProbeTimeout(Exception):
+    """The clip took longer than PROBE_SECONDS to check."""
+
+
+def _probe(data: bytes, stop_after: float | None = None) -> tuple[set[str], float | None]:
     """A video's streams ({"video", "audio"}) and its length in seconds: the longer of what its
-    header says and where its last packet ends (QA-13: a header can be patched to lie)."""
+    header says and where its last video packet ends (QA-13: a header can be patched to lie).
+    The packets are read as a stream, keeping only the latest end, and the read stops once
+    one ends past `stop_after` (the answer is known). Raises ProbeTimeout past PROBE_SECONDS."""
     import json
+    import math
+    import subprocess
     import tempfile
+    import threading
+    import time
     from pathlib import Path
 
     from app.reel import _run
 
+    deadline = time.monotonic() + PROBE_SECONDS
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "media"
         path.write_bytes(data)
-        wanted = "format=duration:stream=codec_type:packet=pts_time,duration_time"
-        done = _run(["ffprobe", "-v", "error", "-show_entries", wanted, "-of", "json",
-                     str(path)], 60)  # fmt: skip
-    info = json.loads(done.stdout or "{}") if done.returncode == 0 else {}
-    kinds = {st.get("codec_type") for st in info.get("streams", [])}
-    ends = [_num(p.get("pts_time")) + _num(p.get("duration_time"))
-            for p in info.get("packets", []) if p.get("pts_time") not in (None, "N/A")]  # fmt: skip
-    told = _num((info.get("format") or {}).get("duration"))
-    seconds = max([told, *ends])
-    return kinds, round(seconds, 2) if seconds > 0 else None
+        try:
+            done = _run(["ffprobe", "-v", "error", "-show_entries",
+                         "format=duration:stream=codec_type", "-of", "json", str(path)],
+                        PROBE_SECONDS)  # fmt: skip
+        except subprocess.TimeoutExpired:
+            raise ProbeTimeout from None
+        info = json.loads(done.stdout or "{}") if done.returncode == 0 else {}
+        kinds = {st.get("codec_type") for st in info.get("streams", [])}
+        seconds = _num((info.get("format") or {}).get("duration"))
+        if "video" in kinds:
+            args = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                    "packet=pts_time,duration_time", "-of", "csv=p=0", str(path)]  # fmt: skip
+            reading = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,  # noqa: S603
+                                       text=True)  # fmt: skip
+            left = max(0.0, deadline - time.monotonic())
+            timer = threading.Timer(left, reading.kill)  # a stalled read is stopped too
+            timer.start()
+            try:
+                for line in reading.stdout:
+                    pts, _, length = line.strip().partition(",")
+                    seconds = max(seconds, _num(pts) + _num(length))
+                    if stop_after is not None and seconds > stop_after:
+                        break  # past the cap: no need to read the rest
+            finally:
+                timer.cancel()
+                reading.kill()  # stopped early, or done: either way it's gone
+                reading.wait()
+            if time.monotonic() >= deadline:  # the timer stopped it before the end
+                raise ProbeTimeout
+    up = math.ceil(seconds * 100) / 100  # rounded up: just past the cap stays past it
+    return kinds, up if seconds > 0 else None
 
 
 def _num(value) -> float:
@@ -293,17 +330,20 @@ def _num(value) -> float:
         return 0.0
 
 
+UNREAD = 0.0  # a final's seconds when its file couldn't be read: tried once, shown as none
+
+
 def _length(db: Session, storage, final_id: int, file: StoredFile) -> float | None:
     """A final cut's length in seconds: kept on it when it's made; one made before that is read
-    from its file once and kept (None when its file can't be read)."""
+    from its file once and kept, UNREAD when it can't be (so it isn't read again)."""
     final = db.get(FinalVideo, final_id)
     if final.seconds is None:
         try:
-            final.seconds = _probe(storage.get(file.key))[1]
-        except OSError:  # its file is gone from storage
-            return None
+            final.seconds = _probe(storage.get(file.key))[1] or UNREAD
+        except (OSError, ProbeTimeout):  # its file is gone, or too slow to read
+            final.seconds = UNREAD
         db.commit()
-    return final.seconds
+    return final.seconds or None
 
 
 def _files(db: Session, user: User, rows: list[dict]) -> dict[int, StoredFile]:
@@ -398,6 +438,8 @@ SNIFFED = {"image/png": "image", "image/jpeg": "image", "image/webp": "image",
            "video/mp4": "video", "video/webm": "video"}  # fmt: skip
 NOT_MEDIA = "That isn't a picture or clip we can use. Add a PNG, JPEG or WebP, or an MP4 or WebM."
 CLIP_MAX = 180  # seconds a clip added to Media may be
+SLOW = "That clip took too long to check. Add a shorter or smaller copy."
+TOO_LONG = f"That clip is longer than {CLIP_MAX // 60} minutes. Add one of up to {CLIP_MAX // 60}."
 
 
 def _whole_picture(data: bytes) -> bool:
@@ -451,12 +493,14 @@ def add_media(
         if problem := too_many_pixels(data):
             raise HTTPException(422, problem)
     if SNIFFED[content_type] == "video":
-        kinds, seconds = _probe(data)
+        try:
+            kinds, seconds = _probe(data, stop_after=CLIP_MAX)
+        except ProbeTimeout:  # never a 500, and never a worker held for long
+            raise HTTPException(422, SLOW) from None
         if "video" not in kinds or seconds is None:
             raise HTTPException(415, NOT_MEDIA)
         if seconds > CLIP_MAX:
-            raise HTTPException(422, f"That clip is {seconds:.0f} seconds; clips up to "
-                                     f"{CLIP_MAX // 60} minutes can be added.")  # fmt: skip
+            raise HTTPException(422, TOO_LONG)  # (read until past the cap: no exact length)
     key = f"{user.workspace_id}/{uuid.uuid4().hex}"
     request.app.state.storage.put(key, data)
     stored = StoredFile(workspace_id=user.workspace_id, key=key, size=len(data),

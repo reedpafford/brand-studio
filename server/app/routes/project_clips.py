@@ -893,12 +893,22 @@ def make_video(
         cut_ins=_cut_ins(db, project, clips),
         song_take_id=song.id if song else None,
         created_by_id=user.id,
-        seconds=media_probe(data)[1],  # Media shows its length without reading it again
+        seconds=_seconds(media_probe, data),  # Media shows it without reading it again
     )
     db.add(video)
     project.finished_at = project.finished_at or utcnow()
     db.commit()
     return _video_out(db, video)
+
+
+def _seconds(probe, data: bytes) -> float | None:
+    """A new cut's length; None when it can't be read in time (Media reads it once later)."""
+    from app.routes.media import ProbeTimeout
+
+    try:
+        return probe(data)[1]
+    except ProbeTimeout:
+        return None
 
 
 AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end
