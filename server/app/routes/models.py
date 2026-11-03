@@ -58,7 +58,8 @@ def _public(model: CatalogueModel) -> dict:
 
 @router.get("", response_model=list[ModelOut])
 def list_models(kind: str | None = None, user: User = Depends(current_user)):
-    return [_public(m) for m in catalogue().values() if kind is None or m.kind == kind]
+    return [_public(m) for m in catalogue().values()
+            if m.offered and (kind is None or m.kind == kind)]  # fmt: skip
 
 
 @router.get("/prices", response_model=list[ModelPriceOut])

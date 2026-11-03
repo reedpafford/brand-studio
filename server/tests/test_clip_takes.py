@@ -120,6 +120,37 @@ def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F
     assert db.query(Job).filter_by(kind="video").count() == 2
 
 
+def test_a_p_video_take_runs_at_720p_24_fps_and_costs_its_real_price(app, db, editor, setup, clip):  # noqa: F811
+    """P-Video has no 480p (its takes use its lowest), reads one `image` and no reference
+    lists, and is asked at 24 fps with its prompt left as written (no upsampling); $0.02 a
+    second is 0.19 credits, so 5 s are 0.95, which is what the take shows and what is charged."""
+    from app.models.projects import Project
+
+    db.get(Project, setup["project"]).video_model = "p-video"
+    db.commit()
+    base = f"/projects/{setup['project']}"
+    url = f"{base}/clips/{clip['id']}"
+    assert editor.get(f"{base}/clips").json()[0]["take_credits"] == 0.95
+    job = editor.post(f"{url}/generate")
+    assert job.status_code == 201, job.text
+    assert job.json()["credits"] == 0.95
+    fake = FakeSeedance([_mp4("red")])
+    _work(app, db, fake)
+    sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
+    assert (sent["resolution"], sent["fps"], sent["prompt_upsampling"]) == ("720p", 24, False)
+    assert sent["image"].startswith("data:image/") and "reference_images" not in sent
+    assert "generate_audio" not in sent and sent["duration"] == 5
+
+
+def test_p_video_prompts_never_say_subtitles_captions_or_text():
+    from app import p_video
+
+    said = "A doctor talks.\nNo subtitles or captions. Plain green behind him.\nShow the text."
+    got = p_video.clean(said)
+    assert got == "A doctor talks.\nPlain green behind him.\nThe frame is clean."
+    assert p_video.clean("A doctor talks.") == "A doctor talks."  # nothing to cut: unchanged
+
+
 def test_clip_with_problems_and_other_workspace(app, editor, outsider, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"
