@@ -369,7 +369,7 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
         return result
     done = 0
     for frame, data in zip(frames, inputs, strict=True):
-        try:  # checked above; a refusal here (e.g. the per-video cap) never breaks the cast
+        try:  # checked above; a refusal here (e.g. an archived video) never breaks the cast
             enqueue(db, user, "image", data, project=project, provider="replicate")
         except HTTPException as e:
             left = n - done

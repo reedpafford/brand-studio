@@ -266,24 +266,16 @@ def test_a_refused_take_in_a_video_doesnt_ask_to_change_final_lyrics(app, db, ow
     assert own["refused_for"] == "words"
 
 
-def test_a_take_over_the_cap_offers_its_first_part_with_undo(app, db, owner, song):
+def test_a_long_take_is_preferred_and_publishes_like_any_other(app, db, owner, song):
+    """Reed, 2026-11-03: no per-video cap, so a song whose video costs past 729 is no problem."""
     _style(owner, song, "pop fake:long=800")
     owner.post(f"{song}/songs", json={})
     _work(app, db)
     take = owner.get(f"{song}/songs").json()["takes"][0]
-    assert take["status"] == "ready" and take["over_cap"] and not take["preferred"]
-    assert take["fits_until"] == 14.25 and take["video_credits"] > 729
-    r = owner.post(f"/songs/{take['id']}/preferred")
-    assert r.status_code == 409 and "Press Use the first 0:14" in r.json()["detail"]
-    trimmed = owner.post(f"/songs/{take['id']}/trim").json()
-    assert (trimmed["trim_to"], trimmed["over_cap"]) == (14.25, False)
-    assert owner.post(f"/songs/{take['id']}/preferred").status_code == 200
-    whole = owner.delete(f"/songs/{take['id']}/trim").json()  # Undo
-    assert (whole["trim_to"], whole["over_cap"], whole["preferred"]) == (None, True, False)
+    assert take["status"] == "ready" and take["preferred"] and take["video_credits"] > 729
     base = song.rsplit("/drafts", 1)[0]
     owner.post(f"{song}/approve")
-    r = owner.post(f"{base}/publish")  # nothing under the cap is Preferred: no publish
-    assert r.status_code == 409 and r.json()["detail"].startswith("Make the song first")
+    assert owner.post(f"{base}/publish").status_code == 200
 
 
 def test_a_tag_change_doesnt_date_the_takes(app, db, owner, song):
@@ -317,7 +309,7 @@ def test_a_refusal_says_whether_to_change_the_words_or_the_style(
     assert owner.get(f"{song}/songs").json()["takes"][0]["refused_for"] == about
 
 
-def test_an_over_cap_take_becomes_the_videos_song_only_trimmed(app, db, owner, editor, song):
+def test_a_long_take_can_be_the_videos_song(app, db, owner, editor, song):
     video = _video(app, db, owner, editor, song)
     project = db.get(Project, int(video.rsplit("/", 1)[1]))
     draft = db.get(ScriptDraft, project.script_draft_id)
@@ -326,9 +318,6 @@ def test_an_over_cap_take_becomes_the_videos_song_only_trimmed(app, db, owner, e
     editor.post(f"{video}/songs", json={})
     _work(app, db)
     long = editor.get(f"{video}/songs").json()["takes"][-1]
-    r = editor.put(f"{video}/song", json={"take_id": long["id"]})
-    assert r.status_code == 409 and "Press Use the first 0:14" in r.json()["detail"]
-    assert editor.post(f"/songs/{long['id']}/trim").json()["trim_to"] == 14.25
     assert editor.put(f"{video}/song", json={"take_id": long["id"]}).status_code == 200
 
 
@@ -339,15 +328,6 @@ def test_marking_a_section_for_lip_sync_doesnt_date_the_takes(app, db, owner, so
     marked = LYRICS.replace("[Chorus]", "[Chorus] [Lip-sync]")
     owner.put(song, json={"text": marked, "style_line": "pop"})
     assert not any(t["out_of_date"] for t in owner.get(f"{song}/songs").json()["takes"])
-
-
-def test_lyrics_too_long_for_the_cap_say_how_many_lines_to_keep(app, owner, song):
-    body = owner.get(f"{song}/songs").json()
-    assert body["keep_lines"] is None and 0 < body["video_estimate_credits"] < 729
-    long = "\n".join("la " * 10 for _ in range(160))  # about 800 s sung, under 5,000 chars
-    assert owner.put(song, json={"text": long, "style_line": "pop"}).status_code == 200
-    body = owner.get(f"{song}/songs").json()
-    assert body["video_estimate_credits"] > 729 and 0 < body["keep_lines"] < 160
 
 
 def test_a_reply_with_one_song_keeps_it_and_asks_again_free(app, db, owner, song):

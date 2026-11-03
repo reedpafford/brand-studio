@@ -29,9 +29,7 @@ from app.credits import (
     WAIT_OK,
     approved,
     estimate,
-    get_limits,
     lock,
-    over_cap,
 )
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -59,10 +57,6 @@ ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a style."
 HAS_VIDEO = "This version already has a video."
 FREEZE = "freeze"  # an editor's first turn: what the owner's OK makes real (`freeze`)
-PAST_CAP = (
-    "That change would take this freestyle past its limit of {cap} credits. Start a new "
-    "freestyle from here."
-)
 HELD = f"{WAIT_OK}every freestyle send is checked first."
 BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
@@ -260,10 +254,6 @@ def _start(db: Session, user: User, fs: Freestyle, text: str, made=None) -> None
     project, draft = made or _video(db, user, fs, text)
     what = {"project": project.id, "draft": draft.id, "show": fs.brand_id is not None}
     fs.project_id, fs.up_to = project.id, run_price(db, draft, project)  # all a run may spend
-    cap = get_limits(db, user.workspace_id).per_video_max_credits
-    if fs.up_to > cap:
-        db.rollback()
-        raise over_cap(user, cap)
     db.flush()
     if user.is_owner:
         freeze(db, what, user)
@@ -278,9 +268,8 @@ def _start(db: Session, user: User, fs: Freestyle, text: str, made=None) -> None
 def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """A change to a Dialogue freestyle (the Producer, 3b). While a run goes on it's a note,
     read at the director's next turn, inside the price already approved. Otherwise the send
-    is the press: quoted "up to" the whole video's price again, and the running total stays
-    under the per-video cap; a new run reads every unread note, an editor's after the
-    owner's OK, the owner's at once."""
+    is the press: quoted "up to" the whole video's price again; a new run reads every unread
+    note, an editor's after the owner's OK, the owner's at once."""
     project = db.get(Project, fs.project_id)
     at = utcnow().isoformat()
     if director.active(db, project):
@@ -290,9 +279,7 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
         return
     draft = db.get(ScriptDraft, project.script_draft_id)
     price = run_price(db, draft, project)
-    total, cap = approved(db, fs) + price, get_limits(db, user.workspace_id).per_video_max_credits
-    if total > cap:
-        raise HTTPException(409, PAST_CAP.format(cap=cap))
+    total = approved(db, fs) + price
     director.say(db, user, project, text)  # unread: the new run reads it
     turn = director.start(db, user, project, wait="" if user.is_owner else HELD,
                           extra={FREESTYLE: fs.id, SAID: text, CHANGE: True,
@@ -330,13 +317,6 @@ def _send(db: Session, user: User, fs: Freestyle, text: str) -> None:
     input = _job_input(fs, texts)
     if len(input["input"]["prompt"]) > MAX_PROMPT:  # every change rides in one clip's prompt
         raise HTTPException(409, TOO_LONG)
-    lock(db, Freestyle, fs.id)  # a freestyle is one video: its sends share the per-video cap
-    earlier = sum(j.credits for j in _jobs(db, fs).values() if j.status in COUNTED)
-    units = Decimal(input["input"]["duration"])
-    cap = get_limits(db, user.workspace_id).per_video_max_credits
-    if earlier + estimate(db, user.workspace_id, "video", units, input) > cap:
-        db.rollback()
-        raise over_cap(user, cap)
     input = {**input, SAID: text, CHANGE: bool(fs.chat)}  # for Needs you: what this send asks
     if fs.brand_id is None:  # charged to the hidden Freestyle brand: Usage shows it as such
         input["brand_id"] = _freestyle_brand(db, user.workspace_id).id

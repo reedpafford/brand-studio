@@ -6,6 +6,7 @@ the earlier still or take puts its prompt back. And the owner's refund of one ch
 from decimal import Decimal
 
 from app.clip_takes import ENGLISH, save_take
+from app.db import utcnow
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
@@ -229,14 +230,11 @@ def test_a_stills_change_remembers_the_still_it_replaces(app, db, editor, setup)
 
 
 def test_a_refused_still_never_loses_the_rewrite_it_paid_for(app, db, editor, setup):  # noqa: F811
-    """A Change it rewrite lands after the video's money ran out: the still is refused, but
-    the new prompt (a paid answer) is kept and the change says why."""
+    """A Change it rewrite lands after the video was archived: the still is refused, but the
+    new prompt (a paid answer) is kept and the change says why."""
     url, frame = _frame(app, db, editor, setup)
     editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
-    project = db.get(Project, setup["project"])
-    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
-               project_id=project.id, credits=project.budget_credits * 10,
-               status="succeeded"))  # fmt: skip
+    db.get(Project, setup["project"]).archived_at = utcnow()
     db.commit()
     after = f"{frame.prompt} Brighter."
     _run(app, db, FakeClaude({"prompt": after}))

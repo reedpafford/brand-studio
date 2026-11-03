@@ -3659,8 +3659,8 @@ export interface paths {
         put?: never;
         /**
          * Generate
-         * @description Make a new take of this clip (a paid video job, counted against the project budget and
-         *     its per-video cap). A clip with problems must be fixed first.
+         * @description Make a new take of this clip (a paid video job, counted against the project budget).
+         *     A clip with problems must be fixed first.
          */
         post: operations["generate_projects__project_id__clips__clip_id__generate_post"];
         delete?: never;
@@ -4551,30 +4551,6 @@ export interface paths {
          */
         post: operations["spread_timing_songs__take_id__spread_timing_post"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/songs/{take_id}/trim": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Trim Take
-         * @description Over the cap: "Use the first 0:55" (to the last section end that fits).
-         */
-        post: operations["trim_take_songs__take_id__trim_post"];
-        /**
-         * Untrim Take
-         * @description Undo: the whole take again.
-         */
-        delete: operations["untrim_take_songs__take_id__trim_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6890,8 +6866,6 @@ export interface components {
             credits_per_still: number;
             /** Default */
             default: boolean;
-            /** Over Cap */
-            over_cap: boolean;
         };
         /** ImportOut */
         ImportOut: {
@@ -7514,15 +7488,11 @@ export interface components {
         LimitsIn: {
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
-            /** Per Video Max Credits */
-            per_video_max_credits: number;
         };
         /** LimitsOut */
         LimitsOut: {
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number;
-            /** Per Video Max Credits */
-            per_video_max_credits: number;
         };
         /** Line */
         Line: {
@@ -9927,12 +9897,6 @@ export interface components {
             refused_for: ("words" | "style") | null;
             /** Video Credits */
             video_credits: number | null;
-            /** Over Cap */
-            over_cap: boolean;
-            /** Fits Until */
-            fits_until: number | null;
-            /** Trim To */
-            trim_to: number | null;
             /**
              * Kind
              * @default song
@@ -9975,8 +9939,6 @@ export interface components {
             estimate_credits: number;
             /** Video Estimate Credits */
             video_estimate_credits: number;
-            /** Keep Lines */
-            keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
             /**
@@ -10672,10 +10634,6 @@ export interface components {
         VersionEstimateOut: {
             /** Credits */
             credits: number;
-            /** Over Cap */
-            over_cap: boolean;
-            /** Reason */
-            reason: string;
         };
         /** VersionSummary */
         VersionSummary: {
@@ -10724,8 +10682,6 @@ export interface components {
             lip_sync: boolean;
             /** Default */
             default: boolean;
-            /** Over Cap */
-            over_cap: boolean;
         };
         /** VideoOut */
         VideoOut: {
@@ -10777,8 +10733,6 @@ export interface components {
             estimate_credits: number;
             /** Video Estimate Credits */
             video_estimate_credits: number;
-            /** Keep Lines */
-            keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
             /**
@@ -11317,8 +11271,6 @@ export interface components {
             sung_to_broll: number;
             /** Over Budget */
             over_budget: boolean;
-            /** Over Cap */
-            over_cap: boolean;
             /** Reason */
             reason: string;
         };
@@ -20302,68 +20254,6 @@ export interface operations {
         };
     };
     spread_timing_songs__take_id__spread_timing_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                take_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SongTakeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    trim_take_songs__take_id__trim_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                take_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SongTakeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    untrim_take_songs__take_id__trim_delete: {
         parameters: {
             query?: never;
             header?: never;

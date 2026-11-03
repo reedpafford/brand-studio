@@ -1,7 +1,7 @@
 """Freestyle 3b (the Producer's rules): a change to a Dialogue freestyle. With no run going
-the send is the press, quoted "up to" the whole video again, the running total under the
-per-video cap: an editor's waits for the owner every time, the owner's runs at once, and the
-new run reads every unread note. During a run it's only a note, read at the next turn."""
+the send is the press, quoted "up to" the whole video again: an editor's waits for the owner
+every time, the owner's runs at once, and the new run reads every unread note. During a run
+it's only a note, read at the next turn."""
 
 from decimal import Decimal
 
@@ -72,9 +72,7 @@ def test_the_owners_change_runs_at_once_and_one_during_a_run_is_only_a_note(
     assert r.json()["status"] == "working" and _held(owner) == []  # the owner's: at once
 
 
-def test_a_change_past_the_cap_is_refused_and_a_declined_one_frees_its_price(
-    app, owner, editor, db
-):
+def test_a_declined_change_frees_its_price(app, owner, editor, db):
     fs = _delivered(app, owner, editor, db)
     row = db.get(Freestyle, fs["id"])
     before = credits.approved(db, row)
@@ -87,10 +85,6 @@ def test_a_change_past_the_cap_is_refused_and_a_declined_one_frees_its_price(
     assert credits.approved(db, db.get(Freestyle, fs["id"])) == before  # nothing ran on it
     shown = owner.get(f"/jobs/{held['id']}").json()["freestyle"]
     assert Decimal(str(shown["total"])) == before  # QA-3: the total drops it at once
-    limits = owner.get("/credits/limits").json()
-    owner.put("/credits/limits", json={**limits, "per_video_max_credits": int(before) + 1})
-    r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": "Warmer."})
-    assert r.status_code == 409 and "past its limit" in r.json()["detail"]
 
 
 def test_an_owners_cancel_reads_stopped_and_a_repeat_after_the_first_is_new(owner, db):
