@@ -9,6 +9,7 @@ import { useRail } from "../useMedia";
 import { Money } from "./parts";
 import { useCharges } from "./useUsage";
 import { serverTime } from "../time";
+import { linkText } from "../ui";
 
 const when = (iso: string) => serverTime(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const STATUS: Record<string, string> = { succeeded: "Done", failed: "Didn't finish", running: "Making", queued: "Waiting" };
@@ -85,10 +86,11 @@ export function Charges() {
   const owner = useMe().data?.role === "owner";
   const giveBack = (c: Charge) => (owner && !c.refunded && c.credits > 0 ? <GiveBack charge={c} /> : null);
   return (
-    <details className="group border-t border-border pt-3" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary className="flex min-h-control cursor-pointer list-none items-center gap-2 font-medium [&::-webkit-details-marker]:hidden">
-        <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
-        Every charge
+    <details className="group lg:max-w-[1100px]" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      {/* Reed (3 Nov): a small link at the bottom, not a section of its own. */}
+      <summary className={`${linkText} inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm lg:min-h-0 [&::-webkit-details-marker]:hidden`}>
+        <ChevronRight size={16} strokeWidth={1.75} aria-hidden className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
+        See every charge
       </summary>
       <div className="mt-3 space-y-3">
         <div className="max-w-60">

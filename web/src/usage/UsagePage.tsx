@@ -1,42 +1,30 @@
-import { useState } from "react";
-import { ChartColumn, ChevronRight, Search } from "lucide-react";
+import { ChartColumn, ChevronRight } from "lucide-react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Banner, Button, buttonClass, creditsLabel, EmptyState, wholeCredits, PageTop, Select, Sheet, Skeleton } from "../components";
+import { Badge, Banner, Button, buttonClass, creditsLabel, EmptyState, wholeCredits, PageTop, Skeleton } from "../components";
 import { useHeld } from "../approvals/useHeld";
 import { linkText } from "../ui";
 import { useRail } from "../useMedia";
-import { useDebounced } from "../scripts/status";
 import { useRestoreBrand } from "../brand/ArchiveBrand";
 import { Charges } from "./Charges";
-import { Money, PeriodControl, Stat, Stats, lastText, money, periodLine, periodWord } from "./parts";
-import { periodFrom, useBrandRows, useSummary, type BrandRow, type Sort } from "./useUsage";
+import { Money, MonthPicker, Stat, money, useMonth } from "./parts";
+import { useBrandRows, useSummary, type BrandRow } from "./useUsage";
 
 type Person = components["schemas"]["PersonRow"];
 
-const SORTS: { id: Sort; label: string }[] = [
-  { id: "spend", label: "Most spent" },
-  { id: "finished", label: "Most finished" },
-  { id: "cost", label: "Cost per video (high first)" },
-  { id: "activity", label: "Last activity" },
-  { id: "name", label: "Name A–Z" },
-];
-const sortFrom = (s: string | null): Sort => SORTS.find((x) => x.id === s)?.id ?? "spend";
-
 const Dot = ({ colour }: { colour: string | null }) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-faint" style={colour ? { background: colour } : undefined} />;
 
-/** Reed's brand tracker: what each brand spent, how many videos it finished, and what a finished video costs. */
+const count = (n: number) => wholeCredits(n).toLocaleString("en-US");
+
+/** The owner's month (v5 D_Usage, Reed 3 Nov): Spent this month, Waiting for your OK and the director's own time; By brand
+ *  with the Freestyle row; By person; and every charge behind a link. One month at a time, with its CSV. */
 export function UsagePage() {
   const [params, setParams] = useSearchParams();
   const rail = useRail();
-  const period = periodFrom(params.get("period"));
-  const sort = sortFrom(params.get("sort"));
+  const { month, label, options, set: setMonth } = useMonth();
   const archived = params.get("archived") === "1";
-  const [text, setText] = useState(params.get("q") ?? "");
-  const q = useDebounced(text.trim());
-  const [sheet, setSheet] = useState(false);
   const set = (key: string, value: string) =>
     setParams(
       (prev) => {
@@ -48,131 +36,79 @@ export function UsagePage() {
       { replace: true },
     );
   const restoreBrand = useRestoreBrand();
-  const summary = useSummary(period);
-  const rows = useBrandRows({ period, q, archived, sort });
+  const summary = useSummary("month", month);
+  const rows = useBrandRows({ period: "month", month, q: "", archived, sort: "spend" });
   const held = useHeld();
   const waitingCredits = held.heldJobs.reduce((n, j) => n + (j.freestyle?.up_to ?? j.credits), 0); // as Needs you counts it
   if (summary.error?.message === "404") return <Navigate to="/usage/mine" replace />; // an editor: their own credits (OR4)
   const items = rows.data?.pages.flatMap((p) => p.items) ?? [];
-  const total = rows.data?.pages[0]?.total;
-  const nothingSpent = summary.data && summary.data.spend_usd === 0 && !summary.data.spend_estimated;
-
-  const sortSelect = (
-    <Select label="Sort" value={sort} onChange={(e) => set("sort", e.target.value === "spend" ? "" : e.target.value)}>
-      {SORTS.map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.label}
-        </option>
-      ))}
-    </Select>
-  );
-  const archivedBox = (
-    <label className="inline-flex min-h-control items-center gap-2 lg:min-h-control-dense">
-      <input type="checkbox" className="size-5 lg:size-4" checked={archived} onChange={(e) => set("archived", e.target.checked ? "1" : "")} />
-      Show archived
-    </label>
-  );
-  const active = (sort !== "spend" ? 1 : 0) + (archived ? 1 : 0);
+  const f = summary.data;
 
   return (
     <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
-      <PageTop title="Usage" line={summary.data ? periodLine(period, summary.data.starts_at) : undefined}>
-        {rail && <PeriodControl value={period} onChange={(p) => set("period", p === "week" ? "" : p)} />}
-        {/* v5 D_Usage: this month's charges as a spreadsheet, one row per charge (#1247). */}
-        <a href={`/api/usage/charges.csv?month=${thisMonth()}`} download className={buttonClass("secondary")}>Download CSV</a>
+      <PageTop title="Usage">
+        <MonthPicker value={month} options={options} onChange={setMonth} />
+        {/* The month's charges as a spreadsheet, one row per charge (#1247). */}
+        <a href={`/api/usage/charges.csv?month=${month}`} download className={buttonClass("secondary")}>Download CSV</a>
       </PageTop>
-      {!rail && <PeriodControl value={period} onChange={(p) => set("period", p === "week" ? "" : p)} />}
       {summary.isError && <Banner title="Couldn't load usage." action={<Button variant="secondary" onClick={() => void summary.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-      <Stats figures={summary.data} period={period}>
-        {/* v5 D_Usage: what's waiting for the owner's OK, with the way to it. */}
-        <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className={`${linkText} inline-flex min-h-11 items-center lg:min-h-0`}>{held.count} request{held.count === 1 ? "" : "s"} in Needs you</Link>}>
-          {held.count === 0 ? "Nothing" : waitingCredits > 0 ? `up to ${creditsLabel(waitingCredits)}` : `${held.count} request${held.count === 1 ? "" : "s"}`}
-        </Stat>
-        {/* v5 D_Usage (#1208): the director's own time, in dollars, outside the credit budgets. */}
-        {summary.data && (
-          <Stat label="The director's own time" link={<span className="text-muted">Outside the credit budget</span>}>
-            {money(summary.data.director_spend_usd ?? 0)}
-          </Stat>
+      <div role="group" aria-label="Totals" className="grid gap-3 sm:grid-cols-3 lg:max-w-[1100px]">
+        {!f ? (
+          [0, 1, 2].map((i) => <Skeleton key={i} className="h-28" />)
+        ) : (
+          <>
+            <Stat label={`Spent in ${label}`} link={<span className="text-muted"><Money value={f.spend_usd} estimated={f.spend_estimated} /></span>}>
+              {count(f.spend_credits)} credits
+            </Stat>
+            <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className={`${linkText} inline-flex min-h-11 items-center lg:min-h-0`}>{held.count} request{held.count === 1 ? "" : "s"} in Needs you</Link>}>
+              {held.count === 0 ? "Nothing" : waitingCredits > 0 ? `up to ${creditsLabel(waitingCredits)}` : `${held.count} request${held.count === 1 ? "" : "s"}`}
+            </Stat>
+            <Stat label="The director's own time" link={<span className="text-muted">Outside the credit budget</span>}>
+              {money(f.director_spend_usd ?? 0)}
+            </Stat>
+          </>
         )}
-      </Stats>
+      </div>
 
-      <section aria-label="Brands" className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="type-section">Brands</h2>
-          <div className="flex w-full flex-wrap items-end gap-3 lg:w-auto">
-            <label className="relative block min-w-0 flex-1 lg:w-64 lg:flex-none">
-              <span className="sr-only">Search brands</span>
-              <Search size={20} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-              <input type="search" role="searchbox" placeholder="Search brands" value={text} onChange={(e) => (setText(e.target.value), set("q", e.target.value.trim()))} className="min-h-control w-full rounded-md border border-border bg-surface pl-10 pr-3 lg:min-h-control-dense" />
-            </label>
-            {rail ? (
-              <>
-                <div className="w-56">{sortSelect}</div>
-                {archivedBox}
-              </>
-            ) : (
-              <Button variant={active > 0 ? "primary" : "secondary"} onClick={() => setSheet(true)}>
-                {active > 0 ? `Filters (${active})` : "Filters"}
-              </Button>
-            )}
-          </div>
+      <section aria-label="By brand" className="space-y-3 lg:max-w-[1100px]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="type-section">By brand</h2>
+          <label className="inline-flex min-h-control items-center gap-2 text-sm text-muted lg:min-h-control-dense">
+            <input type="checkbox" className="size-5 lg:size-4" checked={archived} onChange={(e) => set("archived", e.target.checked ? "1" : "")} />
+            Show archived
+          </label>
         </div>
-        {nothingSpent && <p className="text-sm text-muted">Nothing was spent {periodWord(period)}.</p>}
         {rows.isError && <Banner title="Couldn't load usage." action={<Button variant="secondary" onClick={() => void rows.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-        {rows.isPending && (
-          <div role="status" aria-label="Loading" className="space-y-2">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-14" />
-            ))}
-          </div>
-        )}
-        {total !== undefined && items.length > 0 && <p className="text-sm text-muted">{q ? `${items.length} of ${total} brands` : `${total} brand${total === 1 ? "" : "s"}`}</p>}
-        {rows.data && items.length === 0 &&
-          (q ? (
-            <EmptyState icon={Search} title={`No brand matches "${q}".`} action={<Button variant="ghost" onClick={() => (setText(""), set("q", ""))}>Clear search</Button>}>
-              Try another name.
-            </EmptyState>
-          ) : (
-            <EmptyState icon={ChartColumn} title="No brands yet.">Add a brand from the brand menu. It shows up here by itself.</EmptyState>
-          ))}
-        {items.length > 0 && (rail ? <BrandTable items={items} period={period} spent={summary.data?.spend_usd ?? 0} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} /> : <BrandCards items={items} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} />)}
+        {rows.isPending && <Skeleton className="h-32" />}
+        {rows.data && items.length === 0 && <EmptyState icon={ChartColumn} title="No brands yet.">Add a brand from the brand menu. It shows up here by itself.</EmptyState>}
+        {items.length > 0 && <BrandTable items={items} freestyle={f?.freestyle} spent={f?.spend_credits ?? 0} rail={rail} onRestore={(b) => void restoreBrand({ id: b.brand_id, name: b.name })} />}
         {rows.hasNextPage && (
           <Button variant="secondary" busy={rows.isFetchingNextPage} onClick={() => void rows.fetchNextPage()} className="w-full lg:w-auto">
             Show more
           </Button>
         )}
-        {summary.data && summary.data.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {money(summary.data.unassigned_spend_usd)} · character looks used by several brands</p>}
-        {summary.data && summary.data.freestyle_spend_usd > 0 && <p className="text-sm text-muted">Freestyle: {money(summary.data.freestyle_spend_usd)} · sends with no brand picked (a brand's own are in its row)</p>}
+        {f && f.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {money(f.unassigned_spend_usd)} · character looks used by several brands</p>}
       </section>
-      <People period={period} />
+      <People month={month} />
       <Charges />
-      {sheet && (
-        <Sheet title="Filters" onClose={() => setSheet(false)}>
-          <div className="space-y-3 pb-2">
-            {sortSelect}
-            {archivedBox}
-          </div>
-        </Sheet>
-      )}
     </main>
   );
 }
 
-/** v5 D_Usage's By person (#1232): each person's credits, dollars, videos and week, for the period. */
-function People({ period }: { period: ReturnType<typeof periodFrom> }) {
+/** v5 D_Usage's By person (#1232): each person's credits, dollars, videos and week, for the month. */
+function People({ month }: { month: string }) {
   const people = useQuery({
-    queryKey: ["usage", "people", period],
+    queryKey: ["usage", "people", month],
     retry: false, // a failed read says so at once, with Try again
-    queryFn: async () => (await must(api.GET("/usage/people", { params: { query: { period } } }))).data!,
+    queryFn: async () => (await must(api.GET("/usage/people", { params: { query: { month } } }))).data!,
   });
-  const n = (x: number) => wholeCredits(x).toLocaleString("en-US"); // whole credits, as D_Usage shows them
-  const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${n(p.week_used)} of ${n(p.week_allowance)} credits this week`);
+  const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${count(p.week_used)} of ${count(p.week_allowance)} credits this week`);
   return (
-    <section aria-label="By person" className="space-y-3">
+    <section aria-label="By person" className="space-y-3 lg:max-w-[1100px]">
       <h2 className="type-section">By person</h2>
       {people.isError && <Banner title="Couldn't load usage by person." action={<Button variant="secondary" onClick={() => void people.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {people.isPending && <Skeleton className="h-24" />}
-      {people.data && people.data.length === 0 && <p className="text-sm text-muted">Nobody has used anything {periodWord(period)}.</p>}
+      {people.data && people.data.length === 0 && <p className="text-sm text-muted">Nobody has used anything this month.</p>}
       {people.data && people.data.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm tabular-nums">
@@ -189,7 +125,7 @@ function People({ period }: { period: ReturnType<typeof periodFrom> }) {
               {people.data.map((p) => (
                 <tr key={p.user_id} className="text-right">
                   <th scope="row" className="px-4 py-3 text-left font-medium">{p.name} <span className="font-normal text-muted">· {p.role === "owner" ? "Owner" : "Editor"}</span></th>
-                  <td className="px-3 py-3">{wholeCredits(p.credits).toLocaleString("en-US")}</td>
+                  <td className="px-3 py-3">{count(p.credits)}</td>
                   <td className="px-3 py-3 text-muted">{money(p.spend_usd)}</td>
                   <td className="px-3 py-3">{p.videos}</td>
                   <td className="px-3 py-3 text-left text-muted">{week(p)}</td>
@@ -203,33 +139,67 @@ function People({ period }: { period: ReturnType<typeof periodFrom> }) {
   );
 }
 
-/** "2026-11": the month the CSV covers. */
-const thisMonth = () => new Date().toISOString().slice(0, 7);
 const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
-const label = (b: BrandRow) => `${b.name}: ${money(b.spend_usd)} spent, ${b.finished} finished`;
-const each = (b: BrandRow) => (b.cost_per_finished_usd === null ? "—" : money(b.cost_per_finished_usd));
+type Freestyle = components["schemas"]["FreestyleUsage"];
 
-function BrandTable({ items, period, spent, onRestore }: { items: BrandRow[]; period: ReturnType<typeof periodFrom>; spent: number; onRestore: (b: BrandRow) => void }) {
-  const forPeriod = (name: string) => (
-    <>
-      {name}
-      <span className="block text-xs font-normal">{periodWord(period)}</span>
-    </>
+function ShareBar({ part, spent }: { part: number; spent: number }) {
+  const pct = share(part, spent);
+  return (
+    <span className="flex items-center gap-2">
+      <span role="img" aria-label={`${pct}% of the month's credits`} className="block h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
+        <i className="block h-full bg-accent" style={{ width: `${pct}%` }} />
+      </span>
+      <span className="w-9 text-right text-muted">{pct}%</span>
+    </span>
   );
+}
+
+/** v5 D_Usage's By brand: Brand | Credits | Dollars | Videos | Share, with Freestyle (no brand picked) as its own row.
+ *  On a phone each brand is a card with the same numbers. */
+function BrandTable({ items, freestyle, spent, rail, onRestore }: { items: BrandRow[]; freestyle?: Freestyle; spent: number; rail: boolean; onRestore: (b: BrandRow) => void }) {
+  const fs = freestyle && (freestyle.credits > 0 || freestyle.videos > 0) ? freestyle : null;
+  const restore = (b: BrandRow, full?: boolean) => (
+    <Button variant="secondary" dense={!full} className={full ? "w-full" : undefined} aria-label={`Restore ${b.name}`} onClick={() => onRestore(b)}>
+      Restore
+    </Button>
+  );
+  if (!rail)
+    return (
+      <ul className="space-y-3">
+        {items.map((b) => (
+          <li key={b.brand_id} className="space-y-2">
+            <Link to={`/usage/brands/${b.brand_id}`} className="block space-y-2 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
+              <span className="flex items-center gap-2 font-medium">
+                <Dot colour={b.colour} />
+                <span className="min-w-0 flex-1 break-words">{b.name}</span>
+                {b.archived && <Badge>Archived</Badge>}
+                <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
+              </span>
+              <span className="block text-sm tabular-nums text-muted">{count(b.credits)} credits · <Money value={b.spend_usd} estimated={b.spend_estimated} /> · {b.videos} video{b.videos === 1 ? "" : "s"}</span>
+              <ShareBar part={b.credits} spent={spent} />
+            </Link>
+            {b.archived && restore(b, true)}
+          </li>
+        ))}
+        {fs && (
+          <li className="space-y-2 rounded-lg border border-border bg-surface p-4">
+            <span className="block font-medium">Freestyle <span className="font-normal text-muted">(no brand picked)</span></span>
+            <span className="block text-sm tabular-nums text-muted">{count(fs.credits)} credits · {money(fs.spend_usd)} · {fs.videos} video{fs.videos === 1 ? "" : "s"}</span>
+            <ShareBar part={fs.credits} spent={spent} />
+          </li>
+        )}
+      </ul>
+    );
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm tabular-nums">
+      <table aria-label="By brand" className="w-full text-sm tabular-nums">
         <thead className="text-muted">
-          <tr className="border-b border-border text-right align-bottom">
+          <tr className="border-b border-border text-right">
             <th scope="col" className="px-4 py-3 text-left font-medium">Brand</th>
-            <th scope="col" className="px-3 py-3 font-medium">{forPeriod("Spent")}</th>
-            <th scope="col" className="px-3 py-3 font-medium">{forPeriod("Finished")}</th>
-            <th scope="col" className="px-3 py-3 font-medium">{forPeriod("Cost / video")}</th>
-            <th scope="col" className="px-3 py-3 font-medium">In progress</th>
-            <th scope="col" className="px-3 py-3 font-medium">Scripts</th>
-            <th scope="col" className="px-3 py-3 font-medium">Versions left</th>
-            <th scope="col" className="px-3 py-3 font-medium">Last</th>
-            <th scope="col" className="w-32 px-3 py-3 text-left font-medium">{forPeriod("Share")}</th>
+            <th scope="col" className="px-3 py-3 font-medium">Credits</th>
+            <th scope="col" className="px-3 py-3 font-medium">Dollars</th>
+            <th scope="col" className="px-3 py-3 font-medium">Videos</th>
+            <th scope="col" className="w-48 px-3 py-3 text-left font-medium">Share</th>
             <th scope="col" className="w-8" />
           </tr>
         </thead>
@@ -237,71 +207,33 @@ function BrandTable({ items, period, spent, onRestore }: { items: BrandRow[]; pe
           {items.map((b) => (
             <tr key={b.brand_id} className="relative text-right hover:bg-surface-2">
               <th scope="row" className="px-4 py-3 text-left font-medium">
-                <Link to={`/usage/brands/${b.brand_id}`} aria-label={label(b)} className="flex items-center gap-2 after:absolute after:inset-0">
+                <Link to={`/usage/brands/${b.brand_id}`} className="flex items-center gap-2 after:absolute after:inset-0">
                   <Dot colour={b.colour} />
                   {b.name}
                   {b.archived && <Badge>Archived</Badge>}
                 </Link>
               </th>
-              <td className="px-3 py-3"><Money value={b.spend_usd} estimated={b.spend_estimated} /></td>
-              <td className="px-3 py-3">{b.finished}</td>
-              <td className="px-3 py-3">{each(b)}</td>
-              <td className="px-3 py-3">{b.in_progress}</td>
-              <td className="px-3 py-3">{b.scripts}</td>
-              <td className="px-3 py-3">{b.versions_left}</td>
-              <td className="px-3 py-3">{lastText(b.last_activity_at)}</td>
-              {/* v5 D_Usage: the brand's part of what was spent, as a bar. */}
-              <td className="px-3 py-3">
-                <span role="img" aria-label={`${share(b.spend_usd, spent)}% of what was spent`} className="block h-1.5 overflow-hidden rounded-full bg-surface-3">
-                  <i className="block h-full bg-accent" style={{ width: `${share(b.spend_usd, spent)}%` }} />
-                </span>
-              </td>
+              <td className="px-3 py-3">{count(b.credits)}</td>
+              <td className="px-3 py-3 text-muted"><Money value={b.spend_usd} estimated={b.spend_estimated} /></td>
+              <td className="px-3 py-3">{b.videos}</td>
+              <td className="px-3 py-3"><ShareBar part={b.credits} spent={spent} /></td>
               <td className="pr-3 text-muted">
-                {b.archived ? (
-                  <span className="relative z-10 inline-flex">
-                    <Button variant="secondary" dense aria-label={`Restore ${b.name}`} onClick={() => onRestore(b)}>
-                      Restore
-                    </Button>
-                  </span>
-                ) : (
-                  <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
-                )}
+                {b.archived ? <span className="relative z-10 inline-flex">{restore(b)}</span> : <ChevronRight size={20} strokeWidth={1.75} aria-hidden />}
               </td>
             </tr>
           ))}
+          {fs && (
+            <tr className="text-right">
+              <th scope="row" className="px-4 py-3 text-left font-medium">Freestyle <span className="font-normal text-muted">(no brand picked)</span></th>
+              <td className="px-3 py-3">{count(fs.credits)}</td>
+              <td className="px-3 py-3 text-muted">{money(fs.spend_usd)}</td>
+              <td className="px-3 py-3">{fs.videos}</td>
+              <td className="px-3 py-3"><ShareBar part={fs.credits} spent={spent} /></td>
+              <td />
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
-  );
-}
-
-function BrandCards({ items, onRestore }: { items: BrandRow[]; onRestore: (b: BrandRow) => void }) {
-  return (
-    <ul className="grid gap-3 sm:grid-cols-2">
-      {items.map((b) => (
-        <li key={b.brand_id} className="space-y-2">
-          <Link to={`/usage/brands/${b.brand_id}`} aria-label={label(b)} className="block min-h-control space-y-1 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
-            <span className="flex items-center gap-2 font-display text-md font-bold">
-              <Dot colour={b.colour} />
-              <span className="min-w-0 flex-1 break-words">{b.name}</span>
-              {b.archived && <Badge>Archived</Badge>}
-              <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
-            </span>
-            <span className="block text-sm text-muted">
-              <Money value={b.spend_usd} estimated={b.spend_estimated} /> spent · {b.finished} finished · {each(b)}
-              {b.cost_per_finished_usd !== null && " each"}
-            </span>
-            <span className="block text-sm text-muted">
-              {b.in_progress} in progress · {b.scripts} script{b.scripts === 1 ? "" : "s"} · {b.versions_left} version{b.versions_left === 1 ? "" : "s"} left
-            </span>
-          </Link>
-          {b.archived && (
-            <Button variant="secondary" className="w-full" aria-label={`Restore ${b.name}`} onClick={() => onRestore(b)}>
-              Restore
-            </Button>
-          )}
-        </li>
-      ))}
-    </ul>
   );
 }

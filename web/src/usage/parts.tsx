@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { Skeleton } from "../components";
 import type { Period } from "./useUsage";
 import { serverTime } from "../time";
@@ -13,6 +15,45 @@ const PERIODS: { id: Period; label: string }[] = [
   { id: "all", label: "All time" },
 ];
 export const periodWord = (p: Period) => (p === "week" ? "this week" : p === "month" ? "this month" : "all time");
+
+/** "2026-11" for this month, and the eleven before it, newest first (v5 D_Usage and D_MyCredits' month picker). */
+export function months(now = new Date()) {
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    return { id: d.toISOString().slice(0, 7), label: d.toLocaleDateString("en-GB", { month: "long", year: d.getUTCFullYear() === now.getUTCFullYear() ? undefined : "numeric", timeZone: "UTC" }) };
+  });
+}
+
+/** The page's month, kept in the address (?month=2026-10; none for this month). */
+export function useMonth() {
+  const [params, setParams] = useSearchParams();
+  const options = months();
+  const picked = options.find((m) => m.id === params.get("month")) ?? options[0];
+  const set = (id: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === options[0].id) next.delete("month");
+        else next.set("month", id);
+        return next;
+      },
+      { replace: true },
+    );
+  return { month: picked.id, label: picked.label, thisMonth: picked === options[0], options, set };
+}
+
+export function MonthPicker({ value, options, onChange }: { value: string; options: { id: string; label: string }[]; onChange: (id: string) => void }) {
+  return (
+    <span className="relative inline-flex">
+      <select aria-label="Month" value={value} onChange={(e) => onChange(e.target.value)} className="min-h-control appearance-none rounded-md border border-border bg-transparent pl-3 pr-8 text-sm font-medium hover:bg-surface-2 lg:min-h-control-dense">
+        {options.map((m) => (
+          <option key={m.id} value={m.id}>{m.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
+    </span>
+  );
+}
 
 /** One period for the whole page, kept in the address. */
 export function PeriodControl({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {

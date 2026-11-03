@@ -2,7 +2,7 @@ import { vi } from "vitest";
 
 /** Fake the server: map "METHOD /path" to a status and JSON body. Returns the calls made. */
 export function fakeServer(routes: Record<string, [number, unknown]>) {
-  const calls: { key: string; body: unknown }[] = [];
+  const calls: { key: string; body: unknown; url: string }[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: Request | string, init?: RequestInit) => {
@@ -10,7 +10,7 @@ export function fakeServer(routes: Record<string, [number, unknown]>) {
       const key = `${req.method} ${new URL(req.url).pathname.replace(/^\/api/, "")}`;
       const text = await req.text();
       const isJson = req.headers.get("content-type")?.includes("json");
-      calls.push({ key, body: text && isJson ? JSON.parse(text) : undefined });
+      calls.push({ key, body: text && isJson ? JSON.parse(text) : undefined, url: req.url });
       // A route can be faked with its query ("GET /team/members?removed=true") ahead of the plain path.
       const [status, body] = routes[`${key}${new URL(req.url).search}`] ?? routes[key] ?? [404, { detail: "not faked" }];
       return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
