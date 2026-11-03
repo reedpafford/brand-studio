@@ -29,7 +29,7 @@ export type Choice = { id: string; label: string; price?: string; noLipSync?: bo
 /** `locked`: why it can't be changed here (a script-made video keeps its script's style, Reed's walk item 7); shown, never picked. */
 export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; locked?: string; choices: Choice[] };
 
-const credits = creditsText; // a rate: one decimal, rounded up (rule 32)
+const credits = creditsText; // a rate: one decimal, rounded up (rule 36)
 const perSecond = (x: number) => `${credits(x)} a second`;
 const perStill = (x: number) => `${credits(x)} a still`;
 const n = (k: number, one: string) => `${k} ${one}${k === 1 ? "" : "s"}`;
