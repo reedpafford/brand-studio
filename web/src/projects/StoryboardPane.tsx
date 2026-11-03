@@ -12,7 +12,7 @@ import { blockerNames, useSheetBlocks } from "./sheetBlocks";
 import { blocking } from "./problems";
 import { refName, useRoleNames } from "./names";
 import { useProblemWords } from "./ProblemText";
-import { Banner, Button, Dialog, pressLabel, useToast, wholeCredits } from "../components";
+import { Banner, Button, creditsLabel, Dialog, pressLabel, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
 import { useApproveAll } from "./ApproveAll";
@@ -33,6 +33,9 @@ export function useFrames(projectId: number, poll?: (frames: Frame[] | undefined
     queryFn: async () => (await api.GET("/projects/{project_id}/storyboard", { params: { path: { project_id: projectId } } })).data ?? [],
   });
 }
+
+/** How long ago a server time was, in ms (read when polling decides, never while drawing the page). */
+const msSince = (iso: string) => Date.now() - Date.parse(iso);
 
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. On the Clips tab
  *  (`only`) it shows one clip's still, in `into` if given, its presses in `bar`; `second`: the takes have the cost bar. */
@@ -70,7 +73,17 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const drawingNow = Object.fromEntries(Object.entries(drawing).map(([f, j]) => [f, going(j)]));
   const anyGoing = writingNow || stillsGoing > 0 || Object.values(drawingNow).some(Boolean);
 
-  const frames = useFrames(projectId, (data) => anyGoing || !!data?.some((f) => f.drawing || (f.change as ChangeState)?.status === "changing"));
+  // A redo I pressed is read again until it lands ("done"), its write job failed, or its write job ended a while ago
+  // (15 s, as Change it): one read caught between its rewrite and its still must not stop the reads (QA-2 on #803).
+  const [redoPressed, setRedoPressed] = useState<{ frame: number; job: number; at: string } | null>(null);
+  const redoReading = (data: Frame[] | undefined) => {
+    if (!redoPressed || msSince(redoPressed.at) > 120_000) return false;
+    if ((data?.find((f) => f.id === redoPressed.frame)?.change as ChangeState)?.status === "done") return false;
+    const job = jobOf(redoPressed.job);
+    if (job?.status === "failed" || job?.status === "cancelled") return false;
+    return !(job?.status === "succeeded" && job.finished_at && msSince(job.finished_at) > 15_000);
+  };
+  const frames = useFrames(projectId, (data) => anyGoing || !!data?.some((f) => f.drawing || (f.change as ChangeState)?.status === "changing") || redoReading(data));
   // The run is done but the list on screen is still the old one: wait for the new frames.
   const stillOld = writing !== null && jobOf(writing)?.status === "succeeded" && (frames.data ?? []).some((f) => replaced.includes(f.id));
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
@@ -158,6 +171,19 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
     },
     onSuccess: refresh,
   });
+  // Redo this frame (#749 LW3): one out-of-date frame is written again from the new breakdown, then drawn. The earlier still stays to pick back.
+  const redoFrame = useMutation({
+    mutationFn: async (frame: Frame) => {
+      const { data, error } = await api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/redo", { params: { path: { ...path, frame_id: frame.id } } });
+      if (!data) throw new Error(errorText(error));
+      return { frame: frame.id, job: data.id, at: data.created_at };
+    },
+    onSuccess: async (pressed) => {
+      setRedoPressed(pressed);
+      await refresh();
+      refreshJobs(queryClient);
+    },
+  });
   const approve = useMutation({
     mutationFn: async ({ frame, yes }: { frame: Frame; yes: boolean }) => {
       const args = { params: { path: { ...path, frame_id: frame.id } } };
@@ -221,7 +247,7 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const allCost = stills(missing.length);
   const err = make.error ?? approve.error;
   // A still or a saved prompt that was refused says why on its own frame, where it was pressed.
-  const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || null;
+  const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || (redoFrame.variables?.id === id && redoFrame.error?.message) || null;
   const approvedCount = list.filter((f) => f.approved).length;
 
   // On the video page the step's one amber is in the cost bar, in the same order as above.
@@ -369,6 +395,12 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
               onPick={(file) => pick.mutate({ frame: f, file })}
               onPrefer={mayChange ? (file) => pick.mutateAsync({ frame: f, file }) : undefined}
               onRender={(note) => render.mutate({ frame: f, note })}
+              redoing={redoFrame.isPending && redoFrame.variables?.id === f.id}
+              newerJob={frameJobs.some((j) => j.id > ((f.change as { made_job_id?: number; job_id?: number } | null)?.made_job_id ?? (f.change as { job_id?: number } | null)?.job_id ?? Infinity))}
+              onRedo={() => {
+                if (window.confirm(`Redo frame ${f.clip_id} for ${creditsLabel(f.redo_credits ?? 0)}? Its prompt is written again from the new breakdown and its still drawn again. The current still stays, to pick back.`)) redoFrame.mutate(f);
+              }}
+              redoAll={{ label: makeLabel, price: makeTotal, held: writingNow || stillOld || make.isPending || !!stopFor(makeTotal), onPress: () => setConfirmRedo(true) }}
               onApprove={(yes) => approve.mutate({ frame: f, yes })}
               onSave={(prompt) => edit.mutate({ frame: f, prompt })}
               softening={soften.isPending && soften.variables?.id === f.id}

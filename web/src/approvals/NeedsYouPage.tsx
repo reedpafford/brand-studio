@@ -90,7 +90,7 @@ export function NeedsYouPage() {
     );
   const stuckRows = stuck.data ?? [];
   const counts: Record<TabId, number> = { all: held.count + stuckRows.length + changes.rows.length, requests: held.count, stuck: stuckRows.length, changes: changes.rows.length };
-  const credits = held.heldJobs.reduce((n, j) => n + (j.freestyle?.up_to ?? j.credits), 0); // what approving commits to: a Freestyle run its cap (rules 32, 34)
+  const credits = held.heldJobs.reduce((n, j) => n + (j.freestyle?.up_to ?? j.credits), 0); // what approving commits to: a Freestyle run its cap (rules 34, 36)
   const known = held.heldJobs.every((j) => usd.get(j.id) !== undefined);
   // A held Freestyle's dollars are its first turn's; scale them to its up to at the same rate, so the owner's total matches the credits.
   const totalUsd = held.heldJobs.reduce((n, j) => n + (usd.get(j.id) ?? 0) * (j.freestyle?.up_to != null && j.credits > 0 ? j.freestyle.up_to / j.credits : 1), 0);

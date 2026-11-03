@@ -92,7 +92,7 @@ def copy_to_video(project: Project, draft) -> None:
 def plan_first(db, draft) -> Decimal:
     """What Make this version charges at once for the plan (flows 1b): one call, unless the
     saved preview lands free or an owner's approved plan goes straight to the shots. The
-    quote counts it (rule 32: QA-3, 28.06 quoted while the video came to 31.06)."""
+    quote counts it (rule 36: QA-3, 28.06 quoted while the video came to 31.06)."""
     from app.credits import estimate
     from app.models.script_library import Script
 
