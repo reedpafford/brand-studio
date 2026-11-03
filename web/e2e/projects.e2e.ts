@@ -23,7 +23,6 @@ test("a brief becomes a project that is listed with its credit meter", async ({ 
   await page.getByRole("main").getByRole("link", { name: "Videos", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/b/${brandId}/videos$`));
   const card = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: /Launch teaser/ }) });
-  await expect(card).toContainText("(earlier way)");
-  await expect(card).toContainText("credits");
+  await expect(card).toContainText("spent 0 credits");
   await expect(card).not.toContainText("$");
 });

@@ -105,7 +105,7 @@ export function VideosPage() {
             {archived ? "Back to videos" : `Archived · ${gone.data?.length}`}
           </Button>
         )}
-        {filtered && <Button variant="ghost" dense onClick={clear}>Clear filters</Button>}
+        {filtered && !empty && <Button variant="ghost" dense onClick={clear}>Clear filters</Button>}
         <span className="ml-auto hidden text-xs text-muted lg:block">Steps: Plan · Cast · Clips · Final cut</span>
       </div>
       {videos.isError && (
