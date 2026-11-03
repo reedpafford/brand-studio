@@ -77,10 +77,10 @@ test("Usage on a phone: each brand is a card with credits, dollars, videos and i
 const mine = {
   credits: 61, quick_clip_credits: 8, script_credits: 3,
   videos: [
-    { project_id: 9, title: "Bo tries salmon · B", status: "in_production", credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
-    { project_id: 10, title: "Kimchi at the vet · A", status: "done", credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
+    { project_id: 9, title: "Bo tries salmon · B", status: "in_production", state: "making", brand_id: 1, credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Kimchi at the vet · A", status: "done", state: "delivered", brand_id: 2, credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
   ],
-  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }], sends: [], waiting_credits: 0,
+  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }], sends: [], waiting_credits: 0, videos_and_freestyles: 3,
   week: { used: 72, allowance: 145, lines: [{ label: "Videos", credits: 50 }, { label: "Quick clips", credits: 8 }, { label: "Scripts", credits: 3 }, { label: "A look", credits: 11 }] },
 };
 
@@ -95,12 +95,19 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   expect(within(week).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Videos50 credits", "Quick clips8 credits", "Scripts3 credits", "A look11 credits"]);
   const videos = screen.getByRole("list", { name: "My videos" });
   expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Making.*spent 40/ })).toHaveAttribute("href", "/b/1/videos/9");
-  expect(within(videos).getByText("Delivered")).toBeInTheDocument(); // D_MyCredits: a dot and "Delivered"
-  expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/1/scripts/7");
+  expect(within(videos).getByRole("link", { name: /Kimchi at the vet · A.*Delivered/ })).toHaveAttribute("href", "/b/2/videos/10"); // every brand, each row to its own
+  expect(screen.getByText('Writing "Bo tries salmon"')).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$/);
-  expect(urls()[0]).toContain("brand_id=1");
-  await userEvent.click(screen.getByRole("radio", { name: "This month" }));
-  await vi.waitFor(() => expect(urls().some((u) => u.includes("period=month"))).toBe(true));
+  const spent = screen.getByRole("heading", { name: "Spent this month" }).parentElement!;
+  expect(spent).toHaveTextContent("61 credits");
+  expect(spent).toHaveTextContent("On 3 videos and freestyles");
+  expect(urls()[0]).toContain(`month=${month}`);
+  expect(urls()[0]).not.toContain("brand_id");
+  const picker = screen.getByRole("combobox", { name: "Month" });
+  const last = (picker as HTMLSelectElement).options[1];
+  await userEvent.selectOptions(picker, last.value);
+  await vi.waitFor(() => expect(urls().some((u) => u.includes(`month=${last.value}`))).toBe(true));
+  expect(await screen.findByRole("heading", { name: `Spent in ${last.textContent}` })).toBeInTheDocument();
 });
 
 test("Usage: an editor's account menu links My credits; the owner's links Usage instead", async () => {
@@ -346,8 +353,9 @@ test("Usage's By person lists each person's credits, dollars, videos and week (#
 test("My credits' rows read 'spent N' with the director's time included, in whole credits, and 'up to N approved' muted where the owner approved a run (the Producer, 3 Nov)", async () => {
   setViewport(1440);
   const videos = [
-    { project_id: 9, title: "Garden scene", status: "in_production", credits: 97.33, director_credits: 70.4, budget_credits: 729, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
-    { project_id: 10, title: "Bo at the beach", status: "done", credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 9, title: "Garden scene", status: "in_production", state: "making", brand_id: 1, credits: 97.33, director_credits: 70.4, budget_credits: 729, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Bo at the beach", status: "done", state: "delivered", brand_id: 1, credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 11, title: "Bo in the rain", status: "in_production", state: "stopped", brand_id: 1, credits: 4, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
   ];
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, videos }] });
   open("/usage/mine");
@@ -359,6 +367,7 @@ test("My credits' rows read 'spent N' with the director's time included, in whol
   expect(beach).toHaveTextContent("spent 50");
   expect(beach).toHaveTextContent("up to 204 approved");
   expect(within(beach).getByText("Delivered")).toBeInTheDocument();
+  expect(within(list).getByRole("link", { name: /Bo in the rain/ })).toHaveTextContent("Stopped"); // the server's state, in words
 });
 
 test("Usage's Download CSV gives this month's charges (v5 D_Usage, #1247)", async () => {
