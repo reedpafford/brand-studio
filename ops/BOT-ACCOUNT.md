@@ -21,7 +21,7 @@ A second account for the agents fixes that. Only you can do steps 1 to 4.
 
 ## What changes for you
 - Agents open and merge PRs as the bot. The Release and Producer agents merge as the bot too.
-- A PR that touches the guides, `rules.md`, `DECISIONS.md`, `MISSION.md` or `CODEOWNERS` cannot merge until you
+- A PR that touches the guides, `rules.md`, `DECISIONS.md`, `MISSION.md`, `CODEOWNERS`, the workflows or the protect script cannot merge until you
   click **Approve** on its latest commit. The `guides-guard` check turns green after that.
   If it stays red after you approve, press "Re-run" on the check.
 - Any other PR needs no click from you.

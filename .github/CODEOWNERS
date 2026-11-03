@@ -4,3 +4,5 @@
 /ops/DECISIONS.md            @reedpafford
 /ops/MISSION.md              @reedpafford
 /.github/CODEOWNERS          @reedpafford
+/.github/workflows/          @reedpafford
+/scripts/protect-branches.sh @reedpafford
