@@ -124,3 +124,14 @@ def test_dialogue_has_an_optional_closing_slot_for_the_brands_real_thing():
     """Reed, 3 Nov (H8)."""
     slot = guides.format_("dialogue")["sections"]["closing slot"]
     assert "optional closing slot for the brand's real thing" in slot
+
+
+def test_rival_products_may_be_characters_only_where_the_style_says_so():
+    """Reed, 3 Nov (P1): germs, ingredients and rival products may have faces in Disney Pixar;
+    the brand's product never. Rule 2 keeps its ban and lets a style guide open it."""
+    rules = (APP / "prompts" / "rules.md").read_text()
+    assert "never put a competitor's or made-up product on screen, unless the style guide" in rules
+    assert "Pixar" not in rules  # rules.md goes to every style: no studio names
+    assert "the brand's own product is always the real one" in rules
+    stills = guides.style("disney-pixar")["sections"]["Stills"]
+    assert "The brand's product never has a face; germs, ingredients and rival products" in stills

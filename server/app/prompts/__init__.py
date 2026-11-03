@@ -488,8 +488,8 @@ def song_block(song: dict) -> str:
 
 
 SUNO_PACE = (
-    ", vocals start immediately, no instrumental intro, no instrumental breaks, continuous "
-    "singing, tight ending"
+    ", vocals start immediately, no instrumental intro, at most one short instrumental break, "
+    "short instrumental ending"
 )
 
 
@@ -501,8 +501,8 @@ VOCALS = (("f", re.compile(r"\b(female|woman|women|girl)\b", re.I)),
 def song_request(lyrics: str, style_line: str) -> dict:
     """What the music provider (Suno) is sent for a picked direction: the lyrics word for word
     with our [Lip-sync] marks taken out (they're for the breakdown, never sung), opened and
-    closed so the vocals start at once and end tight; the style line plus the pacing, outside
-    its 25 words; the styles to avoid (Starpop's measured Suno settings, plus rap unless the
+    closed so the vocals start at once and end on a short tail; the style line plus the pacing,
+    outside its 25 words; the styles to avoid (Starpop's measured Suno settings, plus rap unless the
     style is rapped); and the vocal gender the style line names ("f", "m" or "")."""
     from app.prompts.check import LIP_SYNC
 
@@ -510,7 +510,7 @@ def song_request(lyrics: str, style_line: str) -> dict:
     return {
         "lyrics": f"[Intro: vocals start immediately]\n{sung}\n[End]",
         "style": style_line.strip().rstrip(".") + SUNO_PACE,
-        "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word"
+        "exclude_styles": "instrumental intro, long outro, spoken word"
         + ", rap" * (not RAPPED.search(style_line)),
         "vocal_gender": next((g for g, w in VOCALS if w.search(style_line)), ""),
     }

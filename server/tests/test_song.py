@@ -350,7 +350,7 @@ def test_reeds_song_skill_is_folded_in():
     sent = prompts.song_request("[Chorus]\nWe sing.", "indie pop, 100 BPM")
     assert sent["lyrics"].startswith("[Intro: vocals start immediately]\n")
     assert sent["lyrics"].endswith("\n[End]") and "spoken word" in sent["exclude_styles"]
-    assert sent["style"].endswith("continuous singing, tight ending")
+    assert sent["style"].endswith("at most one short instrumental break, short instrumental ending")
 
 
 def test_song_producer_review_the_hook_first_the_rate_the_vocal_and_a_set_that_varies():
