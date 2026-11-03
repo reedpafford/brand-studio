@@ -42,15 +42,15 @@ test("In production: a row per video links to it, flagged rows say why, and the 
   setViewport(1440);
   fakeServer(base());
   open();
-  expect(await screen.findByText("4 videos being made · 3 need attention")).toBeInTheDocument();
+  expect(await screen.findByText("Every brand · 4 videos making · 3 need attention")).toBeInTheDocument();
   const link = await screen.findByRole("link", { name: "Bo tries salmon, version B, Sam, at Clips, didn't finish" });
   expect(link).toHaveAttribute("href", "/b/1/projects/11");
   expect(within(link).getByText("Clips: take 2 of clip 3 didn't finish. Credits were returned.")).toBeInTheDocument();
   expect(screen.getByText("Drawing the frames for 52 min")).toBeInTheDocument();
   expect(screen.getByText("Nothing for 3 days")).toBeInTheDocument();
   expect(within(screen.getByRole("link", { name: /Midnight snack/ })).queryByText(/Stuck|Didn't|No activity/)).toBeNull();
-  expect(within(link).getByText("380 of 420")).toHaveAttribute("title", "Close to the budget. Going over needs your approval.");
-  expect(screen.getByText("96 of 210")).not.toHaveAttribute("title");
+  expect(within(link).getByText("spent 380")).toBeInTheDocument(); // the Producer, 3 Nov: one line, whole credits
+  expect(within(link).queryByText(/\$|of director time/)).toBeNull();
   const rail = screen.getByRole("navigation", { name: "Main" });
   expect(await within(rail).findByRole("link", { name: /^Needs you/ })).toHaveTextContent("3 waiting"); // no held requests here, so only the videos
   expect(within(rail).getByRole("link", { name: "In production" })).toBeInTheDocument(); // its own count went to Needs you
@@ -63,9 +63,11 @@ test("In production: filters go in the address and to the server; the Brand colu
   await screen.findByRole("link", { name: /Bo tries salmon/ });
   expect(screen.getByRole("tab", { name: /^Needs attention/ })).toHaveAttribute("aria-selected", "true"); // v5 D_Production: Making and Needs attention are tabs
   expect(screen.getByRole("combobox", { name: "Brand" })).toHaveValue("2");
-  expect(screen.queryByText("Brand", { selector: "span" })).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-  expect(await screen.findByText("Brand", { selector: "span" })).toBeInTheDocument();
+  const main = screen.getByRole("main");
+  expect(within(main).queryByText("Brand", { selector: "span" })).toBeNull();
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Brand" }), "");
+  await userEvent.click(screen.getByRole("tab", { name: /^Making/ }));
+  expect(await within(main).findByText("Brand", { selector: "span" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: /^Making/ })).toHaveAttribute("aria-selected", "true");
 });
 
@@ -74,21 +76,22 @@ test("In production on a computer (v5 D_Production): each row shows its step as 
   fakeServer(base());
   open();
   const link = await screen.findByRole("link", { name: /Midnight snack/ });
-  expect(within(link).getByRole("img", { name: /: step \d of 5$/ })).toBeInTheDocument();
+  expect(within(link).getByRole("img", { name: /: step \d of 4$/ })).toBeInTheDocument();
   expect(within(link).getByText(/^(Making the plan|Casting|Drawing the storyboard|Making clips|Making the final cut)/)).toBeInTheDocument();
+  expect(screen.getByText("Steps: Plan · Cast · Clips · Final cut. A row opens its video on the director thread.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^More for / })).toBeNull(); // no row menu: Release is on the video page
 });
 
-test("In production: on a phone the rows are cards and the filters are in a sheet", async () => {
+test("In production: on a phone the rows are cards with Brand in the top bar, and no search, sort or Filters (v5 D_Production)", async () => {
   setViewport(390);
   fakeServer(base());
   open();
   const card = await screen.findByRole("link", { name: /Altar remake/ });
   expect(card).toHaveTextContent("Storyboard · 3 h ago");
-  expect(card).toHaveTextContent("96 of 210 credits · $9.87");
-  await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-  const sheet = await screen.findByRole("dialog", { name: "Filters" });
-  expect(within(sheet).getByRole("combobox", { name: "Brand" })).toBeInTheDocument();
-  expect(within(sheet).getByRole("combobox", { name: "Sort" })).toBeInTheDocument();
+  expect(card).toHaveTextContent("spent 96");
+  expect(screen.getByRole("combobox", { name: "Brand" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Filters/ })).toBeNull();
+  expect(screen.queryByRole("searchbox")).toBeNull();
 });
 
 test("In production counts finished videos with changes waiting, so nothing reads as all done (#749 LW2)", async () => {
@@ -96,7 +99,7 @@ test("In production counts finished videos with changes waiting, so nothing read
   fakeServer({ ...base([]), "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 2 }] });
   open();
   expect(await screen.findByRole("link", { name: "2 finished videos have changes waiting" })).toHaveAttribute("href", "/usage"); // listed by brand in Usage
-  expect(screen.getByText(/0 videos being made ·/)).toBeInTheDocument();
+  expect(screen.getByText(/Every brand · 0 videos making ·/)).toBeInTheDocument();
 });
 
 test("In production: each empty state says what is true", async () => {
@@ -143,48 +146,11 @@ test("In production: a video whose editor is gone still lists, as Someone's", as
   expect(await screen.findByRole("link", { name: "Bo tries salmon, version B, Someone, at Clips" })).toBeInTheDocument();
 });
 
-test("In production: a row's menu releases the version, with the letter and the credits that stay used", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base([failed]), "POST /projects/11/release": [200, {}] });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon · B" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Release this version" }));
-  const dialog = await screen.findByRole("alertdialog", { name: "Release version B?" });
-  expect(dialog).toHaveTextContent("The 380 credits already used stay used.");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Release" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/11/release")).toBe(true));
-  expect(await screen.findByText("Version B is ready to make again.")).toBeInTheDocument();
-});
-
-test("In production: a video's credits leave the director's own time out, so a director video isn't marked close to its budget for it (DECISIONS #1066)", async () => {
-  setViewport(1440);
-  fakeServer(base([{ ...failed, credits_used: 400, budget_credits: 420, director_credits: 300 }, fine]));
-  open();
-  const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
-  expect(within(link).getByText("100 of 420")).not.toHaveAttribute("title"); // 400 used, 300 of it the director's
-  expect(within(link).getByText("300 credits of director time")).toBeInTheDocument(); // shown apart (#1216, QA-3 on #1218)
-});
-
-test("In production: a row's credits and budget are rounded alike (20 of 32, never 20 of 32.06)", async () => {
-  fakeServer(base([{ ...failed, credits_used: 20.4, budget_credits: 32.06 }, fine]));
-  open();
-  const link = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
-  expect(within(link).getByText("20 of 32")).toBeInTheDocument();
-});
-
-test("In production on a phone: the director's time follows the whole spend line, never inside it (QA-3 on #1218)", async () => {
-  setViewport(390);
-  fakeServer(base([{ ...failed, credits_used: 21, budget_credits: 729, director_credits: 15, spent_usd: 0 }]));
-  open();
-  const card = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
-  expect(card).toHaveTextContent(/6 of 729 credits · \$0\.00\s*15 credits of director time/);
-});
-
 test("In production (#1232): a video at Clips says how many are made, and Delivered today is a tab that asks the server for today's", async () => {
   setViewport(1440);
   const making = row({ project_id: 21, script: { id: 9, title: "Walk day" }, letter: "C", clips_made: 4, clips_total: 6, last_activity_at: minutesAgo(5) });
   const done = row({ project_id: 22, script: { id: 10, title: "Market open" }, letter: "B", step: "downloads", finished_at: minutesAgo(30), last_activity_at: minutesAgo(30) });
-  const calls = fakeServer({ ...base([making]), "GET /production/summary": [200, { in_production: 1, needs_attention: 0, changes_waiting: 0, delivered_today: 1 }], "GET /production?delivered=today&sort=attention&limit=25&offset=0": [200, [done]] });
+  const calls = fakeServer({ ...base([making]), "GET /production/summary": [200, { in_production: 1, needs_attention: 0, changes_waiting: 0, delivered_today: 1 }], "GET /production?delivered=today&sort=activity&limit=25&offset=0": [200, [done]] });
   open();
   const link = await screen.findByRole("link", { name: /Walk day/ });
   expect(within(link).getByText(/^Making clips: 4 of 6/)).toBeInTheDocument();
@@ -198,7 +164,7 @@ test("In production on a phone (QA-3 on #1241): the three tabs are there, cards 
   setViewport(390);
   const making = row({ project_id: 21, script: { id: 9, title: "Walk day" }, letter: "C", clips_made: 1, clips_total: 3, last_activity_at: minutesAgo(5) });
   const done = row({ project_id: 22, script: { id: 10, title: "Market open" }, letter: "B", step: "downloads", finished_at: minutesAgo(1), last_activity_at: minutesAgo(1) });
-  fakeServer({ ...base([making, making]), "GET /production/summary": [200, { in_production: 2, needs_attention: 0, changes_waiting: 0, delivered_today: 1 }], "GET /production?delivered=today&sort=attention&limit=25&offset=0": [200, [done]] });
+  fakeServer({ ...base([making, making]), "GET /production/summary": [200, { in_production: 2, needs_attention: 0, changes_waiting: 0, delivered_today: 1 }], "GET /production?delivered=today&sort=activity&limit=25&offset=0": [200, [done]] });
   open();
   const card = (await screen.findAllByRole("link", { name: /Walk day/ }))[0];
   expect(within(card).getByText(/^Making clips: 1 of 3/)).toBeInTheDocument();
@@ -206,4 +172,23 @@ test("In production on a phone (QA-3 on #1241): the three tabs are there, cards 
   const shipped = await screen.findByRole("link", { name: /Market open/ });
   expect(within(shipped).getByText(/^Delivered/)).toBeInTheDocument();
   expect(screen.getByText("1 video delivered today")).toBeInTheDocument(); // never "1 of 2 videos"
+});
+
+test("In production's spend is one line, the director's time included, in whole credits; 'up to N approved' only where the owner approved a run (the Producer, 3 Nov)", async () => {
+  setViewport(1440);
+  fakeServer(base([{ ...failed, credits_used: 97.33, director_credits: 70.4, budget_credits: 729 }, { ...fine, credits_used: 20.06, approved_up_to: 204 }]));
+  open();
+  const director = await screen.findByRole("link", { name: /Bo tries salmon, version B/ });
+  expect(within(director).getByText("spent 98")).toBeInTheDocument();
+  expect(within(director).queryByText(/director time|approved/)).toBeNull();
+  const approved = screen.getByRole("link", { name: /Midnight snack/ });
+  expect(within(approved).getByText("spent 21")).toBeInTheDocument();
+  expect(within(approved).getByText("up to 204 approved")).toBeInTheDocument();
+});
+
+test("In production's Brand picker is a 44 px press on a phone (QA-3 on #1246)", async () => {
+  setViewport(390);
+  fakeServer(base());
+  open();
+  expect(await screen.findByRole("combobox", { name: "Brand" })).toHaveClass("min-h-control");
 });

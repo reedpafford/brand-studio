@@ -399,3 +399,9 @@ test("Escape closes only the top overlay: a list opened over a panel goes, the p
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+
+test("wholeCredits rounds up and never gives -0", () => {
+  expect(Object.is(wholeCredits(0), 0)).toBe(true);
+  expect(wholeCredits(97.33)).toBe(98);
+  expect(wholeCredits(3)).toBe(3);
+});
