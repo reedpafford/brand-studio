@@ -82,7 +82,7 @@ const mine = {
     { project_id: 9, title: "Bo tries salmon · B", status: "in_production", state: "making", brand_id: 1, credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
     { project_id: 10, title: "Kimchi at the vet · A", status: "done", state: "delivered", brand_id: 2, credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
   ],
-  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }], sends: [], waiting_credits: 0, videos_and_freestyles: 3,
+  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3, brand_id: 2 }], sends: [], waiting_credits: 0, videos_and_freestyles: 3,
   week: { used: 72, allowance: 145, lines: [{ label: "Videos", credits: 50 }, { label: "Quick clips", credits: 8 }, { label: "Scripts", credits: 3 }, { label: "A look", credits: 11 }] },
 };
 
@@ -98,7 +98,7 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   const videos = screen.getByRole("list", { name: "My videos" });
   expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Making.*spent 40/ })).toHaveAttribute("href", "/b/1/videos/9");
   expect(within(videos).getByRole("link", { name: /Kimchi at the vet · A.*Delivered/ })).toHaveAttribute("href", "/b/2/videos/10"); // every brand, each row to its own
-  expect(screen.getByText('Writing "Bo tries salmon"')).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/2/scripts/7"); // in its own brand (#1255)
   expect(document.body.textContent).not.toMatch(/\$/);
   const spent = within(screen.getByRole("group", { name: "Totals" })).getByText("Spent this month").parentElement!;
   expect(spent).toHaveTextContent("61 credits");

@@ -145,8 +145,10 @@ export function MinePage() {
                 <span className="tabular-nums">{whole(m.quick_clip_credits)}</span>
               </li>
               {m.scripts.map((s) => (
-                <li key={s.script_id} className="flex justify-between gap-3 py-2">
-                  <span className="min-w-0 break-words">Writing "{s.title}"</span>
+                <li key={s.script_id} className="flex items-center justify-between gap-3">
+                  <Link to={`/b/${s.brand_id}/scripts/${s.script_id}`} className="flex min-h-control min-w-0 items-center break-words underline-offset-2 hover:underline">
+                    Writing "{s.title}"
+                  </Link>
                   <span className="tabular-nums">{whole(s.credits)}</span>
                 </li>
               ))}
