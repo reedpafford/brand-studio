@@ -23,13 +23,19 @@ VOICES = (VOICE, "Alexandra", "Hope", "Jane")  # natural v3 voices (song-ad-work
 PAUSE, QUIET = 0.25, "-40dB"
 
 
-def video_kind(db, project) -> str:
-    """A video's type is its script's kind: story, song or narrated. A video with no script
-    (the earlier New video form) is a story. Its look is a setting apart (Song in any look)."""
+def video_script(db, project):
+    """A video's script; None for a video with no script (the earlier New video form)."""
     from app.models.script_library import Script, ScriptDraft
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    return db.get(Script, draft.script_id).kind if draft else "story"
+    return db.get(Script, draft.script_id) if draft else None
+
+
+def video_kind(db, project) -> str:
+    """A video's type is its script's kind: story, song or narrated (the engine of its format).
+    A video with no script is a story. Its look is a setting apart (Song in any look)."""
+    script = video_script(db, project)
+    return script.kind if script else "story"
 
 
 NO_WORDS = "Write the words first: the narrator reads them as written."

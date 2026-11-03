@@ -11,7 +11,7 @@ const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paw
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
 const version = (o: object = {}) => ({ slot: 0, status: "draft", title: "Bowl song", seconds: 0, project_id: null, text: LYRICS, words: 10, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, style_line: "pop, female lead, upbeat", singer: "", spoken_end_line: "", song_directions: [], ...o });
 const song = (o: object = {}, v: object = {}) => ({
-  id: 7, brand_id: 1, kind: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
+  id: 7, brand_id: 1, kind: "song", format: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
 const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, retry_credits: 0, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
@@ -38,7 +38,7 @@ test("New script → Song waits for a word or a setting, then opens on its Song 
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
   await userEvent.click(await screen.findByRole("button", { name: "Project: none" }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Launch" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song", text: "" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song", format: "song", text: "" }));
   // The new page shows the same steps before the save, so wait for the script page's own Next first.
   expect(await screen.findByRole("button", { name: "Next: Takes" })).toBeInTheDocument();
   expect(await screen.findByRole("list", { name: "Steps" })).toBeInTheDocument();
@@ -66,7 +66,7 @@ test("New script → Song: letters typed while its takes load all reach the Lyri
     }
     return fake(input, init);
   });
-  open("/b/1/scripts/new?kind=song");
+  open("/b/1/scripts/new?format=song");
   const box = await screen.findByLabelText("Lyrics");
   await userEvent.type(box, "[[");
   await vi.waitFor(() => expect(loading).toBe(true));
@@ -188,9 +188,21 @@ test("at 390: New script opens a sheet with Close and the three formats, each wi
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   const sheet = screen.getByRole("dialog", { name: "New script" });
   expect(within(sheet).getByRole("button", { name: "Close" })).toBeInTheDocument();
-  expect(within(sheet).getByRole("menuitem", { name: /Dialogue.*People speak on camera/ })).toBeInTheDocument();
-  expect(within(sheet).getByRole("menuitem", { name: /Song.*Your lyrics, sung word for word/ })).toBeInTheDocument();
-  expect(within(sheet).getByRole("menuitem", { name: /Narrated.*One voice reads your script over B-roll, with music/ })).toBeInTheDocument();
+  expect(within(sheet).getByRole("menuitem", { name: /Dialogue.*People speak their lines on camera/ })).toBeInTheDocument();
+  expect(within(sheet).getByRole("menuitem", { name: /Song.*An animated music video/ })).toBeInTheDocument();
+  expect(within(sheet).getByRole("menuitem", { name: /Narrated.*One voice will read it/ })).toBeInTheDocument();
+});
+
+test("a format added to the guides is a New script choice with its own words; one that is off is not", async () => {
+  setViewport(390);
+  const cooking = { id: "cooking", name: "Cooking", engine: "story", on: true, blurb: "A recipe, step by step." };
+  const off = { id: "zack-d", name: "Zack D", engine: "narrated", on: false, blurb: "One camera journey." };
+  fakeServer({ ...base, "GET /formats": [200, [{ id: "dialogue", name: "Dialogue", engine: "story", on: true, blurb: "Lines on camera." }, cooking, off]], "GET /scripts": [200, []] });
+  open("/b/1/scripts");
+  await userEvent.click(await screen.findByRole("button", { name: "New script" }));
+  const sheet = screen.getByRole("dialog", { name: "New script" });
+  expect(within(sheet).getByRole("menuitem", { name: /Cooking.*A recipe, step by step/ })).toBeInTheDocument();
+  expect(within(sheet).queryByRole("menuitem", { name: /Zack D/ })).toBeNull();
 });
 
 test("at 390 on a song script, the steps are one button: Step 1 of 5 · Song", async () => {

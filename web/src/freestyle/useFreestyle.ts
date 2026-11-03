@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import type { Tone } from "../components";
+import { useFormatName, useFormats } from "../scripts/useFormats";
 
 /** Freestyle (Reed's redesign, replaces Quick clip): a video from a pasted script or a described clip, changed by chatting.
  *  Every editor send waits for Reed before anything is spent; Reed's own run at once. Next-Server's /freestyles (#1159).
@@ -13,15 +14,17 @@ export type Kind = Freestyle["type"];
 export type Shape = Freestyle["shape"];
 export type Settings = { type: Kind; look: string; shape: Shape; brand_id: number | null };
 
-export const TYPES: { id: Kind; name: string; soon?: boolean }[] = [
-  { id: "dialogue", name: "Dialogue" },
-  { id: "song", name: "Song", soon: true },
-  { id: "narrated", name: "Narrated", soon: true },
-  { id: "one_clip", name: "One clip" },
-];
+/** What a freestyle can be: each format that is on (the director makes only the story engine's for now), then One clip. */
+export function useTypes(): { id: Kind; name: string; soon?: boolean }[] {
+  const formats = useFormats().data ?? [];
+  return [...formats.filter((f) => f.on).map((f) => ({ id: f.id, name: f.name, soon: f.engine !== "story" })), { id: "one_clip", name: "One clip" }];
+}
 export const SOON = "One clip and Dialogue work now. Song and Narrated are coming next.";
 export const SHAPES: Shape[] = ["9:16", "1:1", "16:9"];
-export const typeName = (t: Kind) => TYPES.find((x) => x.id === t)?.name ?? t;
+export function useTypeName() {
+  const formatName = useFormatName();
+  return (t: Kind) => (t === "one_clip" ? "One clip" : formatName(t));
+}
 
 /** A status as a dot and words: the colour is the second signal. */
 export const STATUS: Record<Freestyle["status"], { words: string; tone: Tone }> = {

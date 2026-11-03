@@ -97,12 +97,15 @@ def format_(format_id: str) -> dict:
     return found[0]
 
 
-def video_format(kind: str, style_id: str) -> str:
-    """The format of a video from its script's kind (story, song, narrated) or a format id,
-    until scripts carry their own format: a style that is also a format (Zack D) brings it,
+def video_format(kind: str, style_id: str, picked: str = "") -> str:
+    """The format of a video: its script's own pick (a format id), else from the script's kind
+    (story, song, narrated), where a style that is also a format (Zack D) brings its own,
     except to a song."""
+    ids = {f["id"] for f in formats()}
+    if picked in ids:
+        return picked
     base = style(style_id)["parent"] or style_id
-    if kind in ("", "story", "narrated") and base in {f["id"] for f in formats()}:
+    if kind in ("", "story", "narrated") and base in ids:
         return base
     return KIND.get(kind, kind)
 

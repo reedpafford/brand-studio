@@ -17,7 +17,8 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import director, hidden, looks, prompts, scorecard
+from app import director, guides, hidden, looks, prompts, scorecard
+from app import script_library as lib
 from app.auth import current_user
 from app.catalogue import get_model
 from app.clip_takes import in_english
@@ -48,7 +49,7 @@ from app.routes.estimate import run_price
 from app.routes.jobs import CHANGE, DECLINE, PRICE, SAID, WITHDRAWN, enqueue, stop_jobs
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
-Type = Literal["dialogue", "song", "narrated", "one_clip"]
+ONE_CLIP = "one_clip"  # the other types are the formats on GET /formats
 Shape = Literal["9:16", "1:1", "16:9"]
 Status = Literal["waiting", "working", "delivered", "declined", "stopped", "withdrawn", "failed"]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=5000)]
@@ -59,7 +60,6 @@ ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a style."
 HAS_VIDEO = "This version already has a video."
 FREEZE = "freeze"  # an editor's first turn: what the owner's OK makes real (`freeze`)
-DIRECTED = {"dialogue": "story", "song": "song", "narrated": "narrated"}  # type: script kind
 PAST_CAP = (
     "That change would take this freestyle past its limit of {cap} credits. Start a new "
     "freestyle from here."
@@ -75,7 +75,7 @@ class FreestyleIn(BaseModel):
     """A pasted script (`text`, with its look), or "Make a video" from a script's version
     (`script_id`, `slot`): its kind, look and brand are the script's."""
 
-    type: Type = "dialogue"
+    type: str = "dialogue"  # one_clip, or a format on GET /formats
     look: str | None = None
     shape: Shape
     brand_id: int | None = None
@@ -109,7 +109,7 @@ class FreestyleItem(BaseModel):
 class FreestyleRow(BaseModel):
     id: int
     title: str
-    type: Type
+    type: str
     status: Status
     created_at: datetime
     created_by_name: str
@@ -179,8 +179,8 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
     brand_id = fs.brand_id or _freestyle_brand(db, user.workspace_id).id
     hide = fs.brand_id is None or not user.is_owner  # an editor's shows once the owner OKs it
     script = Script(workspace_id=user.workspace_id, brand_id=brand_id, title=fs.title,
-                    kind=DIRECTED[fs.type], look=fs.look, published=True, hidden=hide,
-                    created_by_id=user.id)  # fmt: skip
+                    kind=guides.format_(fs.type)["engine"], format=fs.type, look=fs.look,
+                    published=True, hidden=hide, created_by_id=user.id)  # fmt: skip
     db.add(script)
     db.flush()
     draft = ScriptDraft(script_id=script.id, slot=0, text=text, status="approved",
@@ -443,19 +443,18 @@ def _source(db: Session, user: User, body) -> tuple:
     if body.script_id is None:
         if not body.look:
             raise HTTPException(422, NO_LOOK)
+        if body.type != ONE_CLIP:
+            lib.pick_format(body.type)
         return body.type, body.look, body.brand_id, body.text, None, None
-    from app import script_library as lib
-
     script = lib.get_script(db, user, body.script_id)
     draft = lib.get_draft(db, script, body.slot or 0)
-    kind = {k: t for t, k in DIRECTED.items()}[script.kind]  # every script kind has its type
-    return kind, script.look, script.brand_id, draft.text, script, draft
+    return lib.format_id(script), script.look, script.brand_id, draft.text, script, draft
 
 
 @router.get("/estimate", response_model=EstimateOut)
 def estimate_freestyle(
     shape: Shape,
-    type: Type = "dialogue",
+    type: str = "dialogue",
     look: str | None = None,
     text: Text | None = None,
     script_id: int | None = None,
@@ -469,7 +468,7 @@ def estimate_freestyle(
     _check(db, user, type, look, None)
     if draft is not None:  # a script's version: its own price
         return EstimateOut(credits=run_price(db, draft))
-    if type in DIRECTED:  # the video's own price, from a draft never kept
+    if type != ONE_CLIP:  # the video's own price, from a draft never kept
         fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title="Estimate",
                        type=type, look=look, shape=shape, chat=[])  # fmt: skip
         db.add(fs)
@@ -517,7 +516,7 @@ def create_freestyle(
         made = _from_script(db, user, request, fs, script, draft, body.make_another)
         _start(db, user, fs, text, made)
     else:
-        (_start if type in DIRECTED else _send)(db, user, fs, text)
+        (_send if type == ONE_CLIP else _start)(db, user, fs, text)
     return _out(db, fs)
 
 
@@ -557,7 +556,7 @@ def send_message(
     fs = _get(db, user, freestyle_id)
     if fs.created_by_id != user.id:
         raise HTTPException(403, "Only whoever made this freestyle can change it.")
-    if fs.type in DIRECTED:
+    if fs.type != ONE_CLIP:
         _change(db, user, fs, body.text)
         return _out(db, fs)
     if any(j.status in (JobStatus.needs_owner_approval, JobStatus.queued, JobStatus.running)

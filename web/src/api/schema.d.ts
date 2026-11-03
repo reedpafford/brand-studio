@@ -6023,6 +6023,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format?: string | null;
             /** Look */
             look?: string | null;
             /** Language */
@@ -6628,9 +6630,8 @@ export interface components {
             /**
              * Type
              * @default dialogue
-             * @enum {string}
              */
-            type: "dialogue" | "song" | "narrated" | "one_clip";
+            type: string;
             /** Look */
             look?: string | null;
             /**
@@ -6688,11 +6689,8 @@ export interface components {
             id: number;
             /** Title */
             title: string;
-            /**
-             * Type
-             * @enum {string}
-             */
-            type: "dialogue" | "song" | "narrated" | "one_clip";
+            /** Type */
+            type: string;
             /**
              * Status
              * @enum {string}
@@ -6771,11 +6769,8 @@ export interface components {
             id: number;
             /** Title */
             title: string;
-            /**
-             * Type
-             * @enum {string}
-             */
-            type: "dialogue" | "song" | "narrated" | "one_clip";
+            /** Type */
+            type: string;
             /**
              * Status
              * @enum {string}
@@ -9341,8 +9336,8 @@ export interface components {
             reference_replace?: string | null;
             /** New Lines */
             new_lines?: boolean | null;
-            /** Kind */
-            kind?: ("story" | "narrated") | null;
+            /** Format */
+            format?: string | null;
             /** Look */
             look?: string | null;
         };
@@ -9368,6 +9363,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format: string;
             /**
              * Look
              * @default house
@@ -10385,6 +10382,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format: string;
             /**
              * Look
              * @default house
@@ -10896,6 +10895,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format?: string | null;
             /** Look */
             look?: string | null;
             /** Language */
@@ -10916,6 +10917,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format: string;
             /**
              * Look
              * @default house
@@ -12079,7 +12082,7 @@ export interface operations {
         parameters: {
             query: {
                 shape: "9:16" | "1:1" | "16:9";
-                type?: "dialogue" | "song" | "narrated" | "one_clip";
+                type?: string;
                 look?: string | null;
                 text?: string | null;
                 script_id?: number | null;

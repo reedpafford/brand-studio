@@ -196,13 +196,12 @@ def test_a_script_switches_between_dialogue_and_narrated_before_publishing(owner
     from app.routes.script_library import SONG_STAYS
 
     base = narrated.rsplit("/drafts", 1)[0]
-    assert owner.patch(base, json={"kind": "story"}).json()["kind"] == "story"
+    assert owner.patch(base, json={"format": "dialogue"}).json()["kind"] == "story"
     assert owner.get(base).json()["versions"][0]["reads_narrated"]  # all one voice (ST0 Advice)
-    assert owner.patch(base, json={"kind": "narrated"}).json()["kind"] == "narrated"  # Undo
-    assert owner.patch(base, json={"kind": "song"}).status_code == 422  # never to a song
+    assert owner.patch(base, json={"format": "narrated"}).json()["kind"] == "narrated"  # Undo
     brand = owner.get("/brands").json()[0]["id"]
     song = owner.post("/scripts", json={"brand_id": brand, "title": "S", "kind": "song"}).json()
-    no = owner.patch(f"/scripts/{song['id']}", json={"kind": "narrated"})
+    no = owner.patch(f"/scripts/{song['id']}", json={"format": "narrated"})
     assert (no.status_code, no.json()["detail"]) == (409, SONG_STAYS)
 
 

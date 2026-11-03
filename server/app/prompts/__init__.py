@@ -139,12 +139,12 @@ def _picked(title: str, intro: str, sections: dict, step: str) -> str:
 
 
 @cache
-def system(step: str, style_id: str = "house", fmt: str = "") -> str:
-    """`style_id` is the video's look; `fmt` its format or its script's kind (story, song,
-    narrated): guides.video_format reads it. The briefed steps get craft, the format's guide
-    and the style's; the fomo worked examples reach only the dialogue format."""
+def system(step: str, style_id: str = "house", fmt: str = "", picked: str = "") -> str:
+    """`style_id` is the video's look; `fmt` its script's kind (story, song, narrated) and
+    `picked` the script's own format id: guides.video_format reads both. The briefed steps get
+    craft, the format's guide and the style's; the fomo worked examples reach only dialogue."""
     kind = fmt or next((k for k in ("song", "narrated") if step.startswith(f"{k}_")), "")
-    form = guides.format_(guides.video_format(kind, style_id))
+    form = guides.format_(guides.video_format(kind, style_id, picked))
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
     for name in filter(None, [EXTENDS.get(step), step]):
         parts.append(guides.fill((HERE / f"{name}.md").read_text(), style_id))
