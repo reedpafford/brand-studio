@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { createPortal } from "react-dom";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
-import { Button, Dialog, Tabs } from "../components";
+import { Button, Dialog, PageTop, Tabs } from "../components";
 import { ArchiveBrand } from "./ArchiveBrand";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
@@ -50,11 +50,14 @@ export function BrandPage() {
     <FrameContext.Provider value={{ slot, setDirty, importing, setImporting, goTab: go }}>
       <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
         {/* v5 F boards: the brand's dot and name, Import from website (the owner) and More; then the tabs with the note on the right. */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-          <h1 className="flex min-w-0 items-center gap-3 type-page">
-            <span aria-hidden className="size-5 shrink-0 rounded-sm" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />
-            <span className="min-w-0 break-words">{brand?.name ?? "Brand"}</span>
-          </h1>
+        <PageTop
+          title={
+            <>
+              <span aria-hidden className="size-5 shrink-0 rounded-sm" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />
+              <span className="min-w-0 break-words">{brand?.name ?? "Brand"}</span>
+            </>
+          }
+        >
           <div className="flex flex-wrap items-center gap-2">
             {owner && brand && (tab === "look" || tab === "voice") && (
               <Button variant="secondary" onClick={() => setImporting(true)}>
@@ -65,8 +68,9 @@ export function BrandPage() {
             {rail && tab !== "look" && tab !== "voice" && <div ref={setSlot} className="flex items-center gap-2" />}
             {owner && brand && <ArchiveBrand brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />}
           </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        </PageTop>
+        {/* The tabs' band: 44 px with a bottom line, flush with the page's edges (v5 F boards). */}
+        <div className="-mx-4 -mt-4 flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-4 py-1 sm:-mx-6 sm:px-6">
           <Tabs
             label="Brand"
             tabs={tabs}

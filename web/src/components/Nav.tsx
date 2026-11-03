@@ -131,10 +131,10 @@ export function StepPicker({ steps, onPick, flat }: { steps: Step[]; onPick: (id
 
 export type Tab = { id: string; label: string; count?: number };
 
-/** A pill tab (v4 boards). The chosen one has a 3:1 edge and semibold words, not just a faint fill; hover only brightens the
- *  words (QA-3 on #1164). */
+/** A pill tab (v5): the chosen one is a plain filled pill (surface-2, no ring, no bold), 30 px on a computer and 44 px on a
+ *  phone; the others are muted words that brighten on hover. */
 export const pillClass = (on: boolean) =>
-  `inline-flex min-h-control min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 sm:gap-2 sm:px-3 ${on ? "bg-surface-2 font-semibold text-text ring-1 ring-inset ring-border-strong" : "font-medium text-muted hover:text-text"}`;
+  `inline-flex min-h-control min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 font-medium sm:gap-2 sm:px-3 lg:min-h-7.5 ${on ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`;
 /** A strip of pills that scrolls sideways; its padding keeps the focus ring from being cut off. */
 export const pillStrip = "-m-1 flex gap-1 overflow-x-auto p-1";
 

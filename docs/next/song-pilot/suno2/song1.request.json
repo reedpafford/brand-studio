@@ -1,0 +1,14 @@
+{
+ "model": "ai-music-api/generate",
+ "callBackUrl": "https://example.com/cb",
+ "input": {
+  "model": "V6",
+  "custom_mode": true,
+  "instrumental": false,
+  "title": "Breath Like Fish",
+  "lyrics": "[Intro: vocals start immediately]\n[Hook]\nYeah, I know my breath smells like fish\nI know my teeth are covered in yellow tartar\nAnd I know I'm a nightmare every time she tries to brush them\nBut I promise you, it is not my fault\nAnd it is not hers either\n\n[Verse 1]\nBecause she does everything she thinks is right\nShe buys the dental chews\nShe fights me to brush my teeth\nShe tries the water additives\nAnd for a few days it seems like it is working\nThen two weeks later, the smell is back\nThe yellow is back, and we're right where we started\n\n[Pre-Chorus]\nShe blames herself, I can see it\nBut she should not, she's doing everything she was told to do\nThe problem is nobody told her the truth\nShe's been treating this where it shows up\nNot where it actually starts\n\n[Chorus]\n'Cause the bad breath and the tartar don't start in my mouth\nThey start in my gut\nWhen the bacterial balance in there breaks down\nThe bad bacteria spreads and takes hold wherever it can\nIn my mouth it shows up as that smell and that yellow buildup\nAnd no matter how much she brushes, or how many chews she buys\nAs long as my gut stays out of balance, it all just keeps coming back\n\n[Verse 2]\nThankfully, I have an owner who does not give up\nOne day she started digging into what was going on\nShe called friends who knew about dog health\nShe watched videos, she tried everything\nUntil she finally understood the real problem\nShe got a greens powder with over three thousand five-star reviews\nProbiotics to rebuild the balance my gut had lost\nParsley to fight the smell at the source\nAnd chicory root to stabilize my gut\nIt was called Iron Paws\n\n[Bridge]\nShe mixed it into my food that night without saying much\nPeanut butter flavor\nI finished the bowl before she even put it down\nA few weeks went by, one morning she got close to me\nBracing for the smell like always, but this time there was nothing\nShe checked my teeth, the yellow was already fading\nShe scratched my ear and said she was sorry\nShe had not figured it out sooner\n\n[Outro]\nYou just did not know what the signs meant\nBut now you do\nIron Paws is linked below, human grade and vet formulated\nThe only thing that finally gave me my mouth back\nDo not wait as long as she did\nYour pup has been waiting on you\n[End]",
+  "style": "laid-back pop, warm playful female vocal, 102 BPM, breezy and cheeky, strummed acoustic guitar, light drums and handclaps, modern polished, vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending",
+  "negative_tags": "instrumental intro, instrumental break, long outro, spoken word, rap",
+  "vocal_gender": "f"
+ }
+}

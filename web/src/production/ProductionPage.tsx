@@ -81,15 +81,20 @@ function Now({ r }: { r: Row }) {
   const f = r.flag ? FLAGS[r.flag] : null;
   return (
     <span className="flex min-w-0 items-start gap-2 text-sm">
-      <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${!f ? "bg-accent" : f.tone === "danger" ? "bg-danger" : "bg-warning"}`} />
+      <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${f ? (f.tone === "danger" ? "bg-danger" : "bg-warning") : r.finished_at ? "bg-success" : "bg-accent"}`} />
       <span className="min-w-0 break-words">
         {f ? (
           <>
             <span className="font-medium">{f.label}</span> <span className="text-muted">{reason(r)}</span>
           </>
+        ) : r.finished_at ? (
+          <>
+            Delivered <span className="text-muted">· {ago(lastText(r.finished_at))}</span>
+          </>
         ) : (
           <>
-            {NOW[r.step]} <span className="text-muted">· {ago(lastText(r.last_activity_at))}</span>
+            {NOW[r.step]}
+            {r.step === "clips" && (r.clips_total ?? 0) > 0 && `: ${r.clips_made} of ${r.clips_total}`} <span className="text-muted">· {ago(lastText(r.last_activity_at))}</span>
           </>
         )}
       </span>
@@ -141,6 +146,7 @@ export function ProductionPage() {
   const brand = params.get("brand") ?? "";
   const editor = params.get("editor") ?? "";
   const attention = params.get("attention") === "1";
+  const delivered = params.get("delivered") === "1"; // the Delivered today tab (#1232)
   const sort = sortFrom(params.get("sort"));
   const [text, setText] = useState(params.get("q") ?? "");
   const q = useDebounced(text.trim());
@@ -158,7 +164,7 @@ export function ProductionPage() {
     );
   const owner = me?.role === "owner";
   const summary = useProductionSummary(owner);
-  const { query, rows, total } = useProduction({ brand, editor, attention, q, sort });
+  const { query, rows, total } = useProduction({ brand, editor, attention, delivered, q, sort });
   // Everyone with a video in the list, kept as filters narrow it.
   const [people, setPeople] = useState(new Map<number, string>());
   const seen = rows.flatMap((r): [number, string][] => (r.editor ? [[r.editor.id, r.editor.name]] : []));
@@ -167,7 +173,7 @@ export function ProductionPage() {
   if (isPending) return null;
   if (!owner || summary.error?.message === "404" || query.error?.message === "404") return <p className="p-6">Page not found.</p>;
 
-  const filtered = !!(brand || editor || attention || q);
+  const filtered = !!(brand || editor || attention || delivered || q);
   const clear = () => {
     setText("");
     setParams({}, { replace: true });
@@ -182,7 +188,8 @@ export function ProductionPage() {
       {waiting} finished video{waiting === 1 ? " has" : "s have"} changes waiting
     </Link>
   );
-  const count = summary.data && (filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : [`${all} video${all === 1 ? "" : "s"} being made`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
+  const today = summary.data?.delivered_today ?? 0;
+  const count = summary.data && (delivered && !(brand || editor || q) ? `${today} video${today === 1 ? "" : "s"} delivered today` : filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : [`${all} video${all === 1 ? "" : "s"} being made`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
 
   const brandSelect = (
     <Select label="Brand" value={brand} onChange={(e) => set("brand", e.target.value)}>
@@ -207,11 +214,6 @@ export function ProductionPage() {
       ))}
     </Select>
   );
-  const toggle = (
-    <button type="button" aria-pressed={attention} onClick={() => set("attention", attention ? "" : "1")} className={`inline-flex min-h-control items-center whitespace-nowrap rounded-md border px-4 font-medium lg:min-h-control-dense ${attention ? "border-accent bg-accent-soft text-accent-text" : "border-border bg-surface hover:bg-surface-2"}`}>
-      Needs attention
-    </button>
-  );
   const search = (
     <label className="relative block min-w-0 flex-1 lg:w-56 lg:flex-none">
       <span className="sr-only">Search scripts</span>
@@ -219,12 +221,26 @@ export function ProductionPage() {
       <input type="search" role="searchbox" placeholder="Search scripts" value={text} onChange={(e) => (setText(e.target.value), set("q", e.target.value.trim()))} className="min-h-control w-full rounded-md border border-border bg-surface pl-9 pr-3 lg:min-h-control-dense" />
     </label>
   );
+  const showTabs = (
+    <Tabs label="Show" value={delivered ? "delivered" : attention ? "attention" : "making"} onChange={(t) => setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("attention");
+      next.delete("delivered");
+      if (t !== "making") next.set(t, "1");
+      return next;
+    }, { replace: true })} tabs={[
+      { id: "making", label: "Making", count: all },
+      { id: "attention", label: rail ? "Needs attention" : "Attention", count: summary.data ? needs : undefined },
+      { id: "delivered", label: rail ? "Delivered today" : "Delivered", count: summary.data?.delivered_today },
+    ]} />
+  );
   const clearButton = filtered && <Button variant="ghost" onClick={clear}>Clear filters</Button>;
   const active = [brand, editor, attention, sort !== "attention"].filter(Boolean).length;
 
   let empty: ReactNode = null;
   if (query.isSuccess && rows.length === 0) {
     if (!filtered) empty = <EmptyState icon={Clapperboard} title="Nothing is being made right now.">Videos show up here when someone starts a version from the library.</EmptyState>;
+    else if (delivered && !(brand || editor || q)) empty = <EmptyState icon={Clapperboard} title="Nothing delivered today yet.">Videos show here on the day their final cut is made.</EmptyState>;
     else if (attention && !(brand || editor || q)) empty = <EmptyState icon={Check} title="Nothing needs attention." action={<Button variant="ghost" onClick={() => set("attention", "")}>Show all</Button>}>Every video is moving.</EmptyState>;
     else empty = <EmptyState icon={Search} title="Nothing matches these filters." action={clearButton || undefined} />;
   }
@@ -237,10 +253,7 @@ export function ProductionPage() {
       {/* v5 D_Production: Making and Needs attention as tabs in a band, the other filters on its right. */}
       {rail && (
         <div className="-mx-6 -mt-4 flex flex-wrap items-center gap-3 border-b border-border px-6 py-2">
-          <Tabs label="Show" value={attention ? "attention" : "making"} onChange={(t) => set("attention", t === "attention" ? "1" : "")} tabs={[
-            { id: "making", label: "Making", count: all },
-            { id: "attention", label: "Needs attention", count: summary.data ? needs : undefined },
-          ]} />
+          {showTabs}
           <span className="flex-1" />
           {clearButton}
           {search}
@@ -249,12 +262,16 @@ export function ProductionPage() {
         </div>
       )}
       {!rail && (
+      <>
+      {/* On a phone the same three tabs, shorter, in their own band (QA-3 on #1241). */}
+      <div className="-mx-4 -mt-4 border-b border-border px-4 py-2 sm:-mx-6 sm:px-6">{showTabs}</div>
       <div className="flex flex-wrap items-end gap-3">
         {search}
         <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
           {active > 0 ? `Filters (${active})` : "Filters"}
         </Button>
       </div>
+      </>
       )}
       {query.isError && <Banner title="Couldn't load the videos being made." action={<Button variant="secondary" onClick={() => void query.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {query.isPending && (
@@ -277,7 +294,6 @@ export function ProductionPage() {
           <div className="space-y-3 pb-2">
             {brandSelect}
             {editorSelect}
-            {toggle}
             {sortSelect}
             {clearButton}
           </div>
@@ -345,7 +361,8 @@ function Cards({ rows, colour, onRelease }: { rows: Row[]; colour: (id: number) 
                   <Dot colour={colour(r.brand.id)} />
                   <span className="min-w-0 break-words">{r.brand.name} · {who(r)}</span>
                 </span>
-                <span className="block text-sm text-muted">{STEPS[r.step]} · {ago(lastText(r.last_activity_at))}</span>
+                {/* Like the computer's Now (QA-3 on #1241); a flagged one keeps its step here and its flag below. */}
+                {r.flag ? <span className="block text-sm text-muted">{STEPS[r.step]} · {ago(lastText(r.last_activity_at))}</span> : <span className="block text-muted"><Now r={r} /></span>}
                 <span className="block text-sm text-muted tabular-nums">
                   <Credits r={r} /> credits · {money(r.spent_usd)}
                 </span>
