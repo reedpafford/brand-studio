@@ -1231,8 +1231,9 @@ test("an old /scripts/new link goes to the Scripts list", async () => {
 
 // VS1 on Make this version (#956): the video's settings row, its picks held in the panel and sent with the press.
 const catalogue = [
-  { id: "seedance", kind: "video", name: "Seedance", default: true, credits_per_unit: { "480p": 1 }, lip_sync: true },
-  { id: "kling", kind: "video", name: "Kling", default: false, credits_per_unit: { "480p": 2.5 }, lip_sync: false },
+  { id: "seedance", kind: "video", name: "Seedance", default: true, credits_per_unit: { "480p": 1 }, lip_sync: true, resolutions: ["480p"] },
+  { id: "kling", kind: "video", name: "Kling", default: false, credits_per_unit: { "480p": 2.5 }, lip_sync: false, resolutions: ["480p"] },
+  { id: "p-video", kind: "video", name: "P-Video", default: false, credits_per_unit: { "720p": 0.19, "1080p": 0.39 }, lip_sync: true, resolutions: ["720p", "1080p"] },
   { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } },
 ];
 const makeServer = (o: Record<string, [number, unknown]> = {}) => ({
@@ -1266,6 +1267,7 @@ test("Make this version shows the video's settings, and a pick moves the price l
   await userEvent.click(within(row).getByRole("button", { name: /Video model: Auto/ }));
   const models = await screen.findByRole("dialog", { name: "Video model" });
   expect(within(models).getByRole("button", { name: /Kling/ })).toHaveTextContent("No lip-sync");
+  expect(within(models).getByRole("button", { name: /P-Video/ })).toHaveTextContent("0.2 credits a second"); // no 480p: its 720p price (0.19), not the 1080p (0.39)
   await userEvent.click(within(models).getByRole("button", { name: /Kling/ }));
   expect(await within(panel).findByText("Starting costs 3 (the plan) · the whole video about 34 credits (planned)")).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: /Video model: Kling/ })).toBeInTheDocument();
