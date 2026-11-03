@@ -32,6 +32,8 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   // Write one variation (stand-in provider, no cost), read it next to the original, approve it.
   await page.getByRole("link", { name: "Bo tries salmon", exact: true }).click();
+  // A script with words opens on its Overview (v5); the writing steps sit behind Open the steps.
+  await page.getByRole("button", { name: /^Open the steps/ }).click();
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Variations" }).click();
   await page.getByRole("radio", { name: "1", exact: true }).click();
   await page.getByRole("button", { name: /^Write 1 variation/ }).click();
