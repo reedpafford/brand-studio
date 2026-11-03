@@ -637,7 +637,7 @@ class DirectorTurn(BaseModel):
     shot_id: str | None = Field(
         default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
     )
-    voice: Literal["Sarah", "Alexandra", "Hope", "Jane"] | None = Field(
+    voice: Literal["Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger"] | None = Field(
         default=None,
         description="For narration being made: the narrator's voice; null gives Sarah on the "
         "first narration and keeps the voice in use on a remake. Else null.",
