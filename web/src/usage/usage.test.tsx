@@ -13,7 +13,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /scripts": [200, []],
   "GET /projects": [200, []],
 };
-const summary = { period: "week", starts_at: "2026-10-19T00:00:00Z", previous: { spend_usd: 71.72, finished: 4, cost_per_finished_usd: 12.25 }, spend_usd: 84.12, spend_estimated: false, finished: 6, cost_per_finished_usd: 11.4, in_progress: 9, unassigned_spend_usd: 1.2, freestyle_spend_usd: 3.4, director_spend_usd: 0, spend_credits: 841.2, freestyle: { credits: 34, spend_usd: 3.4, videos: 2 } };
+const summary = { period: "week", starts_at: "2026-10-19T00:00:00Z", previous: { spend_usd: 71.72, finished: 4, cost_per_finished_usd: 12.25 }, spend_usd: 84.12, spend_estimated: false, finished: 6, cost_per_finished_usd: 11.4, in_progress: 9, unassigned_spend_usd: 1.2, freestyle_spend_usd: 3.4, director_spend_usd: 0, spend_credits: 841.2, unassigned_credits: 12, freestyle: { credits: 34, spend_usd: 3.4, videos: 2 } };
 const row = (o: object = {}) => ({ brand_id: 1, name: "Iron Paws", colour: "#3a7", archived: false, spend_usd: 52.3, spend_estimated: false, finished: 4, cost_per_finished_usd: 11.05, in_progress: 3, scripts: 12, versions_left: 7, last_activity_at: new Date(Date.now() - 2 * 3600_000).toISOString(), credits: 523, videos: 5, ...o });
 const month = new Date().toISOString().slice(0, 7);
 const brands = (items: object[], total = items.length, next: string | null = null) => ({ total, next_cursor: next, items });
@@ -45,6 +45,7 @@ test("Usage (v5 D_Usage): three cards for the month, and By brand reads Brand ·
   expect(fs).toHaveTextContent("(no brand picked)");
   expect(fs).toHaveTextContent("34$3.402");
   expect(within(table).getByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 523 of 841.2
+  expect(screen.getByText("Not tied to one brand: 12 credits · $1.20 · character looks used by several brands")).toBeInTheDocument();
   expect(calls.find((c) => c.key === "GET /usage/summary")?.url).toContain(`month=${month}`);
   expect(calls.find((c) => c.key === "GET /usage/brands")?.url).toContain(`month=${month}`);
 });

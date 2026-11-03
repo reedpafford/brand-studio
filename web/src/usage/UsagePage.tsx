@@ -87,7 +87,7 @@ export function UsagePage() {
             Show more
           </Button>
         )}
-        {f && f.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {money(f.unassigned_spend_usd)} · character looks used by several brands</p>}
+        {f && f.unassigned_spend_usd > 0 && <p className="text-sm text-muted">Not tied to one brand: {count(f.unassigned_credits)} credits · {money(f.unassigned_spend_usd)} · character looks used by several brands</p>}
       </section>
       <People month={month} />
       <Charges />
