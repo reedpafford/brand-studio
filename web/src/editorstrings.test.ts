@@ -19,7 +19,7 @@ const withoutComments = (code: string) =>
     .map((l) => l.replace(/(^|\s)\/\/.*$/, "$1"))
     .join("\n");
 
-test("no screen words name the owner: editors see the owner, never the name (Current rule 4)", () => {
+test("no screen words type the owner's name; names come from data (Current rule 4)", () => {
   const found = sources(join(__dirname)).flatMap((file) =>
     withoutComments(readFileSync(file, "utf8"))
       .split("\n")
