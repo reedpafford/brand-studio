@@ -65,8 +65,9 @@ function Frame() {
   const { data: brands, isPending, isError } = useBrands();
   const { brandId } = useParams();
   const fromUrl = Number(brandId) || null;
-  // Off brand pages (e.g. /team) you stay "in" the brand you were last in.
-  const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : null);
+  // Off brand pages (e.g. /team) you stay "in" the brand you were last in, or the first one: the rail keeps Make and
+  // Library on every page, Studio ones and an editor's My credits included (v5 A_Shell; audit lane 2).
+  const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : (brands?.[0]?.id ?? null));
   const brand = brands?.find((b) => b.id === current);
   const rail = useMedia("(min-width: 1024px)");
   const wide = useMedia("(min-width: 1280px)");
@@ -176,7 +177,7 @@ function Badge({ n }: { n: number | null }) {
 
 function TopBar({ brands, brand, current, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; waiting: number | null }) {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
+    <header aria-label="Top bar" className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
       <BrandSwitcher brands={brands} brand={brand} current={current} />
       <div className="ml-auto flex items-center gap-2">
         {/* Needs you shows only while something waits (Reed, 30 Oct); the page itself stays at /approvals. */}

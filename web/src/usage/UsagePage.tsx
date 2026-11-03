@@ -4,7 +4,7 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Banner, Button, creditsLabel, creditsText, EmptyState, PageTop, Select, Sheet, Skeleton } from "../components";
+import { Badge, Banner, Button, creditsLabel, EmptyState, wholeCredits, PageTop, Select, Sheet, Skeleton } from "../components";
 import { useHeld } from "../approvals/useHeld";
 import { linkText } from "../ui";
 import { useRail } from "../useMedia";
@@ -165,7 +165,8 @@ function People({ period }: { period: ReturnType<typeof periodFrom> }) {
     retry: false, // a failed read says so at once, with Try again
     queryFn: async () => (await must(api.GET("/usage/people", { params: { query: { period } } }))).data!,
   });
-  const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${creditsText(p.week_used)} of ${creditsText(p.week_allowance)} this week`);
+  const n = (x: number) => wholeCredits(x).toLocaleString("en-US"); // whole credits, as D_Usage shows them
+  const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${n(p.week_used)} of ${n(p.week_allowance)} credits this week`);
   return (
     <section aria-label="By person" className="space-y-3">
       <h2 className="type-section">By person</h2>
@@ -188,7 +189,7 @@ function People({ period }: { period: ReturnType<typeof periodFrom> }) {
               {people.data.map((p) => (
                 <tr key={p.user_id} className="text-right">
                   <th scope="row" className="px-4 py-3 text-left font-medium">{p.name} <span className="font-normal text-muted">· {p.role === "owner" ? "Owner" : "Editor"}</span></th>
-                  <td className="px-3 py-3">{creditsText(p.credits)}</td>
+                  <td className="px-3 py-3">{wholeCredits(p.credits).toLocaleString("en-US")}</td>
                   <td className="px-3 py-3 text-muted">{money(p.spend_usd)}</td>
                   <td className="px-3 py-3">{p.videos}</td>
                   <td className="px-3 py-3 text-left text-muted">{week(p)}</td>

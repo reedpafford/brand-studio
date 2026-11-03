@@ -96,8 +96,8 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   const week = screen.getByRole("list", { name: "This week's charges" });
   expect(within(week).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Videos50 credits", "Quick clips8 credits", "Scripts3 credits", "A look11 credits"]);
   const videos = screen.getByRole("list", { name: "My videos" });
-  expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Being made.*40 credits of 600 credits/ })).toHaveAttribute("href", "/b/1/videos/9");
-  expect(within(videos).getByText("Finished")).toBeInTheDocument();
+  expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Making.*spent 40/ })).toHaveAttribute("href", "/b/1/videos/9");
+  expect(within(videos).getByText("Delivered")).toBeInTheDocument(); // D_MyCredits: a dot and "Delivered"
   expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/1/scripts/7");
   expect(document.body.textContent).not.toMatch(/\$/);
   expect(urls()[0]).toContain("brand_id=1");
@@ -346,23 +346,36 @@ test("Usage's By person lists each person's credits, dollars, videos and week (#
   open();
   const people = await screen.findByRole("region", { name: "By person" });
   const dee = (await within(people).findByText("Dee")).closest("tr")!;
-  expect(dee).toHaveTextContent("804 credits");
+  expect(within(dee).getByText("804")).toBeInTheDocument(); // whole credits, no unit (D_Usage)
   expect(dee).toHaveTextContent("$80.40");
-  expect(dee).toHaveTextContent("40 credits of 100 credits this week");
+  expect(dee).toHaveTextContent("40 of 100 credits this week");
   expect(within(people).getByText("No limit")).toBeInTheDocument();
 });
 
-test("My credits shows a video's credits without the director's own time, that time apart, and a director-run video against what was approved (#1216, QA-3 on #1218)", async () => {
+test("My credits' rows read 'spent N' with the director's time included, in whole credits, and 'up to N approved' muted where the owner approved a run (the Producer, 3 Nov)", async () => {
   setViewport(1440);
   const videos = [
     { project_id: 9, title: "Garden scene", status: "in_production", credits: 97.33, director_credits: 70.4, budget_credits: 729, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
-    { project_id: 10, title: "Bo at the beach", status: "in_production", credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Bo at the beach", status: "done", credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
   ];
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, videos }] });
   open("/usage/mine");
   const list = await screen.findByRole("list", { name: "My videos" });
   const garden = within(list).getByRole("link", { name: /Garden scene/ });
-  expect(garden).toHaveTextContent("27 credits of 729 credits") // 97.33 less 70.4, rounded up as credits are;
-  expect(garden).toHaveTextContent("70.4 credits of director time");
-  expect(within(list).getByRole("link", { name: /Bo at the beach/ })).toHaveTextContent("30 credits used of up to 204 credits approved");
+  expect(garden).toHaveTextContent("spent 98");
+  expect(garden).not.toHaveTextContent(/director time|of 729/);
+  const beach = within(list).getByRole("link", { name: /Bo at the beach/ });
+  expect(beach).toHaveTextContent("spent 50");
+  expect(beach).toHaveTextContent("up to 204 approved");
+  expect(within(beach).getByText("Delivered")).toBeInTheDocument();
+});
+
+test("By person and My credits never show '-0' for nothing used (UX-Auditor on #1246)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
+  open();
+  const people = await screen.findByRole("region", { name: "By person" });
+  const dee = (await within(people).findByText("Dee")).closest("tr")!;
+  expect(dee).toHaveTextContent("0 of 97 credits this week");
+  expect(dee.textContent).not.toMatch(/-0/);
 });

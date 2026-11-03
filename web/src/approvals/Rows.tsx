@@ -13,7 +13,6 @@ import { serverTime } from "../time";
 import { typeName, type Kind } from "../freestyle/useFreestyle";
 import { STEPS } from "./steps";
 import { stepOf } from "./HeldRequests";
-import { letterOf } from "../scripts/status";
 import type { Job, Project } from "./useHeld";
 import { refreshJobs } from "../jobs/refresh";
 
@@ -81,18 +80,6 @@ function Row({ id, status, where, children, actions, ...rest }: { id?: string; s
   );
 }
 
-/** The script and version a held send was made from ("From Bo tries salmon › B"), linked by the script's own brand, all
- *  from the send itself (#1232): a pasted Dialogue's hidden script reads "Pasted text", with nothing to read. */
-function FromScript({ fs }: { fs: NonNullable<Job["freestyle"]> }) {
-  if (fs.hidden) return <p className="text-xs text-muted">Pasted text</p>;
-  const label = `From ${fs.script_title}${fs.slot != null ? ` › ${letterOf(fs.slot)}` : ""}`;
-  return fs.brand_id != null ? (
-    <Link className="inline-flex min-h-11 items-center text-xs text-accent-text hover:underline lg:min-h-0" to={`/b/${fs.brand_id}/scripts/${fs.script_id}`}>{label}</Link>
-  ) : (
-    <p className="text-xs text-muted">{label}</p>
-  );
-}
-
 export function useRefresh() {
   const queryClient = useQueryClient();
   return () => Promise.all([refreshJobs(queryClient), ...["held-jobs", "projects", "library"].map((k) => queryClient.invalidateQueries({ queryKey: [k] }))]);
@@ -140,8 +127,9 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
   const rail = useRail();
   const askedBy = `${who ? `asked by ${who}, ` : ""}${ago(job.created_at)}`;
   const where = (
-    <Where brandId={job.brand_id ?? project?.brand_id} asked={askedBy}>
-      {project && (
+    // A Freestyle send is one line, "Freestyle · Dialogue · <title>", without its hidden video or brand (audit lane 2).
+    <Where brandId={fs ? null : (job.brand_id ?? project?.brand_id)} asked={askedBy}>
+      {project && !fs && (
         <>
           <Link className="inline-flex min-h-11 items-center underline lg:min-h-0" to={`/b/${project.brand_id}/projects/${project.id}`}>{project.name}</Link>
           <span aria-hidden className="text-muted">·</span>
@@ -178,7 +166,6 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
       {fs ? (
         <>
           <p className="text-xs text-muted">{fs.change ? "Change asked" : "First send"}</p>
-          {fs.script_id != null && <FromScript fs={fs} />}
           {fs.said && <p className="line-clamp-6 whitespace-pre-line font-mono text-xs leading-relaxed">"{fs.said}"</p>}
           {fs.up_to != null && <p className="tabular-nums">Up to {creditsLabel(fs.up_to)}{fs.change ? " for this change" : " · your OK covers the whole run"}</p>}
           {/* Only what's spent so far: "in all" read as a second price (QA-3 on #1213, as on the video page). */}
