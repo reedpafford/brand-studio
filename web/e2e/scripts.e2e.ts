@@ -44,11 +44,12 @@ test("a script is made in the library: describe it, write its words, and it is l
 
   // The write already found the roles (Bo and Mia); add one more by hand, step over the optional steps, publish: it becomes Ready to make.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Cast" }).click();
-  await expect(page.getByText("2 roles · 0 locked")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bo", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mia", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add a role" }).first().click();
   await page.getByRole("textbox", { name: "Role" }).fill("Zed");
   await page.getByRole("button", { name: "Add role" }).click();
-  await expect(page.getByText("3 roles · 0 locked")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zed", exact: true })).toBeVisible();
   // Plan version A's shots (stand-in provider, no cost): Breakdown sits before Cast in v5.
   await page.getByRole("list", { name: "Steps" }).getByRole("button", { name: "Breakdown" }).click();
   // v5 C_Breakdown: plan the shots straight away (the scene plan is optional, behind the menu).
