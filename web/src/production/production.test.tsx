@@ -42,7 +42,7 @@ test("In production: a row per video links to it, flagged rows say why, and the 
   setViewport(1440);
   fakeServer(base());
   open();
-  expect(await screen.findByText("4 videos being made · 3 need attention")).toBeInTheDocument();
+  expect(await screen.findByText("Every brand · 4 videos making · 3 need attention")).toBeInTheDocument();
   const link = await screen.findByRole("link", { name: "Bo tries salmon, version B, Sam, at Clips, didn't finish" });
   expect(link).toHaveAttribute("href", "/b/1/projects/11");
   expect(within(link).getByText("Clips: take 2 of clip 3 didn't finish. Credits were returned.")).toBeInTheDocument();
@@ -63,9 +63,11 @@ test("In production: filters go in the address and to the server; the Brand colu
   await screen.findByRole("link", { name: /Bo tries salmon/ });
   expect(screen.getByRole("tab", { name: /^Needs attention/ })).toHaveAttribute("aria-selected", "true"); // v5 D_Production: Making and Needs attention are tabs
   expect(screen.getByRole("combobox", { name: "Brand" })).toHaveValue("2");
-  expect(screen.queryByText("Brand", { selector: "span" })).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-  expect(await screen.findByText("Brand", { selector: "span" })).toBeInTheDocument();
+  const main = screen.getByRole("main");
+  expect(within(main).queryByText("Brand", { selector: "span" })).toBeNull();
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Brand" }), "");
+  await userEvent.click(screen.getByRole("tab", { name: /^Making/ }));
+  expect(await within(main).findByText("Brand", { selector: "span" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: /^Making/ })).toHaveAttribute("aria-selected", "true");
 });
 
@@ -74,8 +76,10 @@ test("In production on a computer (v5 D_Production): each row shows its step as 
   fakeServer(base());
   open();
   const link = await screen.findByRole("link", { name: /Midnight snack/ });
-  expect(within(link).getByRole("img", { name: /: step \d of 5$/ })).toBeInTheDocument();
+  expect(within(link).getByRole("img", { name: /: step \d of 4$/ })).toBeInTheDocument();
   expect(within(link).getByText(/^(Making the plan|Casting|Drawing the storyboard|Making clips|Making the final cut)/)).toBeInTheDocument();
+  expect(screen.getByText("Steps: Plan · Cast · Clips · Final cut. A row opens its video on the director thread.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^More for / })).toBeNull(); // no row menu: Release is on the video page
 });
 
 test("In production: on a phone the rows are cards and the filters are in a sheet", async () => {
@@ -96,7 +100,7 @@ test("In production counts finished videos with changes waiting, so nothing read
   fakeServer({ ...base([]), "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 2 }] });
   open();
   expect(await screen.findByRole("link", { name: "2 finished videos have changes waiting" })).toHaveAttribute("href", "/usage"); // listed by brand in Usage
-  expect(screen.getByText(/0 videos being made ·/)).toBeInTheDocument();
+  expect(screen.getByText(/Every brand · 0 videos making ·/)).toBeInTheDocument();
 });
 
 test("In production: each empty state says what is true", async () => {
@@ -141,19 +145,6 @@ test("In production: a video whose editor is gone still lists, as Someone's", as
   fakeServer(base([row({ editor: null })]));
   open();
   expect(await screen.findByRole("link", { name: "Bo tries salmon, version B, Someone, at Clips" })).toBeInTheDocument();
-});
-
-test("In production: a row's menu releases the version, with the letter and the credits that stay used", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base([failed]), "POST /projects/11/release": [200, {}] });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon · B" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Release this version" }));
-  const dialog = await screen.findByRole("alertdialog", { name: "Release version B?" });
-  expect(dialog).toHaveTextContent("The 380 credits already used stay used.");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Release" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/11/release")).toBe(true));
-  expect(await screen.findByText("Version B is ready to make again.")).toBeInTheDocument();
 });
 
 test("In production: a video's credits leave the director's own time out, so a director video isn't marked close to its budget for it (DECISIONS #1066)", async () => {
