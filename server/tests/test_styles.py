@@ -264,16 +264,19 @@ def test_disney_pixar_holds_reeds_skill():
 
 
 def test_ugc_loads_off_with_its_spec_and_keeps_its_studies_out_of_the_prompts():
-    """Reed's Drive folder "UGC (B-roll)", 3 Nov: a new style, off until Reed switches it on.
-    Its per-video notes are evidence (notes.md), never loaded into a writing step."""
+    """Reed's Drive folder "UGC (B-roll)", 3 Nov: a new style named "UGC", off until Reed
+    switches it on. Its per-video notes are evidence (notes.md), never loaded into a step.
+    Captions come in post production (Reed, 3 Nov), so the guide gives no caption look."""
     ugc = prompts.style("ugc")
-    assert ugc["name"] == "UGC (B-roll)" and not ugc["on"] and ugc["kind"] == "look"
-    for name in (*TOKENS, "pacing", "must keep", "safe to vary", "combines with", "sample"):
+    assert ugc["name"] == "UGC" and not ugc["on"] and ugc["kind"] == "look"
+    spec = ("pacing", "must keep", "safe to vary", "combines with", "camera", "sample")
+    for name in (*TOKENS, *spec):
         assert ugc["sections"].get(name), name
+    assert "caption look" not in "\n".join(ugc["sections"].values()).lower()
     assert set(prompts.look_fixes("ugc")) == {"refused", "face", "outfit", "product"}
     assert ("Pixar-style", "realistic") in prompts.look_banned("ugc")
     notes = sorted((guides.ROOT / "styles" / "ugc" / "examples").glob("*/notes.md"))
     assert len(notes) == 4 and guides.studies("dialogue", "ugc") == []
     brief = prompts.system("breakdown", "ugc")
-    assert "## Style: UGC (B-roll)" in brief and ugc["sections"]["must keep"] in brief
+    assert "## Style: UGC\n" in brief and ugc["sections"]["must keep"] in brief
     assert notes[0].read_text()[:200] not in brief

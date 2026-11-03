@@ -1,10 +1,10 @@
-name: UGC (B-roll)
+name: UGC
 order: 11
 on: no
 image_model: auto
 blurb: A real person talks straight into a phone in their own room, cut with fast literal B-roll of what they're saying.
 
-<!-- New style, 3 Nov 2026, from Reed's Drive folder "UGC (B-roll)" (4 reference ads, 86–215 s), each watched with the deep-watch kit; the per-video notes are in examples/<video>/notes.md (named notes.md so they are evidence for people, not loaded into every prompt). Reed's note on the folder: "Probably make the person talking with heygen avatar 4 OR omni (cheapest option) maybe even MiniMax… B-roll with cheap video model to create captivating backgrounds." Which model makes the talker is still open (Reed, 3 Nov: P-video is preferred for a talker over B-roll, but for UGC "we can revisit this … since voice inflections are very important"). The references use three treatments: a straight cutaway (talker full frame, then B-roll full frame: what the app makes today), the talker cut out and laid over full-frame B-roll (the keyed host layer in #1274, not wired yet), and a mix of the two. Name "UGC (B-roll)" is Reed's folder name, pending his pick. order 11 leaves 10 for Dr. Pickle. -->
+<!-- New style, 3 Nov 2026, from Reed's Drive folder "UGC (B-roll)" (4 reference ads, 86–215 s), each watched with the deep-watch kit; the per-video notes are in examples/<video>/notes.md (named notes.md so they are evidence for people, not loaded into every prompt). Reed's note on the folder: "Probably make the person talking with heygen avatar 4 OR omni (cheapest option) maybe even MiniMax… B-roll with cheap video model to create captivating backgrounds." Reed, 3 Nov, on the talker's model: P-video is preferred, but for UGC "we can revisit this … since voice inflections are very important". The references use three treatments: a straight cutaway (talker full frame, then B-roll full frame: what the app makes today), the talker cut out and laid over full-frame B-roll (the keyed host layer), and a mix of the two. Reed's answers, 3 Nov (REED-DECISIONS-2 U1–U5, F7, captions): named "UGC"; runs in the Presenter format; straight cutaways now, talker over B-roll once the keyed host layer ships (server/app/host_layer.py); the talker made with P-video lip-synced to the video's own voice-over, tested first and revisited if the voice inflection isn't human enough; people in the B-roll as phone-real as the talker; no music by default; generated selfie testimonials allowed ("Yes, do not ever regulate me."); short B-roll pictures are separate generated clips spliced in the edit ("this will likely have to be done by generating several clips and splicing them together"); captions come in post production ("dont worry about captions"), so caption looks stay only in the notes. order 11 leaves 10 for Dr. Pickle. -->
 
 ## sheet_look
 A real person photographed on a phone, not a model shoot: natural skin with visible pores, fine lines, small blemishes and uneven tone; real, slightly imperfect hair. The body and face follow the character's age: an adult has an adult's height, build and face. One fixed everyday outfit (or a work uniform when the role calls for it), plain and real-world, identical in every view, with one detail that reads at a glance (a bracelet, a watch, scrubs, a cardigan). Soft, even daylight from a window, no studio light, no retouching.
@@ -23,17 +23,20 @@ a realistic, everyday phone-camera look with natural skin texture
 
 ## The videos
 One ordinary-looking person talks straight into a phone camera in a real room, as if they filmed it themselves; the edit cuts away to a fast run of literal B-roll that shows what they're saying (or, when the video lays the talker over the B-roll, keeps them on screen in a bottom corner). The talker carries the trust; the B-roll carries the attention.
+- It runs in the Presenter format: the talker is the presenter, and their voice-over is the video's one voice.
+- Straight cutaways now (talker full frame, then B-roll full frame); the talker laid over the B-roll once the keyed host layer ships.
 
 ## Stills
 - Two kinds of shot. **Talker shots:** the main speaker, from their sheet, chest-up (waist-up to selfie-close), centred, eye level, eyes straight into the lens, in their own room, which is in focus behind them. **B-roll shots:** one literal picture of what the line says at that moment, with no talker in it.
 - The talker's room says who they are: a clinic for someone in scrubs, a workshop with shelves of jars, a home studio, a kitchen. Real clutter, window daylight, nothing staged.
-- B-roll is one of four kinds, mixed freely: everyday people filmed like a phone video (the problem and the "after": tired on a sofa, a hand on a belly, smiling in the sun); a glossy, translucent 3D render of what happens inside the body, on a soft grey or dark studio background, when the line explains a mechanism; objects and ingredients in natural settings (a wooden table, a garden, stone), often a hand holding the product up; proof-style footage (a lab bench, a microscope view, someone else's selfie).
+- B-roll is one of four kinds, mixed freely: everyday people filmed like a phone video and as real as the talker, with natural skin, real rooms and phone light, never a polished or rendered look (the problem and the "after": tired on a sofa, a hand on a belly, smiling in the sun); a glossy, translucent 3D render of what happens inside the body, on a soft grey or dark studio background, when the line explains a mechanism; objects and ingredients in natural settings (a wooden table, a garden, stone), often a hand holding the product up; proof-style footage (a lab bench, a microscope view, another person's selfie testimonial, generated like the talker).
 - Each B-roll picture keeps its own light and colour: phone footage natural, renders saturated and glossy. Don't grade them to match each other or the talker.
-- No captions, titles or overlay text in any picture: they are added in editing. A product label or a phone screen that matters is in the picture and its words are stated exactly.
+- No captions, titles or overlay text in any picture (rule 32). A product label or a phone screen that matters is in the picture and its words are stated exactly.
 
 ## Clips
+- The talker is made with P-video, lip-synced to the video's own voice-over, so the voice keeps its real inflection.
 - A talker shot is one continuous take: the camera locked off or nearly (no push-ins, no pans on the talker), the speaker talking into the lens with small natural head movement, blinks and hand gestures at the bottom of the frame.
-- B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item.
+- B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item. Short B-roll pictures (under the video model's shortest clip) are separate generated clips, spliced together in the edit.
 - The talker's voice runs across the B-roll: it never stops for a cutaway.
 
 ## Breakdown
@@ -58,26 +61,25 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - B-roll mixes looks on purpose, with no shared grade: B-roll saturation 7–74 and warmth −16 to +34 across the four (4 of 4).
 - Voice from 0.0 s and almost no silence: voice on 88–96% of the time, no pause longer than 0.44–0.56 s (4 of 4).
 - 3.3–3.5 words a second while talking (4 of 4), whatever the energy.
-- Short phrase captions, added in editing, centred at 54–62% of the frame's height, swapped on each phrase (4 of 4).
 
 ## safe to vary
 - How talker and B-roll combine: straight cutaway (2 of 4), the talker cut out over full-frame B-roll for the whole video (1 of 4), or a mix (1 of 4).
 - The talker's age, sex and look (a man in his fifties–sixties, a woman in her twenties in scrubs, a man in his thirties, a man in his fifties).
 - Framing: waist-up to selfie-close with the head touching the top edge.
 - Energy: calm and confiding (pitch variability 3.6 semitones) to lively and urgent (4.9–5.8, with rising peaks).
-- Music: none (2 of 4) or a quiet bed 21–24 dB under the voice (2 of 4).
-- Caption look (4 different looks in 4 ads).
+- Music: none by default (2 of 4 have none); a quiet bed 21–24 dB under the voice (2 of 4) when the script or editor asks for one.
 - Editor transitions: none (2 of 4), or a flash or whip on about every third cut (1 of 4).
 - Hook device: a metaphor picture behind the talker, split screens of the problem, a second person over the talker, product footage behind the talker (one each).
-- Extras: other people's selfie clips as proof near the end (2 of 4), picture-in-picture photos over the talker (1 of 4), designed offer cards in the last third (1 of 4).
+- Extras: generated selfie-testimonial clips of other people near the end (2 of 4), picture-in-picture photos over the talker (1 of 4), designed offer cards in the last third (1 of 4).
 
 ## combines with
 - 3D medical renders as B-roll: glossy, translucent inside-the-body footage in 4 of 4 (the longest B-roll holds). The talker frames it as real.
 - Skeleton: one B-roll shot in one ad is a glossy 3D skeleton in a clear body, used as UGC B-roll.
-- Testimonial selfies: other people talking to their own phones, each in their own room, light and caption style (2 of 4).
-- Formats: any script with one main speaker talking to the viewer (a testimonial, an expert explaining, problem to mechanism to fix, an offer). The talker is the voice: a script read by an unseen narrator loses the talker, which is the point of the style.
+- Testimonial selfies: other people talking to their own phones, each in their own room and light (2 of 4).
+- Format: Presenter. Any script with one main speaker talking to the viewer (a testimonial, an expert explaining, problem to mechanism to fix, an offer) suits it.
 
-## Camera and framing
+## camera
+- The talker's camera holds: locked off or nearly, no push-ins, no pans (4 of 4). All the camera movement is in the B-roll.
 - Talker: centred, eye level, eyes in the upper third; a wide phone lens, with a little stretch on the face at selfie distance.
 - Talker over B-roll (when the video uses it): the talker cut out chest-up in a bottom corner, 40–55% of the frame's width, head top at about 55–62% of the height; their light doesn't match the background, and that's accepted.
 - B-roll: slow push-ins (1.5–19% of the frame a second, median about 4%), still frames with movement inside, or handheld phone drift.
@@ -86,14 +88,13 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - Talker: soft window daylight from the front or front-side, even on the face, no hard shadows; the room behind a little brighter. Measured talker frames: brightness 40–51 of 100, saturation 27–30, warmth +7 to +12, contrast 22–27; averages #745853, #73675e, #806c6d; faces #b38371 to #c79a87.
 - B-roll keeps its source colour; renders are saturated (salmon and amber organs, cyan or green glows, saturation 40–66).
 
-## Captions and on-screen text (for the editor)
-- One phrase at a time (1–6 words), centred, at 54–62% of the frame's height, hard swaps, no word highlight. Looks seen: black text in a white rounded box; white bold italic with a black shadow; yellow bold rounded with a thin black outline, two lines; white regular with a shadow above a red headline banner that stays on screen for the whole video.
-- Optional: picture-in-picture photos over the talker's chest for a named object; designed offer cards (big headline, the product, arrows or a seal) in the last third; split screens of the problem in the hook; a white or coloured flash, a whip or zoom blur, or a light-leak flash as a transition.
+## Edit devices
+- Optional, all added in the edit: picture-in-picture photos over the talker's chest for a named object; designed offer cards (the product, arrows or a seal) in the last third; split screens of the problem in the hook; a white or coloured flash, a whip or zoom blur, or a light-leak flash as a transition.
 
 ## Sound and delivery
 - One close, clean voice from the first frame to the last.
 - Pitch variability 3.6–5.8 semitones: warm and calm to lively; urgency shows as rising peaks.
-- Music optional: none, or a quiet bed 21–24 dB under the voice that can change as the video turns to the offer. Effects only on editor transitions (a whoosh on a flash, one low impact).
+- No music by default. When asked for: a quiet bed 21–24 dB under the voice that can change as the video turns to the offer. Effects only on editor transitions (a whoosh on a flash, one low impact).
 
 ## banned
 Pixar-style → realistic
