@@ -193,6 +193,9 @@ def test_a_looks_sample_still_redraws_the_hero_in_the_look():
     assert own == ["skeleton", "skeleton-bare", "skeleton-cute", "skeleton-xray"]
 
 
+    assert own == ["skeleton", "skeleton-xray", "skeleton-cute", "dr-pickle"]  # D3, 3 Nov
+
+
 def test_a_look_is_described_by_its_own_tells_never_by_another_studio():
     """The Producer, 2026-10-29: only Disney Pixar (and House, which is built on it) may name a
     studio in its look lines and the site's guidance; every other look describes what it looks
