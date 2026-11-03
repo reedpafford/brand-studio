@@ -1,6 +1,7 @@
 """Splice a word (Reed, after his test: "fogo" for fomo): the brand said wrong in a take is
 covered at stitch time by a clean copy in the same voice. Free, and only the brand's name."""
 
+import re
 import subprocess
 
 import pytest
@@ -128,8 +129,10 @@ def _level(video: bytes, folder, start, end, band: str) -> float:
     measure = ["-af", f"{band},astats=metadata=0", "-f", "null", "-"]
     done = subprocess.run(["ffmpeg", "-v", "info", *window, *measure],  # noqa: S603, S607
                           capture_output=True, text=True, check=True)  # fmt: skip
-    levels = [float(x.split(":")[1]) for x in done.stderr.splitlines()
-              if "RMS level dB" in x and "inf" not in x]  # fmt: skip
+    # ffmpeg can interleave another line's text before it (" VideoHandlerRMS level dB: …"),
+    # so the number is found by its label; -inf (silence) lines don't match
+    levels = [float(m.group(1)) for x in done.stderr.splitlines()
+              if (m := re.search(r"RMS level dB:\s*(-?[\d.]+)", x))]  # fmt: skip
     return max(levels) if levels else -200.0
 
 

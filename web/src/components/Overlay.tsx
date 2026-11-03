@@ -115,15 +115,16 @@ export function Dialog({
     <>
       <div aria-hidden onClick={onCancel} className="fixed inset-0 z-50 bg-scrim" />
       <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
-        <h2 id={heading} className="font-display text-xl font-bold">
+        <h2 id={heading} className="text-md font-semibold">
           {title}
         </h2>
         {children && <div className="mt-2 text-sm text-muted">{children}</div>}
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
+          {/* v5 F_BrandEdit: the way back is outlined; a danger action is filled red. */}
+          <Button variant="secondary" onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={danger ? "danger" : "primary"} busy={busy} disabled={!!holdReason} reason={holdReason} onClick={onConfirm}>
+          <Button variant={danger ? "danger" : "primary"} busy={busy} disabled={!!holdReason} reason={holdReason} className={danger ? "enabled:border-transparent! enabled:bg-danger! enabled:text-bg! enabled:hover:opacity-90" : ""} onClick={onConfirm}>
             {actionLabel}
           </Button>
         </div>
