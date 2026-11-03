@@ -9,13 +9,13 @@ const setupForm = (code: string) => ({
   "Studio name": "Studio",
   "Your name": "Reed",
   Email: "reed@example.com",
-  "Password (10 or more characters)": PASSWORD,
+  "Password (at least 10 characters)": PASSWORD,
 });
 
 test("signed-out visitors are sent to sign in", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to Brand Studio" })).toBeVisible();
 });
 
 test("first-run setup needs the right code, then creates the owner and signs in", async ({ page }) => {
@@ -40,7 +40,7 @@ test("sign-in rejects a wrong password, accepts the right one", async ({ page })
   await page.goto("/login");
   await fill(page, { Email: "reed@example.com", Password: "not the password" });
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Wrong email or password.");
+  await expect(page.getByRole("alert")).toHaveText("That email and password don't match.");
 
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
