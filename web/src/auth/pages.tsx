@@ -120,12 +120,13 @@ export function InvitePage() {
       title={`Join ${studio}`}
       intro={
         <p className="text-sm text-muted">
-          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}.{open ? "" : ` Your email is ${i.email}.`}
+          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}.
         </p>
       }
       submitLabel="Create my account"
       fields={[
-        ...(open ? [{ name: "email", label: "Email", type: "email", autoComplete: "email" }] : []),
+        // v5 A_Invite: an email invite shows its email, read-only; the standing link asks for one (#1247).
+        open ? { name: "email", label: "Email", type: "email", autoComplete: "email" } : { name: "invited_email", label: "Email", type: "email", value: i.email },
         { name: "name", label: "Your name", autoComplete: "name" },
         { name: "password", label: "Choose a password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
       ]}

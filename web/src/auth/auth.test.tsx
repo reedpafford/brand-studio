@@ -67,7 +67,11 @@ test("the invite page says who invited you, to which studio, and as what; the to
   const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup] });
   renderAt("/invite/abc123");
   expect(await screen.findByRole("heading", { name: "Join Studio" })).toBeInTheDocument();
-  expect(screen.getByText("Ada invited you to Studio as an editor. Your email is ada@x.co.")).toBeInTheDocument();
+  expect(screen.getByText("Ada invited you to Studio as an editor.")).toBeInTheDocument();
+  const email = screen.getByLabelText("Email"); // v5 A_Invite: the invite's email, read-only, above Your name
+  expect(email).toHaveValue("ada@x.co");
+  expect(email).toHaveAttribute("readonly");
+  expect(screen.getAllByRole("textbox")[0]).toBe(email);
   expect(calls.find((c) => c.key === "POST /auth/invite")?.body).toEqual({ token: "abc123" });
 });
 
