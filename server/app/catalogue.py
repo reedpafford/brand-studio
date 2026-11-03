@@ -30,6 +30,7 @@ class CatalogueModel(BaseModel):
     provider_model: str
     provider_version: str
     default: bool = False
+    offered: bool = True  # in the pickers; off for a model only a later step will use
     duration: Duration | None = None
     resolutions: list[str] = []
     aspect_ratios: list[str] = []

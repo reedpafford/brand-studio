@@ -91,7 +91,7 @@ def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
 
 
 def _models(kind: str) -> list:
-    return [m for m in catalogue().values() if m.kind == kind]
+    return [m for m in catalogue().values() if m.kind == kind and m.offered]
 
 
 def check(db: Session, user: User, project: Project, values: dict) -> dict:
