@@ -26,6 +26,7 @@ from app.models.credits import (
 )
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.providers import STAND_IN
 
 log = logging.getLogger(__name__)
 # Estimates only; real cost decides the final credits. Generation rates come from the
@@ -353,10 +354,12 @@ def real_capped(settings) -> bool:
 
 def real_spent(db: Session, settings) -> Decimal:
     """What real calls sent since `real_budget_since` came to, at their credits (the price we
-    charge, above the real cost: it errs safe). A job counts once sent, whatever after."""
+    charge, above the real cost: it errs safe). A job counts once sent, whatever after; a
+    stand-in's never does (the dry run counted them)."""
     query = select(func.coalesce(func.sum(Job.credits), 0)).where(
         Job.provider.not_in(FREE_LANES),
         Job.provider_ref.is_not(None),  # sent
+        Job.provider_ref.not_like(f"{STAND_IN}%"),  # to a real provider
     )
     if settings.real_budget_since:
         query = query.where(Job.started_at >= settings.real_budget_since)

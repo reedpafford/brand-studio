@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Literal, Protocol
 
+STAND_IN = "stand-in-"  # every stand-in's work id starts so: never a real call (real_spent)
+
 
 class NetworkError(Exception):
     """The provider couldn't be reached. The only kind of error that is retried."""

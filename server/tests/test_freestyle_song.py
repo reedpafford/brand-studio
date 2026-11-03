@@ -72,6 +72,27 @@ def test_a_narrated_freestyle_makes_the_narration_first(app, db, owner):
     assert any(m.startswith("Making the narration") for m in moves)
 
 
+def test_the_narrations_timing_counts_as_being_made_for_its_video(app, db, owner):
+    """The dry run: the timing job carries no video, so two waits through it ended the run."""
+    from app import director
+    from app.providers import get_providers
+    from app.worker import run_once
+
+    fs = _sent(owner, "narrated", NARRATION)
+    app.state.settings.fake_providers = True
+    providers = get_providers(app.state.settings, app.state.storage)
+    for _ in range(60):
+        timing = db.query(Job).filter(Job.kind == "narration_timing").first()
+        if timing is not None:
+            break
+        run_once(db, providers, app.state.storage, only={"replicate", "claude"})  # not timed yet
+        db.expire_all()
+    assert timing is not None and timing.project_id is None
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    assert director.video_state(db, video)["being_made"] == 1
+
+
 def test_the_brands_name_heard_wrong_in_a_narration_is_found_once_timed():
     words = [{"word": w, "start": float(n)} for n, w in enumerate(["Get", "Foma.", "fomo", "now"])]
     assert director_song.misheard(None, "fomo") is None  # not timed yet
