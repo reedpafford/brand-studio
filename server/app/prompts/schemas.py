@@ -637,10 +637,29 @@ class DirectorTurn(BaseModel):
     shot_id: str | None = Field(
         default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
     )
-    voice: Literal["Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger"] | None = Field(
+    voice: Literal[
+        "Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
+        "English_Trustworth_Man", "English_Upbeat_Woman", "English_ConfidentWoman",
+    ] | None = Field(
         default=None,
         description="For narration being made: the narrator's voice; null gives Sarah on the "
-        "first narration and keeps the voice in use on a remake. Else null.",
+        "first narration (a UGC talker: English_FriendlyPerson) and keeps the voice in use on a "
+        "remake. Else null.",
+    )  # fmt: skip
+    emotion: Literal[
+        "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent",
+        "neutral",
+    ] | None = Field(
+        default=None,
+        description="For narration in an English_ voice (MiniMax): the delivery's emotion; null "
+        "or 'auto' lets the voice choose from the words. Else null.",
+    )  # fmt: skip
+    reading: str = Field(
+        default="",
+        description="For narration in an English_ voice, optional: the narration's words exactly "
+        "as the script has them, with only pause marks between words, e.g. <#0.3#> (0.2-0.5 s, "
+        "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
+        "(sighs), where they'd really happen; a changed word is refused. Else empty.",
     )
     word: str | None = Field(
         default=None,

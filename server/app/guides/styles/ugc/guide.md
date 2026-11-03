@@ -35,7 +35,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - No captions, titles or overlay text in any picture (rule 32). A product label or a phone screen that matters is in the picture and its words are stated exactly.
 
 ## Clips
-- The talker is made with P-video, lip-synced to the video's own voice-over, so the voice keeps its real inflection.
+- The talker is made with HeyGen Avatar IV from one still, in one take, lip-synced to the video's own voice-over (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."), so the voice keeps its real inflection.
 - A talker shot is one continuous take: the camera locked off or nearly (no push-ins, no pans on the talker), the speaker talking into the lens with small natural head movement, blinks and hand gestures at the bottom of the frame.
 - B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item. Short B-roll pictures (under the video model's shortest clip) are separate generated clips, spliced together in the edit.
 - The talker's voice runs across the B-roll: it never stops for a cutaway.

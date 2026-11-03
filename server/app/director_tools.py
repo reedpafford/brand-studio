@@ -83,7 +83,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             project_clips.write_prompts(body=None, **me)
             return "Writing the clip prompts."
         if tool == "make_take":
-            rows = _clips(db, pid, decision.get("clip_id"))
+            from app import talker
+
+            said = set() if decision.get("clip_id") else talker.clips(db, project)  # the talker's
+            rows = [r for r in _clips(db, pid, decision.get("clip_id")) if r.clip_id not in said]
             if not rows:
                 clip = decision.get("clip_id")
                 return (f"Refused: there's no clip {clip}." if clip

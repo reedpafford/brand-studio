@@ -143,11 +143,11 @@ WORD, GAP, MISHEARD = 0.3, 0.8, 0.3
 
 
 def narration(text: str) -> bytes:
-    from app.narration import sentences
+    from app.narration import MARK, sentences
 
     told = re.search(r"\[say [^\]]*\]", text, re.I)
     loud = MISHEARD if "fake:misheard" in text and not told else 1
-    text = re.sub(r"\[[^\]]*\]\s*", "", text)
+    text = MARK.sub("", re.sub(r"\[[^\]]*\]\s*", "", text))  # MiniMax's marks aren't read
     parts, t = [], GAP
     for sentence in sentences(text):
         end = t + WORD * len(sentence.split())
@@ -364,7 +364,8 @@ class FakeMedia:
 
     def submit(self, kind: str, input: dict) -> str:
         ref = f"{STAND_IN}local-{next(self._ids)}"
-        self._jobs[ref] = {"kind": kind, **input.get("input", {})}
+        said = input.get("input", {})
+        self._jobs[ref] = {"kind": kind, "prompt": said.get("text", ""), **said}  # MiniMax: text
         return ref
 
     def poll(self, ref: str) -> Result:
@@ -649,10 +650,13 @@ class FakeWriter:
         seconds = float(re.search(r'<song seconds="([\d.]+)"', prompt).group(1))
         beats = [float(b) for b in re.search(r"Beats: ([\d. ]*)", prompt).group(1).split()]
         shots = [s for scene in plan["scenes"] for s in scene["shots"]]
+        # A narration under a style with talker shots (UGC): every other shot is the talker's
+        talker = not beats and "in every talker shot" in self._system  # the UGC guide's
         beats = beats or [seconds * k / len(shots) for k in range(len(shots))]  # a narration
         edges = [0.0, *(beats[len(beats) * k // len(shots)] for k in range(1, len(shots)))]
-        for shot, a, b in zip(shots, edges, [*edges[1:], seconds], strict=True):
-            shot.update(song_start=a, song_end=b, sung=False, seconds=round(b - a, 2))
+        for k, (shot, a, b) in enumerate(zip(shots, edges, [*edges[1:], seconds], strict=True)):
+            shot.update(song_start=a, song_end=b, sung=talker and k % 2 == 0,
+                        seconds=round(b - a, 2))  # fmt: skip
         limits = re.search(r"(\d+)–(\d+) s per clip", prompt)
         high = int(limits.group(2)) if limits else 15
         groups: list[list[dict]] = []

@@ -144,8 +144,9 @@ def _usage(model: CatalogueModel, prediction: dict, file_count: int) -> UsageIte
         units = Decimal(str(reported))
     elif unit == "image":
         units, estimated = Decimal(file_count), False
-    elif unit == "thousand_characters":  # speech: billed on the text sent
-        units, estimated = Decimal(len(request.get("prompt", ""))) / 1000, False
+    elif unit == "thousand_characters":  # speech: billed on the text sent (MiniMax's `text`)
+        said = request.get("prompt") or request.get("text") or ""
+        units, estimated = Decimal(len(said)) / 1000, False
     elif unit == "second":
         seconds = int(request.get("duration", 0))
         # "-1" lets the model choose; without a reported length assume the longest.

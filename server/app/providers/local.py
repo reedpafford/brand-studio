@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from app import narration, reel, site_fetch, song_study, song_timing
+from app import narration, reel, room, site_fetch, song_study, song_timing
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg"}
@@ -88,12 +88,20 @@ class LocalProvider:
         return Result("succeeded", output={"timing": timing})
 
     def _time_narration(self, input: dict) -> Result:
-        """Pauses trimmed (kept if the trim would clip a word), then each sentence timed."""
+        """Pauses trimmed (kept if the trim would clip a word), then each sentence timed; a
+        UGC talker's (`room`) then sounds recorded in a room (app/room.py), its times kept."""
         folder = Path(tempfile.mkdtemp(dir=self.root))
         voice = folder / "narration.mp3"
         voice.write_bytes(self.storage.get(input["song_key"]))
         try:
-            timing, trimmed = narration.measure(voice, input["lyrics"], hear=self.hear_voice)
+            timing, trimmed = narration.measure(
+                voice,
+                input["lyrics"],
+                hear=self.hear_voice,
+                longest=input.get("pause", narration.PAUSE),
+            )
+            if input.get("room"):
+                trimmed = room.finish(trimmed or voice, folder / "room.mp3")
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)
             raise

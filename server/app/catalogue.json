@@ -132,6 +132,32 @@
    "price_source": "Replicate model page 2026-10-29: $0.10 per thousand input characters"
   },
   {
+   "id": "minimax-speech-2.8-hd",
+   "name": "MiniMax Speech 2.8 HD",
+   "kind": "speech",
+   "provider_model": "minimax/speech-2.8-hd",
+   "provider_version": "0e4b9c04c2cc34e0d36468f6efc05c4e71835e9acbf1c249a0d8a1a903384c9b",
+   "default": false,
+   "offered": false,
+   "price": {"unit": "thousand_characters", "usd": {"any": 0.10}},
+   "price_source": "replicate.com/minimax/speech-2.8-hd billing, read 2026-11-03: $0.10 per thousand input tokens, one token a character (its logs: 'Each character is 1 token')"
+  },
+  {
+   "id": "heygen-avatar-iv",
+   "name": "HeyGen Avatar IV",
+   "kind": "video",
+   "provider_model": "heygen/avatar-iv",
+   "provider_version": "v3",
+   "default": false,
+   "offered": false,
+   "resolutions": ["720p"],
+   "aspect_ratios": ["9:16", "16:9", "1:1", "4:5"],
+   "max_reference_images": 1,
+   "first_frame": true,
+   "price": {"unit": "second", "usd": {"720p": 0.039}},
+   "price_source": "HeyGen API wallet, measured 2026-11-03 (.context/tests/batch-b): Avatar IV type image at 720p 9:16 cost $1.16 for 30.67 s and $0.97 for 25.07 s, about $0.038-0.039 a second; HeyGen's pricing page isn't in its API docs"
+  },
+  {
    "id": "stable-audio-2.5",
    "name": "Stable Audio 2.5",
    "kind": "music",

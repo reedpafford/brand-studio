@@ -163,8 +163,10 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     """The tool: with `take_id`, use that timed take (free); with no note and a timed take,
     the best one; else make takes. The first song of a version with no style line takes its
     style from the note (the director's music words); after that a note is a remake, REMAKES
-    a run (counted in `run`)."""
+    a run (counted in `run`). A MiniMax narrator's `emotion` and `reading` ask like a note."""
     tool, note = decision["tool"], (decision.get("note") or "").strip()
+    delivery = {k: decision[k] for k in ("emotion", "reading") if decision.get(k)}
+    asked = note or delivery
     found = kind(db, project)
     if found is None or (tool == "song") != (found == "song"):
         return NO_SONG if tool == "song" else NO_NARRATOR
@@ -178,14 +180,14 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
             return f"Refused: take {chosen} isn't a finished {what} of this video."
         song_takes.use_in_video(db, project, take)
         return f"Using take {take.number} for the {what}."
-    if ready and not note:
+    if ready and not asked:
         if project.song_take_id in {t.id for t in ready}:
             return f"The {what} is set: take {_number(db, project.song_take_id)}."
         best = next((t for t in ready if t.preferred), None) or min(
             ready, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
-    if takes and not note:
+    if takes and not asked:
         failed = [t for t in takes if song_takes.state(db, t)[0] == "failed"]
         if len(failed) != len(takes):
             return f"Refused: the {what} is still being made."
@@ -194,7 +196,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
             return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
         last = run.get("song_note", "")  # the same request again: its style line too
         voice = run.get("song_voice") or narration.VOICE  # a narration keeps its voice
-        song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice)
+        song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice,
+                        delivery=run.get("song_delivery"))  # fmt: skip
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made
         return f"Trying the {what} again: the service failed, nothing was charged."
     if takes and run.get(REMADE, 0) >= REMAKES:
@@ -204,14 +207,23 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if not _on(db, draft):
         return OFF
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
-    voice = (decision.get("voice") or kept if found == "narrated" else None) or narration.VOICE
+    voice = (decision.get("voice") or kept if found == "narrated" else None) or _voice(db, project)
     if voice not in narration.VOICES:  # the Director's pick (None: the default)
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
-    song_takes.make(db, user, draft, project, kie=_real(db, found), note=note, voice=voice)
-    run["song_note"], run["song_voice"] = note, voice
+    song_takes.make(
+        db, user, draft, project, kie=_real(db, found), note=note, voice=voice, delivery=delivery
+    )  # a reading that changes a word is refused (422)
+    run["song_note"], run["song_voice"], run["song_delivery"] = note, voice, delivery
     if takes:  # a remake; the first song's note is its style line, not a remake
         run[REMADE] = run.get(REMADE, 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
+
+
+def _voice(db: Session, project: Project) -> str:
+    """The narrator when none is picked: a UGC talker's is a MiniMax voice (Reed, 3 Nov)."""
+    from app import talker
+
+    return talker.VOICE if talker.on(db, project) else narration.VOICE
 
 
 def _real(db: Session, found: str) -> float:

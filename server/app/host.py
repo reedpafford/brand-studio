@@ -6,7 +6,8 @@ from that still with its piece of the narration as the sound it lip-syncs. Each 
 job like a take; a failed one is tried again once on its own, then Make again makes it (rule
 22). The final cut lays the pieces over the narrated B-roll (host_layer.lay_over), bottom
 right unless a shot's action is on the right. From the paid test (.context/tests/presenter-1):
-720p at 24 fps, prompt upsampling off, never the words subtitles, captions or text."""
+720p at 24 fps, prompt upsampling off, never the words subtitles, captions or text. In the UGC
+style the host is a talker instead: one still in their room and one HeyGen take (app/talker.py)."""
 
 import hashlib
 import math
@@ -21,7 +22,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import guides, host_layer, narration, p_video
+from app import guides, host_layer, narration, p_video, talker
 from app.credits import estimate
 from app.models.accounts import User
 from app.models.clips import HostPiece, ProjectClip
@@ -110,8 +111,9 @@ def _seconds(row: HostPiece) -> int:
     return _length(row.start, row.end)
 
 
-def _piece_price(db: Session, ws: int, seconds: int) -> Decimal:
-    shape = {"model": MODEL, "input": {"resolution": RESOLUTION}}
+def _piece_price(db: Session, ws: int, seconds: int, talks: bool = False) -> Decimal:
+    """A piece on P-Video, or a UGC talker's one take on HeyGen (`talks`), both at 720p."""
+    shape = {"model": talker.MODEL if talks else MODEL, "input": {"resolution": RESOLUTION}}
     return estimate(db, ws, "video", Decimal(seconds), shape)
 
 
@@ -124,28 +126,28 @@ def _still_price(db: Session, project: Project) -> Decimal:
 def price(db: Session, project: Project, number: int | None = None) -> Decimal:
     """Make the host (`number` None: every row not made yet) or Make again one row; a new
     still makes every piece again from it."""
-    have = rows(db, project)
+    have, talks, ws = rows(db, project), talker.on(db, project), project.workspace_id
     if not have:  # none planned yet: the still and every piece of the narration in use
         take = _narration(db, project)
         try:
-            spans = _spans(take) if take else []
+            spans = _spans(take, talks) if take else []
         except ValueError:  # a sentence past P-Video's 20 s: Make the host says so
             spans = []
         return (_still_price(db, project) if spans else Decimal(0)) + sum(
-            (_piece_price(db, project.workspace_id, _length(a, b)) for a, b in spans), Decimal(0)
+            (_piece_price(db, ws, _length(a, b), talks) for a, b in spans), Decimal(0)
         )
     todo = [r for r in have if not r.file_id] if number is None else [
         r for r in have if r.number == number]  # fmt: skip
     if any(r.number == 0 for r in todo):
         todo = have
     return sum((_still_price(db, project) if r.number == 0 else
-                _piece_price(db, project.workspace_id, _seconds(r)) for r in todo),
-               Decimal(0))  # fmt: skip
+                _piece_price(db, ws, _seconds(r), talks) for r in todo), Decimal(0))  # fmt: skip
 
 
 def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None) -> Decimal:
     """A director run's "up to" for the host (rule 36): the still and every second of the
-    narration on P-Video, each piece rounded up a second (one per sentence at most)."""
+    narration on P-Video, each piece rounded up a second (one per sentence at most); a UGC
+    talker's in one HeyGen take."""
     from app.models.script_library import Script
     from app.prompts import check
     from app.storyboard import image_model, still_credits
@@ -153,9 +155,10 @@ def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None) -> Deci
     script = db.get(Script, draft.script_id)
     if not hosted(script):
         return Decimal(0)
-    sentences = len(narration.sentences(check.narration_text(draft.text or "")))
+    talks = (video.look if video else script.look) in talker.LOOKS
+    sentences = 1 if talks else len(narration.sentences(check.narration_text(draft.text or "")))
     still = still_credits(db, script.workspace_id, image_model(video))
-    return still + _piece_price(db, script.workspace_id, seconds + max(sentences, 1))
+    return still + _piece_price(db, script.workspace_id, seconds + max(sentences, 1), talks)
 
 
 def state(db: Session, project: Project) -> dict:
@@ -170,14 +173,18 @@ def state(db: Session, project: Project) -> dict:
     states = {p["state"] for p in pieces}
     whole = ("none" if not pieces else "making" if "making" in states else "ready"
              if states == {"ready"} else "failed" if "failed" in states else "none")  # fmt: skip
-    return {"state": whole, "pieces": pieces, "credits": float(price(db, project))}
+    talks = {"talker": talker.share(db, project)} if talker.on(db, project) else {}
+    return {"state": whole, "pieces": pieces, "credits": float(price(db, project)), **talks}
 
 
-def _spans(take: SongTake) -> list[tuple[float, float]]:
-    """The narration's pieces, cut at its sentence ends (`host_layer.pieces`)."""
+def _spans(take: SongTake, whole: bool = False) -> list[tuple[float, float]]:
+    """The narration's pieces, cut at its sentence ends (`host_layer.pieces`); a UGC
+    talker's (`whole`) is one piece, the whole narration."""
     from app.song_breakdown import timing_used
 
     end = float(take.seconds)
+    if whole:
+        return talker.whole(end)
     ends = [ln["end"] for ln in timing_used(take).get("lines") or [] if ln.get("end")]
     return host_layer.pieces(sorted({round(e, 2) for e in ends if 0 < e < end}) + [end])
 
@@ -210,7 +217,7 @@ def _plan(db: Session, storage, project: Project, take: SongTake) -> list[HostPi
     """The still's row and each piece's, with its piece of the narration stored (free)."""
     sound = storage.get(db.get(StoredFile, take.file_id).key)
     try:
-        spans = _spans(take)
+        spans = _spans(take, talker.on(db, project))
     except ValueError as too_long:
         raise HTTPException(409, str(too_long)) from too_long
     made = [HostPiece(project_id=project.id, take_id=take.id, number=0)]
@@ -241,7 +248,8 @@ def host_look(db: Session, project: Project):
 
 
 def still_input(db: Session, project: Project, row: HostPiece) -> dict:
-    """The host's still: the cast host's sheet in the video's look, else the look's own words."""
+    """The host's still: the cast host's sheet in the video's look, else the look's own words;
+    on green, or a UGC talker in their own room (talker.STILL_PROMPT)."""
     from app.sheets import sheet_for
     from app.storyboard import image_model
     from app.storyboard import still_input as drawn
@@ -252,7 +260,8 @@ def still_input(db: Session, project: Project, row: HostPiece) -> dict:
     who = (f"The host, {item.name}, exactly as [Image1], their character sheet: the same face, "
            "hair, build and outfit" if sheet else
            f"The host, drawn in this look: {look}")  # fmt: skip
-    job = drawn(image_model(project), STILL_PROMPT.format(who=who), project.aspect_ratio, sheet)
+    prompt = talker.STILL_PROMPT if talker.on(db, project) else STILL_PROMPT
+    job = drawn(image_model(project), prompt.format(who=who), project.aspect_ratio, sheet)
     return {**job, "step": STILL, "project_id": project.id, "host_piece_id": row.id}
 
 
@@ -267,6 +276,16 @@ def piece_input(project: Project, row: HostPiece, still_file_id: int) -> dict:
             "files": {"image": [still_file_id], "audio": [row.audio_file_id]}}  # fmt: skip
 
 
+def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int, **kwargs):
+    """Queue one piece: on P-Video, or a UGC talker's one take on HeyGen."""
+    from app.routes.jobs import enqueue
+
+    talks = talker.on(db, project)
+    data = (talker.piece_input if talks else piece_input)(project, row, still)
+    enqueue(db, user, "video", data, units=_seconds(row), project=project,
+            provider=talker.PROVIDER if talks else "replicate", **kwargs)  # fmt: skip
+
+
 def make(db: Session, user: User, project: Project, storage, number: int | None = None) -> str:
     """Make the host (`number` None: every row not made yet), or Make again one row. A still
     is drawn first and its pieces follow it (priced together: the press holds them)."""
@@ -277,6 +296,9 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     take = _narration(db, project)
     if take is None:
         raise HTTPException(409, NO_NARRATION)
+    talks = talker.on(db, project)
+    if talks and not talker.clips(db, project):  # it would never be seen: nothing is spent
+        raise HTTPException(409, talker.NO_SHOTS)
     have = rows(db, project) or _plan(db, storage, project, take)
     jobs = _jobs(db, project)
     if any(_state(r, jobs.get(r.id)) == "making" for r in have):
@@ -289,14 +311,13 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
         raise HTTPException(409, MADE)
     still = have[0]
     if still in todo:  # every piece follows a new still, prepaid (`saved`)
-        hold = sum((_piece_price(db, project.workspace_id, _seconds(r)) for r in have[1:]),
+        hold = sum((_piece_price(db, project.workspace_id, _seconds(r), talks) for r in have[1:]),
                    Decimal(0))  # fmt: skip
         enqueue(db, user, "image", still_input(db, project, still), project=project,
                 provider="replicate", hold=hold)  # fmt: skip
         return "Drawing the host, then making each piece of it."
     for row in todo:
-        enqueue(db, user, "video", piece_input(project, row, still.file_id), units=_seconds(row),
-                project=project, provider="replicate")  # fmt: skip
+        _piece(db, user, project, row, still.file_id)
     return f"Making {len(todo)} piece{'' if len(todo) == 1 else 's'} of the host."
 
 
@@ -312,8 +333,6 @@ def _keep(row: HostPiece, job: Job) -> bool:
 
 def saved(db: Session, job: Job) -> None:
     """A still or a piece is made. A still makes every piece again from it (prepaid)."""
-    from app.routes.jobs import enqueue
-
     row = db.get(HostPiece, job.input["host_piece_id"])
     project = db.get(Project, job.project_id)
     if row is None or row.take_id != project.song_take_id or not _keep(row, job):
@@ -322,8 +341,7 @@ def saved(db: Session, job: Job) -> None:
         return
     user = db.get(User, job.created_by_id)
     for piece in rows(db, project)[1:]:
-        enqueue(db, user, "video", piece_input(project, piece, row.file_id), prepaid=True,
-                units=_seconds(piece), project=project, provider="replicate")  # fmt: skip
+        _piece(db, user, project, piece, row.file_id, prepaid=True)
 
 
 def failed(db: Session, job: Job) -> None:
@@ -373,7 +391,9 @@ def ready(db: Session, project: Project) -> bool:
 
 
 def lay(db: Session, storage, project: Project, cut: bytes) -> bytes:
-    """The narrated B-roll cut with the host over it (free: ffmpeg)."""
+    """The narrated B-roll cut with the host over it (free: ffmpeg); a UGC talker's is in it."""
+    if talker.on(db, project):
+        return cut
     pieces = rows(db, project)[1:]
     hosts = [storage.get(db.get(StoredFile, r.file_id).key) for r in pieces]
     return host_layer.lay_over(cut, hosts, sides(db, project))
