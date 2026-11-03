@@ -331,7 +331,7 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
             if max_side and key in ("reference_images", "image"):
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
-        one = key in ("image", "audio")  # P-Video's single files (app/p_video)
+        one = key in ("image", "audio", "video")  # P-Video's and MMAudio's single files
         payload["input"] = {**payload.get("input", {}), key: urls[0] if one else urls}
     if take := job.input.get("take_frames"):  # the advisory check: the take's frames first
         stored = _stored(db, storage, job, take["file_id"])

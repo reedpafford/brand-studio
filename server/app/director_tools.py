@@ -19,8 +19,8 @@ from app.models.storyboards import StoryboardFrame
 
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
-         "pick_take", "mute", "splice_word", "song", "narration", "host", "final_cut",
-         "watch_cut")  # fmt: skip
+         "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
+         "final_cut", "watch_cut")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -115,6 +115,11 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said = word_splice.splice(db, project, row, decision.get("word") or "")
             db.commit()
             return said
+        if tool == "add_sound":  # only when asked: MMAudio's sound under the picked takes
+            from app import take_sound
+
+            return take_sound.to_cut(db, user, project, storage, decision.get("clip_id"),
+                                     decision.get("note") or "")  # fmt: skip
         if tool in ("song", "narration"):  # the audio first in a song or narrated video
             from app import director_song
 

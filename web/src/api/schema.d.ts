@@ -3904,6 +3904,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/sound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add
+         * @description Add sound effects under the picked take (Make again after a failed run).
+         */
+        post: operations["add_projects__project_id__clips__clip_id__sound_post"];
+        /**
+         * Remove
+         * @description Undo: the picked take plays as it was made (silent B-roll silent again).
+         */
+        delete: operations["remove_projects__project_id__clips__clip_id__sound_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/host": {
         parameters: {
             query?: never;
@@ -8708,6 +8732,7 @@ export interface components {
              * @default []
              */
             versions: components["schemas"]["PromptVersionOut"][];
+            sound?: components["schemas"]["SoundOut"] | null;
         };
         /** ProjectCost */
         ProjectCost: {
@@ -9984,6 +10009,36 @@ export interface components {
             voice: string;
             /** Songs Note */
             songs_note?: string | null;
+        };
+        /** SoundIn */
+        SoundIn: {
+            /**
+             * Asked
+             * @default
+             */
+            asked: string;
+        };
+        /**
+         * SoundOut
+         * @description Sound effects added to the picked take on request (app/take_sound.py).
+         */
+        SoundOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "making" | "ready" | "failed";
+            /** How */
+            how: string;
+            /** Asked */
+            asked: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Credits */
+            credits: number;
         };
         /** StageOut */
         StageOut: {
@@ -19116,6 +19171,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_projects__project_id__clips__clip_id__sound_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_projects__project_id__clips__clip_id__sound_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
                 };
             };
             /** @description Validation Error */

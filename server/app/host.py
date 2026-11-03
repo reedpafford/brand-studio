@@ -326,16 +326,6 @@ def saved(db: Session, job: Job) -> None:
                 units=_seconds(piece), project=project, provider="replicate")  # fmt: skip
 
 
-def failed(db: Session, job: Job) -> None:
-    """A failed still or piece is tried again once on its own (never charged twice); after that
-    Make again makes it."""
-    from app.clip_takes import BUSY_SAID, _again
-
-    if job.auto or db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
-        return
-    _again(db, job, job.input, wait=bool(BUSY_SAID.search(job.error_detail or "")))
-
-
 def labels(db: Session, project: Project) -> list[str]:
     """What the final cut lays over its takes from the host (so a new piece shows as changes)."""
     if not on(db, project):

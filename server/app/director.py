@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_song, director_tools, take_mute, word_splice
+from app import director_song, director_tools, take_mute, take_sound, word_splice
 from app.credits import COUNTED, lock
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -741,8 +741,10 @@ def video_state(db: Session, project: Project) -> dict:
                                  "line": shots[i].get("line")}
                                 for i in ids_of.get(row.clip_id, []) if i in shots],
                       "picked_take_id": row.picked_take_id, "takes": out,
-                      "muted": take_mute.spans(db.get(ClipTake, row.picked_take_id)
+                      "muted": take_mute.spans(picked := db.get(ClipTake, row.picked_take_id)
                                                if row.picked_take_id else None),
+                      "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
+                                if k in ("state", "how")},
                       **word_splice.state(db, row)})  # splice_word  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
@@ -946,6 +948,9 @@ WORDS = re.compile(
 )
 
 
+SOUND = re.compile(r"\bsound effects?\b|\bsfx\b|\badd\b[^.]{0,30}\bsounds?\b", re.I)
+
+
 def _clip_of(note: dict) -> str | None:
     named = re.search(r"\bclip (\d+)\b", note["text"], re.I)
     return f"c{named[1]}" if named else None
@@ -960,6 +965,13 @@ def _asked(state: dict) -> dict | None:
     used = state.get("allowed", {}).get("redos_used", {})
     for m in state.get("chat") or []:
         clip = _clip_of(m)
+        if not m.get("answered") and SOUND.search(m["text"]):  # sound effects, asked for once
+            ready = clips and all(c["picked_take_id"] for c in clips.values())
+            if "add_sound" in state.get("done", []) or not ready:
+                continue  # tried this run (a refusal is said in the delivery note), or no takes
+            return {"tool": "add_sound", "why": f"Note {m['note']}: you asked: {m['text']}"[:300],
+                    "clip_id": clip if clip in clips else None, "take_id": None,
+                    "note": m["text"][:300]}  # fmt: skip
         if (
             m.get("answered")
             or WORDS.search(m["text"])
@@ -983,6 +995,8 @@ def _answers(state: dict) -> str:
         clip, n = _clip_of(m), m["note"]
         if m.get("answered"):
             out.append(f"Note {n}: done, as you asked ({m['text']}).")
+        elif SOUND.search(m["text"]):
+            out.append(f"Note {n}: {take_sound.ALL_HAVE}")
         elif WORDS.search(m["text"]):
             out.append(f"Note {n}: the script's words stay as written here. I can change how a "
                        "line is delivered, the pictures or the pacing instead.")  # fmt: skip

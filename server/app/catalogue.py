@@ -21,12 +21,13 @@ class Duration(BaseModel):
 class Price(BaseModel):
     unit: Literal["second", "image", "call", "thousand_characters"]
     usd: dict[str, Decimal]  # per resolution ("any" when it doesn't matter)
+    gpu_usd_per_second: Decimal | None = None  # billed by GPU time: the real cost is its run time
 
 
 class CatalogueModel(BaseModel):
     id: str
     name: str
-    kind: Literal["video", "image", "watch", "text", "speech", "music"]
+    kind: Literal["video", "image", "watch", "text", "speech", "music", "sound"]
     provider_model: str
     provider_version: str
     default: bool = False

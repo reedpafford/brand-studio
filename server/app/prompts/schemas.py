@@ -618,7 +618,8 @@ class DirectorTurn(BaseModel):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
-        "mute", "splice_word", "song", "narration", "host", "wait", "deliver", "stop",
+        "mute", "splice_word", "add_sound", "song", "narration", "host", "wait", "deliver",
+        "stop",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -626,8 +627,9 @@ class DirectorTurn(BaseModel):
     )  # fmt: skip
     clip_id: str | None = Field(
         default=None,
-        description="For make_take, pick_take, mute and splice_word: the clip, e.g. 'c3'. For "
-        "make_take, null makes a first take of every clip that has none. Else null.",
+        description="For make_take, pick_take, mute, splice_word and add_sound: the clip, e.g. "
+        "'c3'. For make_take, null makes a first take of every clip that has none; for "
+        "add_sound, null adds sound to every silent take in the cut. Else null.",
     )
     take_id: int | None = Field(
         default=None,
@@ -655,7 +657,8 @@ class DirectorTurn(BaseModel):
         "yet, the style line ('laid-back breezy pop, warm female vocal, 100 BPM, acoustic "
         "guitar, sunny, modern polished'); for song made again, the music's change ('vocals "
         "start immediately, no instrumental intro'); for narration "
-        "made again, the voice's change ('slower and warmer'); else empty.",
+        "made again, the voice's change ('slower and warmer'); for add_sound, the sounds "
+        "asked for and how much, in the person's words ('slight sound effects'); else empty.",
     )
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "
