@@ -1,48 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { errorText } from "../api/client";
-import { Banner, Button, Card, Field as TextField } from "../components";
+import { Button, Field as TextField } from "../components";
 import { useToast } from "../toast";
 
-export type Field = { name: string; label: string; /** Plain help under the field. */ hint?: string; type?: string; autoComplete?: string; /** A password counter: turns green at this many characters. */ minLength?: number };
+export type Field = { name: string; label: string; /** Plain help under the field. */ hint?: string; type?: string; autoComplete?: string; /** The shortest a password may be; the browser holds the form until it's long enough. */ minLength?: number };
 type Me = { id: number };
 type Result = { data?: Me; error?: unknown; response?: { status: number } };
 
 class Throttled extends Error {}
 
-/** No shell here: a wordmark, one centred card, and a footnote. */
+/** No shell here (v5 A_SignIn, A_Setup, A_Invite): the page alone in the middle, in a 400 px column. */
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-screen max-w-[452px] flex-col items-stretch justify-start gap-4 p-4 pt-16 sm:justify-center sm:pt-4">
-      <p className="text-center font-display text-xl font-extrabold">Brand Studio</p>
-      {children}
-      <p className="text-center text-sm text-muted">Made for your team's studio.</p>
+    <main className="grid min-h-screen place-items-center p-4">
+      <div className="w-full max-w-[400px] space-y-4">{children}</div>
     </main>
-  );
-}
-
-function PasswordField({ field, value, onChange, disabled }: { field: Field; value: string; onChange: (v: string) => void; disabled: boolean }) {
-  const [shown, setShown] = useState(false);
-  const long = field.minLength !== undefined && value.length >= field.minLength;
-  return (
-    <TextField
-      label={field.label}
-      type={shown ? "text" : "password"}
-      autoComplete={field.autoComplete}
-      required
-      disabled={disabled}
-      value={value}
-      counter={field.minLength !== undefined ? `${value.length} / ${field.minLength}` : undefined}
-      counterOk={long}
-      onChange={(e) => onChange(e.target.value)}
-      trailing={
-        <button type="button" aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown} onClick={() => setShown(!shown)} className="grid size-control place-items-center rounded-md text-muted hover:text-text">
-          {shown ? <EyeOff size={20} strokeWidth={1.75} aria-hidden /> : <Eye size={20} strokeWidth={1.75} aria-hidden />}
-        </button>
-      }
-    />
   );
 }
 
@@ -58,8 +32,10 @@ export function AuthForm(props: {
   welcome?: (values: Record<string, string>) => string;
   /** A small line over the title. */
   eyebrow?: string;
-  /** No wordmark and no card: the form alone in the middle of the page (v5 A_Setup). */
-  bare?: boolean;
+  /** The indigo logo square over a centred title (v5 A_SignIn). */
+  logo?: boolean;
+  /** The words for a refused sign-in (401), in place of the server's. */
+  refusedText?: string;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [throttled, setThrottled] = useState(false);
@@ -72,7 +48,7 @@ export function AuthForm(props: {
       const { data, error, response } = await props.submit(values);
       if (!data) {
         if (response?.status === 429) throw new Throttled("Too many tries. Wait a minute and try again.");
-        throw new Error(errorText(error));
+        throw new Error(response?.status === 401 && props.refusedText ? props.refusedText : errorText(error));
       }
       return data;
     },
@@ -101,18 +77,20 @@ export function AuthForm(props: {
 
   const content = (
     <>
-          {props.eyebrow && <p className="text-sm text-muted">{props.eyebrow}</p>}
-          <h1 className="type-page">{props.title}</h1>
+          {props.logo && <span aria-hidden className="mx-auto block size-8 rounded-lg bg-accent" />}
+          {props.eyebrow && <p className="text-xs text-muted">{props.eyebrow}</p>}
+          <h1 className={`text-xl font-semibold ${props.logo ? "text-center" : ""}`}>{props.title}</h1>
           {props.intro}
           <form ref={form} onSubmit={onSubmit} className="flex flex-col gap-4">
             {props.fields.map((f) =>
-              f.type === "password" && f.name !== "setup_token" ? (
-                <PasswordField key={f.name} field={f} value={values[f.name] ?? ""} onChange={(v) => set(f.name, v)} disabled={mutation.isPending} />
-              ) : (
-                <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
-              ),
+              <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} minLength={f.minLength} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />,
             )}
-            {mutation.isError && !(mutation.error instanceof Throttled) && <Banner title={mutation.error.message} />}
+            {/* v5: a refusal is plain red words under the fields, not a box. */}
+            {mutation.isError && !(mutation.error instanceof Throttled) && (
+              <p role="alert" className="text-sm text-danger">
+                {mutation.error.message}
+              </p>
+            )}
             <Button type="submit" busy={mutation.isPending} disabled={throttled} reason={throttled ? "Too many tries. Wait a minute and try again." : undefined} className="w-full">
               {mutation.isPending ? (props.busyLabel ?? props.submitLabel) : props.submitLabel}
             </Button>
@@ -120,15 +98,5 @@ export function AuthForm(props: {
           {props.footer}
     </>
   );
-  if (props.bare)
-    return (
-      <main className="grid min-h-screen place-items-center p-4">
-        <div className="w-full max-w-[400px] space-y-4">{content}</div>
-      </main>
-    );
-  return (
-    <AuthShell>
-      <Card className="space-y-4 p-5 sm:p-6">{content}</Card>
-    </AuthShell>
-  );
+  return <AuthShell>{content}</AuthShell>;
 }
