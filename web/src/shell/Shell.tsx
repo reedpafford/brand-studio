@@ -65,8 +65,9 @@ function Frame() {
   const { data: brands, isPending, isError } = useBrands();
   const { brandId } = useParams();
   const fromUrl = Number(brandId) || null;
-  // Off brand pages (e.g. /team) you stay "in" the brand you were last in.
-  const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : null);
+  // Off brand pages (e.g. /team) you stay "in" the brand you were last in, or the first one: the rail keeps Make and
+  // Library on every page, Studio ones and an editor's My credits included (v5 A_Shell; audit lane 2).
+  const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : (brands?.[0]?.id ?? null));
   const brand = brands?.find((b) => b.id === current);
   const rail = useMedia("(min-width: 1024px)");
   const wide = useMedia("(min-width: 1280px)");
