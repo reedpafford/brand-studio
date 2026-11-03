@@ -82,7 +82,7 @@ test("lyrics: the sung length counts words not tags; over 4,960 characters says 
   setViewport(1440);
   const empty = song({}, { text: "", style_line: "" });
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()], "PUT /scripts/7/drafts/0": [200, song()] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   const box = await screen.findByLabelText("Lyrics");
   await userEvent.click(box);
   await userEvent.paste("[Verse]\n" + "la ".repeat(25));
@@ -102,7 +102,7 @@ test("lyrics: the sung length counts words not tags; over 4,960 characters says 
 test("saved lyrics: Edit lyrics asks first when takes exist; Advice offers Sing the end line, free, with Undo", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true })])], "PUT /scripts/7/drafts/0": [200, song()] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Edit lyrics" }));
   const ask = screen.getByRole("alertdialog", { name: "Edit the lyrics?" });
   expect(ask).toHaveTextContent("Your take will be out of date.");
@@ -196,7 +196,7 @@ test("at 390: New script opens a sheet with Close and the three formats, each wi
 test("at 390 on a song script, the steps are one button: Step 1 of 5 · Song", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs()] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   expect(await screen.findByRole("button", { name: "Step 1 of 5 · Song" })).toBeInTheDocument();
 });
 

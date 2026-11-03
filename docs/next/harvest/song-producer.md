@@ -22,9 +22,9 @@ From four Iron Paws ads made by hand on 28–29 Oct: two song ads and two narrat
 **Song ads**
 - The song is the clock. Make the song first, measure the real take, then plan shots to the measured lines. Never guess timing.
 - The hook comes in the first 5 seconds, a symptom list works well as a chant. Make it a real song, not a jingle. Lines of 6–9 words, each a picture.
-- If the editor brings a voice-over script, turn it into lyrics beat for beat. Keep its story, key lines and claims word for word, and only add the brand name to the last line. Once picked, the lyrics are locked.
+- If the editor brings a voice-over script, turn it into lyrics beat for beat. Keep its story, key lines and claims word for word; the brand appears where the script has it, never forced into the last line (Reed, 3 Nov). Once picked, the lyrics are locked.
 - Style line: describe the sound, never name an artist (Suno rejects names). Reed's taste for an older audience: "laid-back, breezy pop", warm female vocal, about 100 BPM, strummed acoustic guitar. He turned down pop-rap.
-- Add "vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending". The last sung line names the brand and where to find it.
+- Add "vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending".
 - Suno takes vary by up to 20 s for the same words. Pick the tighter take: it's cheaper to film.
 - About 365 sung words gives about 2:40. Show the expected length before the lyrics lock.
 - B-roll only by default, with lip-sync only where asked. Nobody sings on screen.

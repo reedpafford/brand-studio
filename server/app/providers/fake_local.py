@@ -136,19 +136,24 @@ def hear_song(path: Path, lyrics: str) -> list[dict]:
 # The stand-in narrator: each sentence a tone, 0.3 s a word, with 0.8 s of silence after it
 # (so the pause trim has something to shorten). "fake:fail" in the words fails the voice
 # call; "fake:clip-word" makes the trimmed narration lose its last word when heard again
-# (so it's kept untrimmed: "Kept the pauses").
-WORD, GAP = 0.3, 0.8
+# (so it's kept untrimmed: "Kept the pauses"); "fake:misheard" makes the word after it heard
+# one letter off ("fomo" as "foma") unless the request carries a "[Say …]" note: the voice is
+# read quieter then, which the stand-in Whisper tells by its peak. v3 tags are never read.
+WORD, GAP, MISHEARD = 0.3, 0.8, 0.3
 
 
 def narration(text: str) -> bytes:
     from app.narration import sentences
 
+    told = re.search(r"\[say [^\]]*\]", text, re.I)
+    loud = MISHEARD if "fake:misheard" in text and not told else 1
+    text = re.sub(r"\[[^\]]*\]\s*", "", text)
     parts, t = [], GAP
     for sentence in sentences(text):
         end = t + WORD * len(sentence.split())
         parts.append(f"between(t,{t:.2f},{end:.2f})")
         t = end + GAP
-    tone = f"sin(2*PI*220*t)*({'+'.join(parts) or '0'})"
+    tone = f"{loud}*sin(2*PI*220*t)*({'+'.join(parts) or '0'})"
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "voice.mp3"
         source = ["-f", "lavfi", "-i", f"aevalsrc='{tone}':s=22050:d={t:.2f}"]
@@ -195,6 +200,11 @@ def hear_voice(path: Path, text: str) -> list[dict]:
                   for n, w in enumerate(words)]  # fmt: skip
     if "fake:clip-word" in text and path.name == "trimmed.mp3":
         heard = heard[:-1]
+    if "fake:misheard" in text and max(map(abs, samples), default=0) < 16000:  # no [Say …] note
+        k = next((n + 1 for n, w in enumerate(heard) if w["word"] == "fake:misheard"), len(heard))
+        if k < len(heard):
+            w = heard[k]["word"]
+            heard[k] = {**heard[k], "word": w[:-1] + ("e" if w[-1:] == "a" else "a")}
     return heard
 
 

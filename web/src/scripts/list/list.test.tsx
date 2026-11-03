@@ -152,3 +152,40 @@ test("the Overview's credits count the director's time too, and a video with not
   expect(await within(b).findByText("0 credits so far")).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\bfree\b/);
 });
+
+test("an unpublished script opens on Overview too: Publish to library, Make a video · up to N on the next version, and Open the steps", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full({ published: false, status: "draft" })], "GET /projects": [200, [project]], "GET /scripts/7/cast": [200, []], "GET /freestyles/estimate": [200, { credits: 187.4 }], "GET /scripts/7/drafts/0/suggestions": [200, []], "GET /scripts/7/drafts/0/notes": [200, []] });
+  renderApp("/b/1/scripts/7");
+  expect(await screen.findByRole("listitem", { name: "Version A" })).toBeInTheDocument();
+  expect(screen.getByText("Overview")).toHaveAttribute("aria-current", "page");
+  expect(screen.queryByRole("group", { name: "Script settings" })).toBeNull(); // the settings and the six steps sit behind Open the steps
+  // The price is the version shown's, the same as the panel's press, and it says "up to" before it's pressed.
+  const make = await screen.findByRole("button", { name: "Make a video · up to 188 credits" });
+  await userEvent.click(make);
+  const panel = await screen.findByRole("dialog", { name: "Make a video from Bo tries salmon" });
+  expect(within(panel).getByRole("radio", { name: /^B/ })).toBeChecked();
+  await userEvent.click(within(panel).getByRole("button", { name: "Close" }));
+  // Publish to library opens the Publish page (#1238's G_Publish), which asks before publishing.
+  await userEvent.click(screen.getByRole("button", { name: "Publish to library" }));
+  expect(await screen.findByText("Publish to the library")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Back to overview" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Open the steps: Script · Directions · Variations · Breakdown · Cast" }));
+  expect(await screen.findByRole("group", { name: "Script settings" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Back to overview" })).toBeInTheDocument();
+});
+
+test("a published script has no Publish to library; a script with no words yet opens on its first step", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/cast": [200, []], "GET /freestyles/estimate": [200, { credits: 50 }] });
+  renderApp("/b/1/scripts/7");
+  expect(await screen.findByRole("listitem", { name: "Version A" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Publish to library" })).toBeNull();
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  const empty = full({ published: false, status: "draft", versions: [{ ...full().versions[1], slot: 0, status: "draft", text: "" }] });
+  fakeServer({ ...base, "GET /scripts/7": [200, empty], "GET /scripts/7/cast": [200, []] });
+  renderApp("/b/1/scripts/7");
+  expect(await screen.findByLabelText("Script · version A")).toBeInTheDocument();
+  expect(screen.queryByText("Overview")).toBeNull();
+});

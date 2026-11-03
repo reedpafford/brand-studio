@@ -506,14 +506,41 @@ def _narrated_mix(folder: Path, lengths: list[float], music: bool, fade: str) ->
     return graph
 
 
+def ends_at(lengths: list[float], end: float | None) -> list[float]:
+    """The clips' lengths cut to end at `end` (the last sung line and a breath after it):
+    the clips past it drop, the one across it is shortened. None or later: as they are."""
+    if end is None or end >= sum(lengths):
+        return lengths
+    out, t = [], 0.0
+    for d in lengths:
+        if t >= end:
+            break
+        out.append(round(min(d, end - t), 2))
+        t += d
+    return out
+
+
+def _length(folder: Path, name: str) -> float:
+    probe = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+             name]  # fmt: skip
+    done = subprocess.run(probe, cwd=folder, capture_output=True, text=True,  # noqa: S603
+                          timeout=60).stdout.strip()  # fmt: skip
+    try:
+        return float(done)
+    except ValueError:
+        return 0.0
+
+
 def song_cut(
     videos: list[bytes], lengths: list[float], song: bytes,
     narrated: bool = False, music: bytes | None = None,
 ) -> bytes:  # fmt: skip
     """A song video (flows V6, free): each picked take cut to its piece of the song, counting
-    from its start (a short one holds its last frame), joined in order with its own sound
-    dropped, the song laid under the whole picture, and the end faded. A narrated video
-    (V6n) keeps each take's own sound under the narration, with its music bed if made."""
+    from its start (a short one slowed to fill it, never sped up: Song-Producer), joined in
+    order with its own sound dropped, the song laid under the whole picture, and the end
+    faded. A narrated video (V6n) keeps each take's own sound under the narration, with its
+    music bed if made. `lengths` may cover fewer clips than `videos` (`ends_at`)."""
+    videos = videos[: len(lengths)]
     total = sum(lengths)
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
@@ -521,9 +548,12 @@ def song_cut(
             (folder / f"{n}.mp4").write_bytes(data)
         (folder / "song").write_bytes(song)
         size = _probe(folder, "0.mp4", "v:0", "width,height") or "720x1280"
-        parts = [f"[{n}:v]trim=duration={d},setpts=PTS-STARTPTS,tpad=stop_mode=clone:"
-                 f"stop_duration={d},trim=duration={d},scale={size.replace('x', ':')},setsar=1,"
-                 f"fps=30,format=yuv420p[v{n}]" for n, d in enumerate(lengths)]  # fmt: skip
+        slow = [max(1.0, d / have) if (have := _length(folder, f"{n}.mp4")) else 1.0
+                for n, d in enumerate(lengths)]  # fmt: skip
+        parts = [f"[{n}:v]setpts={slow[n]:.4f}*(PTS-STARTPTS),trim=duration={d},"
+                 f"tpad=stop_mode=clone:stop_duration={d},trim=duration={d},"
+                 f"scale={size.replace('x', ':')},setsar=1,fps=30,format=yuv420p[v{n}]"
+                 for n, d in enumerate(lengths)]  # fmt: skip
         joined = "".join(f"[v{n}]" for n in range(len(videos)))
         fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
         sound = (_narrated_mix(folder, lengths, music is not None, fade) if narrated else [

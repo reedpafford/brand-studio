@@ -55,12 +55,11 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Change = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 MODEL, RESOLUTION = "seedance-2.5", "480p"  # Quick clip's defaults
-NOT_YET = "Song and Narrated are coming next; One clip and Dialogue work now."
 ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a style."
 HAS_VIDEO = "This version already has a video."
 FREEZE = "freeze"  # an editor's first turn: what the owner's OK makes real (`freeze`)
-DIRECTED = {"dialogue": "story"}  # the types the director makes: the script kind it reads
+DIRECTED = {"dialogue": "story", "song": "song", "narrated": "narrated"}  # type: script kind
 PAST_CAP = (
     "That change would take this freestyle past its limit of {cap} credits. Start a new "
     "freestyle from here."
@@ -298,8 +297,6 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
 
 
 def _check(db: Session, user: User, type: str, look: str, brand_id: int | None) -> None:
-    if type != "one_clip" and type not in DIRECTED:
-        raise HTTPException(422, NOT_YET)
     looks.pick(db, user, look)  # an editor: only a look that's on
     if brand_id is not None:
         get_brand(db, user, brand_id)
@@ -450,9 +447,7 @@ def _source(db: Session, user: User, body) -> tuple:
 
     script = lib.get_script(db, user, body.script_id)
     draft = lib.get_draft(db, script, body.slot or 0)
-    kind = next((t for t, k in DIRECTED.items() if k == script.kind), None)
-    if kind is None:
-        raise HTTPException(422, NOT_YET)
+    kind = {k: t for t, k in DIRECTED.items()}[script.kind]  # every script kind has its type
     return kind, script.look, script.brand_id, draft.text, script, draft
 
 

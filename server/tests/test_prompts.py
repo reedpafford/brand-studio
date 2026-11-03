@@ -296,6 +296,18 @@ def test_variations_example_passes_and_every_check_says_what_to_do():
     ]
 
 
+def test_a_song_variation_gets_no_last_line_advice_and_a_spoken_one_still_does():
+    """Reed, 3 Nov: a song follows its script, never forced to end on the brand (QA-10, #1236)."""
+    original, result, end = _variation_case()
+    v = result.variations[0]
+    v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: And the night was ours."
+    spoken = check.variations(original, result, {}, end, [], 1, [], "fomo")
+    assert f"Advice: variation 1: {check.NO_CTA}" in spoken  # rule 18 for a spoken script
+    sung = check.variations(original, result, {}, end, [], 1, [], "fomo", sung=True)
+    assert not any(check.NO_CTA in p for p in sung)
+    assert "A song's variations follow its lyrics" in prompts.system("variations")
+
+
 def test_variations_advice_covers_length_closeness_and_format():
     original, result, end = _variation_case()
     v = result.variations[0]
@@ -1759,3 +1771,44 @@ def test_the_director_splices_a_wrong_brand_word_or_redoes_with_a_note():
     turn = schemas.DirectorTurn(tool="splice_word", clip_id="c3", word="fomo", why="b2: fomo")
     assert (turn.clip_id, turn.word) == ("c3", "fomo")
     assert "names the word and its time in the cut" in prompts.system("watch_cut")
+
+
+def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
+    """Freestyle Song and Narrated (Reed's list): after the treatment and before the plan, the
+    director makes the song or narration, judges the hook, the lyrics, the length and the mood
+    without hearing it, and remakes once with a note in the music's words; never a lyric."""
+    director = prompts.system("director")
+    for part in ("- `song` (paid, `note`)", "- `narration` (paid, `note`)", "songs_left",
+                 "never a character's voice", "a take with any speech in it is a fault",
+                 "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
+                 "never change a lyric (rule 19)", "With `take_id` and no `note` (free)",
+                 "the shorter (fewer seconds to film)", "onto the song's sections",
+                 "a voice in a take is a fault to redo", "not a second before",
+                 "Treatment, then the song or the narration"):  # fmt: skip
+        assert part in director, part
+    # Song-Producer's review (2 Nov): the plan maps beats onto the song; one voice; one world
+    assert "Map the treatment's beats onto its sections" in prompts.system("plan", fmt="song")
+    assert "**One voice in a song or a narration:**" in prompts.system("watch_cut")
+    assert "a song is usually one world" in prompts.system("review_stills")
+    assert "lands on the word that names it" in prompts.system("song_breakdown")
+    assert "one framing device" in prompts.system("treatment")
+    assert "a comic action and a felt reaction" in prompts.system("plan")
+    assert "`extras`" in director and "while `songs_left`" in director
+    assert "not the same sound as `recent_styles`" in director
+    assert 'When `style` is "", the first `song`\'s `note` is the style line' in director
+    assert schemas.DirectorTurn(tool="song", note="no intro", why="all: the hook").tool == "song"
+
+
+def test_the_director_checks_the_brand_word_in_a_fresh_narration_before_the_plan():
+    """Song-Producer's condition for leaving narration splicing for later (2 Nov): the brand's
+    name is judged right after the narration is made, and remade with a pronunciation note
+    before the plan, never spliced."""
+    director = prompts.system("director")
+    for part in ("misheard: the brand's name heard wrong [{word, heard, at}]", "say: the "
+                 "pronunciation note", "as soon as the narration is timed, before the plan",
+                 "with `say` as the note", "a narration is never spliced",
+                 "`voice` is Sarah for the first", "`longest_gap`"):  # fmt: skip
+        assert part in director, part
+    turn = schemas.DirectorTurn(tool="narration", note="Say fomo as FOH-moh.", why="misheard")
+    assert turn.note == "Say fomo as FOH-moh." and turn.voice is None  # Sarah first, else as is
+    assert schemas.DirectorTurn(tool="narration", voice="Hope", why="the brief").voice == "Hope"

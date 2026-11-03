@@ -2,7 +2,8 @@
 take finishes, what it says is heard (the reel import's faster-whisper, free on our server)
 and compared with the script's lines for its clip. Advice only, like the item check: it
 never blocks and never redoes anything. It runs whenever the item check does
-(item_checks.on)."""
+(item_checks.on). In a song or narrated video nobody speaks on screen, so any voice heard is
+the finding (Song-Producer), muted at once where the take's sound is kept (narrated)."""
 
 import logging
 import re
@@ -153,14 +154,52 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
     return findings + sounds
 
 
+VOICE = ("“{said}” at {at} is said in the take, but nobody speaks or sings on screen in a "
+         "{kind} video.")  # fmt: skip
+NO_VOICE = "Nobody speaks or sings on screen: picture only, the {kind} carries every word."
+
+
+def voices(heard: list[dict], kind: str = "song or narrated") -> list[dict]:
+    """A song or narrated video's take (Song-Producer): every line heard in it is a fault,
+    offered for a mute (a narrated video keeps the take's sound under the narrator)."""
+    _, spoken = _sounds(heard, "", [])
+    return [_finding("voiced", h["start"], VOICE.format(said=h["text"].strip(),
+                                                         at=_clock(h["start"]), kind=kind),
+                     NO_VOICE.format(kind="narrator" if kind == "narrated" else "song"),
+                     span=[h["start"], h["end"]]) for h in spoken if h["text"].strip()]  # fmt: skip
+
+
+def _mute_voices(db: Session, row: ItemCheck) -> None:
+    """A narrated video plays its takes' own sound under the narrator: voices in it are
+    muted at once (free, undoable on the clip); a song video drops the take's sound anyway."""
+    from app import take_mute
+    from app.models.clips import ClipTake, ProjectClip
+
+    project = db.get(Project, row.project_id)
+    take = db.get(ClipTake, row.target_id)
+    if not take or not row.findings or plans.fmt(db, project) != "narrated":
+        return
+    longest = float(db.get(ProjectClip, take.clip_id).seconds)
+    for f in row.findings:
+        if f.get("span") and list(f["span"]) not in take_mute.spans(take):
+            try:
+                take_mute.add(take, f["span"][0], f["span"][1], longest)
+            except ValueError:
+                continue
+
+
 def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict],
           prompt: str) -> ItemCheck | None:  # fmt: skip
     """After a take is saved (in the worker): a free listen, when checks are on and its clip
     has spoken lines. Dialogue only: a narrated video's lines are the narrator's and a song
     video's are the song's, heard over the take, not said in it."""
     project = db.get(Project, job.project_id) if job.project_id else None
-    lines = [{"who": s.get("speaker") or "", "text": s["line"]} for s in shots if s.get("line")]
-    if not project or not item_checks.on() or not lines or plans.fmt(db, project) != "dialogue":
+    if not project or not item_checks.on():
+        return None
+    silent = plans.fmt(db, project) != "dialogue"  # a song's or narrator's: nobody speaks
+    lines = [] if silent else [{"who": s.get("speaker") or "", "text": s["line"]}
+                               for s in shots if s.get("line")]  # fmt: skip
+    if not lines and not silent:
         return None
     brand = db.get(Brand, project.brand_id)
     row = ItemCheck(project_id=project.id, target=TARGET, target_id=take_id, status="checking")
@@ -169,7 +208,7 @@ def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict],
     data = {"step": STEP, "item_check_id": row.id, "project_id": project.id,
             "video_key": db.get(StoredFile, file_id).key, "lines": lines, "prompt": prompt or "",
             "actions": [s.get("action") or "" for s in shots],
-            "brand": brand.name, "said_as": say(brand)}  # fmt: skip
+            "brand": brand.name, "said_as": say(brand), "silent": silent}  # fmt: skip
     listen = Job(workspace_id=project.workspace_id, created_by_id=job.created_by_id, kind=KIND,
                  provider="local", input=data, project_id=project.id, brand_id=project.brand_id,
                  credits=0, status="queued")  # fmt: skip
@@ -192,9 +231,12 @@ def save(db: Session, job: Job) -> None:
     row = db.get(ItemCheck, job.input.get("item_check_id") or 0)
     if not row:
         return
-    i = job.input
-    row.findings = compare(i["lines"], (job.output or {}).get("heard", []), i["brand"],
-                           i["said_as"], i["actions"])  # fmt: skip
+    i, heard = job.input, (job.output or {}).get("heard", [])
+    if i.get("silent"):  # a song or narrated video's take: any voice is a fault
+        row.findings = voices(heard, plans.fmt(db, db.get(Project, row.project_id)))
+        _mute_voices(db, row)
+    else:
+        row.findings = compare(i["lines"], heard, i["brand"], i["said_as"], i["actions"])
     row.status = "done"
     from app.take_approval import after_check
 

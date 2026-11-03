@@ -200,11 +200,24 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
     from app.director import treatment_block
 
     message = treatment_block(db, project) + message  # the story it serves, when there is one
+    if (block := _song(db, project)) is not None:  # the song or narration made before the plan
+        message = f"{message}\n{block}"
     return {"step": STEP, "project_id": project.id, "script_version": version.version,
             "system": system, "prompt": message, "max_tokens": 16000,
             "script": version.text, "fmt": fmt(db, project),
             "cast_ids": re.findall(r"^((?:char|slot):\d+)", "\n".join(cast), re.M),
             "stars": _stars(db, project), "max_seconds": model.duration.max}  # fmt: skip
+
+
+def _song(db: Session, project: Project) -> str | None:
+    """The video's song or narration, timed (Freestyle makes it before the plan, so the plan
+    maps its beats onto the measured sections or sentences); None before it's timed."""
+    from app import song_breakdown
+
+    take = song_breakdown.take_for(db, project)
+    if take is None or take.timing is None:
+        return None
+    return escape_block(prompts.song_block(song_breakdown.timing_used(take)))
 
 
 def _plan_of(plan: dict) -> ScenePlan:

@@ -9,6 +9,7 @@ their lines and Sung marks."""
 
 import bisect
 import math
+import re
 
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
@@ -18,6 +19,9 @@ from app.models.clips import ProjectClip
 from app.models.projects import Project
 from app.models.songs import SongTake
 from app.prompts.schemas import Breakdown, SongBreakdown
+
+MIN_CLIP = 4  # seconds: a shorter span is made 4 s long and cut to it (Song-Producer)
+PEOPLE_MAX = 16  # seconds: a clip with people in it is split past this
 
 
 def take_for(db: Session, project: Project) -> SongTake | None:
@@ -60,14 +64,35 @@ def fit(data: dict) -> dict:
                                                       - timed[sh["id"]]["start"], 2)}
                                if sh["id"] in timed else sh for sh in sc["shots"]]}
               for sc in data.get("scenes", [])]  # fmt: skip
+    peopled = {sh["id"] for sc in data.get("scenes", []) for sh in sc.get("shots", [])
+               if sh.get("character_ids")}  # fmt: skip
     clips = []
     for clip in data.get("clips", []):
-        known = [timed[s] for s in clip.get("shot_ids", []) if s in timed]
-        if known:
-            span = max(t["end"] for t in known) - min(t["start"] for t in known)
-            clip = {**clip, "seconds": max(1, math.ceil(span - 0.01))}
-        clips.append(clip)
+        for part in _split(clip, timed, peopled):
+            known = [timed[s] for s in part.get("shot_ids", []) if s in timed]
+            if known:
+                span = max(t["end"] for t in known) - min(t["start"] for t in known)
+                part = {**part, "seconds": max(MIN_CLIP, math.ceil(span - 0.01))}  # its span
+            clips.append(part)
     return {**data, "scenes": scenes, "clips": clips}
+
+
+def _split(clip: dict, timed: dict, peopled: set[str]) -> list[dict]:
+    """A clip with people in it over PEOPLE_MAX seconds of song, split at its shots into
+    pieces of at most that (Song-Producer: faces hold up only so long); "c3", "c3b", "c3c"."""
+    ids = [s for s in clip.get("shot_ids", []) if s in timed]
+    if not ids or not peopled & set(ids):
+        return [clip]
+    if timed[ids[-1]]["end"] - timed[ids[0]]["start"] <= PEOPLE_MAX:
+        return [clip]
+    groups: list[list[str]] = [[]]
+    for s in ids:
+        start = timed[groups[-1][0]]["start"] if groups[-1] else timed[s]["start"]
+        if groups[-1] and timed[s]["end"] - start > PEOPLE_MAX:
+            groups.append([])
+        groups[-1].append(s)
+    return [{**clip, "id": clip["id"] + ("" if n == 0 else chr(ord("a") + n)),
+             "shot_ids": group} for n, group in enumerate(groups)]  # fmt: skip
 
 
 def joined(bd: Breakdown, song: dict) -> SongBreakdown:
@@ -88,15 +113,67 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
     """A new row without a song part (an edit, a fix, a recast) takes the newest row's, its
     shots packed back to back over the same song, free (rule 22: an edit never leaves a gap
     to fix by hand): see `repack`. A shot an edit brings back (Undo) gets its earlier times
-    from the rows before, so an Undo is exact."""
-    if "song" not in row.data:
-        order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
-        with Session(bind=connection) as db:
-            song = carried(db, row.project_id, order)
-        if song:
-            row.data = {**row.data, "song": song}
+    from the rows before, so an Undo is exact. Only a row that brings its own song part (the
+    AI's plan, a new take) is word-snapped: an edit never moves another shot's time."""
+    with Session(bind=connection) as db:
+        if row.data.get("song"):
+            take = db.get(SongTake, row.data["song"].get("take_id") or 0)
+            row.data = snap(row.data, timing_used(take) if take else {})
+        else:
+            order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
+            if song := carried(db, row.project_id, order):
+                row.data = {**row.data, "song": song}
     if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
         row.data = fit(row.data)
+
+
+LEAD = 0.1  # seconds: a shot that shows what a word names lands just before it's sung
+MIN_SNAP = 1.0  # seconds: a snap never leaves either shot shorter than this
+NUMBERS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+           "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()  # fmt: skip
+SKIP = {"the", "and", "with", "her", "his", "its", "for", "from", "into", "onto", "our",
+        "their", "they", "then", "this", "that", "shot", "close", "wide", "camera", "are",
+        "was", "who", "she", "him", "them", "out", "off", "all", "one's"}  # fmt: skip
+
+
+def _key(word: str) -> str:
+    """A word as both sides compare it: lower case, "4" and "four" alike, a plural's s off."""
+    w = re.sub(r"[^\w']", "", word.lower()).removesuffix("'s")
+    if w.isdigit():
+        return NUMBERS[int(w)] if int(w) < len(NUMBERS) else w
+    return w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w
+
+
+def _named(shot: dict) -> set[str]:
+    """The things a shot shows, by name: its action's words and its screen figure's."""
+    figure = " ".join(str(v) for v in (shot.get("screen_figure") or {}).values())
+    found = re.findall(r"\d+|[a-z']+", f"{shot.get('action') or ''} {figure}".lower())
+    return {_key(w) for w in found if w.isdigit() or (len(w) > 2 and w not in SKIP)}
+
+
+def snap(data: dict, timing: dict) -> dict:
+    """Word-snap (P1): a B-roll shot that shows a thing its line names starts just before
+    that word is sung, not at the line's start (Reed's scorecard showed a second early before
+    "four"). The shot before it in the same clip ends there instead, so a clip's span never
+    moves, and neither shot drops under MIN_SNAP. The first such word sung inside the shot
+    counts; snapping again changes nothing. Words are the take's measured ones (timing)."""
+    song, words = data.get("song"), timing.get("words") or []
+    if not song or not words:
+        return data
+    shots = {sh["id"]: sh for sc in data.get("scenes", []) for sh in sc.get("shots", [])}
+    times = {sid: dict(t) for sid, t in song["shots"].items()}
+    for clip in data.get("clips", []):
+        ids = [s for s in clip.get("shot_ids", []) if s in times and s in shots]
+        for prev, sid in zip(ids, ids[1:], strict=False):
+            here, before, named = times[sid], times[prev], _named(shots[sid])
+            if here.get("sung") or before["end"] != here["start"] or not named:
+                continue
+            word = next((w for w in words if here["start"] < w["start"] < here["end"]
+                         and _key(w["word"]) in named), None)  # fmt: skip
+            at = round(word["start"] - LEAD, 2) if word else here["start"]
+            if at > here["start"] and at - before["start"] >= MIN_SNAP <= here["end"] - at:
+                before["end"] = here["start"] = at
+    return {**data, "song": {**song, "shots": times}}
 
 
 def slice_of(data: dict, clip_id: str) -> dict | None:

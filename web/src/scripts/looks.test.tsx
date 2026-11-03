@@ -35,7 +35,7 @@ const story = (o: object = {}) => song({ kind: "story", look: "house", ...o }, {
 test("a draft's header reads its format and Style: House; the picker shows each look's sample and line, and Use this style saves with Undo", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, story()], "PATCH /scripts/7": [200, story({ look: "pixar" })] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   expect(await screen.findByText("Dialogue")).toBeInTheDocument();
   await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
   const picker = await screen.findByRole("dialog", { name: "Style" });
@@ -51,7 +51,7 @@ test("a draft's header reads its format and Style: House; the picker shows each 
 test("an editor sees an Off look greyed, Not switched on yet; the owner may try it", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /looks": [200, looks], "GET /scripts/7": [200, story({ created_by_id: 2 })] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
   const picker = await screen.findByRole("dialog", { name: "Style" });
   const buttons = within(picker).getAllByRole("button", { name: "Use this style" });
@@ -63,7 +63,7 @@ test("an editor sees an Off look greyed, Not switched on yet; the owner may try 
 test("the owner sees Off for editors: only you can use it", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, story()] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
   const picker = await screen.findByRole("dialog", { name: "Style" });
   expect(within(picker).getByText("Off for editors: only you can use it.")).toBeInTheDocument();
@@ -73,7 +73,7 @@ test("the owner sees Off for editors: only you can use it", async () => {
 test("a refused change (an Off look for an editor) says why in the server's words", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /looks": [200, looks.map((l) => ({ ...l, on: true }))], "GET /scripts/7": [200, story()], "PATCH /scripts/7": [409, { detail: "Claymation isn't switched on for editors yet." }] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
   const picker = await screen.findByRole("dialog", { name: "Style" });
   await userEvent.click(within(picker).getAllByRole("button", { name: "Use this style" }).at(-1)!);
@@ -83,7 +83,7 @@ test("a refused change (an Off look for an editor) says why in the server's word
 test("a published script shows its look read only; a song shows the Song chip", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, song({ published: true, status: "published", look: "pixar" })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [] }] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   expect(await screen.findByText("Style: Disney Pixar")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Look:/ })).toBeNull();
   expect(screen.getByText("Type: Song")).toBeInTheDocument();
@@ -92,7 +92,7 @@ test("a published script shows its look read only; a song shows the Song chip", 
 test("before the server offers looks, there's no Look control", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, story()] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   expect(await screen.findByText("Dialogue")).toBeInTheDocument();
   await vi.waitFor(() => expect(screen.queryByRole("button", { name: /Look:/ })).toBeNull());
 });
@@ -102,7 +102,7 @@ const change = (o: object = {}) => ({ roles: ["Mom", "Bo"], to_finish_credits: 1
 test("once roles would need a new look, the change asks first with what it takes to finish; Change saves it", async () => {
   setViewport(390);
   const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, story()], "GET /scripts/7/look-change": [200, change()], "PATCH /scripts/7": [200, story({ look: "pixar" })] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
   const picker = await screen.findByRole("dialog", { name: "Style" });
   await userEvent.click(within(picker).getAllByRole("button", { name: "Use this style" })[0]);
@@ -118,7 +118,7 @@ test("an editor over the week sees why Change is held back, and Not yet keeps th
   setViewport(1440);
   const reason = "Making those looks would go over this week's credits. It resets on Monday.";
   const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /looks": [200, looks], "GET /scripts/7": [200, story()], "GET /scripts/7/look-change": [200, change({ over_budget: true, reason })], "PATCH /scripts/7": [200, story({ look: "pixar" })] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
   const picker = await screen.findByRole("dialog", { name: "Style" });
   await userEvent.click(within(picker).getAllByRole("button", { name: "Use this style" })[0]);
