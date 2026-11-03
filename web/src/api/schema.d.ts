@@ -5220,6 +5220,31 @@ export interface paths {
         /** List Media */
         get: operations["list_media_brands__brand_id__media_get"];
         put?: never;
+        /**
+         * Add Media
+         * @description Add a picture or a clip to a brand's Media (anyone with the brand; free). It is checked
+         *     by its contents: its type, its size, a picture's pixels, a clip's video and length.
+         */
+        post: operations["add_media_brands__brand_id__media_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/media-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Media Counts
+         * @description How many items each of v5's tabs has, with the same project and maker filters.
+         */
+        get: operations["media_counts_brands__brand_id__media_counts_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -5543,6 +5568,11 @@ export interface components {
             undone: boolean;
             /** Before */
             before: string;
+        };
+        /** Body_add_media_brands__brand_id__media_post */
+        Body_add_media_brands__brand_id__media_post: {
+            /** Upload */
+            upload: string;
         };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
@@ -7571,6 +7601,17 @@ export interface components {
             /** Workspace Id */
             workspace_id: number;
         };
+        /** MediaCounts */
+        MediaCounts: {
+            /** All */
+            all: number;
+            /** Clips */
+            clips: number;
+            /** Stills */
+            stills: number;
+            /** Songs */
+            songs: number;
+        };
         /** MediaItem */
         MediaItem: {
             /** Key */
@@ -7579,7 +7620,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "still" | "sheet" | "take" | "song" | "final";
+            kind: "still" | "sheet" | "take" | "song" | "final" | "upload";
             /** File Id */
             file_id: number;
             /** Content Type */
@@ -7606,7 +7647,7 @@ export interface components {
              * Open Step
              * @enum {string}
              */
-            open_step: "storyboard" | "cast" | "clips" | "song" | "final" | "quick";
+            open_step: "storyboard" | "cast" | "clips" | "song" | "final" | "quick" | "upload";
             /**
              * From Deleted Video
              * @default false
@@ -7627,6 +7668,13 @@ export interface components {
             /** Library Item Id */
             library_item_id?: number | null;
             library_kind?: components["schemas"]["Kind"] | null;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "clip" | "still" | "song";
+            /** Duration Seconds */
+            duration_seconds?: number | null;
         };
         /** MediaPage */
         MediaPage: {
@@ -21463,9 +21511,11 @@ export interface operations {
     list_media_brands__brand_id__media_get: {
         parameters: {
             query?: {
-                kind?: ("still" | "sheet" | "take" | "song" | "final") | null;
+                kind?: ("still" | "sheet" | "take" | "song" | "final" | "upload") | null;
+                group?: ("clip" | "still" | "song") | null;
                 folder?: string | null;
                 by?: number | null;
+                sort?: "newest" | "oldest";
                 before?: string | null;
             };
             header?: never;
@@ -21483,6 +21533,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MediaPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_media_brands__brand_id__media_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_media_brands__brand_id__media_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    media_counts_brands__brand_id__media_counts_get: {
+        parameters: {
+            query?: {
+                folder?: string | null;
+                by?: number | null;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaCounts"];
                 };
             };
             /** @description Validation Error */

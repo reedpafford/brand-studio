@@ -37,6 +37,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n19 | The director's chat (director-chat.md §1 item 4): `projects.director_chat` JSON not null default `[]`, each `{by, text, at, run}` | Next-Server | #1155 |
 | n21 | Hidden rows (Freestyle 3a): `hidden` bool default false on `projects`, `scripts` and `brands` (a freestyle's own script, video and the workspace's "Freestyle" brand; app/hidden.py leaves them out of every list); `freestyles.project_id` (FK projects, nullable) and `freestyles.up_to` (numeric, the price the owner approved) | Next-Server | #1171 |
 | n24 | Last active (v5 audit, Team): `users.last_active_at`, nullable, no default (null: not seen since it shipped); kept to within 5 minutes by `auth.current_user`. Downgrade drops it | Next-Server | #1247 |
+| n25 | Media uploads (v5 C_Media): new `media_uploads` {workspace_id, brand_id, created_by_id, file_id, seconds (null for a picture), removed_at}; a picture or clip added to a brand's Media, checked by its contents | Next-Server | — |
 
 ## Merge order (the chain on `next`)
 
