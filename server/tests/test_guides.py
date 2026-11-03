@@ -84,3 +84,16 @@ def test_release_guides_hold_no_chat_steps_starpop_assets_or_unused_models():
             assert gone not in text, (name, gone)
         if name not in ("house", "disney-pixar"):  # House is built on that look (test_styles)
             assert "pixar" not in text, name
+
+
+def test_hidden_lanes_still_load_but_are_off_the_picker_and_the_menu():
+    """Reed, 3 Nov (C8): Clean and Puppet claymation are hidden until a reference shows them,
+    not deleted: a video already in one still loads it."""
+    from app import looks
+
+    listed = [x["id"] for x in looks.lanes("claymation")]
+    assert listed == ["claymation-goofy"]
+    menu = guides.style("claymation")["sections"]["lanes"]
+    for lane in ("claymation-clean", "claymation-puppet"):
+        assert guides.style(lane)["hidden"] and guides.style(lane)["parent"] == "claymation"
+        assert lane not in menu

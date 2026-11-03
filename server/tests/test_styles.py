@@ -156,7 +156,8 @@ def test_reeds_looks_are_one_per_style_and_their_lanes_choose_per_video():
     for parent in set(lanes.values()):
         plan = prompts.system("plan", parent)
         assert "This look has lanes" in plan and '- "" (the default' in plan, parent
-        assert all(f'- "{lane}": ' in plan for lane, p in lanes.items() if p == parent), parent
+        shown = [x for x, p in lanes.items() if p == parent and not prompts.style(x)["hidden"]]
+        assert all(f'- "{lane}": ' in plan for lane in shown), parent
     assert "This look has lanes" not in prompts.system("plan", "paper-flat")  # chosen already
     assert "This look has lanes" not in prompts.system("storyboard", "paper")  # the plan's only
     assert "**The lane.**" in prompts.system("plan")
@@ -229,7 +230,8 @@ def test_the_reel_watch_example_names_no_studio():
 def test_claymation_has_reeds_four_lanes_with_their_blocks_word_for_word():
     """Reed's claymation skill (#1095, now in its guide): one lane a video, each its own look,
     its style block word for word; the motion guard in every clip; never smooth CGI."""
-    skill = (guides.ROOT / "styles" / "claymation" / "guide.md").read_text()
+    root = guides.ROOT / "styles" / "claymation"  # hidden lanes keep their menu part (C8)
+    skill = "".join(x.read_text() for x in (root / "guide.md", *sorted(root.glob("lanes/*.md"))))
     blocks = {
         "claymation": "Detailed cinematic claymation scene — hand-sculpted plasticine",
         "claymation-goofy": "Goofy claymation scene — everything sculpted from plasticine",
@@ -241,7 +243,8 @@ def test_claymation_has_reeds_four_lanes_with_their_blocks_word_for_word():
         block = start + skill.split(f"`{start}", 1)[1].split("`", 1)[0]
         assert block in still, look
         clip = prompts.system("clip_prompts", look)
-        assert "slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI." in clip
+        assert "gentle smooth motion with one action per shot" in clip, look  # Reed, 3 Nov (C1)
+        assert "Every cartoon touch is sculpted in clay." in clip and "12fps" not in clip, look
         assert "Animation must start at the first frame." in clip, look
     assert "never sticking out in every direction" in prompts.system(
         "storyboard", "claymation-goofy"

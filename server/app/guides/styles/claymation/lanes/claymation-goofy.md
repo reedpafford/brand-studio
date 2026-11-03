@@ -15,7 +15,7 @@ Goofy claymation: everything sculpted from plasticine with visible fingerprints 
 The Goofy Claymation look, unless the brand block says otherwise: "Goofy claymation scene — everything sculpted from plasticine with visible fingerprints and thumb smudges, wonky handmade geometry where nothing is perfectly straight, saturated teal and terracotta palette, the scene filling the entire frame with the camera inside the clay world. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Bright warm light with real cast shadows; everything in frame is plasticine: no photographic skin, no real human hands, no fingernails."
 
 ## clip_style
-Handmade stop-motion claymation throughout: matte plasticine, visible fingerprints and tool marks, slightly stuttery 12fps stop-motion cadence, no motion blur. Non CGI. Non cartoon. Animation must start at the first frame
+Handmade claymation throughout: matte plasticine, visible fingerprints and tool marks, gentle smooth motion with one action per shot, a calm camera. Every cartoon touch is sculpted in clay. Non CGI. Animation must start at the first frame
 
 ## fit_look
 a goofy claymation look with an oversized head and huge round googly eyes
@@ -23,7 +23,7 @@ a goofy claymation look with an oversized head and huge round googly eyes
 ## Stills
 - Every character in frame keeps the whole goofy design language from their sheet (the googly eyes, the blush-pink cheeks, the grin): cut short, a face turns generic.
 - Hair stays "neatly shaped with a few playful strands out of place", never sticking out in every direction.
-- Name the clay on every object, wonky and thumb-printed ("a lopsided clay mug"); glass, liquid and metal are "sculpted as a professional clay imitation of …". A product is sculpted in clay with a real printed paper label, its words stated exactly.
+- Name the clay on every object, wonky and thumb-printed ("a lopsided clay mug"); glass and metal are "sculpted as a professional clay imitation of …"; liquids are glossy and wet against matte clay. The product is its real packaging, set on a clay plinth or held in clay hands, its label exactly as in its image.
 - Never call the clay smooth, polished or glossy. Keep the light bright and warm, the camera inside the clay world at a named angle, and never show the set's edges or the workbench.
 - The googly-eye extreme close-up is this look's charm shot. Name the feeling, then the brows, lids and mouth.
 
