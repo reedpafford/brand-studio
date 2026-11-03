@@ -28,3 +28,14 @@ test("no screen words type the owner's name; names come from data (Current rule 
   );
   expect(found).toEqual([]);
 });
+
+test("no screen words send anyone to the owner: no \"Ask the owner\", \"Ask Reed\" or \"Ask whoever…\" (Current rule 22)", () => {
+  // A regex that hides the server's own "Ask the owner…" (`/ask the owner/i`) is not screen words.
+  const found = sources(join(__dirname)).flatMap((file) =>
+    withoutComments(readFileSync(file, "utf8"))
+      .split("\n")
+      .filter((l) => /(?<!\/)\bask (the owner|reed|whoever)\b/i.test(l))
+      .map((l) => `${file.replace(__dirname, "src")}: ${l.trim()}`),
+  );
+  expect(found).toEqual([]);
+});
