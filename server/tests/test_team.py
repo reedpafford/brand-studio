@@ -95,3 +95,64 @@ def test_a_removed_member_is_listed_and_brought_back(owner, editor):
     assert [m["name"] for m in owner.get("/team/members").json()] == ["Reed", "Ed"]
     assert owner.post(f"/team/members/{ed_id}/restore").status_code == 404  # not removed
     assert editor.get("/team/members?removed=true").status_code == 403
+
+
+def test_each_member_shows_when_they_were_last_active(owner, editor, db):
+    from datetime import timedelta
+
+    from app.auth import ACTIVE
+    from app.db import utcnow
+    from app.models.accounts import User
+
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    ed.last_active_at = None
+    db.commit()
+    rows = {m["name"]: m["last_active_at"] for m in owner.get("/team/members").json()}
+    assert rows["Reed"] and rows["Ed"] is None  # the owner just asked; Ed hasn't since
+    editor.get("/auth/me")
+    db.expire_all()
+    first = db.get(User, ed.id).last_active_at
+    assert first and utcnow() - first < ACTIVE
+    editor.get("/auth/me")  # within a few minutes: no new write
+    db.expire_all()
+    assert db.get(User, ed.id).last_active_at == first
+    ed = db.get(User, ed.id)
+    ed.last_active_at = stale = utcnow() - ACTIVE - timedelta(minutes=1)
+    db.commit()
+    editor.get("/auth/me")  # a few minutes on: kept again
+    db.expire_all()
+    assert db.get(User, ed.id).last_active_at > stale + ACTIVE
+
+
+def test_the_standing_editor_link_works_once_and_can_be_revoked(app, owner, editor, outsider):
+    assert owner.get("/team/invite-link").json() is None
+    assert editor.post("/team/invite-link").status_code == 403
+    first = owner.post("/team/invite-link")
+    assert first.status_code == 201
+    link = owner.post("/team/invite-link").json()  # a new one: the first stops working
+    assert owner.get("/team/invite-link").json() == {"expires_at": link["expires_at"]}
+    assert outsider.get("/team/invite-link").json() is None
+    assert owner.get("/team/invites").json() == []  # never in the email invites
+    with TestClient(app) as c:
+        seen = c.post("/auth/invite", json={"token": link["token"]}).json()
+        assert (seen["email"], seen["role"]) == ("", "editor")
+        body = {"name": "Lee", "password": PASSWORD}
+        old = c.post("/auth/accept-invite", json={**body, "token": first.json()["token"],
+                                                   "email": "lee@example.com"})  # fmt: skip
+        assert old.status_code == 400
+        no_email = c.post("/auth/accept-invite", json={**body, "token": link["token"]})
+        assert no_email.status_code == 422
+        taken = {**body, "token": link["token"], "email": "ed@example.com"}
+        assert c.post("/auth/accept-invite", json=taken).status_code == 409
+        joined = c.post("/auth/accept-invite", json={**taken, "email": "lee@example.com"})
+        assert joined.status_code == 201 and joined.json()["role"] == "editor"
+    with TestClient(app) as c:  # works once
+        again = {**body, "token": link["token"], "email": "kim@example.com"}
+        assert c.post("/auth/accept-invite", json=again).status_code == 400
+    assert owner.get("/team/invite-link").json() is None
+    revoked = owner.post("/team/invite-link").json()
+    assert owner.delete("/team/invite-link").status_code == 204
+    assert owner.get("/team/invite-link").json() is None
+    with TestClient(app) as c:
+        gone = {**body, "token": revoked["token"], "email": "kim@example.com"}
+        assert c.post("/auth/accept-invite", json=gone).status_code == 400

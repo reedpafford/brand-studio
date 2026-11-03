@@ -67,6 +67,9 @@ def end_session(db: Session, request: Request, response: Response) -> None:
     response.delete_cookie(cookie)
 
 
+ACTIVE = timedelta(minutes=5)  # last active is kept to within this
+
+
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     raw = request.cookies.get(request.app.state.settings.cookie_name)
     if raw:
@@ -80,6 +83,10 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
             )
         )
         if user:
+            now = utcnow()
+            if user.last_active_at is None or now - user.last_active_at > ACTIVE:
+                user.last_active_at = now  # at most one write every few minutes
+                db.commit()
             if (asker := REQUEST.get()) is not None:
                 asker["workspace_id"] = user.workspace_id  # names in messages: theirs only
             return user

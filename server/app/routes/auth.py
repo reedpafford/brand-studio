@@ -53,6 +53,7 @@ class AcceptIn(BaseModel):
     token: str
     name: Name
     password: Password
+    email: Email | None = None  # the standing editor link's only: they give their own
 
 
 @router.post("/setup", response_model=Me, status_code=201)
@@ -133,7 +134,7 @@ class InviteOut(BaseModel):
     workspace_name: str
     invited_by_name: str
     owner_name: str  # "Join {owner}'s studio" when the studio's name looks like a slug
-    email: str
+    email: str  # "" for the standing editor link: the person gives their own
     role: Role
 
 
@@ -166,11 +167,14 @@ def accept_invite(
     invite = _open_invite(db, body.token)
     if not invite:
         raise HTTPException(400, INVALID_INVITE)
-    user = db.scalar(select(User).where(User.email == invite.email))
+    email = invite.email or body.email  # an invite's own, or what the link's person gave
+    if not email:
+        raise HTTPException(422, "Enter your email.")
+    user = db.scalar(select(User).where(User.email == email))
     if user and user.active:
         raise HTTPException(409, "That email already has an account.")
     # A removed member who is invited again comes back with the new name, password and role.
-    user = user or User(email=invite.email)
+    user = user or User(email=email)
     user.workspace_id = invite.workspace_id
     user.name = body.name
     user.password_hash = hash_password(body.password)
