@@ -105,6 +105,12 @@ export function ScreensTab() {
 
 type Pick = { file: File; name: string; tag: string; error?: string };
 
+/** "order-tracking.png" reads "Order tracking". */
+const readable = (file: string) => {
+  const words = file.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
 /** A picked file's own picture, for as long as it is picked. */
 function Thumb({ file }: { file: File }) {
   // The picture's address is let go once it has drawn; the drawn picture stays.
@@ -122,7 +128,7 @@ function AddScreens({ brandId, tags, onClose }: { brandId: number; tags: string[
   const [busy, setBusy] = useState(false);
   const take = (files: FileList | null) => {
     if (!files) return;
-    setPicks([...picks, ...[...files].map((file) => ({ file, name: file.name.replace(/\.[^.]+$/, ""), tag: "" }))]);
+    setPicks([...picks, ...[...files].map((file) => ({ file, name: readable(file.name), tag: "" }))]);
   };
   const run = async () => {
     setBusy(true);

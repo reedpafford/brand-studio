@@ -157,7 +157,7 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
                           onChange={(e) => set("colours", kit.colours.map((x, j) => (j === i ? e.target.value : x)))}
                         />
                         <input
-                          className="min-h-control w-full min-w-0 rounded-md border border-border-strong bg-surface px-2 font-mono text-sm"
+                          className={`min-h-control w-full min-w-0 rounded-md border bg-surface px-2 font-mono text-sm ${c !== "" && !HEX.test(c) ? "border-danger" : "border-border-strong"}`}
                           aria-label={`Colour ${i + 1}`}
                           placeholder="#12A150"
                           value={c}

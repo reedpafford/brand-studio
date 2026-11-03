@@ -186,7 +186,7 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
     <section aria-label="Import from website" className="max-w-[704px] space-y-4">
       <div>
         <h2 className="text-[15px] font-semibold">Import from website</h2>
-        <p className="text-xs text-muted">Reads the logo, colours and products from the brand's site. You pick what to keep.</p>
+        <p className="mt-6 text-xs text-muted">Reads the logo, colours and products from the brand's site. You pick what to keep.</p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">

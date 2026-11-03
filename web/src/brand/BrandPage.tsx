@@ -60,7 +60,7 @@ export function BrandPage() {
         >
           <div className="flex flex-wrap items-center gap-2">
             {/* A blank brand's Import from website is the set-up card's primary, so the bar holds only ⋯ (F_BrandEmpty). */}
-            {owner && brand && (tab === "look" || tab === "voice") && !blankBrand(brand) && (
+            {owner && brand && (tab === "look" || tab === "voice") && (!blankBrand(brand) || importing) && (
               <Button variant="secondary" onClick={() => setImporting(true)}>
                 Import from website
               </Button>

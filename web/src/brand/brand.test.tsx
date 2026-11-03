@@ -70,8 +70,8 @@ test("Add screens takes several pictures; each is uploaded and saved as a screen
   await userEvent.click(screen.getByRole("button", { name: "Add 2 screens" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /brands/1/screens")).toHaveLength(2));
   expect(calls.filter((c) => c.key === "POST /brands/1/screens").map((c) => c.body)).toEqual([
-    { name: "home", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
-    { name: "chart", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
+    { name: "Home", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
+    { name: "Chart", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
   ]);
 });
 
