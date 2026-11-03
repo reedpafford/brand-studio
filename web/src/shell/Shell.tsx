@@ -35,7 +35,7 @@ function sectionOf(pathname: string) {
 const href = (to: string, brand: number) => `/b/${brand}/${to}`;
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 // v5 A_Shell/A_Account: a brand is a small colour square.
-const dot = (brand?: Brand) => <span aria-hidden className="size-3.5 shrink-0 rounded-[3px] bg-brand" style={brand?.colours?.[0] ? { background: brand.colours[0] } : undefined} />;
+const dot = (brand?: Brand) => <span aria-hidden className="size-3.5 shrink-0 rounded-[3px]" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />; // no colour: the accent, as the Brand page;
 
 function useOnline() {
   const [online, setOnline] = useState(() => navigator.onLine !== false);

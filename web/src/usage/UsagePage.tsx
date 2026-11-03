@@ -5,7 +5,6 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Banner, Button, buttonClass, creditsLabel, EmptyState, wholeCredits, PageTop, Skeleton } from "../components";
 import { useHeld } from "../approvals/useHeld";
-import { linkText } from "../ui";
 import { useRail } from "../useMedia";
 import { useRestoreBrand } from "../brand/ArchiveBrand";
 import { Charges } from "./Charges";
@@ -63,7 +62,7 @@ export function UsagePage() {
             <Stat label={thisMonth ? "Spent this month" : `Spent in ${label}`} link={<span className="text-muted"><Money value={f.spend_usd} estimated={f.spend_estimated} /></span>}>
               {count(f.spend_credits)} credits
             </Stat>
-            <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className={`${linkText} inline-flex min-h-11 items-center lg:min-h-0`}>{held.count} request{held.count === 1 ? "" : "s"} in Needs you</Link>}>
+            <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className="inline-flex min-h-11 items-center text-accent-text hover:underline lg:min-h-0">{held.count} request{held.count === 1 ? "" : "s"} in Needs you</Link>}>
               {held.count === 0 ? "Nothing" : waitingCredits > 0 ? `up to ${creditsLabel(waitingCredits)}` : `${held.count} request${held.count === 1 ? "" : "s"}`}
             </Stat>
             <Stat label="The director's own time" link={<span className="text-muted">Outside the credit budget</span>}>

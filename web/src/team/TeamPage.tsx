@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Copy } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Dialog, Field, PageTop, Panel, Select, Skeleton } from "../components";
@@ -288,7 +288,7 @@ function CopyLink({ id, email, children }: { id: number; email: string; children
   return (
     <>
       <span className="flex gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
-        <Button variant="secondary" dense className="whitespace-nowrap" icon={copied ? Check : Copy} aria-label={`Copy a new link for ${email}`} busy={fresh.isPending} onClick={() => fresh.mutate()}>
+        <Button variant="secondary" dense className="whitespace-nowrap" aria-label={`Copy a new link for ${email}`} busy={fresh.isPending} onClick={() => fresh.mutate()}>
           {copied ? "Copied" : "Copy a new link"}
         </Button>
         {children}

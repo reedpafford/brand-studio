@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Ellipsis, Undo2 } from "lucide-react";
+import { Ellipsis, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Dialog, Field, Menu, MenuItem, Select, Skeleton, useToast, wholeCredits } from "../components";
@@ -9,7 +9,6 @@ import { useRail } from "../useMedia";
 import { Money } from "./parts";
 import { useCharges } from "./useUsage";
 import { serverTime } from "../time";
-import { linkText } from "../ui";
 
 const when = (iso: string) => serverTime(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const STATUS: Record<string, string> = { succeeded: "Done", failed: "Didn't finish", running: "Making", queued: "Waiting" };
@@ -88,8 +87,7 @@ export function Charges() {
   return (
     <details className="group lg:max-w-[1100px]" onToggle={(e) => setOpen(e.currentTarget.open)}>
       {/* Reed (3 Nov): a small link at the bottom, not a section of its own. */}
-      <summary className={`${linkText} inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm lg:min-h-0 [&::-webkit-details-marker]:hidden`}>
-        <ChevronRight size={16} strokeWidth={1.75} aria-hidden className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm text-accent-text hover:underline lg:min-h-0 [&::-webkit-details-marker]:hidden">
         See every charge
       </summary>
       <div className="mt-3 space-y-3">

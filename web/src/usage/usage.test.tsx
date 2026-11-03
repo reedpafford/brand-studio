@@ -390,3 +390,19 @@ test("By person and My credits never show '-0' for nothing used (UX-Auditor on #
   expect(dee).toHaveTextContent("0 of 97 quick credits");
   expect(dee.textContent).not.toMatch(/-0/);
 });
+
+test("My credits lists a send held before anything was spent under Sends only, not again as a video (Next-Lead on #1264)", async () => {
+  setViewport(1440);
+  const at = "2026-10-28T10:00:00Z";
+  const videos = [
+    { project_id: 12, title: "Garden scene", status: "in_production", state: "waiting", brand_id: 1, credits: 0, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: at },
+    { project_id: 13, title: "Bo at the gym", status: "in_production", state: "waiting", brand_id: 1, credits: 30, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: at },
+  ];
+  const sends = [{ freestyle_id: 4, title: "Garden scene", brand: "", status: "waiting", up_to_credits: 143, reason: "", created_at: at }];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, videos, sends }] });
+  open("/usage/mine");
+  const list = await screen.findByRole("list", { name: "My videos" });
+  expect(within(list).queryByText("Garden scene")).toBeNull();
+  expect(within(list).getByRole("link", { name: /Bo at the gym/ })).toHaveTextContent("spent 30"); // a later step held after spending stays a video
+  expect(within(screen.getByRole("list", { name: "My sends" })).getByText("Garden scene")).toBeInTheDocument();
+});

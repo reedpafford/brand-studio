@@ -397,4 +397,6 @@ test("the rail's account row says Owner, and the brand menu has a Brands heading
   const menu = await screen.findByRole("menu", { name: "Brands" });
   expect(within(menu).getByText("Brands")).toBeInTheDocument();
   expect(menu.querySelector("span[aria-hidden].rounded-\\[3px\\]")).toHaveStyle({ background: "#ff5500" });
+  const squares = menu.querySelectorAll("span[aria-hidden].rounded-\\[3px\\]");
+  expect((squares[1] as HTMLElement).style.background).toBe("var(--accent)"); // Iron Paws has no colour: the accent, as the Brand page
 });

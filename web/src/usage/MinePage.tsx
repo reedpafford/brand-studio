@@ -37,6 +37,8 @@ export function MinePage() {
   });
   const m = mine.data;
   const waiting = (m?.sends ?? []).filter((x) => x.status === "waiting");
+  // A send held or declined before anything was spent is listed under Sends only, not again as a video (Next-Lead).
+  const videos = (m?.videos ?? []).filter((v) => !((v.state === "waiting" || v.state === "declined") && wholeCredits(v.credits) === 0));
   const week = m?.week;
   const when = thisMonth ? "this month" : `in ${label}`;
   return (
@@ -67,11 +69,11 @@ export function MinePage() {
         <>
           <Card className="space-y-2">
             <h2 className="type-section">Videos</h2>
-            {m.videos.length === 0 ? (
+            {videos.length === 0 ? (
               <p className="text-sm text-muted">No videos of yours {when}.</p>
             ) : (
               <ul aria-label="My videos" className="divide-y divide-border">
-                {m.videos.map((v) => (
+                {videos.map((v) => (
                   <li key={v.project_id}>
                     <Link to={`/b/${v.brand_id}/videos/${v.project_id}`} className="flex min-h-control flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 hover:bg-surface-2">
                       <span className="min-w-0 break-words font-medium">{v.title}</span>
