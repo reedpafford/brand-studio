@@ -121,6 +121,7 @@ test("on a phone there are five tabs (Videos first), no More, and Reed gets a Ne
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
+  expect(screen.getByRole("banner", { name: "Top bar" })).toBeInTheDocument(); // a phone has the shell's top bar; desktop has none
   expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Videos", "Scripts", "New", "Cast", "Brand"]);
   expect(within(tabs).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page"); // an earlier-way video sits under Videos
   expect(within(tabs).getByRole("link", { name: "Cast" })).toHaveAttribute("href", "/b/1/library");
@@ -211,7 +212,7 @@ test("on desktop one rail (nav A): the brand switcher, Make and Library, Studio 
   expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["New videoN", "Videos", "Scripts", "Cast & places", "Media", "Brand", "Needs you", "In production", "Usage", "Team", "Settings"]);
   expect(within(rail).getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "Account menu" })).toBeInTheDocument();
-  expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  expect(screen.queryByRole("banner", { name: "Top bar" })).not.toBeInTheDocument(); // the shell's own top bar; a page's PageTop is a header too
   expect(within(rail).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page");
   expect(await within(rail).findByRole("link", { name: /Needs you/ })).toHaveTextContent("1");
   expect(screen.getAllByRole("link", { name: /Needs you/ })).toHaveLength(1); // only the rail row: no top bar on desktop
