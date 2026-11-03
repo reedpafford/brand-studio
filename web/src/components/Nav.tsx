@@ -83,7 +83,7 @@ export function StepPicker({ steps, onPick, flat }: { steps: Step[]; onPick: (id
               aria-describedby={s.state === "todo" && s.reason ? `${uid}-${s.id}` : undefined}
               title={s.state === "todo" ? s.reason : undefined}
               onClick={() => pick(s)}
-              className={`inline-flex min-h-control-dense items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium transition-colors duration-(--dur-fast) ${
+              className={`inline-flex min-h-control-dense items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-sm font-medium transition-colors duration-(--dur-fast) ${
                 s.state === "current" ? "bg-surface-2 text-text" : s.state === "todo" ? "cursor-not-allowed text-disabled-text" : "text-muted hover:text-text"
               }`}
             >

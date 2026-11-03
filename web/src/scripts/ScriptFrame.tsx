@@ -41,7 +41,7 @@ export function SettingsRow({ children, steps }: { children?: ReactNode; steps: 
 }
 
 /** A setting's picker in that row: a quiet bordered press reading "Look House style ▾". */
-export const pickClass = "border border-border text-sm";
+export const pickClass = "border border-border text-sm !gap-1.5 lg:!px-2.5 [&>svg:last-child]:size-4";
 export function PickLabel({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
@@ -99,8 +99,8 @@ export function ScriptBox({ label, status, note, words, ...rest }: { label: stri
 /** v5's Shape setting, read only on a script: each video picks its own shape when it's made (Next-Lead, 2 Nov). */
 export function ShapeChip() {
   return (
-    <span title="Each video picks its shape" className="inline-flex min-h-control items-center gap-1 rounded-md border border-border px-3 text-sm lg:min-h-control-dense">
-      <span className="text-muted">Shape</span> Each video picks its shape
+    <span title="Each video picks its shape" className="inline-flex min-h-control items-center gap-1 rounded-md border border-border px-3 text-sm lg:min-h-control-dense lg:px-2.5">
+      <span className="text-muted">Shape</span> Per video<span className="sr-only">: each video picks its shape</span>
     </span>
   );
 }

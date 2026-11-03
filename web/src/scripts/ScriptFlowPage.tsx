@@ -121,7 +121,7 @@ export function ScriptFlowPage() {
   };
   const project = folders.data?.find((f) => f.id === s.folder_id);
   const crumbs = [
-    <Link key="s" to={`/b/${brandId}/scripts`} onClick={leave(`/b/${brandId}/scripts`)} className="hover:text-text hover:underline">
+    <Link key="s" to={`/b/${brandId}/scripts`} onClick={leave(`/b/${brandId}/scripts`)} className="inline-flex min-h-control min-w-11 items-center hover:text-text hover:underline lg:min-h-0 lg:min-w-0">
       Scripts
     </Link>,
     ...(project ? [<span key="p">{project.name}</span>] : []),

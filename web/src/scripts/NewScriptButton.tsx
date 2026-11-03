@@ -158,7 +158,7 @@ export function NewScriptPage() {
     <main>
       <ScriptTop
         crumbs={[
-          <Link key="s" to={`/b/${brandId}/scripts`} className="hover:text-text hover:underline">
+          <Link key="s" to={`/b/${brandId}/scripts`} className="inline-flex min-h-control min-w-11 items-center hover:text-text hover:underline lg:min-h-0 lg:min-w-0">
             Scripts
           </Link>,
           <span key="n" className="font-medium text-text">

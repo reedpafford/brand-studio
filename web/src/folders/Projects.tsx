@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { pickClass } from "../scripts/ScriptFrame";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Ellipsis, Folder, Plus } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -200,7 +201,7 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
       <Menu
         title="Project"
         trigger={(p) => (
-          <Button {...p} variant="ghost" dense icon={pick ? undefined : Folder} trailing={ChevronDown} busy={file.isPending} aria-label={pick ? `Project: ${nameOf(folderId)}` : undefined} className={`max-w-full whitespace-nowrap ${pick ? "border border-border text-sm" : ""}`}>
+          <Button {...p} variant="ghost" dense icon={pick ? undefined : Folder} trailing={ChevronDown} busy={file.isPending} aria-label={pick ? `Project: ${nameOf(folderId)}` : undefined} className={`max-w-full whitespace-nowrap ${pick ? pickClass : ""}`}>
             {pick ? (
               <>
                 <span className="text-muted">Project</span> {folderId == null ? "None" : nameOf(folderId)}

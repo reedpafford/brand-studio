@@ -11,7 +11,7 @@ const base =
 const look: Record<Variant, string> = {
   primary: "border border-accent-border bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-pressed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
   secondary: "border border-border bg-surface-2 text-text hover:bg-surface-3 disabled:bg-disabled disabled:text-disabled-text",
-  ghost: "text-text hover:bg-surface-2 disabled:text-disabled-text",
+  ghost: "text-muted hover:bg-surface-2 hover:text-text disabled:text-disabled-text",
   danger: "border border-danger bg-danger-soft text-danger hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
 };
 
