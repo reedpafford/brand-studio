@@ -1,10 +1,11 @@
-"""Reed's Zack D skill (docs/next/skills/zack-d.md, #1097; Reed: "Skill, drop realistic")."""
+"""Reed’s Zack D skill (#1097, now its format and its style in app/guides; Reed: "Skill,
+drop realistic")."""
 
 from app import prompts
 
 
 def test_zack_d_follows_reeds_skill_a_blue_world_journey():
-    """Reed, 1 Nov: "Skill, drop realistic" (docs/next/skills/zack-d.md, #1097): a friendly 3D
+    """Reed, 1 Nov: "Skill, drop realistic" (#1097): a friendly 3D
     look on an infinite blue world, one continuous camera journey under a calm narrator."""
     zack = prompts.style("zack-d")["sections"]
     for part in ("place_look", "still_look", "clip_style"):

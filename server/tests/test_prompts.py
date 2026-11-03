@@ -7,11 +7,12 @@ from pathlib import Path
 import pytest
 
 import evals
-from app import prompts
+from app import guides, prompts
 from app.prompts import HERE, check, schemas
 from evals import checks
 
-EXAMPLES = Path(prompts.__file__).parent / "examples"
+EXAMPLES = guides.ROOT / "formats" / "dialogue" / "examples"  # the fomo worked examples
+JSONS = sorted(guides.ROOT.glob("formats/*/examples/*.json"))
 FOMO = {"screen:1": ["fomo-mention", "app-open"], "screen:2": ["trading", "win"],
         "screen:3": ["trading", "loss"], "screen:4": ["trading-desktop"]}  # fmt: skip
 
@@ -83,7 +84,7 @@ def test_a_screen_that_prints_a_balance_never_ties_the_numbers():
     for step in ("breakdown", "script_draft"):  # Current rules 14: numbers can be anything
         assert "use that number" not in prompts.system(step)
     for step in ("storyboard", "clip_prompts"):  # Reed #600: only the logo must be right
-        text = (EXAMPLES.parent / f"{step}.md").read_text()
+        text = (HERE / f"{step}.md").read_text()
         assert "key number" not in text and "reads $" not in text, step
 
 
@@ -106,7 +107,7 @@ def test_eval_scoring_counts_marks_and_reads_notes(tmp_path):
 
 
 def test_no_prompt_file_keeps_a_merge_conflict_marker():
-    for path in (EXAMPLES.parent).rglob("*"):
+    for path in [*HERE.rglob("*"), *guides.ROOT.rglob("*")]:
         if path.is_file() and path.suffix in {".md", ".json", ".py"}:
             text = path.read_text()
             assert not re.search(r"^(<{7}|={7}|>{7})( |$)", text, re.M), path
@@ -182,12 +183,12 @@ def test_breakdown_check_wants_the_hook_first_and_no_forced_grind():
 
 def test_app_screens_are_on_a_phone_in_hand_never_a_flat_on_screenshot():
     for step in ("breakdown", "storyboard", "clip_prompts", "improve"):  # Reed, 2026-10-27
-        text = (EXAMPLES.parent / f"{step}.md").read_text().lower()
+        text = (HERE / f"{step}.md").read_text().lower()
         assert "never a screenshot filling the frame flat-on" in text, step
     _, bd = example("breakdown")
     for shot in (s for scene in bd.scenes for s in scene.shots if s.screen_ids):
         assert shot.character_ids, shot.id  # his hand or face is in the shot
-    for path in EXAMPLES.glob("*.json"):
+    for path in JSONS:
         if path.name != "reel_watch.json":  # a reading of someone else's reel
             assert not re.search("fills the frame|flat-on", path.read_text()), path.name
 
@@ -202,7 +203,7 @@ def test_the_sheet_owns_the_face_in_every_prompt():
     # QA-7 on #1131: no prompt says the sheet or look alone sets the outfit, rules.md included
     old = re.compile(r"(face|hair|faces, builds)[^.]{0,20}(and|,) outfits? (come|from)|"
                      r"set each face and outfit|sets his face and outfit", re.I)  # fmt: skip
-    for path in [*HERE.glob("*.md"), *HERE.glob("styles/*.md"), *HERE.glob("examples/*.json")]:
+    for path in [*HERE.glob("*.md"), *guides.ROOT.rglob("*.md"), *JSONS]:
         assert not old.search(path.read_text()), path.name
     assert (
         "and their outfit too unless this video gives them one" in (HERE / "rules.md").read_text()
@@ -225,9 +226,9 @@ def test_no_prompt_or_example_keeps_a_rule_reed_replaced():
     old = ["key number", "use that number", "that same balance", "end card", "logo overlay",
            "big glossy", "subsurface", "expressive faces", "Keep a clip to 2 screens",
            "whatever he wears", "Macro insert of the phone"]  # fmt: skip
-    files = [*EXAMPLES.parent.glob("*.md"), EXAMPLES.parent / "schemas.py"]
+    files = [*HERE.glob("*.md"), HERE / "schemas.py"]
     texts = {p.name: p.read_text() for p in files if p.name != "sheet.md"}  # the sheet sets faces
-    for path in EXAMPLES.glob("*.json"):
+    for path in JSONS:
         if path.name != "reel_watch.json":  # a reading of someone else's reel
             texts[path.name] = json.dumps(json.loads(path.read_text())["output"])
     for name, text in texts.items():
@@ -1654,33 +1655,15 @@ def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
     """The Producer and Reed, 2 Nov: "The point was the flow we have used in the chats where it
     understands WHY and what makes these shorts engaging and has creative leeway"; "Reed wrote
     those skills to be the brain". A treatment first, the whole skill at runtime, the stills
-    reviewed before takes, the watch judged against the treatment, with one re-plan."""
-    docs = Path(prompts.__file__).parents[3] / "docs" / "next" / "skills"
-    for path in (HERE / "skills").glob("*.md"):  # word for word, so nothing of Reed's is lost
-        assert path.read_text() == (docs / path.name).read_text(), path.name
-    expect = {"house": "house", "watercolor": None, "wool-crochet": None,
-              "disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
-              "claymation-goofy": "claymation", "paper-collage": "paper",
-              "skeleton-xray": "skeleton-ad", "skeleton": "skeleton-ad"}  # fmt: skip
-    for look, name in expect.items():
-        text = prompts.skill(look)
-        assert text == ((HERE / "skills" / f"{name}.md").read_text() if name else ""), look
-    assert prompts.skill("watercolor", "song") == (HERE / "skills" / "song-ad.md").read_text()
-    for step in ("treatment", "plan", "director", "review_stills", "watch_cut"):
-        text = prompts.system(step, "claymation-goofy")
-        assert "## Producer craft" in text and "## The style's skill" in text, step
-        assert (HERE / "skills" / "producer-craft.md").read_text() in text, step
-        assert (HERE / "skills" / "claymation.md").read_text() in text, step
-    assert "## The style's skill" not in prompts.system("storyboard", "claymation-goofy")
-    plain = prompts.system("treatment", "watercolor")  # no style skill: producer craft only
-    assert "## Producer craft" in plain and "## The style's skill" not in plain
+    reviewed before takes, the watch judged against the treatment, with one re-plan. (Which
+    steps get the guides: tests/test_guides.py.)"""
     # Reed approved House's camera as a baseline, never forced ("I don't want it to force slow
     # motion or anything")
-    house = (HERE / "skills" / "house.md").read_text()
+    house = guides.style("house")["sections"]["Scope"]
     assert "None of it is mandatory: use a tool when it serves the story, never by habit" in house
     assert house in prompts.system("treatment", "house")
     # Reed: producer craft is the story only; the camera is each style's own
-    craft = (HERE / "skills" / "producer-craft.md").read_text().lower()
+    craft = (guides.ROOT / "craft.md").read_text().lower()
     for word in ("camera", "close-up", "push in", "pan ", "transition", "lighting", "framing"):
         assert word not in craft, word
     assert prompts.SCHEMAS["treatment"] is schemas.Treatment
@@ -1739,7 +1722,7 @@ def test_reeds_batch_4_craft_notes_reach_the_steps():
     """FOMO-Producer's batch 4 (Reed, 2 Nov): "scenes don't make sense… we are missing little
     actions that connect clips", and the screen line didn't show the coin. As craft, never story
     rules, with no hard timing (rule 29)."""
-    craft = (HERE / "skills" / "producer-craft.md").read_text()
+    craft = (guides.ROOT / "craft.md").read_text()
     assert (
         "**Show what a line points at.**" in craft and "**Little actions that connect.**" in craft
     )

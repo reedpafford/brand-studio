@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import credits, look_samples, looks
+from app import credits, guides, look_samples, looks
 from app.auth import current_user, owner_only
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -148,3 +148,20 @@ def make_sample(
     settings = request.app.state.settings
     look_samples.make(db, owner, look_id, brand, body.character_id, settings)
     return _sample(db, owner, look_id, brand.id, settings)
+
+
+formats = APIRouter(prefix="/formats", tags=["looks"])  # the format picker, beside the looks
+
+
+class FormatOut(BaseModel):
+    id: str
+    name: str
+    engine: Literal["story", "song", "narrated"]  # which mechanics make it
+    blurb: str
+    on: bool
+
+
+@formats.get("", response_model=list[FormatOut])
+def list_formats(user: User = Depends(current_user)):
+    """Every format in Reed’s order (app/guides/formats), for the format picker."""
+    return [FormatOut(**{k: f[k] for k in FormatOut.model_fields}) for f in guides.formats()]

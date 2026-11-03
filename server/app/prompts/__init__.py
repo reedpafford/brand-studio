@@ -11,6 +11,7 @@ from functools import cache
 from html import escape
 from pathlib import Path
 
+from app import guides
 from app.prompts import schemas
 
 HERE = Path(__file__).parent
@@ -60,75 +61,32 @@ NO_RULES = {
 }  # not script writers: the rules would only add tokens
 
 
-# A style's extra guidance, by the steps it's added to (styles/*.md); its look sections fill
-# the {{tokens}} in the step files instead.
-GUIDES = {
-    "still": ["storyboard"],
-    "clip": ["clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"],
-    "breakdown": ["breakdown", "song_breakdown", "narrated_breakdown", "plan", "plan_scene"],
-    "script": ["script_draft", "enhance", "variations"],
-    "lanes": ["plan"],  # a look's lanes: the plan picks one per video
-}
-# Reed's skill files (docs/next/skills, copied here word for word: a test keeps them equal). Every
-# video's story comes from producer-craft.md; a style's own skill (below) is its look, camera,
-# shots and format rules (Reed, 2 Nov: "the skill should really just be the visual style, and how
-# the cameras and stuff move").
-SKILLS = {"disney-pixar": "disney-pixar", "zack-d": "zack-d", "anime-comic": "anime-comic",
-          "claymation": "claymation", "paper": "paper", "skeleton": "skeleton-ad",
-          "house": "house"}  # fmt: skip  # House: Reed's camera baseline, approved 2 Nov
-SKILLED = {"treatment", "plan", "plan_scene", "director", "review_stills", "watch_cut"}
+# Every writing step gets the video's brief (guides.brief: craft, format, style). The script
+# writers and Improve get only their own sections of the guides, as before.
+GUIDES = {"Script": ["script_draft", "enhance", "variations"], "Clips": ["improve"]}
+DATA = guides.DATA
 
 
-def skill(look_id: str, fmt: str = "") -> str:
-    """The look's whole skill file (a lane takes its look's), and Song's for a song video; ""
-    for a look with none (Watercolor, Wool Crochet)."""
-    look = style(look_id) if look_id else {"id": "", "parent": ""}
-    names = [SKILLS.get(look["parent"] or look["id"]), "song-ad" if fmt == "song" else None]
-    return "\n\n".join((HERE / "skills" / f"{n}.md").read_text() for n in names if n)
-
-
-TOKEN = re.compile(r"\{\{(\w+)\}\}")
-
-
-@cache
 def styles() -> list[dict]:
-    """The style registry, in Reed's order: one styles/<id>.md each (Reed, 2026-10-28). Each is
-    {id, name, kind ("look" or "format"), order, on, image_model, blurb, sections}.
-    `on` is only the starting switch (House alone); the server keeps Reed's own."""
-    out = []
-    for path in (HERE / "styles").glob("*.md"):
-        head, *sections = path.read_text().split("\n## ")
-        meta = dict(m.groups() for m in re.finditer(r"^(\w+): (.+)$", head, re.M))
-        out.append({
-            "id": path.stem,
-            "name": head.splitlines()[0].removeprefix("# "),
-            "kind": meta["kind"],  # look, format, or lane: one way of making a look (Reed, 1 Nov)
-            "parent": meta.get("parent", ""),  # a lane's look
-            "order": float(meta["order"]),  # 5.1: a look's sub-style sits beside it
-            "on": meta["on"] == "yes",
-            "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero
-            "image_model": meta["image_model"],
-            "blurb": meta["blurb"],
-            "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
-        })  # fmt: skip
-    return sorted(out, key=lambda s: s["order"])
+    """The style registry, in Reed’s order (app/guides/styles): {id, name, kind ("look" or "lane"),
+    parent, order, on, own_sample, image_model, blurb, sections}. `on` is only the starting
+    switch (House alone); the server keeps Reed's own."""
+    return guides.styles()
 
 
-# A look's data, never sent to a model as guidance (flows ST2, ST3): words repaired in its picture
-# descriptions, the fix offered for each failure, and the sample still's person.
-DATA = {"banned", "fixes", "sample"}
+def style(style_id: str) -> dict:
+    return guides.style(style_id)
 
 
 def look_banned(look_id: str) -> list[tuple[str, str]]:
     """The look's banned words and their replacements ("" deletes): its `## banned` lines."""
-    lines = style(look_id)["sections"].get("banned", "").splitlines()
-    return [(a.strip(), b.strip()) for a, _, b in (x.partition("→") for x in lines if "→" in x)]
+    return guides.banned(look_id)
 
 
 def look_sample(look_id: str) -> str:
     """The person in the look's sample still when the brand has no hero (flows ST3): its
     `## sample` line, or "" when it has none (the server then uses its own default)."""
-    return style(look_id)["sections"].get("sample", "").strip()
+    return guides.sample(look_id)
 
 
 def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False) -> str:
@@ -136,7 +94,7 @@ def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False
     brand's hero drawn in another look: it says who they are, never how they're drawn, so
     the sample doesn't copy the House look (Reed, 2026-10-29: samples read as generic Pixar).
     Without it, the look's own `## sample` person."""
-    look = style(look_id)["sections"]
+    look = guides.tokens(look_id)
     if from_picture:
         who = (f"{name}, the same person as in [Image1]: the same face, hair, colouring, age and "
                "outfit, redrawn completely in this look. [Image1] is drawn in another style: "
@@ -152,20 +110,7 @@ def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False
 
 def look_fixes(look_id: str) -> dict[str, str]:
     """The look's fix for each failure id (refused, face, outfit, product): `## fixes`."""
-    lines = style(look_id)["sections"].get("fixes", "").splitlines()
-    return {a.strip(): b.strip() for a, _, b in (x.partition(":") for x in lines if ":" in x)}
-
-
-def style(style_id: str) -> dict:
-    found = [s for s in styles() if s["id"] == style_id]
-    if not found:
-        raise ValueError(f"unknown style: {style_id}")
-    return found[0]
-
-
-def _styled(text: str, style_id: str) -> str:
-    looks = style(style_id)["sections"]
-    return TOKEN.sub(lambda m: looks[m.group(1)], text)
+    return guides.fixes(look_id)
 
 
 def _in_look(value, style_id: str):
@@ -174,69 +119,55 @@ def _in_look(value, style_id: str):
     example: QA on #1009). House's example is unchanged."""
     if style_id == "house":
         return value
-    house, own = style("house")["sections"], style(style_id)["sections"]
+    house, own = guides.tokens("house"), guides.tokens(style_id)
     if isinstance(value, dict):
         return {k: _in_look(v, style_id) for k, v in value.items()}
     if isinstance(value, list):
         return [_in_look(v, style_id) for v in value]
     if isinstance(value, str):
         for key, text in house.items():
-            if key not in DATA and text and own.get(key):
+            if text and own.get(key):
                 value = value.replace(text, own[key])
     return value
 
 
+def _picked(title: str, intro: str, sections: dict, step: str) -> str:
+    """A guide's own sections for a step that isn't briefed (the script writers, Improve)."""
+    names = tuple(k for k, steps in GUIDES.items() if step in steps)
+    found = guides.guidance(sections, names) if names else []
+    return f"## {title}\n{intro}\n\n" + "\n\n".join(v for _, v in found) if found else ""
+
+
 @cache
 def system(step: str, style_id: str = "house", fmt: str = "") -> str:
-    """`style_id` is the video's look; `fmt` its type when it has a format of its own ("song":
-    its still and clip guides), whatever the look (Song in any look)."""
+    """`style_id` is the video's look; `fmt` its format or its script's kind (story, song,
+    narrated): guides.video_format reads it. The briefed steps get craft, the format's guide
+    and the style's; the fomo worked examples reach only the dialogue format."""
+    kind = fmt or next((k for k in ("song", "narrated") if step.startswith(f"{k}_")), "")
+    form = guides.format_(guides.video_format(kind, style_id))
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
     for name in filter(None, [EXTENDS.get(step), step]):
-        parts.append(_styled((HERE / f"{name}.md").read_text(), style_id))
-    example = HERE / "examples" / f"{step}.json"
-    if example.exists():
-        ex = _in_look(json.loads(example.read_text()), style_id)
+        parts.append(guides.fill((HERE / f"{name}.md").read_text(), style_id))
+    if ex := guides.example(form["id"], step):
+        ex = _in_look(ex, style_id)
         parts.append(
             f"## Worked example ({ex['source']})\n{ex['note']}\n\n"
             f"<example_input>\n{ex['input']}\n</example_input>\n\n"
             f"<example_output>\n{json.dumps(ex['output'], indent=1)}\n</example_output>"
         )
-    chosen = style(style_id)
-    guide = [chosen["sections"][k] for k, steps in GUIDES.items()
-             if step in steps and k in chosen["sections"]]  # fmt: skip
-    if guide:
-        parts.append(
-            f"## Style: {chosen['name']}\nThis video is in the {chosen['name']} style. Where "
-            "this section and anything above (the worked example included) differ, this "
-            "section wins.\n\n" + "\n\n".join(guide)
-        )
-    form = next((s for s in styles() if s["id"] == fmt and s["kind"] == "format"), None)
-    guide = [form["sections"][k] for k, steps in GUIDES.items()
-             if form and step in steps and k in form["sections"]]  # fmt: skip
-    if guide:
-        parts.append(
-            f"## Format: {form['name']}\nThis video is a {form['name']} video in the "
-            f"{chosen['name']} look: these add to the look, never change it.\n\n"
-            + _styled("\n\n".join(guide), style_id)
-        )
-    if step in SKILLED:  # Reed, 2 Nov: the story from producer craft, the pictures from the style
-        parts.append(
-            "## Producer craft (Reed's: the story, for every video)\nHow the team makes a short "
-            "people watch to the end: the why, the hook, something happening, review and "
-            "rewatch.\n\n" + (HERE / "skills" / "producer-craft.md").read_text()
-        )
-        if text := skill(style_id, fmt):
-            parts.append(
-                "## The style's skill (Reed's: the look, the camera and the shots)\nHow this "
-                "style looks and how its camera, shots, motion and transitions work, with its "
-                "format rules. Where it and the producer craft differ on anything visual, the "
-                "style's skill wins; where the steps above are more specific about the site's own "
-                "fields and limits, they win. This video's look is the one named above: where a "
-                "skill names a studio or a render style that isn't this video's look (a song "
-                "skill's \"Pixar\" on a Claymation song), follow this video's look, and never "
-                "write a studio's name.\n\n" + text
-            )
-    return "\n\n".join(parts)
+    if step in guides.BRIEFED:  # Reed, 2 Nov: one director, briefed by the guides
+        parts.append(guides.brief(form["id"], style_id, step))
+        return "\n\n".join(parts)
+    chosen = guides.style(style_id)
+    parts.append(_picked(
+        f"Style: {chosen['name']}", f"This video is in the {chosen['name']} style. Where this "
+        "section and anything above (the worked example included) differ, this section wins.",
+        chosen["sections"], step))  # fmt: skip
+    parts.append(guides.fill(_picked(
+        f"Format: {form['name']}", f"This video is a {form['name']} video in the "
+        f"{chosen['name']} look: these add to the look, never change it.",
+        form["sections"], step), style_id))  # fmt: skip
+    return "\n\n".join(p for p in parts if p)
 
 
 def number_lines(script: str) -> str:
@@ -358,7 +289,7 @@ def watch_system() -> str:
     """Gemini's system prompt for watching an imported reel: reel_watch.md, its worked example
     and the ReelWatch JSON schema (Gemini has no structured output on Replicate, so it's in the
     text). The video and contact sheet go with the call; reel_watch_input(...) is the message."""
-    ex = json.loads((HERE / "examples" / "reel_watch.json").read_text())
+    ex = guides.example("dialogue", "reel_watch")
     schema = json.dumps(schemas.ReelWatch.model_json_schema())
     return (
         f"{(HERE / 'reel_watch.md').read_text()}\n\n## Worked example ({ex['source']})\n"
@@ -454,7 +385,7 @@ def sheet_prompt(
     item's notes; `role` is the script's part for a look made from a cast slot ("Omar, the
     boyfriend"), given without its name. Names stay out so none is drawn. `style_id` is the
     style the sheet is drawn in (a sheet is per style)."""
-    sections = _styled((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
+    sections = guides.fill((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
     out = [parts[kind]]
     if kind == "character" and from_photo:
