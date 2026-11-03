@@ -144,7 +144,8 @@ export function NewScriptPage() {
   const empty = { kind, published: false, versions: [{ slot: 0, text: "", status: "draft" }] } as unknown as Script;
   // Every step after the first is locked with its reason: none can be opened before the script exists (QA-3 on #1191).
   const steps = (kind in KINDS ? stepStates(stepsFor(empty)[0].id, empty) : [])
-    .filter((x) => kind !== "story" || x.id !== "publish")
+    // Publish is "Publish to library", not a step in the bar, for stories and songs alike (v5; ScriptFlowPage's barSteps).
+    .filter((x) => (kind !== "story" && kind !== "song") || x.id !== "publish")
     .map((x, n) => (n === 0 ? x : { ...x, state: "todo" as const, reason: kind === "song" ? "Write or pick the lyrics first" : "Write a few lines first" }));
   const type = (text: string) => {
     latest.current = text;

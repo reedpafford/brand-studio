@@ -365,3 +365,18 @@ test("Takes (v5): the takes are rows under the header's Edit and Make 2 more, an
   expect(screen.getByText("A video this long: about 40 credits to make (planned).")).toBeInTheDocument();
   expect(screen.getByText('The song then ends on: "Now he licks it clean"')).toBeInTheDocument();
 });
+
+test("a new song script, before it is saved, shows the same four steps as a saved one: Lyrics · Takes · Breakdown · Cast (QA-3 on #1260)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts/new?kind=song");
+  const steps = await screen.findByRole("list", { name: "Steps" });
+  expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Lyrics", "Takes", "Breakdown", "Cast"]);
+});
+
+test("at 390 a new song script reads Step 1 of 4 · Lyrics", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /scripts": [200, []] });
+  open("/b/1/scripts/new?kind=song");
+  expect(await screen.findByRole("button", { name: "Step 1 of 4 · Lyrics" })).toBeInTheDocument();
+});

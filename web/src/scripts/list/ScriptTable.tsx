@@ -26,7 +26,7 @@ export function ProjectGroups({ rows, folders, row }: { rows: Row[]; folders: Fo
     <div className="-mx-4 sm:-mx-6">
       <TableHead />
       {all.map((g) => {
-        const shown = open[g.key] ?? (g.key !== "none" || groups.length === 0);
+        const shown = open[g.key] ?? true; // every group starts open, No project too (C_Scripts: "No project 17" with its rows)
         const Icon = shown ? ChevronDown : ChevronRight;
         return (
           <section key={g.key} aria-label={g.name}>
