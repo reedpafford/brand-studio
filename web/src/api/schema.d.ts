@@ -6961,6 +6961,11 @@ export interface components {
              * @default []
              */
             used_in: components["schemas"]["UsedIn"][];
+            /**
+             * Used In Count
+             * @default 0
+             */
+            used_in_count: number;
         };
         /**
          * ItemPatch
@@ -8256,6 +8261,11 @@ export interface components {
              * @default []
              */
             used_in: components["schemas"]["UsedIn"][];
+            /**
+             * Used In Count
+             * @default 0
+             */
+            used_in_count: number;
             /** Was File Id */
             was_file_id: number | null;
         };
