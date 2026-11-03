@@ -7,8 +7,6 @@ import { lastBrand, useBrands } from "../shell/useBrands";
 import { PeriodControl, periodWord } from "./parts";
 import { periodFrom } from "./useUsage";
 
-const director = (v: { director_credits?: number }) => v.director_credits ?? 0;
-const used = (v: { credits: number; director_credits?: number }) => Math.max(0, v.credits - director(v));
 // D_MyCredits: a dot and words, whole credits.
 const VIDEO_STATUS = { in_production: ["Making", "bg-accent"], done: ["Delivered", "bg-success"], failed: ["Didn't finish", "bg-danger"] } as const;
 const whole = (n: number) => {
@@ -121,12 +119,10 @@ export function MinePage() {
                       <span className="flex items-center gap-2 text-sm">
                         <Status dot={VIDEO_STATUS[v.status][1]}>{VIDEO_STATUS[v.status][0]}</Status>
                         <span className="text-right tabular-nums text-muted">
-                          {/* The director's own time is apart from the budget (#1216, QA-3 on #1218): a director-run video
-                              reads against what the owner approved, the rest against the budget. */}
-                          {v.approved_up_to != null
-                            ? `${whole(used(v))} used of up to ${whole(v.approved_up_to)} approved`
-                            : `${whole(used(v))} of ${whole(v.budget_credits)}`}
-                          {director(v) > 0 && <span className="block text-xs">{whole(director(v))} of director time</span>}
+                          {/* The Producer, 3 Nov: "spent N", the director's time included; what the owner approved, muted,
+                              where there is one (rule 34). The director's split is on Usage only. */}
+                          spent {Math.ceil(v.credits - 1e-9).toLocaleString("en-US")}
+                          {v.approved_up_to != null && <span className="block text-xs">up to {Math.ceil(v.approved_up_to - 1e-9).toLocaleString("en-US")} approved</span>}
                         </span>
                       </span>
                     </Link>

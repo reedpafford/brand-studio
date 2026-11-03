@@ -1,32 +1,22 @@
-import { useState, type ReactNode } from "react";
-import { Check, ChevronDown, CircleAlert, Clapperboard, Clock, Film, Search, TriangleAlert } from "lucide-react";
+import type { ReactNode } from "react";
+import { Check, ChevronDown, CircleAlert, Clapperboard, Clock, Film, TriangleAlert } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, EmptyState, PageTop, Select, Sheet, Skeleton, Tabs, creditsText, type Tone } from "../components";
-import { useDebounced } from "../scripts/status";
+import { Badge, Banner, Button, EmptyState, PageTop, Skeleton, Tabs, type Tone } from "../components";
 import { useBrands } from "../shell/useBrands";
-import { lastText, money } from "../usage/parts";
+import { lastText } from "../usage/parts";
 import { useRail } from "../useMedia";
-import { useProduction, useProductionSummary, type Row, type Sort, type Step } from "./useProduction";
+import { useProduction, useProductionSummary, type Row, type Step } from "./useProduction";
 import { serverTime } from "../time";
-import { budgetUsed } from "../projects/budget";
 import { linkText } from "../ui";
 
 export const STEPS: Record<Step, string> = { breakdown: "Plan", assets: "Cast", storyboard: "Storyboard", clips: "Clips", downloads: "Final cut" };
-const SORTS: { id: Sort; label: string }[] = [
-  { id: "attention", label: "Needs attention first" },
-  { id: "activity", label: "Last activity" },
-  { id: "credits", label: "Most credits used" },
-  { id: "budget", label: "Closest to budget" },
-];
-const sortFrom = (s: string | null): Sort => SORTS.find((x) => x.id === s)?.id ?? "attention";
 export const FLAGS: Record<NonNullable<Row["flag"]>, { label: string; tone: Tone; icon: typeof Clock }> = {
   failed: { label: "Didn't finish", tone: "danger", icon: CircleAlert },
   stuck: { label: "Stuck", tone: "warning", icon: TriangleAlert },
   idle: { label: "No activity", tone: "warning", icon: Clock },
 };
-const CLOSE = "Close to the budget. Going over needs your approval.";
 
 const mins = (iso: string) => Math.max(1, Math.floor((Date.now() - serverTime(iso).getTime()) / 60_000));
 const span = (iso: string) => (mins(iso) < 90 ? `${mins(iso)} min` : `${Math.floor(mins(iso) / 60)} h`);
@@ -42,13 +32,12 @@ export function reason(r: Row) {
 /** Who started it; the server says nobody when that person is gone. */
 export const who = (r: Row) => r.editor?.name ?? "Someone";
 const label = (r: Row) => `${r.script.title}, version ${r.letter}, ${who(r)}, at ${STEPS[r.step]}${r.flag ? `, ${FLAGS[r.flag].label.toLowerCase()}` : ""}`;
-const nearBudget = (r: Row) => r.budget_credits > 0 && budgetUsed(r) / r.budget_credits >= 0.9; // the director's own time never counts (DECISIONS #1066)
 
 /** What a moving video is doing now, by its step (v5 D_Production's Now column). */
 const NOW: Record<Step, string> = { breakdown: "Making the plan", assets: "Casting", storyboard: "Drawing the storyboard", clips: "Making clips", downloads: "Making the final cut" };
-// D_Production's four bars: Plan · Cast · Clips · Final cut (the storyboard counts as Cast).
+// D_Production's four bars: Plan · Cast · Clips · Final cut (the stills are drawn on Clips, so the storyboard counts as Clips).
 const BARS = ["Plan", "Cast", "Clips", "Final cut"] as const;
-const BAR: Record<Step, number> = { breakdown: 0, assets: 1, storyboard: 1, clips: 2, downloads: 3 };
+const BAR: Record<Step, number> = { breakdown: 0, assets: 1, storyboard: 2, clips: 2, downloads: 3 };
 
 /** A compact select for the page's bars on a computer ("Brand: All" on the board); `label` names it for screen readers. */
 function BarSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
@@ -122,33 +111,27 @@ function FlagLine({ r }: { r: Row }) {
   );
 }
 
-function Credits({ r }: { r: Row }) {
+/** A row's spend (the Producer, 3 Nov): "spent N" in whole credits, the director's time included; where the owner approved
+ *  a run, "up to M approved" muted under it (rule 34). The director's split is on Usage only. */
+function Spent({ r }: { r: Row & { approved_up_to?: number | null } }) {
   return (
-    <span title={nearBudget(r) ? CLOSE : undefined} className={nearBudget(r) ? "text-warning" : undefined}>
-      {Math.round(budgetUsed(r))} of {Math.round(r.budget_credits)}
-    </span>
+    <>
+      <span className="block">spent {Math.ceil(r.credits_used - 1e-9).toLocaleString("en-US")}</span>
+      {r.approved_up_to != null && <span className="block text-xs text-muted">up to {Math.ceil(r.approved_up_to - 1e-9).toLocaleString("en-US")} approved</span>}
+    </>
   );
 }
 
-/** The director's own time, apart from the budget, on its own line after the spend (#1216, QA-3 on #1218). */
-function DirectorTime({ r }: { r: Row }) {
-  return (r.director_credits ?? 0) > 0 ? <span className="block text-xs text-muted">{creditsText(r.director_credits)} of director time</span> : null;
-}
-
-/** Reed's list of every version being made, across all brands. Filters live in the address. */
+/** The owner's list of every video being made, across all brands (v5 D_Production): the three tabs, Brand in the top
+ *  bar, nothing else to filter. Rows come needing attention first, then by last activity. Filters live in the address. */
 export function ProductionPage() {
   const { data: me, isPending } = useMe();
   const rail = useRail();
   const [params, setParams] = useSearchParams();
   const { data: brands } = useBrands();
   const brand = params.get("brand") ?? "";
-  const editor = params.get("editor") ?? "";
   const attention = params.get("attention") === "1";
   const delivered = params.get("delivered") === "1"; // the Delivered today tab (#1232)
-  const sort = sortFrom(params.get("sort"));
-  const [text, setText] = useState(params.get("q") ?? "");
-  const q = useDebounced(text.trim());
-  const [sheet, setSheet] = useState(false);
   const set = (key: string, value: string) =>
     setParams(
       (prev) => {
@@ -161,20 +144,11 @@ export function ProductionPage() {
     );
   const owner = me?.role === "owner";
   const summary = useProductionSummary(owner);
-  const { query, rows, total } = useProduction({ brand, editor, attention, delivered, q, sort });
-  // Everyone with a video in the list, kept as filters narrow it.
-  const [people, setPeople] = useState(new Map<number, string>());
-  const seen = rows.flatMap((r): [number, string][] => (r.editor ? [[r.editor.id, r.editor.name]] : []));
-  if (seen.some(([id, name]) => people.get(id) !== name)) setPeople(new Map([...people, ...seen]));
+  const { query, rows } = useProduction({ brand, editor: "", attention, delivered, q: "", sort: delivered ? "activity" : "attention" });
 
   if (isPending) return null;
   if (!owner || summary.error?.message === "404" || query.error?.message === "404") return <p className="p-6">Page not found.</p>;
 
-  const filtered = !!(brand || editor || attention || delivered || q);
-  const clear = () => {
-    setText("");
-    setParams({}, { replace: true });
-  };
   const all = summary.data?.in_production;
   const needs = summary.data?.needs_attention ?? 0;
   // Finished videos whose clips changed since are not being made, but they aren't done either (#749 LW2).
@@ -186,38 +160,9 @@ export function ProductionPage() {
     </Link>
   );
   const today = summary.data?.delivered_today ?? 0;
-  const count = summary.data && (delivered && !(brand || editor || q) ? `${today} video${today === 1 ? "" : "s"} delivered today` : filtered ? `${total ?? 0} of ${all} video${all === 1 ? "" : "s"}` : ["Every brand", `${all} video${all === 1 ? "" : "s"} making`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
+  const named = brands?.find((b) => String(b.id) === brand)?.name;
+  const count = summary.data && (delivered ? `${today} video${today === 1 ? "" : "s"} delivered today` : [named ?? "Every brand", `${all} video${all === 1 ? "" : "s"} making`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
 
-  const brandSelect = (
-    <Select label="Brand" value={brand} onChange={(e) => set("brand", e.target.value)}>
-      <option value="">All</option>
-      {brands?.map((b) => (
-        <option key={b.id} value={b.id}>{b.name}</option>
-      ))}
-    </Select>
-  );
-  const editorSelect = (
-    <Select label="Editor" value={editor} onChange={(e) => set("editor", e.target.value)}>
-      <option value="">Anyone</option>
-      {[...people].map(([id, name]) => (
-        <option key={id} value={id}>{name}</option>
-      ))}
-    </Select>
-  );
-  const sortSelect = (
-    <Select label="Sort" value={sort} onChange={(e) => set("sort", e.target.value === "attention" ? "" : e.target.value)}>
-      {SORTS.map((s) => (
-        <option key={s.id} value={s.id}>{s.label}</option>
-      ))}
-    </Select>
-  );
-  const search = (
-    <label className="relative block min-w-0 flex-1 lg:w-56 lg:flex-none">
-      <span className="sr-only">Search scripts</span>
-      <Search size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-      <input type="search" role="searchbox" placeholder="Search scripts" value={text} onChange={(e) => (setText(e.target.value), set("q", e.target.value.trim()))} className="min-h-control w-full rounded-md border border-border bg-surface pl-9 pr-3 lg:min-h-control-dense" />
-    </label>
-  );
   const showTabs = (
     <Tabs label="Show" value={delivered ? "delivered" : attention ? "attention" : "making"} onChange={(t) => setParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -231,41 +176,22 @@ export function ProductionPage() {
       { id: "delivered", label: rail ? "Delivered today" : "Delivered", count: summary.data?.delivered_today },
     ]} />
   );
-  const clearButton = filtered && <Button variant="ghost" onClick={clear}>Clear filters</Button>;
-  const active = [brand, editor, attention, sort !== "attention"].filter(Boolean).length;
 
   let empty: ReactNode = null;
   if (query.isSuccess && rows.length === 0) {
-    if (!filtered) empty = <EmptyState icon={Clapperboard} title="Nothing is being made right now.">A video shows here while it's being made, from its first plan to its final cut.</EmptyState>;
-    else if (delivered && !(brand || editor || q)) empty = <EmptyState icon={Clapperboard} title="Nothing delivered today yet.">Videos show here on the day their final cut is made.</EmptyState>;
-    else if (attention && !(brand || editor || q)) empty = <EmptyState icon={Check} title="Nothing needs attention." action={<Button variant="ghost" onClick={() => set("attention", "")}>Show all</Button>}>Every video is moving.</EmptyState>;
-    else empty = <EmptyState icon={Search} title="Nothing matches these filters." action={clearButton || undefined} />;
+    if (delivered) empty = <EmptyState icon={Clapperboard} title="Nothing delivered today yet.">Videos show here on the day their final cut is made.</EmptyState>;
+    else if (attention) empty = <EmptyState icon={Check} title="Nothing needs attention." action={<Button variant="ghost" onClick={() => set("attention", "")}>Show all</Button>}>Every video is moving.</EmptyState>;
+    else if (brand) empty = <EmptyState icon={Clapperboard} title={`Nothing is being made in ${named ?? "this brand"} right now.`} action={<Button variant="ghost" onClick={() => set("brand", "")}>Every brand</Button>} />;
+    else empty = <EmptyState icon={Clapperboard} title="Nothing is being made right now.">A video shows here while it's being made, from its first plan to its final cut.</EmptyState>;
   }
 
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <PageTop title="In production" line={count && <>{count}{!filtered && waitingLink && <> · {waitingLink}</>}</>}>
-        {rail && <BarSelect label="Brand" value={brand} onChange={(v) => set("brand", v)} options={[["", "Brand: All"], ...(brands ?? []).map((b): [string, string] => [String(b.id), b.name])]} />}
+      <PageTop title="In production" line={count && <>{count}{!delivered && !brand && waitingLink && <> · {waitingLink}</>}</>}>
+        <BarSelect label="Brand" value={brand} onChange={(v) => set("brand", v)} options={[["", "Brand: All"], ...(brands ?? []).map((b): [string, string] => [String(b.id), b.name])]} />
       </PageTop>
-      {/* v5 D_Production: Making and Needs attention as tabs in a band, the other filters on its right. */}
-      {rail && (
-        <div className="-mx-6 -mt-4 flex flex-wrap items-center gap-3 border-b border-border px-6 py-2">
-          {showTabs}
-          {/* D_Production has only the tabs here: Brand is in the top bar, and the rows come needing attention first. */}
-        </div>
-      )}
-      {!rail && (
-      <>
-      {/* On a phone the same three tabs, shorter, in their own band (QA-3 on #1241). */}
+      {/* v5 D_Production: only the three tabs, in a band; on a phone with shorter names (QA-3 on #1241). */}
       <div className="-mx-4 -mt-4 border-b border-border px-4 py-2 sm:-mx-6 sm:px-6">{showTabs}</div>
-      <div className="flex flex-wrap items-end gap-3">
-        {search}
-        <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
-          {active > 0 ? `Filters (${active})` : "Filters"}
-        </Button>
-      </div>
-      </>
-      )}
       {query.isError && <Banner title="Couldn't load the videos being made." action={<Button variant="secondary" onClick={() => void query.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {query.isPending && (
         <div role="status" aria-label="Loading" className={rail ? "space-y-2" : "grid gap-3 sm:grid-cols-2"}>
@@ -280,16 +206,6 @@ export function ProductionPage() {
         <Button variant="secondary" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()} className="w-full lg:w-auto">
           Show more
         </Button>
-      )}
-      {sheet && (
-        <Sheet title="Filters" onClose={() => setSheet(false)}>
-          <div className="space-y-3 pb-2">
-            {brandSelect}
-            {editorSelect}
-            {sortSelect}
-            {clearButton}
-          </div>
-        </Sheet>
       )}
     </main>
   );
@@ -320,8 +236,7 @@ function Table({ rows, showBrand }: { rows: Row[]; showBrand: boolean }) {
               <Now r={r} />
               <span className="min-w-0 break-words text-muted">{who(r)}</span>
               <span className="text-right">
-                <Credits r={r} /> <span className="text-muted">{money(r.spent_usd)}</span>
-                <DirectorTime r={r} />
+                <Spent r={r} />
               </span>
             </Link>
           </li>
@@ -346,9 +261,8 @@ function Cards({ rows }: { rows: Row[] }) {
                 {/* Like the computer's Now (QA-3 on #1241); a flagged one keeps its step here and its flag below. */}
                 {r.flag ? <span className="block text-sm text-muted">{STEPS[r.step]} · {ago(lastText(r.last_activity_at))}</span> : <span className="block text-muted"><Now r={r} /></span>}
                 <span className="block text-sm text-muted tabular-nums">
-                  <Credits r={r} /> credits · {money(r.spent_usd)}
+                  <Spent r={r} />
                 </span>
-                <DirectorTime r={r} />
               </span>
             </span>
             <FlagLine r={r} />
