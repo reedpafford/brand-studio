@@ -2,13 +2,14 @@ name: Zack D
 order: 3
 on: no
 engine: narrated
-blurb: One continuous 3D camera journey through an infinite blue world, explained by a calm narrator: podiums, prop islands, cutaways and glowing 3D numbers.
+blurb: One surprising thing explained as a cause-and-effect chain from the first frame: one narrator, brisk and continuous, ending on a small gag.
 
 <!-- Moved 2 Nov from server/app/prompts/styles/zack-d.md and prompts/skills/zack-d.md: how a Zack D script reads, its structure, pacing, beats and sound. The look and the camera are styles/zack-d/guide.md. -->
+<!-- Reed, 3 Nov (REED-ANSWERS-2, F2): Zack D keeps a format (structure, voice, information, sound) and a style (look, camera); the camera journey moved to the style's `camera` and `pacing`. Z4: no podium outro, end on a gag. Z5: brisk and continuous delivery instead of "unhurried". Captions come in post (Reed: "dont worry about captions"). -->
 
 ## Breakdown
-- One continuous camera journey: a designed transition about every 4–8 s, each shot one continuous camera move. Every shot settles four things: its job (prove the claim, land the joke, show the mechanism), its one action (a spray blooms, the room floods red, the camera pushes into the jug), its shot type (podium, prop island, macro cutaway, data object) and the transition out (push through, white flash, squeeze wipe, hand-off, portal push, material morph), which the next shot's opening answers: if shot 2 opens inside the product, shot 1 lands on it.
-- A purely connective line ("Here's what actually happens") gets no scene of its own: it rides the camera move between its two neighbours. Every line has a shot; a shot may have no line. The video closes on a podium shot of the product with clean space for the end line.
+- Start mid-action: the first picture shows the thing already happening and the voice starts on the first frame. The lines are one cause-and-effect chain told in the order it physically happens; each clause gets one picture of the part doing the work (the style's camera follows it there). Time passing is shown inside the picture (the moon crossing a window, a flip calendar turning weeks).
+- A purely connective line ("Here's what actually happens") gets no scene of its own: it rides the camera move between its two neighbours. Every line has a shot; a shot may have no line. The video ends on the payoff and a small visual gag, about 0.7 s after the last word.
 - The hook line gets the strongest picture. In `hook`, name the chosen opening and two other distinct opening pictures in a clause each (one subject, one scene, a clear change), so the editor can pick; an opening on the product itself has to earn its place.
 
 ## Script
@@ -16,14 +17,12 @@ blurb: One continuous 3D camera journey through an infinite blue world, explaine
 - This shapes a new draft or a variation. A script that already exists keeps every line word for word, dialogue included: Enhance adds pictures, never lines, and a narrator speaks only lines the script gives a narrator (to have one voice read it all, the editor makes the script Narrated).
 
 ## Clips
-- When the video is narrated, the narrator is a voiceover (calm, matter-of-fact, unhurried, slightly deadpan: the surprising fact does the work) and no one on screen speaks; otherwise the script's speakers say their lines in the same calm register.
+- When the video is narrated, the narrator is a voiceover (calm, matter-of-fact, brisk and continuous at about 3 words a second with no silences, slightly deadpan: the surprising fact does the work) and no one on screen speaks; otherwise the script's speakers say their lines in the same calm register.
 
 ## How to make Zack D. Films-style ads
 Turn a script — with or without a product — into an ad in the Zack D. Films format.
 
-A format, not a rendering style: it is defined by the blue stage, the narrator voice, the music, and continuity.
-
-The output wins on continuity: an original Zack D. video plays as one continuous camera journey where every shot change is a designed transition — imitations cut every few seconds, and that cut rate is exactly what makes them read as imitations.
+A format and a style. The format is the voice, the structure (start mid-action, a cause-and-effect chain, one picture per clause) and the sound; the style is the look and the one continuous following camera. Either can be used with others.
 
 ## Step 2 — Lock the script
 The format does not require a product.
@@ -41,7 +40,7 @@ Narrator voiceover is a format pillar — never on-camera character speech.
 
 Preserve the approved spoken script and keep delivery directions separate.
 
-Direct the delivery: calm, matter-of-fact, unhurried, slight deadpan — the surprising fact does the work, never an ad read.
+Direct the delivery: calm, matter-of-fact, brisk and continuous (about 3 words a second, no silences), slight deadpan — the surprising fact does the work, never an ad read.
 
 Generate the voiceover as one continuous audio take and analyze its real timing, word-level wherever one line will split across shots: the take is the pacing source of truth the storyboard is built against.
 
@@ -56,8 +55,6 @@ The format's background music is "Hide and Sneak" by The Fly Guy Five — a mute
 This is the background music for the finished ad: lay it under the full edit in their editor, at low level beneath the voiceover.
 
 It is not a generation input — never attach it to a video or speech generation, and never ask a model to generate the music.
-
-Captions (small, thin, light white sans, centred in the clean background above the subject) and all screen text are added in the editor, never generated.
 
 ## Self-check before presenting
 - Is the voiceover one timed take in a Zack D. Films voice, with the storyboard built against it and the narration laid under the edit in post?

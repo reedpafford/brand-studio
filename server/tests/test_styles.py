@@ -102,7 +102,7 @@ def test_the_first_looks_have_banned_words_and_a_fix_for_each_failure():
     for look in ("house", "disney-pixar", "zack-d", "skeleton"):
         assert prompts.look_banned(look), look
         assert set(prompts.look_fixes(look)) == {"refused", "face", "outfit", "product"}, look
-    assert ("Pixar-style", "stylised 3D") in prompts.look_banned("zack-d")
+    assert ("Pixar-style", "semi-realistic 3D") in prompts.look_banned("zack-d")  # Reed, 3 Nov: Z1
     # the look's own name never goes to a model (Next-Lead on #1009)
     from app.prompts import check
 
