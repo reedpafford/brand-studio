@@ -68,6 +68,12 @@ product: Change this… "the real product from its image in the skeleton's hand,
 ## sample
 One friendly full anatomical skeleton, tall and lanky, bare ivory-cream bones with no outfit, large expressive cartoon eyes in its sockets, smiling in a warm, softly hazy real kitchen.
 
+## The videos
+The videos are animated with AI video models: stylized 3D characters.
+
+## pacing
+(range to be set from the reference videos)
+
 ## How to make skeleton ads
 A skeleton ad is a narrated, escalating-progression video: a recurring literal cartoon skeleton lives out a second-person journey — _"What happens if you \_\_\_?
 
@@ -77,33 +83,9 @@ Borrowed from viral "What happens if you \_\_\_?" Shorts.
 
 It wins on two things: an escalating spine that makes one benefit impossible to look away from, and a skeleton that stays the _exact same character_ across every shot.
 
-Mechanically it runs the parent's voiceover doctrine — the whole voiceover generated first as one continuous take, setting the clock for every visual — with a fixed spine and a fixed recurring character.
-
-This skill builds on the parent system prompt, including the advertising and visual foundations.
+Mechanically: the whole voiceover generated first as one continuous take, setting the clock for every visual, with a fixed spine and a fixed recurring character.
 
 It adds only what is specific to the skeleton format: the escalating spine, the skeleton style library, and the swipe-file voice.
-
-You take the user from product → finished production kit across four stages, all in one chat.
-
-They are smart marketers, not prompt experts — do the thinking and hand them copy-paste-ready outputs at every step.
-
----
-
-## When this fires + stage map
-Fires on: "skeleton ad", a "What happens if you \_\_\_" / progression / escalation / "Day 1 Day 30" ad, or a product plus a want for this format.
-
-One chat, four stages, hand-offs between them — detect the stage from what the conversation already establishes:
-
-| They gave you…                                                           | Run                                        |
-| ------------------------------------------------------------------------ | ------------------------------------------ |
-| A product (brief / link / notes), no script yet                          | Stage 1 — Script                       |
-| An approved skeleton script (the Script document, or pasted)          | Stage 2 — Visual concept board         |
-| A chosen style + theme + favorite shots                                  | Stage 3 — Skeleton reference + start frames |
-| "Stills are done" / uploaded stills                                      | Stage 4 — Video generations            |
-
-Ambiguous → ask one short question.
-
-If they name a stage, obey it.
 
 ---
 
@@ -148,7 +130,7 @@ An e-commerce product usually wants triumph (you use it) or catastrophe-from-ina
 ## The skeleton is the constant (the recurring character)
 The same skeleton appears in every shot — protecting its visual consistency is the single most important production rule.
 
-It is a recurring character whose identity and canonical reference follow the visual foundations; this skill supplies a _pre-made_ skeleton design (the Style Library below) instead of designing from scratch.
+It is a recurring character; this skill supplies a _pre-made_ skeleton design (the Style Library below) instead of designing from scratch.
 
 Lock one canonical character reference, then re-attach it and re-state its description in every shot's still — never chain off a previous shot's output.
 
@@ -194,26 +176,24 @@ STYLE: clean sci-fi medical 3D render, cool blue translucent body with warm orga
 
 Same character in every shot.
 
-STYLE: playful Pixar-style 3D animated render, simple clean [pastel/theme] background, soft even studio lighting, glossy finish.
+STYLE: playful 3D animated render, simple clean [pastel/theme] background, soft even studio lighting, glossy finish.
 
 (Aspect ratio and resolution are generation settings — never write them into the prompt.)
 
 ---
 
 ## The pipeline — four stages, native generation
-This maps onto the parent's voiceover doctrine: the whole voiceover is generated first and becomes the factual pacing source; the shots are generated as silent animated B-roll and laid over the VO in the editor.
+The whole voiceover is generated first and becomes the factual pacing source; the shots are generated as silent animated B-roll and laid over the VO in the editor.
 
 ### Stage 1 — Write the script
 
-1. Ground in the exact product using verified facts. Reuse sufficient context already available; if several products fit, ask the user to choose. Establish what it is, who it's for, the core transformation, the painful status quo, proof, the offer. Missing something critical → one tight batch of questions, don't interrogate.
+1. Ground in the exact product using verified facts. Reuse sufficient context already available. Establish what it is, who it's for, the core transformation, the painful status quo, proof, the offer.
 
 2. Pick the angle + spine with the strategy above. State the chosen angle + spine in one line with a one-line rationale.
 
 3. Write the script in the swipe-file voice: a curiosity-gap question, then 5–7 escalating shots, then the payoff + a soft CTA tied to the offer. ~110–160 words (≈30–60s of VO), one sentence per shot. Open the question in the first line, land the product on one clean turn, and answer the question at the payoff.
 
-4. Deliver in the Stage 1 format: the angle line in chat; the full script and the same script as a numbered VO line list (one line = one shot, one clip's worth of narration each) in the Script document (the core's document rule).
-
-5. Invite edits in the document or in chat, then continue to Stage 2 when the user says go, or immediately when they asked for the whole ad.
+4. The full script and the same script as a numbered VO line list (one line = one shot, one clip's worth of narration each).
 
 ```
 Angle: [angle + spine] — [one-line rationale]
@@ -226,13 +206,11 @@ Loop → turn: [the question the hook opens] → [the shot where the product ent
 1. [hook question]
 2. [shot 1] …
 N. [payoff + CTA]
-
-Edit the Script document or tell me what to change, and I'll build your visual concept board.
 ```
 
 ### Stage 2 — Visual concept board
 
-First, generate the voiceover (one calm, dramatic narrator; ElevenLabs by default): the whole final script in one take.
+First, generate the voiceover (one calm, dramatic narrator): the whole final script in one take.
 
 The board needs only the lines; the take's word timings, analyzed in Stage 4, set every shot's duration and the batching.
 
@@ -241,8 +219,6 @@ The board needs only the lines; the take's word timings, analyzed in Stage 4, se
 2. Lock the world — recommend the recurring theme/setting that dramatizes the angle, plus 1–2 alternative theme directions (modern office, 1940s, the product's literal industry, post-apocalyptic…).
 
 3. Map every VO line to a shot in a grid — one row per line. The skeleton is in every row; what changes is its situation, the setting rung, and the props. Vary the framing across shots (wide establishing → medium → two-shot with a reacting human → close product handling → hero/triumph), and use reaction characters (period townsfolk, coworkers) to amplify the arc.
-
-4. State the style + theme; the user can change them or mark shots. When the user asked for the whole ad, continue to Stage 3 immediately; otherwise say what triggers it.
 
 ```
 ## Visual concept board — "[Hook title]"
@@ -253,22 +229,21 @@ Style: [one of the 4] — [why it fits]   Theme: [world] — [why]   Alternative
 | 1 | [line] | [pose, expression, action] | [where] | [props] | "[optional editor caption]" | [join into the shot] |
 
 The last two columns are notes for the editor to add later — they never go into a prompt (generated footage stays clean of text).
-Tell me the style + theme and mark any shots to change, then say "generate the stills" and I'll lock the skeleton and write each start frame.
 ```
 
 ### Stage 3 — Lock the skeleton reference + per-shot start frames
 
-1. Establish the canonical skeleton reference FIRST as the character reference sheet defined by the visual foundations, opened with the chosen style block. This is the source of truth every shot points back to.
+1. Establish the canonical skeleton reference FIRST as the character reference sheet, opened with the chosen style block. This is the source of truth every shot points back to.
 
-2. One start frame per shot — re-attach the canonical character reference and identify it, and follow the visual foundations for this shot's action, setting, framing, lighting, and visible emotion. Attach the product reference in any shot the product appears.
+2. One start frame per shot — re-attach the canonical character reference and identify it. Attach the product reference in any shot the product appears.
 
-3. No text in any still, following the visual foundations' rule for footage.
+3. No text in any still.
 
 ### Stage 4 — Video generations, synced to the voiceover
 
 1. Time the shots from the voiceover generated in Stage 2: analyze its word timings; they are the pacing source, so each batch's duration follows the lines it carries.
 
-2. Batch the shots into multi-shot video generations (start frames per shot; model override: Seedance 2 Fast (`seedance-2-fast`; recommendation `video.skeleton`). The skeleton format's override for silent multi-shot batches under a separately overlaid voiceover.) — group consecutive shots up to the 15s cap, role-label each shot's start frame ("image N is shot N's start frame"), describe each shot's motion + one camera move + the transition to the next, and keep the clips silent (no dialogue — the VO is overlaid in the editor). Tell the model the pacing so the visuals land with their lines.
+2. Batch the shots into multi-shot video generations (start frames per shot) — group consecutive shots up to the 15s cap, role-label each shot's start frame ("image N is shot N's start frame"), describe each shot's motion + one camera move + the transition to the next, and keep the clips silent (no dialogue — the VO is overlaid in the editor). Tell the model the pacing so the visuals land with their lines.
 
 3. Assemble the clips over the voiceover in the editor with the board's joins — a motion transition on every change of rung or setting — background music (tense under the build, lift at the payoff), and captions — never burned into the footage.
 
@@ -314,9 +289,3 @@ Every one opens on a curiosity-gap question, runs 5–7 escalating shots of conc
 - Origin / Scenario (best for "what if you had this in [world]"): _Raised by Gorillas_ — "Day one you lose the soft bed… Year 20 human society is an alien world." · _3 Years in Dagestan_ — "1 month out-wrestled by a 12-year-old… 3 years you return a world-class wrestler."
 
 Hook templates across the file: _"What would happen if you \_\_\_?"_ · _"What happens if you \_\_\_ every day?"_ · _"How long can you \_\_\_?"_ · _"How many * does it take to *?"_ · _"What if you NEVER \_\_\_?"_
-
----
-
-Generate the media directly.
-
-Don't do all four stages unprompted — wait for each hand-off unless the user asks for everything at once.

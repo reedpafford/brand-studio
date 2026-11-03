@@ -57,39 +57,18 @@ product: Change this… "the real product from its image on a podium in the blue
 ## sample
 A friendly stylised 3D man in his thirties with short brown hair and a calm half-smile, in one plain orange T-shirt, standing in an infinite bright cyan-blue world.
 
-## How to make Zack D. Films-style ads: the look and the camera
-Pixar-style 3D is the default rendering register — state it as a fact, never a question; when the user asks for another animation style (claymation, papercraft…), activate that rendering-style skill and use its style block, and everything else here still applies.
+## The videos
+The videos are animated with AI video models: stylized 3D characters.
 
-## Step 1 — Kickoff
-The first reply is this template filled, and nothing else — no format lecture, no preamble, no extra questions.
+## pacing
+Every seam is chosen. One visible change roughly every second; a designed transition every 4–8 seconds; shots run 4–8s carrying a single continuous camera move. A cut is a decision, not a default.
+(range to be set from the reference videos)
 
-The banner does the explaining; the creation gate owns the rest of the ad's frame, so drop from the ask any item the conversation already settled.
-
-The fence below is for your eyes only: the reply ships as plain markdown, and the image line is never wrapped in a code block.
-
-```
-This skill makes ads after the famous Zack D. Films format — it builds the images and video, narrates in the Zack D voice, and lays the iconic music under the edit.
-
-![Zack D stage lanes](https://f.starpop.org/skill-refs/zack-d-stage-lanes-v4.webp)
-
-Three answers and we go:
-1. Stage — answer by name or number, or name any custom colour. [one-line recommendation of the best lane for this ad]
-2. Script — paste yours, or tell me what the ad should say and I'll write it.
-3. Product — the workspace product it features, or none.
-```
-
-The lanes: 1 Light grid — thin light-cyan grid, educational register · 2 Light clean — flat bright cyan with a soft horizon, the purest original register · 3 Dark grid — glowing grid on a deep blue cove, cinematic register · 4 Dark clean — deep blue glow stage, no lines · 5 Clean studio — warm seamless studio sweep, premium and neutral (off-blue: the format's identity and its gold/red accents read softer) · Custom — a first-class option, offered in words: the user names any colour or mix, you build an empty plate in it (the custom-plate recipe in Step 6), confirm it, then use it exactly like a shipped plate.
-
-A user who asks for a custom stage unprompted gets the same treatment.
-
+## Step 1 — The stage
 One stage per ad — the chosen stage carries the ad: every staged shot uses it, because a constant background is what makes shot-to-shot continuity read (a shot may still leave it for a stronger visual — Rule 1).
-
-Hand-off: stage banked → _"Locked: [stage]."_ — and straight into Step 2.
 
 ## Step 4 — Storyboard
 Iteration is cheap here and expensive at the video step — the storyboard is where the work happens.
-
-Use the parent's standard shot table, timed against the voiceover, and design each shot with the format's grammar.
 
 Pick each shot's shot from the format's four shot types:
 
@@ -120,8 +99,6 @@ The opening gets three visual options, always — three distinct concepts, one s
 
 Product-led openings can read as ads; choose whether the opening should show the product from the buyer's awareness, the evidence, and the concept.
 
-After they choose, ask once whether they want options per remaining shot or single proposals, and follow that answer for the rest.
-
 Every shot resolves four decisions before anything is generated:
 
 1. Job — what this shot does for its script line (prove the claim, land the joke, reveal the mechanism).
@@ -130,7 +107,7 @@ Every shot resolves four decisions before anything is generated:
 
 3. Shot type — from the table above.
 
-4. Transition-out (override of the storyboard's Transition-in column: this format plans each seam from the shot that must land it) — the class that carries it into the next shot: push-through (fly into an object, emerge somewhere else), white flash, squeeze wipe, placement hand-off, portal push, material morph. A seam without a named class is an accident on screen. Decide it at this pass — it constrains the neighbouring shots (if shot 2 opens inside the product, shot 1's action must land on the product) — and write each seam's one-sentence physical bridge once both adjacent shots are locked.
+4. Transition-out (this format plans each seam from the shot that must land it) — the class that carries it into the next shot: push-through (fly into an object, emerge somewhere else), white flash, squeeze wipe, placement hand-off, portal push, material morph. A seam without a named class is an accident on screen. Decide it at this pass — it constrains the neighbouring shots (if shot 2 opens inside the product, shot 1's action must land on the product) — and write each seam's one-sentence physical bridge once both adjacent shots are locked.
 
 Two shot shapes sit outside the table: a purely connective line ("Here's what actually happens") gets no scene of its own — it rides the camera move between its two neighbours as a _transit beat_ and needs no still.
 
@@ -138,43 +115,27 @@ And the ad closes on a VO-silent outro shot: a podium product shot holding clean
 
 Shots may exist without script lines, but every script line must have a shot.
 
-Hand-off: _"Approve the storyboard (or mark shots to change) and I'll plan every seam."_
-
 ## Step 5 — Seam plan
 Decide every seam's execution explicitly — an unstated seam gets whatever the model picks.
 
-The parent's two workflows give three seam executions, and they mix freely across one ad:
+Three seam executions, and they mix freely across one ad:
 
 - Independent generation — the seam is a hard cut. Fine for a seam meant to cut (the originals contain a few), wrong as the default here.
 
-- Start/end-frame chaining — consecutive clips share the exact seam frame, so the transition executes in-camera. The format's home workflow: a continuous camera journey is precisely a chain. The Single-shot generation rules cover the mechanics and the pair rules.
+- Start/end-frame chaining — consecutive clips share the exact seam frame, so the transition executes in-camera. The format's home workflow: a continuous camera journey is precisely a chain.
 
-- Multi-shot batching — several consecutive shots in one generation, each transition stated explicitly in the prompt. The Multi-shot generation rules cover the mechanics. Override of its audio slice: Zack D batches carry no audio, because the narration never enters a generation; time each batch from the storyboard's shot durations.
-
-Propose the plan, with options only where the choice is genuinely open.
-
-Hand-off: _"Confirm the seam plan and I'll generate the stills."_
+- Multi-shot batching — several consecutive shots in one generation, each transition stated explicitly in the prompt. Zack D batches carry no audio, because the narration never enters a generation; time each batch from the storyboard's shot durations.
 
 ## Step 6 — Stills
 Generate one still per shot before animating anything — establish the opening composition in the still and direct subsequent action and camera movement in the video prompt.
 
-A shot earns a second still (its end frame) only when its seam is chained: that pair is designed together under single-shot generation's pair rules, the shot's action carrying frame A to frame B. Omni-batched shots need one frame plus the transition stated in the prompt.
+A shot earns a second still (its end frame) only when its seam is chained: that pair is designed together, the shot's action carrying frame A to frame B. Omni-batched shots need one frame plus the transition stated in the prompt.
 
 Attach, never describe.
 
 Every still attaches its canonical references as references and describes only what the references cannot carry — the action, the composition, the camera:
 
-1. The stage plate — attach it to every still. In Starpop, the five plates are stored template assets, ready to reference: put the chosen lane's reference in the image reference field as an `image:<uuid>` reference.
-
-   | Stage        | Image reference (ready in Starpop)             | Download                                                         |
-   | ------------ | -------------------------------------- | ---------------------------------------------------------------- |
-   | Light grid   | `image:c0058153-425e-4868-9540-cc98ae603b72` | https://f.starpop.org/skill-refs/zack-d-plate-grid-v1.png        |
-   | Light clean  | `image:d6e699b2-1242-4227-8108-017fa811955a` | https://f.starpop.org/skill-refs/zack-d-plate-clean-light-v1.png |
-   | Dark grid    | `image:268c5947-fd2b-42ab-bb43-0248c7877d41` | https://f.starpop.org/skill-refs/zack-d-plate-cove-v1.png        |
-   | Dark clean   | `image:0e349944-fe28-4d03-a738-cea9ce199d49` | https://f.starpop.org/skill-refs/zack-d-plate-clean-dark-v1.png  |
-   | Clean studio | `image:a760febe-db29-4790-b614-38e6def5cbf0` | https://f.starpop.org/skill-refs/zack-d-plate-studio-v1.png      |
-
-   Alternatively, the plates can be downloaded from the links and attached as uploads.
+1. The stage plate — attach it to every still.
 
    Vocabulary law: "stage" lives in the conversation only — never in a generation prompt.
 
@@ -184,7 +145,7 @@ Every still attaches its canonical references as references and describes only w
 
    This world is an infinite canvas: it continues unbroken past every edge of the frame, and the camera is inside it.
 
-   No ceiling, no roof structure, no walls, and no platform edge or visible boundary where the ground ends."_ For the no-grid plates (clean, studio, custom) add: _"The ground is completely smooth with no grid lines anywhere."_ For a custom stage, create the plate first: generate one empty backdrop still in the user's colour with Nano Banana 2.1, following the plate instructions (a seamless field or sweep, no subject, no props, no grid unless asked), confirm it with the user, then attach that image everywhere exactly like a shipped plate.
+   No ceiling, no roof structure, no walls, and no platform edge or visible boundary where the ground ends."_ _"The ground is completely smooth with no grid lines anywhere."_
 
 2. The character sheet — every recurring character gets one: generate it once (full body, relaxed neutral pose, facing camera, on the attached plate so the lighting matches), then attach that same image to every still the character appears in. Never substitute a generated output for the sheet.
 
@@ -192,11 +153,7 @@ Every still attaches its canonical references as references and describes only w
 
 Prepare 9:16 stills.
 
-For Pixar-style frames: Seedream 4.5 (`seedream-v4.5`; recommendation `image.pixarCharacterDesign`). Preferred for the Pixar-style format's character design and overall composition. Alternatives: Nano Banana 2.1 (`nano-banana-2.1`): Frames keep failing or a complex multi-element scene needs stricter instruction-following. For the retouch layer: Nano Banana 2.1 (`nano-banana-2.1`; recommendation `image.retouch`). Retouch the Pixar-style format's rendered frame by attaching it and describing the modification. Seedream 4.5 drifts toward hotter saturation, bigger subjects and occasional stage changes, so restate the plate-unchanged line and the composition in every prompt.
-
-Wherever the grid must be described, keep it abstract — _"the grid is an environmental overlay with no thickness, no edges, and no physical surface, not a platform or slab"_ — and never describe anything as floating or hovering: everything rests naturally with a soft contact shadow.
-
-Hand-off: _"Generate the stills; approve them and I'll animate each leg."_
+Never describe anything as floating or hovering: everything rests naturally with a soft contact shadow.
 
 ## Step 7 — Video legs
 Animate each leg per the seam plan and the active workflow's requirements, one continuous camera move per shot, subject motion and camera motion stated as two separate instructions.
@@ -205,18 +162,14 @@ Request the nearest supported clip duration and reconcile in the editor — reti
 
 Include "No captions." in every video prompt.
 
-Hand-off: _"Generate the legs and assemble them over the voiceover; then I'll hand you the music and post steps."_
-
 ## Rules
 1. The best visual wins; the stage is home. Every shot gets the most entertaining, most visually interesting frame it can carry — never sacrifice a shot's best visual to force the stage into it: if the strongest hook is the man striding out of a real elevator into a real office, shoot the office. The stage is where the format lives the rest of the time: abstract, explanatory and illustrative shots belong on it (attach the plate), the ad keeps returning to it, and departures stay purposeful and short — the originals leave the stage a few seconds at a time and always come home. The more the ad lives on the stage, the more it reads as this format.
 
-3. Pixar-cute is the register. Friendly stylized characters, rounded forms, soft even lighting. Photorealism is reserved for the product itself.
+3. Friendly stylized characters, rounded forms, soft even lighting. Photorealism is reserved for the product itself.
 
 4. The phone test. Every still must read clearly on a phone screen in under one second — one subject, one idea, clean negative space.
 
 ## Self-check before presenting
-- Was the first reply exactly the kickoff template — banner rendered, one batched ask, nothing already settled re-asked?
-
 - Is every shot its best possible visual — and does the ad keep coming home to the stage, with abstract and explanatory shots on it and departures purposeful?
 
 - Is every seam's transition class named, and its treatment (independent / chain / omni batch) chosen?

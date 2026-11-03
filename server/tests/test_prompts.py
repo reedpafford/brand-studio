@@ -1223,10 +1223,11 @@ def test_the_closing_call_to_action_only_has_to_name_the_brand():
 
 def test_pacing_is_by_purpose_and_scenes_hand_off():
     """Reed, 2026-10-28: no fixed timings in the creative guidance (rigid structure ruins
-    creativity); quick cuts to whoever talks, wide for a reaction or action, holds that land,
-    and scenes that end on a beat the next one answers. Brand-generic (the dog)."""
+    creativity); wide for a reaction or action, holds that land, and scenes that end on a beat
+    the next one answers. Brand-generic (the dog). Reed, 3 Nov: pacing is each style's own (its
+    guide's `pacing`), so the step prompts say nothing on how quick the cuts are."""
     for step in ("breakdown", "clip_prompts", "script_draft", "variations", "enhance", "improve"):
-        text = prompts.system(step)
+        text = prompts.system(step).split("## Producer craft")[0]  # the style's: its guide
         for gone in (
             "once a second",
             "median shot",
@@ -1238,10 +1239,14 @@ def test_pacing_is_by_purpose_and_scenes_hand_off():
             "about 0.4 s",
             "half a second",
             "fewer, longer",
+            "Fewer, longer shots that",
+            "The cuts stay quick",
+            "Quick cuts to whoever",
         ):
             assert gone not in text, (step, gone)
     bd = prompts.system("breakdown")
-    assert "Pace by purpose, never by the clock" in bd and "go wide when a reaction" in bd
+    assert "Pace by purpose, never by the clock" in bd and "Go wide when a reaction" in bd
+    assert "- Pacing follows the style guide's `pacing` section." in bd
     assert "for as long as it needs, within the video model's max" in bd
     assert "**Endings flow.**" in bd and "the dog's ears dropping" in bd
     assert "The clip's last line never ends in its last moments" in prompts.system("clip_prompts")

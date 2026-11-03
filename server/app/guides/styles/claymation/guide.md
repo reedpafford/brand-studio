@@ -53,6 +53,9 @@ product: Change this… "the product sculpted in clay with a real printed paper 
 ## sample
 A sculpted clay woman in her thirties with a bob of brown hair and visible thumbprints, in one knitted green jumper.
 
+## pacing
+(range to be set from the reference videos)
+
 ## How to make claymation videos
 The claymation visual style for AI video ads.
 
@@ -64,8 +67,6 @@ Two things make the output win: every frame must read as photographed physical c
 This is solely a visual rendering style, nothing more.
 
 It never drives scene content — the storyboard belongs to the ad; this skill only decides how the world is sculpted, lit, and animated.
-
-When producing a full VO-led ad, run the parent's flow (the gate, the voiceover doctrine, the storyboard) and apply this skill at the prompting steps.
 
 The style suits voiceover + B-roll content best.
 
@@ -89,45 +90,23 @@ Unlike paper, clay tolerates — and gains charm from — miniature-scale cues w
 
 Never show set edges, workbench, or the room around the set.
 
-## Image model
-Canonical references and stills: Nano Banana 2.1 (`nano-banana-2.1`; recommendation `image.claymation`). The claymation style's choice for canonical references and stills, including start frames. Reroll an identical prompt before rewriting it. Use this model and no other image model for those assets.
-
-Start frames are stills and follow that rule; storyboard batch canvases, when chosen, follow GPT Image 2 per multi-shot generation, switchable on the user's feedback.
-
+## When a result misses
 When a result misses, reroll the identical prompt before rewriting it: once a lane's block is locked, variance is almost always the cause, and character face geometry is the highest-variance thing in the whole style.
 
-## Sub-style menu (pick one per video; name it to the user)
-Use the sub-style the user chooses.
-
+## Sub-style menu (pick one per video)
 One sub-style per video — the locked style block opens every image and video prompt in that video, verbatim.
 
 A lane's character design language (eyes, proportions, hair treatment, geometry energy) is part of the style and stays fixed; the character's identity (face, outfit, coloring) is free per ad and holds via canonical references.
 
-Show the visual menu by default before locking a sub-style, recommend the best fit, and wait for the user's choice. If the conversation has already settled the style, keep it without asking again. If the user explicitly asks you to choose, show the menu and name your pick in one line, then continue.
-
-When presenting the sub-styles, include this exact markdown line in the reply, verbatim, as plain markdown (never inside a code block) — it renders the reference image directly in the chat: one identical scene in each style, numbered and named on each panel:
-
-![Claymation styles 1 to 4](https://f.starpop.org/skill-refs/claymation-styles-v2.webp)
-
-Unless the user has delegated the choice, ask: "Do you want style 1, 2, 3, 4 — or another type of claymation?" and recommend the best fit for the task in one line.
-
-The numbers map to the sub-styles below, in order:
-
-1 = Cinematic · 2 = Goofy · 3 = Clean & simple · 4 = Stop-motion puppet
-
-The panels are named, so accept an answer by name ("the cinematic one") as readily as by number.
-
-When the user asks for another type of claymation, have them describe it (or share a reference image), then build a custom style block from the clay fundamentals above and lock it for the video the same way.
-
 ### 1. Cinematic (detailed lane — recommended for most ads)
 
-- Design language: appealing idealized builds with richly sculpted, characterful faces — large almond eyes with prominent white sclera clearly visible around a deeply coloured iris, a dark sculpted upper lash line over sculpted upper and lower lids, thick sculpted brows above a defined brow ridge, defined cheekbones and jaw, smooth unlined young clay skin. Real woven fabric clothing with stitched seams. Macro lens, strong background bokeh, warm practical light. Detailed, densely dressed sets.
+- Design language: appealing idealized builds with richly sculpted, characterful faces — large almond eyes with prominent white sclera clearly visible around a deeply coloured iris, a dark sculpted upper lash line over sculpted upper and lower lids, thick sculpted brows above a defined brow ridge, defined cheekbones and jaw, unlined clay skin. Real woven fabric clothing with stitched seams. Macro lens, strong background bokeh, warm practical light. Detailed, densely dressed sets.
 
 - Best for: most ads. The broadest lane — premium brands, hero product shots, story shots, crowds, anything that wants to look like a film rather than a craft project.
 
 - Style block: `Detailed cinematic claymation scene — hand-sculpted plasticine characters with an appealing idealized build and richly sculpted features, matte clay skin carrying thumb-worked smoothing and fine tool striations, chunky rounded clay hands with softly tapered fingertips and no realistic fingernails, real woven fabric clothing with stitched seams, staged on a physical miniature set and photographed with a macro lens at shallow depth of field with strong background bokeh, warm practical lighting with a soft rim light, the scene filling the entire frame with the camera inside the miniature world.`
 
-- Character block: `a hand-sculpted plasticine [person] with an appealing idealized build and richly sculpted features — large almond eyes with prominent white sclera clearly visible around a deeply coloured iris, a dark sculpted upper lash line over sculpted upper and lower lids, thick sculpted brows above a defined brow ridge, defined cheekbones and a defined jaw, a neat sculpted nose, softly sculpted lips, smooth unlined young clay skin — matte clay skin showing thumb-worked smoothing and fine tool striations, sculpted [hair] with deep comb grooves, wearing [real woven garment] with stitched seams`
+- Character block: `a hand-sculpted plasticine [person] with an appealing idealized build and richly sculpted features — large almond eyes with prominent white sclera clearly visible around a deeply coloured iris, a dark sculpted upper lash line over sculpted upper and lower lids, thick sculpted brows above a defined brow ridge, defined cheekbones and a defined jaw, a neat sculpted nose, softly sculpted lips, unlined clay skin — matte clay skin showing thumb-worked smoothing and fine tool striations, sculpted [hair] with deep comb grooves, wearing [real woven garment] with stitched seams`
 
 - Physicality block: `Everything in frame is hand-sculpted plasticine and real fabric, photographed on a physical miniature set — visible tool striations and thumb-worked clay surfaces, woven fabric weave, real cast shadows, the miniature scene filling the entire frame. No photographic human skin, no real human hands, no fingernails, no wrinkled realistic faces.`
 
@@ -211,12 +190,12 @@ In-scene shots stay simple: one gesture, one camera move.
 ## Workflow (override)
 - Recommend multi-shot generation executed as start frames per shot, for simplicity, speed, and cost: it delivers the clay look with far fewer video generations.
 
-- The chained single-shot route is the higher-ceiling alternative; run it when the user names it or asks for the most striking result, and offer it in one line when they ask for the options: clay is the one material where continuous metamorphosis reads as native, and a chain of designed frames, each shot contributing one landing image, is how the most striking clay ads are built. It costs more, takes longer, and needs more expertise (single-shot generation).
+- The chained single-shot route is the higher-ceiling alternative: clay is the one material where continuous metamorphosis reads as native, and a chain of designed frames, each shot contributing one landing image, is how the most striking clay ads are built. It costs more, takes longer, and needs more expertise (single-shot generation).
 
 - The transition vocabulary below serves either route: the seam rule inside a multi-shot batch, or the frame pairs of a chain.
 
 ## Clay motion and transitions
-For any start/end-frame clip, build the frame pair by single-shot generation's pair-design rules — one shared anchor generated from the same references in both frames, one action, compositional continuity, explained fates.
+For any start/end-frame clip, build the frame pair — one shared anchor generated from the same references in both frames, one action, compositional continuity, explained fates.
 
 Use these frame-pair techniques for motion within a shot or transitions between shots:
 
@@ -228,12 +207,10 @@ The clip prompt names the bridge explicitly — the one concrete visible action 
 
 Chain end frame → next start frame for a continuously flowing sequence.
 
-Model choice for start/end transition clips follows the central recommendation.
-
 ## Known limitations & workarounds
 | Failure                                     | Fix                                                                                                                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Drifts to smooth CGI render                 | Never write "smooth/polished/glossy"; physicality block verbatim; reroll on Nano Banana 2.1                                                                        |
+| Drifts to smooth CGI render                 | Never write "smooth/polished/glossy"; physicality block verbatim; reroll                                                                        |
 | Characters look generic and simplified      | The full design language was abbreviated — write it out per character, especially in multi-character scenes                                                      |
 | The named emotion doesn't show on the face  | Emotion written as an adjective — rewrite it as face mechanics (brows, lids, mouth, where the cheek deforms)                                                     |
 | Clay skin comes out blue / colour-stained   | A cold light source in the scene — keep it, but pin the skin's own colour against it                                                                             |
@@ -244,5 +221,5 @@ Model choice for start/end transition clips follows the central recommendation.
 | Object-only shots stop reading as clay      | Real materials with no character to anchor them — sculpt everything in clay, real printed label only                                                             |
 | Product label reads as nonsense             | State the label copy explicitly; the material name leaks into rendered text                                                                                      |
 | One character looks different between shots | Text descriptions do not reproduce a face — generate the character once and attach that image as a reference                                                     |
-| Transition cuts instead of morphing         | The frame pair broke the pair-design rules — rebuild it per single-shot generation (identical anchor from same references, one action, similar composition) |
+| Transition cuts instead of morphing         | The frame pair broke the pair-design rules — rebuild it (identical anchor from same references, one action, similar composition) |
 | Texture melts away mid-clip                 | Motion guard restated in every clip prompt, transitions included                                                                                                 |
