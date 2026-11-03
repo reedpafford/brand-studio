@@ -10277,6 +10277,11 @@ export interface components {
              * @default 0
              */
             spend_credits: number;
+            /**
+             * Unassigned Credits
+             * @default 0
+             */
+            unassigned_credits: number;
             freestyle: components["schemas"]["FreestyleUsage"];
         };
         /** UsageVideo */

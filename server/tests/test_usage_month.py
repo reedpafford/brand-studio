@@ -4,6 +4,8 @@ each row's status. Free."""
 
 from datetime import datetime
 
+import pytest
+
 from app.models.accounts import Role, User
 from app.models.jobs import Job
 from app.routes.jobs import enqueue
@@ -86,3 +88,26 @@ def test_a_freestyles_video_on_production_says_what_the_oks_cover(app, owner, db
     row = next((r for r in rows if r["project_id"] == fs["project_id"]), None)
     assert row["approved_up_to"] == mine[0]["approved_up_to"] > 0
     assert all(r["approved_up_to"] is None for r in rows if r["project_id"] != fs["project_id"])
+
+
+@pytest.mark.parametrize("month", ["0000-01", "9999-12", "1999-12", "2026-00"])
+def test_a_month_out_of_range_is_a_422_never_a_500(owner, month):
+    for path in ("/usage/summary", "/usage/brands", "/usage/people", "/usage/mine"):
+        assert owner.get(path, params={"month": month}).status_code == 422, path
+
+
+def test_the_credit_rows_add_up_to_the_total(app, owner, db):
+    """QA-10: a brandless job (a look, a script's writing with no brand) has its own line."""
+    me, fomo, video = _setup(owner, db)
+    _job(db, me, "1.00", NOV, project=video)
+    owner.post("/freestyles", json=BODY)
+    _run_fakes(app, db, ticks=3)
+    loose = enqueue(db, me, "write-claude", {"step": "improve"})
+    loose.created_at = NOV
+    db.commit()
+    params = {"month": NOV.strftime("%Y-%m")}
+    out = owner.get("/usage/summary", params=params).json()
+    rows = owner.get("/usage/brands", params={**params, "archived": True, "limit": 100}).json()
+    total = sum(r["credits"] for r in rows["items"]) + out["freestyle"]["credits"]
+    assert out["unassigned_credits"] == float(loose.credits) > 0
+    assert round(total + out["unassigned_credits"], 2) == round(out["spend_credits"], 2)
