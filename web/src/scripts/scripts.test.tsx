@@ -208,7 +208,7 @@ test("the script step autosaves the words as the original a moment after typing 
 test("a published script is final: its type reads, and there are no rename or edit buttons", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full({ published: true, status: "published" })] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   expect(await screen.findByText("Type: Dialogue")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Rename" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Edit description" })).not.toBeInTheDocument();
@@ -413,7 +413,7 @@ test("leaving the box saves the words, so Next goes straight on; a save that fai
   const before = full({ versions: [{ ...full().versions[0], text: "BO: Salmon?", status: "draft" }] });
   const saved = full({ versions: [{ ...full().versions[0], text: "BO: Salmon? More.", status: "draft" }] });
   const calls = fakeServer({ ...base, "GET /scripts/7": [200, before], "PUT /scripts/7/drafts/0": [200, saved], "GET /scripts/7/drafts/0/suggestions": [200, []], "GET /scripts/7/drafts/0/notes": [200, []], "GET /scripts/7/drafts/0/enhance/estimate": [200, { credits: 3 }] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.type(await screen.findByLabelText("Script · version A"), " More.");
   await userEvent.click(screen.getByRole("button", { name: "Next: Directions" }));
   expect(await screen.findByRole("heading", { name: "Suggested directions" })).toBeInTheDocument();
@@ -421,7 +421,7 @@ test("leaving the box saves the words, so Next goes straight on; a save that fai
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   fakeServer({ ...base, "GET /scripts/7": [200, before], "PUT /scripts/7/drafts/0": [500, { detail: "The server is busy." }] });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.type(await screen.findByLabelText("Script · version A"), " More.");
   await userEvent.tab();
   expect(await screen.findByRole("alert")).toHaveTextContent("Not saved: The server is busy.");
@@ -1058,7 +1058,7 @@ test("Undo on the fill puts the words from before back", async () => {
     "POST /scripts/7/fill-from-reel": [200, doneReel()],
     "PUT /scripts/7/drafts/0": [200, full()],
   });
-  open("/b/1/scripts/7");
+  open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Fill the script again" }));
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Replace" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));

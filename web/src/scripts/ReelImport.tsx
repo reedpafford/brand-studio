@@ -44,7 +44,7 @@ export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?
   const queryClient = useQueryClient();
   const made = async (id: number) => {
     await queryClient.invalidateQueries({ queryKey: ["scripts"] });
-    navigate(`/b/${brandId}/scripts/${id}`);
+    navigate(`/b/${brandId}/scripts/${id}?step=script`); // the reel is read on the Script step
   };
   const fromLink = useMutation({
     mutationFn: async () => {
