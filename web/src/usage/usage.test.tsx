@@ -96,8 +96,8 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   const week = screen.getByRole("list", { name: "This week's charges" });
   expect(within(week).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Videos50 credits", "Quick clips8 credits", "Scripts3 credits", "A look11 credits"]);
   const videos = screen.getByRole("list", { name: "My videos" });
-  expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Being made.*40 credits of 600 credits/ })).toHaveAttribute("href", "/b/1/videos/9");
-  expect(within(videos).getByText("Finished")).toBeInTheDocument();
+  expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Making.*40 credits of 600 credits/ })).toHaveAttribute("href", "/b/1/videos/9");
+  expect(within(videos).getByText("Delivered")).toBeInTheDocument(); // D_MyCredits: a dot and "Delivered"
   expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/1/scripts/7");
   expect(document.body.textContent).not.toMatch(/\$/);
   expect(urls()[0]).toContain("brand_id=1");
@@ -346,9 +346,9 @@ test("Usage's By person lists each person's credits, dollars, videos and week (#
   open();
   const people = await screen.findByRole("region", { name: "By person" });
   const dee = (await within(people).findByText("Dee")).closest("tr")!;
-  expect(dee).toHaveTextContent("804 credits");
+  expect(within(dee).getByText("804")).toBeInTheDocument(); // whole credits, no unit (D_Usage)
   expect(dee).toHaveTextContent("$80.40");
-  expect(dee).toHaveTextContent("40 credits of 100 credits this week");
+  expect(dee).toHaveTextContent("40 of 100 credits this week");
   expect(within(people).getByText("No limit")).toBeInTheDocument();
 });
 
@@ -363,6 +363,6 @@ test("My credits shows a video's credits without the director's own time, that t
   const list = await screen.findByRole("list", { name: "My videos" });
   const garden = within(list).getByRole("link", { name: /Garden scene/ });
   expect(garden).toHaveTextContent("27 credits of 729 credits") // 97.33 less 70.4, rounded up as credits are;
-  expect(garden).toHaveTextContent("70.4 credits of director time");
+  expect(garden).toHaveTextContent("71 credits of director time") // whole credits (audit lane 2);
   expect(within(list).getByRole("link", { name: /Bo at the beach/ })).toHaveTextContent("30 credits used of up to 204 credits approved");
 });

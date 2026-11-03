@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChartColumn, Check, Clapperboard, Coins, LogOut, Settings, UserPlus, type LucideIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChartColumn, Clapperboard, Settings, UserPlus, type LucideIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
@@ -18,13 +18,20 @@ export const STUDIO: [string, string, LucideIcon][] = [
 const THEMES: { id: Theme; label: string }[] = [
   { id: "dark", label: "Dark" },
   { id: "light", label: "Light" },
-  { id: "system", label: "Match my device" },
+  { id: "system", label: "System" },
 ];
 
 export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?: boolean } = {}) {
   const { data: me } = useMe();
   const signOut = useSignOut();
   const [theme, setTheme] = useState<Theme>(getTheme);
+  // An editor's week, as the My credits row shows it: "142 of 200 left" (v5 A_Account).
+  const week = useQuery({
+    enabled: me?.role === "editor",
+    queryKey: ["credits-me"],
+    queryFn: async () => (await api.GET("/credits/me")).data ?? null,
+  }).data;
+  const left = week ? Math.max(0, Math.floor(week.quick_clip_credits_allowed - week.quick_clip_credits_used)) : null;
   const initials = (me?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   return (
     <Menu
@@ -47,7 +54,10 @@ export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?:
       {(close) => (
         <>
           <div className="px-3 pb-2 pt-1">
-            <div className="font-semibold">{me?.name}</div>
+            <div>
+              <span className="font-semibold">{me?.name}</span>
+              {me && <span className="text-sm text-muted"> · {me.role === "owner" ? "Owner" : "Editor"}</span>}
+            </div>
             <div className="text-sm text-muted">{me?.email}</div>
           </div>
           {me?.role === "owner" &&
@@ -60,31 +70,33 @@ export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?:
             ))}
           {me?.role === "editor" && (
             <Link to="/usage/mine" onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
-              <Coins size={20} strokeWidth={1.75} aria-hidden />
-              My credits
+              <span className="flex-1">My credits</span>
+              {week && left !== null && <span className="text-sm tabular-nums text-muted">{Math.floor(left)} of {Math.floor(week.quick_clip_credits_allowed)} left</span>}
             </Link>
           )}
-          <div role="group" aria-label="Theme" className="mt-1 border-t border-border pt-1">
-            <p className="px-3 pt-2 text-xs font-bold uppercase tracking-[0.12em] text-muted">Theme</p>
-            {THEMES.map((t) => (
-              <MenuItem
-                key={t.id}
-                checked={theme === t.id}
-                onClick={() => {
-                  applyTheme(t.id);
-                  setTheme(t.id);
-                }}
-              >
-                <span className="flex-1">{t.label}</span>
-                {theme === t.id && <Check size={20} strokeWidth={1.75} aria-hidden />}
-              </MenuItem>
-            ))}
+          {/* v5 A_Account: Theme as one segmented control, Dark / Light / System. */}
+          <div role="group" aria-label="Theme" className="mt-1 flex items-center gap-3 border-t border-border px-3 pb-1 pt-2">
+            <span className="text-sm text-muted">Theme</span>
+            <span className="ml-auto inline-flex rounded-md border border-border p-0.5">
+              {THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={theme === t.id}
+                  className={`min-h-control rounded px-2.5 text-sm lg:min-h-control-dense ${theme === t.id ? "bg-surface-3 font-medium text-text" : "text-muted hover:text-text"}`}
+                  onClick={() => {
+                    applyTheme(t.id);
+                    setTheme(t.id);
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </span>
           </div>
           <div className="mt-1 border-t border-border pt-1">
-            <MenuItem onClick={() => signOut.mutate()}>
-              <LogOut size={20} strokeWidth={1.75} aria-hidden />
-              Sign out
-            </MenuItem>
+            <MenuItem onClick={() => signOut.mutate()}>Sign out</MenuItem>
           </div>
         </>
       )}

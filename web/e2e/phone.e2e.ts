@@ -66,7 +66,7 @@ test("on a phone, the theme can be changed from the account menu and is remember
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitemradio", { name: "Light" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.getByRole("menuitemradio", { name: "Match my device" }).click();
+  await page.getByRole("menuitemradio", { name: "System" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
 
   await page.reload();

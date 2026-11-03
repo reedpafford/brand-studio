@@ -185,7 +185,7 @@ test("the account menu (bottom of the rail) has the theme choices and Sign out; 
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Light" }));
   expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
-  await userEvent.click(screen.getByRole("menuitemradio", { name: "Match my device" }));
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "System" }));
   expect(document.documentElement.getAttribute("data-theme")).toBe("system");
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("menuitem", { name: "Sign out" })).not.toBeInTheDocument();
@@ -373,4 +373,15 @@ test("Studio pages and an editor's My credits keep the full rail, on the first b
   const editorNav = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(editorNav).findByRole("link", { name: "Scripts" })).toBeInTheDocument();
   expect(within(editorNav).queryByRole("button", { name: "Choose a brand" })).toBeNull();
+});
+
+test("an editor's account menu names their role and how much of the week is left (v5 A_Account)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /projects": [200, []], "GET /credits/me": [200, { quick_clip_credits_used: 58, quick_clip_credits_allowed: 200, resets_on: "2026-11-09", projects: [] }] });
+  renderAt("/b/1/projects");
+  await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+  const menu = screen.getByRole("menu", { name: "Account" });
+  expect(within(menu).getByText("· Editor")).toBeInTheDocument();
+  expect(await within(menu).findByText("142 of 200 left")).toBeInTheDocument();
+  expect(within(menu).getByRole("menuitemradio", { name: "System" })).toBeInTheDocument();
 });
