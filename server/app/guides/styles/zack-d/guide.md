@@ -62,7 +62,13 @@ The videos are animated with AI video models: stylized 3D characters.
 
 ## pacing
 Every seam is chosen. One visible change roughly every second; a designed transition every 4–8 seconds; shots run 4–8s carrying a single continuous camera move. A cut is a decision, not a default.
-(range to be set from the reference videos)
+Measured in Reed's three Zack D. Films originals (examples/water-alarm-clock, dog-ears-and-tails, chocolate-river; the two imitations in examples/ are not counted):
+- Hard cuts: 0 per 10 s (3 of 3). Each video is one continuous take of 30–31 s.
+- Camera beats (a new subject or part framed by the moving camera): one every 2.2–3.1 s (3 of 3); each beat 1.0–5.2 s, median about 2.4 s (35 beats).
+- Links between beats: a fast in-world move of 0.15–0.4 s with motion blur (whip, arc, lateral), a push through an object, or a dissolve of 0.1–0.35 s matched on the subject (3 of 3).
+- Hook: the action is already under way on the first frame and the camera follows it within the first second (3 of 3); the first follow runs 2.6–3.0 s.
+- Longest steady follow inside one beat: 4.0–5.2 s (3 of 3), at 9–21% of the frame a second.
+- Near-still holds (under 3% of the frame a second): about 10 of 35 beats, 1–3 s each, always with the subject moving.
 
 ## Step 1 — The stage
 One stage per ad — the chosen stage carries the ad: every staged shot uses it, because a constant background is what makes shot-to-shot continuity read (a shot may still leave it for a stronger visual — Rule 1).
@@ -183,3 +189,29 @@ Include "No captions." in every video prompt.
 - Is every frame's camera angle a deliberate choice, with variety across the storyboard — no catalog lineup shots?
 
 - Is the word "stage" absent from every generation prompt — world vocabulary and the infinite-canvas line in its place?
+
+## must keep
+- One continuous camera with no hard cuts; places change by a fast in-world move, a push through an object or a dissolve matched on the subject (3 of 3).
+- The camera follows the moving thing (the pour, the water, the air, the dog, the thrown object) and arrives at each part as it is named (3 of 3).
+- The camera is moving most of the time: over 2% of the frame a second in 80%, 67% and 93% of seconds (3 of 3).
+- Push-in is the default move: 14 of 35 beats push in, 6 pull out, and pull-outs are reveals (the whole device, the handler, the row of animals) (3 of 3).
+- Cutaways show inside: the front of an object cut away with a clean bright rim on the cut edge, a body part cut away to the bone, a cyan hologram X-ray (3 of 3).
+- Glowing marks in the world point at the part being explained: a red ring or red glow for "here" or the part that hurts, blue flow arrows or a cyan glow for something working inside, white motion swirls for air (3 of 3).
+- One set per video, explored from many angles (3 of 3).
+
+## safe to vary
+- Which link carries a change of place: one original uses only fast moves, one mostly dissolves, one both.
+- How many reaction faces (one to four per video).
+- The speed of each move, inside the measured ranges in pacing.
+- How far the camera goes inside: a single cutaway or a long track through a mechanism.
+
+## combines with
+- The Zack D format (formats/zack-d): all three originals are both (3 of 3).
+- The two imitations in examples/ (labelled IMITATION, not evidence for this style) put the Zack D format on other looks: one on a Pixar-cute blue grid with a cut every 1–1.5 s, one mixing stylised 3D, real-looking backyards and phone footage.
+
+## measured in the references
+- Camera speed: median 6.1–10% of the frame width a second; fastest one-second moves push in 22–42%/s, pull out 20–32%/s, pan 18–32%/s, tilt 27–30%/s (3 of 3). The paths are smooth curving fly-throughs (crane, orbit, track along a surface), not handheld.
+- Framing: 9:16; macro (inside a pot, an ear, a cup on the water) alternating with medium, and at most one wide reveal per video; slightly high three-quarter views most often.
+- The one cyan home backdrop seen (dog-ears-and-tails): a seamless glowing cyan world, sampled #2eb6ca at the top of the frame, lighter behind the subject; places it visits are painted cyan or teal (a wall sampled #2589aa).
+- Average frame colour: #46452d, #6a7e7e, #645c55; saturation low to moderate; no heavy grade: colour comes from the set and the glows.
+- Captions are burned in by the editor in all three; the clips themselves carry no caption text.
