@@ -3,6 +3,8 @@
 An example is a real ad that worked. We study it until we know how it was made and why it
 works, so the director can make that kind of ad again from a new script, for any brand.
 
+**A study is guidance.** Once it's merged, the writing steps read it for every video in its format or style, so a study goes in its own PR and only Reed's approval merges it (the guides-guard check).
+
 ## Where examples go
 
 Every example belongs to one format or one style:
