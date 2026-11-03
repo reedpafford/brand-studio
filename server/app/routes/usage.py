@@ -2,10 +2,13 @@
 finished video per brand, for this week, this month or all time. Editors get 404, except
 /usage/mine: their own videos in credits (OR4)."""
 
+import csv
+import io
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, select, true
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +17,7 @@ from sqlalchemy.orm import Session
 from app import folders, usage
 from app import script_library as lib
 from app.auth import current_user
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.folders import Folder
@@ -829,6 +832,12 @@ def charges(
     if cursor and cursor.isdigit():
         query = query.where(Usage.id < int(cursor))
     rows = db.execute(query.limit(limit + 1)).all()
+    items = _charges(db, owner, rows[:limit])
+    more = str(rows[limit - 1][0].id) if len(rows) > limit else None
+    return UsageChargesOut(next_cursor=more, items=items)
+
+
+def _charges(db: Session, owner: User, rows: list) -> list[UsageCharge]:
     names = {
         b.id: b.name
         for b in db.scalars(select(Brand).where(Brand.workspace_id == owner.workspace_id))
@@ -854,10 +863,49 @@ def charges(
             estimated=row.estimated,
             status=str(job.status),
         )
-        for row, job in rows[:limit]
+        for row, job in rows
     ]
-    more = str(rows[limit - 1][0].id) if len(rows) > limit else None
-    return UsageChargesOut(next_cursor=more, items=items)
+    return items
+
+
+CSV_HEAD = ["When (UTC)", "Who", "Brand", "What", "Credits", "Dollars", "Estimated", "Status",
+            "Credits given back", "Why given back"]  # fmt: skip
+
+
+def _cell(value) -> str:
+    """A spreadsheet never runs a title as a formula ("=SUM(…)" typed as a script's title)."""
+    text = str(value)
+    return f"'{text}" if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+@router.get("/charges.csv", response_class=Response,
+            responses={200: {"content": {"text/csv": {}}}})  # fmt: skip
+def charges_csv(
+    month: str | None = Query(None, pattern=r"^2\d{3}-(0[1-9]|1[0-2])$"),  # "2026-11"; now's
+    owner: User = Depends(owner_or_404),
+    db: Session = Depends(get_db),
+):
+    """The month's charges (UTC), oldest first, as a CSV file to download (owner only)."""
+    now = utcnow()
+    year, number = map(int, month.split("-")) if month else (now.year, now.month)
+    start = datetime(year, number, 1)
+    end = datetime(year + number // 12, number % 12 + 1, 1)
+    rows = db.execute(select(Usage, Job).join(Job, Job.id == Usage.job_id)
+                      .where(Usage.workspace_id == owner.workspace_id,
+                             Usage.created_at >= start, Usage.created_at < end)
+                      .order_by(Usage.id)).all()  # fmt: skip
+    out = io.StringIO()
+    sheet = csv.writer(out)
+    sheet.writerow(CSV_HEAD)
+    for c in _charges(db, owner, rows):
+        back = c.refunded
+        sheet.writerow([c.at.strftime("%Y-%m-%d %H:%M"), *map(_cell, (
+            c.person.name if c.person else "", c.brand.name if c.brand else "", c.what)),
+            c.credits, c.cost_usd, "yes" if c.estimated else "", c.status,
+            back.credits if back else "", _cell(back.reason) if back else ""])  # fmt: skip
+    name = f"brand-studio-charges-{year}-{number:02d}.csv"
+    return Response(out.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})  # fmt: skip
 
 
 ALREADY = "Those credits were already given back."
