@@ -317,3 +317,35 @@ test("leaving Brand through the rail with unsaved changes asks first; Keep editi
   await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave" }));
   expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
 });
+
+test("the leave question names only the tab with changes: a colour changed says the Look (F_BrandEdit)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand");
+  const colour = await screen.findByLabelText("Colour 1");
+  await userEvent.clear(colour);
+  await userEvent.type(colour, "#445566");
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toHaveTextContent("Your changes to the Look aren't saved. Leaving drops them.");
+});
+
+test("a change on Voice & lines only says Voice & lines", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand?tab=voice");
+  await userEvent.type(await screen.findByLabelText("How we sound"), " and kind");
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toHaveTextContent("Your changes to Voice & lines aren't saved.");
+});
+
+test("with nothing changed, opening Brand, looking at Voice & lines and leaving asks nothing", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand");
+  await screen.findByLabelText("Name");
+  await userEvent.click(screen.getByRole("tab", { name: "Voice & lines" }));
+  await screen.findByLabelText("How we sound");
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});

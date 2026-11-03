@@ -15,7 +15,8 @@ import { groupProducts, useScreens } from "./screens";
 
 const IDS = ["look", "voice", "products", "screens"] as const;
 
-type Frame = { slot: HTMLElement | null; setDirty: (dirty: boolean) => void; importing: boolean; setImporting: (on: boolean) => void; goTab: (id: string) => void };
+/** `dirty`: what has unsaved changes, in words ("the Look", "Voice & lines", both), or "" for nothing. */
+type Frame = { slot: HTMLElement | null; setDirty: (dirty: string) => void; importing: boolean; setImporting: (on: boolean) => void; goTab: (id: string) => void };
 const FrameContext = createContext<Frame>({ slot: null, setDirty: () => {}, importing: false, setImporting: () => {}, goTab: () => {} });
 /** Import from website, opened from the page's top bar (v5 F_BrandImport), and a tab change from inside the Look tab. */
 export const useBrandFrame = () => useContext(FrameContext);
@@ -39,7 +40,7 @@ export function BrandPage() {
     { id: "screens", label: "App screens", count: screens.data?.length },
   ];
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState("");
   const [leaving, setLeaving] = useState<string | null>(null);
   // Import from website lives in the address (?import=1), so New brand can open on it and a reload keeps it open.
   const importing = params.get("import") === "1";
@@ -47,7 +48,7 @@ export function BrandPage() {
   const go = (id: string) => setParams(id === "look" ? {} : { tab: id }, { replace: true });
   // Leaving the Brand page another way (the rail, a link, Back) with unsaved Look or Voice changes asks first too (QA-12 on
   // #1254). Switching tabs stays on the page, so it has its own question.
-  const away = useBlocker(({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname);
+  const away = useBlocker(({ currentLocation, nextLocation }) => dirty !== "" && currentLocation.pathname !== nextLocation.pathname);
 
   return (
     <FrameContext.Provider value={{ slot, setDirty, importing, setImporting, goTab: go }}>
@@ -92,8 +93,8 @@ export function BrandPage() {
         {rail && (tab === "look" || tab === "voice") && <div ref={setSlot} className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-auto flex min-h-13 items-center justify-end gap-3 border-t border-border bg-bg px-4 py-2 sm:-mx-6 sm:-mb-6 sm:px-6" />}
       </main>
       {away.state === "blocked" && (
-        <Dialog title="Leave without saving?" cancelLabel="Keep editing" actionLabel="Leave" danger onCancel={() => away.reset()} onConfirm={() => { setDirty(false); away.proceed(); }}>
-          Your changes to the Look and Voice & lines aren't saved. Leaving drops them.
+        <Dialog title="Leave without saving?" cancelLabel="Keep editing" actionLabel="Leave" danger onCancel={() => away.reset()} onConfirm={() => { setDirty(""); away.proceed(); }}>
+          Your changes to {dirty} aren't saved. Leaving drops them.
         </Dialog>
       )}
       {leaving && (
@@ -105,11 +106,11 @@ export function BrandPage() {
           onCancel={() => setLeaving(null)}
           onConfirm={() => {
             go(leaving);
-            setDirty(false);
+            setDirty("");
             setLeaving(null);
           }}
         >
-          Your changes to the Look and Voice & lines aren't saved. Leaving drops them.
+          Your changes to {dirty} aren't saved. Leaving drops them.
         </Dialog>
       )}
     </FrameContext.Provider>
@@ -125,11 +126,11 @@ export function BrandAction({ children }: { children: ReactNode }) {
 }
 
 /** Tells the frame whether the tab has unsaved changes, so leaving it can ask first. */
-export function useReportDirty(dirty: boolean) {
+export function useReportDirty(dirty: string) {
   const { setDirty } = useContext(FrameContext);
   useEffect(() => {
     setDirty(dirty);
-    return () => setDirty(false);
+    return () => setDirty("");
   }, [dirty, setDirty]);
   // Reloading or closing the tab asks too.
   useEffect(() => {
