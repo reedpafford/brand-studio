@@ -186,3 +186,15 @@ test("the setup page says it shows once and who you'll be, and asks for the code
   expect(labels.at(0)).toBe("Studio name");
   expect(labels.at(-1)).toBe("Setup code (from the server's environment)");
 });
+
+test("the studio's standing editor link asks for an email and sends it; an email already in use says so (#1247)", async () => {
+  const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, email: "" }], "POST /auth/accept-invite": [409, { detail: "That email already has an account. Sign in instead." }] });
+  renderAt("/invite/link9");
+  await userEvent.type(await screen.findByLabelText("Email"), "new@x.co");
+  await userEvent.type(screen.getByLabelText("Your name"), "Neo");
+  await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
+  await userEvent.click(screen.getByRole("button", { name: "Create my account" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("That email already has an account. Sign in instead.");
+  expect(calls.find((c) => c.key === "POST /auth/accept-invite")?.body).toMatchObject({ token: "link9", email: "new@x.co", name: "Neo" });
+  expect(screen.queryByText(/Your email is/)).toBeNull();
+});

@@ -111,3 +111,39 @@ test("a new invite's link shows at the top with Copy link, and says it works onc
   await userEvent.click(within(card).getByRole("button", { name: "Copy link" }));
   expect(writeText).toHaveBeenCalledWith(`${location.origin}/invite/tok7`);
 });
+
+test("Team shows each person's Last active (v5 D_Team, #1247)", async () => {
+  setViewport(1440);
+  const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  fakeServer(base({ "GET /team/members": [200, [{ ...members[0], last_active_at: ago(1) }, { ...members[1], last_active_at: ago(12) }, { ...members[2], last_active_at: null }]], "GET /team/invite-link": [200, null] }));
+  open();
+  const table = await screen.findByRole("table", { name: "People" });
+  expect(within(table).getByRole("columnheader", { name: "Last active" })).toBeInTheDocument();
+  expect(within(table).getByText("now")).toBeInTheDocument();
+  expect(within(table).getByText("12 min ago")).toBeInTheDocument();
+  expect(within(table).getByText("Not yet")).toBeInTheDocument();
+});
+
+test("the owner makes the standing editor link, copies it, and later sees it's out with New link and Stop link (v5 D_Team, #1247)", async () => {
+  setViewport(1440);
+  const routes = base({ "GET /team/invite-link": [200, null], "POST /team/invite-link": [201, { token: "tok123", expires_at: "2026-11-10T03:00:00Z" }], "DELETE /team/invite-link": [204, null] });
+  const calls = fakeServer(routes);
+  open();
+  const card = await screen.findByRole("region", { name: "Invite link for an editor" });
+  await userEvent.click(await within(card).findByRole("button", { name: "Make link" }));
+  expect(await within(card).findByLabelText("Invite link")).toHaveValue(`${location.origin}/invite/tok123`);
+  expect(within(card).getByText("Works once · ends in 7 days")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Copy link" })).toBeInTheDocument();
+  expect(calls.some((c) => c.key === "POST /team/invite-link")).toBe(true);
+});
+
+test("a link already out says when it ends; Stop link revokes it (#1247)", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base({ "GET /team/invite-link": [200, { expires_at: "2026-11-10T03:00:00Z" }], "DELETE /team/invite-link": [204, null] }));
+  open();
+  const card = await screen.findByRole("region", { name: "Invite link for an editor" });
+  expect(await within(card).findByText(/^Link made · ends /)).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "New link" })).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Stop link" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /team/invite-link")).toBe(true));
+});

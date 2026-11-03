@@ -113,20 +113,23 @@ export function InvitePage() {
     );
   const i = invite.data;
   const studio = studioName(i.workspace_name, i.owner_name);
+  // The studio's standing editor link carries no email: the person gives theirs (#1247).
+  const open = !i.email;
   return (
     <AuthForm
       title={`Join ${studio}`}
       intro={
         <p className="text-sm text-muted">
-          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}. Your email is {i.email}.
+          {i.invited_by_name ? `${i.invited_by_name} invited you` : "You were invited"} to {studio} as {i.role === "owner" ? "an owner" : "an editor"}.{open ? "" : ` Your email is ${i.email}.`}
         </p>
       }
       submitLabel="Create my account"
       fields={[
+        ...(open ? [{ name: "email", label: "Email", type: "email", autoComplete: "email" }] : []),
         { name: "name", label: "Your name", autoComplete: "name" },
         { name: "password", label: "Choose a password (10 or more characters)", type: "password", autoComplete: "new-password", minLength: 10 },
       ]}
-      submit={(v) => api.POST("/auth/accept-invite", { body: { token, name: v.name, password: v.password } })}
+      submit={(v) => api.POST("/auth/accept-invite", { body: { token, name: v.name, password: v.password, ...(open ? { email: v.email } : {}) } })}
       welcome={(v) => `Welcome to ${studio}, ${v.name}.`}
     />
   );
