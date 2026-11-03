@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
-import { editor } from "../test/people";
+import { editor, owner } from "../test/people";
 
 const brands = [{ id: 1, name: "fomo", colours: [] }];
 const project = {
@@ -24,6 +24,7 @@ function renderAt(path: string) {
 afterEach(() => vi.unstubAllGlobals());
 
 /** The earlier videos live on Scripts, under "Videos made before scripts" (the old list redirects to Videos). */
+/** Videos made before scripts: the owner's, under their Scripts (v5 drops it from an editor's; their videos are on Videos). */
 async function openLegacy(n: number) {
   renderAt("/b/1/scripts");
   await userEvent.click(await screen.findByText(`Videos made before scripts (${n})`));
@@ -31,7 +32,7 @@ async function openLegacy(n: number) {
 const scripts: Record<string, [number, unknown]> = { "GET /scripts": [200, []], "GET /references": [200, []], "GET /jobs": [200, []] };
 
 test("the list shows each video with its credits, says when it is nearly or over budget, and marks one held from before as waiting for the owner", async () => {
-  fakeServer({ ...base, ...scripts, "GET /projects": [200, [project, { ...project, id: 10, name: "Long one", status: "needs_owner_approval", budget_pct: 110 }]] });
+  fakeServer({ ...base, "GET /auth/me": [200, owner], ...scripts, "GET /projects": [200, [project, { ...project, id: 10, name: "Long one", status: "needs_owner_approval", budget_pct: 110 }]] });
   await openLegacy(2);
   expect(await screen.findByText("Mia buys the dip")).toBeInTheDocument();
   expect(screen.getByText("412 of 660 credits")).toBeInTheDocument();
@@ -76,7 +77,7 @@ test("a refused brief shows the server's reason", async () => {
 });
 
 test("the meter says 'Almost at budget' from 75% and has a bar", async () => {
-  fakeServer({ ...base, ...scripts, "GET /projects": [200, [{ ...project, budget_pct: 81, credits_used: 620, budget_credits: 765 }]] });
+  fakeServer({ ...base, "GET /auth/me": [200, owner], ...scripts, "GET /projects": [200, [{ ...project, budget_pct: 81, credits_used: 620, budget_credits: 765 }]] });
   await openLegacy(1);
   expect(await screen.findByText("620 of 765 credits · Almost at budget")).toBeInTheDocument();
 });
@@ -134,7 +135,7 @@ test("the upload is called Your own example video and says how it is used, so it
 });
 
 test("an earlier video's card is one link to its page and says the step it is at; the old list lands on Videos", async () => {
-  fakeServer({ ...base, ...scripts, "GET /projects": [200, [project]] });
+  fakeServer({ ...base, "GET /auth/me": [200, owner], ...scripts, "GET /projects": [200, [project]] });
   await openLegacy(1);
   expect(await screen.findByRole("link", { name: "Mia buys the dip, Brief, Brief written" })).toHaveAttribute("href", "/b/1/projects/9");
   expect(screen.getByRole("link", { name: "New video (the earlier way)" })).toHaveAttribute("href", "/b/1/projects/new");

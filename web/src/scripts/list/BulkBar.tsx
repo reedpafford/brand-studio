@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, ChevronDown, Folder, X } from "lucide-react";
 import { api, errorText, must } from "../../api/client";
 import { Button, Dialog, Menu, MenuItem, useToast } from "../../components";
 import { useFolders } from "../../folders/Projects";
@@ -9,7 +8,7 @@ import type { Row } from "./ScriptRow";
 
 const plural = (n: number) => `${n} script${n === 1 ? "" : "s"}`;
 
-/** What can be done to the picked scripts at once, with the endpoints that exist: move them to a project, or archive them
+/** The selection bar above the table (v5 C_Scripts, on accent-soft): what can be done to the picked scripts at once, with the endpoints that exist: move them to a project, or archive them
  *  (a script with no video yet goes to Deleted and archived, as its own Delete does). Undo after each. */
 export function BulkBar({ brandId, picked, mayArchive, onDone }: { brandId: number; picked: Row[]; mayArchive: boolean; onDone: () => void }) {
   const folders = useFolders(brandId);
@@ -64,13 +63,13 @@ export function BulkBar({ brandId, picked, mayArchive, onDone }: { brandId: numb
 
   const running = picked.some((r) => r.running);
   return (
-    <div role="region" aria-label="Selected scripts" className="sticky bottom-[calc(var(--tabbar-h)+var(--actionbar-h)+8px)] z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 shadow-(--shadow-raised) lg:bottom-4">
-      <span className="px-2 text-sm font-medium tabular-nums">{n} selected</span>
+    <div role="region" aria-label="Selected scripts" className="-mx-4 flex min-h-11 flex-wrap items-center gap-3 border-b border-border bg-accent-soft px-4 py-1.5 sm:-mx-6 sm:px-6">
+      <span className="text-sm font-medium tabular-nums text-accent-text">{n} selected</span>
       {folders.data && (
         <Menu
           title="Move to project"
           trigger={(p) => (
-            <Button {...p} variant="secondary" dense icon={Folder} trailing={ChevronDown} busy={busy}>
+            <Button {...p} variant="secondary" dense busy={busy}>
               Move to project
             </Button>
           )}
@@ -87,10 +86,13 @@ export function BulkBar({ brandId, picked, mayArchive, onDone }: { brandId: numb
           )}
         </Menu>
       )}
-      <Button variant="secondary" dense icon={Archive} disabled={!mayArchive} reason={mayArchive ? null : "You can archive only your own drafts"} onClick={() => setAsking(true)}>
+      <Button variant="secondary" dense disabled={!mayArchive} reason={mayArchive ? null : "You can archive only your own drafts"} onClick={() => setAsking(true)}>
         Archive
       </Button>
-      <Button variant="ghost" dense icon={X} aria-label="Clear the selection" onClick={onDone} />
+      <span className="flex-1" />
+      <Button variant="ghost" dense className="text-muted!" aria-label="Clear the selection" onClick={onDone}>
+        Clear
+      </Button>
       {asking && (
         <Dialog title={`Archive ${plural(n)}?`} actionLabel="Archive" danger busy={busy} onCancel={() => { setAsking(false); setProblem(null); }} onConfirm={() => void archive()}>
           They leave the library. Videos made from them stay, with their clips and downloads. A script with no video yet goes to Deleted and archived, where it can be restored.

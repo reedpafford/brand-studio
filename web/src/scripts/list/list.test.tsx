@@ -57,10 +57,10 @@ test("scripts are grouped by project with a count each; No project starts closed
   });
   renderApp("/b/1/scripts");
   const spring = await screen.findByRole("region", { name: "Spring launch" });
-  expect(within(spring).getByRole("button", { name: /Spring launch · 1/ })).toHaveAttribute("aria-expanded", "true");
+  expect(within(spring).getByRole("button", { name: /^Spring launch 1$/ })).toHaveAttribute("aria-expanded", "true");
   expect(within(spring).getByText("Bo tries salmon")).toBeInTheDocument();
   const loose = screen.getByRole("region", { name: "No project" });
-  const toggle = within(loose).getByRole("button", { name: /No project · 2/ });
+  const toggle = within(loose).getByRole("button", { name: /^No project 2$/ });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   expect(screen.queryByText("Morning walk")).toBeNull();
   await userEvent.click(toggle);
@@ -115,26 +115,40 @@ const full = (o: object = {}) => ({
 });
 const project = { id: 5, brand_id: 1, name: "Bo tries salmon · A", script_draft_id: 7, step: "clips", finished_at: null, needs_you: true, waiting_on: "1 clip ready to check", credits_used: 220, budget_credits: 600, director_credits: 0, archived_at: null, final_out_of_date: false, created_by_id: 2, created_by_name: "Eli" };
 
-test("a published script opens on Overview: each version's video, who makes it, its credits and its press; the steps stay as tabs", async () => {
+test("a published script opens on Overview (v5 C_ScriptOverview): each version's video, maker, credits and press; its words; its facts", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /projects": [200, [project]], "GET /scripts/7/cast": [200, []], "GET /credits/rates": [200, [{ kind: "write-claude", credits_per_unit: 6 }]], "GET /scripts/7/drafts/1/plan": [404, {}] });
   renderApp("/b/1/scripts/7");
   const a = await screen.findByRole("listitem", { name: "Version A" });
-  expect(within(a).getByText("Original")).toBeInTheDocument();
-  expect(await within(a).findByRole("img", { name: "Step 3 of 4: Clips" })).toBeInTheDocument();
-  expect(within(a).getByText(/1 clip ready to check/)).toBeInTheDocument();
+  expect(await within(a).findByText("Needs you")).toBeInTheDocument();
   expect(within(a).getByText("Eli")).toBeInTheDocument();
-  expect(within(a).getByText("220 / 600")).toBeInTheDocument();
+  expect(within(a).getByText("spent 220 credits")).toBeInTheDocument();
   expect(within(a).getByRole("link", { name: "Open video" })).toHaveAttribute("href", "/b/1/videos/5");
   const b = screen.getByRole("listitem", { name: "Version B" });
-  expect(within(b).getByText("Shorter ending")).toBeInTheDocument();
-  expect(within(b).getByText("Ready to make")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Words" })).toBeInTheDocument();
-  expect(screen.getByText("BO: Salmon? Again?")).toBeInTheDocument();
-  expect(screen.getByText("A · 6 clips · 30 s")).toBeInTheDocument();
-  await userEvent.click(await within(b).findByRole("button", { name: /Make this version/ }));
-  expect(await screen.findByRole("dialog", { name: "Bo tries salmon · Version B" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Overview/ }));
-  await userEvent.click(screen.getAllByRole("button", { name: /^\d?\s*Script$/ })[0]);
-  expect(await screen.findByText("About this script")).toBeInTheDocument();
+  expect(within(b).getByText("No video yet")).toBeInTheDocument();
+  expect(within(b).getByText("about 50 credits (planned)")).toBeInTheDocument();
+  // The words of the version to make next, in Courier, and the script's facts beside the table.
+  expect(screen.getByRole("heading", { name: "Script · version B" })).toBeInTheDocument();
+  expect(screen.getByText("BO: Fine.")).toBeInTheDocument();
+  const about = screen.getByRole("complementary", { name: "About this script" });
+  expect(within(about).getByText("Bo")).toBeInTheDocument();
+  expect(within(about).getByText("All locked")).toBeInTheDocument();
+  expect(within(about).getByText("Published")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\$/);
+  // Make a video opens the Make a video panel on that version (#1194's), not a second copy of it.
+  await userEvent.click(within(b).getByRole("button", { name: "Make a video" }));
+  const panel = await screen.findByRole("dialog", { name: "Make a video from Bo tries salmon" });
+  expect(within(panel).getByRole("radio", { name: /^B/ })).toBeChecked();
+});
+
+test("the Overview's credits count the director's time too, and a video with nothing spent yet says '0 credits so far', never 'free' (QA on #1237)", async () => {
+  setViewport(1440);
+  const making = { ...project, id: 6, name: "Bo tries salmon · B", credits_used: 0, director_credits: 0, needs_you: false, waiting_on: null };
+  const versions = full().versions.map((x) => (x.slot === 1 ? { ...x, status: "in_production", project_id: 6 } : x));
+  fakeServer({ ...base, "GET /scripts/7": [200, full({ versions })], "GET /projects": [200, [{ ...project, credits_used: 99, director_credits: 73 }, making]], "GET /scripts/7/cast": [200, []] });
+  renderApp("/b/1/scripts/7");
+  expect(await within(await screen.findByRole("listitem", { name: "Version A" })).findByText("spent 99 credits")).toBeInTheDocument(); // as the video's chat says it
+  const b = screen.getByRole("listitem", { name: "Version B" });
+  expect(await within(b).findByText("0 credits so far")).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\bfree\b/);
 });

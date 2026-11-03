@@ -41,7 +41,7 @@ test("Reed can delete any script", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts": [200, rows] }));
   open("/b/1/scripts?status=any");
-  expect(await screen.findAllByRole("button", { name: /^More for / })).toHaveLength(3);
+  expect(await screen.findAllByRole("button", { name: /^More for (?!scripts$)/ })).toHaveLength(3); // each row's, not the page's own menu
 });
 
 test("Delete asks first with its own wording, deletes, then Undo restores it", async () => {
