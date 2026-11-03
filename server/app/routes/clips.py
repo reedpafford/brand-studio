@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import prompts
+from app import p_video, prompts
 from app.auth import current_user
 from app.catalogue import CatalogueModel, get_model
 from app.credits import estimate, over_allowance, someone_elses_quick_clip
@@ -46,7 +46,7 @@ class ClipIn(BaseModel):
     improved: bool = False  # the prompt came from Improve: it already says which picture is which
     aspect_ratio: str = "9:16"
     duration: int = Field(5, description="Seconds")
-    resolution: str = "480p"
+    resolution: str | None = None  # None: the model's own (480p, else its lowest)
     generate_audio: bool = True
     character_ids: list[int] = []
     place_ids: list[int] = []
@@ -88,7 +88,7 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     model = get_model(body.model_id)
     if not model or model.kind != "video" or not model.offered:
         raise HTTPException(422, "Pick a video model.")
-    if body.resolution not in model.resolutions:
+    if body.resolution is not None and body.resolution not in model.resolutions:
         raise HTTPException(422, f"{model.name} offers {', '.join(model.resolutions)}.")
     if body.aspect_ratio not in model.aspect_ratios:
         raise HTTPException(422, f"{model.name} doesn't do {body.aspect_ratio}.")
@@ -238,19 +238,25 @@ def _brand_screens(db: Session, brand: Brand) -> dict[int, BrandScreen]:
 def _job_input(
     model: CatalogueModel, body: ClipIn, files: dict, prompt: str, exact: list[int]
 ) -> dict:
-    return {
-        "model": model.id,
-        "brand_id": body.brand_id,
-        "fit_images_to": LONG_SIDE[body.resolution],  # long side in px; never scaled up
-        "exact_file_ids": sorted(set(exact)),  # kept lossless (Reed: screens show exactly)
-        "input": {
+    resolution = body.resolution or model.take_resolution
+    take, sent = p_video.fit(
+        model.id,
+        {
             "prompt": prompt,
             "duration": body.duration,
-            "resolution": body.resolution,
+            "resolution": resolution,
             "aspect_ratio": body.aspect_ratio,
             "generate_audio": body.generate_audio,
         },
-        "files": {k: v for k, v in files.items() if v},  # sent as data when the job starts
+        {k: v for k, v in files.items() if v},  # sent as data when the job starts
+    )
+    return {
+        "model": model.id,
+        "brand_id": body.brand_id,
+        "fit_images_to": LONG_SIDE[resolution],  # long side in px; never scaled up
+        "exact_file_ids": sorted(set(exact)),  # kept lossless (Reed: screens show exactly)
+        "input": take,
+        "files": sent,
         "request": body.model_dump(),  # the editor's original choices, for "Try again"
     }
 

@@ -44,9 +44,17 @@ class CatalogueModel(BaseModel):
     first_frame: bool = False
     last_frame: bool = False
     audio: Literal["switch", "always"] | None = None
-    lip_sync: bool = False  # video models: can take a song slice for Sung shots (VS1)
+    lip_sync: bool = False  # video models: a song slice sets the mouth (Sung shots, VS1)
     price: Price
     price_source: str
+
+    @property
+    def take_resolution(self) -> str:
+        """What takes of this model are made and priced at: 480p when it has it, else the
+        lowest it lists (P-Video: 720p)."""
+        if "480p" in self.resolutions:
+            return "480p"
+        return min(self.resolutions, key=lambda r: int(r[:-1]) * (1000 if r.endswith("k") else 1))
 
     def usd_per_unit(self, resolution: str | None = None) -> Decimal:
         usd = self.price.usd
