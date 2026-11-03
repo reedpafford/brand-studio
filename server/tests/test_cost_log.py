@@ -114,3 +114,23 @@ def test_an_editors_week_lists_only_their_quick_clips(owner, editor, db):
     assert week["allowance"] is not None
     assert not any("usd" in k or "dollar" in k for k in _keys(week))
     assert owner.get("/usage/mine", params={"brand_id": fomo}).json()["week"]["allowance"] is None
+
+
+def test_an_editors_held_song_or_narration_is_named_by_its_script_not_quick_clip(owner, editor, db):
+    """Next-Lead: My credits' sends named an editor's held song on a script "Quick clip"."""
+    from app.models.jobs import JobStatus
+
+    _, fomo, _ = _setup(owner, db)
+    them = db.query(User).filter_by(role=Role.editor).one()
+    script = editor.post("/scripts", json={"brand_id": fomo, "title": "Gut"}).json()["id"]
+    held = [enqueue(db, them, "music", {"step": "song_take", "on_script": script}),
+            enqueue(db, them, "speech", {"step": "song_take", "on_script": script}),
+            enqueue(db, them, "music_bed", {"step": "narration_bed", "on_script": script}),
+            enqueue(db, them, "video-480p", {"brand_id": fomo})]  # fmt: skip
+    for job in held:
+        job.status = JobStatus.needs_owner_approval
+    db.commit()
+    out = editor.get("/usage/mine", params={"brand_id": fomo}).json()
+    sends = {s["job_id"]: s["title"] for s in out["sends"]}
+    assert [sends[j.id] for j in held] == ["Gut · song", "Gut · narration", "Gut · music",
+                                          "Quick clip"]  # fmt: skip
