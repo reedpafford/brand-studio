@@ -1,0 +1,74 @@
+"""v5 audit (D_Usage, D_MyCredits): a month picked on Usage and My credits, spend in credits,
+each brand's credits and videos, Freestyle's own row, and My credits across every brand with
+each row's status. Free."""
+
+from datetime import datetime
+
+from app.models.accounts import Role, User
+from app.models.jobs import Job
+from app.routes.jobs import enqueue
+from tests.test_freestyle_dialogue import BODY
+from tests.test_freestyle_dialogue import _run as _run_fakes
+from tests.test_usage import _charge, _setup
+
+OCT, NOV = datetime(2026, 10, 15, 12), datetime(2026, 11, 2, 12)
+
+
+def _job(db, who, dollars, when, **kw):
+    job = enqueue(db, who, "video-480p", {}, **kw)
+    job.created_at = when
+    _charge(db, job, dollars, when=when)
+    return job
+
+
+def test_a_picked_month_counts_only_its_own_charges_in_credits_too(owner, editor, db):
+    me, fomo, video = _setup(owner, db)
+    october = _job(db, me, "2.00", OCT, project=video)
+    _job(db, me, "1.00", NOV, project=video)
+    out = owner.get("/usage/summary", params={"month": "2026-10"}).json()
+    assert out["period"] == "month" and out["starts_at"].startswith("2026-10-01")
+    assert out["spend_usd"] == 2.0 and out["spend_credits"] == float(october.credits) > 0
+    assert out["previous"]["spend_usd"] == 0  # September
+    (row,) = [r for r in owner.get("/usage/brands", params={"month": "2026-10"}).json()["items"]
+              if r["brand_id"] == fomo]  # fmt: skip
+    assert row["spend_usd"] == 2.0 and row["credits"] == float(october.credits)
+    assert row["videos"] == 1  # being made now
+    assert owner.get(f"/usage/brands/{fomo}", params={"month": "2026-10"}).json()["credits"] == (
+        row["credits"])  # fmt: skip
+    (reed,) = [p for p in owner.get("/usage/people", params={"month": "2026-10"}).json()
+               if p["name"] == "Reed"]  # fmt: skip
+    assert reed["credits"] == float(october.credits)
+    assert owner.get("/usage/summary", params={"month": "2026-13"}).status_code == 422
+    assert editor.get("/usage/summary", params={"month": "2026-10"}).status_code == 404
+
+
+def test_freestyle_with_no_brand_has_its_own_row(app, owner, db):
+    fs = owner.post("/freestyles", json=BODY).json()
+    _run_fakes(app, db)
+    out = owner.get("/usage/summary", params={"period": "all"}).json()["freestyle"]
+    from app.credits import COUNTED
+    from app.models.projects import Project
+
+    video = db.get(Project, fs["project_id"], execution_options={"see_hidden": True})
+    spent = sum(j.credits for j in db.query(Job).filter(Job.brand_id == video.brand_id,
+                                                         Job.status.in_(COUNTED)))  # fmt: skip
+    assert out["videos"] == 1 and out["credits"] == float(spent) > 0
+    assert out["spend_usd"] == owner.get("/usage/summary", params={"period": "all"}).json()[
+        "freestyle_spend_usd"]  # fmt: skip
+
+
+def test_my_credits_across_every_brand_with_each_rows_status(app, owner, editor, db):
+    fs = owner.post("/freestyles", json=BODY).json()  # no brand: the hidden Freestyle one
+    _run_fakes(app, db)
+    _, fomo, launch = _setup(owner, db)
+    made = owner.post("/projects", json={"brand_id": fomo, "name": "Mine"}).json()["id"]
+    out = owner.get("/usage/mine").json()
+    states = {v["project_id"]: v["state"] for v in out["videos"]}
+    assert states[fs["project_id"]] == "delivered" and states[made] == "making"
+    assert out["videos_and_freestyles"] == len(out["videos"]) == 3
+    one = owner.get("/usage/mine", params={"brand_id": fomo}).json()  # one brand, as before
+    assert sorted(v["project_id"] for v in one["videos"]) == sorted([made, launch.id])
+    assert owner.get("/usage/mine", params={"month": "2020-01"}).json()["videos"] == []
+    ed = db.query(User).filter_by(role=Role.editor).one()
+    assert all(v["project_id"] not in states for v in editor.get("/usage/mine").json()["videos"])
+    assert ed.id  # an editor sees only their own
