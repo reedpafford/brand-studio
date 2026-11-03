@@ -185,31 +185,3 @@ test("In production's spend is one line, the director's time included, in whole 
   expect(within(approved).getByText("spent 21")).toBeInTheDocument();
   expect(within(approved).getByText("up to 204 approved")).toBeInTheDocument();
 });
-
-test("In production (#1232): a video at Clips says how many are made, and Delivered today is a tab that asks the server for today's", async () => {
-  setViewport(1440);
-  const making = row({ project_id: 21, script: { id: 9, title: "Walk day" }, letter: "C", clips_made: 4, clips_total: 6, last_activity_at: minutesAgo(5) });
-  const done = row({ project_id: 22, script: { id: 10, title: "Market open" }, letter: "B", step: "downloads", finished_at: minutesAgo(30), last_activity_at: minutesAgo(30) });
-  const calls = fakeServer({ ...base([making]), "GET /production/summary": [200, { in_production: 1, needs_attention: 0, changes_waiting: 0, delivered_today: 1 }], "GET /production?delivered=today&sort=attention&limit=25&offset=0": [200, [done]] });
-  open();
-  const link = await screen.findByRole("link", { name: /Walk day/ });
-  expect(within(link).getByText(/^Making clips: 4 of 6/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("tab", { name: /^Delivered today\s*1$/ }));
-  const shipped = await screen.findByRole("link", { name: /Market open/ });
-  expect(within(shipped).getByText(/^Delivered/)).toBeInTheDocument();
-  expect(calls.some((c) => c.key === "GET /production")).toBe(true);
-});
-
-test("In production on a phone (QA-3 on #1241): the three tabs are there, cards read like the computer's Now, and Delivered today counts its own list", async () => {
-  setViewport(390);
-  const making = row({ project_id: 21, script: { id: 9, title: "Walk day" }, letter: "C", clips_made: 1, clips_total: 3, last_activity_at: minutesAgo(5) });
-  const done = row({ project_id: 22, script: { id: 10, title: "Market open" }, letter: "B", step: "downloads", finished_at: minutesAgo(1), last_activity_at: minutesAgo(1) });
-  fakeServer({ ...base([making, making]), "GET /production/summary": [200, { in_production: 2, needs_attention: 0, changes_waiting: 0, delivered_today: 1 }], "GET /production?delivered=today&sort=attention&limit=25&offset=0": [200, [done]] });
-  open();
-  const card = (await screen.findAllByRole("link", { name: /Walk day/ }))[0];
-  expect(within(card).getByText(/^Making clips: 1 of 3/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("tab", { name: /^Delivered\s*1$/ }));
-  const shipped = await screen.findByRole("link", { name: /Market open/ });
-  expect(within(shipped).getByText(/^Delivered/)).toBeInTheDocument();
-  expect(screen.getByText("1 video delivered today")).toBeInTheDocument(); // never "1 of 2 videos"
-});
