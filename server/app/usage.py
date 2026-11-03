@@ -203,7 +203,8 @@ def video_title(db: Session, project: Project) -> tuple[str, int | None, str | N
 
 
 def what(db: Session, job: Job) -> str:
-    """A charge in plain words: 'Clip take · Bo tries salmon · B', 'Quick clip'."""
+    """A charge in plain words: 'Clip take · Bo tries salmon · B', 'Bo tries salmon · song',
+    'Quick clip'."""
     step = job.input.get("step")
     if job.project_id is not None:
         title, _, _ = video_title(db, db.get(Project, job.project_id))
@@ -215,6 +216,11 @@ def what(db: Session, job: Job) -> str:
         draft = db.get(ScriptDraft, job.input["script_draft_id"])
         script = db.get(Script, draft.script_id) if draft else None
         return f"Breakdown preview · {script.title}" if script else "Breakdown preview"
+    if job.input.get("on_script"):  # a script's song or narration, or a narration's music
+        script = db.get(Script, job.input["on_script"])
+        made = "song" if step == "song_take" and job.kind == "music" else (
+            "narration" if step == "song_take" else "music")  # fmt: skip
+        return f"{script.title} · {made}" if script else made.capitalize()
     if job.input.get("script_id"):
         script = db.get(Script, job.input["script_id"])
         return f"{STEPS.get(step, 'Script')} · {script.title}" if script else STEPS.get(step, "")
