@@ -605,8 +605,8 @@ class DirectorTurn(BaseModel):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
-        "mute", "splice_word", "add_sound", "song", "narration", "host", "wait", "deliver",
-        "stop",
+        "mute", "splice_word", "add_sound", "song", "narration", "host", "split_clip", "wait",
+        "deliver", "stop",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -614,8 +614,8 @@ class DirectorTurn(BaseModel):
     )  # fmt: skip
     clip_id: str | None = Field(
         default=None,
-        description="For make_take, pick_take, mute, splice_word and add_sound: the clip, e.g. "
-        "'c3'. For make_take, null makes a first take of every clip that has none; for "
+        description="For make_take, pick_take, mute, splice_word, add_sound and split_clip: the "
+        "clip, e.g. 'c3'. For make_take, null makes a first take of every clip that has none; for "
         "add_sound, null adds sound to every silent take in the cut. Else null.",
     )
     take_id: int | None = Field(

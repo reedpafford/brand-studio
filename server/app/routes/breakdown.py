@@ -89,19 +89,25 @@ class BreakdownVersionOut(BaseModel):
 def _song(db: Session, row: BreakdownVersion) -> dict | None:
     """A song video's shot times, each marked when its line wasn't heard in the take."""
     from app import song_breakdown
-    from app.models.scripts import ScriptVersion
     from app.models.songs import SongTake
 
     song = row.data.get("song")
     take = db.get(SongTake, song["take_id"]) if song else None
     if not take:
         return song
-    text = db.scalar(select(ScriptVersion.text).where(
-        ScriptVersion.project_id == row.project_id, ScriptVersion.version == row.script_version
-    )) or ""  # fmt: skip
+    text = _text(db, row)
     unsure = song_breakdown.guessed(Breakdown.model_validate(row.data), text, take.timing or {})
     shots = {sid: {**t, "guessed": sid in unsure} for sid, t in song["shots"].items()}
     return {**song, "shots": shots}
+
+
+def _text(db: Session, row: BreakdownVersion) -> str:
+    """The script version this breakdown was made from."""
+    from app.models.scripts import ScriptVersion
+
+    return db.scalar(select(ScriptVersion.text).where(
+        ScriptVersion.project_id == row.project_id, ScriptVersion.version == row.script_version
+    )) or ""  # fmt: skip
 
 
 def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
@@ -117,7 +123,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         kept=row.kept or [],
         stale=row.script_version != working,
         song=_song(db, row),
-        fixes=breakdown_fix.fixes(row.problems or [], row.data),
+        fixes=breakdown_fix.fixes(row.problems or [], row.data, _text(db, row)),
         older_plan=plans.older(db, project, row),
         **_director_run(db, project),
     )
@@ -400,7 +406,7 @@ def fix(
     fitted to the shots. Undo saves the old breakdown back with PUT."""
     project, version = _working(db, user, project_id)
     row = _newest(db, project)
-    every = [f["problem"] for f in breakdown_fix.fixes(row.problems, row.data)]
+    every = [f["problem"] for f in breakdown_fix.fixes(row.problems, row.data, version.text)]
     asked = (body.problems if body else []) or every
     m = breakdown.video_model(project)
     from app.cast_roles import fix as cast
@@ -413,10 +419,31 @@ def fix(
         raise HTTPException(409, "Nothing here can be fixed for you. Edit the shot instead.")
     # Split the clip is free (QA-3 #1013): the new clips' prompts wait for Clips' priced Rewrite
     split = any(breakdown_fix.kind(p) == "split_clip" for p in asked)
-    out = _out(new_version(db, user, project, row, version.text, fixed, follow=not split),
-               version.version)  # fmt: skip
+    new = new_version(db, user, project, row, version.text, fixed, follow=not split)
+    if split:
+        _cut_frames(db, row, new)
+    out = _out(new, version.version)
     out.fixed = done
     return out
+
+
+def _cut_frames(db: Session, old: BreakdownVersion, row: BreakdownVersion) -> None:
+    """A shot cut at its sentence breaks ("4.1" into "4.1.1", "4.1.2", …) is one picture going
+    on: each piece opens on the frame and still of the shot it was cut from (free)."""
+    from app.models.storyboards import StoryboardFrame
+
+    bd = Breakdown.model_validate(row.data)
+    of_shot = {s: c.id for c in bd.clips for s in c.shot_ids}
+    was = {f.shot_id: f for f in db.scalars(select(StoryboardFrame).where(
+        StoryboardFrame.breakdown_id == old.id))}  # fmt: skip
+    for sid in of_shot:
+        base = was.get(sid.rsplit(".", 1)[0]) if sid not in was and sid.count(".") > 1 else None
+        if base is not None:
+            db.add(StoryboardFrame(
+                project_id=base.project_id, breakdown_id=row.id, clip_id=of_shot[sid], shot_id=sid,
+                prompt=base.prompt, reference_ids=base.reference_ids, file_id=base.file_id,
+                look=base.look, made_with=base.made_with, approved=base.approved))  # fmt: skip
+    db.commit()
 
 
 class RemoveRefIn(BaseModel):

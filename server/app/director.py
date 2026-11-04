@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_song, director_tools, take_mute, take_sound, word_splice
+from app import breakdown_fix, director_song, director_tools, take_mute, take_sound, word_splice
 from app.credits import COUNTED, lock
 from app.db import utcnow
 from app.models.accounts import User
@@ -720,6 +720,10 @@ def video_state(db: Session, project: Project) -> dict:
                                 if k in ("state", "how")},
                       **word_splice.state(db, row),  # splice_word
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
+    have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
+    clips += [{"clip_id": c["id"], "stale": True, "shots": [], "picked_take_id": None,
+               "takes": [], "muted": [], "sound": {}} for c in data.get("clips", [])
+              if c["id"] not in have]  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
     acted = [j for j in turns(db, project) if "result" in j.input]
@@ -740,6 +744,7 @@ def video_state(db: Session, project: Project) -> dict:
         "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
         "shots": "ready" if bd else "none",
+        "too_long": breakdown_fix.too_long(bd.problems or []) if bd else [],  # split_clip
         "missing_looks": [s.role for s in _missing(db, project)] if bd else [],
         "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id)},
         "clips": clips,
@@ -780,6 +785,9 @@ def choose(state: dict) -> dict:
         return audio
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
+    if long := state.get("too_long"):  # before its stills: the split makes new shots
+        return go("split_clip", f"{long[0]} is longer than the video model makes: split it.",
+                  clip_id=long[0])  # fmt: skip
     if state["missing_looks"]:
         return go("make_looks", "Some roles have no look yet.")
     if not state["stills"]["frames"]:

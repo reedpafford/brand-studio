@@ -28,6 +28,11 @@ LABELS = {
 }
 
 
+def too_long(problems: list[str]) -> list[str]:
+    """The clips longer than the video model makes ("c4"), from a breakdown's problems."""
+    return [KINDS["split_clip"].match(p)[1] for p in problems if kind(p) == "split_clip"]
+
+
 def kind(problem: str) -> str | None:
     k = next((k for k, pattern in KINDS.items() if pattern.match(problem)), None)
     if k == "split_clip" and (m := KINDS[k].match(problem)) and int(m[2]) <= int(m[3]):
@@ -35,13 +40,19 @@ def kind(problem: str) -> str | None:
     return k
 
 
-def fixes(problems: list[str], data: dict | None = None) -> list[dict]:
+def fixes(problems: list[str], data: dict | None = None, script: str = "") -> list[dict]:
     """The fix each problem has, for its button: [{problem, kind, label}]. With the
-    breakdown (`data`), a clip of one shot isn't offered Split (Flow-QA #1013: it can't be)."""
-    one = {c["id"] for c in (data or {}).get("clips", []) if len(c["shot_ids"]) < 2}
+    breakdown (`data`), a clip of one shot is offered Split only when the `script` lets its
+    shot be cut at a sentence break (Flow-QA #1013: one sentence can't be)."""
 
     def split_one(p: str, k: str) -> bool:
-        return k == "split_clip" and KINDS[k].match(p)[1] in one
+        if k != "split_clip" or data is None:
+            return False
+        m = KINDS[k].match(p)
+        clip = next((c for c in data.get("clips", []) if c["id"] == m[1]), None)
+        if clip is None or len(clip["shot_ids"]) > 1:
+            return False  # shots to split between
+        return not script or split_into(data, script, m[1], 1, int(m[3])) < 2
 
     return [{"problem": p, "kind": k, "label": LABELS[k]}
             for p in problems if (k := kind(p)) and not split_one(p, k)]  # fmt: skip
@@ -90,19 +101,41 @@ def repair(script: str, bd: Breakdown, problems: list[str], min_s: int, max_s: i
         elif k == "recover_clips" and "Fitted the clips to the shots." not in done:
             if _recover(bd, shots, min_s, max_s):
                 done.append("Fitted the clips to the shots.")
-        elif k == "split_clip" and _split(bd, shots, m[1], min_s, max_s):
+        elif k == "split_clip" and _split(bd, m[1], min_s, max_s, lines):
             done.append(f"Split clip {m[1][1:]} so the video model can make it.")
     return bd, done
 
 
-def _split(bd: Breakdown, shots: list, clip_id: str, min_s: int, max_s: int) -> bool:
-    """A clip longer than the video model makes, cut between its shots into clips it can
-    (rule 29), then numbered c1, c2, … again. A song video's fit sets each new clip's length
-    from the song when it's saved."""
+def split_into(data: dict, script: str, clip_id: str, min_s: int, max_s: int) -> int:
+    """How many clips Split makes of this one (1: it can't be split). Free, nothing saved."""
+    return len(split_preview(data, script, clip_id, min_s, max_s)) or 1
+
+
+def split_preview(data: dict, script: str, clip_id: str, min_s: int, max_s: int) -> list:
+    """The clips Split would make of this one, each with its shots (nothing saved); [] when
+    it can't be split."""
+    bd = Breakdown.model_validate(data)
+    at, before = next((i for i, c in enumerate(bd.clips) if c.id == clip_id), 0), len(bd.clips)
+    if not _split(bd, clip_id, min_s, max_s, script.splitlines()):
+        return []
+    return bd.clips[at : at + len(bd.clips) - before + 1]
+
+
+def _split(bd: Breakdown, clip_id: str, min_s: int, max_s: int, lines=()) -> bool:
+    """A clip longer than the video model makes, cut into clips it can (rule 29): between
+    its shots, and a shot longer than the model makes at its sentence breaks (`_cut`), the
+    words unchanged. Then numbered c1, c2, … again. A song video's fit sets each new clip's
+    length from the song when it's saved."""
     at = next((i for i, c in enumerate(bd.clips) if c.id == clip_id), None)
-    seconds = {s.id: s.seconds for s in shots}
     if at is None:
         return False
+    mine, into = set(bd.clips[at].shot_ids), {}  # an over-long shot: cut at a sentence end
+    for scene in bd.scenes:
+        for s in scene.shots:
+            into[s.id] = _cut(s, lines, max_s) if s.id in mine else [s]
+        scene.shots = [x for s in scene.shots for x in into[s.id]]
+    bd.clips[at].shot_ids = [x.id for sid in bd.clips[at].shot_ids for x in into.get(sid, [])]
+    seconds = {s.id: s.seconds for scene in bd.scenes for s in scene.shots}
     groups, run = [[]], 0.0
     for sid in bd.clips[at].shot_ids:
         if groups[-1] and run + seconds.get(sid, 0) > max_s:
@@ -110,7 +143,7 @@ def _split(bd: Breakdown, shots: list, clip_id: str, min_s: int, max_s: int) -> 
         groups[-1].append(sid)
         run += seconds.get(sid, 0)
     if len(groups) < 2:
-        return False  # one shot longer than the model makes: shorten the shot instead
+        return False  # one sentence longer than the model makes: shorten the shot instead
     bd.clips[at : at + 1] = [
         bd.clips[at].model_copy(update={"shot_ids": ids, "seconds": min(max(
             math.ceil(sum(seconds.get(i, 0) for i in ids) - 0.5), min_s), max_s)})
@@ -119,6 +152,39 @@ def _split(bd: Breakdown, shots: list, clip_id: str, min_s: int, max_s: int) -> 
     for n, clip in enumerate(bd.clips, 1):
         clip.id = f"c{n}"
     return True
+
+
+def _cut(shot, lines, max_s: int) -> list:
+    """A shot longer than the video model makes, cut at its sentence breaks into shots of at
+    most `max_s` each ("4.1" into "4.1.1", "4.1.2", …: its clip is written again), each as
+    long as its share of the words; the words, the picture and the cast stay as they were.
+    [shot] when it fits, or has one sentence."""
+    from app.narration import sentences
+
+    if shot.seconds <= max_s:
+        return [shot]
+    said = {n: _words(_said(lines[n - 1])) for n in shot.script_lines if 0 < n <= len(lines)}
+    text = shot.line or " ".join(_said(lines[n - 1]) for n in said)
+    parts = sentences(text)
+    if len(parts) < 2:
+        return [shot]
+    per = shot.seconds / sum(max(1, len(p.split())) for p in parts)
+    groups, run = [[]], 0.0
+    for p in parts:
+        long = max(1, len(p.split())) * per
+        if groups[-1] and run + long > max_s:
+            groups, run = [*groups, []], 0.0
+        groups[-1].append(p)
+        run += long
+    out = []
+    for k, g in enumerate(groups):
+        words = " ".join(g)
+        mine = [n for n, w in said.items() if any(_words(x) in w for x in g)] or shot.script_lines
+        out.append(shot.model_copy(update={
+            "id": f"{shot.id}.{k + 1}", "script_lines": mine,
+            "line": words if shot.line else None,
+            "seconds": round(sum(max(1, len(x.split())) for x in g) * per, 1)}))  # fmt: skip
+    return out
 
 
 def _recover(bd: Breakdown, shots: list, min_s: int, max_s: int) -> bool:
