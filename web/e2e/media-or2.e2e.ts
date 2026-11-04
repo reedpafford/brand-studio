@@ -18,8 +18,8 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "Nothing made yet in Media Co." })).toBeVisible();
     await expect(page.getByRole("main").getByRole("link", { name: "New video" })).toHaveAttribute("href", /\/videos\/new$/);
 
-    await page.getByRole("navigation", { name: "Kinds" }).getByRole("button", { name: "Stills" }).click();
-    await expect(page).toHaveURL(/kind=still/);
+    await page.getByRole("navigation", { name: "Kinds" }).getByRole("button", { name: /^Stills/ }).click();
+    await expect(page).toHaveURL(/group=still/);
     await expect(page.getByRole("heading", { name: "Nothing matches these filters." })).toBeVisible();
 
     for (const press of [width === 1440 ? page.getByRole("link", { name: "Media" }).first() : page.getByRole("main").getByRole("link", { name: "Videos" }), page.getByRole("button", { name: /Filters|Clear filters/ }).first()]) {
@@ -38,7 +38,7 @@ test("at 390 a deleted video's badge wraps a long unbroken maker name inside its
   const brandId = await emptyBrand(page, "Long Name Co");
   const name = "Bartholomewchristopheralexanderjonathanson"; // no break of its own
   const item = { key: "take:1", kind: "take", file_id: 1, content_type: "video/mp4", poster_file_id: null, made_at: "2026-10-28T10:00:00Z", made_by: null, project_id: 9, folder_id: null, video_name: "Bo tries salmon", script_id: null, open_step: "clips", from_deleted_video: true, deleted_video_by: { id: 99, name } };
-  await page.route(`**/api/brands/${brandId}/media*`, (r) => r.fulfill({ json: { items: [item], next: null } }));
+  await page.route(new RegExp(`/api/brands/${brandId}/media(\\?.*)?$`), (r) => r.fulfill({ json: { items: [item], next: null } }));
   await page.goto(`/b/${brandId}/media`);
   const tile = page.getByRole("list", { name: "Media" }).getByRole("listitem");
   const badge = tile.getByText(`From ${name}'s deleted video`);

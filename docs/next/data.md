@@ -78,7 +78,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 24 | n25 | #1258 | n24 | On `next` (a8e8b9d2) |
 | 25 | n26 | — | n25 | On its PR |
 | 26 | n28 | — | n27 | On its PR |
-| 27 | n29 | #1267 | n28 | On `next` |
+| 27 | n29 | #1267 | n28 | On `next` (19be9833) |
 | 28 | n30 | #1296 | n29 | On `next` |
 
 ## 1. Song ads
