@@ -1,6 +1,6 @@
-"""Voices (v6 S8-04, Library › Presenters & voices): a brand's voices with their free
-samples, an app voice saved to the brand (free), a voice cloned from a sample (priced first,
-up to one clone's real cost), and remove with Undo. Rules: app/voices.py."""
+"""Voices (v6 S8-04, Library › Presenters & voices): every app voice with its free sample,
+the brand's own voices and the styles' voices, a voice cloned from a sample (priced first, up
+to one clone's real cost), and remove with Undo. Rules: app/voices.py."""
 
 from typing import Literal
 
@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app import voices
+from app.advice import SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -22,7 +23,7 @@ router = APIRouter(tags=["voices"])
 
 
 class VoiceOut(BaseModel):
-    id: int | None  # null: an app voice not saved to this brand (`?all=true`)
+    id: int | None  # null: an app voice (they're in the code, never saved to a brand)
     name: str
     kind: Literal["stock", "cloned", "described"]
     stock_key: str | None
@@ -37,7 +38,7 @@ class VoiceOut(BaseModel):
     last_used_at: UtcTime | None
     expires_at: UtcTime | None  # a clone: 7 days after its last use, MiniMax may delete it
     state: Literal["cloning", "ready", "may_expire", "expired", "failed"]
-    error: str  # what to do, in plain words ("" when nothing)
+    error: SaidText = ""  # what to do, in plain words ("" when nothing)
     used_by: list[int]  # library items with this voice
 
 
@@ -45,10 +46,6 @@ class VoicesOut(BaseModel):
     voices: list[VoiceOut]
     clone_credits: float  # "Clone a voice · up to N credits"
     clone_usd: float | None  # the owner's "$3.00 once"; null for an editor
-
-
-class VoiceSaveIn(BaseModel):
-    stock_key: str
 
 
 class VoiceCloneIn(BaseModel):
@@ -63,7 +60,7 @@ def _url(request: Request, name: str | None) -> str | None:
 
 def _out(db: Session, request: Request, voice: Voice, used: dict) -> VoiceOut:
     state, why = voices.state(db, voice)
-    return VoiceOut(id=voice.id, name=voice.name, kind=voice.kind, stock_key=voice.stock_key,
+    return VoiceOut(id=voice.id, name=voice.name, kind=voice.kind, stock_key=None,
                     provider=voice.provider, description=voice.description, look=voice.look,
                     brand_id=voice.brand_id, sample_file_id=voice.sample_file_id,
                     sample_url=_url(request, voices.sample_name(voice)),
@@ -90,30 +87,20 @@ def _voice(db: Session, user: User, voice_id: int) -> Voice:
 
 
 @router.get("/brands/{brand_id}/voices", response_model=VoicesOut)
-def list_voices(brand_id: int, request: Request, all: bool = False,
-                user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
-    """The brand's own voices and the styles' voices; `all` adds every app voice not saved."""
+def list_voices(brand_id: int, request: Request, user: User = Depends(current_user),
+                db: Session = Depends(get_db)):  # fmt: skip
+    """The brand's own voices, the styles' voices, then every app voice (Reed, 4 Nov: a brand
+    saves only voices uploaded or cloned for it). An `all` query from the first version is
+    ignored."""
     get_brand(db, user, brand_id)
     rows = voices.rows(db, user.workspace_id, brand_id)
     used = voices.used_by(db, [v.id for v in rows])
     out = [_out(db, request, v, used) for v in rows]
-    if all:
-        saved = {v.stock_key for v in rows if v.stock_key}
-        out += [_stock_out(request, k) for k in voices.stock_keys() if k not in saved]
+    out += [_stock_out(request, k) for k in voices.stock_keys()]
     db.commit()  # a style's voice made on first read
     usd = voices.clone_usd() if user.is_owner else None
     return VoicesOut(voices=out, clone_credits=float(voices.clone_credits(db, user.workspace_id)),
                      clone_usd=float(usd) if usd is not None else None)  # fmt: skip
-
-
-@router.post("/brands/{brand_id}/voices", response_model=VoiceOut, status_code=201)
-def save_voice(brand_id: int, body: VoiceSaveIn, request: Request,
-               user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
-    """Save an app voice to the brand (free)."""
-    get_brand(db, user, brand_id)
-    voice = voices.save_stock(db, user, brand_id, body.stock_key)
-    db.commit()
-    return _out(db, request, voice, {})
 
 
 @router.post("/brands/{brand_id}/voices/clone", response_model=VoiceOut, status_code=201)

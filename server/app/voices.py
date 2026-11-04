@@ -68,7 +68,6 @@ STYLE_VOICES = (
 )  # fmt: skip
 
 NOT_STOCK = "There's no app voice called that."
-SAVED_ALREADY = "This brand has that voice already."
 NO_VOICE = "There's no such voice."
 STYLE_OWNER = "Only the owner removes a style's own voice."
 NOT_ARCHIVED = "This voice isn't removed, so there's nothing to bring back."
@@ -152,7 +151,7 @@ def used_by(db: Session, voice_ids: list[int]) -> dict[int, list[int]]:
 
 def sample_name(voice: Voice | None, stock_key: str | None = None) -> str | None:
     """The committed free sample's name (an app voice's key, or a style voice's look)."""
-    key = stock_key or (voice.stock_key or voice.look if voice else None)
+    key = stock_key or (voice.look if voice else None)
     plain = bool(key) and re.fullmatch(r"[A-Za-z][\w-]*", key) is not None  # a name, no path
     return key if plain and (SAMPLES / f"{key}.mp3").is_file() else None
 
@@ -180,20 +179,6 @@ def clone_usd() -> Decimal:
 
 
 # --- Saving and cloning ----------------------------------------------------------------------
-
-
-def save_stock(db: Session, user: User, brand_id: int, key: str) -> Voice:
-    """An app voice saved to the brand (free)."""
-    given = stock(key)
-    taken = db.scalar(select(Voice.id).where(Voice.brand_id == brand_id, Voice.stock_key == key,
-                                             Voice.archived_at.is_(None)))  # fmt: skip
-    if taken:
-        raise HTTPException(409, SAVED_ALREADY)
-    voice = Voice(workspace_id=user.workspace_id, brand_id=brand_id, created_by_id=user.id,
-                  **given)  # fmt: skip
-    db.add(voice)
-    db.flush()
-    return voice
 
 
 def _seconds(data: bytes) -> float:
@@ -303,8 +288,6 @@ def narration_job(db: Session, workspace_id: int, script: str, said: str, note: 
     voice = named(db, workspace_id, said)
     if voice is None or voice.archived_at is not None:
         raise HTTPException(422, NO_VOICE)
-    if voice.kind == "stock":  # an app voice saved to a brand reads as itself
-        return narration.job(script, voice.stock_key, note, emotion, reading)
     if voice.kind != "cloned":
         raise HTTPException(422, NO_VOICE)
     ready(db, voice)

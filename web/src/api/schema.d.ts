@@ -5591,15 +5591,13 @@ export interface paths {
         };
         /**
          * List Voices
-         * @description The brand's own voices and the styles' voices; `all` adds every app voice not saved.
+         * @description The brand's own voices, the styles' voices, then every app voice (Reed, 4 Nov: a brand
+         *     saves only voices uploaded or cloned for it). An `all` query from the first version is
+         *     ignored.
          */
         get: operations["list_voices_brands__brand_id__voices_get"];
         put?: never;
-        /**
-         * Save Voice
-         * @description Save an app voice to the brand (free).
-         */
-        post: operations["save_voice_brands__brand_id__voices_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11224,15 +11222,13 @@ export interface components {
              * @enum {string}
              */
             state: "cloning" | "ready" | "may_expire" | "expired" | "failed";
-            /** Error */
+            /**
+             * Error
+             * @default
+             */
             error: string;
             /** Used By */
             used_by: number[];
-        };
-        /** VoiceSaveIn */
-        VoiceSaveIn: {
-            /** Stock Key */
-            stock_key: string;
         };
         /** VoicesOut */
         VoicesOut: {
@@ -22831,9 +22827,7 @@ export interface operations {
     };
     list_voices_brands__brand_id__voices_get: {
         parameters: {
-            query?: {
-                all?: boolean;
-            };
+            query?: never;
             header?: never;
             path: {
                 brand_id: number;
@@ -22849,41 +22843,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoicesOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    save_voice_brands__brand_id__voices_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VoiceSaveIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VoiceOut"];
                 };
             };
             /** @description Validation Error */

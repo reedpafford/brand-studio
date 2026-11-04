@@ -25,7 +25,6 @@ def upgrade() -> None:
         sa.Column("look", sa.String(length=40), nullable=True),
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("kind", sa.String(length=20), nullable=False),
-        sa.Column("stock_key", sa.String(length=60), nullable=True),
         sa.Column("provider", sa.String(length=20), nullable=False),
         sa.Column("provider_voice_id", sa.String(length=120), nullable=True),
         sa.Column("speech_model", sa.String(length=60), nullable=True),

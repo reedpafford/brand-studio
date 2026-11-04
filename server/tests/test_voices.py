@@ -52,10 +52,14 @@ def _pickle(db, workspace_id: int) -> Voice:
     return db.query(Voice).filter_by(workspace_id=workspace_id, look="dr-pickle").one()
 
 
+def _saved(client, brand) -> list[dict]:
+    return [v for v in _list(client, brand)["voices"] if v["id"] is not None]
+
+
 def test_the_brands_voices_list_dr_pickles_clone_with_its_sample_and_expiry(db, owner):
     brand = first_brand(owner)
     body = _list(owner, brand)
-    (pickle,) = body["voices"]
+    (pickle,) = _saved(owner, brand)
     assert (pickle["name"], pickle["kind"], pickle["look"], pickle["brand_id"]) == (
         "Dr. Pickle", "cloned", "dr-pickle", None)  # fmt: skip
     assert pickle["sample_url"].endswith("/voices/samples/dr-pickle.mp3")
@@ -64,54 +68,49 @@ def test_the_brands_voices_list_dr_pickles_clone_with_its_sample_and_expiry(db, 
     assert (row.provider_voice_id, row.speech_model) == ("R8_CJRWYITM", "minimax-speech-02-hd")
     assert voices.expires_at(row) == row.last_used_at + timedelta(days=7)
     assert body["clone_credits"] == 29.18 and body["clone_usd"] == 3.0  # $3 once
-    assert len(_list(owner, brand)["voices"]) == 1  # made once per workspace
+    assert len(_saved(owner, brand)) == 1  # made once per workspace
 
 
-def test_every_app_voice_is_offered_with_a_free_sample_where_a_test_made_one(owner, editor):
+def test_every_app_voice_is_listed_with_a_free_sample_where_a_test_made_one(owner, editor):
+    """Reed, 4 Nov: the app's voices are always offered; a brand saves only its own."""
     brand = first_brand(owner)
-    listed = {
-        v["stock_key"]: v for v in _list(editor, brand, all=True)["voices"] if v["id"] is None
-    }
+    listed = {v["stock_key"]: v for v in _list(editor, brand)["voices"] if v["id"] is None}
     assert list(listed) == voices.stock_keys() and "Roger" in listed
+    assert {v["kind"] for v in listed.values()} == {"stock"}
     assert listed["Roger"]["provider"] == "elevenlabs" and listed["Roger"]["sample_url"]
     assert listed["English_FriendlyPerson"]["provider"] == "minimax"
     assert listed["Sarah"]["sample_url"] is None  # no paid test made one yet
+    assert _list(editor, brand, all=True)["voices"] == _list(editor, brand)["voices"]
     assert _list(editor, brand)["clone_usd"] is None  # editors never see dollars
     assert editor.get("/voices/samples/..%2Fvoices.mp3").status_code == 404
+    assert editor.post(f"/brands/{brand}/voices", json={"stock_key": "Roger"}).status_code == 405
 
 
-def test_an_app_voice_is_saved_to_a_brand_free_once_and_removed_with_undo(db, owner, editor):
+def test_a_brands_voice_lists_who_uses_it_and_is_removed_with_undo(db, owner, editor):
     brand = first_brand(owner)
-    saved = editor.post(f"/brands/{brand}/voices", json={"stock_key": "Roger"})
-    assert saved.status_code == 201, saved.text
-    assert (saved.json()["kind"], saved.json()["brand_id"]) == ("stock", brand)
-    again = editor.post(f"/brands/{brand}/voices", json={"stock_key": "Roger"})
-    assert again.status_code == 409
-    assert editor.post(f"/brands/{brand}/voices", json={"stock_key": "Morgan"}).status_code == 422
-    rows = _list(editor, brand, all=True)["voices"]
-    assert [v["id"] is None for v in rows if v["stock_key"] == "Roger"] == [False]
-    assert db.query(Job).count() == 0  # free
-
-    roger = saved.json()["id"]
-    item = LibraryItem(workspace_id=db.get(Voice, roger).workspace_id, kind=Kind.character,
-                       name="Mark", voice_id=roger)  # fmt: skip
+    ws = _ws(db)
+    mark = Voice(workspace_id=ws, brand_id=brand, name="Mark", kind="cloned",
+                 provider="minimax", provider_voice_id="R8_MARK", speech_model=voices.SPEAKS,
+                 cloned_at=utcnow(), last_used_at=utcnow())  # fmt: skip
+    db.add(mark)
+    db.flush()
+    item = LibraryItem(workspace_id=ws, kind=Kind.character, name="Mark", voice_id=mark.id)
     db.add(item)
     db.commit()
-    assert next(v for v in _list(editor, brand)["voices"] if v["id"] == roger)["used_by"] == [
-        item.id]  # fmt: skip
-
-    assert editor.delete(f"/voices/{roger}").status_code == 204
-    assert roger not in [v["id"] for v in _list(editor, brand)["voices"]]
-    assert editor.post(f"/voices/{roger}/restore").json()["id"] == roger
-    assert editor.post(f"/voices/{roger}/restore").status_code == 409
+    assert next(v for v in _saved(editor, brand) if v["id"] == mark.id)["used_by"] == [item.id]
+    assert editor.delete(f"/voices/{mark.id}").status_code == 204
+    assert mark.id not in [v["id"] for v in _saved(editor, brand)]
+    assert editor.post(f"/voices/{mark.id}/restore").json()["id"] == mark.id
+    assert editor.post(f"/voices/{mark.id}/restore").status_code == 409
+    assert db.query(Job).count() == 0  # free
 
 
 def test_a_styles_own_voice_is_removed_by_the_owner_only(owner, editor):
     brand = first_brand(owner)
-    pickle = _list(owner, brand)["voices"][0]["id"]
+    pickle = _saved(owner, brand)[0]["id"]
     assert editor.delete(f"/voices/{pickle}").status_code == 403
     assert owner.delete(f"/voices/{pickle}").status_code == 204
-    assert _list(owner, brand)["voices"] == []  # stays removed, never made again
+    assert _saved(owner, brand) == []  # stays removed, never made again
     assert owner.post(f"/voices/{pickle}/restore").status_code == 200
 
 
@@ -129,7 +128,7 @@ def test_a_voice_is_cloned_from_a_sample_through_the_cloning_model(app, db, owne
     assert job.input["files"] == {"voice_file": [body["sample_file_id"]]}
     assert job.credits == get_model(voices.CLONER).credits_per_unit()  # one clone
     _run(app, db, ticks=3)
-    mark = next(v for v in _list(owner, brand)["voices"] if v["name"] == "Mark")
+    mark = next(v for v in _saved(owner, brand) if v["name"] == "Mark")
     assert mark["state"] == "ready" and mark["preview_file_id"] and mark["cloned_at"]
     row = db.get(Voice, mark["id"])
     assert row.provider_voice_id.startswith("stand-in-voice") and row.speech_model == voices.SPEAKS
@@ -159,7 +158,7 @@ def test_an_editors_clone_waits_for_the_owner_and_a_failed_one_says_so(app, db, 
     assert (made["state"], made["error"]) == ("cloning", voices.HELD)
     job.status, job.error = JobStatus.failed, "The voice service failed."
     db.commit()
-    ed = next(v for v in _list(editor, brand)["voices"] if v["name"] == "Ed")
+    ed = next(v for v in _saved(editor, brand) if v["name"] == "Ed")
     assert (ed["state"], ed["error"]) == ("failed", "The voice service failed.")
 
 
@@ -176,7 +175,7 @@ def test_a_clone_unused_for_7_days_is_shown_and_refused_plainly_never_swapped(db
     with pytest.raises(HTTPException) as no:
         voices.narration_job(db, pickle.workspace_id, WORDS, f"voice:{pickle.id}")
     assert no.value.status_code == 409 and "Clone it again" in no.value.detail
-    listed = next(v for v in _list(owner, brand)["voices"] if v["id"] == pickle.id)
+    listed = next(v for v in _saved(owner, brand) if v["id"] == pickle.id)
     assert listed["state"] == "expired" and "7 days" in listed["error"]
 
 
