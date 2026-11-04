@@ -1,5 +1,5 @@
 """The Videos home's Needs you group (audit M6): each video says what waits on its editor,
-first thing first, and ?status=needs_you lists only those. Free and read-only."""
+first thing first. Free and read-only."""
 
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
@@ -28,14 +28,13 @@ def test_a_video_says_what_waits_on_its_editor_first_thing_first(owner, editor, 
     _job(db, pid, JobStatus.failed, step="frame")  # the newest run didn't finish: first
     row = _row(editor, pid)
     assert row["needs_you"] and row["waiting_on"] == "A still didn't finish"
-    assert [p["id"] for p in editor.get("/projects?status=needs_you").json()] == [pid]
 
     _job(db, pid, JobStatus.succeeded, step="frame")  # tried again: back to the stills
     for frame in db.query(StoryboardFrame):
         frame.approved = True
     db.commit()
     assert _row(editor, pid)["waiting_on"] is None
-    assert editor.get("/projects?status=needs_you").json() == []
+    assert _row(editor, pid)["needs_you"] is False
 
 
 def test_work_made_for_an_older_plan_says_changes_are_waiting(owner, editor, db):
@@ -92,6 +91,5 @@ def test_a_held_step_needs_the_owner_not_its_editor(owner, editor, db):
     _job(db, pid, JobStatus.needs_owner_approval, step="change")
     mine = _row(owner, pid)
     assert (mine["needs_you"], mine["waiting_on"]) == (True, HELD)
-    assert [p["id"] for p in owner.get("/projects?status=needs_you").json()] == [pid]
     theirs = _row(editor, pid)
     assert (theirs["needs_you"], theirs["waiting_on"]) == (False, None)

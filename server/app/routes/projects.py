@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import brand_setup, folders, looks, narration, needs_you, plans, reference
+from app import brand_setup, looks, narration, needs_you, plans, reference
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     budget_used,
@@ -261,28 +261,17 @@ def _set_length(db: Session, user: User, project: Project, seconds: int | None) 
 def list_projects(
     brand_id: int | None = None,
     archived: bool = False,  # true: the archived videos instead, so they can be brought back
-    q: str = "",  # in the video's name (a script's title, and its version's)
-    mine: bool = False,  # only the videos the caller started
-    status: Literal["making", "done", "needs_you"] | None = None,  # done: "Video done"
-    folder: str | None = None,  # OR1: a project's id, or "none" for No project
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    """The videos, each with its still, step and what it waits on (Scripts' video rows and
+    Needs you read them; a brand's folders read GET /brands/{id}/ideas)."""
     query = select(Project).where(
         Project.workspace_id == user.workspace_id,
         Project.archived_at.is_not(None) if archived else Project.archived_at.is_(None),
     )
     if brand_id is not None:
         query = query.where(Project.brand_id == brand_id)
-    if (filed := folders.where(Project.folder_id, folder)) is not None:
-        query = query.where(filed)
-    if q.strip():
-        query = query.where(Project.name.ilike(f"%{q.strip()}%"))
-    if mine:
-        query = query.where(Project.created_by_id == user.id)
-    if status in ("making", "done"):
-        done = Project.finished_at.is_not(None)
-        query = query.where(done if status == "done" else ~done)
     found = db.scalars(query.order_by(func.lower(Project.name))).all()
     frames, steps = progress(db, [p.id for p in found])
     from app.routes.project_clips import out_of_date
@@ -295,7 +284,7 @@ def list_projects(
         row.step = "done" if project.finished_at else steps[project.id]
         row.waiting_on = waits.get(project.id)
         row.needs_you = row.waiting_on is not None
-    return [r for r in out if r.needs_you] if status == "needs_you" else out
+    return out
 
 
 @router.post("", response_model=ProjectOut, status_code=201)

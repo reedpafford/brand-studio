@@ -35,13 +35,15 @@ export function SettingsRow({ children, steps }: { children?: ReactNode; steps: 
           {children}
         </div>
       )}
-      <div className="w-full lg:ml-auto lg:w-auto">{steps}</div>
+      {/* With no pickers (G_Variations) the steps start at the left of their own row. */}
+      <div className={`w-full lg:w-auto ${children ? "lg:ml-auto" : ""}`}>{steps}</div>
     </div>
   );
 }
 
 /** A setting's picker in that row: a quiet bordered press reading "Look House style ▾". */
-export const pickClass = "border border-border text-sm !gap-1.5 lg:!px-2.5 [&>svg:last-child]:size-4";
+// The value is bright and its label muted (C_NewScript), so the picker isn't the ghost button's grey all through.
+export const pickClass = "border border-border text-sm text-text! !gap-1.5 lg:!px-2.5 [&>svg:last-child]:size-4";
 export function PickLabel({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>

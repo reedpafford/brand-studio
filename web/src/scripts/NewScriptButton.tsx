@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, FileInput, FileText, Mic, Music, Plus } from "lucide-react";
+import { ChevronDown, FileText, Mic, Music, Plus } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Button, Menu, MenuItem, StepPicker, TextArea, buttonClass } from "../components";
@@ -146,7 +146,8 @@ export function NewScriptPage() {
   const empty = { kind, published: false, versions: [{ slot: 0, text: "", status: "draft" }] } as unknown as Script;
   // Every step after the first is locked with its reason: none can be opened before the script exists (QA-3 on #1191).
   const steps = stepStates(stepsFor(empty)[0].id, empty)
-    .filter((x) => kind !== "story" || x.id !== "publish")
+    // Publish is "Publish to library", not a step in the bar, for stories and songs alike (v5; ScriptFlowPage's barSteps).
+    .filter((x) => (kind !== "story" && kind !== "song") || x.id !== "publish")
     .map((x, n) => (n === 0 ? x : { ...x, state: "todo" as const, reason: kind === "song" ? "Write or pick the lyrics first" : "Write a few lines first" }));
   const type = (text: string) => {
     latest.current = text;
@@ -243,7 +244,6 @@ export function NewScriptPage() {
 export function ImportReelLink({ brandId }: { brandId: number }) {
   return (
     <Link to={`/b/${brandId}/scripts/import`} className={`${buttonClass("secondary")} shrink-0 whitespace-nowrap`}>
-      <FileInput size={20} strokeWidth={1.75} aria-hidden />
       Import a reel
     </Link>
   );

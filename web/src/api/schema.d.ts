@@ -1462,7 +1462,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Projects */
+        /**
+         * List Projects
+         * @description The videos, each with its still, step and what it waits on (Scripts' video rows and
+         *     Needs you read them; a brand's folders read GET /brands/{id}/ideas).
+         */
         get: operations["list_projects_projects_get"];
         put?: never;
         /** Create Project */
@@ -7189,6 +7193,8 @@ export interface components {
             cost: components["schemas"]["Cost"] | null;
             /** Can Manage */
             can_manage: boolean;
+            /** From Script */
+            from_script: boolean;
         };
         /** IdeasOut */
         IdeasOut: {
@@ -9867,6 +9873,8 @@ export interface components {
         SettingIn: {
             /** Look */
             look?: string | null;
+            /** Broll Look */
+            broll_look?: string | null;
             /** Video Model */
             video_model?: string | null;
             /** Image Model */
@@ -9884,6 +9892,8 @@ export interface components {
         SettingsOut: {
             /** Look */
             look: string;
+            /** Broll Look */
+            broll_look?: string | null;
             /** Video Model */
             video_model: string | null;
             /** Image Model */
@@ -11149,6 +11159,8 @@ export interface components {
         VideoSettingsIn: {
             /** Look */
             look?: string | null;
+            /** Broll Look */
+            broll_look?: string | null;
             /** Video Model */
             video_model?: string | null;
             /** Image Model */
@@ -14761,10 +14773,6 @@ export interface operations {
             query?: {
                 brand_id?: number | null;
                 archived?: boolean;
-                q?: string;
-                mine?: boolean;
-                status?: ("making" | "done" | "needs_you") | null;
-                folder?: string | null;
             };
             header?: never;
             path?: never;

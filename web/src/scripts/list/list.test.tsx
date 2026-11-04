@@ -48,7 +48,7 @@ test("the stage tabs show the server's count for each stage, and a tab is the St
   expect(screen.getByRole("tab", { name: "Writing 4" })).toHaveAttribute("aria-selected", "true");
 });
 
-test("scripts are grouped by project with a count each; No project starts closed and opens", async () => {
+test("scripts are grouped by project with a count each; No project starts open with its rows, and closes", async () => {
   setViewport(1440);
   fakeServer({
     ...base,
@@ -61,10 +61,10 @@ test("scripts are grouped by project with a count each; No project starts closed
   expect(within(spring).getByText("Bo tries salmon")).toBeInTheDocument();
   const loose = screen.getByRole("region", { name: "No project" });
   const toggle = within(loose).getByRole("button", { name: /^No project 2$/ });
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByText("Morning walk")).toBeNull();
-  await userEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true"); // C_Scripts: "No project 17" is open (QA-3 on #1260)
   expect(within(loose).getByText("Morning walk")).toBeInTheDocument();
+  await userEvent.click(toggle);
+  expect(screen.queryByText("Morning walk")).toBeNull();
 });
 
 test("picked scripts move to a project together, with Undo putting each back", async () => {

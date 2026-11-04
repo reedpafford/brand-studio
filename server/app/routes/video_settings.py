@@ -36,6 +36,7 @@ class ImageModelOut(BaseModel):
 
 class SettingsOut(BaseModel):
     look: str
+    broll_look: str | None = None  # a hosted video's B-roll look; null: the style's own
     video_model: str | None  # null: Auto
     image_model: str | None  # null: Auto
     aspect_ratio: str
@@ -51,6 +52,7 @@ class VideoSettingsIn(BaseModel):
     """The settings a video can be given. A model's null is Auto."""
 
     look: str | None = None
+    broll_look: str | None = None  # null: back to the style's own
     video_model: str | None = None
     image_model: str | None = None
     aspect_ratio: Literal["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] | None = None

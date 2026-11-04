@@ -74,7 +74,7 @@ export const shapeOptions = SHAPES.map((s) => ({ id: s, name: s }));
  *  their cap ("up to N credits", rule 34) once it's known, and ⌘↵. */
 export function SendPress({ owner, price, busy, disabled, wide, onClick }: { owner: boolean; price: number | undefined; busy: boolean; disabled: boolean; wide?: boolean; onClick?: () => void }) {
   return (
-    <Button type={onClick ? "button" : "submit"} busy={busy} disabled={disabled} kbd="⌘↵" onClick={onClick} className={wide ? "w-full" : "shrink-0 whitespace-nowrap lg:px-3 lg:text-sm"} price={disabled ? undefined : price} charge="estimate">
+    <Button type={onClick ? "button" : "submit"} busy={busy} disabled={disabled} kbd={wide ? undefined : "⌘↵"} onClick={onClick} className={wide ? "w-full" : "shrink-0 whitespace-nowrap lg:px-3 lg:text-sm"} price={disabled ? undefined : price} charge="estimate">
       {owner ? "Make it" : "Send for approval"}
     </Button>
   );

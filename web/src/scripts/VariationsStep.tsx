@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Ellipsis, Pencil, RotateCcw, Undo2 } from "lucide-react";
+import { Ellipsis, Pencil, RotateCcw, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { GOING, useJobs } from "../clip/History";
 import { Banner, Button, Dialog, Dot, Menu, MenuItem, Skeleton, Tabs, TextArea } from "../components";
@@ -330,11 +330,11 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, act
             </Button>
           </div>
         ) : (
-          <div className="mt-auto flex flex-wrap justify-between gap-2">
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
             <Button variant="secondary" dense onClick={() => setRemoving(true)}>
               Remove
             </Button>
-            <Button icon={Check} busy={act.approve.isPending} disabled={writing} onClick={() => act.approve.mutate(v.slot)}>
+            <Button busy={act.approve.isPending} disabled={writing} onClick={() => act.approve.mutate(v.slot)}>
               Approve {letter}
             </Button>
           </div>

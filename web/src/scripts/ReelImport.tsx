@@ -96,7 +96,7 @@ export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?
           const f = e.dataTransfer.files?.[0];
           if (f && !busy) fromFile.mutate(f);
         }}
-        className={`flex flex-col gap-3 rounded-lg border border-dashed p-4 sm:min-h-24 sm:flex-row sm:items-center ${over ? "border-accent bg-accent-soft" : "border-border-strong"}`}
+        className={`flex flex-col gap-3 rounded-lg border p-4 sm:min-h-24 sm:flex-row sm:items-center ${over ? "border-accent bg-accent-soft" : "border-border-strong"}`}
       >
         <Upload size={20} strokeWidth={1.75} aria-hidden className="hidden shrink-0 text-muted sm:block" />
         <span className="flex-1">Drop an MP4 or MOV, up to {MAX_SECONDS} seconds</span>

@@ -11,7 +11,7 @@ test("on a phone, the five bottom tabs reach every brand section and there is no
   await onBrand(page, "fomo"); // the sign-in redirect has landed
 
   await tabs.getByRole("link", { name: "Videos" }).click();
-  await expect(page.getByRole("heading", { name: "Videos", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/b\/\d+\/videos$/);
 
   await tabs.getByRole("link", { name: "Cast" }).click();
   await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();

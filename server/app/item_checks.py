@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import plans, prompts
+from app import looks, plans, prompts
 from app.credits import estimate, fits
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -291,7 +291,7 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
         if job and job.status in ("failed", "cancelled"):
             row.status = "failed"
     gone = {d["index"] for d in row.dismissed or []}
-    fixes = prompts.look_fixes(db.get(Project, row.project_id).look)
+    fixes = prompts.look_fixes(looks.drawn(db.get(Project, row.project_id)))  # the B-roll's
     findings = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"],
                            fix=fixes.get(f["kind"], ""), at=f.get("at"),
                            mute=f.get("span"))

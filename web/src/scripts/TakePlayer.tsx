@@ -12,7 +12,7 @@ const squeeze = (peaks: number[]) => (peaks.length <= BARS ? peaks : Array.from(
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** A take's player: 44px play/pause, the waveform from the server's peaks as the seek bar (never decoded here), and "0:12 / 0:31".
- *  With a title (a take's row, v5 G_SongTakes) the title sits over the waveform, which stays a 44 px seek bar. */
+ *  With a title (a take's row, v5 G_SongTakes) the title sits over a thin 8 px progress bar instead, still a 44 px seek area. */
 export function TakePlayer({ fileId, seconds, peaks, label, title }: { fileId: number; seconds: number; peaks: number[]; label: string; title?: ReactNode }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [on, setOn] = useState(false);
@@ -31,17 +31,26 @@ export function TakePlayer({ fileId, seconds, peaks, label, title }: { fileId: n
   return (
     <div className="flex items-center gap-3">
       <audio ref={audio} src={fileUrl(fileId)} preload="none" onPlay={() => setOn(true)} onPause={() => setOn(false)} onEnded={() => setOn(false)} onTimeUpdate={(e) => setAt(e.currentTarget.currentTime)} />
-      <button type="button" onClick={toggle} aria-label={`${on ? "Pause" : "Play"} ${label}`} className="grid size-control shrink-0 place-items-center rounded-full bg-surface-3 text-text hover:bg-surface-2">
+      {/* A take's row (v5 G_SongTakes): a square outlined play and a thin progress bar; the seek area stays 44 px tall. */}
+      <button type="button" onClick={toggle} aria-label={`${on ? "Pause" : "Play"} ${label}`} className={`grid size-control shrink-0 place-items-center text-text ${title ? "rounded-md border border-border-button hover:bg-surface-2" : "rounded-full bg-surface-3 hover:bg-surface-2"}`}>
         {on ? <Pause size={20} strokeWidth={1.75} aria-hidden /> : <Play size={20} strokeWidth={1.75} aria-hidden />}
       </button>
       <div className={`min-w-0 flex-1 ${title ? "space-y-1" : ""}`}>
       {title}
       <div className="relative h-11 min-w-0">
-        <div aria-hidden className="flex h-full items-center gap-px overflow-hidden">
-          {bars.map((p, i) => (
-            <span key={i} className={`min-w-0 flex-1 rounded-full ${i / bars.length < done ? "bg-accent" : "bg-border-strong"}`} style={{ height: `${Math.max(8, p * 100)}%` }} />
-          ))}
-        </div>
+        {title ? (
+          <div aria-hidden className="flex h-full items-center">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-3">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, done * 100)}%` }} />
+            </div>
+          </div>
+        ) : (
+          <div aria-hidden className="flex h-full items-center gap-px overflow-hidden">
+            {bars.map((p, i) => (
+              <span key={i} className={`min-w-0 flex-1 rounded-full ${i / bars.length < done ? "bg-accent" : "bg-border-strong"}`} style={{ height: `${Math.max(8, p * 100)}%` }} />
+            ))}
+          </div>
+        )}
         <input
           type="range"
           min={0}

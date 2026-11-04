@@ -15,7 +15,9 @@ export function ImportReelPage() {
           Cancel
         </Link>
       </PageTop>
-      <div className="sm:px-2">
+      {/* v5 G_ImportReel: the page's own heading above the intro line, under the bar's "Scripts › Import a reel". */}
+      <div className="space-y-2 sm:px-2">
+        <h2 className="text-xl font-semibold">Import a reel</h2>
         <ReelPicker brandId={brandId} brandName={brand?.name} />
       </div>
     </main>
