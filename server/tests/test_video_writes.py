@@ -15,6 +15,7 @@ OWN_RULE = {
     ("post", "/projects/{project_id}/approve"): "owner only (Approvals)",
     ("post", "/projects/{project_id}/settings/preview"): "a read: what a switch would cost",
     ("put", "/projects/{project_id}/score"): "owner only (a 404 to everyone else)",
+    ("post", "/projects/{project_id}/director/seen"): "a person's own watched mark, not a change",
 }
 
 

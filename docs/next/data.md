@@ -47,6 +47,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n31 | A hosted video's B-roll look (v6 S-gaps-01, option 1): `projects.broll_look`, nullable text (null: the style's own). Its stills, takes, B-roll model and the briefed steps' shots use it; the host, voice and cast keep `projects.look`. Downgrade drops it | v6-newvideo | — |
 | n32 | New video's picks (v6): `projects.attachments`, JSON list of file ids not null default `[]`, pictures or clips attached for this video only, never added to the brand (rule 12; S-gaps-01, option 3), listed in the director's context; and `projects.reel_script_id`, nullable FK to `scripts`, the reel it was adapted from (Use a reel, S2-07). Downgrade drops both | v6-newvideo | — |
 | n33 | Voices (v6 S8-04): new `voices` {workspace_id, brand_id (null: a style's voice), look, name, kind cloned/described, provider, provider_voice_id, speech_model, description, sample_file_id, preview_file_id, job_id, cloned_at, last_used_at, lost_at, created_by_id, archived_at}; `library_items.voice_id` (nullable FK to `voices`) and `library_items.voice_stock_key` (String(60), an app voice's key), one or neither (S8-03). No data step: a style's voice (Dr. Pickle's clone) is added to a workspace the first time its voices are read (app/voices.py). Downgrade drops both | v6-models | — |
+| n34 | Who has watched which take (v6 piece C, S3-09): new table `take_seen` {take_id (FK clip_takes, indexed), user_id (FK users), created_at}, unique per take and person. A clip the director changed stays outlined for a person until they've watched its new take. Downgrade drops the table. **Renumber at merge** if another n34 lands first | v6-progress | — |
 
 ## Merge order (the chain on `next`)
 
@@ -86,6 +87,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 29 | n31 | #1298 | n30 | On `next` |
 | 30 | n32 | — | n31 | On `next` |
 | 31 | n33 | #1314 | n32 | On its PR |
+| 32 | n34 | — | n33 | On its PR (v6-progress) |
 
 ## 1. Song ads
 
