@@ -22,8 +22,9 @@ NO_SAMPLE = "Make a sample first: a style is switched on only once its sample is
 
 
 def looks() -> list[dict]:
-    """Every look, House first, then Reed's order: one card per style (its lanes aren't)."""
-    return [s for s in prompts.styles() if s["kind"] == "look"]
+    """Every look, House first, then Reed's order: one card per style (its lanes aren't), but
+    a style Reed has hidden (`hidden: yes`, "do not build it")."""
+    return [s for s in prompts.styles() if s["kind"] == "look" and not s["hidden"]]
 
 
 def get(look_id: str) -> dict:

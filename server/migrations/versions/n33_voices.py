@@ -2,15 +2,15 @@
 (brand_id null, e.g. Dr. Pickle's clone, added to each workspace by app/voices.py the first
 time it's read), and a character's voice (`library_items.voice_id` or `voice_stock_key`, S8-03).
 
-Revision ID: n32
-Revises: n31
+Revision ID: n33
+Revises: n32
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n32"
-down_revision = "n31"
+revision = "n33"
+down_revision = "n32"
 branch_labels = None
 depends_on = None
 

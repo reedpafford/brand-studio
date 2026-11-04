@@ -36,6 +36,7 @@ from app.routes import (
     project_clips,
     projects,
     reel_breakdown,
+    reel_video,
     references,
     scorecard,
     screens,
@@ -101,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         workspace,
         files,
         folders,
+        reel_video,  # /freestyles/reel, ahead of /freestyles/{id}
         freestyles,
         brands,
         screens,

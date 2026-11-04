@@ -151,6 +151,7 @@ class VersionSummary(BaseModel):
     title: str
     seconds: int  # the saved breakdown's, else the target, else spoken words at 4.8 a second
     project_id: int | None  # the video made from it
+    lines: int = 0  # its lines with words (New video's "13 lines")
     editor: Person | None = None  # who's making it (reserved it), once in production
     flavours: dict[str, str] = {}  # each new video's default flavour; a product left out: Auto
     # Products whose default flavour the brand has deleted since: a new video starts them on
@@ -295,6 +296,7 @@ def _version(db: Session, draft: ScriptDraft, full: bool) -> VersionSummary | Ve
         title=draft.title,
         seconds=lib.seconds(draft),
         project_id=project_id,
+        lines=sum(1 for line in draft.text.splitlines() if line.strip()),
         editor=_person(db, draft.reserved_by_id) if project_id else None,
         flavours=draft.flavours or {},
         flavours_gone=_gone(db, draft),

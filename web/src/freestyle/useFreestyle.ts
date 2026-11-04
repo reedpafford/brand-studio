@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import type { Tone } from "../components";
-import { useFormatName, useFormats } from "../scripts/useFormats";
+import { useFormatName } from "../scripts/useFormats";
 
 /** Freestyle (Reed's redesign, replaces Quick clip): a video from a pasted script or a described clip, changed by chatting.
  *  Every editor send waits for Reed before anything is spent; Reed's own run at once. Next-Server's /freestyles (#1159).
@@ -16,12 +16,6 @@ export type Settings = { type: Kind; look: string; shape: Shape; brand_id: numbe
 
 /** What the director makes now: a format's engine (a script's kind) but the song's, which comes next. */
 export const directed = (engine: string) => engine !== "song";
-/** What a freestyle can be: each format that is on (Song shows as coming next), then One clip. */
-export function useTypes(): { id: Kind; name: string; soon?: boolean }[] {
-  const formats = useFormats().data ?? [];
-  return [...formats.filter((f) => f.on).map((f) => ({ id: f.id, name: f.name, soon: !directed(f.engine) })), { id: "one_clip", name: "One clip" }];
-}
-export const SOON = "One clip, Dialogue, Narrated and Presenter work now. Song is coming next.";
 export const SHAPES: Shape[] = ["9:16", "1:1", "16:9"];
 export function useTypeName() {
   const formatName = useFormatName();
@@ -40,10 +34,10 @@ export const STATUS: Record<Freestyle["status"], { words: string; tone: Tone }> 
 };
 export const busy = (s: Freestyle["status"] | undefined) => s === "waiting" || s === "working";
 
-/** Where a send lands: the owner's on its video; an editor's (out of the lists until the owner's OK, #1190) by its
- *  freestyle, under its brand. */
+/** Where a send lands: on its video; an editor's held send (out of the lists until the owner's OK, #1190) by its
+ *  freestyle, under its brand. An editor's that started at once (a published script inside its budget) is a video. */
 export const sentTo = (fs: Freestyle, owner: boolean, brandId: number) =>
-  owner && fs.project_id && fs.brand_id ? `/b/${fs.brand_id}/videos/${fs.project_id}` : `/b/${fs.brand_id ?? brandId}/freestyle/${fs.id}`;
+  (owner || fs.status !== "waiting") && fs.project_id && fs.brand_id ? `/b/${fs.brand_id}/videos/${fs.project_id}` : `/b/${fs.brand_id ?? brandId}/freestyle/${fs.id}`;
 
 /** A refused send, with the server's words and, for "this version already has a video" (409), that video and the price
  *  of making another (the Producer, #1190). */

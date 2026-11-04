@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { onBrand, signIn } from "./helpers";
 
-// The director-first video (v5): New video → the director plans, casts, makes and cuts it, on the free stand-ins.
-// The owner's Make it runs at once; an editor's send from a script waits for the owner's OK in Needs you.
+// The director-first video (v6 New video, S2): New video → the director plans, casts, makes and cuts it, on the free
+// stand-ins. The owner's Make it runs at once and says the most in dollars; an editor's send from a script past its
+// video's budget waits for the owner's OK in Needs you.
 const noSidewaysScroll = async (page: Page) => {
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
@@ -17,7 +18,7 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   await expect(page.getByRole("heading", { name: "What should the director make?" })).toBeVisible();
   const script = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in. I'm buying ${Date.now()}.`, "NATE: Download fomo through the link in my bio."].join("\n");
   await page.getByLabel("Paste a script, or describe the video").fill(script);
-  await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click();
+  await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
   const thread = page.getByRole("list", { name: "Thread" });
   await expect(thread.getByText("Delivered.", { exact: true })).toBeVisible({ timeout: 240_000 });
@@ -50,11 +51,11 @@ test("an editor sends a script for approval from New video, the owner approves i
   expect((await ed.request.post("/api/auth/accept-invite", { data: { token: inv.token, name, password: "correct horse battery staple" } })).ok()).toBe(true);
 
   await ed.goto(`/b/${fomo}/videos/new`);
-  await ed.getByRole("radio", { name: "From a script" }).click();
-  await ed.getByLabel("Find a script ready to make").fill(title);
-  await ed.getByRole("option", { name: new RegExp(title) }).click();
-  await expect(ed.getByLabel("Style: House, from the script")).toBeVisible(); // its style is the script's
-  await ed.getByRole("button", { name: /^Send for approval · up to \d+ credits?$/ }).click();
+  await ed.getByRole("tab", { name: "From a saved script" }).click();
+  await ed.getByLabel("Search scripts").fill(title);
+  await ed.getByRole("radio", { name: new RegExp(title) }).click();
+  await expect(ed.getByText(/is past this video’s budget of \d+, so it goes to the owner first/)).toBeVisible(); // S2-05
+  await ed.getByRole("button", { name: /^Send to the owner · up to \d+ credits?$/ }).click();
   await expect(ed.getByText("Sent to the owner for approval")).toBeVisible();
   await expect(ed.getByText(`From script ${title} · version A`)).toBeVisible();
   await expect(ed.getByText(/\$/)).toHaveCount(0);
@@ -89,7 +90,7 @@ test("at 390, the owner's saved change after a delivery has Make it again in the
   await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "New" }).click();
   const script = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in ${Date.now()}.`, "NATE: Download fomo through the link in my bio."].join("\n");
   await page.getByLabel("Paste a script, or describe the video").fill(script);
-  await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click();
+  await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
   const again = page.getByRole("button", { name: /^Make it again · up to \d+ credits?$/ });
   await expect(again).toBeVisible({ timeout: 240_000 }); // delivered: its press is in the phone's bar
