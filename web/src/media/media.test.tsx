@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -10,7 +10,9 @@ import { renderApp } from "../test/render";
 
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
-const item = (o: object = {}) => ({
+const GROUP: Record<string, string> = { take: "clip", final: "clip", upload: "clip", still: "still", sheet: "still", song: "song" };
+const item = (o: { kind?: string } & Record<string, unknown> = {}) => ({
+  group: GROUP[o.kind ?? "take"], duration_seconds: null,
   key: "take:3", kind: "take", file_id: 30, content_type: "video/mp4", poster_file_id: 20, made_at: "2026-10-28T10:00:00Z", made_by: { id: 2, name: "Eli" },
   project_id: 9, folder_id: null, video_name: "Bo tries salmon", script_id: null, open_step: "clips", from_deleted_video: false, ...o,
 });
@@ -20,6 +22,7 @@ const base = (me: object, media: object, extra: Record<string, [number, unknown]
   "GET /brands": [200, [{ id: 1, name: "Iron Paws", colours: [] }]],
   "GET /team/members": [200, [{ id: 1, name: "Reed", email: "reed@b.co", role: "owner" }, { id: 2, name: "Eli", email: "e@b.co", role: "editor" }]],
   "GET /brands/1/media": [200, media],
+  "GET /brands/1/media-counts": [200, { all: 212, clips: 148, stills: 51, songs: 13 }],
   ...extra,
 });
 function open(at = "/b/1/media") {
@@ -53,7 +56,7 @@ test("each tile shows its picture, kind chip, when and who, and opens the item (
   expect(tiles[0]).toHaveTextContent("Clip"); // the kind chip on the picture
   expect(tiles[1]).toHaveTextContent("Still");
   expect(tiles[4]).toHaveTextContent("Song");
-  expect(tiles[5]).toHaveTextContent("Sheet");
+  expect(tiles[5]).toHaveTextContent("Still"); // a character sheet is a Still
   // A tile is one press to its own page (it has Open in {step} and Download); no buttons on the tile itself.
   expect(within(tiles[0]).getByRole("link", { name: /^Open Bo tries salmon/ })).toHaveAttribute("href", "/b/1/media/take%3A3");
   expect(within(tiles[0]).queryByRole("link", { name: /Download/ })).toBeNull();
@@ -68,7 +71,7 @@ test("with nothing made yet it says so and offers New video", async () => {
   expect(within(screen.getByRole("main")).getByRole("link", { name: "New video" })).toHaveAttribute("href", expect.stringMatching(/^\/b\/\d+\/videos\/new$/));
 });
 
-test("the kind tabs ask the server; Video narrows to one video's own media and Oldest first asks the server; Clear filters puts them back", async () => {
+test("the tabs are server groups with counts; Video narrows to one video's own media and Oldest first asks the server; Clear filters puts them back", async () => {
   setViewport(1440);
   fakeServer(base(owner, page([
     item({ key: "take:3", made_at: "2026-10-28T10:00:00Z" }),
@@ -78,10 +81,13 @@ test("the kind tabs ask the server; Video narrows to one video's own media and O
   open();
   const names = async () => within(await screen.findByRole("list", { name: "Media" })).getAllByRole("listitem").map((li) => li.querySelector("p")?.textContent);
   expect(await names()).toEqual(["Bo tries salmon", "Cat buys the dip", "Haunted fridge"]);
-  await userEvent.click(screen.getByRole("button", { name: "Stills" }));
-  await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("kind=still"))).toBe(true));
-  expect(screen.getByRole("button", { name: "Stills" })).toHaveAttribute("aria-pressed", "true");
-  await userEvent.click(screen.getByRole("button", { name: "All" }));
+  expect(await screen.findByRole("button", { name: /^All\s*212$/ })).toHaveAttribute("aria-pressed", "true"); // each tab says how many it holds
+  expect(screen.getByRole("button", { name: /^Clips\s*148$/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Songs\s*13$/ })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Stills\s*51$/ }));
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("group=still"))).toBe(true));
+  expect(screen.getByRole("button", { name: /^Stills\s*51$/ })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(screen.getByRole("button", { name: /^All\s*212$/ }));
   await userEvent.click(screen.getByRole("button", { name: "Video" }));
   expect(screen.getAllByRole("menuitemradio").map((o) => o.textContent)).toEqual(["All videos", "Bo tries salmon", "Cat buys the dip", "Haunted fridge"]); // a Freestyle counts as a video
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Haunted fridge" }));
@@ -92,6 +98,42 @@ test("the kind tabs ask the server; Video narrows to one video's own media and O
   await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("sort=oldest"))).toBe(true)); // the server sorts the whole library
   await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
   expect(await names()).toEqual(["Bo tries salmon", "Cat buys the dip", "Haunted fridge"]);
+});
+
+test("a clip and a song show their length; a final cut is a Clip from the director; a sheet and an added picture are Stills", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, page([
+    item({ duration_seconds: 8 }),
+    item({ key: "final:3", kind: "final", video_name: "Bo tries salmon · A", duration_seconds: 62 }),
+    item({ key: "song:6", kind: "song", content_type: "audio/mpeg", poster_file_id: null, duration_seconds: 31 }),
+    item({ key: "upload:2", kind: "upload", group: "still", content_type: "image/png", poster_file_id: null, video_name: null, project_id: null, open_step: "upload", duration_seconds: null }),
+  ])));
+  open();
+  const tiles = within(await screen.findByRole("list", { name: "Media" })).getAllByRole("listitem");
+  expect(tiles[0]).toHaveTextContent("00:08");
+  expect(tiles[1]).toHaveTextContent("Clip");
+  expect(tiles[1]).toHaveTextContent("Director video");
+  expect(tiles[1]).toHaveTextContent("01:02");
+  expect(tiles[2]).toHaveTextContent("00:31");
+  expect(tiles[3]).toHaveTextContent("Still");
+  expect(tiles[3]).not.toHaveTextContent(/\d\d:\d\d/); // a picture has no length
+});
+
+test("Upload adds a picture or clip to the brand's Media, and a refusal says why in the server's words", async () => {
+  setViewport(1440);
+  const calls = fakeServer(base(owner, page([item()]), { "POST /brands/1/media": [201, item({ key: "upload:2", kind: "upload" })] }));
+  open();
+  await screen.findByRole("list", { name: "Media" });
+  await userEvent.upload(screen.getByLabelText("Choose a picture or clip"), new File(["x"], "bo.png", { type: "image/png" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/media")).toBe(true));
+  expect(await screen.findByText("Added to Media.")).toBeInTheDocument();
+  cleanup();
+  vi.unstubAllGlobals();
+  fakeServer(base(owner, page([item()]), { "POST /brands/1/media": [415, { detail: "That isn't a picture or clip we can use. Add a PNG, JPEG or WebP, or an MP4 or WebM." }] }));
+  open();
+  await screen.findByRole("list", { name: "Media" });
+  await userEvent.upload(screen.getByLabelText("Choose a picture or clip"), new File(["x"], "bo.gif", { type: "image/gif" }), { applyAccept: false });
+  expect(await screen.findByText(/That isn't a picture or clip we can use/)).toBeInTheDocument();
 });
 
 test("Media has no Project or Made by filter (the board draws Video and Newest first only)", async () => {
@@ -181,7 +223,7 @@ test("on a phone the filters open in a sheet, the tabs stay five, and Media open
   await userEvent.click(await screen.findByRole("link", { name: "Media" }));
   await screen.findByRole("list", { name: "Media" });
   expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
-  expect(within(screen.getByRole("navigation", { name: "Kinds" })).getByRole("button", { name: "Stills" })).toBeInTheDocument();
+  expect(within(screen.getByRole("navigation", { name: "Kinds" })).getByRole("button", { name: /^Stills/ })).toBeInTheDocument();
 });
 
 test("a song tile says which script or video it's from (Next-Layout's 390 walk)", async () => {

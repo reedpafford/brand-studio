@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { emptyBrand, signIn } from "./helpers";
+import { emptyBrand, image, signIn } from "./helpers";
 
 for (const width of [1440, 390]) {
   test(`at ${width}: Media opens from the rail (from Videos on a phone), says nothing is made yet, and filters (flows OR2)`, async ({ page }) => {
@@ -18,8 +18,8 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "Nothing made yet in Media Co." })).toBeVisible();
     await expect(page.getByRole("main").getByRole("link", { name: "New video" })).toHaveAttribute("href", /\/videos\/new$/);
 
-    await page.getByRole("navigation", { name: "Kinds" }).getByRole("button", { name: "Stills" }).click();
-    await expect(page).toHaveURL(/kind=still/);
+    await page.getByRole("navigation", { name: "Kinds" }).getByRole("button", { name: /^Stills/ }).click();
+    await expect(page).toHaveURL(/group=still/);
     await expect(page.getByRole("heading", { name: "Nothing matches these filters." })).toBeVisible();
 
     for (const press of [width === 1440 ? page.getByRole("link", { name: "Media" }).first() : page.getByRole("main").getByRole("link", { name: "Videos" }), page.getByRole("button", { name: /Filters|Clear filters/ }).first()]) {
@@ -30,6 +30,21 @@ for (const width of [1440, 390]) {
     await expect(page.getByText("$")).toHaveCount(0);
   });
 }
+
+test("Upload adds a picture to Media, and it shows as a Still with the tab counts moving", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brandId = await emptyBrand(page, "Upload Co");
+  await page.goto(`/b/${brandId}/media`);
+  await expect(page.getByRole("heading", { name: /^Nothing made yet/ })).toBeVisible();
+  await page.getByLabel("Choose a picture or clip").setInputFiles(image("bo.png"));
+  await expect(page.getByText("Added to Media.")).toBeVisible();
+  const tile = page.getByRole("list", { name: "Media" }).getByRole("listitem");
+  await expect(tile).toHaveCount(1);
+  await expect(tile.getByText("Still", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Stills\s*1$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^All\s*1$/ })).toBeVisible();
+});
 
 test("at 390 a deleted video's badge wraps a long unbroken maker name inside its tile (QA on #997)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
