@@ -114,8 +114,8 @@ class IdeasOut(BaseModel):
     ideas: list[ideas.Idea]
 
 
-def _out(db: Session, user: User, folder: Folder) -> FolderOut:
-    items = folders.counts(db, user, [folder.id])[folder.id]
+def _out(db: Session, user: User, folder: Folder, items: dict | None = None) -> FolderOut:
+    items = items or folders.counts(db, user, [folder.id])[folder.id]
     return FolderOut(id=folder.id, brand_id=folder.brand_id, parent_id=folder.parent_id,
                      name=folder.name, created_by_id=folder.created_by_id, items=Items(**items),
                      can_manage=user.is_owner or folder.created_by_id == user.id)  # fmt: skip
@@ -126,10 +126,7 @@ def list_folders(brand_id: int, user: User = Depends(current_user), db: Session 
     """The brand's folders, by name, each with its `parent_id`; Unsorted isn't listed."""
     rows = folders.live(db, get_brand(db, user, brand_id).id)
     counts = folders.counts(db, user, [f.id for f in rows])
-    return [FolderOut(id=f.id, brand_id=f.brand_id, parent_id=f.parent_id, name=f.name,
-                      created_by_id=f.created_by_id, items=Items(**counts[f.id]),
-                      can_manage=user.is_owner or f.created_by_id == user.id)
-            for f in rows]  # fmt: skip
+    return [_out(db, user, f, counts[f.id]) for f in rows]
 
 
 def _live_ideas(db: Session, brand_id: int, archived: bool = False):
@@ -189,7 +186,10 @@ def folder_ideas(
     """One folder's ideas as cards or list rows (S1-04 to S1-08, P-02), a page at a time."""
     brand = get_brand(db, user, brand_id)
     if folder != folders.NONE:
-        opened = folders.get(db, user, int(folder) if folder.isdigit() else 0)
+        try:
+            opened = folders.get(db, user, int(folder))
+        except ValueError:
+            raise HTTPException(404, folders.NO_FOLDER) from None
         if opened.brand_id != brand.id:  # brands stay apart
             raise HTTPException(404, folders.NO_FOLDER)
     filed = folders.where(Project.folder_id, folder)
@@ -209,7 +209,7 @@ def folder_ideas(
               for t, kinds in ideas.TABS.items()}  # fmt: skip
     rows = found if tab == "all" else in_tab[tab]
     order = {"newest": lambda p: (-known.last[p.id].timestamp(), -p.id),
-             "oldest": lambda p: (p.created_at, p.id),
+             "oldest": lambda p: (known.last[p.id].timestamp(), p.id),
              "name": lambda p: (title[p.id].lower(), p.id)}  # fmt: skip
     rows = sorted(rows, key=order[sort])
     page = rows[offset : offset + limit]

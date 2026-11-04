@@ -28,6 +28,7 @@ OTHER_BRAND = "That folder is for another brand."
 PICK = "Pick a folder, or Unsorted."
 VIDEO_JOB = "That's part of a video, so it's filed with the video."
 INSIDE_ITSELF = "A folder can't go inside itself or a folder inside it."
+OTHERS_INSIDE = "Someone else made a folder inside it, so only the owner can delete it."
 
 
 def get(db: Session, user: User, folder_id: int, deleted: bool = False) -> Folder:
@@ -121,7 +122,10 @@ def delete(db: Session, user: User, folder: Folder) -> tuple[int, int]:
     """Soft, with every folder inside it (one time, so Undo brings back just those): their
     items read as Unsorted (nothing inside is touched). (items, video ideas) moved."""
     may_manage(user, folder)
-    ids = below(live(db, folder.brand_id), folder.id)
+    rows = live(db, folder.brand_id)
+    ids = below(rows, folder.id)
+    if not user.is_owner and any(f.created_by_id != user.id for f in rows if f.id in ids):
+        raise HTTPException(403, OTHERS_INSIDE)
     found = counts(db, user, list(ids))
     ideas = db.scalar(select(func.count()).where(Project.folder_id.in_(ids),
                                                  Project.archived_at.is_(None)))  # fmt: skip

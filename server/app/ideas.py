@@ -1,9 +1,11 @@
 """Video ideas (v6 S0-01, S1, S-gaps-01): a brand's videos as the folder tree and an open
 folder show them. Each has a status as a dot plus words and a short reason, its still,
-style, length, maker, last activity and cost. Read-only and free, in a fixed handful of
-queries for any number of ideas. Everyone sees every idea in the brand (S1-08); moving or
-archiving one is for whoever made it, or the owner."""
+style, length, maker, last activity and cost. Read-only and free: statuses take a fixed
+handful of queries for any number of ideas; a page of cards adds its working ideas' budgets
+and its not-started ideas' run prices (one page, at most 200). Everyone sees every idea in
+the brand (S1-08); moving or archiving one is for whoever made it, or the owner."""
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -73,7 +75,7 @@ class Idea(BaseModel):
     made_by: Named | None
     created_at: UtcTime
     updated_at: UtcTime  # the latest activity
-    cost: Cost
+    cost: Cost | None  # None: nothing used and no price yet
     can_manage: bool  # move and archive: whoever made it, or the owner
 
 
@@ -83,6 +85,7 @@ class Facts:
 
     last: dict[int, datetime] = field(default_factory=dict)
     used: dict[int, Decimal] = field(default_factory=dict)
+    own: dict[int, Decimal] = field(default_factory=dict)  # the director's own (rule 34)
     held: dict[int, Decimal] = field(default_factory=dict)  # credits waiting for an OK
     busy: set[int] = field(default_factory=set)
     clips: dict[int, tuple[int, int]] = field(default_factory=dict)  # (made, total)
@@ -97,13 +100,15 @@ def facts(db: Session, projects: list[Project]) -> Facts:
     rows = db.execute(select(
         Job.project_id, func.max(Job.created_at), func.max(Job.finished_at),
         func.coalesce(func.sum(case((Job.status.in_(COUNTED), Job.credits), else_=0)), 0),
+        func.coalesce(func.sum(case((Job.status.in_(COUNTED) & Job.input[director.RUN]
+                                     .as_string().is_not(None), Job.credits), else_=0)), 0),
         func.coalesce(func.sum(case((Job.status == hold, Job.credits), else_=0)), 0),
         func.sum(case((Job.status.in_(waiting), 1), else_=0)),
         func.sum(case((Job.status == hold, 1), else_=0)),
     ).where(Job.project_id.in_(ids)).group_by(Job.project_id))  # fmt: skip
-    for pid, made, done, used, held, busy, holds in rows:
+    for pid, made, done, used, own, held, busy, holds in rows:
         out.last[pid] = max(t for t in (out.last[pid], made, done) if t is not None)
-        out.used[pid] = Decimal(used)
+        out.used[pid], out.own[pid] = Decimal(used), Decimal(own)
         if holds:
             out.held[pid] = Decimal(held)
         if busy:
@@ -195,30 +200,33 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
     return out
 
 
-def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> Cost:
+def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> Cost | None:
     """Delivered: what it cost. Working: the most it can charge before another OK (its budget
     and the director's own limit, never below what it has used); held: what it has used and
-    what waits for the OK; not started: its run's price. Else what it has used so far. Every
-    figure before a charge is "up to" (rule 36)."""
-    from app.credits import budget_used, director_credits
+    what waits for the OK; not started: its run's price. Else what it has used so far; None for
+    an idea with nothing used and no price yet. Every figure before a charge is "up to" and
+    rounded up (rule 36)."""
     from app.models.script_library import ScriptDraft
     from app.routes.estimate import run_price
 
-    used = known.used.get(p.id, Decimal(0))
+    used, own = known.used.get(p.id, Decimal(0)), known.own.get(p.id, Decimal(0))
     kind, credits = "so_far", used
     if status.kind == "delivered":
         kind = "total"
     elif status.kind == "working":
-        top = max(p.budget_credits, budget_used(db, p))
+        top = max(p.budget_credits, used if p.hidden else used - own)  # as budget_used reads
         if not p.hidden:  # the director's own limit sits beside the budget (rule 34)
-            top += max(director_credits(db, p), director.OWN_CREDITS)
+            top += max(own, director.OWN_CREDITS)
         kind, credits = "up_to", max(used, top)
     elif status.kind == "waiting":
         kind, credits = "up_to", used + known.held[p.id]
-    elif status.reason == START and not used and p.script_draft_id:
+    elif status.reason == START and not used:
+        if not p.script_draft_id:
+            return None
         kind, credits = "up_to", run_price(db, db.get(ScriptDraft, p.script_draft_id), p)
-    usd = round(float(credits * USD_PER_CREDIT), 2) if user.is_owner else None
-    return Cost(kind=kind, credits=round(float(credits), 3), usd=usd)
+    up = math.ceil if kind == "up_to" else round
+    usd = up(credits * USD_PER_CREDIT * 100) / 100 if user.is_owner else None
+    return Cost(kind=kind, credits=up(credits * 1000) / 1000, usd=usd)
 
 
 def _style(look: str) -> str:

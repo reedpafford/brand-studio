@@ -123,6 +123,11 @@ def test_deleting_a_folder_takes_the_folders_inside_and_undo_brings_them_back(ow
     script = owner.post("/scripts", json={"brand_id": brand, "title": "S"}).json()["id"]
     file_into(owner, "script", script, deals)
     assert editor.delete(f"/folders/{friday}").status_code == 403  # the owner's folder
+    mine = _folder(editor, brand, "Mine")
+    _folder(owner, brand, "Reed's, inside", mine)
+    no = editor.delete(f"/folders/{mine}")  # never someone else's folder inside it
+    assert (no.status_code, no.json()["detail"]) == (403, folders.OTHERS_INSIDE)
+    assert owner.delete(f"/folders/{mine}").json() == {"moved": 0, "ideas": 0}
     assert owner.delete(f"/folders/{friday}").json() == {"moved": 4, "ideas": 3}
     loose = owner.get(f"/brands/{brand}/ideas?folder=none").json()
     assert {i["id"] for i in loose["ideas"]} == set(ideas_in)
@@ -254,7 +259,10 @@ def test_each_status_in_words_first_thing_first(app, owner, editor, db):
 
     done = _idea(db, brand, me, "3 signs", finished_at=utcnow())
     assert status(done)["kind"] == "delivered"
-    assert status(_idea(db, brand, me, "New"))["reason"] == ideas.START
+    fresh = _idea(db, brand, me, "New")
+    assert status(fresh)["reason"] == ideas.START
+    loose = owner.get(f"/brands/{brand}/ideas?folder=none").json()["ideas"]
+    assert next(i["cost"] for i in loose if i["id"] == fresh) is None  # no script: no price yet
 
     # A run a person stopped says who; one that stopped on its own needs a fix
     run = {"director_run": {"id": "r1", "turn": 1}}
@@ -311,7 +319,8 @@ def test_an_open_folder_tabs_search_made_by_sort_pages_and_archived(owner, edito
     assert owner.get(url).json()["ideas"][0]["cost"]["usd"] is not None
     assert [i["title"] for i in editor.get(f"{url}&sort=name").json()["ideas"]] == [
         "Angry gut", "Beer gut", "Bloated", "Glow-up", "IPAs"]  # fmt: skip
-    assert editor.get(f"{url}&sort=oldest").json()["ideas"][0]["id"] == made[0]
+    oldest = [i["id"] for i in editor.get(f"{url}&sort=oldest").json()["ideas"]]
+    assert (oldest[0], oldest[-1]) == (made[1], made[0])  # least recent activity first
     page = editor.get(f"{url}&sort=name&offset=2&limit=2").json()
     assert (page["total"], [i["title"] for i in page["ideas"]]) == (5, ["Bloated", "Glow-up"])
     found = editor.get(f"{url}&q=gut&made_by={me}&tab=delivered").json()
@@ -323,3 +332,4 @@ def test_an_open_folder_tabs_search_made_by_sort_pages_and_archived(owner, edito
     other = owner.get("/brands").json()[1]["id"]  # Iron Paws
     assert owner.get(f"/brands/{other}/ideas?folder={week}").status_code == 404  # brands apart
     assert owner.get(f"/brands/{brand}/ideas?folder=nope").status_code == 404
+    assert owner.get(f"/brands/{brand}/ideas?folder=²").status_code == 404
