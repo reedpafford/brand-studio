@@ -565,9 +565,9 @@ def test_a_b_roll_take_asks_for_no_sound_and_a_dialogue_take_does(app, db, edito
 
 
 def test_a_photoreal_style_says_people_in_words(app, db, editor, setup, clip, monkeypatch):  # noqa: F811
-    """th-20s: Seedance refused every take sent a photoreal teenager's picture (E005, E006), and
-    the same words in every prompt kept her the same girl. In the UGC style the sheet stays
-    home and the prompt names her instead; the brand's screen is still sent."""
+    """Rule 10's exception (Reed, 4 Nov): photoreal Seedance B-roll describes the person from
+    their approved character description instead of attaching their sheet; the brand's screen
+    is still sent."""
     from app import model_map
 
     monkeypatch.setattr(model_map, "PHOTOREAL", ("house",))  # this video's look, as UGC is

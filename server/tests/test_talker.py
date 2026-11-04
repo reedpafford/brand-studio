@@ -136,7 +136,7 @@ def test_an_emotion_speeds_minimax_up_and_a_remake_is_set_from_the_measured_pace
     assert director_song.REMAKES >= 1
 
 
-def test_photoreal_people_are_said_in_words_on_seedance_never_sent_as_pictures():
+def test_photoreal_seedance_b_roll_describes_people_instead_of_attaching_them():
     people, nobody = [{"character_ids": ["char:1"]}], [{"character_ids": []}]
     assert model_map.unsent("ugc", "seedance-2.0", people) == ("char:", "frame:")
     assert model_map.unsent("ugc", "seedance-1-lite", nobody) == ("char:",)

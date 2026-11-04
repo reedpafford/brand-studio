@@ -50,7 +50,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     unsent = model_map.unsent(
         looks.drawn(project), video_model(project).id, _shots(breakdown, shots)
     )
-    drop = tuple(dict.fromkeys(drop + unsent))  # a photoreal person: said in words instead
+    drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
     images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
