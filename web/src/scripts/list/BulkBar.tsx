@@ -23,11 +23,12 @@ export function BulkBar({ brandId, picked, mayArchive, onDone }: { brandId: numb
   const move = async (to: number | null, name: string) => {
     setBusy(true);
     try {
-      const was = await Promise.all(picked.map(async (r) => ({ id: r.id, from: (await must(api.POST("/folders/file", { body: { kind: "script", id: r.id, folder_id: to } }))).data!.was_folder_id })));
+      const { was } = (await must(api.POST("/folders/file", { body: { kind: "script", ids: picked.map((r) => r.id), folder_id: to } }))).data!;
       await refresh();
       onDone();
       toast(`Moved ${plural(n)} to ${name}.`, async () => {
-        await Promise.all(was.map((w) => must(api.POST("/folders/file", { body: { kind: "script", id: w.id, folder_id: w.from } })))).catch((e: Error) => toast(e.message, undefined, "error"));
+        const from = [...new Set(was.map((w) => w.folder_id))]; // one call for each place they came from
+        await Promise.all(from.map((f) => must(api.POST("/folders/file", { body: { kind: "script", ids: was.filter((w) => w.folder_id === f).map((w) => w.id), folder_id: f } })))).catch((e: Error) => toast(e.message, undefined, "error"));
         await refresh();
       });
     } catch (e) {

@@ -1,26 +1,39 @@
-"""Projects (flows OR1): a brand's list of projects, making, renaming and deleting one (with
-Undo), and filing a script, video or quick clip in one. Rules: app/folders.py."""
+"""Folders (flows OR1, v6 S0-01, S1): a brand's folder tree with its ideas' status dots, one
+folder's ideas (tabs, search, sort, Made by, pages, archived), making a folder (inside
+another, or at the top), renaming and moving one, deleting one (its ideas move to Unsorted,
+Undo brings them back), and filing ideas, scripts or quick clips in one. Rules:
+app/folders.py; the ideas' words: app/ideas.py."""
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import folders
+from app import folders, ideas
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.folders import Folder
+from app.models.projects import Project
 from app.routes.brands import get_brand
 
-router = APIRouter(tags=["projects (folders)"])
+router = APIRouter(tags=["folders"])
 Name = Field(min_length=1, max_length=120)
+SHOWN = 5  # ideas under an open folder in the tree, then "+ N more" (S0-01)
 
 
 class FolderIn(BaseModel):
     name: str = Name
+    parent_id: int | None = None  # inside this folder; null: at the top
+
+
+class FolderPatch(BaseModel):
+    """Send what changes: a new name, and/or a new place (`parent_id` null: to the top)."""
+
+    name: str | None = Field(None, min_length=1, max_length=120)
+    parent_id: int | None = None
 
 
 class Items(BaseModel):
@@ -32,72 +45,217 @@ class Items(BaseModel):
 class FolderOut(BaseModel):
     id: int
     brand_id: int
+    parent_id: int | None
     name: str
     created_by_id: int | None
-    items: Items  # as each list shows them ("Its 6 items move to No project")
-    can_manage: bool  # rename and delete: whoever made it, or the owner
+    items: Items  # its own, as each list shows them
+    can_manage: bool  # rename, move and delete: whoever made it, or the owner
 
 
 class DeletedOut(BaseModel):
-    moved: int  # items now read as No project; POST …/restore is the Undo
+    moved: int  # items (with the folders inside) now in Unsorted; POST …/restore is the Undo
+    ideas: int  # "Its 3 ideas moved to Unsorted."
 
 
 class FileIn(BaseModel):
     kind: Literal["script", "video", "clip"]
+    ids: list[int] = Field(min_length=1, max_length=500)
+    folder_id: int | None  # null: Unsorted
+
+
+class Was(BaseModel):
     id: int
-    folder_id: int | None  # null: No project
+    folder_id: int | None
 
 
 class FiledOut(BaseModel):
     folder_id: int | None
-    was_folder_id: int | None  # Undo: file it back here
+    was: list[Was]  # Undo: file each back where it was
+
+
+class Dot(BaseModel):
+    id: int
+    title: str
+    status: ideas.Status  # the tree shows the dot; the words are on hover
+
+
+class Branch(BaseModel):
+    """A folder in the tree: its ideas at any depth (`count`), its newest own ideas, and the
+    folders inside it. Unsorted has no id."""
+
+    id: int | None
+    parent_id: int | None = None
+    name: str
+    count: int
+    can_manage: bool = False
+    ideas: list[Dot]
+    more: int  # its own ideas past those shown: "+ 5 more"
+    folders: list["Branch"] = []
+
+
+class TreeOut(BaseModel):
+    folders: list[Branch]  # at the top, by name
+    unsorted: Branch
+
+
+class Counts(BaseModel):
+    all: int
+    needs_you: int
+    working: int
+    delivered: int
+
+
+class IdeasOut(BaseModel):
+    total: int  # in this tab, for the pages ("Showing 1–13 of 124")
+    counts: Counts  # the tabs, with the search and Made by applied
+    archived: int  # this folder's archived ideas
+    folders_inside: int  # "124 video ideas · 2 folders inside"
+    makers: list[ideas.Named]  # the Made by filter's people
+    ideas: list[ideas.Idea]
 
 
 def _out(db: Session, user: User, folder: Folder) -> FolderOut:
     items = folders.counts(db, user, [folder.id])[folder.id]
-    mine = user.is_owner or folder.created_by_id == user.id
-    return FolderOut(id=folder.id, brand_id=folder.brand_id, name=folder.name,
-                     created_by_id=folder.created_by_id, items=Items(**items),
-                     can_manage=mine)  # fmt: skip
+    return FolderOut(id=folder.id, brand_id=folder.brand_id, parent_id=folder.parent_id,
+                     name=folder.name, created_by_id=folder.created_by_id, items=Items(**items),
+                     can_manage=user.is_owner or folder.created_by_id == user.id)  # fmt: skip
 
 
 @router.get("/brands/{brand_id}/folders", response_model=list[FolderOut])
 def list_folders(brand_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """The brand's projects, by name; "No project" is always there and isn't listed."""
-    brand = get_brand(db, user, brand_id)
-    rows = list(db.scalars(select(Folder).where(Folder.brand_id == brand.id,
-                                                Folder.deleted_at.is_(None))
-                           .order_by(func.lower(Folder.name))))  # fmt: skip
+    """The brand's folders, by name, each with its `parent_id`; Unsorted isn't listed."""
+    rows = folders.live(db, get_brand(db, user, brand_id).id)
     counts = folders.counts(db, user, [f.id for f in rows])
-    return [FolderOut(id=f.id, brand_id=f.brand_id, name=f.name, created_by_id=f.created_by_id,
-                      items=Items(**counts[f.id]),
+    return [FolderOut(id=f.id, brand_id=f.brand_id, parent_id=f.parent_id, name=f.name,
+                      created_by_id=f.created_by_id, items=Items(**counts[f.id]),
                       can_manage=user.is_owner or f.created_by_id == user.id)
             for f in rows]  # fmt: skip
+
+
+def _live_ideas(db: Session, brand_id: int, archived: bool = False):
+    done = Project.archived_at.is_not(None) if archived else Project.archived_at.is_(None)
+    return select(Project).where(Project.brand_id == brand_id, done)
+
+
+@router.get("/brands/{brand_id}/tree", response_model=TreeOut)
+def tree(brand_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The rail's tree (S0-01, P-01): folders inside folders with their ideas counted at any
+    depth, each folder's newest own ideas with their status, and Unsorted."""
+    brand = get_brand(db, user, brand_id)
+    rows = folders.live(db, brand.id)
+    every = list(db.scalars(_live_ideas(db, brand.id)))
+    known = ideas.facts(db, every)
+    newest = sorted(every, key=lambda p: (known.last[p.id], p.id), reverse=True)
+    live = {f.id for f in rows}
+    own: dict[int | None, list[Project]] = {}
+    for p in newest:
+        own.setdefault(p.folder_id if p.folder_id in live else None, []).append(p)
+    shown = [p for ps in own.values() for p in ps[:SHOWN]]
+    status = ideas.statuses(db, user, shown, known)
+    named = ideas.titles(db, [p.id for p in shown])
+
+    def dots(ps: list[Project]) -> list[Dot]:
+        return [Dot(id=p.id, title=named.get(p.id, p.name), status=status[p.id])
+                for p in ps[:SHOWN]]  # fmt: skip
+
+    def branch(f: Folder) -> Branch:
+        inside = [branch(c) for c in rows if c.parent_id == f.id]
+        mine = own.get(f.id, [])
+        return Branch(id=f.id, parent_id=f.parent_id, name=f.name, ideas=dots(mine),
+                      count=len(mine) + sum(b.count for b in inside),
+                      more=max(0, len(mine) - SHOWN), folders=inside,
+                      can_manage=user.is_owner or f.created_by_id == user.id)  # fmt: skip
+
+    loose = own.get(None, [])
+    return TreeOut(folders=[branch(f) for f in rows if f.parent_id not in live],
+                   unsorted=Branch(id=None, name="Unsorted", count=len(loose), ideas=dots(loose),
+                                   more=max(0, len(loose) - SHOWN)))  # fmt: skip
+
+
+@router.get("/brands/{brand_id}/ideas", response_model=IdeasOut)
+def folder_ideas(
+    brand_id: int,
+    folder: str = folders.NONE,  # a folder's id (with the folders inside it), or none: Unsorted
+    tab: ideas.Tab = "all",
+    q: str = "",  # in the idea's title
+    made_by: int | None = None,  # a person's id: "Made by"
+    sort: ideas.Sort = "newest",
+    archived: bool = False,  # this folder's archived ideas instead (S1-06)
+    offset: int = Query(0, ge=0),
+    limit: int = Query(60, ge=1, le=200),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """One folder's ideas as cards or list rows (S1-04 to S1-08, P-02), a page at a time."""
+    brand = get_brand(db, user, brand_id)
+    if folder != folders.NONE:
+        opened = folders.get(db, user, int(folder) if folder.isdigit() else 0)
+        if opened.brand_id != brand.id:  # brands stay apart
+            raise HTTPException(404, folders.NO_FOLDER)
+    filed = folders.where(Project.folder_id, folder)
+    base = _live_ideas(db, brand.id, archived).where(filed)
+    gone = 0 if archived else db.scalar(select(func.count()).select_from(
+        _live_ideas(db, brand.id, True).where(filed).subquery()))  # fmt: skip
+    every = list(db.scalars(base))
+    makers = {p.created_by_id for p in every if p.created_by_id}
+    named = ideas.titles(db, [p.id for p in every])
+    title = {p.id: named.get(p.id, p.name) for p in every}
+    found = [p for p in every if q.strip().lower() in title[p.id].lower()]
+    if made_by is not None:
+        found = [p for p in found if p.created_by_id == made_by]
+    known = ideas.facts(db, found)
+    status = ideas.statuses(db, user, found, known)
+    in_tab = {t: [p for p in found if status[p.id].kind in kinds]
+              for t, kinds in ideas.TABS.items()}  # fmt: skip
+    rows = found if tab == "all" else in_tab[tab]
+    order = {"newest": lambda p: (-known.last[p.id].timestamp(), -p.id),
+             "oldest": lambda p: (p.created_at, p.id),
+             "name": lambda p: (title[p.id].lower(), p.id)}  # fmt: skip
+    rows = sorted(rows, key=order[sort])
+    page = rows[offset : offset + limit]
+    inside = 0
+    if folder != folders.NONE:
+        inside = len(folders.below(folders.live(db, brand.id), int(folder))) - 1
+    from app.auth import user_name
+
+    return IdeasOut(
+        total=len(rows),
+        counts=Counts(all=len(found), **{t: len(ps) for t, ps in in_tab.items()}),
+        archived=gone, folders_inside=inside,
+        makers=sorted((ideas.Named(id=i, name=user_name(db, i)) for i in makers),
+                      key=lambda m: m.name.lower()),
+        ideas=ideas.cards(db, user, page, known, status),
+    )  # fmt: skip
 
 
 @router.post("/brands/{brand_id}/folders", response_model=FolderOut, status_code=201)
 def make_folder(
     brand_id: int, body: FolderIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
+    """New folder, at the top or inside one ("New folder inside")."""
     brand = get_brand(db, user, brand_id)
-    name = folders.check_name(db, brand.id, body.name)
-    folder = Folder(workspace_id=user.workspace_id, brand_id=brand.id, name=name,
-                    created_by_id=user.id)  # fmt: skip
+    folder = Folder(workspace_id=user.workspace_id, brand_id=brand.id, created_by_id=user.id)
+    folders.place(db, user, folder, body.parent_id)
+    folder.name = folders.check_name(db, folder, body.name)
     db.add(folder)
     db.commit()
     return _out(db, user, folder)
 
 
 @router.patch("/folders/{folder_id}", response_model=FolderOut)
-def rename_folder(
+def change_folder(
     folder_id: int,
-    body: FolderIn,
+    body: FolderPatch,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    """Rename it, or move it ("Move to…", or dragged): inside another folder of its brand, or
+    to the top; never inside itself or a folder inside it."""
     folder = folders.get(db, user, folder_id)
     folders.may_manage(user, folder)
-    folder.name = folders.check_name(db, folder.brand_id, body.name, but=folder.id)
+    if "parent_id" in body.model_fields_set:
+        folders.place(db, user, folder, body.parent_id)
+    folder.name = folders.check_name(db, folder, body.name or folder.name)
     db.commit()
     return _out(db, user, folder)
 
@@ -106,8 +264,10 @@ def rename_folder(
 def delete_folder(
     folder_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """Its items move to No project; nothing inside is deleted. Undo: POST …/restore."""
-    return DeletedOut(moved=folders.delete(db, user, folders.get(db, user, folder_id)))
+    """It goes with the folders inside it; their ideas move to Unsorted and nothing inside is
+    deleted. Undo: POST …/restore."""
+    moved, count = folders.delete(db, user, folders.get(db, user, folder_id))
+    return DeletedOut(moved=moved, ideas=count)
 
 
 @router.post("/folders/{folder_id}/restore", response_model=FolderOut)
@@ -119,7 +279,9 @@ def restore_folder(
 
 
 @router.post("/folders/file", response_model=FiledOut)
-def file_item(body: FileIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Project: none ▾ → picked: filed (toast, Undo files it back to was_folder_id)."""
-    now, was = folders.file(db, user, body.kind, body.id, body.folder_id)
-    return FiledOut(folder_id=now, was_folder_id=was)
+def file_items(body: FileIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Move one or many ideas (or scripts, or quick clips) into a folder, or Unsorted: a drag
+    onto the tree, "Move to…", or several selected. Undo files each back where it was."""
+    was = folders.file(db, user, body.kind, body.ids, body.folder_id)
+    return FiledOut(folder_id=body.folder_id,
+                    was=[Was(id=i, folder_id=f) for i, f in was.items()])  # fmt: skip

@@ -177,8 +177,9 @@ def first_brand(client) -> int:
 
 
 def file_into(client, kind, item_id, folder_id):
-    """File a script, video or quick clip into a project (OR1)."""
-    return client.post("/folders/file", json={"kind": kind, "id": item_id, "folder_id": folder_id})
+    """File a script, video or quick clip into a folder (OR1)."""
+    body = {"kind": kind, "ids": [item_id], "folder_id": folder_id}
+    return client.post("/folders/file", json=body)
 
 
 def bulk_scripts(client, rows: list[dict]):

@@ -71,7 +71,7 @@ def test_media_lists_what_was_made_and_who_sees_it(app, db, owner, editor, setup
     assert _media(editor, brand, by=project.created_by_id, kind="sheet")["items"] == []  # no maker
 
     fid = editor.post(f"/brands/{brand}/folders", json={"name": "Launch"}).json()["id"]
-    editor.post("/folders/file", json={"kind": "video", "id": pid, "folder_id": fid})
+    editor.post("/folders/file", json={"kind": "video", "ids": [pid], "folder_id": fid})
     filed = _media(editor, brand, folder=fid)["items"]
     assert {i["kind"] for i in filed} == {"still", "take", "final"}  # not the brand's sheets
     assert {i["folder_id"] for i in filed} == {fid}
