@@ -39,9 +39,8 @@ const clock = (seconds: number) => {
 };
 /** 130 px tiles, as many to a row as fit (the board shows eight at 1440); three across on a phone. */
 const GRID = "grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-4";
-const CHIP: Record<Exclude<Kind, "upload">, string> = { take: "Clip", final: "Final", still: "Still", sheet: "Sheet", song: "Song" };
-/** An added picture or clip reads as what it is. */
-const chip = (m: Item) => (m.kind === "upload" ? (m.content_type.startsWith("video/") ? "Clip" : "Still") : CHIP[m.kind]);
+/** The chip on a tile is its group, only Clip, Still or Song: a final cut is a Clip, a character sheet or an added picture a Still. */
+const CHIP: Record<Group, string> = { clip: "Clip", still: "Still", song: "Song" };
 export const kindName = (k: Kind) => KINDS.find((x) => x.id === k)!.one;
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
@@ -78,7 +77,7 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
   const title = m.video_name ?? script.data?.title ?? (m.open_step === "quick" ? "Quick clip" : m.kind === "sheet" ? "Cast & places" : m.kind === "upload" ? isVideo ? "Added clip" : "Added picture" : kindName(m.kind));
   const gone = m.deleted_video_by; // the deleted video's maker: they or the owner may restore it (as the Archived list offers)
   const mayRestore = owner || (!!gone && gone.id === meId);
-  const meta = [fromScript ? "Song from the script" : m.kind === "song" && m.video_name ? "Song from the video" : m.kind === "upload" ? "Added" : kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
+  const meta = [fromScript ? "Song from the script" : m.kind === "song" && m.video_name ? "Song from the video" : m.kind === "upload" ? "Added" : m.kind === "final" ? "Director video" : kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
   const picture = m.poster_file_id ? fileUrl(m.poster_file_id) : m.content_type.startsWith("image/") ? fileUrl(m.file_id) : null;
   const Icon = m.kind === "song" ? Music : m.kind === "sheet" ? Users : Images;
   return (
@@ -89,7 +88,7 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
             <Icon size={24} strokeWidth={1.75} />
           </span>
         )}
-        <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{chip(m)}</span>
+        <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{CHIP[m.group]}</span>
         {m.duration_seconds != null && Math.round(m.duration_seconds) > 0 && (
           <span className="absolute bottom-1.5 left-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium tabular-nums text-on-media">
             <span className="sr-only">Length </span>
@@ -202,7 +201,7 @@ export function MediaPage() {
             Videos
           </Link>
         )}
-        <input ref={picker} type="file" accept={UPLOADABLE} className="sr-only" tabIndex={-1} aria-label="Picture or clip file" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) add.mutate(f); }} />
+        <input ref={picker} type="file" accept={UPLOADABLE} className="sr-only" tabIndex={-1} aria-label="Choose a picture or clip" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) add.mutate(f); }} />
         <Button variant="secondary" busy={add.isPending} onClick={() => picker.current?.click()}>
           Upload
         </Button>

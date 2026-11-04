@@ -10,9 +10,11 @@ import { renderApp } from "../test/render";
 
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { id: 2, email: "e@b.co", name: "Eli", role: "editor", workspace_id: 1 };
-const item = (o: object = {}) => ({
+const GROUP: Record<string, string> = { take: "clip", final: "clip", upload: "clip", still: "still", sheet: "still", song: "song" };
+const item = (o: { kind?: string } & Record<string, unknown> = {}) => ({
+  group: GROUP[o.kind ?? "take"],
   key: "take:3", kind: "take", file_id: 30, content_type: "video/mp4", poster_file_id: 20, made_at: "2026-10-28T10:00:00Z", made_by: { id: 2, name: "Eli" },
-  project_id: 9, folder_id: null, video_name: "Bo tries salmon", script_id: null, open_step: "clips", from_deleted_video: false, group: "clip", duration_seconds: null, ...o,
+  project_id: 9, folder_id: null, video_name: "Bo tries salmon", script_id: null, open_step: "clips", from_deleted_video: false, duration_seconds: null, ...o,
 });
 const page = (items: object[], next: string | null = null) => ({ items, next });
 const base = (me: object, media: object, extra: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
@@ -54,7 +56,8 @@ test("each tile shows its picture, kind chip, when and who, and opens the item (
   expect(tiles[0]).toHaveTextContent("Clip"); // the kind chip on the picture
   expect(tiles[1]).toHaveTextContent("Still");
   expect(tiles[4]).toHaveTextContent("Song");
-  expect(tiles[5]).toHaveTextContent("Sheet");
+  expect(tiles[5]).toHaveTextContent("Still"); // a character sheet is a Still
+  expect(tiles[5]).not.toHaveTextContent("Sheet");
   // A tile is one press to its own page (it has Open in {step} and Download); no buttons on the tile itself.
   expect(within(tiles[0]).getByRole("link", { name: /^Open Bo tries salmon/ })).toHaveAttribute("href", "/b/1/media/take%3A3");
   expect(within(tiles[0]).queryByRole("link", { name: /Download/ })).toBeNull();
@@ -339,7 +342,7 @@ test("Upload adds a picture or clip to the brand's Media for anyone with the bra
   await screen.findByRole("list", { name: "Media" });
   expect(screen.getByRole("button", { name: "Upload" })).toBeInTheDocument();
   const before = calls.filter((c) => c.key === "GET /brands/1/media-counts").length;
-  await userEvent.upload(screen.getByLabelText("Picture or clip file"), new File(["x"], "look.png", { type: "image/png" }));
+  await userEvent.upload(screen.getByLabelText("Choose a picture or clip"), new File(["x"], "look.png", { type: "image/png" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/media")).toBe(true));
   expect(await screen.findByText("Picture added to Media.")).toBeInTheDocument();
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /brands/1/media-counts").length).toBeGreaterThan(before));
@@ -350,6 +353,21 @@ test("a refused upload says why in the server's words", async () => {
   fakeServer(base(owner, page([item()]), { "POST /brands/1/media": [415, { detail: "Add a PNG, JPEG or WebP picture, or an MP4 or WebM clip." }] }));
   open();
   await screen.findByRole("list", { name: "Media" });
-  await userEvent.upload(screen.getByLabelText("Picture or clip file"), new File(["x"], "notes.txt", { type: "text/plain" }), { applyAccept: false });
+  await userEvent.upload(screen.getByLabelText("Choose a picture or clip"), new File(["x"], "notes.txt", { type: "text/plain" }), { applyAccept: false });
   expect(await screen.findByText("Add a PNG, JPEG or WebP picture, or an MP4 or WebM clip.")).toBeInTheDocument();
+});
+
+test("a final cut is a Clip from the director, a character sheet is a Still, and the chips are only Clip, Still or Song", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, page([
+    item({ key: "final:3", kind: "final", video_name: "Bo tries salmon · A", duration_seconds: 62, open_step: "final" }),
+    item({ key: "sheet:8:0", kind: "sheet", content_type: "image/png", poster_file_id: null, project_id: null, video_name: null, open_step: "cast", made_by: null }),
+  ])));
+  open();
+  const tiles = within(await screen.findByRole("list", { name: "Media" })).getAllByRole("listitem");
+  expect(tiles[0]).toHaveTextContent("Clip");
+  expect(tiles[0]).not.toHaveTextContent("Final");
+  expect(tiles[0]).toHaveTextContent("Director video");
+  expect(tiles[0]).toHaveTextContent("01:02");
+  expect(tiles[1]).toHaveTextContent("Still");
 });
