@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto(`/b/${await emptyBrand(page)}`);
   await onBrand(page, "Night Owl");
   await page.getByRole("link", { name: "Brand kit", exact: true }).first().click();
-  await expect(page.getByRole("link", { name: "Brand kit" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Library" }).getByRole("link", { name: "Brand kit" })).toHaveAttribute("aria-current", "page");
 });
 
 test("tone and rules and a colour are saved and still there after a reload", async ({ page }) => {

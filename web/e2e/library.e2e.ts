@@ -81,6 +81,7 @@ test("Products: fomo's app holds its real screens; Iron Paws' bag holds its phot
   await expect(app.getByText("App", { exact: true })).toBeVisible();
   await expect(app.getByText(/^5 screens · shown as given/)).toBeVisible();
   await switchBrand(page, "Iron Paws");
-  const bag = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: "bag" }) });
+  await page.getByRole("navigation", { name: "Library" }).getByRole("link", { name: /^Products/ }).click();
+  const bag = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: "bag", exact: true }) });
   await expect(bag.getByText("Physical", { exact: true })).toBeVisible();
 });
