@@ -98,7 +98,7 @@ export function Voices({ brandId }: { brandId: number }) {
         {(all ? app : app.slice(0, 3)).map((v) => <VoiceRow key={v.stock_key ?? v.name} voice={v} />)}
       </div>
       {app.length > 3 && (
-        <button type="button" className="self-start text-sm text-muted hover:text-text" onClick={() => setAll(!all)}>
+        <button type="button" className="inline-flex min-h-control items-center lg:min-h-0 self-start text-sm text-muted hover:text-text" onClick={() => setAll(!all)}>
           {all ? "Show fewer" : `+ ${app.length - 3} more`}
         </button>
       )}
@@ -132,8 +132,8 @@ function Clone({ brandId, price, owner, onDone }: { brandId: number; price: stri
         <input type="file" accept="audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,.mp3,.wav,.m4a" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       <p className="text-xs text-muted">At least 10 s of one clear voice.</p>
-      <input aria-label="Name" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="h-9 rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
-      <input aria-label="How it sounds" placeholder="How it sounds: deep, fixed" value={description} onChange={(e) => setDescription(e.target.value)} className="h-9 rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
+      <input aria-label="Name" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="h-control lg:h-9 rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
+      <input aria-label="How it sounds" placeholder="How it sounds: deep, fixed" value={description} onChange={(e) => setDescription(e.target.value)} className="h-control lg:h-9 rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
       {clone.isError && <p role="alert" className={errorClass}>{clone.error.message}</p>}
       <Button disabled={!ready} busy={clone.isPending} onClick={() => clone.mutate()}>
         Clone{price && <>{" "}<span className="opacity-80">· {price}</span></>}

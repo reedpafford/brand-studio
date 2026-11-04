@@ -91,7 +91,7 @@ function NewPresenter({ brandId, onClose }: { brandId: number; onClose: () => vo
         <div className="flex min-w-0 flex-col gap-2">
           <label className="w-full lg:w-[200px]">
             <span className="sr-only">Name</span>
-            <input value={picked ? picked.name : name} disabled={!!picked} onChange={(e) => setName(e.target.value)} placeholder="Name" className="h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted disabled:text-muted lg:text-sm" />
+            <input value={picked ? picked.name : name} disabled={!!picked} onChange={(e) => setName(e.target.value)} placeholder="Name" className="h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted disabled:text-muted lg:text-sm" />
           </label>
           <div className="flex flex-wrap gap-2">
             <label className="inline-flex min-h-control cursor-pointer items-center gap-1.5 rounded-md border border-border-button px-3 text-sm font-medium lg:min-h-control-dense">

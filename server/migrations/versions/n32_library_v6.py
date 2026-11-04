@@ -1,9 +1,10 @@
-"""The v6 library (S8, S-gaps-05): an item's archive date, who made it, whether a character
-presents, its usual place, and whether a product is an app or a physical thing; and every brand
-screen is a picture of a library product (`product_id`) instead of naming one (`product`), so a
-product is one record with its pictures. Each brand's product names are matched to its products
-by name (any case); a name with no product makes one, named as the screens named it. Screens
-with no product (app screens) go to the brand's app, "<brand> app", made when it has none.
+"""The v6 library (S8, S-gaps-05): an item's archive date (none for one archived before), who
+made it, whether a character presents, its usual place, and whether a product is an app or a
+physical thing; and every brand screen is a picture of a library product (`product_id`) instead
+of naming one (`product`), so a product is one record with its pictures. Each brand's product
+names are matched to its products by name (any case); a name with no product makes one, named
+as the screens named it. Screens with no product (app screens) go to the brand's app,
+"<brand> app", made when it has none.
 
 Revision ID: n32
 Revises: n31
@@ -54,7 +55,6 @@ def upgrade() -> None:
                                     ["product_id"], ["id"])  # fmt: skip
         batch_op.create_index("ix_brand_screens_product_id", ["product_id"])
     conn = op.get_bind()
-    conn.execute(sa.text("UPDATE library_items SET archived_at = created_at WHERE archived"))
     conn.execute(sa.text("UPDATE library_items SET product_type = 'physical' WHERE kind = 'prop'"))
     made: dict[tuple[int, str], int] = {}
     rows = conn.execute(sa.text(SCREENS)).all()

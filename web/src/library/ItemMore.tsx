@@ -14,7 +14,7 @@ import { LookSheets } from "./LookSheets";
 import { SheetVersions } from "./SheetVersions";
 import { day, slugOf, type Item, type Kind } from "./kinds";
 
-const field = "h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text lg:text-sm";
+const field = "h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text lg:text-sm";
 
 /** Everything S8-03 doesn't draw, folded under More (S-gaps-05 L5): the sheets in other styles, its words, photo,
  *  outfits and voice sample, the brands that share it, and its history with Restore and Delete forever. */
@@ -120,7 +120,7 @@ function Edit({ item, kind, brandId, title }: { item: Item; kind: Kind; brandId:
       {kind !== "prop" && (
         <p className="flex flex-wrap items-center gap-2">
           <span className="text-muted">{item.source_photo_file_id ? "Made from an uploaded photo (not used in videos itself)." : "No photo: drawn from the description."}</span>
-          <label className="cursor-pointer text-accent-text hover:underline">
+          <label className="inline-flex min-h-control items-center lg:min-h-0 cursor-pointer text-accent-text hover:underline">
             {item.source_photo_file_id ? "Replace the photo" : "Upload a photo"}
             <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && photo.mutate(e.target.files[0])} />
           </label>

@@ -560,11 +560,26 @@ def update_item(
     heard_only = set(values) <= {"voice_id", "voice_stock_key"}  # nor does its voice
     if not words_only:
         _save_version(db, user, item)
+    was = item.name
     _apply(db, user, item, values)
     if not (words_only or heard_only):
         item.sheet_approved = False  # any other edit needs the sheet approved again
+    if item.kind == Kind.prop and item.name != was:
+        _rename_picks(db, item, was)
     db.commit()
     return _out(item)
+
+
+def _rename_picks(db: Session, item: LibraryItem, was: str) -> None:
+    """A product renamed: the videos' flavour picks, kept by its name, follow it (QA)."""
+    from app.models.projects import Project
+
+    brands = [b.id for b in item.brands]
+    for p in db.scalars(select(Project).where(Project.brand_id.in_(brands))):
+        picks = dict(p.product_variants or {})
+        if was in picks:
+            picks[item.name] = picks.pop(was)
+            p.product_variants = picks
 
 
 @router.delete("/{item_id}", status_code=204)
@@ -619,8 +634,18 @@ def unarchive_item(
 def delete_item_forever(
     kind: Kind, item_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
 ) -> None:
-    """Owner only, and only from the archive: removes the item and its history for good."""
+    """Owner only, and only from the archive: removes the item and its history for good. A
+    product's pictures stay for the videos that showed them, deleted and no longer its; a place
+    stops being anyone's usual place."""
+    from sqlalchemy import update
+
+    from app.models.brands import BrandScreen
+
     item = get_item(db, owner, kind, item_id, archived=True)
+    db.execute(update(BrandScreen).where(BrandScreen.product_id == item.id)
+               .values(product_id=None, deleted_at=func.coalesce(BrandScreen.deleted_at,
+                                                                 utcnow())))  # fmt: skip
+    db.execute(update(LibraryItem).where(LibraryItem.place_id == item.id).values(place_id=None))
     db.execute(delete(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id))
     item.brands = []
     db.delete(item)

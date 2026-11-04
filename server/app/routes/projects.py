@@ -20,7 +20,6 @@ from app.credits import (
 )
 from app.db import get_db, utcnow
 from app.models.accounts import User
-from app.models.brands import BrandScreen
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
 from app.models.projects import Project, ProjectStatus
@@ -228,12 +227,11 @@ def _set_brief(db: Session, user: User, project: Project, values: dict) -> None:
 
 
 def variants(db: Session, brand_id: int) -> dict[str, set[str]]:
-    """The brand's products with flavours: {product: its variants}."""
-    screens = db.scalars(
-        select(BrandScreen).where(
-            BrandScreen.brand_id == brand_id, BrandScreen.deleted_at.is_(None)
-        )
-    )
+    """The brand's products with flavours: {product: its variants} (not an archived product's)."""
+    from app.enhance import screens_of
+    from app.models.brands import Brand
+
+    screens = screens_of(db, db.get(Brand, brand_id))
     offered: dict[str, set[str]] = {}
     for s in screens:
         if s.product and s.variant:

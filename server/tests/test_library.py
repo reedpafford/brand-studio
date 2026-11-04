@@ -258,3 +258,52 @@ def test_each_version_says_which_sheet_it_had(owner, db):
     owner.patch(f"/library/character/{item['id']}", json={"notes": "older"})
     (v1,) = owner.get(f"/library/character/{item['id']}/versions").json()
     assert (v1["version"], v1["sheet_file_id"]) == (1, sheet)
+
+
+def test_deleting_a_product_or_place_forever_leaves_its_pictures_and_users_whole(owner, db):
+    """QA: a product's pictures stay (deleted, for old videos); a place is no one's usual place."""
+    from app.models.brands import BrandScreen
+    from app.models.library import LibraryItem
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "Bag", "brand_ids": [b]}).json()["id"]
+    pic = owner.post(f"/brands/{b}/screens", json={"name": "Bag", "file_id": upload(owner),
+                                                   "product_id": bag}).json()["id"]  # fmt: skip
+    kitchen = owner.post("/library/place", json={"name": "Kitchen"}).json()["id"]
+    mia = owner.post("/library/character", json={"name": "Mia", "place_id": kitchen}).json()["id"]
+    for kind, item in (("prop", bag), ("place", kitchen)):
+        owner.delete(f"/library/{kind}/{item}")
+        assert owner.delete(f"/library/{kind}/{item}/permanent").status_code == 204
+    db.expire_all()
+    screen = db.get(BrandScreen, pic)
+    assert screen.product_id is None and screen.deleted_at is not None
+    assert db.get(LibraryItem, mia).place_id is None
+
+
+def test_an_archived_products_flavours_are_not_offered(owner, db):
+    """QA: an archived product's pictures leave the flavour pickers and new clips too."""
+    from app.routes.projects import variants
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "bag", "brand_ids": [b]}).json()["id"]
+    for flavour in ("Chicken", "Peanut butter"):
+        body = {"name": f"{flavour} bag", "variant": flavour, "file_id": upload(owner),
+                "product_id": bag}  # fmt: skip
+        owner.post(f"/brands/{b}/screens", json=body)
+    assert variants(db, b) == {"bag": {"Chicken", "Peanut butter"}}
+    owner.delete(f"/library/prop/{bag}")
+    db.expire_all()
+    assert variants(db, b) == {}
+
+
+def test_renaming_a_product_keeps_each_videos_flavour_pick(owner, db):
+    from app.models.projects import Project
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "bag", "brand_ids": [b]}).json()["id"]
+    pid = owner.post("/projects", json={"brand_id": b, "name": "V"}).json()["id"]
+    db.get(Project, pid).product_variants = {"bag": "Chicken"}
+    db.commit()
+    owner.patch(f"/library/prop/{bag}", json={"name": "Dog bag"})
+    db.expire_all()
+    assert db.get(Project, pid).product_variants == {"Dog bag": "Chicken"}

@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, ArrowLeft, Check, ChevronDown, Pencil, Upload } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Button, Menu, MenuItem } from "../components";
+import { Banner, Button, Menu, MenuItem } from "../components";
 import { refreshJobs } from "../jobs/refresh";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -28,7 +28,12 @@ export function ItemPage() {
   const id = Number(brandId);
   const item = useQuery({
     queryKey: ["library", kind, "item", Number(itemId)],
-    queryFn: async () => (await api.GET("/library/{kind}/{item_id}", { params: { path: { kind, item_id: Number(itemId) } } })).data ?? null,
+    queryFn: async () => {
+      const { data, response } = await api.GET("/library/{kind}/{item_id}", { params: { path: { kind, item_id: Number(itemId) } } });
+      if (response.status === 404) return null; // gone or archived
+      if (!data) throw new Error("load");
+      return data;
+    },
     refetchInterval: (q) => (["drawing", "waiting_for_owner"].includes(q.state.data?.sheet_status ?? "") ? 3000 : false),
   });
   const back = useSearchParams()[0].get("back"); // "Open Mia" from a video comes back to it
@@ -48,6 +53,8 @@ export function ItemPage() {
     <LibraryFrame brandId={id} tab={slug} action={action}>
       {item.isPending ? (
         <p className="text-muted">Loading…</p>
+      ) : item.isError ? (
+        <Banner title="Couldn't load this." action={<Button variant="secondary" onClick={() => void item.refetch()}>Try again</Button>}>Check your connection.</Banner>
       ) : !item.data ? (
         <p>That {KINDS[slug].one} doesn't exist, or it was archived.</p>
       ) : (
@@ -143,7 +150,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
           <Picture id={big} alt={item.name} className={rail ? "h-[400px] w-[300px]" : "aspect-[3/4] w-full"} />
           {(old.length > 0 || product) && (
             <div className="flex flex-wrap gap-2">
-              {(product ? (item.pictures ?? []).map((p) => ({ file_id: p.file_id, label: p.variant || p.name, version: 0 })) : [{ file_id: cover(item), label: `v${item.version} · in use`, version: item.version }, ...old]).map((v, n) =>
+              {(product ? (item.pictures ?? []).map((p) => ({ file_id: p.file_id, label: p.variant || p.name, version: 0 })) : [{ file_id: cover(item), label: item.sheet_status === "approved" ? `v${item.version} · in use` : `v${item.version}`, version: item.version }, ...old]).map((v, n) =>
                 v.file_id ? (
                   <button key={`${v.file_id}-${n}`} type="button" aria-label={`${item.name}, ${v.label}`} aria-pressed={(shown ?? cover(item)) === v.file_id} onClick={() => setShown(n === 0 && !product ? null : v.file_id!)} className="flex flex-col gap-1 text-left">
                     <img src={fileUrl(v.file_id)} alt="" className={`h-[94px] w-[70px] rounded-md object-cover ${(shown ?? cover(item)) === v.file_id ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
@@ -206,7 +213,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
             <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
               <label className="text-sm">
                 What should change?
-                <input autoFocus value={changing} maxLength={500} onChange={(e) => setChanging(e.target.value)} placeholder="“Navy polo, no hat, a little older”" className="mt-1 h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
+                <input autoFocus value={changing} maxLength={500} onChange={(e) => setChanging(e.target.value)} placeholder="“Navy polo, no hat, a little older”" className="mt-1 h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
               </label>
               <div className="flex gap-2">
                 <Button busy={draw.isPending} disabled={!changing.trim()} onClick={() => draw.mutate(changing.trim())}>
@@ -252,7 +259,7 @@ function Facts({ item, brandId }: { item: Item; brandId: number }) {
     rows.push(["Voice", <CharacterVoice key="voice" item={item} brandId={brandId} />]);
     rows.push([
       "Place",
-      <Menu key="place" title="Usual place" trigger={(p) => <button type="button" {...p} className="inline-flex items-center gap-1 hover:underline">{place?.name ?? <span className="text-muted">None</span>}<ChevronDown size={14} strokeWidth={1.75} aria-hidden className="text-muted" /></button>}>
+      <Menu key="place" title="Usual place" trigger={(p) => <button type="button" {...p} className="inline-flex min-h-control items-center gap-1 hover:underline lg:min-h-0">{place?.name ?? <span className="text-muted">None</span>}<ChevronDown size={14} strokeWidth={1.75} aria-hidden className="text-muted" /></button>}>
         {(close) => [
           ...(places.data ?? []).map((p) => <MenuItem key={p.id} checked={p.id === item.place_id} onClick={() => (close(), setPlace.mutate(p.id))}>{p.name}</MenuItem>),
           <MenuItem key="none" checked={!item.place_id} onClick={() => (close(), setPlace.mutate(null))}>None</MenuItem>,
@@ -293,7 +300,7 @@ function CharacterVoice({ item, brandId }: { item: Item; brandId: number }) {
       {words ? <span>{words}</span> : <span className="text-muted">None yet</span>}
       {sample && <> · <PlayLink src={sample} /></>}
       {" · "}
-      <Menu title="Voice" trigger={(p) => <button type="button" {...p} className="text-accent-text hover:underline">{voice ? "Change" : "Pick a voice"}</button>}>
+      <Menu title="Voice" trigger={(p) => <button type="button" {...p} className="inline-flex min-h-control items-center lg:min-h-0 text-accent-text hover:underline">{voice ? "Change" : "Pick a voice"}</button>}>
         {(close) => [
           ...voices.filter((v) => v.state !== "expired" && v.state !== "failed").map((v) => (
             <MenuItem key={v.id ?? v.stock_key ?? v.name} checked={v === voice} onClick={() => (close(), pick.mutate(v))}>{v.name}</MenuItem>
@@ -307,8 +314,13 @@ function CharacterVoice({ item, brandId }: { item: Item; brandId: number }) {
 
 /** A quiet Play for a sample (samples play free). */
 function PlayLink({ src }: { src: string }) {
-  const [audio] = useState(() => (typeof Audio === "undefined" ? null : new Audio(src)));
-  return <button type="button" className="text-accent-text hover:underline" onClick={() => void audio?.play()}>Play</button>;
+  const audio = useRef<HTMLAudioElement>(null);
+  return (
+    <>
+      <button type="button" className="inline-flex min-h-control items-center lg:min-h-0 text-accent-text hover:underline" onClick={() => void audio.current?.play()}>Play</button>
+      <audio ref={audio} src={src} preload="none" className="hidden" />
+    </>
+  );
 }
 
 /** "Used in N videos" (S8-03): each with its still, its status and its date; three, then "+ N more". */
@@ -339,7 +351,7 @@ function UsedIn({ item, brandId }: { item: Item; brandId: number }) {
         })}
         {used.length > 3 && (
           <li>
-            <button type="button" className="min-h-10 w-full px-3 text-left text-sm text-muted hover:text-text" onClick={() => setAll(!all)}>
+            <button type="button" className="min-h-control w-full px-3 text-left text-sm text-muted hover:text-text lg:min-h-10" onClick={() => setAll(!all)}>
               {all ? "Show fewer" : `+ ${used.length - 3} more`}
             </button>
           </li>

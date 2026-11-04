@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +11,7 @@ import { SHEET_MODEL } from "./sheets";
 import { KINDS, slugOf, upTo, useNewPrice, type Item, type Kind } from "./kinds";
 import { addPicture } from "./products";
 
-const field = "h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted lg:text-sm";
+const field = "h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted lg:text-sm";
 
 /** New character / place (S8-07, left) and New product (S-gaps-05 L1): a name and a description, or a photo. A character or place is
  *  drawn as a front, side and back sheet with the price first; the tiles shimmer while it's drawn, then its page opens.
@@ -31,17 +31,25 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
   const cost = upTo(price.data?.credits, price.data?.usd);
   const preview = usePreview(photo);
   const product = kind === "prop";
+  // A retry after a later step failed (a held sheet, an upload) goes on from there: never a second item (QA).
+  const done = useRef<{ item: Item | null; pictures: number }>({ item: null, pictures: 0 });
   const create = useMutation({
     mutationFn: async () => {
-      const source = photo && !product ? (await uploadFile(photo)).id : null;
-      const { data, error } = await api.POST("/library/{kind}", {
-        params: { path: { kind } },
-        body: { name: name.trim(), notes: words.trim(), brand_ids: [brandId], image_file_ids: [], outfits: [], source_photo_file_id: source, presenter: false, product_type: product ? type : null },
-      });
-      if (!data) throw new Error(errorText(error));
+      let data = done.current.item;
+      if (!data) {
+        const source = photo && !product ? (await uploadFile(photo)).id : null;
+        const made = await api.POST("/library/{kind}", {
+          params: { path: { kind } },
+          body: { name: name.trim(), notes: words.trim(), brand_ids: [brandId], image_file_ids: [], outfits: [], source_photo_file_id: source, presenter: false, product_type: product ? type : null },
+        });
+        if (!made.data) throw new Error(errorText(made.error));
+        data = done.current.item = made.data;
+      }
       if (product) {
-        for (const [n, f] of [photo, ...more].filter((f): f is File => !!f).entries()) {
-          await addPicture(brandId, { ...data, pictures: Array(n).fill(null) } as Item, f, "", type === "app" ? screenName(f.name) : undefined);
+        const files = [photo, ...more].filter((f): f is File => !!f);
+        for (let n = done.current.pictures; n < files.length; n++) {
+          await addPicture(brandId, { ...data, pictures: Array(n).fill(null) } as Item, files[n], "", type === "app" ? screenName(files[n].name) : undefined);
+          done.current.pictures = n + 1;
         }
         return data.id;
       }

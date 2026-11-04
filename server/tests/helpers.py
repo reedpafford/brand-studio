@@ -33,7 +33,8 @@ def assert_hidden(client, calls: list[tuple]) -> None:
 
 def _usd_keys(value, where="") -> list[str]:
     if isinstance(value, dict):
-        found = [f"{where}.{k}" for k in value if k.endswith("_usd")]
+        found = [f"{where}.{k}" for k, v in value.items()
+                 if k.endswith("_usd") or (k == "usd" and v is not None)]  # fmt: skip
         return found + [x for k, v in value.items() for x in _usd_keys(v, f"{where}.{k}")]
     if isinstance(value, list):
         return [x for i, v in enumerate(value) for x in _usd_keys(v, f"{where}[{i}]")]

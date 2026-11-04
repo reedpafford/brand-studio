@@ -91,7 +91,7 @@ function Kit({ brand, others }: { brand: Brand; others: Brand[] }) {
         <div className="flex flex-wrap items-start gap-4">
           <label className="flex w-full flex-col gap-1 text-sm font-semibold lg:w-[180px]">
             Name
-            <input value={kit.name} required maxLength={120} onChange={(e) => set("name", e.target.value)} className="h-9 rounded-md border border-border-strong bg-surface px-3 text-base font-normal text-text lg:text-sm" />
+            <input value={kit.name} required maxLength={120} onChange={(e) => set("name", e.target.value)} className="h-control lg:h-9 rounded-md border border-border-strong bg-surface px-3 text-base font-normal text-text lg:text-sm" />
           </label>
           <div className="flex flex-col gap-1">
             <span className="text-sm font-semibold">Logo</span>

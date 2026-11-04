@@ -137,17 +137,16 @@ function ArchivedCard({ item: i, slug, owner }: { item: Item; slug: KindSlug; ow
   const toast = useToast();
   const path = { kind, item_id: i.id };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
+  const failed = (e: Error) => toast(e.message, undefined, "error");
   const back = useMutation({
+    onError: failed,
     mutationFn: () => must(api.POST("/library/{kind}/{item_id}/unarchive", { params: { path } })),
     onSuccess: () => {
       void refresh();
-      toast(`${i.name} is back.`, async () => {
-        await must(api.DELETE("/library/{kind}/{item_id}", { params: { path } }));
-        void refresh();
-      });
+      toast(`${i.name} is back.`, () => void must(api.DELETE("/library/{kind}/{item_id}", { params: { path } })).then(refresh, failed));
     },
   });
-  const purge = useMutation({ mutationFn: () => must(api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path } })), onSuccess: refresh });
+  const purge = useMutation({ mutationFn: () => must(api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path } })), onSuccess: refresh, onError: failed });
   const when = i.archived_at ? `Archived ${day(i.archived_at)}` : "Archived";
   return (
     <LibraryCard size={SIZES[slug]} width={WIDTH[slug]} faded picture={<Picture id={cover(i)} alt={i.name} className="size-full" />} name={i.name} tag="Archived" line={`${when} · kept for old videos`}>

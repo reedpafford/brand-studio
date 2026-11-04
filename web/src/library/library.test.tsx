@@ -274,3 +274,18 @@ test("S8-03: a character's voice is any app voice or a saved one, picked from ev
   await userEvent.click(await screen.findByRole("menuitemradio", { name: "Dr. Pickle" }));
   await vi.waitFor(() => expect(posted(calls, "PATCH /library/character/5")).toEqual({ voice_id: 1, voice_stock_key: null }));
 });
+
+test("a New character whose sheet is refused can be tried again without making a second character (QA)", async () => {
+  const routes = server(owner, { "POST /library/character": [201, { ...dana, id: 12, name: "Kim" }], "POST /library/character/12/sheet": [409, { detail: "Generation is paused." }], "GET /library/character/12": [200, { ...dana, id: 12, sheet_status: "drawing" }] });
+  const calls = fakeServer(routes);
+  renderApp("/b/1/library/characters?new=1");
+  const form = await screen.findByRole("form", { name: "New character" });
+  await userEvent.type(within(form).getByPlaceholderText("Name"), "Kim");
+  await userEvent.type(within(form).getByLabelText("Description"), "Woman, 30s");
+  await userEvent.click(within(form).getByRole("button", { name: /^Make it/ }));
+  expect(await within(form).findByText("Generation is paused.")).toBeInTheDocument();
+  routes["POST /library/character/12/sheet"] = [201, { id: 90 }];
+  await userEvent.click(within(form).getByRole("button", { name: /^Make it/ }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /library/character/12/sheet")).toHaveLength(2));
+  expect(calls.filter((c) => c.key === "POST /library/character")).toHaveLength(1);
+});
