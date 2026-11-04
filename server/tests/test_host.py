@@ -15,6 +15,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.routes.estimate import run_price
+from tests import helpers
 from tests.test_freestyle_dialogue import _run
 from tests.test_freestyle_song import NARRATION, _sent
 
@@ -44,7 +45,7 @@ def test_the_director_makes_the_host_after_the_narration_and_lays_it_over_the_cu
     fs = _sent(owner, "presenter", NARRATION)
     _run(app, db, ticks=160)
     out = owner.get(f"/freestyles/{fs['id']}").json()
-    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
     said = next(i for i, m in enumerate(moves) if m.startswith("Making the narration"))
     drawn = next(i for i, m in enumerate(moves) if m.startswith("Drawing the host"))

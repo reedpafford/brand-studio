@@ -149,3 +149,14 @@ def product(db, brand_id: int, name: str) -> int:
     from app.seed import product_of
 
     return product_of(db, db.get(Brand, brand_id), name)
+
+
+def moves(db, project_id: int) -> list[str]:
+    """Each of the video's director turns, every run, as its log says it: what it did (a
+    delivery, its reason). The chat shows one card a run instead (app/run_progress)."""
+    from app import run_progress
+    from app.models.projects import Project
+
+    every = run_progress.runs(db, db.get(Project, project_id)).values()
+    return [(j.output or {}).get("why", "") if (j.output or {}).get("tool") == "deliver"
+            else j.input.get("result", "") for turns in every for j in turns]  # fmt: skip
