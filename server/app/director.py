@@ -162,10 +162,14 @@ def _cut_failed(db: Session, project: Project) -> dict | None:
     """{why, fixes} when the newest cut couldn't be made (a cut's problem is a job that
     finished with plain words, not a failed job), else None."""
     from app import cut
-    from app.routes.cut import _failed
+    from app.routes.cut import _failed, _newest_job
 
     failed = _failed(db, project, cut.newest(db, project))
-    return {"why": failed.why, "fixes": failed.fixes} if failed else None
+    if not failed:
+        return None
+    tried = _newest_job(db, project).input.get("edit_ids") or []
+    changed = tried != [e.id for e in cut.active(db, project)]  # an edit since it failed
+    return {"why": failed.why, "fixes": failed.fixes, "changed": changed}
 
 
 def _edit_of(db: Session, turn: Job, tool: str | None, status: str) -> dict | None:
@@ -376,7 +380,7 @@ def _act(db: Session, job: Job, storage) -> None:
         state = video_state(db, project)
         if (state.get("timeline") or {}).get("changes") or state["cut"] == "out of date":
             return _record(db, job, run, REBUILD)  # rebuilt (and watched) before it's shown
-        if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
+        if (state["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
                 and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
             return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
         named = {int(n) for n in NOTE.findall(decision.get("why") or "")}
@@ -417,6 +421,8 @@ def _act(db: Session, job: Job, storage) -> None:
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
     if tool == "edit_cut" and run.get("watches", 0) >= MAX_WATCHES:  # it watches what it edits
         return _record(db, job, run, NO_WATCH_LEFT)
+    if tool == "watch_cut" and (cut_edits.for_director(db, project) or {}).get("changes"):
+        return _record(db, job, run, REBUILD)  # a watch is for the cut with the edits in it
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
         watch = _watch(db, project)
         if run.get("watches", 0) >= MAX_WATCHES:
@@ -865,11 +871,12 @@ def choose(state: dict) -> dict:
         return go("host", "all: the host says the narration on camera over the B-roll.")
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
-    edited = (state.get("timeline") or {}).get("changes")  # an edit since: cut again to see
-    if (failed := state.get("cut_failed")) and not edited and "loop_music" in failed["fixes"]:
+    failed = state.get("cut_failed")
+    edited = failed and failed.get("changed")  # an edit since it failed: cut again to see
+    if failed and not edited and "loop_music" in failed["fixes"]:
         return go("edit_cut", f"{failed['why']} Looping the music to fit.",
                   edit={"kind": "music", "loop": True})  # fmt: skip
-    if failed and not edited and failed["fixes"] != ["again"]:
+    if failed and not edited:  # nothing a cut again would change: say so
         return go("stop", failed["why"])
     if state["cut"] != "made":
         unclean = [c["clip_id"] for c in clips

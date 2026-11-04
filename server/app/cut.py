@@ -235,18 +235,16 @@ def _one(tl: dict, e: CutEdit) -> None:
         elif tl["mode"] == "takes":  # in the take's own seconds; the rest ripples
             p.update(start=p["start"], end=p["start"] + d["length"], whole=False, **mark)
             p["from"] = d["from"]
-        else:  # on the voice's clock: an edge moves, the next piece's with it
+        else:  # on the voice's clock: an edge moves, and the picture after it with it
+            if "from" in d and p.get("lipsync"):
+                raise Refused(SYNCED)
+            p["from"] = d.get("from", p["from"])
             if "start" in d and i > 0:
-                moved = d["start"] - p["start"]
-                if p.get("lipsync") and (p["from"] + moved < -0.01 or "from" in d):
-                    raise Refused(SYNCED)
-                p["from"] = round(max(0.0, p["from"] + moved), 2)
-                pieces[i - 1]["end"] = p["start"] = d["start"]
+                _edge(pieces, i, d["start"])
             if "end" in d:
                 p["end"] = d["end"]
                 if i + 1 < len(pieces):
-                    pieces[i + 1]["start"] = d["end"]
-            p["from"] = d.get("from", p["from"])
+                    _edge(pieces, i + 1, d["end"])
             p.update(**mark)
         if any(q["end"] - q["start"] < MIN - 0.01 for q in pieces):
             raise Refused(TOO_SHORT)
@@ -265,6 +263,18 @@ def _one(tl: dict, e: CutEdit) -> None:
     tl["music"] = {**(tl["music"] or {"quieter_db": QUIETER, "gaps": "rise", "loop": False,
                                       "removed": False}),
                    **{k: d[k] for k in keys if k in d}, **mark}  # fmt: skip
+
+
+def _edge(pieces: list[dict], i: int, t: float) -> None:
+    """The edge before piece `i` moves to `t`: the piece after it starts that much further
+    into its take (or less far), so a lip-synced piece stays on the words; one that would
+    have to start before its take's beginning can't move that way."""
+    q = pieces[i]
+    moved = t - q["start"]
+    if q.get("lipsync") and q["from"] + moved < -0.01:
+        raise Refused(SYNCED)
+    q["from"] = round(max(0.0, q["from"] + moved), 2)
+    pieces[i - 1]["end"] = q["start"] = t
 
 
 def _spanned(spans: list[dict], a: float, b: float, what: dict) -> list[dict]:

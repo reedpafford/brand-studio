@@ -78,7 +78,7 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
 def _fits(tl: dict) -> None:
     """A narrated cut runs at least to its last word; a song cut no further than its song."""
     last = max((w["end"] for w in tl["words"]), default=0.0)
-    if tl["mode"] in ("narrated", "song") and tl["length"] < last - 0.05:
+    if tl["mode"] in ("narrated", "song") and tl["length"] < last - 0.005:
         raise Refused(BEFORE_WORDS.format(f"{tc(last)}.{int(last * 10) % 10}"))
     if tl["mode"] == "narrated" and tl["length"] > last + HOLD and last:
         raise Refused(f"The cut can hold at most {HOLD:.0f} s past the last word.")
@@ -176,7 +176,9 @@ def keeps_every_word(db: Session, tl: dict) -> None:
 def _speaks(db: Session, take: ClipTake | None) -> bool:
     """The take was made with sound, so it may say a line (silent B-roll says nothing)."""
     job = db.get(Job, take.job_id) if take else None
-    return bool(job and ((job.input or {}).get("input") or {}).get("generate_audio"))
+    given = (job.input or {}) if job else {}
+    return bool((given.get("input") or {}).get("generate_audio")  # made with its sound
+                or (given.get("files") or {}).get("audio"))  # lip-synced to a voice  # fmt: skip
 
 
 def _retime(db: Session, tl: dict, i: int) -> dict:
@@ -365,11 +367,11 @@ def undo_all(db: Session, project: Project) -> None:
     """Back to the cut that plays: every edit since undone, every one in it back."""
     cut = newest(db, project)
     keep, now = set(cut.edit_ids or []) if cut else set(), utcnow()
-    for n, e in enumerate(reversed(every(db, project))):
+    for n, e in enumerate(every(db, project)):
         if e.id in keep:
             e.undone_at = None
         elif e.undone_at is None:
-            e.undone_at = now - timedelta(microseconds=n)  # Redo brings back the oldest last
+            e.undone_at = now - timedelta(microseconds=n)  # Redo brings the oldest back first
     db.flush()
     keeps_every_word(db, timeline(db, project)[0])
 

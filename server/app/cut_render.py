@@ -70,6 +70,7 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
            "sources": {str(t): _source(db, project, t)
                        for t in dict.fromkeys(p["take_id"] for p in tl["pieces"])},
            "voice": _key(db, voice.file_id) if voice else None,
+           "last_word": max((w["end"] for w in tl.get("words") or []), default=0.0),
            "music": {**{k: music[k] for k in ("quieter_db", "gaps", "loop")},
                      "key": _key(db, music["file_id"]),
                      "lines": tl.get("lines") or []} if music else None,
@@ -125,7 +126,7 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
             r["mode"] == "narrated",
             bed,
             [p["from"] for p in pieces],
-            music,
+            {**(music or {}), "last_word": r.get("last_word") or 0},
         )
     progress(85)
     if r["host"]:
@@ -241,6 +242,12 @@ def level(music: dict | None) -> str:
     return f"volume=eval=frame:volume='{MUSIC}*(1-{1 - under:.4f}*{speaking})'"
 
 
+def fade_out(total: float, last_word: float) -> str:
+    """The end's fade: FADE seconds, but never starting before the last word has ended."""
+    st = max(total - FADE, last_word, 0)
+    return f"st={st:.2f}:d={max(total - st, 0.05):.2f}"
+
+
 def song_cut(
     videos: list[bytes], lengths: list[float], song: bytes, narrated: bool = False,
     music: bytes | None = None, froms: list[float] | None = None, mix: dict | None = None,
@@ -265,7 +272,7 @@ def song_cut(
                  f"scale={size.replace('x', ':')},setsar=1,fps=30,format=yuv420p[v{n}]"
                  for n, d in enumerate(lengths)]  # fmt: skip
         joined_v = "".join(f"[v{n}]" for n in range(len(videos)))
-        fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
+        fade = fade_out(total, (mix or {}).get("last_word") or 0)
         sound = (_narrated_mix(folder, lengths, froms, music is not None, fade, mix)
                  if narrated else [f"[{len(videos)}:a]atrim=duration={total},asetpts=PTS-STARTPTS,"
                                    f"apad=whole_dur={total},afade=t=out:{fade}[a]"])  # fmt: skip

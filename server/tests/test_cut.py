@@ -116,6 +116,8 @@ def test_each_edit_has_its_undo_and_puts_the_cut_out_of_date(owner, presenter):
     )
     gone = owner.post(f"{presenter}/cut/undo-all").json()
     assert gone["changes"] == 0 and not gone["out_of_date"] and gone["can_redo"]
+    back = owner.post(f"{presenter}/cut/redo").json()  # what Undo all took (the first was
+    assert [e["undone"] for e in back["edits"]] == [True, False]  # undone by hand before it)
 
 
 def test_split_retime_swap_and_trim_move_the_pieces(owner, presenter):
@@ -328,3 +330,35 @@ def test_asked_in_the_chat_the_director_edits_the_cut_with_an_undo_each(
     assert got["timeline"]["presenter"]["spans"][0]["side"] == "left"
     assert all(e["director"] and e["in_cut"] for e in got["edits"])
     assert db.get(Freestyle, fs["id"]).project_id == video.id
+
+
+def test_a_lip_synced_piece_keeps_its_picture_on_the_words():
+    from app.models.clips import CutEdit
+
+    tl = {"mode": "narrated", "length": 9.0, "music": None, "words": [], "presenter": None,
+          "pieces": [_piece(1, 0, 3.0), {**_piece(2, 3.0, 6.0), "lipsync": True},
+                     _piece(3, 6.0, 9.0)]}  # fmt: skip
+
+    def trim(**data):
+        return cut.replay(tl, [CutEdit(id=1, kind="trim", director=False, data=data)])
+
+    later, lost = trim(piece="c1", end=3.5)  # its start moves later: its picture with it
+    assert not lost and (later["pieces"][1]["start"], later["pieces"][1]["from"]) == (3.5, 0.5)
+    assert trim(piece="c1", end=2.5)[1] == {1}  # earlier than its take begins: out of sync
+    assert trim(piece="c2", **{"from": 1.0})[1] == {1}  # its picture is the words' own
+    other, _ = trim(piece="c2", end=5.5)  # a B-roll piece's start moves its picture too
+    assert (other["pieces"][2]["start"], other["pieces"][2]["from"]) == (5.5, 0.0)
+
+
+def test_the_end_fades_only_after_the_last_word():
+    assert cut_render.fade_out(10.0, 0) == "st=8.50:d=1.50"  # the usual 1.5 s
+    assert cut_render.fade_out(7.29, 6.99) == "st=6.99:d=0.30"  # a shorter end: after the word
+    assert cut_render.fade_out(7.0, 7.0) == "st=7.00:d=0.05"
+
+
+def test_redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter):
+    first = _edit(owner, presenter, kind="music", quieter_db=6).json()["edits"][-1]["id"]
+    _edit(owner, presenter, kind="music", gaps="down")
+    owner.post(f"{presenter}/cut/undo-all")
+    back = owner.post(f"{presenter}/cut/redo").json()
+    assert [e["id"] for e in back["edits"] if not e["undone"]] == [first]
