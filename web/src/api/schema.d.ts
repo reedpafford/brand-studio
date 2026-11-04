@@ -4305,6 +4305,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Progress
+         * @description The newest run's live record: its scenes and clips, its steps, its cost; null before
+         *     any run. Free to read, in the same few queries however long the video.
+         */
+        get: operations["progress_projects__project_id__director_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/update-after": {
         parameters: {
             query?: never;
@@ -5941,6 +5962,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Seen
+         * @description This person watched these takes (Watch the changes, or playing a clip): the clips the
+         *     director changed stop being outlined for them. Takes of other videos are ignored.
+         */
+        post: operations["seen_projects__project_id__director_seen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/formats": {
         parameters: {
             query?: never;
@@ -6606,6 +6648,19 @@ export interface components {
             /** Note */
             note: string;
         };
+        /** ChangedClipOut */
+        ChangedClipOut: {
+            /** Clip Id */
+            clip_id: string;
+            /** Number */
+            number: number;
+            /** Take Id */
+            take_id: number | null;
+            /** Frame File Id */
+            frame_file_id: number | null;
+            /** Watched */
+            watched: boolean;
+        };
         /** CheckOut */
         CheckOut: {
             /** Id */
@@ -6637,6 +6692,58 @@ export interface components {
              * @description The hand-off: the beat the clip ends on and how the next clip's first shot answers it (a look, a sound, a matching pose, a white flash into a time jump), after the last line's reaction has landed. 'end' for the last clip.
              */
             seam: string;
+        };
+        /**
+         * ClipCellOut
+         * @description One clip on the filmstrip and in the Clips list (S3-03, S6-01, S6-04, S6-05, P-10).
+         */
+        ClipCellOut: {
+            /** Clip Id */
+            clip_id: string;
+            /** Number */
+            number: number;
+            /** Scene */
+            scene: number;
+            /** Label */
+            label: string;
+            /** Seconds */
+            seconds: number;
+            /** Model */
+            model: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "todo" | "making" | "waiting" | "failed" | "flagged" | "text" | "redone" | "done";
+            /** Frame File Id */
+            frame_file_id: number | null;
+            /** Take Id */
+            take_id: number | null;
+            /** Note */
+            note: string;
+            /** Percent */
+            percent: number | null;
+            /** Minutes Left */
+            minutes_left: number | null;
+            /** Credits */
+            credits: string | null;
+            /** Changed */
+            changed: boolean;
+            /** Watched */
+            watched: boolean;
+            /** Found */
+            found: boolean;
+        };
+        /** ClipCountsOut */
+        ClipCountsOut: {
+            /** All */
+            all: number;
+            /** Needs You */
+            needs_you: number;
+            /** Flagged */
+            flagged: number;
+            /** Redone */
+            redone: number;
         };
         /** ClipIn */
         ClipIn: {
@@ -6825,6 +6932,34 @@ export interface components {
             moved: number;
             /** Ideas */
             ideas: number;
+        };
+        /**
+         * DeliveryNoteOut
+         * @description The delivery note (S3-09, S3-10, P-08), as kept when the run delivered.
+         */
+        DeliveryNoteOut: {
+            /** Made */
+            made: string;
+            /** Redid */
+            redid: components["schemas"]["RedidRowOut"][];
+            /** Unsure */
+            unsure: string;
+            /** Needs */
+            needs: string;
+            /** Cost */
+            cost: string;
+            /** Spent */
+            spent: number;
+            /** Up To */
+            up_to: number;
+            /** Spent Usd */
+            spent_usd: number | null;
+            /** Cut */
+            cut: number;
+            /** Seconds */
+            seconds: number;
+            /** Clips */
+            clips: number;
         };
         /** DialogueLine */
         DialogueLine: {
@@ -9548,6 +9683,61 @@ export interface components {
             /** Approved Up To */
             approved_up_to?: number | null;
         };
+        /**
+         * ProgressOut
+         * @description The newest run's live record (v6 piece C): poll it while `status` is working,
+         *     revising or waiting (the app polls; 3 s is plenty).
+         */
+        ProgressOut: {
+            /** Run */
+            run: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "working" | "revising" | "waiting" | "stopped" | "delivered" | "needs_fix";
+            /** Title */
+            title: string;
+            /** Sub */
+            sub: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "now" | "wait" | "done" | "bad" | "stop";
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Ended At */
+            ended_at: string | null;
+            /** Clips */
+            clips: number;
+            /** Made */
+            made: number;
+            /** Redone */
+            redone: number;
+            /** Scene At */
+            scene_at: number;
+            /** Scenes */
+            scenes: components["schemas"]["RunSceneOut"][];
+            counts: components["schemas"]["ClipCountsOut"];
+            /** Minutes Left */
+            minutes_left: number | null;
+            /** Steps */
+            steps: components["schemas"]["RunStepOut"][];
+            /** Spent */
+            spent: number;
+            /** Up To */
+            up_to: number;
+            /** Spent Usd */
+            spent_usd: number | null;
+            /** Changed */
+            changed: components["schemas"]["ChangedClipOut"][];
+            stopped: components["schemas"]["RunStoppedOut"] | null;
+            failed: components["schemas"]["RunFailedOut"] | null;
+        };
         /** ProjectClipIn */
         ProjectClipIn: {
             /** Prompt */
@@ -9916,6 +10106,15 @@ export interface components {
             /** Since */
             since: string | null;
         };
+        /** RedidRowOut */
+        RedidRowOut: {
+            /** At */
+            at: number;
+            /** Clip */
+            clip: string;
+            /** Text */
+            text: string;
+        };
         /** ReelEstimateOut */
         ReelEstimateOut: {
             /** Credits */
@@ -10109,6 +10308,69 @@ export interface components {
         /** RoleIn */
         RoleIn: {
             role: components["schemas"]["Role"];
+        };
+        /** RunFailedOut */
+        RunFailedOut: {
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
+            /** Clip */
+            clip: number | null;
+            /** Fixes */
+            fixes: components["schemas"]["RunFixOut"][];
+        };
+        /** RunFixOut */
+        RunFixOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "again" | "carry_on";
+            /** Label */
+            label: string;
+            /** Price */
+            price: string | null;
+        };
+        /** RunSceneOut */
+        RunSceneOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Total */
+            total: number;
+            /** Done */
+            done: number;
+            /** Clips */
+            clips: components["schemas"]["ClipCellOut"][];
+        };
+        /** RunStepOut */
+        RunStepOut: {
+            /** Key */
+            key: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "done" | "now" | "todo" | "wait" | "bad";
+            /** Text */
+            text: string;
+            /** Sub */
+            sub: string;
+        };
+        /** RunStoppedOut */
+        RunStoppedOut: {
+            /** By */
+            by: string;
+            /** At */
+            at: string;
+            /** Made */
+            made: number;
+            /** Total */
+            total: number;
+            /** Carry On */
+            carry_on: string;
         };
         /** SamePair */
         SamePair: {
@@ -10440,6 +10702,11 @@ export interface components {
              * @default false
              */
             running: boolean;
+        };
+        /** SeenIn */
+        SeenIn: {
+            /** Take Ids */
+            take_ids: number[];
         };
         /** Sentence */
         Sentence: {
@@ -11294,6 +11561,9 @@ export interface components {
             treatment?: {
                 [key: string]: unknown;
             } | null;
+            /** Run */
+            run?: string | null;
+            note?: components["schemas"]["DeliveryNoteOut"] | null;
             edit?: components["schemas"]["EditRef"] | null;
         };
         /** TimelineOut */
@@ -21028,6 +21298,37 @@ export interface operations {
             };
         };
     };
+    progress_projects__project_id__director_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_price_projects__project_id__update_after_get: {
         parameters: {
             query?: {
@@ -24117,6 +24418,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BreakdownOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    seen_projects__project_id__director_seen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

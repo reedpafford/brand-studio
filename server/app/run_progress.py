@@ -516,9 +516,10 @@ def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
                 and (edit := _edit_of(db, j, "edit_cut", "done"))
                 and not (j.input.get("result") or "Refused").startswith("Refused")
             ):
+                done = said(j.input.get("result") or "")  # S7-03: "Clip 9 re-timed · Undo"
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
-                            "who": "Director", "status": "done", "text": said(j.input.get("result") or ""),
-                            "edit": edit})  # fmt: skip  # S7-03: "Clip 9 re-timed · Undo"
+                            "who": "Director", "status": "done", "text": done,
+                            "edit": edit})  # fmt: skip
             if j.input.get("result") == "Delivered.":
                 note = delivery.shown(db, project, (j.output or {}).get("note"), owner)
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
