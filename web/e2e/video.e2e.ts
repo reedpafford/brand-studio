@@ -199,7 +199,7 @@ for (const width of [1440, 390]) {
 }
 
 for (const width of [1440, 390]) {
-  test(`at ${width}: the Videos view lists a video, filters it, and nothing scrolls sideways`, async ({ page }) => {
+  test(`at ${width}: the brand's videos list an idea, search it, and nothing scrolls sideways`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
     await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
@@ -210,12 +210,12 @@ for (const width of [1440, 390]) {
     await page.goto(`/b/${brandId}/scripts`);
     await page.getByRole("navigation", { name: width === 1440 ? "Main" : "Tabs" }).getByRole("link", { name: "Videos" }).click();
     await expect(page).toHaveURL(new RegExp(`/b/${brandId}/videos$`));
-    await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible();
-    await expect(page.getByText("1 video", { exact: true })).toBeVisible();
-    await expect(page.getByText(/\(earlier way\)/)).toBeVisible();
-    await page.getByRole("searchbox", { name: "Search videos" }).fill("nothing like this");
-    await expect(page.getByText("Nothing matches these filters.")).toBeVisible();
-    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible(); // Unsorted opens when no folder is picked (S-gaps-02)
+    await expect(page.getByText(width === 1440 ? "1 video idea · 1 needs you" : "1 idea · 1 needs you", { exact: false })).toBeVisible();
+    if (width !== 1440) await page.getByRole("button", { name: "Search this folder" }).click();
+    await page.getByRole("searchbox", { name: "Search this folder" }).fill("nothing like this");
+    await expect(page.getByText("Nothing matches. Try another tab or search.")).toBeVisible();
+    await page.getByRole("searchbox", { name: "Search this folder" }).fill("");
     await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible();
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);

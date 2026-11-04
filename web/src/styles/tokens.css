@@ -51,6 +51,8 @@
   /* Status */
   --success: #4cb782;  --success-soft: #13261d;   /* 6.4:1 */
   --warning: #e2a33b;  --warning-soft: #2a2214;   /* 7.1:1: also "needs you" */
+  --need-dot: #d48a12;  /* v6 S0-01: the Needs you and Waiting dots, in both themes (a dot, never words) */
+  --ink: #1b1c1f;       /* v6 S1-07: the selection bar, near-black in both themes (white words, 16:1) */
   --danger: #eb6e5e;   --danger-soft: #331a18;    /* 5.3:1 */
 
   /* Script Enhance marks */
@@ -208,6 +210,8 @@
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
+  --color-need-dot: var(--need-dot);
+  --color-ink: var(--ink);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-mark: var(--mark);

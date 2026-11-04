@@ -55,7 +55,7 @@ test("an editor's brand opens on their videos; on Scripts they start on Ready to
   setViewport(1440);
   const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []], "GET /projects": [200, []] });
   open("/b/1");
-  expect(await screen.findByRole("heading", { name: "Videos" })).toBeInTheDocument();
+  expect(await screen.findByText("Unsorted")).toBeInTheDocument(); // the brand's videos open on a folder (v6 S1)
   await userEvent.click(screen.getAllByRole("link", { name: "Scripts" })[0]);
   await screen.findByRole("heading", { name: "Scripts" });
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));

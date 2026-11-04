@@ -184,7 +184,8 @@ def test_who_files_what_videos_and_quick_clips(app, owner, editor, db):
     base, _ = _published(owner, db, breakdown=BREAKDOWN)
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     assert file_into(editor, "video", pid, fid).status_code == 200
-    assert [p["id"] for p in editor.get(f"/projects?folder={fid}").json()] == [pid]
+    shown = editor.get(f"/brands/{brand}/ideas?folder={fid}").json()["ideas"]
+    assert [i["id"] for i in shown] == [pid]
     step = Job(workspace_id=me["workspace_id"], kind="image", provider="fake", input={},
                credits=0, project_id=pid, created_by_id=me["id"])  # fmt: skip
     db.add(step)
@@ -324,9 +325,13 @@ def test_an_open_folder_tabs_search_made_by_sort_pages_and_archived(owner, edito
     page = editor.get(f"{url}&sort=name&offset=2&limit=2").json()
     assert (page["total"], [i["title"] for i in page["ideas"]]) == (5, ["Bloated", "Glow-up"])
     found = editor.get(f"{url}&q=gut&made_by={me}&tab=delivered").json()
-    assert ([i["title"] for i in found["ideas"]], found["counts"]["all"]) == (["Angry gut"], 2)
+    assert ([i["title"] for i in found["ideas"]], found["total"]) == (["Angry gut"], 1)
+    assert found["counts"]["all"] == 5  # the tabs and the header count the whole folder
     shelf = editor.get(f"{url}&archived=true").json()
     assert [(i["id"], i["status"]["kind"]) for i in shelf["ideas"]] == [(gone, "archived")]
+    assert (shelf["counts"]["all"], shelf["archived"]) == (5, 1)  # the header keeps the folder's
+    by_name = editor.get(f"{url}&archived=true&sort=name").json()  # QA on #1304: was a 500
+    assert [i["id"] for i in by_name["ideas"]] == [gone]
     assert editor.get(f"/brands/{brand}/ideas?folder={inner}").json()["counts"]["all"] == 1
 
     other = owner.get("/brands").json()[1]["id"]  # Iron Paws
