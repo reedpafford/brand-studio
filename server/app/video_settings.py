@@ -360,8 +360,10 @@ def settings(db: Session, project: Project) -> dict:
         job = {"model": m.id, "input": {"resolution": m.take_resolution}}
         return float(estimate(db, project.workspace_id, kind, Decimal(1), job))
 
-    screens = db.scalars(select(BrandScreen).where(BrandScreen.brand_id == project.brand_id,
-                                                   BrandScreen.deleted_at.is_(None)))  # fmt: skip
+    from app.enhance import screens_of
+    from app.models.brands import Brand
+
+    screens = screens_of(db, db.get(Brand, project.brand_id))  # not an archived product's
     flavours: dict[str, list[str]] = {}
     for s in screens:
         if s.product and s.variant and s.variant not in flavours.setdefault(s.product, []):

@@ -33,7 +33,8 @@ def assert_hidden(client, calls: list[tuple]) -> None:
 
 def _usd_keys(value, where="") -> list[str]:
     if isinstance(value, dict):
-        found = [f"{where}.{k}" for k in value if k.endswith("_usd")]
+        found = [f"{where}.{k}" for k, v in value.items()
+                 if k.endswith("_usd") or (k == "usd" and v is not None)]  # fmt: skip
         return found + [x for k, v in value.items() for x in _usd_keys(v, f"{where}.{k}")]
     if isinstance(value, list):
         return [x for i, v in enumerate(value) for x in _usd_keys(v, f"{where}[{i}]")]
@@ -139,6 +140,15 @@ def shot(db, **change) -> None:
     row.data["scenes"][0]["shots"][0].update(change)
     flag_modified(row, "data")
     db.commit()
+
+
+def product(db, brand_id: int, name: str) -> int:
+    """The brand's library product of that name (made when it has none), for a picture's
+    product_id."""
+    from app.models.brands import Brand
+    from app.seed import product_of
+
+    return product_of(db, db.get(Brand, brand_id), name)
 
 
 def moves(db, project_id: int) -> list[str]:

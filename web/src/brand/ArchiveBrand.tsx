@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Ellipsis } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
-import { Dialog, Menu, MenuItem } from "../components";
+import { Dialog } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
@@ -51,29 +50,4 @@ export function useArchiveBrand(brand: Brand | undefined, others: Brand[]) {
       </Dialog>
     ) : null;
   return { ask: () => (setProblem(null), setAsking(true)), dialog };
-}
-
-export function ArchiveBrand({ brand, others }: { brand: Brand; others: Brand[] }) {
-  const archive = useArchiveBrand(brand, others);
-  return (
-    <>
-      <Menu
-        title={`More for ${brand.name}`}
-        align="right"
-        trigger={(p) => (
-          <button type="button" {...p} aria-label={`More for ${brand.name}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2">
-            <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
-          </button>
-        )}
-      >
-        {(close) => (
-          <MenuItem danger onClick={() => (close(), archive.ask())}>
-            <Archive size={20} strokeWidth={1.75} aria-hidden />
-            Archive brand
-          </MenuItem>
-        )}
-      </Menu>
-      {archive.dialog}
-    </>
-  );
 }

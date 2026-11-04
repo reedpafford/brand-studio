@@ -28,8 +28,8 @@ test("Archive brand asks first, moves to the other brand, and Undo brings the br
   setViewport(1440);
   const calls = fakeServer(base({ "DELETE /brands/1": [204, null], "POST /brands/1/restore": [200, {}] }));
   open("/b/1/brand");
-  await userEvent.click(await screen.findByRole("button", { name: "More for fomo" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Archive brand" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Brand: fomo" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Archive fomo…" }));
   const dialog = await screen.findByRole("alertdialog", { name: "Archive fomo?" });
   expect(dialog).toHaveTextContent("It leaves the brand menu. Its scripts, videos and screens are kept, and you can bring it back from Usage.");
   expect(calls.some((c) => c.key === "DELETE /brands/1")).toBe(false);
@@ -44,8 +44,8 @@ test("an editor sees no Archive brand menu", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 2, role: "editor" }] }));
   open("/b/1/brand");
-  await screen.findByRole("heading", { name: "fomo", level: 1 });
-  expect(screen.queryByRole("button", { name: "More for fomo" })).toBeNull();
+  await userEvent.click(await screen.findByRole("button", { name: "Brand: fomo" }));
+  expect(screen.queryByRole("menuitem", { name: "Archive fomo…" })).toBeNull();
 });
 
 test("Usage → Show archived has Restore on an archived brand's row", async () => {

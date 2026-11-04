@@ -8,13 +8,14 @@ from tests.conftest import upload
 
 def _bags(editor, owner):
     brand = owner.post("/brands", json={"name": "Iron Paws Test"}).json()["id"]
+    bag = owner.post("/library/prop", json={"name": "bag", "brand_ids": [brand]}).json()["id"]
     ids = {}
     for variant in ("Chicken", "Peanut butter"):
         body = {
             "name": f"Bag {variant}",
             "file_id": upload(editor),
             "tags": ["product", "bag"],
-            "product": "bag",
+            "product_id": bag,
             "variant": variant,
         }
         r = editor.post(f"/brands/{brand}/screens", json=body)

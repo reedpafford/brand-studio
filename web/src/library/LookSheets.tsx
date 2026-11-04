@@ -8,7 +8,7 @@ import { Badge, Button } from "../components";
 import { useLooks } from "../scripts/Looks";
 import { useToast } from "../toast";
 import { card, errorText as errorClass } from "../ui";
-import { useSheetPrice } from "./SheetPanel";
+import { useSheetPrice } from "./sheets";
 
 type Item = components["schemas"]["ItemOut"];
 

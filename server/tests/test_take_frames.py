@@ -53,7 +53,7 @@ def test_a_shown_screen_goes_with_its_rules(app, db, editor, setup, clip):  # no
     project = db.get(Project, setup["project"])
     db.get(Brand, project.brand_id).tone_notes = "Fun.\nThe fomo screen only ever shows wins."
     screen = db.get(BrandScreen, setup["screen"])
-    screen.product, screen.tags = "", ["app"]  # the brand's app, not a product
+    screen.product_id, screen.tags = None, ["app"]  # the brand's app, not a product
     _shot(db, screen_ids=[f"screen:{screen.id}"])
     _, job = _check(app, db, editor, setup, clip)
     prompt = job.input["prompt"]
@@ -64,7 +64,7 @@ def test_a_shown_screen_goes_with_its_rules(app, db, editor, setup, clip):  # no
 
 def test_eyes_extra_people_and_screens_are_advice(app, db, editor, setup, clip):  # noqa: F811
     screen = db.get(BrandScreen, setup["screen"])
-    screen.product, screen.tags = "", ["app"]
+    screen.product_id, screen.tags = None, ["app"]
     _shot(db, action="They argue. fake:face fake:eyes fake:extra-person fake:screen",
           screen_ids=[f"screen:{screen.id}"])  # fmt: skip
     clips, _ = _check(app, db, editor, setup, clip)

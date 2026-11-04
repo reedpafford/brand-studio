@@ -43,9 +43,9 @@ test("the first brand opens on its Scripts, and the switcher menu changes brand 
   expect(screen.getByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
   // Cast & places in one brand becomes Cast & places in the other.
   await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Cast & places" }));
-  await screen.findByRole("heading", { name: "Cast & places" });
+  await screen.findByRole("navigation", { name: "Library" });
   await pickBrand("fomo");
-  expect(await screen.findByRole("heading", { name: "Cast & places" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "No characters in fomo yet" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Cast & places" })).toHaveAttribute("href", "/b/1/library");
 });
 
@@ -234,11 +234,11 @@ test("between 1024 and 1279 the rail is icons only, each with a name", async () 
   expect(within(rail).getByRole("link", { name: "Scripts" }).textContent).toBe("");
 });
 
-test("the old Kit and Screens addresses land on the Brand page", async () => {
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []], "GET /brands/1/screens": [200, []] });
+test("the old Kit and Screens addresses land on the Brand kit", async () => {
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []] });
   renderAt("/b/1/screens");
-  expect(await screen.findByRole("tab", { name: "App screens", selected: true })).toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: "Look" })).toBeInTheDocument();
+  expect(await screen.findByRole("link", { name: "Brand kit", current: "page" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Tone and rules")).toBeInTheDocument();
 });
 
 test("with no brands there is an empty state, not a blank page", async () => {
@@ -299,7 +299,7 @@ test("an editor's brand menu lists the brands, with no New brand and no owner-on
   expect(screen.queryByRole("menuitem", { name: "New brand" })).toBeNull();
 });
 
-test("Reed's New brand is its own page: a name, a colour, and it opens the brand's Look", async () => {
+test("Reed's New brand is its own page: a name, a colour, and it opens the Brand kit", async () => {
   setViewport(1440);
   const calls = fakeServer({
     "GET /auth/me": [200, owner],
@@ -319,31 +319,8 @@ test("Reed's New brand is its own page: a name, a colour, and it opens the brand
   await userEvent.clear(colour);
   await userEvent.type(colour, "#2f6b4f");
   await userEvent.click(within(form).getByRole("button", { name: "Make the brand" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ name: "Night Owl", website: null, colours: ["#2F6B4F"] }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ name: "Night Owl", colours: ["#2F6B4F"] }));
   expect(await screen.findByText("Night Owl is ready. Add its look next.")).toBeInTheDocument();
-});
-
-test("New brand with a website says what reading it costs, and opens on Import from website", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    "GET /auth/me": [200, owner],
-    "GET /brands": [200, brands],
-    "GET /brands/site-read/estimate": [200, { credits: 3 }],
-    "POST /brands": [201, { id: 9, name: "Calm Co.", colours: ["#5E63D6"], site_read_job_id: 40, site_read_problem: "" }],
-    "GET /brands/9/screens": [200, []],
-  });
-  renderAt("/brands/new");
-  const form = await screen.findByRole("form", { name: "New brand" });
-  await userEvent.type(within(form).getByLabelText("Name"), "Calm Co.");
-  await userEvent.type(within(form).getByLabelText("Website (optional)"), "calm dot co");
-  await userEvent.click(within(form).getByRole("button", { name: "Make the brand" }));
-  expect(within(form).getByText("Paste a web address (https://…)")).toBeInTheDocument();
-  expect(calls.some((c) => c.key === "POST /brands")).toBe(false);
-  await userEvent.clear(within(form).getByLabelText("Website (optional)"));
-  await userEvent.type(within(form).getByLabelText("Website (optional)"), "https://calm.co");
-  await userEvent.click(await within(form).findByRole("button", { name: "Make the brand · up to 3 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands")?.body).toMatchObject({ website: "https://calm.co" }));
-  expect(await screen.findByText("Calm Co. is ready. Reading its site…")).toBeInTheDocument();
 });
 
 test("a brand name that is taken shows the server's words under the field", async () => {

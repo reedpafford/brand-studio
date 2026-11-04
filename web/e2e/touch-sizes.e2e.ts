@@ -1,19 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { emptyBrand, signIn } from "./helpers";
 
-// From the 390 walk: Cast & places' tabs and New character were 40–42 px; the Brand page had no main landmark.
-test("at 390: Cast & places' tabs and New character are 44 px presses, and the Brand page is a main landmark", async ({ page }) => {
+// From the 390 walk: the library's tabs and New character are 44 px presses; the Brand kit is a main landmark (P-13).
+test("at 390: the library's tabs and New character are 44 px presses, and the Brand kit is a main landmark", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Touch Co");
   await page.goto(`/b/${brandId}/library/characters`);
-  for (const press of [page.getByRole("link", { name: /^Characters/ }), page.getByRole("link", { name: /^Places/ }), page.getByRole("link", { name: /^Props/ }), page.getByRole("button", { name: "+ New character" })]) {
+  const tabs = page.getByRole("navigation", { name: "Library" });
+  for (const press of [tabs.getByRole("link", { name: "Characters" }), tabs.getByRole("link", { name: "Places" }), tabs.getByRole("link", { name: "Products" }), page.getByRole("button", { name: "New character" })]) {
     await expect(press).toBeVisible();
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   await page.goto(`/b/${brandId}/brand`);
-  await expect(page.getByRole("main").getByRole("heading", { name: "Touch Co", level: 1 })).toBeVisible();
+  await expect(page.getByRole("main").getByLabel("Tone and rules")).toBeVisible();
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
@@ -48,26 +49,18 @@ test("at 390, a script row's title is a 44 px press and the stage tabs stay on o
   expect((await ready.boundingBox())!.height).toBeLessThanOrEqual(48); // one line, not three
 });
 
-test("at 390, a character page's Edit, More, Archive character, Add outfit, Save and Cancel are 44 px presses (QA-3 on #1163)", async ({ page }) => {
+test("at 390, a character page's Make the sheet, Archive, More, voice, place and Save changes are 44 px presses (QA-3 on #1163)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, `Touch Cast ${test.info().retry}`);
-  await page.goto(`/b/${brandId}/library/characters`);
-  await page.getByRole("button", { name: "+ New character" }).click();
-  await page.getByLabel("Name").fill("Pip");
-  await page.getByRole("button", { name: "Create character" }).click();
-  await page.getByRole("link", { name: "Pip" }).click();
-  // v5: the page reads first, with Edit and More at the top; Archive is in More.
-  for (const press of [page.getByRole("button", { name: "Edit", exact: true }), page.getByRole("button", { name: "More" })]) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const made = await page.request.post("/api/library/character", { data: { name: "Pip", notes: "", brand_ids: [brandId], image_file_ids: [], outfits: [], presenter: false } });
+  await page.goto(`/b/${brandId}/library/characters/${(await made.json()).id}`);
+  for (const press of [page.getByRole("button", { name: /^Make the sheet/ }), page.getByRole("button", { name: "Archive" }), page.getByRole("button", { name: "More" }), page.getByRole("button", { name: "Pick a voice" }), page.getByRole("button", { name: /^None/ })]) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await page.getByRole("button", { name: "More" }).click();
-  expect((await page.getByRole("menuitem", { name: "Archive character" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  for (const press of [page.getByRole("button", { name: "Add outfit" }), page.getByRole("button", { name: "Save", exact: true }), page.getByRole("button", { name: "Cancel" })]) {
-    await press.scrollIntoViewIfNeeded();
-    expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  }
+  const save = page.getByRole("button", { name: "Save changes" });
+  await save.scrollIntoViewIfNeeded();
+  expect((await save.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
 
 test("New script: at 390 the breadcrumb's Scripts link is a 44 px press; at 1440 the settings and steps share one 52 px row (QA-12 on #1221)", async ({ page }) => {

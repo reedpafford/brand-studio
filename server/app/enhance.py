@@ -34,10 +34,11 @@ def escape_block(block: str) -> str:
 
 
 def screens_of(db: Session, brand: Brand) -> list[BrandScreen]:
+    """The brand's live screens; an archived product's pictures stay with its old videos only."""
     live = select(BrandScreen).where(
         BrandScreen.brand_id == brand.id, BrandScreen.deleted_at.is_(None)
     )
-    return list(db.scalars(live))
+    return [s for s in db.scalars(live) if s.product_item is None or not s.product_item.archived]
 
 
 def project_screens(db: Session, project: Project) -> list[BrandScreen]:

@@ -8,6 +8,7 @@ from app.models.brands import Brand, BrandScreen
 from app.models.projects import Project
 from app.prompts import check
 from tests.conftest import upload
+from tests.helpers import product
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
@@ -40,7 +41,8 @@ def _bags(db, owner, setup):  # noqa: F811
     for name, variant, file_id in (("Chicken bag", "Chicken", files[0]),
                                    ("Peanut butter bag", "Peanut butter", files[1])):  # fmt: skip
         screen = BrandScreen(brand_id=brand.id, name=name, file_id=file_id,
-                             tags=["product"], product="bag", variant=variant)  # fmt: skip
+                             tags=["product"], product_id=product(db, brand.id, "bag"),
+                             variant=variant)  # fmt: skip
         db.add(screen)
         db.flush()
         ids[variant] = f"screen:{screen.id}"
@@ -83,7 +85,8 @@ def test_the_bag_never_makes_a_fourth_screen_in_a_clip(app, db, editor, owner, s
     brand = db.get(Brand, project.brand_id)
     brand.name = "Iron Paws"
     db.add(BrandScreen(brand_id=brand.id, name="Peanut butter bag", file_id=files[0],
-                       tags=["product"], product="bag", variant="Peanut butter"))  # fmt: skip
+                       tags=["product"], product_id=product(db, brand.id, "bag"),
+                       variant="Peanut butter"))  # fmt: skip
     db.commit()
     data = copy.deepcopy(BREAKDOWN)
     shots = data["scenes"][0]["shots"]

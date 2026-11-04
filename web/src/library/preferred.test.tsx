@@ -7,7 +7,7 @@ import { renderApp } from "../test/render";
 import { owner } from "../test/people";
 
 const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
-const mia = { id: 5, kind: "character", name: "Mia", notes: "", brand_ids: [1], image_file_ids: [9], outfits: [], version: 3, sheet_file_id: 71, sheet_status: "approved" };
+const mia = { id: 5, kind: "character", name: "Mia", notes: "", brand_ids: [1], image_file_ids: [9], outfits: [], version: 3, sheet_file_id: 71, sheet_status: "approved", created_at: "2026-10-28T10:00:00Z" };
 const sheets = [
   { file_id: 72, look_id: "pixar", made_at: "2026-10-29T10:00:00Z", preferred: true },
   { file_id: 71, look_id: "house", made_at: "2026-10-28T10:00:00Z", preferred: true },
@@ -24,15 +24,17 @@ const server = (me: object, o: Record<string, [number, unknown]> = {}) => ({
   "GET /library/character/5/sheet/versions": [200, sheets] as [number, unknown],
   ...o,
 });
-function open() {
+/** The item page with More open, where the sheets live (S-gaps-05 L5). */
+async function open() {
   renderApp("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "More" }));
 }
 afterEach(() => vi.unstubAllGlobals());
 
 test("the owner sees each approved sheet with its look, picks another to use (free), and Undo puts the first back", async () => {
   setViewport(390);
   const calls = fakeServer(server(owner, { "POST /library/character/5/sheet/preferred": [200, { ...mia, sheet_file_id: 70, was_file_id: 71 }] }));
-  open();
+  await open();
   const list = await screen.findByRole("region", { name: "Sheets" });
   expect(within(list).getAllByText("In use")).toHaveLength(2); // one per look
   const older = within(list).getByRole("listitem", { name: "Sheet 70" });
@@ -45,7 +47,7 @@ test("the owner sees each approved sheet with its look, picks another to use (fr
 test("an editor sees which sheet is in use, with no press", async () => {
   setViewport(1440);
   fakeServer(server(editor));
-  open();
+  await open();
   const list = await screen.findByRole("region", { name: "Sheets" });
   expect(within(list).getByText("Videos use the sheet marked In use. Only the owner picks another.")).toBeInTheDocument();
   expect(within(list).queryByRole("button", { name: "Use this one" })).toBeNull();
@@ -54,15 +56,15 @@ test("an editor sees which sheet is in use, with no press", async () => {
 test("with one sheet, or a server without versions, there's no list", async () => {
   setViewport(1440);
   fakeServer(server(owner, { "GET /library/character/5/sheet/versions": [404, { detail: "Not Found" }] }));
-  open();
-  expect(await screen.findByRole("heading", { name: "Mia", level: 1 })).toBeInTheDocument();
+  await open();
+  expect(screen.getByRole("heading", { name: "Mia", level: 1 })).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Sheets" })).toBeNull();
 });
 
 test("a sheet made in a lane of a style is named by it, never by its raw id (one look per style)", async () => {
   setViewport(390);
   fakeServer(server(owner, { "GET /library/character/5/sheet/versions": [200, [{ file_id: 73, look_id: "paper-flat", made_at: "2026-11-01T10:00:00Z", preferred: true }, ...sheets]], "GET /looks": [200, [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }, { id: "paper", name: "Paper", blurb: "", on: true, sample_still_id: null }]] }));
-  open();
+  await open();
   const list = await screen.findByRole("region", { name: "Sheets" });
   expect(within(list).getByText("Paper · Flat")).toBeInTheDocument();
   expect(list.textContent).not.toContain("paper-flat");

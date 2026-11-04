@@ -144,3 +144,166 @@ def test_permanent_delete_is_owner_only_and_needs_archive_first(owner, editor):
     assert editor.delete(f"{url}/permanent").status_code == 403
     assert owner.delete(f"{url}/permanent").status_code == 204
     assert owner.post(f"{url}/unarchive").status_code == 404
+
+
+def test_an_item_says_who_made_it_and_when_it_was_archived(owner, editor):
+    """S8-03 "Came from": who made it; S8-08 "Archived 20 Oct"; Undo clears the date."""
+    me = editor.get("/auth/me").json()["id"]
+    item = editor.post("/library/character", json={"name": "Dana"}).json()
+    assert item["created_by_id"] == me and item["archived_at"] is None and item["created_at"]
+    editor.delete(f"/library/character/{item['id']}")
+    gone = editor.get("/library/character", params={"archived": True}).json()
+    assert [g["archived_at"] is not None for g in gone] == [True]
+    back = editor.post(f"/library/character/{item['id']}/unarchive").json()
+    assert back["archived_at"] is None
+
+
+def test_a_presenter_and_a_usual_place_are_a_characters_and_keep_its_sheet(owner, db):
+    """S8-04, S-gaps-05 L3: a presenter is a face and a voice (how they appear is each video's
+    pick); S8-03: the usual place. Neither makes a new version or needs the sheet approved."""
+    from app.models.library import LibraryItem
+
+    kitchen = owner.post("/library/place", json={"name": "Mark's kitchen"}).json()["id"]
+    mark = owner.post("/library/character", json={"name": "Mark", "presenter": True}).json()
+    assert mark["presenter"] is True and mark["product_type"] is None
+    db.get(LibraryItem, mark["id"]).sheet_approved = True
+    db.commit()
+    url = f"/library/character/{mark['id']}"
+    r = owner.patch(url, json={"presenter": False, "place_id": kitchen}).json()
+    assert (r["presenter"], r["place_id"], r["version"]) == (False, kitchen, mark["version"])
+    db.expire_all()
+    assert db.get(LibraryItem, mark["id"]).sheet_approved
+    assert owner.patch(url, json={"place_id": None}).json()["place_id"] is None
+    assert owner.patch(url, json={"place_id": mark["id"]}).status_code == 404  # not a place
+    prop = owner.post("/library/prop", json={"name": "Bag"}).json()
+    assert prop["product_type"] == "physical"  # unless it's an app
+    assert owner.patch(f"/library/prop/{prop['id']}", json={"presenter": True}).status_code == 422
+    assert owner.patch(url, json={"product_type": "app"}).status_code == 422
+
+
+def test_a_products_pictures_are_its_brand_screens(owner, editor):
+    """S8-06: a product is the record; its real photos are brand screens linked to it, each
+    with its flavour. A product from another brand can't be linked."""
+    b = _brands(owner)
+    bag = owner.post("/library/prop", json={"name": "Bag", "brand_ids": [b["iron-paws"]]}).json()
+    assert bag["pictures"] == []
+    screens = f"/brands/{b['iron-paws']}/screens"
+    body = {"name": "Chicken bag", "file_id": upload(editor), "product_id": bag["id"],
+            "variant": "Chicken"}  # fmt: skip
+    pic = editor.post(screens, json=body).json()
+    assert pic["product"] == "Bag" and pic["product_id"] == bag["id"]
+    got = owner.get("/library/prop", params={"brand_id": b["iron-paws"]}).json()[0]["pictures"]
+    assert [(p["screen_id"], p["name"], p["variant"]) for p in got] == [
+        (pic["id"], "Chicken bag", "Chicken")]  # fmt: skip
+    other = f"/brands/{b['fomo']}/screens"
+    r = owner.post(other, json={"name": "X", "file_id": upload(owner), "product_id": bag["id"]})
+    assert r.status_code == 404
+    kept = owner.patch(f"{screens}/{pic['id']}", json={"product_id": 0}).json()
+    assert kept["product_id"] == bag["id"]  # a picture always stays a product's
+    owner.delete(f"{screens}/{pic['id']}")
+    assert owner.get(f"/library/prop/{bag['id']}").json()["pictures"] == []
+
+
+def test_prices_say_up_to_in_dollars_for_the_owner_and_credits_for_an_editor(owner, editor):
+    """S8-02 "Make one · up to $0.08", S8-03 "Change this… · up to $0.08"; editors see credits."""
+    from tests.helpers import assert_no_dollars
+
+    new = owner.get("/library/character/price").json()
+    assert new["credits"] >= 1 and new["usd"] >= 0.01
+    assert editor.get("/library/character/price").json() == {"credits": new["credits"], "usd": None}
+    assert owner.get("/library/prop/price").status_code == 404
+    item = owner.post("/library/character", json={"name": "Dana", "notes": "late 30s"}).json()
+    mine = owner.get(f"/library/character/{item['id']}").json()
+    assert mine["change_credits"] >= 1 and mine["usd"]["change"] >= 0.01
+    assert owner.get("/library/character").json()[0]["usd"]["sheet"] >= 0.01
+    assert_no_dollars(editor, [f"/library/character/{item['id']}", "/library/character"])
+    assert editor.get(f"/library/character/{item['id']}").json()["usd"] is None
+
+
+def test_an_app_is_a_product_whose_pictures_are_its_screens(owner):
+    """S-gaps-05 L1: a screen added with no product is one of the brand's app's screens (made
+    once, "<brand> app"); an app's screen isn't a pack, so it names no physical product."""
+    b = _brands(owner)
+    screens = f"/brands/{b['fomo']}/screens"
+    one = owner.post(screens, json={"name": "Home", "file_id": upload(owner)}).json()
+    two = owner.post(screens, json={"name": "Chart", "file_id": upload(owner)}).json()
+    assert one["product_id"] == two["product_id"] and one["product"] == ""
+    app = owner.get(f"/library/prop/{one['product_id']}").json()
+    assert (app["name"], app["product_type"]) == ("fomo app", "app")
+    assert [p["name"] for p in app["pictures"]] == ["Home", "Chart"]
+
+
+def test_an_archived_products_pictures_are_not_offered_to_new_work(owner, db):
+    from app.enhance import screens_of
+    from app.models.brands import Brand
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "Bag", "brand_ids": [b]}).json()["id"]
+    pic = owner.post(f"/brands/{b}/screens", json={"name": "Bag", "file_id": upload(owner),
+                                                   "product_id": bag}).json()["id"]  # fmt: skip
+    assert pic in [s.id for s in screens_of(db, db.get(Brand, b))]
+    owner.delete(f"/library/prop/{bag}")
+    db.expire_all()
+    assert pic not in [s.id for s in screens_of(db, db.get(Brand, b))]
+
+
+def test_each_version_says_which_sheet_it_had(owner, db):
+    """S8-03's v3 · v2 · v1: the versions list carries each one's sheet."""
+    from app.models.library import LibraryItem
+
+    item = owner.post("/library/character", json={"name": "Mia"}).json()
+    db.get(LibraryItem, item["id"]).sheet_file_id = upload(owner)
+    db.commit()
+    sheet = db.get(LibraryItem, item["id"]).sheet_file_id
+    owner.patch(f"/library/character/{item['id']}", json={"notes": "older"})
+    (v1,) = owner.get(f"/library/character/{item['id']}/versions").json()
+    assert (v1["version"], v1["sheet_file_id"]) == (1, sheet)
+
+
+def test_deleting_a_product_or_place_forever_leaves_its_pictures_and_users_whole(owner, db):
+    """QA: a product's pictures stay (deleted, for old videos); a place is no one's usual place."""
+    from app.models.brands import BrandScreen
+    from app.models.library import LibraryItem
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "Bag", "brand_ids": [b]}).json()["id"]
+    pic = owner.post(f"/brands/{b}/screens", json={"name": "Bag", "file_id": upload(owner),
+                                                   "product_id": bag}).json()["id"]  # fmt: skip
+    kitchen = owner.post("/library/place", json={"name": "Kitchen"}).json()["id"]
+    mia = owner.post("/library/character", json={"name": "Mia", "place_id": kitchen}).json()["id"]
+    for kind, item in (("prop", bag), ("place", kitchen)):
+        owner.delete(f"/library/{kind}/{item}")
+        assert owner.delete(f"/library/{kind}/{item}/permanent").status_code == 204
+    db.expire_all()
+    screen = db.get(BrandScreen, pic)
+    assert screen.product_id is None and screen.deleted_at is not None
+    assert db.get(LibraryItem, mia).place_id is None
+
+
+def test_an_archived_products_flavours_are_not_offered(owner, db):
+    """QA: an archived product's pictures leave the flavour pickers and new clips too."""
+    from app.routes.projects import variants
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "bag", "brand_ids": [b]}).json()["id"]
+    for flavour in ("Chicken", "Peanut butter"):
+        body = {"name": f"{flavour} bag", "variant": flavour, "file_id": upload(owner),
+                "product_id": bag}  # fmt: skip
+        owner.post(f"/brands/{b}/screens", json=body)
+    assert variants(db, b) == {"bag": {"Chicken", "Peanut butter"}}
+    owner.delete(f"/library/prop/{bag}")
+    db.expire_all()
+    assert variants(db, b) == {}
+
+
+def test_renaming_a_product_keeps_each_videos_flavour_pick(owner, db):
+    from app.models.projects import Project
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "bag", "brand_ids": [b]}).json()["id"]
+    pid = owner.post("/projects", json={"brand_id": b, "name": "V"}).json()["id"]
+    db.get(Project, pid).product_variants = {"bag": "Chicken"}
+    db.commit()
+    owner.patch(f"/library/prop/{bag}", json={"name": "Dog bag"})
+    db.expire_all()
+    assert db.get(Project, pid).product_variants == {"Dog bag": "Chicken"}

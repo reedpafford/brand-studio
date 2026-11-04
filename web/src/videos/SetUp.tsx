@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
 import { buttonClass } from "../components";
-import { groupProducts, useScreens } from "../brand/screens";
+import { useVoices } from "../library/Voices";
 
 type Brand = components["schemas"]["BrandOut"];
 
@@ -21,7 +21,7 @@ function colourName(hex: string | undefined) {
   return names.find(([top]) => h < top)?.[1] ?? "red";
 }
 
-function useCount(kind: "character" | "place", brandId: number) {
+function useCount(kind: "character" | "place" | "prop", brandId: number) {
   return useQuery({ queryKey: ["library", kind, brandId], queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind }, query: { brand_id: brandId } } })).data?.length ?? 0 });
 }
 
@@ -31,17 +31,18 @@ export function SetUp({ brand, others, owner, newVideo }: { brand: Brand; others
   const b = `/b/${brand.id}`;
   const characters = useCount("character", brand.id).data ?? 0;
   const places = useCount("place", brand.id).data ?? 0;
-  const products = groupProducts(useScreens(brand.id).data ?? []).length;
-  const tone = brand.dont_list.length + brand.do_list.length > 0 || !!brand.audience;
+  const products = useCount("prop", brand.id).data ?? 0;
+  const voices = useVoices(brand.id).length;
+  const tone = !!brand.tone_notes?.trim();
   // What a brand holds now (S-gaps-05 L1, L4): the kit is name, logo, colours, tone and rules; products are apps or
   // physical things; a brand's own voices are only ones uploaded or cloned on purpose. No import (L2).
   const steps: [LucideIcon, boolean, string, string, string][] = [
     [Image, !!brand.logo_file_id, "Logo", "Shown on products and in endings", `${b}/brand`],
-    [FileText, tone, "Tone and rules", "What the brand never says, and how it talks", `${b}/brand?tab=voice`],
+    [FileText, tone, "Tone and rules", "What the brand never says, and how it talks", `${b}/brand`],
     [Users, characters > 0, "Characters", "People the director can cast without asking", `${b}/library/characters`],
-    [Package, products > 0, "Products", "An app’s screens, or the real bottle or bag so labels read right", `${b}/brand?tab=products`],
+    [Package, products > 0, "Products", "An app’s screens, or the real bottle or bag so labels read right", `${b}/library/products`],
     [MapPin, places > 0, "Places", "Rooms and streets that recur", `${b}/library/places`],
-    [Mic, false, "Voices", "Only ones you upload or clone, for narrated and presenter videos", `${b}/brand?tab=voice`],
+    [Mic, voices > 0, "Voices", "Only ones you upload or clone, for narrated and presenter videos", `${b}/library/presenters`],
   ];
   const row = (Icon: LucideIcon, done: boolean, title: string, line: string, to?: string) => (
     <li key={title} className="flex items-center gap-3 border-t border-border px-4 py-3 first:border-t-0">

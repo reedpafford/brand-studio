@@ -117,7 +117,7 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
                 file=stored,
                 tags=sorted(set(meta.get("tags", []))),
                 default_for=sorted(set(meta.get("default_for", []))),
-                product=meta.get("product", ""),
+                product_id=product_of(db, brand, meta.get("product", "")),
                 variant=meta.get("variant", ""),
                 balance=meta.get("balance", ""),
                 figure_spot=meta.get("figure_spot"),
@@ -140,6 +140,27 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
     return added
 
 
+def product_of(db: Session, brand: Brand, name: str) -> int:
+    """The brand's library product a manifest's product word names (any case), made when it
+    has none yet; a screen with no product word is one of the brand's app's screens
+    ("<brand> app", S-gaps-05 L1)."""
+    from app.models.library import Kind, LibraryItem, item_brands
+
+    app = not name.strip()
+    name = " ".join((f"{brand.name} app" if app else name).split())[:120]
+    item = next((i for i in db.scalars(
+        select(LibraryItem).join(item_brands, item_brands.c.item_id == LibraryItem.id)
+        .where(item_brands.c.brand_id == brand.id, LibraryItem.kind == Kind.prop,
+               LibraryItem.archived.is_(False)).order_by(LibraryItem.id))
+        if i.name.strip().lower() == name.lower()), None)  # fmt: skip
+    if item is None:
+        item = LibraryItem(workspace_id=brand.workspace_id, kind=Kind.prop, name=name,
+                           brands=[brand], product_type="app" if app else "physical")  # fmt: skip
+        db.add(item)
+        db.flush()
+    return item.id
+
+
 def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
     screen = db.scalar(
         select(BrandScreen).where(BrandScreen.brand_id == brand.id, BrandScreen.name == name)
@@ -147,7 +168,8 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
     if screen:
         screen.tags = sorted(set(meta.get("tags", [])))
         screen.default_for = sorted(set(meta.get("default_for", [])))
-        screen.product, screen.variant = meta.get("product", ""), meta.get("variant", "")
+        screen.product_id = product_of(db, brand, meta.get("product", ""))
+        screen.variant = meta.get("variant", "")
         screen.balance = meta.get("balance", "")
         screen.figure_spot = meta.get("figure_spot")
 

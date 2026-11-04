@@ -7,7 +7,7 @@ import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import { Badge, Button, Card, Menu, MenuItem, TextArea, useToast, Select, wholeCredits } from "../components";
 import { errorText as errorClass } from "../ui";
-import { lookFitNote, useSheetPrice } from "../library/SheetPanel";
+import { lookFitNote, useSheetPrice } from "../library/sheets";
 import { RoleFacts } from "./RoleFacts";
 import { RoleTextFit } from "./RoleTextFit";
 import { refreshJobs } from "../jobs/refresh";

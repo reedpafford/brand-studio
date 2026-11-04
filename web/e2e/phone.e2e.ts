@@ -20,10 +20,10 @@ test("on a phone, the four tabs (v6 P-01) reach every brand section and there is
 
   await tabs.getByRole("link", { name: "Library" }).click();
   await page.getByRole("link", { name: "Cast & places" }).click();
-  await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Library" })).toBeVisible(); // P-13
   await tabs.getByRole("link", { name: "Library" }).click();
   await page.getByRole("link", { name: "Brand kit" }).click();
-  await expect(page.getByRole("tablist", { name: "Brand" })).toBeVisible(); // v5: the page's heading is the brand's own name
+  await expect(page.getByLabel("Tone and rules")).toBeVisible(); // the library's Brand kit (P-13)
   await tabs.getByRole("link", { name: "Library" }).click();
   await page.getByRole("link", { name: "Scripts" }).click();
   await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();

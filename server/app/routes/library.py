@@ -1,5 +1,7 @@
 """Characters, places and props, filtered by brand. Edits keep a version history."""
 
+import math
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -9,7 +11,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app.advice import SaidText
 from app.auth import current_user, owner_only
-from app.db import get_db
+from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.jobs import WAITING, Job, JobStatus
@@ -48,6 +50,9 @@ router = APIRouter(prefix="/library/{kind}", tags=["library"],
                    dependencies=[Depends(look_writer)])  # fmt: skip
 
 
+ProductType = Literal["app", "physical"]
+
+
 class Outfit(BaseModel):
     name: Name
     file_ids: list[int] = []
@@ -69,6 +74,10 @@ class ItemIn(BaseModel):
     # Products (flows BR1; owner only): what it is in a line, and the claim scripts may make
     short_description: LongText | None = None  # left out: as it is
     main_claim: LongText | None = None
+    # Characters (v6 S8-04, S-gaps-05 L3): a presenter (a face and a voice), and the usual place
+    presenter: bool = False
+    place_id: int | None = None
+    product_type: ProductType | None = None  # products: an app or a physical thing (L1)
 
 
 class NewItemIn(ItemIn):
@@ -92,6 +101,9 @@ class ItemPatch(BaseModel):
     source_photo_file_id: int | None = None
     short_description: LongText | None = None  # products, owner only
     main_claim: LongText | None = None  # products, owner only
+    presenter: bool | None = None  # characters
+    place_id: int | None = None  # characters; null: none
+    product_type: ProductType | None = None  # products
 
 
 class LookFitOut(BaseModel):
@@ -108,12 +120,32 @@ class UsedIn(BaseModel):
     project_id: int
     name: str
     status: Literal["needs_you", "making", "done"]  # as the Videos tabs group it
+    still_file_id: int | None = None  # its newest still (S8-03's row picture)
+    at: UtcTime | None = None  # when it was delivered, else made
+
+
+class ItemUsd(BaseModel):
+    sheet: float  # sheet_credits, in dollars rounded up to the cent
+    change: float  # change_credits, the same
+
+
+class PictureOut(BaseModel):
+    """A product's picture: a brand screen linked to it (its real photo, used as it is)."""
+
+    screen_id: int
+    file_id: int
+    name: str
+    variant: str  # the flavour, when the product has several
 
 
 class ItemOut(ItemIn):
     id: int
     kind: Kind
     version: int
+    created_at: UtcTime
+    created_by_id: int | None = None  # who made it ("Uploaded by Reed, 28 Oct")
+    archived_at: UtcTime | None = None
+    pictures: list[PictureOut] = []  # a product's pictures in this brand (products only)
     sheet_file_id: int | None  # the house-style sheet; only an approved one is used in videos
     sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
     voice_file_name: str | None = None  # a character's voice sample, as it was uploaded
@@ -123,10 +155,30 @@ class ItemOut(ItemIn):
     sheet_credits: int = 0  # Make sheet / Redo: "up to" (its check and one redo, held)
     sheet_usual_credits: int = 0  # "Usually N": the sheet and its check
     change_credits: int = 0  # Change this…: the sheet and its check (never redone by itself)
+    usd: ItemUsd | None = None  # the owner's prices in dollars (rule 4: never an editor's)
     advice: list[str] = []  # a product with no main claim: "Scripts won't mention…" (BR1)
     look_sheets: dict[str, LookSheetOut] = {}  # ST2: the owner's sheets in other looks
     used_in: list[UsedIn] = []  # the videos that use it (the item's own page only)
     used_in_count: int = 0  # how many: on the list too ("Sheet approved · in 6 videos")
+
+
+class PriceOut(BaseModel):
+    credits: int  # making a new one from its description or a photo: "up to"
+    usd: float | None  # the owner's, in dollars
+
+
+def usd(user: User, credits: float) -> float | None:
+    """A price in dollars for the owner, rounded up to the cent; None for an editor."""
+    from app.models.credits import USD_PER_CREDIT
+
+    return math.ceil(Decimal(str(credits)) * USD_PER_CREDIT * 100) / 100 if user.is_owner else None
+
+
+def _priced(user: User, out: ItemOut) -> ItemOut:
+    if not user.is_owner or out.kind not in ("character", "place"):
+        return out
+    prices = ItemUsd(sheet=usd(user, out.sheet_credits), change=usd(user, out.change_credits))
+    return out.model_copy(update={"usd": prices})
 
 
 class VersionOut(BaseModel):
@@ -134,9 +186,19 @@ class VersionOut(BaseModel):
     snapshot: ItemIn
     saved_by_id: int | None
     created_at: UtcTime
+    sheet_file_id: int | None = None  # the sheet that version had (S8-03's v3 · v2 · v1)
 
 
 PRODUCT_WORDS = ("short_description", "main_claim")
+CHARACTER_ONLY = (
+    "outfits",
+    "voice_file_id",
+    "voice_id",
+    "voice_stock_key",
+    "presenter",
+    "place_id",
+)
+NULLABLE = ("voice_file_id", "voice_id", "voice_stock_key", "source_photo_file_id", "place_id")
 NO_CLAIM = "Scripts won't mention a claim for this product."
 
 
@@ -153,6 +215,9 @@ def _snapshot(item: LibraryItem) -> dict:
         "source_photo_file_id": item.source_photo_file_id,
         "short_description": item.short_description,
         "main_claim": item.main_claim,
+        "presenter": item.presenter,
+        "product_type": item.product_type,
+        "place_id": item.place_id,
         "sheet_file_id": item.sheet_file_id,
         "sheet_approved": item.sheet_approved,
         "look_sheets": item.look_sheets or {},
@@ -224,9 +289,26 @@ def _out(item: LibraryItem) -> ItemOut:
         look_fit=item.look_fit,
         advice=[NO_CLAIM] if item.kind == Kind.prop and not item.main_claim.strip() else [],
         look_sheets=looks,
+        created_at=item.created_at,
+        created_by_id=item.created_by_id,
+        archived_at=item.archived_at,
+        pictures=_pictures(item),
         **_prices(item),
         **data,
     )
+
+
+def _pictures(item: LibraryItem) -> list[PictureOut]:
+    from app.models.brands import BrandScreen
+
+    db = object_session(item)
+    if db is None or item.kind != Kind.prop:
+        return []
+    rows = db.scalars(select(BrandScreen).where(BrandScreen.product_id == item.id,
+                                                BrandScreen.deleted_at.is_(None))
+                      .order_by(BrandScreen.id))  # fmt: skip
+    return [PictureOut(screen_id=s.id, file_id=s.file_id, name=s.name, variant=s.variant)
+            for s in rows]  # fmt: skip
 
 
 def _voice_name(item: LibraryItem) -> str | None:
@@ -275,15 +357,19 @@ def pick_item(
 
 
 def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
-    """Null means "leave as is" for every field except the voice fields and the source photo
-    (null removes them)."""
+    """Null means "leave as is" for every field except those in NULLABLE (null removes it)."""
     for field in ("name", "brand_ids"):
         if values.get(field) is None:
             values.pop(field, None)
-    voiced = values.get("voice_file_id") or values.get("voice_id") or values.get("voice_stock_key")
-    if item.kind != Kind.character and (values.get("outfits") or voiced):
-        raise HTTPException(422, "Only characters have outfits and a voice.")
+    if item.kind != Kind.character and any(values.get(f) for f in CHARACTER_ONLY):
+        raise HTTPException(422, "Only characters have outfits, a voice, a presenter or a place.")
     _check_voice(db, user, item, values)
+    if values.get("place_id"):
+        get_item(db, user, Kind.place, values["place_id"])
+    if item.kind != Kind.prop and values.get("product_type"):
+        raise HTTPException(422, "Only products are an app or a physical thing.")
+    if item.kind == Kind.prop and not item.product_type and not values.get("product_type"):
+        values["product_type"] = "physical"  # a product is a physical thing unless it's an app
     words = {k for k in PRODUCT_WORDS  # changed, not just sent again (a version, a create)
              if values.get(k) is not None and values[k] != (getattr(item, k) or "")}  # fmt: skip
     if words and item.kind != Kind.prop:
@@ -304,11 +390,10 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
     if "brand_ids" in values:
         item.brands = [get_brand(db, user, b) for b in sorted(set(values.pop("brand_ids")))]
     for field, value in values.items():
-        if value is not None or field in NULL_REMOVES:
+        if value is not None or field in NULLABLE:
             setattr(item, field, value)
 
 
-NULL_REMOVES = ("voice_file_id", "voice_id", "voice_stock_key", "source_photo_file_id")
 ONE_VOICE = "Give a character one voice: a saved voice or an app voice, not both."
 OTHER_BRANDS_VOICE = ("That voice belongs to another brand. Pick one of this character's "
                       "brands' voices.")  # fmt: skip
@@ -364,7 +449,20 @@ def list_items(
         query = query.where(LibraryItem.brands.any(id=brand_id))
     items = list(db.scalars(query.order_by(func.lower(LibraryItem.name))))
     used, _ = _uses(db, user.workspace_id, items)
-    return [_out(i).model_copy(update={"used_in_count": len(used[i.id])}) for i in items]
+    return [_priced(user, _out(i)).model_copy(update={"used_in_count": len(used[i.id])})
+            for i in items]  # fmt: skip
+
+
+@router.get("/price", response_model=PriceOut)
+def new_item_price(kind: Kind, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """What making a new one's sheet costs at most (S8-02 "Make one · up to $0.08", S8-07)."""
+    from app.credits import price
+    from app.sheets import SHEET_KINDS, press_price
+
+    if kind not in SHEET_KINDS:
+        raise HTTPException(404, "Products are photographed, not drawn.")
+    credits = price(press_price(db, LibraryItem(kind=kind, workspace_id=user.workspace_id)))
+    return PriceOut(credits=credits, usd=usd(user, credits))
 
 
 @router.post("", response_model=ItemOut, status_code=201)
@@ -378,7 +476,7 @@ def create_item(
     project_id, script_id = values.pop("owner_project_id"), values.pop("owner_script_id")
     if project_id and script_id:
         raise HTTPException(422, "A look belongs to one video or one script, not both.")
-    item = LibraryItem(workspace_id=user.workspace_id, kind=kind)
+    item = LibraryItem(workspace_id=user.workspace_id, kind=kind, created_by_id=user.id)
     if project_id:
         item.owner_project_id = get_project(db, user, project_id).id
     if script_id:
@@ -395,7 +493,8 @@ def read_item(
 ):
     item = get_item(db, user, kind, item_id)
     found = used_in(db, item)
-    return _out(item).model_copy(update={"used_in": found, "used_in_count": len(found)})
+    return _priced(user, _out(item)).model_copy(update={"used_in": found,
+                                                        "used_in_count": len(found)})  # fmt: skip
 
 
 def _uses(db: Session, workspace_id: int, items: list[LibraryItem]) -> tuple[dict, list]:
@@ -437,13 +536,18 @@ def _uses(db: Session, workspace_id: int, items: list[LibraryItem]) -> tuple[dic
 def used_in(db: Session, item: LibraryItem) -> list[UsedIn]:
     """The live videos that use the item. Every editor may open these (Videos lists them)."""
     from app import needs_you
+    from app.routes.production import progress
     from app.routes.project_clips import out_of_date
 
     used, videos = _uses(db, item.workspace_id, [item])
     shown = [v for v in videos if v.id in used[item.id]]
     waits = needs_you.waiting_on(db, shown, out_of_date(db, shown))
+    frames, _ = progress(db, [v.id for v in shown])
+    shown.sort(key=lambda v: v.finished_at or v.created_at, reverse=True)  # newest first
     return [UsedIn(project_id=v.id, name=v.name,
-                   status="needs_you" if v.id in waits else "done" if v.finished_at else "making")
+                   status="needs_you" if v.id in waits else "done" if v.finished_at else "making",
+                   still_file_id=(frames.get(v.id) or (None, None))[1],
+                   at=v.finished_at or v.created_at)
             for v in shown]  # fmt: skip
 
 
@@ -457,15 +561,31 @@ def update_item(
 ):
     item = get_item(db, user, kind, item_id)
     values = body.model_dump(exclude_unset=True)
-    words_only = set(values) <= set(PRODUCT_WORDS)  # a product's words don't change its picture
+    # A product's words, being a presenter or a usual place don't change its picture
+    words_only = set(values) <= {*PRODUCT_WORDS, "presenter", "place_id", "product_type"}
     heard_only = set(values) <= {"voice_id", "voice_stock_key"}  # nor does its voice
     if not words_only:
         _save_version(db, user, item)
+    was = item.name
     _apply(db, user, item, values)
     if not (words_only or heard_only):
         item.sheet_approved = False  # any other edit needs the sheet approved again
+    if item.kind == Kind.prop and item.name != was:
+        _rename_picks(db, item, was)
     db.commit()
     return _out(item)
+
+
+def _rename_picks(db: Session, item: LibraryItem, was: str) -> None:
+    """A product renamed: the videos' flavour picks, kept by its name, follow it (QA)."""
+    from app.models.projects import Project
+
+    brands = [b.id for b in item.brands]
+    for p in db.scalars(select(Project).where(Project.brand_id.in_(brands))):
+        picks = dict(p.product_variants or {})
+        if was in picks and item.name not in picks:  # never over another product's pick
+            picks[item.name] = picks.pop(was)
+            p.product_variants = picks
 
 
 @router.delete("/{item_id}", status_code=204)
@@ -476,7 +596,7 @@ def archive_item(
     item = get_item(db, user, kind, item_id)
     if owned(item):
         _may_remove_look(db, user, item)
-    item.archived = True
+    item.archived, item.archived_at = True, utcnow()
     db.commit()
 
 
@@ -511,7 +631,7 @@ def unarchive_item(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     item = get_item(db, user, kind, item_id, archived=True)
-    item.archived = False
+    item.archived, item.archived_at = False, None
     db.commit()
     return _out(item)
 
@@ -520,8 +640,18 @@ def unarchive_item(
 def delete_item_forever(
     kind: Kind, item_id: int, owner: User = Depends(owner_only), db: Session = Depends(get_db)
 ) -> None:
-    """Owner only, and only from the archive: removes the item and its history for good."""
+    """Owner only, and only from the archive: removes the item and its history for good. A
+    product's pictures stay for the videos that showed them, deleted and no longer its; a place
+    stops being anyone's usual place."""
+    from sqlalchemy import update
+
+    from app.models.brands import BrandScreen
+
     item = get_item(db, owner, kind, item_id, archived=True)
+    db.execute(update(BrandScreen).where(BrandScreen.product_id == item.id)
+               .values(product_id=None, deleted_at=func.coalesce(BrandScreen.deleted_at,
+                                                                 utcnow())))  # fmt: skip
+    db.execute(update(LibraryItem).where(LibraryItem.place_id == item.id).values(place_id=None))
     db.execute(delete(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id))
     item.brands = []
     db.delete(item)
@@ -533,11 +663,14 @@ def list_versions(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     item = get_item(db, user, kind, item_id)
-    return db.scalars(
+    rows = db.scalars(
         select(LibraryItemVersion)
         .where(LibraryItemVersion.item_id == item.id)
         .order_by(LibraryItemVersion.version.desc())
     ).all()
+    return [VersionOut(version=v.version, snapshot=v.snapshot, saved_by_id=v.saved_by_id,
+                       created_at=v.created_at, sheet_file_id=v.snapshot.get("sheet_file_id"))
+            for v in rows]  # fmt: skip
 
 
 @router.post("/{item_id}/versions/{version}/restore", response_model=ItemOut)
@@ -565,6 +698,9 @@ def restore_version(
         if b.workspace_id == user.workspace_id and not b.archived
     }
     snapshot["brand_ids"] = [b for b in snapshot["brand_ids"] if b in live]
+    place = db.get(LibraryItem, snapshot.get("place_id") or 0)
+    if snapshot.get("place_id") and (place is None or place.archived):
+        snapshot["place_id"] = None  # a place archived since: left out, as a brand is
     _save_version(db, user, item)
     _apply(db, user, item, snapshot)
     db.commit()

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { emptyBrand, image, onBrand, signIn } from "./helpers";
 
-// Runs after auth.e2e.ts; Reed (owner) exists. These use a brand made for them, which starts
-// empty (fomo and Iron Paws come with their real screens: see fomo.e2e.ts). Tests run in order.
+// v6 S8-05 as redrawn in S-gaps-05 L1: the Brand kit is the name, logo, colours, and tone and rules. Runs after
+// auth.e2e.ts on a brand made for it (fomo and Iron Paws come with their real files: see fomo.e2e.ts).
 test.describe.configure({ mode: "serial" });
 
 async function saveKit(page: Page) {
@@ -17,74 +17,32 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   await page.goto(`/b/${await emptyBrand(page)}`);
   await onBrand(page, "Night Owl");
+  await page.getByRole("link", { name: "Brand kit", exact: true }).first().click();
+  await expect(page.getByRole("navigation", { name: "Library" }).getByRole("link", { name: "Brand kit" })).toHaveAttribute("aria-current", "page");
 });
 
-test("brand voice and a call to action are saved and still there after a reload (BR1)", async ({ page }) => {
-  await page.getByRole("link", { name: "Brand kit", exact: true }).click();
+test("tone and rules and a colour are saved and still there after a reload", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
-  await page.getByRole("tab", { name: "Voice & lines" }).click(); // v5: voice has its own tab
-  await page.getByLabel("How we sound").fill("Calm, confident, never hype.");
-  for (const phrase of ["guaranteed returns", "get rich quick"]) {
-    await page.getByLabel("Add to never say").fill(phrase);
-    await page.getByLabel("Add to never say").press("Enter");
-  }
+  await page.getByLabel("Tone and rules").fill("Calm, confident, never hype.");
+  await page.getByRole("button", { name: "Add colour" }).click();
   await saveKit(page);
-  // A CTA line saves at once; the first is the Default.
-  await page.getByLabel("Add a line").fill("Find us through the link in my bio.");
-  await page.getByRole("button", { name: "Add line" }).click();
-  await expect(page.getByLabel("Call to action lines").getByText("Default")).toBeVisible();
-
   await page.reload();
-  await page.getByRole("tab", { name: "Voice & lines" }).click();
-  await expect(page.getByLabel("How we sound")).toHaveValue("Calm, confident, never hype.");
-  await expect(page.getByRole("button", { name: "Remove guaranteed returns" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Remove get rich quick" })).toBeVisible();
-  await expect(page.getByLabel("Call to action lines").getByText("Find us through the link in my bio.")).toBeVisible();
+  await expect(page.getByLabel("Tone and rules")).toHaveValue("Calm, confident, never hype.");
+  await expect(page.getByRole("button", { name: /^Colour 2: #/ })).toBeVisible();
 });
 
 test("an uploaded logo shows and survives a reload", async ({ page }) => {
-  await page.getByRole("link", { name: "Brand kit", exact: true }).click();
   await page.getByLabel("Logo file").setInputFiles(image("logo.png"));
-  await expect(page.getByRole("img", { name: "Logo" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Night Owl logo" })).toBeVisible();
   await saveKit(page);
-
   await page.reload();
-  await expect(page.getByRole("img", { name: "Logo" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Night Owl logo" })).toBeVisible();
 });
 
-test("a brand screen can be added, given tags and a moment, and deleted", async ({ page }) => {
-  await page.getByRole("link", { name: "Brand kit", exact: true }).click();
-  await page.getByRole("tab", { name: /^App screens/ }).click();
-  await expect(page.getByText("No brand screens yet.")).toBeVisible();
-  await page.getByRole("button", { name: "Add screens" }).first().click();
-  await page.getByLabel("Screen images").setInputFiles(image("buy-flow.png"));
-  await expect(page.getByLabel("Name for buy-flow.png")).toHaveValue("Buy flow");
-  await page.getByRole("button", { name: "Add screen", exact: true }).click();
-
-  const tile = page.getByRole("button", { name: "Buy flow", exact: true });
-  await expect(tile).toBeVisible();
-  await tile.click();
-  const panel = page.getByRole("dialog", { name: "Edit Buy flow" });
-  await panel.getByLabel("Add to tags").fill("Trading");
-  await panel.getByLabel("Add to tags").press("Enter");
-  await panel.getByLabel("Add to always use this screen for").fill("trading");
-  await panel.getByLabel("Add to always use this screen for").press("Enter");
-  await panel.getByRole("button", { name: "Save screen" }).click();
-  await expect(panel).toBeHidden();
-  await expect(page.getByRole("listitem").filter({ has: tile }).getByText(/trading/)).toBeVisible(); // its tag and moment, under the tile (v5 F_BrandScreens)
-
-  await tile.click();
-  // The tag was saved too: it is there when the screen is opened again.
-  await expect(page.getByRole("group", { name: "Tags" }).getByRole("button", { name: "Remove trading" })).toBeVisible();
-  await page.getByRole("dialog", { name: "Edit Buy flow" }).getByRole("button", { name: "Delete screen" }).click();
-  await expect(page.getByText('Deleted "Buy flow".')).toBeVisible(); // no dialog: the toast offers Undo
-  await expect(page.getByText("No brand screens yet.")).toBeVisible();
-  await page.getByRole("button", { name: "Show deleted (1)" }).click();
-  await page.getByRole("button", { name: "Restore Buy flow" }).click();
-  await expect(page.getByText('Restored "Buy flow".')).toBeVisible();
-  await expect(tile).toBeVisible();
-  // Delete it again for the tests that follow, and let the toast go.
-  await tile.click();
-  await page.getByRole("dialog", { name: "Edit Buy flow" }).getByRole("button", { name: "Delete screen" }).click();
-  await expect(page.getByText("No brand screens yet.")).toBeVisible();
+test("leaving with unsaved changes asks first", async ({ page }) => {
+  await page.getByLabel("Tone and rules").fill("Something new");
+  await page.getByRole("navigation", { name: "Library" }).getByRole("link", { name: /^Characters/ }).click();
+  const dialog = page.getByRole("alertdialog", { name: "Leave without saving?" });
+  await dialog.getByRole("button", { name: "Keep editing" }).click();
+  await expect(page.getByLabel("Tone and rules")).toHaveValue("Something new");
 });
