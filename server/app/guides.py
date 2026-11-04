@@ -44,7 +44,9 @@ def _read(path: Path) -> tuple[dict, dict]:
 def _style(path: Path, parent: dict | None = None) -> dict:
     meta, sections = _read(path)
     if parent:  # a lane holds only what differs: the rest is its style's (never its lanes)
-        meta = {k: v for k, v in parent["meta"].items() if k not in ("name", "order")} | meta
+        meta = {
+            k: v for k, v in parent["meta"].items() if k not in ("name", "order", "hidden")
+        } | meta  # a hidden style, not its lanes
         sections = {k: v for k, v in parent["sections"].items() if k != "lanes"} | sections
     return {
         "id": path.stem if parent else path.parent.name,
@@ -58,6 +60,8 @@ def _style(path: Path, parent: dict | None = None) -> dict:
         "image_model": meta.get("image_model", "auto"),
         "video_model": meta.get("video_model", ""),  # its default video model (a catalogue id)
         "blurb": meta["blurb"],
+        "card": meta.get("card", ""),  # New video's card: a short line, then its B-roll look
+        "broll": meta.get("broll", ""),
         "sections": sections,
         "meta": meta,
     }
@@ -83,6 +87,7 @@ def formats() -> list[dict]:
         out.append({"id": path.parent.name, "name": meta["name"], "order": float(meta["order"]),
                     "on": meta.get("on") == "yes", "engine": meta["engine"],
                     "host": meta.get("host") == "yes", "blurb": meta["blurb"],
+                    "card": meta.get("card", ""),
                     "sections": sections})  # fmt: skip
     return sorted(out, key=lambda f: f["order"])
 
