@@ -47,11 +47,11 @@ class VoicesOut(BaseModel):
     clone_usd: float | None  # the owner's "$3.00 once"; null for an editor
 
 
-class SaveIn(BaseModel):
+class VoiceSaveIn(BaseModel):
     stock_key: str
 
 
-class CloneIn(BaseModel):
+class VoiceCloneIn(BaseModel):
     name: str
     description: str = ""
     sample_file_id: int
@@ -107,7 +107,7 @@ def list_voices(brand_id: int, request: Request, all: bool = False,
 
 
 @router.post("/brands/{brand_id}/voices", response_model=VoiceOut, status_code=201)
-def save_voice(brand_id: int, body: SaveIn, request: Request,
+def save_voice(brand_id: int, body: VoiceSaveIn, request: Request,
                user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
     """Save an app voice to the brand (free)."""
     get_brand(db, user, brand_id)
@@ -117,7 +117,7 @@ def save_voice(brand_id: int, body: SaveIn, request: Request,
 
 
 @router.post("/brands/{brand_id}/voices/clone", response_model=VoiceOut, status_code=201)
-def clone_voice(brand_id: int, body: CloneIn, request: Request,
+def clone_voice(brand_id: int, body: VoiceCloneIn, request: Request,
                 user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
     """Clone a voice from a sample (10 s to 5 min): one paid call, up to `clone_credits`; an
     editor's waits for the owner's OK, charged nothing until then."""
