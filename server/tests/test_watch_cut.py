@@ -1,6 +1,6 @@
-"""The director watches its cut (watch_cut): a free listen picks the frames on the cut's
-boundaries, one look on the director's own limit says what's off, and the findings it can act
-on are checked first. On the free stand-ins."""
+"""The director watches and listens to its cut (watch_cut): a free pass makes its strips,
+measurements and spectrogram (app/deep_watch), one look on the director's own limit says
+what's off, and the findings it can act on are checked first. On the free stand-ins."""
 
 import pytest
 from fastapi import HTTPException
@@ -24,21 +24,13 @@ WORDS = [{"word": "Get", "start": 4.5, "end": 4.8, "clip_id": "c2"},
          {"word": "Ugh!", "start": 7.0, "end": 7.4, "clip_id": "c2"}]  # fmt: skip
 
 
-def test_each_clip_sits_where_the_cut_put_it_and_the_frames_on_its_boundaries():
+def test_each_clip_sits_where_the_cut_put_it_and_the_strips_spread_over_it():
     spans = watch_cut.spans_of([("c1", 1, 4.0), ("c2", 2, 6.0)], 9.0)  # re-encoded: 9 s, not 10
     assert [(s["clip_id"], s["start"], s["end"], s["seconds"]) for s in spans] == [
         ("c1", 0.0, 3.6, 4.0), ("c2", 3.6, 9.0, 6.0)]  # fmt: skip
-    assert (watch_cut.count_for(6), watch_cut.count_for(20), watch_cut.count_for(90)) == (
-        16,
-        20,
-        24,
-    )
-    frames = watch_cut.frames_at(9.0, [3.6], WORDS, spans, 16)
-    assert len(frames) == 16 and [f["t"] for f in frames] == sorted(f["t"] for f in frames)
-    labels = {f["t"]: (f["clip_id"], f["label"]) for f in frames}
-    assert labels[3.75] == ("c2", "a shot starts")  # just after the cut
-    assert labels[4.65] == ("c2", 'the word "Get"') and labels[7.15][1] == 'the word "Ugh!"'
-    assert labels[0.0] == ("c1", "even spacing")
+    assert [watch_cut.count_for(n) for n in (6, 30, 90)] == [16, 24, 48]  # 0.8 a second
+    assert watch_cut.clip_at(spans, 5.0) == "c2"
+    assert (watch_cut._clips(spans, 0.0, 2.0), watch_cut._clips(spans, 2.0, 5.0)) == ("c1", "c1–c2")
 
 
 def test_only_findings_the_director_can_act_on_reach_it():
@@ -50,7 +42,8 @@ def test_only_findings_the_director_can_act_on_reach_it():
         {"clip_id": "c1", "start": 0, "end": 4, "says": "c1: better", "fix": "pick", "take_id": 7},
         {"clip_id": "c1", "start": 0, "end": 4, "says": "c1: no such", "fix": "pick", "take_id": 9},
         {"clip_id": "c2", "start": 4, "end": 9, "says": "c2: face", "fix": "redo",
-         "take_id": 7, "note": "Keep her face as on her sheet."},
+         "kind": "cast", "evidence": "picture", "take_id": 7,
+         "note": "Keep her face as on her sheet."},
     ]}  # fmt: skip
     kept = watch_cut.checked(found, CUT, WORDS, "MIA: Get fomo.")
     assert [(f["says"], f["fix"]) for f in kept] == [
@@ -112,8 +105,12 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
              app.state.storage, only={"local"})  # fmt: skip
     look = db.query(Job).filter(Job.kind == "check-claude").order_by(Job.id.desc()).first()
     assert look.input["step"] == "watch_cut" and look.input["director_run"] == run
-    assert len(look.input["files"]["reference_images"]) == 16  # a 1 s cut: the fewest
-    assert "[Image1] c1 at 0.0 s" in look.input["prompt"] and "<cut>" in look.input["prompt"]
+    pictures = look.input["files"]["reference_images"]
+    assert len(pictures) == 2  # a 1 s square cut: one strip of 16 frames, and its sound
+    said = look.input["prompt"]
+    assert "[Image1] c1, 0.0–" in said and "sampled frames over the whole" in said
+    assert "[Image2] c1, 0.0–1.1 s: the sound as a spectrogram" in said
+    assert "<cut>" in said and "<measured>" in said and "Loudness" in said
     assert look.credits > 0  # priced "up to", on the director's own limit
     run_writer(app, db)
     db.expire_all()
@@ -127,3 +124,25 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     _work(app, db, FakeSeedance([_mp4("blue")]))
     db.expire_all()
     assert watch_cut.state(db, project)["current"] is False
+
+
+def test_a_redo_only_the_sound_suggests_is_kept_and_said_unconfirmed():
+    """Reed, 4 Nov: uncertain evidence alone never triggers a paid remake."""
+    music = {"clip_id": "c2", "start": 4, "end": 9, "says": "c2: music under the line",
+             "fix": "redo", "kind": "sound", "evidence": "sound", "note": "No music."}  # fmt: skip
+    (kept,) = watch_cut.checked({"findings": [music]}, CUT, WORDS, "MIA: Get fomo.")
+    assert (kept["fix"], kept["says"]) == ("keep", "c2: music under the line (not confirmed)")
+    seen = {**music, "kind": "picture", "evidence": "picture", "says": "c2: a hand melts"}
+    assert watch_cut.checked({"findings": [seen]}, CUT, WORDS, "")[0]["fix"] == "redo"
+    for kind in ("lipsync", "voice", "sound", "words"):  # a kind the frames can't show
+        doubt = {**seen, "kind": kind, "says": "c2: the lips look late"}
+        assert watch_cut.checked({"findings": [doubt]}, CUT, WORDS, "")[0]["fix"] == "keep"
+    bare = {k: v for k, v in seen.items() if k != "evidence"}  # no evidence: never paid
+    assert watch_cut.checked({"findings": [bare]}, CUT, WORDS, "")[0]["fix"] == "keep"
+
+
+def test_a_cut_redo_on_the_transcript_alone_is_kept_unconfirmed():
+    fogo = {"clip_id": "c2", "start": 4.4, "end": 5.4, "says": "c2: 'fogo' for fomo",
+            "fix": "redo", "evidence": "words", "note": "Say fomo right."}  # fmt: skip
+    (kept,) = watch_cut.checked({"findings": [fogo]}, CUT, WORDS, "MIA: Get fomo.")
+    assert kept["fix"] == "keep" and kept["says"].endswith("(not confirmed)")

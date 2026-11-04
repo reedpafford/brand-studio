@@ -201,14 +201,16 @@ def _draft(db: Session, fs: Freestyle):
 
 
 def _with_check(db: Session, job: Job) -> Decimal:
-    """A held job's price as the owner approves it: a take with the take check that rides
-    along while checks are on (`item_checks.rides`), a Change it… with the redraw it starts
+    """A held job's price as the owner approves it: a take with the director's watch that
+    rides along while watches are on (`take_watch.rides`), a Change it… with the redraw it starts
     (`then`), so the OK is never for less than it costs."""
-    from app import item_checks
+    from app import take_watch
     from app.models.clips import ProjectClip
 
     if job.status == JobStatus.needs_owner_approval and job.input.get("then"):
         return job.credits + Decimal(job.input["then"])  # Change it…: its redraw rides along
+    if job.status == JobStatus.needs_owner_approval and job.input.get("step") == "host_piece":
+        return job.credits + take_watch.per_take(db, job.workspace_id)  # a host piece's watch
     clip_id = job.input.get("project_clip_id")
     if (
         job.status != JobStatus.needs_owner_approval
@@ -217,7 +219,7 @@ def _with_check(db: Session, job: Job) -> Decimal:
     ):
         return job.credits
     clip, project = db.get(ProjectClip, clip_id), db.get(Project, job.project_id)
-    return job.credits + item_checks.rides(db, project, clip) if clip and project else job.credits
+    return job.credits + take_watch.rides(db, project, clip) if clip and project else job.credits
 
 
 def _spent(db: Session, fs: Freestyle) -> Decimal:
