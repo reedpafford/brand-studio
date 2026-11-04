@@ -167,9 +167,11 @@ def _part(title: str, intro: str, sections: list[tuple[str, str]]) -> str:
 
 
 @cache
-def brief(format_id: str, style_id: str, step: str) -> str:
+def brief(format_id: str, style_id: str, step: str, broll: str = "") -> str:
     """What a writing step knows of the video's format and style: craft.md, then the format's
-    guide, then the style's (with its lane; its `lanes` for the plan), then up to 3 studies."""
+    guide, then the style's (with its lane; its `lanes` for the plan), then up to 3 studies.
+    `broll`: a hosted video's B-roll look (n31): the style stays the host's, voice's and cast's
+    and the B-roll look's guide follows it for every B-roll shot, both as Reed wrote them."""
     chosen, form = style(style_id), format_(format_id)
     parts = [
         "## Producer craft (Reed's: the story, for every video)\nHow the team makes a short "
@@ -187,7 +189,7 @@ def brief(format_id: str, style_id: str, step: str) -> str:
     own = guidance(chosen["sections"])
     if step == "plan" and chosen["sections"].get("lanes"):
         own.append(("lanes", chosen["sections"]["lanes"]))  # the plan picks this video's lane
-    if own:
+    if own and not broll:
         parts.append(_part(
             f"Style: {chosen['name']}",
             f"This video is in the {chosen['name']} style: how it looks, and how its camera, "
@@ -195,6 +197,21 @@ def brief(format_id: str, style_id: str, step: str) -> str:
             "worked example included) differ on anything visual, this section wins; where the "
             "steps above are more specific about the site's own fields and limits, they win.",
             own))  # fmt: skip
+    elif own:
+        parts.append(_part(
+            f"Style: {chosen['name']} (the host, the voice and the cast)",
+            f"This video is in the {chosen['name']} style for its host, its voice and its cast: "
+            "how they look, sound and move, and everything this style must keep. Its B-roll is "
+            "drawn in another look, below. Where this section and anything above (the worked "
+            "example included) differ on the host or the cast, this section wins.",
+            own))  # fmt: skip
+    if broll and (shots := guidance(style(broll)["sections"])):
+        parts.append(_part(
+            f"B-roll look: {style(broll)['name']}",
+            f"Every B-roll shot of this video (every shot but the host) is drawn, lit and moves "
+            f"in the {style(broll)['name']} look. On a B-roll shot, where this section and "
+            "anything above differ on anything visual, this section wins; the host, the voice "
+            f"and the cast keep {chosen['name']}.", shots))  # fmt: skip
     if found := studies(format_id, style_id):
         parts.append(_part("Studied examples", "Ads that worked, studied: their shape, never "
                            "their words.", found))  # fmt: skip

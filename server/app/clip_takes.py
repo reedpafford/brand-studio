@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import p_video, screen_figures, video_settings
+from app import looks, p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -454,7 +454,7 @@ def save_take(db: Session, job: Job) -> None:
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
     take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
                     prompt=job.input.get("clip_prompt"),
-                    look=db.get(Project, clip.project_id).look,
+                    look=looks.drawn(db.get(Project, clip.project_id)),
                     made_with=job.input.get("made_with") or {})  # fmt: skip
     db.add(take)
     db.flush()

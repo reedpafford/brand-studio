@@ -193,7 +193,7 @@ def _out(
         }
         if asked.get("look_fixed")
         else None,
-        look_fix=prompts.look_fixes(project.look).get("refused")
+        look_fix=prompts.look_fixes(looks.drawn(project)).get("refused")
         if storyboard.REFUSED in (frame.problems or [])
         else None,
         softened={"before": asked["before"], "after": asked["after"]}

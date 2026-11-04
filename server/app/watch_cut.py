@@ -144,13 +144,16 @@ def heard_cut(db: Session, job: Job) -> None:
         cut,
         out.get("words", []),
         labels,
-        project.look or "house",
+        project.look
+        if not project.broll_look  # a hosted video's B-roll in another look
+        else f"{project.look} (the host and cast); B-roll in {project.broll_look}",
     )
     from app.director import treatment_block
 
     text = treatment_block(db, project) + text  # what the story is meant to be (the Director)
     data = {"step": STEP, "project_id": project.id, "final_video_id": job.input["final_video_id"],
-            "system": [prompts.system(STEP, project.look or "house")], "prompt": text,
+            "system": [prompts.system(STEP, project.look or "house",
+                                      broll=project.broll_look or "")], "prompt": text,
             "effort": "high", "max_tokens": 8000,
             "fit_images_to": 1024, "director_run": job.input.get("director_run"),
             "cut": cut, "words": out.get("words", []), "script": version.text if version else "",
