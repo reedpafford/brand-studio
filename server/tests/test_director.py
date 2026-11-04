@@ -408,8 +408,8 @@ def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, e
     assert [t["result"] for t in out["turns"] if t["tool"] == "mute"] == [muted]
     ((start, end),) = db.get(ClipTake, last.picked_take_id).made_with["mutes"]
     assert round(end - start, 2) == 0.5  # the half second the watch found, nothing more
-    assert out["ended"].endswith(muted)  # named in the delivery note
-    assert out["turns"][-1]["why"].endswith(muted)  # the deliver turn's note, as the page shows it
+    (note,) = [m["note"] for m in out["thread"] if m.get("note")]  # named in the delivery note
+    assert any(r["text"].endswith(muted) for r in note["redid"]), note["redid"]
     user = db.query(User).filter_by(email="ed@example.com").one()
     again = director_tools.run(db, user, db.get(Project, pid), {"tool": "mute", "clip_id": "c1"},
                                None)  # fmt: skip
@@ -751,13 +751,14 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
         "status": None,
         "why": "",
     }
-    asked = next(m for m in out["thread"] if m["why"].startswith("Note 1:"))
-    assert asked["kind"] == "move" and asked["text"]  # each move keeps its reason
-    assert out["thread"][-1]["why"] == ""  # the delivery's reason is its text
+    cards = [m for m in out["thread"] if m.get("run")]  # one progress card a run, not a row a turn
+    assert len(cards) == 2 and all(m["status"] == "done" for m in cards)
     assert [m["at"] for m in out["thread"]] == sorted(m["at"] for m in out["thread"])
     ids = [m["id"] for m in out["thread"]]
     assert len(set(ids)) == len(ids) and out["thread"][said]["id"] == "m0"
-    assert out["thread"][-1]["text"] == out["turns"][-1]["why"]  # ends on the new delivery note
+    last = out["thread"][-1]["note"]  # ends on the new delivery note
+    assert "Note 1: done, as you asked" in last["made"] and "I also noticed:" in last["unsure"]
+    assert out["thread"][-1]["text"].startswith(last["made"])
 
 
 def test_chat_while_it_runs_is_read_at_its_next_turn_and_only_the_maker_may(app, db, owner, editor):
@@ -1000,5 +1001,6 @@ def test_a_turn_kept_before_its_tool_runs_reads_as_going_never_stopped(app, db, 
         k: v for k, v in turn.input.items() if k not in ("result", "ended")
     }  # as `after` finds it
     db.commit()
-    move = next(m for m in editor.get(url).json()["thread"] if m["id"] == f"t{turn.id}")
-    assert (move["text"], move["status"]) == ("Deciding what to do next.", "running")
+    (card,) = [m for m in editor.get(url).json()["thread"] if m.get("run")]
+    assert card["status"] == "running" and "Stopped" not in card["text"]
+    assert owner.get(f"{url}/progress").json()["status"] == "working"
