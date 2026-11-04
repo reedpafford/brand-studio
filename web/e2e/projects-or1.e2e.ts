@@ -6,7 +6,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
     await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
-    const brandId = await emptyBrand(page, "Folders Co"); // one brand for both widths: the brand menu has no room to spare
+    const brandId = await emptyBrand(page, "Projects Co"); // one brand for both widths; named to sort after fomo (a fresh sign-in opens the first brand)
     const run = `${width}-${Date.now() % 1e6}`; // a retry or a rerun shares the database: new names
     const video = `Filed video ${run}`;
     const name = `November launch ${run}`;
