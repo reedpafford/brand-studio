@@ -31,17 +31,17 @@ class TurnOut(BaseModel):
     created_at: UtcTime
 
 
-class RedidOut(BaseModel):
+class RedidRowOut(BaseModel):
     at: float  # seconds into the cut ("0:14")
     clip: str  # "c7": the clip it names (the text says "Clip 7")
     text: str  # "Clip 7: cartoon eyes landed on the stomach. Remade on Seedance 2.0."
 
 
-class NoteOut(BaseModel):
+class DeliveryNoteOut(BaseModel):
     """The delivery note (S3-09, S3-10, P-08), as kept when the run delivered."""
 
     made: str  # What I made
-    redid: list[RedidOut]  # What I watched and redid, in cut order
+    redid: list[RedidRowOut]  # What I watched and redid, in cut order
     unsure: str  # What I'm unsure of ("" when nothing)
     needs: str  # What I need from you ("Nothing. It’s ready to post." when nothing)
     cost: str  # "$9.84 spent of up to $16.86"; an editor's "96 credits used of up to 164 (59%…)"
@@ -65,10 +65,10 @@ class ThreadItem(BaseModel):
     answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
     treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
     run: str | None = None  # a run's progress card: GET …/director/progress is its record
-    note: NoteOut | None = None  # a delivery: its note
+    note: DeliveryNoteOut | None = None  # a delivery: its note
 
 
-class CellOut(BaseModel):
+class ClipCellOut(BaseModel):
     """One clip on the filmstrip and in the Clips list (S3-03, S6-01, S6-04, S6-05, P-10)."""
 
     clip_id: str  # "c15"
@@ -90,22 +90,22 @@ class CellOut(BaseModel):
     found: bool  # its watch found something on one of its takes (the Flagged filter)
 
 
-class SceneOut(BaseModel):
+class RunSceneOut(BaseModel):
     id: int
     name: str  # "Hook" (the plan's part), else the scene's heading
     total: int
     done: int  # clips with a take in hand
-    clips: list[CellOut]
+    clips: list[ClipCellOut]
 
 
-class StepOut(BaseModel):
+class RunStepOut(BaseModel):
     key: str  # read, plan, cast, voice, stills, prompts, takes, watching, host, cut
     state: Literal["done", "now", "todo", "wait", "bad"]
     text: str  # "Making takes: 14 of 24"
     sub: str  # now or wait only: "Clip 15 · scene 4 · 6 s · about 3 min"
 
 
-class ChangedOut(BaseModel):
+class ChangedClipOut(BaseModel):
     clip_id: str
     number: int
     take_id: int | None
@@ -113,7 +113,7 @@ class ChangedOut(BaseModel):
     seen: bool
 
 
-class StoppedOut(BaseModel):
+class RunStoppedOut(BaseModel):
     by: str  # "Reed stopped the director at 10:14"
     at: str
     made: int
@@ -121,21 +121,21 @@ class StoppedOut(BaseModel):
     carry_on: str  # "Carry on · up to $10.74 more": the rest of the video's "up to"
 
 
-class FixOut(BaseModel):
+class RunFixOut(BaseModel):
     kind: Literal["again", "carry_on"]  # again: POST …/clips/{clip}/generate; carry_on:
     # POST …/director
     label: str
     price: str | None  # as the viewer reads money; "up to" on the button (rule 36)
 
 
-class FailedOut(BaseModel):
+class RunFailedOut(BaseModel):
     title: str  # "Clip 4 couldn’t be made"
     why: str  # "The service was busy. Nothing was charged."
     clip: int | None  # the clip's id for "again"
-    fixes: list[FixOut]  # never empty (rule 22)
+    fixes: list[RunFixOut]  # never empty (rule 22)
 
 
-class CountsOut(BaseModel):
+class ClipCountsOut(BaseModel):
     all: int
     needs_you: int  # flagged, waiting or failed: a person's press moves it on
     flagged: int  # its watch found something on one of its takes
@@ -157,16 +157,16 @@ class ProgressOut(BaseModel):
     made: int
     redone: int  # "3 redone after watching"
     scene_at: int  # "scene 4 of 6": the first scene not finished (1-based)
-    scenes: list[SceneOut]
-    counts: CountsOut
+    scenes: list[RunSceneOut]
+    counts: ClipCountsOut
     minutes_left: int | None  # "about 2 h 10 min left"
-    steps: list[StepOut]
+    steps: list[RunStepOut]
     spent: float  # credits charged this run
     up_to: float  # the video's "up to", in credits
     spent_usd: float | None  # the owner only: what it really cost
-    changed: list[ChangedOut]  # "Changed after watching" / "Watch the changes"
-    stopped: StoppedOut | None  # stopped by a person (S3-08)
-    failed: FailedOut | None  # stopped on a problem, with its fixes (S3-11)
+    changed: list[ChangedClipOut]  # "Changed after watching" / "Watch the changes"
+    stopped: RunStoppedOut | None  # stopped by a person (S3-08)
+    failed: RunFailedOut | None  # stopped on a problem, with its fixes (S3-11)
 
 
 class SeenIn(BaseModel):
