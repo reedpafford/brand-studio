@@ -1,6 +1,6 @@
 """Voices (v6 S8-04): a brand's saved, cloned and described voices, a style's own voice
 (brand_id null, e.g. Dr. Pickle's clone, added to each workspace by app/voices.py the first
-time it's read), and a character's voice (`library_items.voice_id`, S8-03).
+time it's read), and a character's voice (`library_items.voice_id` or `voice_stock_key`, S8-03).
 
 Revision ID: n31
 Revises: n30
@@ -49,12 +49,14 @@ def upgrade() -> None:
     op.create_index("ix_voices_brand_id", "voices", ["brand_id"])
     with op.batch_alter_table("library_items", schema=None) as batch_op:
         batch_op.add_column(sa.Column("voice_id", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("voice_stock_key", sa.String(length=60), nullable=True))
         batch_op.create_foreign_key("fk_library_items_voice_id", "voices", ["voice_id"], ["id"])
 
 
 def downgrade() -> None:
     with op.batch_alter_table("library_items", schema=None) as batch_op:
         batch_op.drop_constraint("fk_library_items_voice_id", type_="foreignkey")
+        batch_op.drop_column("voice_stock_key")
         batch_op.drop_column("voice_id")
     op.drop_index("ix_voices_brand_id", table_name="voices")
     op.drop_index("ix_voices_workspace_id", table_name="voices")

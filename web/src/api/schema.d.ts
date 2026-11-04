@@ -7427,6 +7427,10 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Voice Id */
+            voice_id?: number | null;
+            /** Voice Stock Key */
+            voice_stock_key?: string | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
             /** Short Description */
@@ -7460,6 +7464,10 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Voice Id */
+            voice_id?: number | null;
+            /** Voice Stock Key */
+            voice_stock_key?: string | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
             /** Short Description */
@@ -7540,6 +7548,10 @@ export interface components {
             outfits?: components["schemas"]["Outfit"][] | null;
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Voice Id */
+            voice_id?: number | null;
+            /** Voice Stock Key */
+            voice_stock_key?: string | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
             /** Short Description */
@@ -8618,6 +8630,10 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Voice Id */
+            voice_id?: number | null;
+            /** Voice Stock Key */
+            voice_stock_key?: string | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
             /** Short Description */
@@ -8833,6 +8849,10 @@ export interface components {
             outfits: components["schemas"]["Outfit"][];
             /** Voice File Id */
             voice_file_id?: number | null;
+            /** Voice Id */
+            voice_id?: number | null;
+            /** Voice Stock Key */
+            voice_stock_key?: string | null;
             /** Source Photo File Id */
             source_photo_file_id?: number | null;
             /** Short Description */

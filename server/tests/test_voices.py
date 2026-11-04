@@ -252,3 +252,34 @@ def test_replicate_keeps_a_clones_named_output_and_downloads_its_preview():
     assert got.files == ["https://replicate.delivery/p.mp3"]
     (used,) = got.usage
     assert used.cost_usd == Decimal("3")  # one clone, $3
+
+
+def test_a_character_has_one_voice_saved_or_from_the_app_and_its_host_speaks_in_it(
+    db, owner, monkeypatch
+):
+    ws = _ws(db)
+    pickle = _pickle(db, ws)
+    db.commit()
+    mark = owner.post("/library/character", json={"name": "Mark", "voice_stock_key": "Roger"})
+    assert mark.status_code == 201, mark.text
+    mark = mark.json()
+    assert (mark["voice_stock_key"], mark["voice_id"]) == ("Roger", None)
+    url = f"/library/character/{mark['id']}"
+    both = owner.patch(url, json={"voice_id": pickle.id})
+    assert both.status_code == 422 and "one voice" in both.json()["detail"]
+    moved = owner.patch(url, json={"voice_id": pickle.id, "voice_stock_key": None}).json()
+    assert (moved["voice_id"], moved["voice_stock_key"]) == (pickle.id, None)
+    assert owner.patch(url, json={"voice_id": None}).json()["voice_id"] is None  # neither
+    assert owner.patch(url, json={"voice_stock_key": "Morgan"}).status_code == 422
+    assert owner.patch(url, json={"voice_id": 9999}).status_code == 404
+    place = owner.post("/library/place", json={"name": "Kitchen", "voice_stock_key": "Roger"})
+    assert place.status_code == 422
+
+    item = db.get(LibraryItem, mark["id"])
+    video = Project(workspace_id=ws, look="ugc")
+    monkeypatch.setattr("app.host.on", lambda db, project: True)
+    monkeypatch.setattr("app.host.host_look", lambda db, project: item)
+    item.voice_stock_key, item.voice_id = "Roger", None
+    assert voices.default_for(db, video) == "Roger"
+    item.voice_stock_key, item.voice_id = None, pickle.id
+    assert voices.default_for(db, video) == f"voice:{pickle.id}"

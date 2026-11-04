@@ -319,14 +319,17 @@ def failed(db: Session, job: Job) -> None:
 
 
 def default_for(db: Session, project) -> str | None:
-    """A video's own narrator, when it has one: its host's voice (a character's voice), else
-    its style's voice ("voice:<id>"); None: narration's own default."""
+    """A video's own narrator, when it has one: its host's voice (a character's saved voice,
+    "voice:<id>", or app voice, its key), else its style's voice ("voice:<id>"); None:
+    narration's own default."""
     from app import host, looks
 
     ensure_style_voices(db, project.workspace_id)
     item = host.host_look(db, project) if host.on(db, project) else None
     if item is not None and item.voice_id:
         return f"{PREFIX}{item.voice_id}"
+    if item is not None and item.voice_stock_key in narration.VOICES:
+        return item.voice_stock_key
     look = looks.base(project.look) if project.look else ""  # a lane speaks as its style
     found = db.scalar(
         select(Voice.id).where(
