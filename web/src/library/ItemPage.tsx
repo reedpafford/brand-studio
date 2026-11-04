@@ -146,7 +146,8 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-        <div className="flex flex-col gap-3">
+        {/* On a phone the name, its presses and facts come first, the picture after (QA-3 on #1204). */}
+        <div className="order-2 flex flex-col gap-3 lg:order-1">
           <Picture id={big} alt={item.name} className={rail ? "h-[400px] w-[300px]" : "aspect-[3/4] w-full"} />
           {(old.length > 0 || product) && (
             <div className="flex flex-wrap gap-2">
@@ -185,7 +186,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
             </Button>
           )}
         </div>
-        <div className="flex min-w-0 max-w-[640px] grow flex-col gap-5">
+        <div className="order-1 flex min-w-0 max-w-[640px] grow flex-col gap-5 lg:order-2">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold">{item.name}</h1>
@@ -272,7 +273,7 @@ function Facts({ item, brandId }: { item: Item; brandId: number }) {
     rows.push(["Rules", item.notes || <span className="text-muted">None</span>]);
   }
   return (
-    <dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+    <dl className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-4 gap-y-2 text-sm">
       {rows.map(([k, v]) => (
         <div key={k} className="contents">
           <dt className="text-muted">{k}</dt>
