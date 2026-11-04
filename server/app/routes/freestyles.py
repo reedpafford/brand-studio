@@ -583,7 +583,7 @@ def stop_freestyle(
     fs = _get(db, user, freestyle_id)
     fs.stopped_at = utcnow()  # when it was last stopped
     if fs.project_id:  # the director's run: no more turns
-        director.stop(db, db.get(Project, fs.project_id))
+        director.stop(db, db.get(Project, fs.project_id), user.id)
     stop_jobs(db, Job.id.in_(list(_jobs(db, fs))))
     db.commit()
     return _out(db, fs)

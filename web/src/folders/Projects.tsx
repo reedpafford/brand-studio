@@ -169,7 +169,7 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
   const folders = useFolders(brandId);
   const toast = useToast();
   const refresh = useRefresh(brandId);
-  const file = useMutation({ mutationFn: (to: number | null) => must(api.POST("/folders/file", { body: { kind, id, folder_id: to } })).then((r) => r.data!) });
+  const file = useMutation({ mutationFn: (to: number | null) => must(api.POST("/folders/file", { body: { kind, ids: [id], folder_id: to } })).then((r) => r.data!) });
   const [naming, setNaming] = useState<string | null>(null);
   // New project… here makes the project and files this item into it, so nobody has to leave the page for the Projects list.
   const make = useMutation({
@@ -181,7 +181,7 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
   // `made`: the project New project just made for this item. Undo then deletes it again, unless something else was filed there since.
   const move = (to: number | null, made?: { id: number; name: string }) =>
     file.mutate(to, {
-      onSuccess: async ({ was_folder_id }) => {
+      onSuccess: async ({ was: [{ folder_id: was_folder_id }] }) => {
         await refresh();
         const undo = async () => {
           await file.mutateAsync(was_folder_id);

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app import director_song, director_tools, take_mute, take_sound, word_splice
 from app.credits import COUNTED, lock
+from app.db import utcnow
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import WAITING, Job, JobStatus, Usage
@@ -75,8 +76,6 @@ def say(db: Session, user: User, project: Project, text: str) -> None:
     a run goes on, its next turn reads it (a turn already in flight, the one after). It never
     starts a run: after Stop or a delivery it waits, unread, for the next Make it, which reads
     every unread note. Nothing is charged for it."""
-    from app.db import utcnow
-
     lock(db, Project, project.id)  # never lost to a run starting or ending as it lands
     db.refresh(project)
     going = active(db, project)
@@ -256,16 +255,20 @@ def ended(db: Session, project: Project) -> str:
                  if j.input.get("ended")), "")  # fmt: skip
 
 
-def stop(db: Session, project: Project, why: str = "Stopped.") -> None:
-    """No more turns. A turn not yet asked is cancelled (only if the worker hasn't taken it);
-    one being asked finishes, and what its call cost is recorded and charged as ever (a paid
-    call is always logged), but nothing more is done."""
+STOPPED = "Stopped."  # a person pressed Stop: the run's `ended`, with who and when (S-gaps-01)
+
+
+def stop(db: Session, project: Project, by: int) -> None:
+    """A person's Stop (`by`): no more turns. A turn not yet asked is cancelled (only if the
+    worker hasn't taken it); one being asked finishes, and what its call cost is recorded and
+    charged as ever (a paid call is always logged), but nothing more is done."""
     if last := active(db, project):
         db.execute(update(Job).where(Job.id == last.id, Job.status.in_(
             (JobStatus.queued, JobStatus.needs_owner_approval))).values(
             status=JobStatus.cancelled))  # fmt: skip
         db.refresh(last)
-        _end(last, why)
+        _end(last, STOPPED)
+        last.input = {**last.input, "stopped_by": by, "stopped_at": utcnow().isoformat()}
         db.commit()
 
 
