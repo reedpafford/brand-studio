@@ -91,8 +91,7 @@ board("S4-02", "Ask cards", "Kinds 2 of 2: story choice, open question, start OK
 
 # ---------- states ----------
 uploading = ask_card("The director needs you", "Who plays the husband?", None, ways=(),
-    body_extra=f'<div class="row g3" style="padding:10px;border:1px dashed var(--border-strong);border-radius:8px">{media("skit_2",48,64,tag=False)}<div class="col g1 grow"><span class="t-sm w6">husband-ref.jpg</span><div class="prog"><i style="width:62%"></i></div><span class="t-xs muted">Uploading · 1.4 of 2.2 MB</span></div><span class="iconbtn">{ic("x","s14")}</span></div>'
-    + f'<label class="row g2 t-sm"><span class="check"></span>Also add him to Resilia’s Cast &amp; places</label>')
+    body_extra=f'<div class="row g3" style="padding:10px;border:1px dashed var(--border-strong);border-radius:8px">{media("skit_2",48,64,tag=False)}<div class="col g1 grow"><span class="t-sm w6">husband-ref.jpg</span><div class="prog"><i style="width:62%"></i></div><span class="t-xs muted">Uploading · 1.4 of 2.2 MB</span></div><span class="iconbtn">{ic("x","s14")}</span></div>')
 
 generating = ask_card("The director needs you", "Who plays the husband?", None, ways=(),
     options=[(None, "Option 1", "drawing…"), (None, "Option 2", "drawing…"), (None, "Option 3", "drawing…")],
@@ -125,7 +124,7 @@ queue = f'''<div class="col g2"><div class="pinbar" style="margin:0">{ic("circle
 
 board("S4-03", "Ask cards", "States: uploading, generating, ready, answered, not needed, failed, held, several",
       sheet("Ask cards: states", "One card moves through these states in place. Answered cards fold to one line and can be changed.",
-            [cell("Uploading", uploading, "the add-to-library box starts unticked"), cell("Generating options", generating, "price and time shown"),
+            [cell("Uploading", uploading, "used for this video; add people to the brand in Cast & places"), cell("Generating options", generating, "price and time shown"),
              cell("Options ready", ready, "pick, more like it, or change"), cell("Answered (folded)", answered),
              cell("Answered by the owner, on an editor’s card", answered_owner), cell("No longer needed", not_needed),
              cell("Generating failed", failed, "free retry when nothing was charged"), cell("Editor’s paid generation held for the owner", held),

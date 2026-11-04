@@ -45,12 +45,12 @@ Below: what they found, what was fixed, and what's still open for Reed.
 - The locked-line alternatives and the one-press split.
 - The cut editor's words under the player, with the director's edits marked and Undo on each.
 
-## Still open for Reed
+## Reed's answers (3 Nov)
 
-1. **The director redoing things on its own (rule 11).** Rule 11 says automatic checks never redo anything on their own. Your 3 Nov director brief says the director watches every take and redoes what's weak within the budget. The boards follow the brief because it's newer. OK?
-2. **Adding an upload to the brand (rule 12).** When you upload a person in an ask card, there's one unticked box: "Also add him to Resilia's Cast & places" (S4-03). Generated looks never get it. Keep the box, or drop it for now?
-3. **Approve all (rule 21).** v6 has no per-item approval list: the director approves clean work itself, and only flags come to you. So "Approve all" appears nowhere. The "Check prompts before takes" setting would sit in the Locks menu; it isn't drawn. OK?
-4. **What changes from v5 (rule 33).** Free folders in the rail replace "Project ▾". The video page becomes chat plus a preview panel instead of the tab row. New video replaces the Freestyle form. Scripts, Media, Usage, Team and Settings stay as v5.
-5. **A story choice with a default.** S4-02 says "I'll go with A at 11:00 if I don't hear back". Should the director pick on its own after a while, or wait as long as it takes?
-6. **Phone boards.** There are 15, not about 25. The other states use the same layouts as desktop: same card, narrower.
-7. **Not reviewed against the 57-board v5 canvas.** It's in the UX-Auditor's session, which I couldn't reach.
+1. **The director redoing on its own:** the brief wins. Rule 11 needs updating or removing; that's for the Producer (see `build-plan.md`).
+2. **The upload box:** dropped for now. S4-03 no longer has it. Uploads are used for that video; people are added to a brand in Cast & places.
+3. **No Approve all:** agreed.
+4. **The changes from v5:** approved ("these are awesome").
+5. **A story choice:** after a while, the director picks its suggestion, as S4-02 shows.
+
+Still to know: there are 15 phone boards, because the other states reuse the desktop layouts. The 57-board v5 canvas wasn't reachable for comparison.

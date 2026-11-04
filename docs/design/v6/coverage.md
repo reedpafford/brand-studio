@@ -16,8 +16,8 @@ Board ids are the file names in `boards/` (for example S3-09 = `boards/S3-09.jpg
 | 8 | Nothing reaches Clips without an approved sheet; one-click way to Cast | S5-01, S5-03 (no sheet: Clips waits, one press away), S3-05 | |
 | 9 | One person is never two roles; Merge with Undo; "They're different" | S5-01, S5-03 | Merge's Undo is the standard toast (as in S0-01's delete); not drawn separately. |
 | 10 | Character sheets set faces; outfits per video | S5-03 (outfit just for this video) | Attaching sheets is server work. |
-| 11 | No automatic face checks; changing to Advice that never redoes on its own | S3-09, S6-03, S6-04, S6-05 | **Open for Reed:** the director brief (3 Nov) has the director watch every take and redo what's weak within the budget, and the boards show it doing that. That is newer than rule 11's "never redoes on its own", so the boards follow the brief (rule 1). Please confirm. |
-| 12 | Only Cast & places characters go into the library; video looks can't be saved | S4-03, S5-01 ("not in the library"), S8 | No "save to brand" on generated looks (Reed, 3 Nov). **Open for Reed:** S4-03 has one unticked box on an upload, "Also add him to Resilia's Cast & places". Keep it, or drop it until later? |
+| 11 | No automatic face checks; changing to Advice that never redoes on its own | S3-09, S6-03, S6-04, S6-05 | The boards follow the director brief: the director watches every take and redoes what's weak within the budget. Reed confirmed on 3 Nov ("the brief is preferred"); the Producer updates rule 11. |
+| 12 | Only Cast & places characters go into the library; video looks can't be saved | S4-03, S5-01 ("not in the library"), S8 | No "save to brand" on generated looks, and no "add to the brand" on uploads for now (Reed, 3 Nov). People are added to a brand in Cast & places (S8). |
 | 13 | App screens are on a phone in the hand; real-image cut-ins off by default | S4-01 (brand item card) | Shot composition is director work, not a screen. |
 | 14 | A brand's screen is the screen; coin and numbers follow the story | S4-01 ("I'll change the coin and numbers to fit"), S8-05 | |
 | 15 | A fomo mention accepts any home-type screen (Advice) | Not covered | Director check, with no screen of its own. |
@@ -41,6 +41,7 @@ Board ids are the file names in `boards/` (for example S3-09 = `boards/S3-09.jpg
 | 33 | v5 wireframes, Linear look, desktop first, rail, Needs you, Freestyle | Whole set | Same tokens (light), Inter, one indigo main press per screen, statuses as a dot plus words. **Changes from v5 for Reed to approve:** free folders in the rail replace "Project ▾"; the video page is chat plus panel; New video replaces Freestyle's form. Scripts, Media, Usage, Team and Settings stay as v5. |
 | 34 | The "up to" price covers the run; the owner's OK covers it; 75-credit director limit; past it waits for the owner | S3-02 (start OK), S3-06, S4-02 | **Partly covered:** the "director's own time past 75 credits" ask reuses the budget card (S4-02) with other words. Not drawn separately. |
 | 35 | The director's first move is a treatment | S3-02 | Its craft sources aren't a screen. |
+| — | A story choice with no answer (Reed, 3 Nov): after a while the director takes its own pick | S4-02 | New; the Producer adds it to the rules. |
 | 36 | "Up to" on every price before a charge | Every price on every board | Budgets use the usual cost (S3-06's "budget $16.86"). |
 
 ## Reed's director brief (3 Nov)
