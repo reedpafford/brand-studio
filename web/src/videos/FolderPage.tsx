@@ -72,7 +72,7 @@ export function FolderPage() {
   const name = folder === UNSORTED ? "Unsorted" : (open?.name ?? "");
   const view = params.get("view") === "list" || (params.get("view") !== "cards" && (first?.counts.all ?? 0) >= BIG) ? "list" : "cards";
   const list = rail && view === "list";
-  const actions = useFolderActions(brandId, folder === UNSORTED ? undefined : open);
+  const actions = useFolderActions(brandId, folder === UNSORTED ? undefined : open, (parent) => set({ folder: parent ? String(parent) : "", archived: "", tab: "" }));
 
   // Several selected (S1-07): ticks on hover, on every card once one is ticked; Esc or × clears them.
   // A selection belongs to the view it was made in: another folder, tab or Archived starts with none.
@@ -120,12 +120,21 @@ export function FolderPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, rows.length]);
 
   const newVideo = `/b/${brandId}/videos/new${folder === UNSORTED ? "" : `?folder=${folder}`}`;
+  // The phone's tabs have no Media yet: it opens from here until the v6 tabs (P-01) come.
+  const media = (
+    <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control items-center gap-0.5 text-sm text-accent-text">
+      Media
+      <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
+    </Link>
+  );
   if (brand && tree.data && !tree.data.folders.length && !tree.data.unsorted.count && first && !first.archived && !q && !archived)
     return (
       <main>
         <header className="flex h-[52px] items-center gap-2.5 border-b border-border bg-surface px-5">
           <span className="text-sm font-semibold">{brand.name}</span>
           <span className="text-sm text-muted">New brand</span>
+          <span className="flex-1" />
+          {!rail && media}
         </header>
         <SetUp brand={brand} others={(brands ?? []).filter((b) => b.id !== brandId).map((b) => b.name)} owner={owner} newVideo={newVideo} />
       </main>
@@ -193,12 +202,7 @@ export function FolderPage() {
           </div>
         )}
         <span className="flex-1" />
-        {!rail && ( // the phone's tabs have no Media yet: it opens from here until the v6 tabs (P-01) come
-          <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control items-center gap-0.5 text-sm text-accent-text">
-            Media
-            <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
-          </Link>
-        )}
+        {!rail && media}
         {!rail && (
           <button type="button" aria-label="Search this folder" aria-pressed={searching} onClick={() => setSearching(!searching)} className="grid size-control place-items-center rounded-md text-text">
             <Search size={20} strokeWidth={1.75} aria-hidden />

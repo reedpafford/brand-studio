@@ -12,7 +12,7 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 /** A folder's actions (S0-01's menu; S-gaps-02 for the header's ⋯): New folder inside, Rename, Move to…, Delete folder…,
  *  each with its dialog, and the toast with Undo after a delete. `items` renders the menu rows; `dialogs` their dialogs. */
-export function useFolderActions(brandId: number, folder: Branch | undefined) {
+export function useFolderActions(brandId: number, folder: Branch | undefined, onDeleted?: (parentId: number | null) => void) {
   const [asking, setAsking] = useState<Asking>(null);
   const [name, setName] = useState("");
   const [to, setTo] = useState<number | null>(null);
@@ -28,12 +28,13 @@ export function useFolderActions(brandId: number, folder: Branch | undefined) {
   const rename = useMutation({ mutationFn: () => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { name: name.trim() } })), onSuccess: done });
   const move = useMutation({ mutationFn: () => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { parent_id: to } })), onSuccess: done });
   const remove = useMutation({
-    mutationFn: () => must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: id } } })),
-    onSuccess: async ({ data }) => {
-      await done();
-      const n = data!.ideas;
-      toast(`Deleted “${folder!.name}”. ${n ? `Its ${plural(n, "idea")} moved to Unsorted.` : "Nothing was in it."}`, async () => {
-        await must(api.POST("/folders/{folder_id}/restore", { params: { path: { folder_id: id } } })).catch((e: Error) => toast(e.message, undefined, "error"));
+    // What was deleted is kept with the answer: once the tree reloads, this folder is gone from it.
+    mutationFn: async () => ({ ...(await must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: id } } }))).data!, id, name: folder?.name ?? "", parent: folder?.parent_id ?? null }),
+    onSuccess: ({ ideas: n, id: gone, name: was, parent }) => {
+      onDeleted?.(parent); // off the folder that's gone: to the one it was in, or Unsorted
+      void done();
+      toast(`Deleted “${was}”. ${n ? `Its ${plural(n, "idea")} moved to Unsorted.` : "Nothing was in it."}`, async () => {
+        await must(api.POST("/folders/{folder_id}/restore", { params: { path: { folder_id: gone } } })).catch((e: Error) => toast(e.message, undefined, "error"));
         await refresh();
       });
     },
