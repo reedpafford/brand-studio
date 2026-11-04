@@ -12,3 +12,4 @@ deploy/backups/
 
 # TypeScript incremental build output
 *.tsbuildinfo
+server/.study/

@@ -75,7 +75,7 @@ test("New script: at 390 the breadcrumb's Scripts link is a 44 px press; at 1440
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
   const brand = await emptyBrand(page, "Touch Script Co");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/b/${brand}/scripts/new?kind=story`);
+  await page.goto(`/b/${brand}/scripts/new?format=dialogue`);
   const link = (await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Scripts" }).boundingBox())!;
   expect(link.height).toBeGreaterThanOrEqual(44);
   expect(link.width).toBeGreaterThanOrEqual(44);

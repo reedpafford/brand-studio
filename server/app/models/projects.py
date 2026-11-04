@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import JSON, ForeignKey, String, Text
+from sqlalchemy import JSON, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, object_session
 
 from app.db import Base, Entity
@@ -51,6 +51,11 @@ class Project(Filed, Entity, Base):
         ForeignKey("script_drafts.id", use_alter=True)
     )
     hidden: Mapped[bool] = mapped_column(default=False)  # a freestyle's own (app/hidden.py)
+    # What Make forecast (app/scorecard.py: credits, and what it rests on); Reed's 1-5 score
+    forecast_credits: Mapped[Decimal | None] = mapped_column(Numeric(12, 3))
+    forecast_basis: Mapped[str | None] = mapped_column(String(60))
+    score: Mapped[int | None]
+    score_note: Mapped[str | None] = mapped_column(Text)
 
     # Song ads: the take this video is timed to (starts as its version's Preferred, rule 31)
     song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id", use_alter=True))
@@ -112,7 +117,7 @@ class Project(Filed, Entity, Base):
 
         db = object_session(self)
         take = db.get(SongTake, self.song_take_id) if db and self.song_take_id else None
-        return math.ceil(take.trim_to or take.seconds or 0) if take else 0
+        return math.ceil(take.seconds or 0) if take else 0
 
     @property
     def budget_credits(self) -> Decimal:

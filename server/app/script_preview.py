@@ -70,7 +70,8 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
     planned = plans.block(db, project, plans.script(db, project))
     if planned:
         parts.append(planned[0])
-    parts.append(breakdown.video_model_block(breakdown.video_model()))
+    m = breakdown.video_model(look=script.look, kind=script.kind)
+    parts.append(breakdown.video_model_block(m))
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
         parts.append(escape_block(ref))
@@ -111,7 +112,7 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
     project = stand_in_project(db, script, draft)
     shown = project_screens(db, project)
     screens = {f"screen:{s.id}": s.default_for for s in shown}
-    m = breakdown.video_model()
+    m = breakdown.video_model(look=script.look, kind=script.kind)
     brand = db.get(Brand, script.brand_id)
     found = check.breakdown(
         draft.text, bd, screens, m.duration.min, m.duration.max, brand.end_line, brand.name,

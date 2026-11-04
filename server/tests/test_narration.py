@@ -1,6 +1,9 @@
 """Narrated ads (flows N1): one voice reads the version's words, its pauses trimmed on real
 silence, each sentence timed; all on the free stand-ins (no paid calls)."""
 
+import json
+from pathlib import Path
+
 import pytest
 
 from app import narration
@@ -43,6 +46,15 @@ def test_a_remakes_note_reaches_the_voice_as_a_tag_and_the_voice_is_one_of_ours(
                              "voice": "Jane"}  # fmt: skip
     with pytest.raises(ValueError, match="voice"):
         narration.job(WORDS, "Morgan Freeman")
+
+
+def test_the_male_voices_are_elevenlabs_own_names():
+    """Austin and Roger are in Replicate's elevenlabs/v3 voice list (the recorded schema)."""
+    recorded = Path(__file__).parent / "fixtures/replicate/elevenlabs_v3.json"
+    schema = json.loads(recorded.read_text())
+    assert set(narration.VOICES) <= set(schema["enums"]["voice"]["enum"])
+    for voice in ("Austin", "Roger"):
+        assert narration.job(WORDS, voice)["input"]["voice"] == voice
 
 
 def test_a_narration_is_made_trimmed_timed_and_used(app, db, owner, narrated):
@@ -196,13 +208,12 @@ def test_a_script_switches_between_dialogue_and_narrated_before_publishing(owner
     from app.routes.script_library import SONG_STAYS
 
     base = narrated.rsplit("/drafts", 1)[0]
-    assert owner.patch(base, json={"kind": "story"}).json()["kind"] == "story"
+    assert owner.patch(base, json={"format": "dialogue"}).json()["kind"] == "story"
     assert owner.get(base).json()["versions"][0]["reads_narrated"]  # all one voice (ST0 Advice)
-    assert owner.patch(base, json={"kind": "narrated"}).json()["kind"] == "narrated"  # Undo
-    assert owner.patch(base, json={"kind": "song"}).status_code == 422  # never to a song
+    assert owner.patch(base, json={"format": "narrated"}).json()["kind"] == "narrated"  # Undo
     brand = owner.get("/brands").json()[0]["id"]
     song = owner.post("/scripts", json={"brand_id": brand, "title": "S", "kind": "song"}).json()
-    no = owner.patch(f"/scripts/{song['id']}", json={"kind": "narrated"})
+    no = owner.patch(f"/scripts/{song['id']}", json={"format": "narrated"})
     assert (no.status_code, no.json()["detail"]) == (409, SONG_STAYS)
 
 

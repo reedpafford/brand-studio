@@ -48,20 +48,18 @@ export function SingerCard({ script: s }: { script: Script }) {
 export function SongRow({ scriptId }: { scriptId: number }) {
   const take = useSongs(scriptId).data?.takes.find((t) => t.preferred && !t.out_of_date);
   if (!take || take.file_id === null || take.seconds === null) return <p className="flex items-center gap-2 text-sm text-muted"><Music size={16} strokeWidth={1.75} aria-hidden /> No song yet</p>;
-  const length = take.trim_to ?? take.seconds;
   return (
     <div className="space-y-1">
-      <p className="text-sm">Song: Take {take.number} · {clock(length)}{take.trim_to != null ? " (trimmed)" : ""}</p>
+      <p className="text-sm">Song: Take {take.number} · {clock(take.seconds)}</p>
       <TakePlayer fileId={take.file_id} seconds={take.seconds} peaks={take.peaks} label={`Take ${take.number}`} />
     </div>
   );
 }
 
-/** The Preferred take's length as "0:31" (its trimmed part, if trimmed), or null: for price lines like "About 40 credits to make · 0:31 song". */
+/** The Preferred take's length as "0:31" or null: for price lines like "About 40 credits to make · 0:31 song". */
 export function useSongLength(scriptId: number, enabled: boolean) {
   const take = useSongs(scriptId, enabled).data?.takes.find((t) => t.preferred && !t.out_of_date);
-  const seconds = take?.trim_to ?? take?.seconds;
-  return seconds != null ? clock(seconds) : null;
+  return take?.seconds != null ? clock(take.seconds) : null;
 }
 
 /** The song's lines on a Publish card: the song, its style and who sings (flows S7). */

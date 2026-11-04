@@ -201,7 +201,7 @@ def main() -> None:
     parser.add_argument("--cap-usd", type=Decimal, default=Decimal(2))
     parser.add_argument("--cases", nargs="*", help="only these case ids (default: all)")
     parser.add_argument("--print", action="store_true", help="write prompts only; no calls")
-    parser.add_argument("--style", default="house", help="a style id from app/prompts/styles")
+    parser.add_argument("--style", default="house", help="a style id from app/guides/styles")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     client = None if args.print else make_client(os.environ.get("STUDIO_ANTHROPIC_KEY", ""))

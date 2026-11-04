@@ -31,7 +31,6 @@ class SongTake(Entity, Base):
     timing_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
     timing: Mapped[dict | None] = mapped_column(JSON)  # app/song_timing.measure, once read
     seconds: Mapped[float | None]
-    trim_to: Mapped[float | None]  # "Use the first 0:55" when the whole song is over the cap
     timing_guessed: Mapped[bool] = mapped_column(default=False)  # spread evenly, not heard
     advice: Mapped[list[str]] = mapped_column(JSON, default=list)  # e.g. "Timing guessed"
     preferred: Mapped[bool] = mapped_column(default=False)

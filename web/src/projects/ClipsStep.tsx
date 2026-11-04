@@ -6,6 +6,7 @@ import { GOING, useJobs } from "../clip/History";
 import { useBreakdown } from "./BreakdownPane";
 import { ReviewChip } from "./Checks";
 import { ClipsPane } from "./ClipsPane";
+import { HostPieces } from "./HostPieces";
 import { Dot } from "./OtherTakes";
 import { StoryboardPane, useFrames } from "./StoryboardPane";
 import { useProjectClips } from "./useProgress";
@@ -147,6 +148,7 @@ export function ClipsStep(props: {
             <ReviewChip projectId={projectId} />
             <div ref={setStillsBar} className="space-y-2 empty:hidden" />
             <div ref={setClipsBar} className="space-y-2 empty:hidden" />
+            <HostPieces projectId={projectId} aspect={props.aspect} />
           </div>
         </div>
       )}

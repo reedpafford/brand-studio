@@ -9,7 +9,7 @@ import { setViewport } from "../test/viewport";
 import { SongSetting, SongStrip } from "./VideoSong";
 
 const editor = { id: 2, email: "sam@b.co", name: "Sam", role: "editor", workspace_id: 1 };
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, retry_credits: 0, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.2, 0.8], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, in_video: false, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, retry_credits: 0, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: true, out_of_date: false, peaks: [0.2, 0.8], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, in_video: false, ...o });
 const songs = (takes: object[], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, song_take_id: 1, ...o });
 const project = (o: object = {}) => ({ id: 5, brand_id: 1, name: "Bowl song", own_script: false, credits_used: 10, budget_credits: 100, budget_pct: 10, ...o }) as never;
 
@@ -43,18 +43,6 @@ test("the strip shows the video's song with Change song; Use this take asks firs
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/5/song")?.body).toEqual({ take_id: 2 }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "PUT /projects/5/song").at(-1)?.body).toEqual({ take_id: 1 }));
-});
-
-test("a take too long for this video can't be used until 'Use the first 0:55' trims it", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /projects/5/songs": [200, songs([take(), take({ id: 2, number: 2, preferred: false, seconds: 72, over_cap: true, fits_until: 55 })])], "POST /songs/2/trim": [200, take({ id: 2, number: 2, trim_to: 55 })] });
-  show(project(), false);
-  await userEvent.click(await screen.findByRole("button", { name: "Change song" }));
-  const panel = await screen.findByRole("dialog", { name: "Change song" });
-  expect(within(panel).getByRole("button", { name: "Use this take" })).toBeDisabled();
-  expect(within(panel).getByText("Too long for this video.")).toBeInTheDocument();
-  await userEvent.click(within(panel).getByRole("button", { name: /Use the first 0:55 · free/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /songs/2/trim")).toBe(true));
 });
 
 test("at 390 Change song opens as a sheet with Close", async () => {
