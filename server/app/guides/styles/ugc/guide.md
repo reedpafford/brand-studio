@@ -28,20 +28,20 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - Straight cutaways now (talker full frame, then B-roll full frame); the talker laid over the B-roll once the keyed host layer ships.
 
 ## Stills
-- Two kinds of shot. **Talker shots:** the main speaker, from their sheet, chest-up (waist-up to selfie-close), centred, eye level, eyes straight into the lens, in their own room, which is in focus behind them. **B-roll shots:** one literal picture of what the line says at that moment, with no talker in it.
+- Two kinds of shot. **Talker shots:** the main speaker, from their sheet, chest-up (waist-up to selfie-close), centred, eye level, eyes straight into the lens, in their own room, which is in focus behind them. **B-roll shots:** one literal picture of what the line says at that moment. The talker can be in a B-roll shot when the line is about them and their feeling, and isn't when it has nothing to do with them; it depends on the script, not a rule (Reed, 4 Nov: "if the speaker says something like 'my husband was ashamed of me' it would be impactful to show some emotion with the speaker ... like 'the three men walked up to the car', it is all about context").
 - The talker's room says who they are: a clinic for someone in scrubs, a workshop with shelves of jars, a home studio, a kitchen. Real clutter, window daylight, nothing staged.
 - B-roll is one of four kinds, mixed freely: everyday people filmed like a phone video and as real as the talker, with natural skin, real rooms and phone light, never a polished or rendered look (the problem and the "after": tired on a sofa, a hand on a belly, smiling in the sun); a glossy, translucent 3D render of what happens inside the body, on a soft grey or dark studio background, when the line explains a mechanism; objects and ingredients in natural settings (a wooden table, a garden, stone), often a hand holding the product up; proof-style footage (a lab bench, a microscope view, another person's selfie testimonial, generated like the talker).
 - Each B-roll picture keeps its own light and colour: phone footage natural, renders saturated and glossy. Don't grade them to match each other or the talker.
 - No captions, titles or overlay text in any picture (rule 32). A product label or a phone screen that matters is in the picture and its words are stated exactly.
 
 ## Clips
-- The talker is made with HeyGen Avatar IV from one still, in one take, lip-synced to the video's own voice-over (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."), so the voice keeps its real inflection.
+- The talker is made with HeyGen Avatar IV from one still, in one take, lip-synced to the video's own voice-over (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."), so the voice keeps its real inflection. When the script or the editor's scene direction calls for more motion, action or real-world interaction from the talker than one still can give, the talker is made with Omni instead (Reed, 4 Nov: "if we eventually need more action/realism and motion in the talking head, we will use omni").
 - A talker shot is one continuous take: the camera locked off or nearly (no push-ins, no pans on the talker), the speaker talking into the lens with small natural head movement, blinks and hand gestures at the bottom of the frame.
 - B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item. Short B-roll pictures (under the video model's shortest clip) are separate generated clips, spliced together in the edit.
 - The talker's voice runs across the B-roll: it never stops for a cutaway.
 
 ## Breakdown
-- Cut to B-roll on the phrase that names something showable; come back to the talker for opinions, turns and the close. The talker is in every talker shot and in none of the B-roll.
+- Cut to B-roll on the phrase that names something showable; come back to the talker for opinions, turns and the close. The talker is in every talker shot, and in B-roll only when the line is about them (see Shots).
 - One talker for the whole video, in one outfit and one room.
 
 ## pacing
@@ -93,7 +93,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - Optional, all added in the edit: picture-in-picture photos over the talker's chest for a named object; designed offer cards (the product, arrows or a seal) in the last third; split screens of the problem in the hook; a white or coloured flash, a whip or zoom blur, or a light-leak flash as a transition.
 
 ## Sound and delivery
-- One close, clean voice from the first frame to the last.
+- One voice from the first frame to the last, as if recorded close on a phone in a real room: the room's ambience under it and real emotion in the inflection (Reed, 3 Nov: "a much more realistic voice, with room ambience and emotion influction").
 - Pitch variability 3.6–5.8 semitones: warm and calm to lively; urgency shows as rising peaks.
 - No music by default. When asked for: a quiet bed 21–24 dB under the voice that can change as the video turns to the offer. Effects only on editor transitions (a whoosh on a flash, one low impact).
 
