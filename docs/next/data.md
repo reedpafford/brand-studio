@@ -42,6 +42,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n25 | Forecast and score (app/scorecard.py): four nullable columns on `projects` for what Make forecast and the owner's 1–5 score and note. Downgrade drops them | Spend-metrics | #1258 |
 | n26 | A script's format (stream D): `scripts.format`, nullable text, a guides format id (null: the format its `kind` stands for); `scripts.kind` is always that format's engine. `freestyles.type` widens to 40 characters and now holds a format id (or `one_clip`). Downgrade drops the column and narrows the type | Format-picker | — |
 | n28 | No per-video cap (Reed, 2026-11-03: "Just remove the cap entirely"): drops `credit_limits.per_video_max_credits` and `song_takes.trim_to` ("Use the first 0:55", which only existed to fit a song video under the cap). A take that was trimmed is used whole. Downgrade adds both back (the cap at 729, trims empty) | No-video-cap | — |
+| n29 | Media for v5 (C_Media): new `media_uploads` {workspace_id, brand_id, created_by_id, file_id, seconds (null for a picture), removed_at}, a picture or clip added to a brand's Media, checked by its contents; `final_videos.seconds` (nullable, no default: kept when a cut is made, an older one's read once). Downgrade drops both | Next-Server | #1267 |
 
 ## Merge order (the chain on `next`)
 
@@ -76,6 +77,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 24 | n25 | #1258 | n24 | On `next` (a8e8b9d2) |
 | 25 | n26 | — | n25 | On its PR |
 | 26 | n28 | — | n27 | On its PR |
+| 27 | n29 | #1267 | n28 | Waiting |
 
 ## 1. Song ads
 
