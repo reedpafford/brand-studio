@@ -25,7 +25,6 @@ from app.clip_takes import in_english
 from app.credits import (
     COUNTED,
     FREESTYLE,
-    PAST_APPROVED,
     USD_PER_CREDIT,
     WAIT_OK,
     approved,
@@ -485,12 +484,7 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
         status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
     moves = [FreestyleItem(**{**m, "text": words.get(m["id"], m["text"])})
              for m in director.thread(db, project) if m["kind"] == "move"]  # fmt: skip
-    held = db.scalars(select(Job).where(  # a turn, take or watch past the price, mid-run
-        Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval,
-        Job.id.not_in([j.id for j in sends]))).all()  # fmt: skip
-    moves += [FreestyleItem(id=f"j{j.id}", kind="move", at=j.created_at, who="Director",
-                            text=j.input.get("held") or PAST_APPROVED, status="held")
-              for j in held]  # fmt: skip
+    # a turn, take or watch held past the price mid-run: its run's card is held and says why
     delivered = db.scalar(select(func.max(Job.created_at)).where(  # the last delivery
         Job.project_id == project.id, Job.input["step"].as_string() == director.STEP,
         Job.input["result"].as_string() == "Delivered."))  # fmt: skip

@@ -45,7 +45,7 @@ def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
             ] == [held.id]  # Needs you  # fmt: skip
     (card,) = [m for m in editor.get(f"/projects/{pid}/director").json()["thread"] if m.get("run")]
     assert card["status"] == "held"  # its card waits, saying why
-    assert card["text"] == ("Waiting for the owner’s OK · the director has used its own limit of "
+    assert card["text"] == ("Waiting for the owner's OK · the director has used its own limit of "
                             "35 credits")  # fmt: skip
 
     assert owner.post(f"/jobs/{held.id}/approve").status_code == 200

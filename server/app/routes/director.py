@@ -274,7 +274,12 @@ def progress(project_id: int, user: User = Depends(current_user), db: Session = 
     return run_progress.record(db, get_project(db, user, project_id), user)
 
 
-@router.post("/seen", status_code=204)
+# Its own router: a per-person mark, not a change to the video, so any teammate who can open
+# it may mark what they watched (the router above lets only its maker or the owner write).
+watched = APIRouter(prefix="/projects/{project_id}/director", tags=["director"])
+
+
+@watched.post("/seen", status_code=204)
 def seen(
     project_id: int, body: SeenIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):

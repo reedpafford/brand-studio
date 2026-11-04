@@ -10,6 +10,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.db import utcnow
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
@@ -22,22 +23,24 @@ FIXES = ("mute", "splice_word", "pick_take")  # the free fixes its rows name
 
 def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     """The note for the run `job` delivers: {made, redid [{at, clip, text}], unsure, needs,
-    spent, up_to, spent_usd, cut, seconds, clips}: money as charged (credits) and as really
-    spent (dollars, the owner's only: `shown`)."""
+    spent, up_to, since, until, cut, seconds, clips}: money as charged, in credits. The real
+    dollars are never kept here (any teammate can read a job's output): `shown` reads them
+    for the owner from the run's `since` to `until`."""
     turns = runs(db, project)[job.input[RUN]["id"]]
     cut = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id)
                     .order_by(FinalVideo.id.desc()).limit(1))  # fmt: skip
     number = db.scalar(select(func.count()).where(
         FinalVideo.project_id == project.id, FinalVideo.id <= cut.id)) if cut else 0  # fmt: skip
     spans = _spans(db, cut)
-    credits, usd = spent(db, project, turns[0].created_at)
+    credits, _ = spent(db, project, turns[0].created_at)
     rows = _remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
     return {"made": said(decision.get("made") or decision.get("why") or ""),
             "redid": sorted(rows, key=lambda r: r["at"]),
             "unsure": said(decision.get("unsure") or ""),
             "needs": said(decision.get("needs") or ""),
             "spent": float(credits), "up_to": float(price_of(db, project)),
-            "spent_usd": float(usd), "cut": number, "clips": len(spans),
+            "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),
+            "cut": number, "clips": len(spans),
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
 
 
@@ -114,25 +117,29 @@ def _fixed(db: Session, project: Project, spans: list[dict], turns: list[Job]) -
     return out
 
 
-def shown(note: dict | None, owner: bool) -> dict | None:
+def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict | None:
     """The note as this person reads it, with its cost line: dollars to the owner ("$9.84
-    spent of up to $16.86"), credits only to anyone else ("96 credits used of up to 164 (59%
-    of the budget)")."""
+    spent of up to $16.86", what the run really cost), credits only to anyone else ("96
+    credits used of up to 164 (59% of the budget)")."""
+    from datetime import datetime
+
     from app.credits import price
     from app.models.credits import USD_PER_CREDIT
 
     if not note:
         return None
-    up_to = Decimal(str(note["up_to"]))
+    up_to, usd = Decimal(str(note["up_to"])), None
     if owner:
+        _, usd = spent(db, project, datetime.fromisoformat(note["since"]),
+                       datetime.fromisoformat(note["until"]))  # fmt: skip
         most = math.ceil(up_to * USD_PER_CREDIT * 100) / 100
-        cost = f"${note['spent_usd']:.2f} spent of up to ${most:.2f}"
+        cost = f"${usd:.2f} spent of up to ${most:.2f}"
     else:
         pct = round(100 * note["spent"] / note["up_to"]) if note["up_to"] else 0
         cost = (f"{round(note['spent'])} credits used of up to {price(up_to)} "
                 f"({pct}% of the budget)")  # fmt: skip
     return {**note, "needs": note["needs"] or NOTHING, "cost": cost,
-            "spent_usd": note["spent_usd"] if owner else None}  # fmt: skip
+            "spent_usd": float(usd) if owner else None}  # fmt: skip
 
 
 def plain(note: dict) -> str:

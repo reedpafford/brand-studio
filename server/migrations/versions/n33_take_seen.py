@@ -1,6 +1,7 @@
 """Who has watched which take (v6 piece C, S3-09): new table `take_seen` (take_id, user_id,
 created_at; one row a person a take). A clip the director changed stays outlined for a person
-until they've watched its new take. Downgrade drops the table.
+until they've watched its new take. Its rows go with their take or person (ON DELETE
+CASCADE: a new breakdown deletes the takes of clips it drops). Downgrade drops the table.
 
 Revision ID: n33
 Revises: n32
@@ -23,8 +24,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(["take_id"], ["clip_takes.id"],
-                                name=op.f("fk_take_seen_take_id_clip_takes")),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name=op.f("fk_take_seen_user_id_users")),
+                                name=op.f("fk_take_seen_take_id_clip_takes"), ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name=op.f("fk_take_seen_user_id_users"),
+                                ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_take_seen")),
         sa.UniqueConstraint("take_id", "user_id", name=op.f("uq_take_seen_take_id")),
     )  # fmt: skip

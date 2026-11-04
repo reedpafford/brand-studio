@@ -10,6 +10,7 @@ from sqlalchemy import event
 from sqlalchemy.orm.attributes import flag_modified
 
 from app import delivery, director, run_progress
+from app.clip_takes import take_credits
 from app.db import utcnow
 from app.models.breakdowns import BreakdownVersion
 from app.models.checks import ItemCheck
@@ -17,6 +18,7 @@ from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.prompts.schemas import DirectorTurn
+from app.routes.jobs import _with_check
 from tests.test_director import _made, _run
 
 
@@ -139,7 +141,7 @@ def test_the_director_writes_the_notes_words_and_the_server_the_rest(app, db, ow
     assert note["unsure"] == "The end holds long; say “shorter end”."
     texts = [r["text"] for r in note["redid"]]
     assert "Clip 1: garbled words burned in. Remade without them." in texts  # no "c1: " left
-    seen = delivery.shown(note, owner=False)
+    seen = delivery.shown(db, project, note, owner=False)
     assert seen["needs"] == "Your OK on clip 1." and seen["spent_usd"] is None
 
 
@@ -180,14 +182,17 @@ def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch)
 
     held = _job(db, row, JobStatus.needs_owner_approval,
                 held="Waiting for the owner's OK: redo past the budget.")  # fmt: skip
+    ok = _with_check(db, held)  # what the owner's OK charges: the take and its check (rule 36)
     assert (cell()["state"], cell()["note"], cell()["credits"]) == (
-        "waiting", "Redo past the budget.", "$0.32")  # fmt: skip
-    assert cell(editor)["credits"] == "4 credits"  # an editor reads credits
+        "waiting", "Redo past the budget.", run_progress.money(ok, True))  # fmt: skip
+    assert cell(editor)["credits"] == run_progress.money(ok, False)  # an editor reads credits
 
     held.status, held.error = JobStatus.failed, "The service was busy."
     db.commit()
     assert (cell()["state"], cell()["note"]) == (
         "failed", "The service was busy. Nothing was charged.")  # fmt: skip
+    again = take_credits(db, db.get(Project, pid), row)  # as Make a take quotes it
+    assert cell()["credits"] == run_progress.money(again, True)
 
     monkeypatch.setattr(run_progress, "median", lambda _: 180)  # a take takes about 3 min
     making = _job(db, row, JobStatus.running)
@@ -233,7 +238,11 @@ def test_waiting_for_an_ok_reads_as_such_to_each_person(app, db, owner, editor):
     assert (p["status"], p["title"], p["tone"]) == ("waiting", "Waiting for your OK", "wait")
     assert p["sub"] == "remaking clip 1 goes past the video's budget"
     assert any(s["state"] == "wait" for s in p["steps"])
-    assert _progress(editor, pid)["title"] == "Waiting for the owner’s OK"  # never a name
+    assert _progress(editor, pid)["title"] == "Waiting for the owner's OK"  # never a name
+    (card,) = [m for m in owner.get(f"/projects/{pid}/director").json()["thread"] if m.get("run")]
+    assert card["status"] == "held" and card["text"].startswith("Waiting for your OK · ")
+    (card,) = [m for m in editor.get(f"/projects/{pid}/director").json()["thread"] if m.get("run")]
+    assert card["text"].startswith("Waiting for the owner's OK · ")
 
 
 def test_stopped_by_a_person_says_who_and_what_carrying_on_costs(app, db, owner, editor):
@@ -270,8 +279,16 @@ def test_a_run_that_stopped_on_a_problem_offers_a_one_click_fix(app, db, owner, 
     p = _progress(owner, pid)
     assert (p["title"], p["failed"]["title"]) == ("Stopped at clip 1", "Clip 1 couldn’t be made")
     assert p["failed"]["clip"] == _clip(db, pid).id
-    assert [(f["kind"], f["price"]) for f in p["failed"]["fixes"]][0] == ("again", "$0.32")
+    again = run_progress.money(take_credits(db, db.get(Project, pid), _clip(db, pid)), True)
+    assert [(f["kind"], f["price"]) for f in p["failed"]["fixes"]][0] == ("again", again)
+    carry = run_progress.money(run_progress.price_of(db, db.get(Project, pid)), True)
+    assert p["failed"]["fixes"][1]["price"] == carry != "$0.00"  # a new run's whole "up to"
     assert "bad" in [s["state"] for s in p["steps"]]
+    last.input = {**last.input, "ended": "It stopped: the plan kept being refused."}
+    db.commit()
+    p = _progress(owner, pid)  # a clip failed earlier, but the stop says why: that's shown
+    assert (p["title"], p["failed"]["title"]) == ("Stopped", "The director stopped")
+    assert p["failed"]["why"] == "It stopped: the plan kept being refused."
 
 
 def test_a_revision_counts_its_changes(app, db, owner, editor):
@@ -321,3 +338,47 @@ def test_money_reads_as_dollars_to_the_owner_and_credits_to_everyone_else():
     assert run_progress.money(Decimal("3.1"), True) == "$0.32"  # rounded up, never below
     assert run_progress.money(Decimal("3.1"), False) == "4 credits"
     assert run_progress.money(1, False) == "1 credit"
+
+
+def test_another_editor_marks_what_they_watched(app, db, owner, editor):
+    """A seen mark is a person's own, not a change to the video: any teammate who can open it
+    may mark what they watched, and only for that person."""
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import PASSWORD
+
+    pid = _done(app, db, owner, editor)
+    two = _remade(db, _clip(db, pid))
+    token = owner.post("/team/invites", json={"email": "bo@example.com"}).json()["token"]
+    with TestClient(app) as bo:
+        bo.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
+        url = f"/projects/{pid}/director/seen"
+        assert bo.post(url, json={"take_ids": [two.id]}).status_code == 204
+        assert _progress(bo, pid)["changed"][0]["watched"] is True
+    assert _progress(editor, pid)["changed"][0]["watched"] is False
+
+
+def test_the_real_cost_is_never_kept_where_an_editor_can_read_it(app, db, owner, editor):
+    """Any teammate can read a job's output (GET /jobs): the note keeps credits and the run's
+    times, and the owner's dollars are read from Usage when the owner reads it."""
+    pid = _done(app, db, owner, editor)
+    deliver = director.turns(db, db.get(Project, pid))[-1]
+    assert "spent_usd" not in deliver.output["note"] and deliver.output["note"]["since"]
+    listed = editor.get(f"/jobs/{deliver.id}").json()
+    assert "spent_usd" not in str(listed)
+    note = next(m for m in owner.get(f"/projects/{pid}/director").json()["thread"]
+                if m.get("note"))["note"]  # fmt: skip
+    assert note["spent_usd"] == 0 and note["cost"].startswith("$0.00 spent of up to $")
+
+
+def test_a_held_turn_the_owner_declined_reads_as_stopped_with_the_reason(app, db, owner, editor):
+    pid = _done(app, db, owner, editor)
+    last = director.turns(db, db.get(Project, pid))[-1]
+    last.input = {k: v for k, v in last.input.items() if k not in ("ended", "result")}
+    last.input = {**last.input, "declined": True}
+    last.status, last.error = JobStatus.cancelled, "Not this week."
+    db.commit()
+    p = _progress(owner, pid)
+    assert (p["status"], p["tone"], p["failed"]) == ("stopped", "stop", None)
+    (card,) = [m for m in owner.get(f"/projects/{pid}/director").json()["thread"] if m.get("run")]
+    assert card["text"] == "The owner declined: Not this week."

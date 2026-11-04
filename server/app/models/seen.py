@@ -10,5 +10,7 @@ from app.db import Base, Entity
 class TakeSeen(Entity, Base):
     __tablename__ = "take_seen"
     __table_args__ = (UniqueConstraint("take_id", "user_id"),)
-    take_id: Mapped[int] = mapped_column(ForeignKey("clip_takes.id"), index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    take_id: Mapped[int] = mapped_column(
+        ForeignKey("clip_takes.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))

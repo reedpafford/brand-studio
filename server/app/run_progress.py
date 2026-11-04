@@ -70,8 +70,8 @@ def runs(db: Session, project: Project) -> dict[str, list[Job]]:
 
 
 def ending(turns: list[Job]) -> tuple[str, str]:
-    """(how a run ended: "" while it goes on, delivered, stopped by a person, or needs_fix;
-    the reason it gave)."""
+    """(how a run ended: "" while it goes on, delivered, stopped (a person's Stop, or the
+    owner declined its held turn), or needs_fix; the reason it gave)."""
     why = next((j.input["ended"] for j in reversed(turns) if j.input.get("ended")), None)
     if why is None and turns[-1].status != JobStatus.cancelled:
         return "", ""
@@ -79,6 +79,10 @@ def ending(turns: list[Job]) -> tuple[str, str]:
         return "delivered", why or ""
     if any(j.input.get(STOPPED_BY) for j in turns):
         return "stopped", why or "Stopped."
+    if turns[-1].input.get("declined"):  # the owner said no to its held turn: not a fault
+        return "stopped", f"The owner declined: {turns[-1].error}".rstrip(": ")
+    if turns[-1].input.get("withdrawn"):
+        return "stopped", "Withdrawn."
     return "needs_fix", why or "Stopped."
 
 
@@ -326,11 +330,13 @@ def price_of(db: Session, project: Project) -> Decimal:
     return budget(db, project) if project.hidden or draft is None else run_price(db, draft, project)
 
 
-def spent(db: Session, project: Project, since: datetime) -> tuple[Decimal, Decimal]:
-    """(credits charged, real dollars) on the video since `since`: what a run spent."""
+def spent(db: Session, project: Project, since: datetime,
+          until: datetime | None = None) -> tuple[Decimal, Decimal]:  # fmt: skip
+    """(credits charged, real dollars) on the video from `since` to `until`: a run's spend."""
     from app.credits import COUNTED
 
-    mine = (Job.project_id == project.id, Job.created_at >= since)
+    mine = (Job.project_id == project.id, Job.created_at >= since,
+            *((Job.created_at <= until,) if until else ()))  # fmt: skip
     credits = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(
         *mine, Job.status.in_(COUNTED)))  # fmt: skip
     usd = db.scalar(select(func.coalesce(func.sum(Usage.cost_usd), 0)).join(
@@ -386,13 +392,14 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         head = ("delivered", _took(turns), _n(total, "clip") + (
             f" · {redone} redone after watching" if redone else ""), "done")  # fmt: skip
     elif how:
-        bad = next((c for c in cells if c["state"] == "failed" and how == "needs_fix"), None)
+        bad = _blamed(cells, why) if how == "needs_fix" else None
+        plain = how == "needs_fix" or why == "Stopped."
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
-                f"{made} of {total} clips made",
+                f"{made} of {total} clips made" if plain else said(why),
                 "bad" if how == "needs_fix" else "stop")  # fmt: skip
     elif holds is not None:
         why = (holds.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
-        head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner’s OK",
+        head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
                 why, "wait")  # fmt: skip
     elif revising:
         head = ("revising", "Revising", _changes(video, turns, start), "now")
@@ -402,11 +409,15 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     else:
         head = ("working", "Cutting it together" if total else "Planning",
                 f"{total} clips made" if total else "", "now")  # fmt: skip
-    left = max(Decimal(0), up_to - charged)
+    again = price_of(db, project)  # carrying on is a new run: its whole "up to" (rule 36)
+    for c in cells:  # a press's price as it charges: the take with the check that rides along
+        if c["state"] in ("waiting", "failed"):
+            c["credits"] = money(_take_price(db, video, c), owner)
     out = {"run": run_id, "status": head[0], "title": head[1], "sub": head[2], "tone": head[3],
            "started_at": start, "ended_at": _end_at(turns) if how else None, "clips": total,
            "made": made, "redone": redone, "scene_at": at, "scenes": scenes,
-           "counts": {"all": total, "redone": redone, "flagged": sum(c["found"] for c in cells),
+           "counts": {"all": total, "redone": redone,
+                      "flagged": sum(c["state"] == "flagged" for c in cells),
                       "needs_you": sum(c["state"] in ("flagged", "waiting", "failed")
                                        for c in cells)},
            "minutes_left": None if how else _left(video, cells, start, now),
@@ -416,13 +427,27 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id",
                                           "watched")} for c in cells if c["changed"]],
            "stopped": None, "failed": None}  # fmt: skip
-    if how == "stopped":
-        by = next(j.input for j in turns if j.input.get(STOPPED_BY))
-        out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"], "made": made,
-                          "total": total, "carry_on": money(left, owner)}  # fmt: skip
+    by = next((j.input for j in turns if j.input.get(STOPPED_BY)), None)
+    if how == "stopped" and by:  # a person's Stop (a declined turn: its reason is the sub)
+        out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"],
+                          "made": made, "total": total,
+                          "carry_on": money(again, owner)}  # fmt: skip
     if how == "needs_fix":
-        out["failed"] = _failed(video, cells, why, owner, left)
+        out["failed"] = _failed(video, cells, why, owner, again)
     return out
+
+
+def _take_price(db: Session, video: _Video, c: dict) -> Decimal:
+    """What the press that moves a clip on charges: the owner's OK of its held take (with the
+    take check riding along, as Approve charges), or a new take as Make a take charges it."""
+    from app.clip_takes import take_credits
+    from app.routes.jobs import _with_check
+
+    row = next(r for r in video.clips if r.clip_id == c["clip_id"])
+    held = next((j for j in video.jobs.get(row.id, []) if j.status == HELD), None)
+    if held is not None:
+        return _with_check(db, held)
+    return take_credits(db, video.project, row)  # with its check, as Make a take quotes it
 
 
 def _left(video: _Video, cells: list[dict], start: datetime, now: datetime) -> int | None:
@@ -434,11 +459,19 @@ def _left(video: _Video, cells: list[dict], start: datetime, now: datetime) -> i
     return max(1, math.ceil(pace * left / 60)) if left else None
 
 
-def _failed(video: _Video, cells: list[dict], why: str, owner: bool, left: Decimal) -> dict:
+def _blamed(cells: list[dict], why: str) -> dict | None:
+    """The failed clip the run stopped on, when its reason names it ("Clip 3's take failed 3
+    times"); else None, and the reason itself is shown."""
+    named = said(why).lower()
+    return next((c for c in cells if c["state"] == "failed"
+                 and re.search(rf"\bclip {c['number']}\b", named)), None)  # fmt: skip
+
+
+def _failed(video: _Video, cells: list[dict], why: str, owner: bool, again: Decimal) -> dict:
     """What stopped the run, and its one-click fixes (rule 22): the clip that failed made
     again at its own price, or carry on from where it stopped."""
-    carry = {"kind": "carry_on", "label": "Carry on", "price": money(left, owner)}
-    bad = next((c for c in cells if c["state"] == "failed"), None)
+    carry = {"kind": "carry_on", "label": "Carry on", "price": money(again, owner)}
+    bad = _blamed(cells, why)
     if bad is None:
         return {"title": "The director stopped", "why": said(why), "clip": None, "fixes": [carry]}
     again = {"kind": "again", "label": "Try again", "price": bad["credits"]}
@@ -457,8 +490,11 @@ def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
     for run_id, turns in every.items():
         how, why = ending(turns)
         head = {} if how else record(db, project, None) or {}  # the newest run, going
+        if owner and head.get("status") == "waiting":
+            head["title"] = "Waiting for your OK"
         if how:
-            text = {"delivered": _took(turns), "stopped": "Stopped"}.get(how) or said(why)
+            text = (_took(turns) if how == "delivered" else "Stopped" if why == "Stopped."
+                    else said(why))  # fmt: skip
         else:  # its card in a line
             text = " · ".join(x for x in (head.get("title"), head.get("sub")) if x)
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"
@@ -470,7 +506,7 @@ def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
                             "who": "Director", "text": GRANTED.format(n=price(own_limit())),
                             "status": "done"})  # fmt: skip
             if j.input.get("result") == "Delivered.":
-                note = delivery.shown((j.output or {}).get("note"), owner)
+                note = delivery.shown(db, project, (j.output or {}).get("note"), owner)
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                             "who": "Director", "status": "done", "note": note,
                             "text": delivery.plain(note) if note
