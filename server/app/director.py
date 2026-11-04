@@ -724,7 +724,9 @@ def video_state(db: Session, project: Project) -> dict:
     data = bd.data if bd else {}  # what each clip shows and says (the Director: not only verdicts)
     shots = {x["id"]: x for sc in data.get("scenes", []) for x in sc.get("shots", [])}
     ids_of = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
-    clips = []
+    from app import talker
+
+    clips, said = [], talker.clips(db, project)  # a talker's clips come from its take, at the cut
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                           .order_by(ProjectClip.id)):  # fmt: skip
         takes = db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)
@@ -746,7 +748,8 @@ def video_state(db: Session, project: Project) -> dict:
                                                if row.picked_take_id else None),
                       "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
                                 if k in ("state", "how")},
-                      **word_splice.state(db, row)})  # splice_word  # fmt: skip
+                      **word_splice.state(db, row),  # splice_word
+                      **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
     acted = [j for j in turns(db, project) if "result" in j.input]
@@ -827,8 +830,9 @@ def choose(state: dict) -> dict:
         return asked  # a new note: what the person asked, once; then cut and deliver again
     if not clips or any(c["stale"] for c in clips):
         return go("clip_prompts", "The clips need their prompts.")
-    if any(not c["takes"] for c in clips):
+    if any(not c["takes"] and not c.get("talker") for c in clips):
         return go("make_take", "Some clips have no take yet.")
+    clips = [c for c in clips if c["takes"]]  # a talker's are cut from its take at the cut
     for c in clips:  # the brand said wrong, with a clean copy in the same voice (word_splice)
         if c.get("can_splice"):
             word = c["can_splice"][0]["word"]
@@ -1021,7 +1025,7 @@ def _next_fix(found: list[dict], clips: dict) -> dict | None:
         c = clips.get(f.get("clip_id"))
         if c is None:
             continue
-        if f.get("fix") == "redo" and len(c["takes"]) == 1:
+        if f.get("fix") == "redo" and len(c["takes"]) == 1 and not c.get("talker"):
             return {
                 **base,
                 "tool": "make_take",

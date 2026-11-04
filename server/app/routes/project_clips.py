@@ -30,6 +30,7 @@ from app import (
     take_approval,
     take_mute,
     take_sound,
+    talker,
     video_settings,
     word_splice,
 )
@@ -849,6 +850,10 @@ def make_video(
     clips = _clips(db, project.id)
     if not clips:
         raise HTTPException(409, "Write the clip prompts and make the clips first.")
+    if talker.on(db, project):  # a UGC talker's clips are cut from its one take, free
+        if not host.ready(db, project):
+            raise HTTPException(409, host.NOT_READY)
+        talker.fill(db, request.app.state.storage, project)
     left = sum(not c.approved for c in clips)
     if left:
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")

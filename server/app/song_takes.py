@@ -76,16 +76,18 @@ def _request(
     kie: float = 0.0,
     note: str = "",
     voice: str = narration.VOICE,
+    delivery: dict | None = None,
 ) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason.
     `free`: a request already paid for (it gave back fewer songs than asked). `kie`: the price
-    a real song through KIE counts at (0: not a real one)."""
+    a real song through KIE counts at (0: not a real one). `delivery`: a MiniMax voice's
+    emotion and reading (narration.job)."""
     from app.routes.jobs import enqueue
 
     if narrated(db, draft):  # one voice call (flows N1)
-        try:
-            job_input = narration.job(draft.text, voice, note)  # a remake's note: this one only
+        try:  # a remake's note: this one only
+            job_input = narration.job(draft.text, voice, note, **(delivery or {}))
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
         job_input = {**job_input, "step": "song_take", "on_script": draft.script_id}
@@ -116,13 +118,14 @@ def make(
     kie=0.0,
     note: str = "",
     voice: str = narration.VOICE,
+    delivery: dict | None = None,
 ) -> list[SongTake]:
     """Make 2 takes (one request) of the version's lyrics and style line. `kie`: a real
     song through KIE (KieSuno sings only those, never a request queued before)."""
     reads = {"kind": narration.KIND, "voice": voice} if narrated(db, draft) else {}
     if reads and any(state(db, t)[0] in ("making", "timing") for t in takes(db, draft, project)):
         raise HTTPException(409, narration.MAKING)  # one at a time: never two charged at once
-    job = _request(db, user, draft, project, kie=kie, note=note, voice=voice)
+    job = _request(db, user, draft, project, kie=kie, note=note, voice=voice, delivery=delivery)
     numbered = select(func.max(SongTake.number)).where(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )
@@ -165,9 +168,16 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
     song = db.get(StoredFile, take.file_id)
     kind = "narration_timing" if take.kind == narration.KIND else "song_timing"
     lyrics = check.narration_text(take.lyrics) if take.kind == narration.KIND else take.lyrics
+    read = {}
+    if take.kind == narration.KIND:  # its marked pauses kept; a UGC talker's in a room
+        from app import talker
+
+        video = db.get(Project, take.project_id) if take.project_id else None
+        read = {"pause": narration.kept_pause(db.get(Job, take.job_id).input),
+                "room": bool(video and talker.on(db, video))}  # fmt: skip
     job = enqueue(db, user, kind,
                   {"song_key": song.key, "lyrics": lyrics, "step": "song_timing",
-                   "spread": spread},
+                   "spread": spread, **read},
                   units=0, provider="local", prepaid=True)  # fmt: skip
     take.timing_job_id = job.id
     db.commit()
@@ -334,8 +344,9 @@ def try_again(db: Session, user: User, take: SongTake, kie: float = 0.0) -> None
     project = db.get(Project, take.project_id) if take.project_id else None
     old = db.get(Job, take.job_id)
     short = old.status == JobStatus.succeeded  # it gave fewer songs than asked
-    voice = take.voice or narration.VOICE  # a narration keeps its voice
-    job = _request(db, user, draft, project, free=_free_retry(old), kie=kie, voice=voice)
+    voice = take.voice or narration.VOICE  # a narration keeps its voice and delivery
+    job = _request(db, user, draft, project, free=_free_retry(old), kie=kie, voice=voice,
+                   delivery=narration.delivery(old.input))  # fmt: skip
     for pair in _by_job(db, SongTake.job_id, old):
         if short and pair.file_id is not None:  # a song that did arrive is kept as it is
             continue

@@ -52,7 +52,7 @@ def test_the_male_voices_are_elevenlabs_own_names():
     """Austin and Roger are in Replicate's elevenlabs/v3 voice list (the recorded schema)."""
     recorded = Path(__file__).parent / "fixtures/replicate/elevenlabs_v3.json"
     schema = json.loads(recorded.read_text())
-    assert set(narration.VOICES) <= set(schema["enums"]["voice"]["enum"])
+    assert set(narration.ELEVENLABS) <= set(schema["enums"]["voice"]["enum"])
     for voice in ("Austin", "Roger"):
         assert narration.job(WORDS, voice)["input"]["voice"] == voice
 

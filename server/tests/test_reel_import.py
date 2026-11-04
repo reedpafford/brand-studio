@@ -200,7 +200,8 @@ def test_the_deployed_workers_cover_every_provider():
     compose = (REPO_ROOT / "deploy/docker-compose.yml").read_text()
     lists = re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)
     covered = {name for found in lists for name in json.loads(found)}
-    assert covered == set(get_providers(Settings()))
+    every = Settings(heygen_api_key="set")  # HeyGen joins only once its key is set
+    assert covered == set(get_providers(every))
 
 
 def test_gemini_gets_a_small_watch_copy(app, owner, db, clip, tmp_path):

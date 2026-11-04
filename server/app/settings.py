@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # this price until KIE's real one is known (music.py A4).
     kie_budget_usd: float = 0.0
     kie_usd_per_request: float = 0.1028
+    # HeyGen (app/providers/heygen.py): the UGC talker. Key from HEYGEN_API_KEY only (never in
+    # code or logs); videos download only over https from HeyGen's file hosts.
+    heygen_base_url: str = "https://api.heygen.com"
+    heygen_api_key: SecretStr = Field(SecretStr(""), validation_alias="HEYGEN_API_KEY")
+    heygen_delivery_hosts: list[str] = ["heygen.ai"]
     # Real look samples on the test site (Reed, 2026-10-29): with the stand-ins on, a look's
     # sample (its still and 5 s clip) alone is made on Replicate, until the next one would
     # take their spend past this budget; after that a sample is a stand-in again.

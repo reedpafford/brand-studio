@@ -158,7 +158,12 @@ def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: li
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     """A clip longer than the video model makes is refused before any charge (QA #1013),
     never sent cut short: the breakdown's Split fix makes it into clips it can. One shot
-    can't be split: it's made shorter, or the video's model one that makes longer clips."""
+    can't be split: it's made shorter, or the video's model one that makes longer clips. A UGC
+    talker's clip is never made: it's cut from the talker's take (app/talker.py)."""
+    from app import talker
+
+    if talker.says(db, project, clip):
+        raise HTTPException(409, talker.SAID)
     m = video_model(project)
     if clip.seconds <= m.duration.max:
         return
