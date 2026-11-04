@@ -23,6 +23,9 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 
 type Part = "look" | "voice";
 
+/** The fields on the Look tab; everything else in the form is on Voice & lines. */
+const LOOK_KEYS: readonly string[] = ["name", "logo_file_id", "style_board_file_id", "colours", "fonts", "default_look", "default_language"];
+
 export function KitPage({ part = "look" }: { part?: Part }) {
   const { brandId } = useParams();
   const { data: brands, isError, refetch } = useBrands();
@@ -107,7 +110,11 @@ function KitForm({ brand, part, onChanged, quiet }: { brand: Brand; part: Part; 
     },
   });
   const changed = JSON.stringify(kit) !== JSON.stringify(saved);
-  useReportDirty(changed);
+  // Which tab holds the changes, for the leave question (F_BrandEdit: "Your changes to the Look aren't saved.").
+  const differs = (keys: readonly string[]) => keys.some((k) => JSON.stringify(kit[k as keyof typeof kit]) !== JSON.stringify(saved[k as keyof typeof saved]));
+  const look = differs(LOOK_KEYS);
+  const voice = differs(Object.keys(kit).filter((k) => !LOOK_KEYS.includes(k)));
+  useReportDirty(look && voice ? "the Look and Voice & lines" : look ? "the Look" : voice ? "Voice & lines" : "");
   useEffect(() => onChanged(changed), [changed, onChanged]);
   // A colour whose code is cleared is dropped on save (v5 F_BrandLook has no remove press per colour).
   const valid = kit.colours.every((c) => c === "" || HEX.test(c));

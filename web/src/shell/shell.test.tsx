@@ -1,11 +1,9 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { renderApp } from "../test/render";
 
 const owner = { id: 1, email: "reed@b.co", name: "Reed", role: "owner", workspace_id: 1 };
 const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
@@ -19,13 +17,7 @@ const members = [
 ];
 
 function renderAt(path: string) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  renderApp(path); // a data router, as the app runs (Brand asks before leaving with unsaved changes)
 }
 
 beforeEach(() => localStorage.clear());

@@ -115,12 +115,14 @@ export function Dialog({
   return createPortal(
     <>
       <div aria-hidden onClick={onCancel} className="fixed inset-0 z-50 bg-scrim" />
-      <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
+      <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
         <h2 id={heading} className="text-md font-semibold">
           {title}
         </h2>
         {children && <div className="mt-2 text-sm text-muted">{children}</div>}
-        <div className="mt-5 flex justify-end gap-2">
+        {/* Centred, so the outlined way back keeps its own 32 px beside a 36 px action (F_BrandEdit); with a reason under
+            the action, top-aligned so the two presses stay level. */}
+        <div className={`mt-5 flex justify-end gap-2 ${holdReason ? "items-start" : "items-center"}`}>
           {/* v5 F_BrandEdit: the way back is outlined; a danger action is filled red. */}
           <Button variant="secondary" onClick={onCancel}>
             {cancelLabel}
