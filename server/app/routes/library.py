@@ -112,6 +112,8 @@ class UsedIn(BaseModel):
     project_id: int
     name: str
     status: Literal["needs_you", "making", "done"]  # as the Videos tabs group it
+    still_file_id: int | None = None  # its newest still (S8-03's row picture)
+    at: UtcTime | None = None  # when it was delivered, else made
 
 
 class ItemUsd(BaseModel):
@@ -484,13 +486,18 @@ def _uses(db: Session, workspace_id: int, items: list[LibraryItem]) -> tuple[dic
 def used_in(db: Session, item: LibraryItem) -> list[UsedIn]:
     """The live videos that use the item. Every editor may open these (Videos lists them)."""
     from app import needs_you
+    from app.routes.production import progress
     from app.routes.project_clips import out_of_date
 
     used, videos = _uses(db, item.workspace_id, [item])
     shown = [v for v in videos if v.id in used[item.id]]
     waits = needs_you.waiting_on(db, shown, out_of_date(db, shown))
+    frames, _ = progress(db, [v.id for v in shown])
+    shown.sort(key=lambda v: v.finished_at or v.created_at, reverse=True)  # newest first
     return [UsedIn(project_id=v.id, name=v.name,
-                   status="needs_you" if v.id in waits else "done" if v.finished_at else "making")
+                   status="needs_you" if v.id in waits else "done" if v.finished_at else "making",
+                   still_file_id=(frames.get(v.id) or (None, None))[1],
+                   at=v.finished_at or v.created_at)
             for v in shown]  # fmt: skip
 
 

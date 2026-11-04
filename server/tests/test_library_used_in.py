@@ -15,22 +15,28 @@ def test_an_item_lists_the_videos_that_use_it(app, db, owner, editor, setup, cli
     pid = setup["project"]
     (mom,) = [c for c in editor.get("/library/character").json() if c["name"] == "Mom"]
     dip = [{"project_id": pid, "name": "Dip", "status": "making"}]
-    assert editor.get(f"/library/character/{mom['id']}").json()["used_in"] == dip  # its cast
-    assert owner.get(f"/library/character/{mom['id']}").json()["used_in"] == dip
+
+    def used(url):  # S8-03's rows also carry a still and a date
+        rows = editor.get(url).json()["used_in"]
+        assert all("still_file_id" in r and r["at"] for r in rows)
+        return [{k: r[k] for k in ("project_id", "name", "status")} for r in rows]
+
+    assert used(f"/library/character/{mom['id']}") == dip  # its cast
+    assert owner.get(f"/library/character/{mom['id']}").json()["used_in"][0]["name"] == "Dip"
 
     brand = first_brand(owner)
     place = editor.post("/library/place", json={"name": "Kitchen", "brand_ids": [brand]}).json()
     url = f"/library/place/{place['id']}"
-    assert editor.get(url).json()["used_in"] == []  # in the brand, but no video shows it
+    assert used(url) == []  # in the brand, but no video shows it
     row = db.get(ProjectClip, clip["id"])
     row.references = [*row.references, {"kind": "image", "id": f"place:{place['id']}"}]
     flag_modified(row, "references")
     db.commit()
-    assert editor.get(url).json()["used_in"] == dip  # pictured in a clip
+    assert used(url) == dip  # pictured in a clip
 
     db.get(Project, pid).archived_at = utcnow()
     db.commit()
-    assert editor.get(url).json()["used_in"] == []  # a deleted video isn't listed
+    assert used(url) == []  # a deleted video isn't listed
     assert "used_in" in editor.get("/library/place").json()[0]  # the list carries it empty
 
 
