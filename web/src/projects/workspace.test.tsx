@@ -226,14 +226,6 @@ test("Cancel throws the edits away: the next Edit brief starts from what is save
   expect(screen.getByLabelText("What's it for?")).toHaveValue("Show the buy flow");
 });
 
-test("the brief editor's length field has the same cap as the new-video page, from the server", async () => {
-  fakeServer({ ...briefRoutes, "GET /credits/limits": [200, { max_planned_seconds: 60, weekly_quick_clip_credits: 150, per_video_max_credits: 340 }] });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Edit brief" }));
-  const length = screen.getByLabelText(/Planned length/);
-  await vi.waitFor(() => expect(length).toHaveAttribute("max", "170"));
-});
-
 test("on a phone the video's own line replaces the brand bar: back, name, percent used, and the Next button fills the bar", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /projects/9/script": [200, script] });

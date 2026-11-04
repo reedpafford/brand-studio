@@ -95,3 +95,21 @@ def test_a_moved_script_says_to_make_the_breakdown_again(app, db, editor, setup)
     editor.put(script, json={"text": editor.get(script).json()["text"] + "\nMOM: Fine."})
     refused = editor.post(f"{url}/frames/{frame.id}/redo")
     assert refused.status_code == 409 and "Make the breakdown again" in refused.json()["detail"]
+
+
+def test_a_redo_between_its_rewrite_and_its_still_is_still_changing(app, db, editor, setup):  # noqa: F811
+    from datetime import timedelta
+
+    from app.db import utcnow
+
+    url, frame = _frame(app, db, editor, setup)
+    _new_breakdown(app, db, editor, setup)
+    wrote = db.get(Job, editor.post(f"{url}/frames/{frame.id}/redo").json()["id"])
+    wrote.status, wrote.finished_at = "succeeded", utcnow()  # saved; the still not queued yet
+    db.commit()
+    (shown,) = editor.get(url).json()
+    assert shown["change"]["status"] == "changing"
+    wrote.finished_at = utcnow() - timedelta(minutes=2)  # it never got there
+    db.commit()
+    (shown,) = editor.get(url).json()
+    assert shown["change"]["status"] == "failed"

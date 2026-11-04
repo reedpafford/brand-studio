@@ -67,10 +67,9 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const songLength = useSongLength(scriptId, s?.kind === "song");
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
-  // The whole video's price follows the picks (#956's estimate); over the video limit, the press says why.
+  // The whole video's price follows the picks (#956's estimate).
   const estimate = useMakeEstimate(scriptId, slot, picks, readyToMake);
   const whole = estimate.data?.credits ?? v?.estimate_credits ?? 0;
-  const held = (estimate.data?.over_cap ? estimate.data.reason || "Over the video limit." : null);
   return (
     <Panel title={s ? `${s.title} · Version ${letter}` : "Version"} onClose={onClose}>
       {!s || !v ? (
@@ -124,7 +123,7 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           {estimate.isError && <p role="alert" className={errorClass}>{estimate.error.message}</p>}
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
-            <Button charge="estimate" price={cost} disabled={held !== null} reason={held} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
+            <Button charge="estimate" price={cost} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
               Make this version
             </Button>
           ) : (

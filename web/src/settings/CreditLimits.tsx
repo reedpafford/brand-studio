@@ -6,11 +6,9 @@ import { SaveButton, SettingRow, type SettingsTop } from "./SettingRow";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
-type Limits = { weekly_quick_clip_credits: number; per_video_max_credits: number };
-
 const whole = (s: string) => /^\d+$/.test(s.trim());
 
-/** v5 D_Settings › Limits: the two limits Reed sets (the most one video may spend, each editor's own week), then two
+/** v5 D_Settings › Limits: the limit Reed sets (each editor's own week), then two
  *  facts: editors' new videos always wait for him, and what the director's own time cost this month (in dollars: owner only). */
 export function CreditLimits({ top }: { top: SettingsTop }) {
   const queryClient = useQueryClient();
@@ -18,18 +16,16 @@ export function CreditLimits({ top }: { top: SettingsTop }) {
   const limits = useQuery({ queryKey: ["credit-limits"], queryFn: async () => (await api.GET("/credits/limits")).data ?? null });
   const director = useQuery({ queryKey: ["usage", "summary", "month"], queryFn: async () => (await api.GET("/usage/summary", { params: { query: { period: "month" } } })).data ?? null });
   const allowances = useQuery({ queryKey: ["allowances"], queryFn: async () => (await api.GET("/credits/allowances")).data ?? [] });
-  const [edit, setEdit] = useState<{ weekly: string; cap: string } | null>(null);
+  const [edit, setEdit] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const saved = limits.data;
-  const weekly = edit?.weekly ?? String(saved?.weekly_quick_clip_credits ?? "");
-  const cap = edit?.cap ?? String(saved?.per_video_max_credits ?? "");
+  const weekly = edit ?? String(saved?.weekly_quick_clip_credits ?? "");
   const weeklyError = !whole(weekly) ? "Use a whole number of credits." : null;
-  const capError = !whole(cap) ? "Use a whole number of credits." : Number(cap) < 1 ? "The cap needs to be at least 1 credit." : null;
-  const changed = !!saved && (Number(weekly) !== saved.weekly_quick_clip_credits || Number(cap) !== saved.per_video_max_credits);
-  const reason = !changed ? "No changes yet" : weeklyError || capError ? "Fix the number above first" : null;
+  const changed = !!saved && Number(weekly) !== saved.weekly_quick_clip_credits;
+  const reason = !changed ? "No changes yet" : weeklyError ? "Fix the number above first" : null;
 
   const put = useMutation({
-    mutationFn: async (body: Limits) => {
+    mutationFn: async (body: { weekly_quick_clip_credits: number }) => {
       const { data, error } = await api.PUT("/credits/limits", { body });
       if (!data) throw new Error(errorText(error));
       return data;
@@ -43,7 +39,7 @@ export function CreditLimits({ top }: { top: SettingsTop }) {
     if (!saved) return;
     const before = { ...saved };
     put.mutate(
-      { weekly_quick_clip_credits: Number(weekly), per_video_max_credits: Number(cap) },
+      { weekly_quick_clip_credits: Number(weekly) },
       {
         onSuccess: () => {
           setEdit(null);
@@ -82,8 +78,7 @@ export function CreditLimits({ top }: { top: SettingsTop }) {
         <SaveButton reason={reason} busy={put.isPending} onClick={press} />,
       )}
       <section aria-label="Limits" className="max-w-[900px] sm:px-2">
-        {field("video-cap", "Most one video may spend", cap, (v) => setEdit({ weekly, cap: v }), capError, "A director run or change past this is refused, and the editor is told to start a new one.", "credits")}
-        {field("weekly-limit", "Each editor's own week", weekly, (v) => setEdit({ weekly: v, cap }), weeklyError, "Small presses (another take, a redo) inside this go ahead; past it they wait for you.", "credits a week")}
+        {field("weekly-limit", "Each editor's own week", weekly, setEdit, weeklyError, "Small presses (another take, a redo) inside this go ahead; past it they wait for you.", "credits a week")}
         <SettingRow label="Freestyle and new videos from editors" help="Every editor's Make it and every change asked waits for your OK. This can't be turned off.">
           <p className="text-xs text-muted sm:pt-1.5">Always asks you</p>
         </SettingRow>

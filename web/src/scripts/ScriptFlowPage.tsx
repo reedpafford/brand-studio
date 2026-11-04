@@ -28,7 +28,7 @@ import { HeldRequests } from "../approvals/HeldRequests";
 import { ScriptOverview } from "./ScriptOverview";
 import { MakeVideoPanel } from "./MakeVideoPanel";
 import { finished } from "../freestyle/FromScript";
-import { useEstimate } from "../freestyle/useFreestyle";
+import { directed, useEstimate } from "../freestyle/useFreestyle";
 
 const nextToMake = (s: Script) => {
   const ready = s.versions.filter(finished);
@@ -77,10 +77,9 @@ export function ScriptFlowPage() {
   const s = script.data;
   if (!s) return <p className="p-6">That script doesn't exist.</p>;
   const takes = songs.data?.takes ?? [];
-  // Only a Preferred take that sings the lyrics as they are now, and whose video fits the cap, counts: the screen holds the cap whatever the server says.
-  const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
+  // Only a Preferred take that sings the lyrics as they are now counts.
   const fit = takes.find((t) => t.preferred && !t.out_of_date);
-  const song = voiced ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date && t.status === "ready").length, making: takes.some((t) => t.status === "making" || t.status === "timing"), older: takes.filter((t) => t.out_of_date).length } : undefined;
+  const song = voiced ? { preferred: !!fit, takes: takes.filter((t) => !t.out_of_date && t.status === "ready").length, making: takes.some((t) => t.status === "making" || t.status === "timing"), older: takes.filter((t) => t.out_of_date).length } : undefined;
   // Every script opens on its Overview (C_ScriptOverview); one with no words yet opens on its first step.
   const overview = (params.get("step") ?? "overview") === "overview" && (hasWords(s) || s.published);
   const step = stepFromParam(s, params.get("step"));
@@ -177,7 +176,7 @@ export function ScriptFlowPage() {
           </Button>
         )}
         {/* Any finished version becomes a video from here; publishing isn't needed (E_ScriptMakeVideo, #1194). */}
-        {s.kind === "story" && toMake && (
+        {directed(s.kind) && toMake && (
           <Button variant={overview ? "primary" : "secondary"} dense icon={overview ? Plus : Clapperboard} price={overview ? (estimate.data ?? (estimate.isError ? undefined : null)) : undefined} charge="estimate" onClick={() => setParams({ ...(overview ? {} : { step }), video: String(toMake.slot) })}>
             Make a video
           </Button>

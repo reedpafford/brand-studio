@@ -196,8 +196,8 @@ test("a new script keeps every letter typed through its first save, at typing sp
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
   const brand = await emptyBrand(page, "Typing Speed Co");
-  for (const [kind, label, then, words] of [["story", "Write or paste the script", "Script · version A", "BO: Salmon?"], ["song", "Lyrics", "Lyrics", "[Verse] Salmon"]] as const) {
-    await page.goto(`/b/${brand}/scripts/new?kind=${kind}`);
+  for (const [kind, label, then, words] of [["dialogue", "Write or paste the script", "Script · version A", "BO: Salmon?"], ["song", "Lyrics", "Lyrics", "[Verse] Salmon"]] as const) {
+    await page.goto(`/b/${brand}/scripts/new?format=${kind}`);
     await page.getByLabel(label).pressSequentially(words, { delay: 60 });
     await expect(page.getByRole("navigation", { name: "Breadcrumb" })).not.toContainText("New script"); // it swapped to the script's own page
     await expect(page.getByLabel(then)).toHaveValue(words);

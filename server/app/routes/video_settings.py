@@ -25,7 +25,6 @@ class VideoModelOut(BaseModel):
     credits_per_second: float
     lip_sync: bool  # false: "No lip-sync" (a song video's Sung shots become B-roll)
     default: bool  # what Auto uses
-    over_cap: bool  # "Over the video limit"
 
 
 class ImageModelOut(BaseModel):
@@ -33,7 +32,6 @@ class ImageModelOut(BaseModel):
     name: str
     credits_per_still: float
     default: bool
-    over_cap: bool
 
 
 class SettingsOut(BaseModel):
@@ -73,7 +71,6 @@ class PreviewOut(BaseModel):
     roles_needing_look: list[str] = []  # roles this switch leaves with no look in it (ST1)
     sung_to_broll: int  # a no-lip-sync model on a song video
     over_budget: bool
-    over_cap: bool
     reason: str  # why Switch is disabled ("" when it isn't)
 
 

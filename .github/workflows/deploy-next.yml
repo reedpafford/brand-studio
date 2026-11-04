@@ -87,6 +87,8 @@ jobs:
           # Keys travel only when the stand-ins are switched off for an approved paid test.
           REPLICATE: ${{ (vars.NEXT_FAKE_PROVIDERS == 'false' || vars.NEXT_REAL_LOOK_SAMPLES == 'true') && secrets.REPLICATE_API_TOKEN || '' }}
           ANTHROPIC: ${{ (vars.NEXT_FAKE_PROVIDERS == 'false' || vars.NEXT_REAL_LANGUAGE_SAMPLES == 'true') && secrets.STUDIO_ANTHROPIC_KEY || '' }}
+          # HeyGen (UGC talkers): the key travels only when the stand-ins are switched off.
+          HEYGEN: ${{ vars.NEXT_FAKE_PROVIDERS == 'false' && secrets.HEYGEN_API_KEY || '' }}
           # Real songs: the key travels only while NEXT_KIE_SUNO is true.
           KIE: ${{ vars.NEXT_KIE_SUNO == 'true' && secrets.KIE_API_KEY || '' }}
           KIE_BUDGET: ${{ vars.NEXT_KIE_BUDGET_USD || '0' }}
@@ -108,7 +110,7 @@ jobs:
           SITE_READ_REAL: ${{ vars.NEXT_SITE_READ_REAL || 'false' }}
         run: |
           {
-            for name in FAKE GENERATION REPLICATE ANTHROPIC KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET REAL_BUDGET REAL_SINCE ITEM_CHECKS_PAID ITEM_CHECK_SCOPE NARRATION_MUSIC_PAID NARRATION_MUSIC_BUDGET SITE_READ_REAL; do
+            for name in FAKE GENERATION REPLICATE ANTHROPIC HEYGEN KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET REAL_BUDGET REAL_SINCE ITEM_CHECKS_PAID ITEM_CHECK_SCOPE NARRATION_MUSIC_PAID NARRATION_MUSIC_BUDGET SITE_READ_REAL; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat deploy/next/remote-deploy.sh

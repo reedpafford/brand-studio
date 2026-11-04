@@ -30,7 +30,7 @@ test("a paid button says its price inside", () => {
   expect(screen.getByRole("button", { name: "Make the video · free" })).toBeInTheDocument();
 });
 
-test("rule 32: a press whose charge can be lower says up to; rates and totals read one decimal, rounded up", () => {
+test("rule 36: a press whose charge can be lower says up to; rates and totals read one decimal, rounded up", () => {
   const { rerender } = render(<Button charge="estimate" price={2.04}>Write the script</Button>);
   expect(screen.getByRole("button", { name: "Write the script · up to 3 credits" })).toBeInTheDocument();
   rerender(<Button charge="estimate" price={3} usually={2}>Make the look</Button>);
