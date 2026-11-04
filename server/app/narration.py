@@ -25,6 +25,7 @@ VOICE = "Sarah"
 # Austin (deep, ~81 Hz) and Roger (relaxed, ~115 Hz) are male, from the presenter-1 test.
 # Words a second at our slowest voice (the paid test: 2.6; Reed's reference narrator reads 3.37)
 SLOWEST = 2.6
+VOICED = 0.84  # the least of a narration the voice is on in the guides (84%: the rest pauses)
 ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # MiniMax Speech 2.8 HD (replicate.com/minimax/speech-2.8-hd; platform.minimax.io's system
 # voice list): two men, three women in natural English for someone talking to their phone
@@ -74,8 +75,9 @@ def video_kind(db, project) -> str:
 
 def longest(db, draft, video=None) -> int:
     """A narrated version's length for a quote (rule 36: up to, never below): the narration
-    made for it (the video's own, else the version's Preferred), else its words at our
-    slowest narrator's pace (the dry run quoted 70 s for a script read in 104 s)."""
+    made for it (the video's own, else the version's Preferred), else its words at the
+    slowest pace its style's guide allows (`slowest`; the dry run quoted 70 s for a script
+    read in 104 s)."""
     from app import song_takes
     from app.models.songs import SongTake
 
@@ -83,7 +85,24 @@ def longest(db, draft, video=None) -> int:
     made = made or song_takes.preferred(db, draft)
     if made and made.seconds:
         return math.ceil(made.seconds)
-    return math.ceil(len(check.narration_text(draft.text or "").split()) / SLOWEST)
+    return math.ceil(
+        len(check.narration_text(draft.text or "").split()) / slowest(db, draft, video)
+    )
+
+
+def slowest(db, draft, video=None) -> float:
+    """Words a second a narration is quoted at, over its whole length: the lower bound of its
+    style's pace while speaking (its guide's "3.3–3.5 words a second", its format's when the
+    style says none; a read outside the range is made again at the speed that brings it in,
+    `retimed`), with the pauses the guides measured around it (VOICED); else SLOWEST."""
+    from app import guides
+    from app.models.script_library import Script
+    from app.script_library import format_id
+
+    script = db.get(Script, draft.script_id)
+    look = (video.look if video is not None else None) or script.look or "house"
+    found = guides.pace(look, format_id(script))
+    return round(found[0] * VOICED, 2) if found else SLOWEST
 
 
 NO_WORDS = "Write the words first: the narrator reads them as written."

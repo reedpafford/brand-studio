@@ -124,6 +124,9 @@ def test_a_narrated_quote_is_for_its_words_at_our_slowest_narrator_then_the_narr
     draft = db.get(ScriptDraft, video.script_draft_id)
     draft.text = "Pickles keep for weeks. " * 65  # 260 words: 54 s at 4.8, 100 s at 2.6
     assert longest(db, draft, video) == 100  # the host's seconds, and the B-roll's clock
+    video.look = "ugc"  # "3.3–3.5 words a second" while speaking, the voice on 84% at least
+    assert longest(db, draft, video) == 94  # 260 words / (3.3 x 0.84)
+    video.look = "house"
     made = SongTake(draft_id=draft.id, project_id=video.id, number=1, kind="narration",
                     job_id=db.query(Job).first().id, lyrics=draft.text, style_line="",
                     seconds=112.3)  # fmt: skip

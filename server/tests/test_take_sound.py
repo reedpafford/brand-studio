@@ -125,8 +125,8 @@ def _quiet(tmp: Path, db: int) -> bytes:
     out = tmp / f"quiet{db}.mp4"
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",  # noqa: S603, S607
                     "color=c=black:s=64x64:d=3", "-f", "lavfi", "-i",
-                    f"anoisesrc=d=3:c=pink:a=1,volume={db}dB", "-shortest", "-c:v", "libx264",
-                    "-c:a", "aac", str(out)], check=True)  # fmt: skip
+                    f"anoisesrc=d=3:c=pink:a=1:seed=1,volume={db}dB", "-shortest", "-c:v",
+                    "libx264", "-c:a", "aac", str(out)], check=True)  # fmt: skip
     return out.read_bytes()
 
 
@@ -145,8 +145,9 @@ def test_each_effect_is_set_to_its_loudness_against_the_voice_and_limited(tmp_pa
     assert take_sound.level("+40 dB") == take_sound.LOUDEST  # never past the cap
     assert take_sound.level("10 dB under the voice") == -10  # unsigned: under (QA on #1316)
     assert take_sound.level("3 dB over the voice") == 3 and take_sound.level("-10 dB") == -10
+    assert take_sound.level("over the voice by 3 dB") == 3
     out = take_sound.apply(silent, _quiet(tmp_path, -1), take_sound.LOUDEST)  # pushed hard
-    assert _loud(out, tmp_path)[1] <= -1.0  # limited at -3 dBFS (AAC overshoots a little)
+    assert _loud(out, tmp_path)[1] <= -1.5  # limited at -4 dBFS: under the voice's own peak
     assert take_sound.gain(None, -12) == 0.0  # nothing to measure: left as it is
 
 

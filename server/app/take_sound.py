@@ -9,7 +9,7 @@ negative prompt keeps out the music and speech-like sounds its README warns of, 
 and the music bed are their own layers. Each effect has its own loudness against the voice
 (`LEVELS`, or the decibels asked for): MMAudio's sound comes back very quiet (th-20s: -30 to
 -60 dB against a voice at -16 LUFS), so scaling it alone lost most of it under a narration;
-its loudness is measured and brought to the target, then a limiter keeps its peaks at -3 dBFS (the
+its loudness is measured and brought to the target, then a limiter keeps its peaks at -4 dBFS (the
 alarm in th-20s was the one effect louder than the voice). The sound is the take's sound
 layer (its made_with "sound"): the final cut mixes it under the take's own sound, so a narrated
 video keeps it under the voice with the music ducked (clip_takes._narrated_mix), and a new or
@@ -46,7 +46,8 @@ LEVELS = {"slight": -18.0, "normal": -12.0, "strong": -6.0, "over the voice": 3.
 LOWEST, LOUDEST = -30.0, 6.0  # a level asked for in decibels, at most this far either side
 GAIN = 30.0  # the most it's turned up or down (th-20s set them by hand: +2 to +19 dB)
 VOICE = room.LUFS
-LIMIT = -3.0  # dBFS: the limiter's ceiling on samples, under the voice's -1.5 dBTP (AAC overshoots)
+LIMIT = -4.0  # dBFS: the limiter's ceiling on samples, so after AAC's overshoot an effect's
+# true peak stays under the voice's -1.5 dBTP (QA on #1316: at -3 a pushed effect reached +0.3)
 CEILING = 10 ** (LIMIT / 20)
 SLIGHT = re.compile(r"\b(?:slight(?:ly)?|subtle|soft|quiet|gentle|faint|light|low|a (?:little|"
                     r"touch|bit))\b", re.I)  # fmt: skip
@@ -55,6 +56,7 @@ OVER = re.compile(r"\b(?:louder than|over|above|on top of) the (?:voice|narrat\w
                   r"speaker|words)\b", re.I)  # fmt: skip
 DB = re.compile(r"([-+−]?)(\d{1,2}(?:\.\d)?)\s*dB\b", re.I)
 UP = re.compile(r"\b(?:over|above|louder)\b", re.I)
+DOWN = re.compile(r"\b(?:under|below|beneath|quieter|softer)\b", re.I)
 PLAIN = "Sound effects that fit what happens on screen"
 NO_TAKE = "Make a take of this clip first."
 MAKING = "Sound is being added to this take already."
@@ -77,7 +79,7 @@ def level(asked: str) -> float:
     unless they say "+" or over, above or louder ("10 dB under the voice", "-10 dB", "+3 dB",
     "3 dB over the voice"), else its `how`."""
     if found := DB.search(asked):
-        up = found[1] == "+" or (not found[1] and UP.search(asked[found.end() :]))
+        up = found[1] == "+" or (not found[1] and UP.search(asked) and not DOWN.search(asked))
         db = float(found[2]) * (1 if up else -1)
         return min(max(db, LOWEST), LOUDEST)
     return LEVELS[how(asked)]
