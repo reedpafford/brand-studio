@@ -8,7 +8,7 @@ from datetime import timedelta
 import pytest
 
 from app import cut, cut_edits, cut_render
-from app.models.clips import FinalVideo
+from app.models.clips import ClipTake, FinalVideo
 from app.models.files import StoredFile
 from app.models.projects import Project
 from app.models.songs import SongTake
@@ -355,6 +355,12 @@ def test_a_lip_synced_piece_keeps_its_picture_on_the_words():
     moved = CutEdit(id=1, kind="trim", director=False, data={"piece": "c1", "end": 3.5})
     kept, _ = cut.replay(tl, [moved, swap])
     assert kept["pieces"][1]["from"] == 0.5  # another take of its clip, still on the words
+    remade = {
+        **tl,
+        "pieces": [{**p, "voiced": 77} if p.get("lipsync") else p for p in tl["pieces"]],
+    }
+    old, lost = cut.replay(remade, [swap])  # the talker's take remade since: it no longer applies
+    assert lost == {2} and old["pieces"][1]["take_id"] == 2
 
 
 def test_a_song_cut_must_reach_its_last_good_line_not_every_word_heard():
@@ -386,3 +392,26 @@ def test_redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter)
     owner.post(f"{presenter}/cut/undo-all")
     back = owner.post(f"{presenter}/cut/redo").json()
     assert [e["id"] for e in back["edits"] if not e["undone"]] == [first]
+
+
+def test_a_talker_piece_is_only_offered_takes_of_the_talker_in_use(db, owner, presenter):
+    """Rule 22: no swap on offer that a press would refuse."""
+    from app.models.accounts import User
+    from app.models.clips import ProjectClip
+
+    project = db.get(Project, int(presenter.rsplit("/", 1)[1]),
+                     execution_options={"see_hidden": True})  # fmt: skip
+    row = db.query(ProjectClip).filter_by(project_id=project.id).first()
+    picked = db.get(ClipTake, row.picked_take_id)
+    older = db.query(ClipTake).filter(ClipTake.clip_id == row.id, ClipTake.id != picked.id).first()
+    user = db.query(User).first()
+    tl = cut.timeline(db, project)[0]
+    piece = {**tl["pieces"][0], "lipsync": True, "picture": 99.0, "voiced": 5}
+    picked.made_with = {**picked.made_with, "talker": 5}
+    older.made_with = {**older.made_with, "talker": 4}  # cut from an older talker take
+    db.flush()
+    offered = {s["take_id"] for s in cut_edits.swaps(db, user, project, tl, piece)}
+    assert picked.id in offered and older.id not in offered
+    older.made_with = {**older.made_with, "talker": 5}  # the same talker take: on offer
+    db.flush()
+    assert older.id in {s["take_id"] for s in cut_edits.swaps(db, user, project, tl, piece)}

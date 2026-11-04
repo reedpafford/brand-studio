@@ -52,6 +52,7 @@ NO_WORDS = "This clip's words aren't heard yet, so it can't be re-timed to them.
 MAKING = "Cut {} is being made. It's ready in a moment."
 SYNCED = "This piece lip-syncs the voice: its start can only move later, with its picture."
 SYNCED_LONG = "This piece lip-syncs the voice: it can't run longer than its picture."
+OLD_TALKER = "That take wasn't cut from the talker take in use: its lips say another voice."
 NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
 SONG_CHANGED = (
     "{} of the clips were made for the video's earlier song. Press Rewrite clip prompts on "
@@ -129,13 +130,16 @@ def base(db: Session, project: Project) -> dict:
         lengths = ends_at(lengths, song_end(voice)) if mode == "song" else lengths
     pieces, at = [], 0.0
     synced = talker.clips(db, project)  # a talker's clips lip-sync the narration
+    made = next(iter(host.rows(db, project)[1:]), None) if synced else None
+    voiced = made.file_id if made else None  # the talker take in use (a take's made_with "talker")
     for r, d in zip(clips, lengths, strict=False):
         pieces.append({"id": r.clip_id, "clip_id": r.clip_id, "take_id": r.picked_take_id,
                        "source": label(r.clip_id), "start": round(at, 2),
                        "end": round(at + d, 2), "from": 0.0, "whole": mode == "takes",
                        "edited": False, "director": False,
                        "lipsync": r.clip_id in synced,
-                       **({"picture": round(d, 2)} if r.clip_id in synced else {})})  # fmt: skip
+                       **({"picture": round(d, 2), "voiced": voiced}
+                          if r.clip_id in synced else {})})  # fmt: skip
         at += d
     total = round(at, 2)
     tl = {
@@ -235,6 +239,8 @@ def _one(tl: dict, e: CutEdit) -> None:
             p.update(end=d["at"], whole=False, **mark)
             pieces.insert(i + 1, half)
         elif e.kind == "swap":
+            if p.get("lipsync") and d.get("voiced") != p.get("voiced"):
+                raise Refused(OLD_TALKER)  # also on a replay, once the talker is remade
             p.update(take_id=d["take_id"], source=d["source"], whole=False, **mark)
             p["from"] = p["from"] if p.get("lipsync") else 0.0  # on the words, as it was
         elif tl["mode"] == "takes":  # in the take's own seconds; the rest ripples

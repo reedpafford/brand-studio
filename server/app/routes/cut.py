@@ -59,7 +59,7 @@ class PresenterOut(BaseModel):
     spans: list[SpanOut]
 
 
-class VoiceOut(BaseModel):
+class CutVoiceOut(BaseModel):
     label: str  # "Dr. Pickle’s voice", "The song"
     text: str
 
@@ -95,7 +95,7 @@ class TimelineOut(BaseModel):
     length: float
     pieces: list[PieceOut]
     presenter: PresenterOut | None
-    voice: VoiceOut | None
+    voice: CutVoiceOut | None
     music: MusicOut | None
     words: list[WordOut]
     sfx: list[SoundFxOut]

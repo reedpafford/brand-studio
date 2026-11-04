@@ -20,6 +20,7 @@ from app.cut import (
     MIN,
     NO_HOST,
     NO_WORDS,
+    OLD_TALKER,
     SIZES,
     TAIL,
     TOO_SHORT,
@@ -113,8 +114,9 @@ def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
     p = tl["pieces"][i]
     if kind == "swap":
         take, source = _swap_source(db, user, project, p, d.get("take_id"), tl["mode"])
+        voiced = {"voiced": (take.made_with or {}).get("talker")} if p.get("lipsync") else {}
         return (
-            {"piece": p["id"], "take_id": take.id, "source": source},
+            {"piece": p["id"], "take_id": take.id, "source": source, **voiced},
             f"{label(p['id'])} swapped for {source[0].lower()}{source[1:]}",
             p["start"],
         )
@@ -238,9 +240,8 @@ def _swap_source(db: Session, user: User, project: Project, p: dict, take_id,
     talks = p.get("lipsync") or (take.made_with or {}).get("talker")
     if mode == "narrated" and talks and elsewhere:  # its lips say this stretch of the voice
         raise Refused("A talker piece swaps only for another take of its own clip.")
-    voiced = ((current.made_with or {}) if current else {}).get("talker")
-    if mode == "narrated" and p.get("lipsync") and (take.made_with or {}).get("talker") != voiced:
-        raise Refused("That take was cut from an older talker take: its lips say an older voice.")
+    if p.get("lipsync") and (take.made_with or {}).get("talker") != p.get("voiced"):
+        raise Refused(OLD_TALKER)
     if other.aspect_ratio != project.aspect_ratio:
         raise Refused(f"That take is {other.aspect_ratio}; this video is {project.aspect_ratio}.")
     if other.id != project.id:
@@ -417,15 +418,20 @@ def swaps(db: Session, user: User, project: Project, tl: dict, p: dict) -> list[
                         .where(ProjectClip.project_id.in_(seen))
                         .order_by(ClipTake.id.desc()).limit(LIBRARY))  # fmt: skip
     out += [one(t, "Library", "library") for t in others]
-    return [s for s in out if s["kind"] in ("in_cut", "take")
+    return [s for s in out if s["kind"] == "in_cut"
             or _swappable(db, user, project, p, s["take_id"], tl)]  # fmt: skip
 
 
 def _swappable(db: Session, user: User, project: Project, p: dict, take_id: int,
                tl: dict) -> bool:  # fmt: skip
-    """What `_swap_source` would take (the same shape; in a dialogue video, its own clip)."""
+    """A swap that would go through, so nothing's offered that a press refuses (rule 22): what
+    `_swap_source` takes, and what keeps every word with this take in the piece."""
+    swapped = {**p, "take_id": take_id, "whole": False,
+               "from": p["from"] if p.get("lipsync") else 0.0}  # fmt: skip
+    trial = {**tl, "pieces": [swapped if q["id"] == p["id"] else q for q in tl["pieces"]]}
     try:
         _swap_source(db, user, project, p, take_id, tl["mode"])
+        keeps_every_word(db, trial)
     except Refused:
         return False
     return True

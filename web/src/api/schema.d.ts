@@ -842,6 +842,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/{kind}/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * New Item Price
+         * @description What making a new one's sheet costs at most (S8-02 "Make one · up to $0.08", S8-07).
+         */
+        get: operations["new_item_price_library__kind__price_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/{kind}/{item_id}": {
         parameters: {
             query?: never;
@@ -893,7 +913,9 @@ export interface paths {
         post?: never;
         /**
          * Delete Item Forever
-         * @description Owner only, and only from the archive: removes the item and its history for good.
+         * @description Owner only, and only from the archive: removes the item and its history for good. A
+         *     product's pictures stay for the videos that showed them, deleted and no longer its; a place
+         *     stops being anyone's usual place.
          */
         delete: operations["delete_item_forever_library__kind___item_id__permanent_delete"];
         options?: never;
@@ -6918,6 +6940,13 @@ export interface components {
             /** Made At */
             made_at: string;
         };
+        /** CutVoiceOut */
+        CutVoiceOut: {
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+        };
         /** DeclineIn */
         DeclineIn: {
             /**
@@ -8012,6 +8041,15 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
+            /** Place Id */
+            place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -8049,11 +8087,34 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
+            /** Place Id */
+            place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Pictures
+             * @default []
+             */
+            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -8083,6 +8144,7 @@ export interface components {
              * @default 0
              */
             change_credits: number;
+            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -8133,6 +8195,19 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /** Presenter */
+            presenter?: boolean | null;
+            /** Place Id */
+            place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
+        };
+        /** ItemUsd */
+        ItemUsd: {
+            /** Sheet */
+            sheet: number;
+            /** Change */
+            change: number;
         };
         /** Items */
         Items: {
@@ -9290,6 +9365,15 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
+            /** Place Id */
+            place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -9393,6 +9477,20 @@ export interface components {
         PickIn: {
             /** File Id */
             file_id: number;
+        };
+        /**
+         * PictureOut
+         * @description A product's picture: a brand screen linked to it (its real photo, used as it is).
+         */
+        PictureOut: {
+            /** Screen Id */
+            screen_id: number;
+            /** File Id */
+            file_id: number;
+            /** Name */
+            name: string;
+            /** Variant */
+            variant: string;
         };
         /** PieceOut */
         PieceOut: {
@@ -9536,11 +9634,34 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
+            /** Place Id */
+            place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Pictures
+             * @default []
+             */
+            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -9570,6 +9691,7 @@ export interface components {
              * @default 0
              */
             change_credits: number;
+            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -9601,11 +9723,6 @@ export interface components {
             name: string;
             /** Spans */
             spans: components["schemas"]["SpanOut"][];
-        };
-        /** PriceOut */
-        PriceOut: {
-            /** Credits */
-            credits: number;
         };
         /** ProduceOut */
         ProduceOut: {
@@ -10544,11 +10661,8 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /**
-             * Product
-             * @default
-             */
-            product: string;
+            /** Product Id */
+            product_id?: number | null;
             /**
              * Variant
              * @default
@@ -10571,11 +10685,8 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /**
-             * Product
-             * @default
-             */
-            product: string;
+            /** Product Id */
+            product_id?: number | null;
             /**
              * Variant
              * @default
@@ -10585,6 +10696,8 @@ export interface components {
             id: number;
             /** Brand Id */
             brand_id: number;
+            /** Product */
+            product: string;
             /** Balance */
             balance: string;
             figure_spot: components["schemas"]["FigureSpot"] | null;
@@ -10599,8 +10712,8 @@ export interface components {
             tags?: string[] | null;
             /** Default For */
             default_for?: string[] | null;
-            /** Product */
-            product?: string | null;
+            /** Product Id */
+            product_id?: number | null;
             /** Variant */
             variant?: string | null;
             /** Balance */
@@ -11578,7 +11691,7 @@ export interface components {
             /** Pieces */
             pieces: components["schemas"]["PieceOut"][];
             presenter: components["schemas"]["PresenterOut"] | null;
-            voice: components["schemas"]["app__routes__cut__VoiceOut"] | null;
+            voice: components["schemas"]["CutVoiceOut"] | null;
             music: components["schemas"]["MusicOut"] | null;
             /** Words */
             words: components["schemas"]["WordOut"][];
@@ -11986,6 +12099,10 @@ export interface components {
              * @enum {string}
              */
             status: "needs_you" | "making" | "done";
+            /** Still File Id */
+            still_file_id?: number | null;
+            /** At */
+            at?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -12155,10 +12272,56 @@ export interface components {
             /** Sample File Id */
             sample_file_id: number;
         };
+        /** VoiceOut */
+        VoiceOut: {
+            /** Id */
+            id: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stock" | "cloned" | "described";
+            /** Stock Key */
+            stock_key: string | null;
+            /** Provider */
+            provider: string;
+            /** Description */
+            description: string;
+            /** Look */
+            look: string | null;
+            /** Brand Id */
+            brand_id: number | null;
+            /** Sample File Id */
+            sample_file_id: number | null;
+            /** Sample Url */
+            sample_url: string | null;
+            /** Preview File Id */
+            preview_file_id: number | null;
+            /** Cloned At */
+            cloned_at: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "cloning" | "ready" | "may_expire" | "expired" | "failed";
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Used By */
+            used_by: number[];
+        };
         /** VoicesOut */
         VoicesOut: {
             /** Voices */
-            voices: components["schemas"]["app__routes__voices__VoiceOut"][];
+            voices: components["schemas"]["VoiceOut"][];
             /** Clone Credits */
             clone_credits: number;
             /** Clone Usd */
@@ -12294,13 +12457,6 @@ export interface components {
             /** Reference Audios */
             reference_audios: number;
         };
-        /** VoiceOut */
-        app__routes__cut__VoiceOut: {
-            /** Label */
-            label: string;
-            /** Text */
-            text: string;
-        };
         /** EstimateOut */
         app__routes__freestyles__EstimateOut: {
             /** Credits */
@@ -12315,6 +12471,13 @@ export interface components {
             /** Usd */
             usd?: number | null;
         };
+        /** PriceOut */
+        app__routes__library__PriceOut: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd: number | null;
+        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -12327,6 +12490,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Sheet File Id */
+            sheet_file_id?: number | null;
         };
         /** UndoIn */
         app__routes__script_cast__UndoIn: {
@@ -12695,6 +12860,11 @@ export interface components {
             /** Have Colours */
             have_colours: string[];
         };
+        /** PriceOut */
+        app__routes__storyboard__PriceOut: {
+            /** Credits */
+            credits: number;
+        };
         /** InviteOut */
         app__routes__team__InviteOut: {
             /** Id */
@@ -12729,52 +12899,6 @@ export interface components {
             over_budget: boolean;
             /** Reason */
             reason: string;
-        };
-        /** VoiceOut */
-        app__routes__voices__VoiceOut: {
-            /** Id */
-            id: number | null;
-            /** Name */
-            name: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "stock" | "cloned" | "described";
-            /** Stock Key */
-            stock_key: string | null;
-            /** Provider */
-            provider: string;
-            /** Description */
-            description: string;
-            /** Look */
-            look: string | null;
-            /** Brand Id */
-            brand_id: number | null;
-            /** Sample File Id */
-            sample_file_id: number | null;
-            /** Sample Url */
-            sample_url: string | null;
-            /** Preview File Id */
-            preview_file_id: number | null;
-            /** Cloned At */
-            cloned_at: string | null;
-            /** Last Used At */
-            last_used_at: string | null;
-            /** Expires At */
-            expires_at: string | null;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "cloning" | "ready" | "may_expire" | "expired" | "failed";
-            /**
-             * Error
-             * @default
-             */
-            error: string;
-            /** Used By */
-            used_by: number[];
         };
     };
     responses: never;
@@ -14550,6 +14674,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_item_price_library__kind__price_get: {
+        parameters: {
+            query?: {
+                item_id?: number | null;
+            };
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__library__PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -19600,7 +19757,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PriceOut"];
+                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -20204,7 +20361,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PriceOut"];
+                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -24291,7 +24448,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__routes__voices__VoiceOut"];
+                    "application/json": components["schemas"]["VoiceOut"];
                 };
             };
             /** @description Validation Error */
@@ -24351,7 +24508,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__routes__voices__VoiceOut"];
+                    "application/json": components["schemas"]["VoiceOut"];
                 };
             };
             /** @description Validation Error */
