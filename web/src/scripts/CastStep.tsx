@@ -50,6 +50,13 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
       () => toast("Kept as two roles.", () => void roles.undoDismiss(p.a, p.b).catch((e: Error) => toast(e.message, undefined, "error"))),
       (e: Error) => toast(e.message, undefined, "error"),
     );
+  /** Unlock, with Undo that locks the role back to the same look. */
+  const unlock = (s: Slot) =>
+    act.unlock.mutate(s.id, {
+      onSuccess: () =>
+        toast(`${s.role} is unlocked.`, s.library_item_id ? () => act.lock.mutate({ id: s.id, libraryItemId: s.library_item_id! }, { onError: (e) => toast(e.message, undefined, "error") }) : undefined),
+      onError: (e) => toast(e.message, undefined, "error"),
+    });
   /** A role's status: a dot and words ("Not locked" carries what an own look costs, on hover). */
   const status = (s: Slot) => (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:w-44" title={!s.locked && sheet !== undefined ? `Each video makes its own look (about ${wholeCredits(sheet)} credit${wholeCredits(sheet) === 1 ? "" : "s"} each).` : undefined}>
@@ -120,7 +127,7 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
                             Rename
                           </MenuItem>
                           {s.locked && (
-                            <MenuItem onClick={() => { close(); act.unlock.mutate(s.id); }}>
+                            <MenuItem onClick={() => { close(); unlock(s); }}>
                               <Lock size={18} strokeWidth={1.75} aria-hidden />
                               Unlock
                             </MenuItem>
