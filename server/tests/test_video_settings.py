@@ -12,6 +12,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.routes.video_settings import NOT_YOURS
+from tests.helpers import product
 from tests.test_breakdown import BREAKDOWN
 from tests.test_looks import _a_file
 from tests.test_script_produce import _published
@@ -94,7 +95,7 @@ def test_a_flavour_switch_outdates_only_what_shows_the_bag(owner, editor, db):
     brand = db.get(Project, pid).brand_id
     for variant in ("Chicken", "Peanut butter"):
         db.add(BrandScreen(brand_id=brand, name=f"Bag {variant}", file_id=_a_file(db),
-                           product="bag", variant=variant))  # fmt: skip
+                           product_id=product(db, brand, "bag"), variant=variant))  # fmt: skip
     db.commit()
     seen = editor.post(f"{video}/settings/preview",
                        json={"product_variants": {"bag": "Peanut butter"}}).json()  # fmt: skip

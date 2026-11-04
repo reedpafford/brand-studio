@@ -7333,6 +7333,10 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /** Presenter */
+            presenter?: ("still" | "corner" | "acts") | null;
+            /** Place Id */
+            place_id?: number | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -7366,11 +7370,29 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /** Presenter */
+            presenter?: ("still" | "corner" | "acts") | null;
+            /** Place Id */
+            place_id?: number | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Pictures
+             * @default []
+             */
+            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -7446,6 +7468,10 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /** Presenter */
+            presenter?: ("still" | "corner" | "acts") | null;
+            /** Place Id */
+            place_id?: number | null;
         };
         /** Items */
         Items: {
@@ -8524,6 +8550,10 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /** Presenter */
+            presenter?: ("still" | "corner" | "acts") | null;
+            /** Place Id */
+            place_id?: number | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -8627,6 +8657,20 @@ export interface components {
         PickIn: {
             /** File Id */
             file_id: number;
+        };
+        /**
+         * PictureOut
+         * @description A product's picture: a brand screen linked to it (its real photo, used as it is).
+         */
+        PictureOut: {
+            /** Screen Id */
+            screen_id: number;
+            /** File Id */
+            file_id: number;
+            /** Name */
+            name: string;
+            /** Variant */
+            variant: string;
         };
         /** PlanIn */
         PlanIn: {
@@ -8739,11 +8783,29 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
+            /** Presenter */
+            presenter?: ("still" | "corner" | "acts") | null;
+            /** Place Id */
+            place_id?: number | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Id */
+            created_by_id?: number | null;
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Pictures
+             * @default []
+             */
+            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -9572,11 +9634,8 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /**
-             * Product
-             * @default
-             */
-            product: string;
+            /** Product Id */
+            product_id?: number | null;
             /**
              * Variant
              * @default
@@ -9599,11 +9658,8 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /**
-             * Product
-             * @default
-             */
-            product: string;
+            /** Product Id */
+            product_id?: number | null;
             /**
              * Variant
              * @default
@@ -9613,6 +9669,8 @@ export interface components {
             id: number;
             /** Brand Id */
             brand_id: number;
+            /** Product */
+            product: string;
             /** Balance */
             balance: string;
             figure_spot: components["schemas"]["FigureSpot"] | null;
@@ -9627,8 +9685,8 @@ export interface components {
             tags?: string[] | null;
             /** Default For */
             default_for?: string[] | null;
-            /** Product */
-            product?: string | null;
+            /** Product Id */
+            product_id?: number | null;
             /** Variant */
             variant?: string | null;
             /** Balance */

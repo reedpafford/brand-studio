@@ -27,7 +27,7 @@ class ScreenIn(BaseModel):
     file_id: int
     tags: list[Slug] = []
     default_for: list[Slug] = []
-    product: ShortText = ""  # e.g. "bag": screens sharing it are versions of one product
+    product_id: int | None = None  # a picture of this library product (v6 S8-06)
     variant: ShortText = ""  # e.g. "Chicken"; each project picks one variant per product
 
 
@@ -48,7 +48,7 @@ class ScreenPatch(BaseModel):
     file_id: int | None = None
     tags: list[Slug] | None = None
     default_for: list[Slug] | None = None
-    product: ShortText | None = None
+    product_id: int | None = None  # 0: no longer a product's picture
     variant: ShortText | None = None
     balance: str | None = Field(None, max_length=40)
     figure_spot: FigureSpot | None = None  # no spot: shots get the plain screen
@@ -57,6 +57,7 @@ class ScreenPatch(BaseModel):
 class ScreenOut(ScreenIn):
     id: int
     brand_id: int
+    product: str  # the product's name ("" for an app screen)
     balance: str  # the money the picture shows, e.g. "$348,920.15" (set with PATCH or seed)
     figure_spot: FigureSpot | None
 
@@ -75,6 +76,15 @@ def _apply(db: Session, user: User, screen: BrandScreen, values: dict) -> None:
     values = {k: v for k, v in values.items() if v is not None}
     if "file_id" in values:
         get_file(db, user, values["file_id"], "image")
+    if values.get("product_id"):  # a product of this brand's library
+        from app.models.library import Kind
+        from app.routes.library import get_item
+
+        item = get_item(db, user, Kind.prop, values["product_id"])
+        if not any(b.id == screen.brand_id for b in item.brands):
+            raise HTTPException(404, "No such product in this brand.")
+    elif "product_id" in values:
+        values["product_id"] = None
     if "name" in values:
         clash = db.scalar(
             select(BrandScreen).where(

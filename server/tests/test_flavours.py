@@ -4,6 +4,7 @@ them. Free."""
 
 from app.models.brands import BrandScreen
 from tests.conftest import upload
+from tests.helpers import product as product_of
 from tests.test_script_library import SCRIPT, _make
 
 FLAVOURS = {"bag": ["Chicken", "Peanut butter"], "soda": ["Lime"], "app": ["Light", "Dark"]}
@@ -15,7 +16,8 @@ def _brand_flavours(db, owner) -> int:
     for product, variants in FLAVOURS.items():
         for variant in variants:
             db.add(BrandScreen(brand_id=brand, name=f"{product} {variant}", file_id=file_id,
-                               product=product, variant=variant))  # fmt: skip
+                               product_id=product_of(db, brand, product),
+                               variant=variant))  # fmt: skip
     db.commit()
     return brand
 
@@ -68,7 +70,7 @@ def test_a_new_video_starts_from_its_versions_flavours_and_the_picks_sent_win(db
     _brand_flavours(db, owner)
     first, _ = _published(owner, db, breakdown=BREAKDOWN)
     owner.put(f"{first}/drafts/0/flavours", json={"bag": "Chicken", "app": "Dark"})
-    dark = db.query(BrandScreen).filter_by(product="app", variant="Dark").one()
+    dark = next(s for s in db.query(BrandScreen) if (s.product, s.variant) == ("app", "Dark"))
     dark.deleted_at = utcnow()  # deleted since: that product starts on Auto
     db.commit()
     version = owner.get(first).json()["versions"][0]  # QA-3 on #968: the gone one is marked

@@ -55,12 +55,19 @@ class BrandScreen(Entity, Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)  # e.g. trading, chart-up, mobile
     # Moments this screen is attached to by default, e.g. ["trading"] for fomo.
     default_for: Mapped[list[str]] = mapped_column(JSON, default=list)
-    # A product with several versions (e.g. product "bag", variant "Chicken" / "Peanut butter"):
-    # each project picks one variant per product, and only that one is used.
-    product: Mapped[str] = mapped_column(String(60), default="")
+    # A picture of a library product (v6 S8-06: the product is the record; its pictures link
+    # to it). A product with several (e.g. "bag": "Chicken" / "Peanut butter") has a variant
+    # each: each project picks one variant per product, and only that one is used.
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"), index=True)
+    product_item = relationship("LibraryItem")
     variant: Mapped[str] = mapped_column(String(60), default="")
     balance: Mapped[str] = mapped_column(String(40), default="")  # as printed on it, if any
     # Where a shot's figure is written on it (screen_figures.py): {"box": [x0, y0, x1, y1]
     # cleared, "at": [x, y] of the number, "size": its px, "chart": [x0, y0, x1, y1] or none}.
     figure_spot: Mapped[dict | None] = mapped_column(JSON, default=None)
     deleted_at: Mapped[datetime | None]  # deleted, kept for Undo; never used while set
+
+    @property
+    def product(self) -> str:
+        """The product it pictures, by name ("" for an app screen)."""
+        return self.product_item.name if self.product_item is not None else ""

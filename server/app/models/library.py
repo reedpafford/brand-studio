@@ -1,6 +1,7 @@
 """Brand libraries: characters, places and props. An item can belong to several brands.
 Every edit saves the previous state as a version, so changes can be undone."""
 
+from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column, ForeignKey, String, Table, Text
@@ -55,6 +56,14 @@ class LibraryItem(Entity, Base):
     text_fit: Mapped[dict | None] = mapped_column(JSON)
     version: Mapped[int] = mapped_column(default=1)
     archived: Mapped[bool] = mapped_column(default=False)
+    archived_at: Mapped[datetime | None]  # "Archived 20 Oct" (v6 S8-08)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # "Came from"
+    # A character who presents (v6 S8-04, S-gaps-05 L3), by how it appears: "still" (a still
+    # talking head), "corner" (in a corner over the B-roll) or "acts" (moves and acts in the
+    # story); null: not a presenter.
+    presenter: Mapped[str | None] = mapped_column(String(20))
+    # A character's usual place (S8-03 "Place: Mark's kitchen"), a library place.
+    place_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
     # A look made for one video (on Assets) or one script (its Cast step): it stays there, is
     # never listed in Cast & places and never offered elsewhere (gaps #19).
     owner_project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))

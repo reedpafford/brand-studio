@@ -183,8 +183,9 @@ def test_a_deleted_screen_is_kept_out_of_use_and_can_be_restored(app, owner, db,
 
     fomo = first_brand(owner)
     base = f"/brands/{fomo}/screens"
+    item = owner.post("/library/prop", json={"name": "bag", "brand_ids": [fomo]}).json()["id"]
     bag = owner.post(
-        base, json={"name": "Bag", "file_id": upload(owner), "product": "bag", "variant": "Chicken"}
+        base, json={"name": "Bag", "file_id": upload(owner), "product_id": item, "variant": "Chicken"}
     ).json()
     assert owner.delete(f"{base}/{bag['id']}").status_code == 204
     assert "Bag" not in [s["name"] for s in owner.get(base).json()]

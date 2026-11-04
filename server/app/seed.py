@@ -117,7 +117,7 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
                 file=stored,
                 tags=sorted(set(meta.get("tags", []))),
                 default_for=sorted(set(meta.get("default_for", []))),
-                product=meta.get("product", ""),
+                product_id=product_of(db, brand, meta.get("product", "")),
                 variant=meta.get("variant", ""),
                 balance=meta.get("balance", ""),
                 figure_spot=meta.get("figure_spot"),
@@ -140,6 +140,24 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
     return added
 
 
+def product_of(db: Session, brand: Brand, name: str) -> int | None:
+    """The brand's library product a manifest's product word names (any case), made when it
+    has none yet; None for an app screen."""
+    from app import site_read
+    from app.models.library import Kind, LibraryItem
+
+    name = " ".join(name.split())
+    if not name:
+        return None
+    item = site_read.products(db, brand).get(site_read.key(name))
+    if item is None:
+        item = LibraryItem(workspace_id=brand.workspace_id, kind=Kind.prop, name=name,
+                           brands=[brand])  # fmt: skip
+        db.add(item)
+        db.flush()
+    return item.id
+
+
 def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
     screen = db.scalar(
         select(BrandScreen).where(BrandScreen.brand_id == brand.id, BrandScreen.name == name)
@@ -147,7 +165,8 @@ def _refresh(db: Session, brand: Brand, name: str, meta: dict) -> None:
     if screen:
         screen.tags = sorted(set(meta.get("tags", [])))
         screen.default_for = sorted(set(meta.get("default_for", [])))
-        screen.product, screen.variant = meta.get("product", ""), meta.get("variant", "")
+        screen.product_id = product_of(db, brand, meta.get("product", ""))
+        screen.variant = meta.get("variant", "")
         screen.balance = meta.get("balance", "")
         screen.figure_spot = meta.get("figure_spot")
 

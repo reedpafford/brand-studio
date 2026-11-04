@@ -270,3 +270,36 @@ def test_n21_hides_nothing_already_there_and_links_a_freestyle_to_its_video(tmp_
         assert conn.execute(text("SELECT hidden FROM projects")).scalar() in (0, False)
         conn.execute(text("SELECT project_id, up_to FROM freestyles")).all()
     command.downgrade(cfg, "n19")
+
+
+def test_n31_links_each_product_picture_to_its_library_product(tmp_path):
+    """A brand's product word matches its product by name (any case); a word with no product
+    makes one in that brand. Archived items get an archive date."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n30")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "workspaces", id=1, name="S")
+        for b in (1, 2):
+            _row(conn, "brands", id=b, workspace_id=1, name=f"B{b}", slug=f"b{b}")
+        _row(conn, "library_items", id=5, workspace_id=1, kind="prop", name="Bag ", archived=False)
+        _row(conn, "library_items", id=6, workspace_id=1, kind="prop", name="old", archived=True)
+        _row(conn, "library_item_brands", item_id=5, brand_id=1)
+        for sid, brand, product in ((1, 1, "bag"), (2, 1, "BAG"), (3, 2, "bag"), (4, 1, "")):
+            _row(conn, "brand_screens", id=sid, brand_id=brand, name=f"s{sid}", product=product)
+    command.upgrade(cfg, "n31")
+    with engine.connect() as conn:
+        linked = dict(conn.execute(text("SELECT id, product_id FROM brand_screens")).all())
+        made = conn.execute(text("SELECT i.name, ib.brand_id FROM library_items i JOIN "
+                                 "library_item_brands ib ON ib.item_id = i.id WHERE i.id = :i"),
+                            {"i": linked[3]}).one()  # fmt: skip
+        gone = conn.execute(text("SELECT archived_at FROM library_items WHERE id = 6")).scalar()
+    assert linked[1] == linked[2] == 5 and linked[4] is None  # B1's "Bag", any case
+    assert linked[3] not in (5, None) and tuple(made) == ("bag", 2)  # made for B2
+    assert gone is not None
+    command.downgrade(cfg, "n30")
+    with engine.connect() as conn:
+        back = dict(conn.execute(text("SELECT id, product FROM brand_screens")).all())
+    assert back == {1: "Bag ", 2: "Bag ", 3: "bag", 4: ""}

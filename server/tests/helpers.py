@@ -139,3 +139,12 @@ def shot(db, **change) -> None:
     row.data["scenes"][0]["shots"][0].update(change)
     flag_modified(row, "data")
     db.commit()
+
+
+def product(db, brand_id: int, name: str) -> int:
+    """The brand's library product of that name (made when it has none), for a picture's
+    product_id."""
+    from app.models.brands import Brand
+    from app.seed import product_of
+
+    return product_of(db, db.get(Brand, brand_id), name)
