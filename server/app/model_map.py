@@ -94,6 +94,12 @@ def acts(db, project, clip) -> bool:
     return host.how(project) == "acts" and shows_talker(db, project, clip)
 
 
+def own_name(clip) -> str | None:
+    """The name of the model the director chose for this clip, if any (no queries)."""
+    own = _model((clip.model or {}).get("id", ""))
+    return own.name if own else None
+
+
 def seconds(model, clip_seconds: int) -> int:
     """What a take is billed for: a model with no duration input makes its fixed length."""
     return max(model.fixed_seconds, clip_seconds) if model.fixed_seconds else clip_seconds
