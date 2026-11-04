@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Ellipsis, Lock, Merge, Pencil, Plus, Users } from "lucide-react";
 import { fileUrl } from "../api/upload";
-import { Banner, Badge, Button, Card, Dialog, EmptyState, Field, Menu, MenuItem, Panel, Select, Skeleton, TextArea } from "../components";
+import { Banner, Button, Dialog, EmptyState, Field, Menu, MenuItem, Panel, Select, Skeleton, TextArea } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import type { Script } from "./useScript";
@@ -9,9 +9,9 @@ import { FindRoles } from "./FindRoles";
 import { SingerCard } from "./SongParts";
 import { LockPanel } from "./LockPanel";
 import { useBrandCharacters, useCast, useCastActions, useMergeRoles, type Slot } from "./useCast";
+import { RoleFacts } from "../projects/RoleFacts";
 import { MergeRole, mergedText } from "../projects/MergeRole";
 import { MaybeSame, MaybeSameBadge, pairId, type Pair } from "../projects/MaybeSame";
-import { RoleFacts } from "../projects/RoleFacts";
 import { useSheetPrice } from "../library/SheetPanel";
 import { wholeCredits } from "../components/credits";
 
@@ -32,7 +32,6 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
   const roles = useMergeRoles(scriptId);
   const slots = cast.data ?? [];
   const nameOf = (id: number | null) => chars.data?.find((c) => c.id === id)?.name;
-  const locked = slots.filter((s) => s.locked).length;
   const roleName = (id: number) => slots.find((x) => x.id === id)?.role ?? "";
   // The server's "may be the same person" flags; both roles must still be here.
   const pairs: Pair[] = readOnly ? [] : (script.maybe_same ?? []).filter((p) => slots.some((x) => x.id === p.a_slot_id) && slots.some((x) => x.id === p.b_slot_id)).map((p) => ({ a: p.a_slot_id, b: p.b_slot_id, into: p.into_slot_id, why: p.why }));
@@ -51,19 +50,40 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
       () => toast("Kept as two roles.", () => void roles.undoDismiss(p.a, p.b).catch((e: Error) => toast(e.message, undefined, "error"))),
       (e: Error) => toast(e.message, undefined, "error"),
     );
+  /** Unlock, with Undo that locks the role back to the same look. */
+  const unlock = (s: Slot) =>
+    act.unlock.mutate(s.id, {
+      onSuccess: () =>
+        toast(`${s.role} is unlocked.`, s.library_item_id ? () => act.lock.mutate({ id: s.id, libraryItemId: s.library_item_id! }, { onError: (e) => toast(e.message, undefined, "error") }) : undefined),
+      onError: (e) => toast(e.message, undefined, "error"),
+    });
+  /** A role's status: a dot and words ("Not locked" carries what an own look costs, on hover). */
+  const status = (s: Slot) => (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:w-44" title={!s.locked && sheet !== undefined ? `Each video makes its own look (about ${wholeCredits(sheet)} credit${wholeCredits(sheet) === 1 ? "" : "s"} each).` : undefined}>
+      <span aria-hidden className={`size-2 rounded-full ${s.locked ? "bg-success" : "bg-warning"}`} />
+      {s.locked ? `Locked${nameOf(s.library_item_id) ? ` to ${nameOf(s.library_item_id)}` : ""}` : "Not locked"}
+    </span>
+  );
   const factsText = (s: Slot) => [s.facts?.age_range, s.facts?.gender, s.facts?.occupation].map((f) => f?.value).filter(Boolean).join(" · ");
 
   return (
     <div className="max-w-[820px] space-y-4">
       {script.kind === "song" && <SingerCard script={script} />}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+        <div>
+          <h2 className="text-sm font-semibold">Cast</h2>
+          <p className="text-sm text-muted">Lock each role to a character, so every clip uses the same face and outfit.</p>
+        </div>
+        {cast.data && !readOnly && slots.length > 0 && <FindRoles script={script} hasRoles />}
+      </div>
       {cast.isError && <Banner title="Couldn't load the cast." action={<Button variant="secondary" onClick={() => void cast.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {cast.isPending && (
         <div className="space-y-2" aria-label="Loading">
-          <Skeleton className="h-20" />
-          <Skeleton className="h-20" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
         </div>
       )}
-      {cast.data && !readOnly && <FindRoles script={script} hasRoles={slots.length > 0} />}
+      {cast.data && !readOnly && slots.length === 0 && <FindRoles script={script} hasRoles={false} />}
       {cast.data && slots.length === 0 && (
         <EmptyState icon={Users} title="No roles yet." action={!readOnly ? <Button variant="secondary" onClick={() => setAdding(true)}>Add a role</Button> : undefined}>
           Everyone will be made in the video's Cast. Add a role to lock one look for it in every version.
@@ -71,98 +91,67 @@ export function CastStep({ script, brandId, readOnly }: { script: Script; brandI
       )}
       {slots.length > 0 && (
         <>
-          <p className="text-sm text-muted">
-            {slots.length} role{slots.length === 1 ? "" : "s"} · {locked} locked
-          </p>
           <MaybeSame pairs={pairs} name={roleName} outlined={outlined} onMerge={mergePair} onDismiss={keepTwo} />
-          <Card className="p-0 sm:p-0">
-            <ul className="divide-y divide-border">
-              {slots.map((s) => (
-                <li key={s.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:px-5">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-display text-md font-bold">{s.role}</h3>
-                      <Badge>{s.kind}</Badge>
+          {/* v5 C_CastLock: one 64 px row per role: picture, name over where it appears, a status dot, and the one press. */}
+          <ul className="divide-y divide-border border-y border-border">
+            {slots.map((s) => {
+              const where = appearsText(s.appears_in);
+              return (
+                <li key={s.id} className="flex min-h-16 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                  <span aria-hidden className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-surface-2 text-muted">
+                    {s.locked && s.sheet_file_id ? <img src={fileUrl(s.sheet_file_id)} alt="" className="size-full object-cover" /> : <Users size={16} strokeWidth={1.75} />}
+                  </span>
+                  <div className="min-w-[9rem] flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="truncate text-sm font-medium">{s.role}</h3>
                       {pairsOf(s.id).slice(0, 1).map((p) => (
                         <MaybeSameBadge key={pairId(p)} other={roleName(p.a === s.id ? p.b : p.a)} onClick={() => showPair(p)} />
                       ))}
-                      {!readOnly && (
-                        <button type="button" aria-label={`Rename ${s.role}`} onClick={() => setRenaming(s)} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-control-dense">
-                          <Pencil size={16} strokeWidth={1.75} aria-hidden />
-                        </button>
-                      )}
                     </div>
-                    <RoleFacts facts={s.facts} />
-                    {s.description && <p className="line-clamp-2 text-sm text-muted">{s.description}</p>}
-                    {appearsText(s.appears_in) && <p className="text-sm text-muted">{appearsText(s.appears_in)}</p>}
+                    <RoleFacts facts={s.facts} className="truncate text-xs text-muted" />
+                    {where && <p className="truncate text-xs text-muted">{where}</p>}
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    {s.locked ? (
-                      <>
-                        {s.sheet_file_id && <img src={fileUrl(s.sheet_file_id)} alt="" className="size-14 rounded-md border border-border object-cover" />}
-                        <span className="text-sm">
-                          <Badge icon={Lock}>Locked{nameOf(s.library_item_id) ? ` to ${nameOf(s.library_item_id)}` : ""}</Badge>
-                          <span className="mt-1 block text-muted">Used as-is in every version.</span>
-                        </span>
-                        {!readOnly && (
-                          <>
-                            <Button variant="ghost" dense aria-label={`Change the look for ${s.role}`} onClick={() => setLocking(s)}>
-                              Change
-                            </Button>
-                            <Button variant="ghost" dense aria-label={`Unlock ${s.role}`} busy={act.unlock.isPending} onClick={() => act.unlock.mutate(s.id)}>
+                  {/* An unlocked role gets its own look in every video made from this script, each paid for there (rule 7). */}
+                  {status(s)}
+                  {!readOnly && (
+                    <Button variant="secondary" dense aria-label={s.locked ? `Change the look for ${s.role}` : `Lock ${s.role} to a look`} onClick={() => setLocking(s)}>
+                      {s.locked ? "Change" : "Lock to a look"}
+                    </Button>
+                  )}
+                  {!readOnly && (
+                    <Menu title={s.role} align="right" trigger={(t) => <button type="button" {...t} aria-label={`More for ${s.role}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2"><Ellipsis size={20} strokeWidth={1.75} aria-hidden /></button>}>
+                      {(close) => (
+                        <>
+                          <MenuItem onClick={() => { close(); setRenaming(s); }}>
+                            <Pencil size={18} strokeWidth={1.75} aria-hidden />
+                            Rename
+                          </MenuItem>
+                          {s.locked && (
+                            <MenuItem onClick={() => { close(); unlock(s); }}>
+                              <Lock size={18} strokeWidth={1.75} aria-hidden />
                               Unlock
-                            </Button>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {/* An unlocked role gets its own look in every video made from this script, each paid for there (rule 7). */}
-                        <span className="text-sm text-muted">Not locked: each video makes its own look{sheet !== undefined && ` (about ${wholeCredits(sheet)} credit${wholeCredits(sheet) === 1 ? "" : "s"} each)`}.</span>
-                        {!readOnly && (
-                          <Button variant="secondary" aria-label={`Lock ${s.role} to a look`} onClick={() => setLocking(s)}>
-                            Lock to a look
-                          </Button>
-                        )}
-                      </>
-                    )}
-                    {!readOnly && (
-                      <Menu title={s.role} align="right" trigger={(t) => <button type="button" {...t} aria-label={`More for ${s.role}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2"><Ellipsis size={20} strokeWidth={1.75} aria-hidden /></button>}>
-                        {(close) => (
-                          <>
-                          <MenuItem
-                            disabled={slots.length < 2}
-                            onClick={() => {
-                              close();
-                              setMerging({ slot: s });
-                            }}
-                          >
+                            </MenuItem>
+                          )}
+                          <MenuItem disabled={slots.length < 2} onClick={() => { close(); setMerging({ slot: s }); }}>
                             <Merge size={18} strokeWidth={1.75} aria-hidden />
                             Merge into…
                           </MenuItem>
                           {slots.length < 2 && <p className="px-3 pb-2 text-xs text-muted">There's no other role to merge into.</p>}
-                          <MenuItem
-                            danger
-                            onClick={() => {
-                              close();
-                              setRemoving(s);
-                            }}
-                          >
+                          <MenuItem danger onClick={() => { close(); setRemoving(s); }}>
                             Remove role
                           </MenuItem>
-                          </>
-                        )}
-                      </Menu>
-                    )}
-                  </div>
+                        </>
+                      )}
+                    </Menu>
+                  )}
                 </li>
-              ))}
-            </ul>
-          </Card>
+              );
+            })}
+          </ul>
         </>
       )}
       {!readOnly && slots.length > 0 && (
-        <Button variant="ghost" icon={Plus} onClick={() => setAdding(true)}>
+        <Button variant="ghost" dense icon={Plus} onClick={() => setAdding(true)}>
           Add a role
         </Button>
       )}

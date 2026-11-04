@@ -23,7 +23,7 @@ for (const width of [1440, 390]) {
     await kim.getByRole("link", { name: "My credits" }).click();
     await expect(kim).toHaveURL(/\/usage\/mine$/);
     await expect(kim.getByRole("heading", { name: "Videos" })).toBeVisible();
-    if (width === 390) expect((await kim.getByRole("radio", { name: "This month" }).boundingBox())!.height).toBeGreaterThanOrEqual(44); // denser on desktop, as Usage
+    if (width === 390) expect((await kim.getByRole("combobox", { name: "Month" }).boundingBox())!.height).toBeGreaterThanOrEqual(44); // denser on desktop, as Usage
     const sizes = await kim.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
     await expect(kim.getByText("$")).toHaveCount(0);

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Button, Panel, Skeleton, creditsLabel } from "../components";
+import { Button, Panel, Skeleton, pressLabel } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useBrandCharacters, type Slot } from "./useCast";
 import { refreshJobs } from "../jobs/refresh";
@@ -36,51 +36,49 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
     },
   });
   const err = make.error ?? approve.error;
-  const cost = price === undefined ? undefined : price;
 
   return (
-    <Panel title={`Lock ${slot.role} to a look`} onClose={onClose}>
+    <Panel wide title={`Lock ${slot.role} to a look`} onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-sm text-muted">Characters from Cast & places. One without an approved sheet can have its sheet made here.</p>
+        <p className="text-sm text-muted">Pick one with an approved sheet, or make its sheet here.</p>
         {chars.isPending && <Skeleton className="h-32" />}
-        <ul className="grid grid-cols-2 gap-3">
+        <ul className="grid grid-cols-3 gap-3">
           {(chars.data ?? []).map((c) => {
             const status = c.sheet_status;
             const picture = c.sheet_file_id ?? c.image_file_ids?.[0]; // the sheet whenever there is one, approved or waiting
+            const current = slot.locked && slot.library_item_id === c.id; // the look this role is locked to now
             return (
-              <li key={c.id} className="space-y-2">
+              <li key={c.id} className="min-w-0 space-y-1.5">
                 <button
                   type="button"
                   disabled={status !== "approved" || locking}
                   aria-label={status === "approved" ? `Lock to ${c.name}` : `${c.name} has no approved sheet yet`}
+                  aria-current={current || undefined}
                   onClick={() => onLock(c.id)}
-                  className="relative block aspect-[9/16] w-full overflow-hidden rounded-lg border border-border bg-surface-2 disabled:opacity-80"
+                  className={`relative block aspect-[9/16] w-full overflow-hidden rounded-lg border bg-surface-2 disabled:opacity-80 ${current ? "border-accent ring-2 ring-accent" : "border-border"}`}
                 >
                   {picture && <img src={fileUrl(picture)} alt="" className="size-full object-cover" />}
-                  <span className="absolute inset-x-2 bottom-2 text-left font-display font-bold text-on-media drop-shadow">{c.name}</span>
+                  <span className="absolute inset-x-2 bottom-2 truncate text-left text-sm font-semibold text-on-media drop-shadow">{c.name}</span>
                 </button>
+                {status === "approved" && <Line dot="bg-success">Sheet approved</Line>}
                 {status === "none" && (
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted">No approved sheet yet</p>
-                    <Button variant="secondary" dense className="w-full" charge="estimate" price={cost} busy={make.isPending && make.variables?.id === c.id} disabled={make.isPending} onClick={() => make.mutate(c)}>
+                  <>
+                    <Line>No sheet yet</Line>
+                    <Button variant="secondary" dense className="w-full" aria-label={price === undefined ? "Make sheet" : `Make sheet · ${pressLabel(price, "estimate")}`} busy={make.isPending && make.variables?.id === c.id} disabled={make.isPending || price === undefined} onClick={() => make.mutate(c)}>
                       Make sheet
                     </Button>
-                  </div>
+                    {price !== undefined && <p className="text-center text-xs text-muted">{pressLabel(price, "estimate")}</p>}
+                  </>
                 )}
-                {status === "drawing" && <p className="text-sm text-muted">Drawing the sheet…</p>}
-                {status === "waiting_for_owner" && <p className="text-sm text-muted">Not started</p>}
+                {status === "drawing" && <Line dot="bg-accent">Drawing the sheet…</Line>}
+                {status === "waiting_for_owner" && <Line dot="bg-accent">Waiting for the owner's OK</Line>}
                 {status === "needs_approval" && (
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted">Check the sheet, then approve it to lock {slot.role}.</p>
-                    <div className="flex flex-col gap-2">
-                      <Button dense className="w-full" aria-label={`Approve ${c.name}'s sheet`} busy={approve.isPending && approve.variables?.id === c.id} disabled={locking} onClick={() => approve.mutate(c)}>
-                        Approve
-                      </Button>
-                      <Button variant="secondary" dense className="w-full" aria-label={`Redo ${c.name}'s sheet`} disabled={make.isPending} onClick={() => make.mutate(c)}>
-                        Redo{price !== undefined ? ` · ${creditsLabel(price)}` : ""}
-                      </Button>
-                    </div>
-                  </div>
+                  <>
+                    <Line dot="bg-warning">Sheet to check</Line>
+                    <Button dense className="w-full" aria-label={`Approve ${c.name}'s sheet`} busy={approve.isPending && approve.variables?.id === c.id} disabled={locking} onClick={() => approve.mutate(c)}>
+                      Approve
+                    </Button>
+                  </>
                 )}
               </li>
             );
@@ -90,5 +88,15 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
         {err && <p role="alert" className={errorClass}>{err.message}</p>}
       </div>
     </Panel>
+  );
+}
+
+/** A card's status: a dot and words. */
+function Line({ dot, children }: { dot?: string; children: string }) {
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-muted">
+      <span aria-hidden className={`size-2 shrink-0 rounded-full ${dot ?? "border border-muted"}`} />
+      {children}
+    </p>
   );
 }

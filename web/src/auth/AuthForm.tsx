@@ -5,7 +5,7 @@ import { errorText } from "../api/client";
 import { Button, Field as TextField } from "../components";
 import { useToast } from "../toast";
 
-export type Field = { name: string; label: string; /** Plain help under the field. */ hint?: string; type?: string; autoComplete?: string; /** The shortest a password may be; the browser holds the form until it's long enough. */ minLength?: number };
+export type Field = { name: string; label: string; /** Plain help under the field. */ hint?: string; type?: string; autoComplete?: string; /** The shortest a password may be; the browser holds the form until it's long enough. */ minLength?: number; /** Shown read-only, not sent (an email invite's own email, v5 A_Invite). */ value?: string };
 type Me = { id: number };
 type Result = { data?: Me; error?: unknown; response?: { status: number } };
 
@@ -59,8 +59,8 @@ export function AuthForm(props: {
     },
     onError: (e) => {
       if (e instanceof Throttled) setThrottled(true);
-      // The first field (Email on sign in) gets the focus back.
-      form.current?.querySelector("input")?.focus();
+      // The first field that can be typed in (Email on sign in; not an invite's read-only email) gets the focus back.
+      form.current?.querySelector<HTMLInputElement>("input:not([readonly])")?.focus();
     },
   });
   // A throttled button comes back after a minute.
@@ -84,7 +84,11 @@ export function AuthForm(props: {
           {/* v5 A_SignIn, A_Setup, A_Invite: the field labels are muted, 13 px. */}
           <form ref={form} onSubmit={onSubmit} className="flex flex-col gap-4 [&_label]:font-normal [&_label]:text-muted">
             {props.fields.map((f) =>
-              <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} minLength={f.minLength} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />,
+              f.value !== undefined ? (
+                <TextField key={f.name} label={f.label} type={f.type ?? "text"} readOnly value={f.value} />
+              ) : (
+                <TextField key={f.name} label={f.label} hint={f.hint} type={f.type ?? "text"} autoComplete={f.autoComplete} minLength={f.minLength} required disabled={mutation.isPending} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
+              ),
             )}
             {/* v5: a refusal is plain red words under the fields, not a box. */}
             {mutation.isError && !(mutation.error instanceof Throttled) && (

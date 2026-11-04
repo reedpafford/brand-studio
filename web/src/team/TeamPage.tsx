@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Copy } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Dialog, Field, PageTop, Panel, Select, Skeleton } from "../components";
@@ -15,8 +15,18 @@ import { serverTime } from "../time";
 const day = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const ROLE = { owner: "Owner", editor: "Editor" } as const;
 type NewInvite = components["schemas"]["NewInviteOut"];
-/** v5 D_Team: Name | Email | Role | Remove. On a phone each row stacks. */
-const grid = "grid grid-cols-2 items-center gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_140px_120px] sm:px-1";
+/** v5 D_Team: Name | Email | Role | Last active | Remove. On a phone each row stacks. */
+const grid = "grid grid-cols-2 items-center gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_140px_140px_120px] sm:px-1";
+/** "now", "4 min ago", "3 h ago", "yesterday", or the date (#1247 keeps it to within 5 minutes). */
+export function lastActive(iso: string | null | undefined, now = Date.now()) {
+  if (!iso) return "Not yet";
+  const mins = Math.floor((now - serverTime(iso).getTime()) / 60_000);
+  if (mins < 5) return "now";
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 24 * 60) return `${Math.floor(mins / 60)} h ago`;
+  if (mins < 48 * 60) return "yesterday";
+  return day(iso);
+}
 
 function Avatar({ name, faded }: { name: string; faded?: boolean }) {
   return (
@@ -110,6 +120,7 @@ export function TeamPage() {
           {remove.isError ? "Try again." : "Check your connection."}
         </Banner>
       )}
+      {isOwner && <EditorLink />}
       {fresh && <FreshLink invite={fresh} />}
       <section className="space-y-2" aria-label="People">
         <h2 className="text-[15px] font-semibold">{members.data ? `People · ${members.data.length}` : "People"}</h2>
@@ -125,6 +136,7 @@ export function TeamPage() {
               <span role="columnheader">Name</span>
               <span role="columnheader">Email</span>
               <span role="columnheader">Role</span>
+              <span role="columnheader">Last active</span>
               <span role="columnheader"><span className="sr-only">Remove</span></span>
             </div>
             {members.data.map((m) => {
@@ -153,6 +165,10 @@ export function TeamPage() {
                     ) : (
                       <span className="text-muted">{ROLE[m.role as keyof typeof ROLE] ?? m.role}</span>
                     )}
+                  </span>
+                  <span role="cell" className="text-muted">
+                    <span className="sm:hidden">Last active </span>
+                    {lastActive(m.last_active_at)}
                   </span>
                   <span role="cell">
                     {mine && (
@@ -200,6 +216,7 @@ export function TeamPage() {
                 </span>
                 <span className="min-w-0 truncate text-muted">{m.email}</span>
                 <span className="text-muted">{ROLE[m.role as keyof typeof ROLE] ?? m.role}</span>
+                <span className="text-muted">removed</span>
                 <span>
                   <Button variant="secondary" dense aria-label={`Restore ${m.name}`} onClick={() => void back(m, `${m.name} is back on the team.`)} className="w-full sm:w-auto">
                     Restore
@@ -271,7 +288,7 @@ function CopyLink({ id, email, children }: { id: number; email: string; children
   return (
     <>
       <span className="flex gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
-        <Button variant="secondary" dense className="whitespace-nowrap" icon={copied ? Check : Copy} aria-label={`Copy a new link for ${email}`} busy={fresh.isPending} onClick={() => fresh.mutate()}>
+        <Button variant="secondary" dense className="whitespace-nowrap" aria-label={`Copy a new link for ${email}`} busy={fresh.isPending} onClick={() => fresh.mutate()}>
           {copied ? "Copied" : "Copy a new link"}
         </Button>
         {children}
@@ -311,6 +328,88 @@ function FreshLink({ invite }: { invite: NewInvite }) {
         </Button>
         <span className="text-xs text-muted">Works once · ends in 7 days</span>
       </div>
+    </section>
+  );
+}
+
+/** v5 D_Team's "Invite link for an editor" (#1247): one standing link, used once, ending in 7 days. Its address can only be
+ *  shown right after it's made (only a hash is kept); later the card says it's out, with New link and Stop link. */
+function EditorLink() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [made, setMade] = useState<{ url: string; expires_at: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const link = useQuery({ queryKey: ["team", "invite-link"], queryFn: async () => (await api.GET("/team/invite-link")).data ?? null });
+  const make = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/team/invite-link");
+      if (!data) throw new Error(errorText(error));
+      return { url: `${location.origin}/invite/${data.token}`, expires_at: data.expires_at };
+    },
+    onSuccess: async (m) => {
+      setMade(m);
+      setCopied(false);
+      await queryClient.invalidateQueries({ queryKey: ["team", "invite-link"] });
+    },
+  });
+  const stop = useMutation({
+    mutationFn: async () => {
+      const { response, error } = await api.DELETE("/team/invite-link");
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSuccess: async () => {
+      setMade(null);
+      setStopping(false);
+      await queryClient.invalidateQueries({ queryKey: ["team", "invite-link"] });
+      toast("The invite link stopped working.");
+    },
+  });
+  const copy = async () => {
+    if (!made) return;
+    try {
+      await navigator.clipboard.writeText(made.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked: the link is selectable in the box */
+    }
+  };
+  const out = link.data;
+  return (
+    <section aria-label="Invite link for an editor" className="space-y-2.5 rounded-lg border border-border bg-surface px-4 py-3.5">
+      <h2 className="text-sm font-medium">Invite link for an editor</h2>
+      {made ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="editor-link" className="sr-only">Invite link</label>
+          <input id="editor-link" readOnly value={made.url} onFocus={(e) => e.currentTarget.select()} className="min-h-control w-full min-w-0 rounded-md border border-border-strong bg-bg px-2.5 text-sm sm:w-[360px] lg:min-h-control-dense" />
+          <Button variant="secondary" dense onClick={() => void copy()} className="w-full sm:w-auto">
+            {copied ? "Copied" : "Copy link"}
+          </Button>
+          <span className="text-xs text-muted">Works once · ends in 7 days</span>
+          <Button variant="secondary" dense busy={make.isPending} onClick={() => make.mutate()}>New link</Button>
+          <Button variant="ghost" dense onClick={() => setStopping(true)}>Stop link</Button>
+        </div>
+      ) : out ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">Link made · ends {day(out.expires_at)}. Its address shows only when it's made.</span>
+          <Button variant="secondary" dense busy={make.isPending} onClick={() => make.mutate()}>New link</Button>
+          <Button variant="ghost" dense onClick={() => setStopping(true)}>Stop link</Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">Anyone with the link joins as an editor. It works once and ends in 7 days.</span>
+          <Button variant="secondary" dense busy={make.isPending} disabled={link.isPending} onClick={() => make.mutate()}>Make link</Button>
+        </div>
+      )}
+      {made && <p className="text-xs text-muted">A new link stops the old one.</p>}
+      {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
+      {stopping && (
+        <Dialog title="Stop the invite link?" cancelLabel="Keep it" actionLabel="Stop link" danger busy={stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => stop.mutate()}>
+          No one can join with it after this. You can make a new link at any time.
+          {stop.isError && <p role="alert" className={`mt-2 ${errorClass}`}>{stop.error.message}</p>}
+        </Dialog>
+      )}
     </section>
   );
 }

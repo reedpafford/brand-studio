@@ -13,8 +13,9 @@ const base: Record<string, [number, unknown]> = {
   "GET /scripts": [200, []],
   "GET /projects": [200, []],
 };
-const summary = { period: "week", starts_at: "2026-10-19T00:00:00Z", previous: { spend_usd: 71.72, finished: 4, cost_per_finished_usd: 12.25 }, spend_usd: 84.12, spend_estimated: false, finished: 6, cost_per_finished_usd: 11.4, in_progress: 9, unassigned_spend_usd: 1.2, freestyle_spend_usd: 3.4 };
-const row = (o: object = {}) => ({ brand_id: 1, name: "Iron Paws", colour: "#3a7", archived: false, spend_usd: 52.3, spend_estimated: false, finished: 4, cost_per_finished_usd: 11.05, in_progress: 3, scripts: 12, versions_left: 7, last_activity_at: new Date(Date.now() - 2 * 3600_000).toISOString(), ...o });
+const summary = { period: "week", starts_at: "2026-10-19T00:00:00Z", previous: { spend_usd: 71.72, finished: 4, cost_per_finished_usd: 12.25 }, spend_usd: 84.12, spend_estimated: false, finished: 6, cost_per_finished_usd: 11.4, in_progress: 9, unassigned_spend_usd: 1.2, freestyle_spend_usd: 3.4, director_spend_usd: 0, spend_credits: 841.2, unassigned_credits: 12, freestyle: { credits: 34, spend_usd: 3.4, videos: 2 } };
+const row = (o: object = {}) => ({ brand_id: 1, name: "Iron Paws", colour: "#3a7", archived: false, spend_usd: 52.3, spend_estimated: false, finished: 4, cost_per_finished_usd: 11.05, in_progress: 3, scripts: 12, versions_left: 7, last_activity_at: new Date(Date.now() - 2 * 3600_000).toISOString(), credits: 523, videos: 5, ...o });
+const month = new Date().toISOString().slice(0, 7);
 const brands = (items: object[], total = items.length, next: string | null = null) => ({ total, next_cursor: next, items });
 
 function open(path = "/usage") {
@@ -22,67 +23,66 @@ function open(path = "/usage") {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("Usage: four totals with the comparison, and a row per brand that links to it; a new brand shows zeros and a dash", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /usage/summary": [200, summary],
-    "GET /usage/brands": [200, brands([row(), row({ brand_id: 2, name: "fomo", spend_usd: 30.62, spend_estimated: true, finished: 2, cost_per_finished_usd: 12.1 }), row({ brand_id: 3, name: "Night Owl", spend_usd: 0, finished: 0, cost_per_finished_usd: null, in_progress: 0, scripts: 0, versions_left: 0, last_activity_at: null })])],
-  });
-  open();
-  const totals = await screen.findByRole("group", { name: "Totals" });
-  expect(await within(totals).findByText("$84.12")).toBeInTheDocument();
-  expect(within(totals).getByText("+$12.40 on last week")).toBeInTheDocument();
-  expect(within(totals).getByText("6 videos")).toBeInTheDocument();
-  expect(within(totals).getByText("+2 on last week")).toBeInTheDocument();
-  expect(within(totals).getByText("−$0.85 on last week")).toBeInTheDocument();
-  expect(screen.getByText(/^Week of \d+ Oct$/)).toBeInTheDocument();
-  const link = await screen.findByRole("link", { name: "Iron Paws: $52.30 spent, 4 finished" });
-  expect(link).toHaveAttribute("href", "/usage/brands/1");
-  expect(screen.getByText("≈ $30.62")).toHaveAttribute("title", expect.stringMatching(/estimate/));
-  const owl = screen.getByRole("link", { name: "Night Owl: $0.00 spent, 0 finished" }).closest("tr")!;
-  expect(within(owl).getAllByText("—")).toHaveLength(2); // no cost per video, no last activity
-  expect(screen.getByText("3 brands")).toBeInTheDocument();
-  expect(screen.getByText("Not tied to one brand: $1.20 · character looks used by several brands")).toBeInTheDocument();
-  expect(screen.getByText("Freestyle: $3.40 · sends with no brand picked (a brand's own are in its row)")).toBeInTheDocument();
-});
-
-test("Usage: the period, search and sort live in the address and go to the server; Show more asks for the next 25", async () => {
+test("Usage (v5 D_Usage): three cards for the month, and By brand reads Brand · Credits · Dollars · Videos · Share with a Freestyle row", async () => {
   setViewport(1440);
   const calls = fakeServer({
     ...base,
-    "GET /usage/summary": [200, { ...summary, previous: null, period: "all" }],
-    "GET /usage/brands": [200, brands([row()], 40, "c2")],
+    "GET /usage/summary": [200, summary],
+    "GET /usage/brands": [200, brands([row(), row({ brand_id: 2, name: "fomo", spend_usd: 30.62, spend_estimated: true, credits: 284.2, videos: 3 })])],
   });
-  open("/usage?period=all&sort=name");
-  await screen.findByRole("link", { name: /Iron Paws/ });
-  expect(screen.getByLabelText("Sort")).toHaveValue("name");
-  expect(screen.queryByText(/on last/)).not.toBeInTheDocument(); // All time compares with nothing
-  await userEvent.type(screen.getByRole("searchbox"), "iron");
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /usage/brands").length).toBeGreaterThan(1));
+  open();
+  const totals = await screen.findByRole("group", { name: "Totals" });
+  expect(await within(totals).findByText("842 credits")).toBeInTheDocument(); // whole credits, rounded up
+  expect(within(totals).getByText("$84.12")).toBeInTheDocument();
+  expect(within(totals).getByText("Spent this month")).toBeInTheDocument();
+  const table = await screen.findByRole("table", { name: "By brand" });
+  expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Brand", "Credits", "Dollars", "Videos", "Share", "Restore"]);
+  const iron = within(table).getByRole("link", { name: "Iron Paws" });
+  expect(iron).toHaveAttribute("href", "/usage/brands/1");
+  expect(iron.closest("tr")).toHaveTextContent("523$52.305");
+  expect(within(table).getByText("≈ $30.62")).toHaveAttribute("title", expect.stringMatching(/estimate/));
+  const fs = within(table).getByText("Freestyle").closest("tr")!;
+  expect(fs).toHaveTextContent("(no brand picked)");
+  expect(fs).toHaveTextContent("34$3.402");
+  expect(within(table).getByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 523 of 841.2
+  const other = within(table).getByText("Other").closest("tr")!; // Next-Lead: the rows add up to the month's spend
+  expect(other).toHaveTextContent("(no brand or video)");
+  expect(other).toHaveTextContent("12$1.20—");
+  expect(calls.find((c) => c.key === "GET /usage/summary")?.url).toContain(`month=${month}`);
+  expect(calls.find((c) => c.key === "GET /usage/brands")?.url).toContain(`month=${month}`);
+});
+
+test("Usage: picking a month asks the server for that month, puts it in the address, and the CSV follows it", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()], 40, "c2")], "GET /usage/people": [200, []] });
+  open();
+  const picker = await screen.findByRole("combobox", { name: "Month" });
+  const last = (picker as HTMLSelectElement).options[1].value;
+  await userEvent.selectOptions(picker, last);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /usage/summary" && c.url.includes(`month=${last}`))).toBe(true));
+  expect(calls.some((c) => c.key === "GET /usage/people" && c.url.includes(`month=${last}`))).toBe(true);
+  expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute("href", `/api/usage/charges.csv?month=${last}`);
   await userEvent.click(await screen.findByRole("button", { name: "Show more" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /usage/brands").length).toBeGreaterThan(2));
 });
 
-test("Usage on a phone: brand cards with the sentence, and one Filters button for sort and archived", async () => {
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])] });
+test("Usage on a phone: each brand is a card with credits, dollars, videos and its share, then Freestyle", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row({ videos: 1 })])] });
   open();
-  const card = await screen.findByRole("link", { name: "Iron Paws: $52.30 spent, 4 finished" });
-  expect(within(card).getByText(/\$52\.30 spent · 4 finished · \$11\.05 each/)).toBeInTheDocument();
-  expect(within(card).getByText("3 in progress · 12 scripts · 7 versions left")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-  const sheet = await screen.findByRole("dialog", { name: "Filters" });
-  expect(within(sheet).getByLabelText("Sort")).toHaveValue("spend");
-  expect(within(sheet).getByLabelText("Show archived")).not.toBeChecked();
+  const card = await screen.findByRole("link", { name: /Iron Paws/ });
+  expect(card).toHaveTextContent("523 credits · $52.30 · 1 video");
+  expect(within(card).getByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument();
+  expect(screen.getByText("Freestyle").closest("li")).toHaveTextContent("34 credits · $3.40 · 2 videos");
 });
 
 const mine = {
   credits: 61, quick_clip_credits: 8, script_credits: 3,
   videos: [
-    { project_id: 9, title: "Bo tries salmon · B", status: "in_production", credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
-    { project_id: 10, title: "Kimchi at the vet · A", status: "done", credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
+    { project_id: 9, title: "Bo tries salmon · B", status: "in_production", state: "making", brand_id: 1, credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Kimchi at the vet · A", status: "done", state: "delivered", brand_id: 2, credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
   ],
-  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }], sends: [], waiting_credits: 0,
+  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3, brand_id: 2 }], sends: [], waiting_credits: 0, videos_and_freestyles: 3,
   week: { used: 72, allowance: 145, lines: [{ label: "Videos", credits: 50 }, { label: "Quick clips", credits: 8 }, { label: "Scripts", credits: 3 }, { label: "A look", credits: 11 }] },
 };
 
@@ -97,12 +97,19 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   expect(within(week).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Videos50 credits", "Quick clips8 credits", "Scripts3 credits", "A look11 credits"]);
   const videos = screen.getByRole("list", { name: "My videos" });
   expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Making.*spent 40/ })).toHaveAttribute("href", "/b/1/videos/9");
-  expect(within(videos).getByText("Delivered")).toBeInTheDocument(); // D_MyCredits: a dot and "Delivered"
-  expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/1/scripts/7");
+  expect(within(videos).getByRole("link", { name: /Kimchi at the vet · A.*Delivered/ })).toHaveAttribute("href", "/b/2/videos/10"); // every brand, each row to its own
+  expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/2/scripts/7"); // in its own brand (#1255)
   expect(document.body.textContent).not.toMatch(/\$/);
-  expect(urls()[0]).toContain("brand_id=1");
-  await userEvent.click(screen.getByRole("radio", { name: "This month" }));
-  await vi.waitFor(() => expect(urls().some((u) => u.includes("period=month"))).toBe(true));
+  const spent = within(screen.getByRole("group", { name: "Totals" })).getByText("Spent this month").parentElement!;
+  expect(spent).toHaveTextContent("61 credits");
+  expect(spent).toHaveTextContent("On 3 videos and freestyles");
+  expect(urls()[0]).toContain(`month=${month}`);
+  expect(urls()[0]).not.toContain("brand_id");
+  const picker = screen.getByRole("combobox", { name: "Month" });
+  const last = (picker as HTMLSelectElement).options[1];
+  await userEvent.selectOptions(picker, last.value);
+  await vi.waitFor(() => expect(urls().some((u) => u.includes(`month=${last.value}`))).toBe(true));
+  expect(await screen.findByText(`Spent in ${last.textContent}`)).toBeInTheDocument();
 });
 
 test("Usage: an editor's account menu links My credits; the owner's links Usage instead", async () => {
@@ -114,12 +121,13 @@ test("Usage: an editor's account menu links My credits; the owner's links Usage 
   expect(screen.queryByRole("link", { name: "Usage" })).toBeNull();
 });
 
-test("Usage: nothing spent says so, and no brands has its own words", async () => {
+test("Usage: no brands has its own words, and a month with no freestyles has no Freestyle row", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /usage/summary": [200, { ...summary, spend_usd: 0, finished: 0, cost_per_finished_usd: null, in_progress: 0, unassigned_spend_usd: 0, previous: null }], "GET /usage/brands": [200, brands([])] });
+  fakeServer({ ...base, "GET /usage/summary": [200, { ...summary, spend_usd: 0, spend_credits: 0, freestyle: { credits: 0, spend_usd: 0, videos: 0 } }], "GET /usage/brands": [200, brands([])] });
   open();
-  expect(await screen.findByText("Nothing was spent this week.")).toBeInTheDocument();
   expect(await screen.findByText("No brands yet.")).toBeInTheDocument();
+  expect(await screen.findByText("0 credits")).toBeInTheDocument();
+  expect(screen.queryByText("Freestyle")).toBeNull();
 });
 
 test("One brand's Usage: its own totals and the line under them", async () => {
@@ -191,18 +199,10 @@ test("Every charge is closed until opened, then lists the charges in plain words
   open();
   await screen.findByRole("link", { name: /Iron Paws/ });
   expect(calls.some((c) => c.key === "GET /usage/charges")).toBe(false);
-  await userEvent.click(screen.getByText("Every charge"));
+  await userEvent.click(screen.getByText("See every charge"));
   expect(await screen.findByText("Clip 3 take 2 · Bo tries salmon · B")).toBeInTheDocument();
   expect(screen.getByText("$2.36")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Show more" })).toBeInTheDocument();
-});
-
-test("Usage cards say '1 version left' and '1 script' in the singular, and a brand with no colour gets a neutral dot", async () => {
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row({ scripts: 1, versions_left: 1, colour: null })])] });
-  open();
-  const card = await screen.findByRole("link", { name: /Iron Paws/ });
-  expect(within(card).getByText("3 in progress · 1 script · 1 version left")).toBeInTheDocument();
-  expect(card.querySelector("span[aria-hidden].bg-faint")).not.toBeNull();
 });
 
 test("a finished video whose clips changed since says Finished · changes waiting in Usage, not plain Finished (#749 LW2)", async () => {
@@ -244,7 +244,7 @@ test("Reed gives credits back from a charge's menu: a reason is required, the ol
     "POST /usage/charges/41/refund": [200, { job_id: 5, credits: 27.4, reason: "Wrong cast in the shot", by: { id: 1, name: "Reed" }, at: "2026-10-26T10:00:00Z" }],
   });
   open();
-  await userEvent.click(await screen.findByText("Every charge"));
+  await userEvent.click(await screen.findByText("See every charge"));
   await screen.findByText("Clip 3 take 2 · Bo tries salmon · B");
   expect(screen.getAllByRole("button", { name: /^Actions for/ })).toHaveLength(1); // not on a 0-credit charge, nor one already given back
   const back = screen.getByText("Credits given back"); // the one that was: the original number struck through, the reason as the tooltip
@@ -273,7 +273,7 @@ test("a charge that was already given back shows the server's words if it's trie
     "POST /usage/charges/41/refund": [409, { detail: "Those credits were already given back." }],
   });
   open();
-  await userEvent.click(await screen.findByText("Every charge"));
+  await userEvent.click(await screen.findByText("See every charge"));
   await userEvent.click(await screen.findByRole("button", { name: /^Actions for/ }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Give credits back" }));
   await userEvent.type(screen.getByLabelText("Reason"), "x");
@@ -290,7 +290,7 @@ test("on a phone the line reads '0 credits' before the badge, and one credit is 
     "GET /usage/charges": [200, { next_cursor: null, items: [charge({ credits: 0, refunded: { credits: 1, reason: "x", at: "2026-10-26T10:00:00Z" } }), charge({ id: 44, what: "Quick clip", credits: 1 })] }],
   });
   open();
-  await userEvent.click(await screen.findByText("Every charge"));
+  await userEvent.click(await screen.findByText("See every charge"));
   const lines = await screen.findAllByText(/credits?/);
   expect(lines.some((n) => n.textContent === "0 credits")).toBe(true);
   expect(screen.getByText(/1 credit ·/)).toBeInTheDocument();
@@ -304,7 +304,7 @@ test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to 
   const totals = await screen.findByRole("group", { name: "Totals" });
   expect(await within(totals).findByText("up to 204 credits")).toBeInTheDocument();
   expect(within(totals).getByRole("link", { name: "1 request in Needs you" })).toHaveAttribute("href", "/approvals");
-  expect(await screen.findByRole("img", { name: "62% of what was spent" })).toBeInTheDocument(); // 52.30 of 84.12
+  expect(await screen.findByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 52.30 of 84.12
 });
 
 test("Usage (v5 D_Usage, #1208): the director's own time is its own card, in dollars, outside the credit budget", async () => {
@@ -339,7 +339,7 @@ test("My credits counts every send waiting for the owner, from the server, and l
 
 test("Usage's By person lists each person's credits, dollars, videos and week (#1232)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], [`GET /usage/people?month=${month}`]: [200, [
     { user_id: 2, name: "Dee", role: "editor", credits: 804, spend_usd: 80.4, videos: 7, week_used: 40, week_allowance: 100 },
     { user_id: 1, name: "Reed", role: "owner", credits: 448, spend_usd: 44.8, videos: 5, week_used: 0, week_allowance: null },
   ]] });
@@ -348,15 +348,16 @@ test("Usage's By person lists each person's credits, dollars, videos and week (#
   const dee = (await within(people).findByText("Dee")).closest("tr")!;
   expect(within(dee).getByText("804")).toBeInTheDocument(); // whole credits, no unit (D_Usage)
   expect(dee).toHaveTextContent("$80.40");
-  expect(dee).toHaveTextContent("40 of 100 credits this week");
+  expect(dee).toHaveTextContent("40 of 100 quick credits");
   expect(within(people).getByText("No limit")).toBeInTheDocument();
 });
 
 test("My credits' rows read 'spent N' with the director's time included, in whole credits, and 'up to N approved' muted where the owner approved a run (the Producer, 3 Nov)", async () => {
   setViewport(1440);
   const videos = [
-    { project_id: 9, title: "Garden scene", status: "in_production", credits: 97.33, director_credits: 70.4, budget_credits: 729, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
-    { project_id: 10, title: "Bo at the beach", status: "done", credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 9, title: "Garden scene", status: "in_production", state: "making", brand_id: 1, credits: 97.33, director_credits: 70.4, budget_credits: 729, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Bo at the beach", status: "done", state: "delivered", brand_id: 1, credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 11, title: "Bo in the rain", status: "in_production", state: "stopped", brand_id: 1, credits: 4, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
   ];
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, videos }] });
   open("/usage/mine");
@@ -368,14 +369,40 @@ test("My credits' rows read 'spent N' with the director's time included, in whol
   expect(beach).toHaveTextContent("spent 50");
   expect(beach).toHaveTextContent("up to 204 approved");
   expect(within(beach).getByText("Delivered")).toBeInTheDocument();
+  expect(within(list).getByRole("link", { name: /Bo in the rain/ })).toHaveTextContent("Stopped"); // the server's state, in words
+});
+
+test("Usage's Download CSV gives this month's charges (v5 D_Usage, #1247)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], [`GET /usage/people?month=${month}`]: [200, []] });
+  open();
+  const csv = await screen.findByRole("link", { name: "Download CSV" });
+  expect(csv).toHaveAttribute("href", `/api/usage/charges.csv?month=${new Date().toISOString().slice(0, 7)}`);
+  expect(csv).toHaveAttribute("download");
 });
 
 test("By person and My credits never show '-0' for nothing used (UX-Auditor on #1246)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], [`GET /usage/people?month=${month}`]: [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
   open();
   const people = await screen.findByRole("region", { name: "By person" });
   const dee = (await within(people).findByText("Dee")).closest("tr")!;
-  expect(dee).toHaveTextContent("0 of 97 credits this week");
+  expect(dee).toHaveTextContent("0 of 97 quick credits");
   expect(dee.textContent).not.toMatch(/-0/);
+});
+
+test("My credits lists a send held before anything was spent under Sends only, not again as a video (Next-Lead on #1264)", async () => {
+  setViewport(1440);
+  const at = "2026-10-28T10:00:00Z";
+  const videos = [
+    { project_id: 12, title: "Garden scene", status: "in_production", state: "waiting", brand_id: 1, credits: 0, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: at },
+    { project_id: 13, title: "Bo at the gym", status: "in_production", state: "waiting", brand_id: 1, credits: 30, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: at },
+  ];
+  const sends = [{ freestyle_id: 4, title: "Garden scene", brand: "", status: "waiting", up_to_credits: 143, reason: "", created_at: at }];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, videos, sends }] });
+  open("/usage/mine");
+  const list = await screen.findByRole("list", { name: "My videos" });
+  expect(within(list).queryByText("Garden scene")).toBeNull();
+  expect(within(list).getByRole("link", { name: /Bo at the gym/ })).toHaveTextContent("spent 30"); // a later step held after spending stays a video
+  expect(within(screen.getByRole("list", { name: "My sends" })).getByText("Garden scene")).toBeInTheDocument();
 });

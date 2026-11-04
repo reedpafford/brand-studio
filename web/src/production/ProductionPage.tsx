@@ -159,9 +159,9 @@ export function ProductionPage() {
       {waiting} finished video{waiting === 1 ? " has" : "s have"} changes waiting
     </Link>
   );
-  const today = summary.data?.delivered_today ?? 0;
   const named = brands?.find((b) => String(b.id) === brand)?.name;
-  const count = summary.data && (delivered ? `${today} video${today === 1 ? "" : "s"} delivered today` : [named ?? "Every brand", `${all} video${all === 1 ? "" : "s"} making`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · "));
+  // v5 D_Production: the same line on every tab.
+  const count = summary.data && [named ?? "Every brand", `${all} video${all === 1 ? "" : "s"} making`, needs > 0 ? `${needs} need${needs === 1 ? "s" : ""} attention` : ""].filter(Boolean).join(" · ");
 
   const showTabs = (
     <Tabs label="Show" value={delivered ? "delivered" : attention ? "attention" : "making"} onChange={(t) => setParams((prev) => {
