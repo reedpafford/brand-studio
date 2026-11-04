@@ -323,3 +323,35 @@ def test_before_the_plan_is_approved_only_a_persons_request_switches_and_omni_wa
     clip = next(iter(_rows(db, ugc).values()))
     assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
                  why="x") == model_map.UNAPPROVED  # fmt: skip
+
+
+def test_the_cost_bar_prices_a_clip_on_omni_at_its_ten_seconds(app, db, owner, ugc, monkeypatch):
+    """QA on #1327: a clip still to make on Omni counts its fixed 10 s at 720p in what's left."""
+    from app.routes.estimate import _stages
+
+    clip = next(r for c, r in _rows(db, ugc).items() if c not in talker.clips(db, ugc))
+    clip.picked_take_id = None
+    db.flush()
+
+    def left() -> float:
+        return next(s.credits for s in _stages(db, ugc) if s.stage == "clips")
+
+    seedance = left()
+    monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: c.id == clip.id)
+    assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
+                 why="She takes part in the story.").startswith("Clip")  # fmt: skip
+    omni = float(get_model(model_map.OMNI).credits_per_unit("720p")) * 10
+    assert left() >= omni > seedance
+
+
+def test_undo_puts_back_how_the_presenter_appears_and_the_old_host(app, db, owner, ugc):
+    """Undo of a person's switch: the style's start again, with the host made for it."""
+    url = f"/projects/{ugc.id}/settings"
+    made = len(host.rows(db, ugc))
+    assert made and owner.post(url, json={"presenter": "corner"}).status_code == 200
+    db.refresh(ugc)
+    assert host.how(ugc) == "corner" and host.rows(db, ugc) == []  # its own take to make
+    undo = owner.post(url, json={"presenter": None, "undo": True}).json()["settings"]
+    assert (undo["presenter"], undo["presenter_now"]) == (None, "talks")
+    db.refresh(ugc)
+    assert len(host.rows(db, ugc)) == made

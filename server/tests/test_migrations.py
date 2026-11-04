@@ -308,3 +308,29 @@ def test_n35_links_each_product_picture_to_its_library_product(tmp_path):
     with engine.connect() as conn:
         back = dict(conn.execute(text("SELECT id, product FROM brand_screens")).all())
     assert back == {1: "Bag ", 2: "Bag ", 3: "bag", 4: ""}
+
+
+def test_n36_marks_each_host_made_so_far_and_every_video_starts_with_no_switches(tmp_path):
+    """A host made before n36 is a UGC talker's or a corner host's: its video's way of
+    appearing, so a switch makes a fresh one (QA on #1327)."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n35")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "workspaces", id=1, name="S")
+        _row(conn, "brands", id=1, workspace_id=1, name="B", slug="b")
+        for pid, look in ((1, "ugc"), (2, "dr-pickle")):
+            _row(conn, "projects", id=pid, workspace_id=1, brand_id=1, name=f"V{pid}", look=look)
+            _row(conn, "host_pieces", id=pid, project_id=pid, take_id=1, number=0)
+    command.upgrade(cfg, "n36")
+    with engine.connect() as conn:
+        how = dict(conn.execute(text("SELECT project_id, how FROM host_pieces")).all())
+        log = conn.execute(text("SELECT settings_log, presenter, voice FROM projects")).all()
+    assert how == {1: "talks", 2: "corner"}
+    assert [tuple(r) for r in log] == [("[]", None, None)] * 2
+    command.downgrade(cfg, "n35")
+    with engine.connect() as conn:
+        cols = [c[1] for c in conn.execute(text("PRAGMA table_info(host_pieces)")).all()]
+    assert "how" not in cols
