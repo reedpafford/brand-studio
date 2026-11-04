@@ -1,28 +1,31 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Bell, ChevronDown, Film, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
+import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
+import { useMyRequests } from "../approvals/HeldRequests";
+import { useArchiveBrand } from "../brand/ArchiveBrand";
 import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
 import { useProductionSummary } from "../production/useProduction";
 import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { useMedia } from "../useMedia";
 import { AccountMenu, STUDIO } from "./AccountMenu";
+import { FolderTree } from "./FolderTree";
+import { QuickSearch } from "./QuickSearch";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
-// Phone tabs keep this order; the desktop rail groups them (Make, Library) in the order work happens (Reed, 2 Nov: nav A).
-// New video is the rail's one press above them (v5 A_Shell); on a phone it is the middle tab (B_PhoneNew).
+// v6 S0-01: the rail's Library rows (Scripts first, S-gaps-04 R1); a brand switch keeps you in the same section.
 export const NEW_VIDEO = "videos/new";
-const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon; railOnly?: boolean }[] = [
-  { to: "videos", also: "projects", label: "Videos", short: "Videos", icon: Film },
-  { to: "scripts", label: "Scripts", short: "Scripts", icon: FileText },
-  { to: NEW_VIDEO, label: "New video", short: "New", icon: Plus },
-  { to: "media", label: "Media", short: "Media", icon: Images, railOnly: true }, // on a phone: from the Videos header (five tabs)
-  { to: "library", label: "Cast & places", short: "Cast", icon: Users },
-  { to: "brand", label: "Brand", short: "Brand", icon: Palette },
+const SECTIONS: { to: string; also?: string; label: string; icon: LucideIcon }[] = [
+  { to: "videos", also: "projects", label: "Videos", icon: Film },
+  { to: "scripts", label: "Scripts", icon: FileText },
+  { to: "library", label: "Cast & places", icon: Users },
+  { to: "media", label: "Media", icon: Images },
+  { to: "brand", label: "Brand kit", icon: Palette },
 ];
+const LIBRARY = ["scripts", "library", "media", "brand"];
 
 /** Where a brand switch lands: the same section in the other brand; a video or an item goes to that section's list. */
 function sectionOf(pathname: string) {
@@ -97,6 +100,8 @@ function Frame() {
   const video = newVideo ?? oldVideo;
   // New video has its own title bar on a phone too (B_PhoneNew).
   const inVideo = !rail && video !== null && (/^\d+$/.test(video.params.projectId ?? "") || video.params.projectId === "new");
+  const folderPage = useMatch("/b/:brandId/videos");
+  const onFolders = !rail && folderPage !== null; // P-01 and P-02 draw their own header
 
   useEffect(() => {
     if (fromUrl) rememberBrand(fromUrl);
@@ -150,7 +155,7 @@ function Frame() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      {!inVideo && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} waiting={waiting} />}
+      {!inVideo && !onFolders && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} />}
       <div className="flex">
         {rail && <Rail brands={brands ?? []} brand={brand} current={current} wide={wide} owner={held.owner} waiting={waiting} />}
         {work}
@@ -158,38 +163,26 @@ function Frame() {
       {!rail && (
         <>
           <div ref={setNode} className="fixed inset-x-0 z-20 bg-surface empty:hidden" style={{ bottom: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} />
-          <Tabs current={current} />
+          <Tabs current={current} owner={held.owner} waiting={waiting} />
         </>
       )}
     </div>
   );
 }
 
-function Badge({ n }: { n: number | null }) {
-  if (!n) return null;
-  return (
-    <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-warning tabular-nums">
-      <span aria-hidden className="size-1.5 rounded-full bg-warning" />
-      {n}
-      <span className="sr-only"> waiting</span>
-    </span>
-  );
+/** The brand menu on its own, for a phone page that draws its own header (P-01, and a new brand's set-up list). */
+export function BrandMenu() {
+  const { data: brands } = useBrands();
+  const { brandId } = useParams();
+  const current = Number(brandId) || null;
+  return <BrandSwitcher brands={brands ?? []} brand={brands?.find((b) => b.id === current)} current={current} inRail />; // P-01: plain, as in the rail
 }
 
-function TopBar({ brands, brand, current, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; waiting: number | null }) {
+/** A phone's top bar off the folder pages: the brand menu. Needs you and the account are tabs now (v6 P-01). */
+function TopBar({ brands, brand, current }: { brands: Brand[]; brand?: Brand; current: number | null }) {
   return (
     <header aria-label="Top bar" className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
       <BrandSwitcher brands={brands} brand={brand} current={current} />
-      <div className="ml-auto flex items-center gap-2">
-        {/* Needs you shows only while something waits (Reed, 30 Oct); the page itself stays at /approvals. */}
-        {!!waiting && (
-          <Link to="/approvals" aria-label={`Needs you, ${waiting} waiting`} className="relative grid size-control place-items-center rounded-full hover:bg-surface-2">
-            <Bell size={20} strokeWidth={1.75} aria-hidden />
-            <span aria-hidden className="absolute right-1 top-1 inline-grid min-w-5 place-items-center rounded-full bg-accent px-1 text-xs font-semibold text-on-accent tabular-nums">{waiting}</span>
-          </Link>
-        )}
-        <AccountMenu />
-      </div>
     </header>
   );
 }
@@ -198,6 +191,7 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
   const navigate = useNavigate();
   const owner = useMe().data?.role === "owner";
   const { pathname } = useLocation();
+  const archive = useArchiveBrand(brand, brands.filter((b) => b.id !== brand?.id)); // S-gaps-05: Archive is in this menu
   const go = (id: number) => {
     const section = sectionOf(pathname);
     navigate(section ? `/b/${id}/${section}` : `/b/${id}`);
@@ -247,20 +241,27 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
                   <Plus size={20} strokeWidth={1.75} aria-hidden />
                   New brand
                 </MenuItem>
+                {brand && (
+                  <MenuItem danger onClick={() => (close(), archive.ask())}>
+                    <Archive size={20} strokeWidth={1.75} aria-hidden />
+                    Archive {brand.name}…
+                  </MenuItem>
+                )}
               </div>
             )}
           </>
         )}
       </Menu>
+      {archive.dialog}
     </div>
   );
 }
 
 /** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
-function NavItem({ to, also, className, children, ...rest }: { to: string; also?: string; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
+function NavItem({ to, also, under, className, children, ...rest }: { to: string; also?: string; /** also current on these pages (the phone's Library tab) */ under?: RegExp; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
   const { pathname } = useLocation();
   const onNew = pathname.endsWith(`/${NEW_VIDEO}`); // under /videos, but its own place
-  const active = pathname === to || (!onNew && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
+  const active = pathname === to || !!under?.test(pathname) || (!onNew && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
   return (
     <Link to={to} className={className(active)} aria-current={active ? "page" : undefined} {...rest}>
       {children}
@@ -269,62 +270,91 @@ function NavItem({ to, also, className, children, ...rest }: { to: string; also?
 }
 
 function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; wide: boolean; owner: boolean; waiting: number | null }) {
-  const item = (isActive: boolean) => `flex min-h-control-dense items-center gap-2.5 rounded-md px-2 ${wide ? "" : "justify-center"} ${isActive ? "bg-surface-2 font-medium text-text" : "text-muted hover:bg-surface-2 hover:text-text"}`;
+  const mine = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval").length;
+  const item = (isActive: boolean) => `flex h-[30px] items-center gap-2 rounded-md px-2 text-sm font-medium ${wide ? "" : "justify-center"} ${isActive ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60 hover:text-text"}`;
   const row = (to: string, label: string, Icon: LucideIcon, extra?: ReactNode, also?: string) => (
     <NavItem key={to} to={to} also={also} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
-      <Icon size={16} strokeWidth={1.75} aria-hidden />
+      <Icon size={14} strokeWidth={1.75} aria-hidden />
       {wide && <span>{label}</span>}
       {wide && extra}
     </NavItem>
   );
+  const count = (n: number, tone: "need" | "n") => (
+    <span className={`ml-auto inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${tone === "need" ? "bg-warning-soft text-warning" : "bg-surface-3 text-muted"}`}>
+      {n}
+      <span className="sr-only"> waiting</span>
+    </span>
+  );
   const section = (to: string) => SECTIONS.find((s) => s.to === to)!;
   const group = (label: string, rows: ReactNode) => (
-    <div className="mt-4 flex flex-col gap-0.5">
-      {wide && <p className="px-2 pb-1 text-xs text-muted">{label}</p>}
+    <div className="flex flex-col gap-0.5">
+      {wide && <p className="mt-2.5 flex h-7 items-center px-2 text-xs font-medium text-muted">{label}</p>}
       {rows}
     </div>
   );
   return (
-    <nav aria-label="Main" className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-border bg-surface p-2 ${wide ? "w-rail" : "w-[64px]"}`}>
+    <nav aria-label="Main" className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col gap-0.5 border-r border-border bg-surface-2 px-2 py-2.5 ${wide ? "w-rail" : "w-[64px]"}`}>
       {/* Only the rows scroll: the brand and account menus are wider than the rail and must not be clipped by it. */}
       <BrandSwitcher brands={brands} brand={brand} current={current} inRail iconOnly={!wide} />
       {current && (
-        <Link to={href(NEW_VIDEO, current)} aria-label="New video" title="New video (N)" className="mt-2 inline-flex min-h-control-dense items-center justify-center gap-2 rounded-md bg-accent px-2 font-medium text-on-accent hover:bg-accent-hover">
-          <Plus size={16} strokeWidth={1.75} aria-hidden />
-          {wide && <span aria-hidden>New video</span>}
-          {wide && <kbd aria-hidden className="rounded-sm border border-white/40 px-1.5 font-sans text-xs leading-4">N</kbd>}
-        </Link>
+        <div className={`flex gap-2 pb-1.5 pt-0.5 ${wide ? "" : "flex-col"}`}>
+          {/* v6 S0-01: outlined, with its key; the open folder's own New video is the page's indigo press. */}
+          <Link to={href(NEW_VIDEO, current)} aria-label="New video" title="New video (N)" className={`inline-flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-button bg-surface px-3 text-sm font-medium text-text hover:bg-surface-2 ${wide ? "" : "justify-center"}`}>
+            <Plus size={14} strokeWidth={1.75} aria-hidden />
+            {wide && <span aria-hidden className="flex-1">New video</span>}
+            {wide && <kbd aria-hidden className="rounded-sm border border-border-button px-1 font-sans text-[11px] leading-4 text-muted">N</kbd>}
+          </Link>
+          {wide && <QuickSearch brandId={current} />}
+        </div>
       )}
       <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
-        {current && group("Make", ["videos", "scripts"].map((to) => { const s = section(to); return row(href(s.to, current), s.label, s.icon, undefined, s.also); }))}
-        {current && group("Library", ["library", "media", "brand"].map((to) => { const s = section(to); return row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also); }))}
-        {owner &&
-          group(
-            "Studio",
-            <>
-              {!!waiting && row("/approvals", "Needs you", Bell, <Badge n={waiting} />)}
-              {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
-            </>,
-          )}
+        {current && (wide ? <FolderTree brandId={current} /> : <div className="mt-2.5">{row(href("videos", current), "Videos", Film, undefined, "projects")}</div>)}
+        {current && group("Library", LIBRARY.map((to) => { const s = section(to); return row(href(s.to, current), s.label, s.icon, undefined, s.also); }))}
+        {owner
+          ? group(
+              "Studio",
+              <>
+                {row("/approvals", "Needs you", Inbox, count(waiting ?? 0, "need"))}
+                {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
+              </>,
+            )
+          : group("Mine", row("/requests", "My requests", Clock, count(mine, "n")))}
       </div>
-      <div className="pt-4">
+      <div className="pt-2">
         <AccountMenu inRail iconOnly={!wide} />
       </div>
     </nav>
   );
 }
 
-function Tabs({ current }: { current: number | null }) {
-  const tab = (isActive: boolean) => `flex min-h-control flex-1 flex-col items-center justify-center gap-0.5 text-[11.5px] ${isActive ? "font-semibold text-accent-text" : "text-muted"}`;
+/** The phone's four tabs (v6 P-01, S-gaps-04 R3): Videos, Library, Needs you (an editor's My requests) and More. */
+function Tabs({ current, owner, waiting }: { current: number | null; owner: boolean; waiting: number | null }) {
+  const mine = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval").length;
+  const tab = (isActive: boolean) => `relative flex min-h-control flex-1 flex-col items-center justify-center gap-0.5 text-[11.5px] ${isActive ? "font-semibold text-text" : "text-muted"}`;
+  const badge = (n: number | null) =>
+    n ? (
+      <span className="absolute left-[54%] top-1 inline-grid h-[18px] min-w-[18px] place-items-center rounded-full bg-warning-soft px-1 text-[11px] font-semibold text-warning tabular-nums">
+        {n}
+        <span className="sr-only"> waiting</span>
+      </span>
+    ) : null;
+  const tabs: [string, string, LucideIcon, ReactNode?, string?, RegExp?][] = current
+    ? [
+        [href("videos", current), "Videos", Film, null, "projects"],
+        [`/b/${current}/more/library`, "Library", Users, null, undefined, /^\/b\/\d+\/(scripts|library|media|brand)(\/|$)/],
+        owner ? ["/approvals", "Needs you", Inbox, badge(waiting)] : ["/requests", "My requests", Clock, badge(mine)],
+        ["/more", "More", Ellipsis],
+      ]
+    : [];
   return (
     <nav aria-label="Tabs" style={{ height: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
-      {current &&
-        SECTIONS.filter((s) => !s.railOnly).map((s) => (
-          <NavItem key={s.to} to={href(s.to, current)} also={s.also} className={tab}>
-            <s.icon size={20} strokeWidth={1.75} aria-hidden />
-            {s.short}
-          </NavItem>
-        ))}
+      {tabs.map(([to, label, Icon, extra, also, under]) => (
+        <NavItem key={to} to={to} also={also} under={under} className={tab}>
+          <Icon size={20} strokeWidth={1.75} aria-hidden />
+          {label}
+          {extra}
+        </NavItem>
+      ))}
     </nav>
   );
 }

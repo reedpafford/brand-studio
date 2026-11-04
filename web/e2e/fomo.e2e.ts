@@ -15,6 +15,6 @@ test("fomo comes with its real screens, as its app's pictures, and its logo", as
   await expect(moments.getByRole("button", { name: "Remove win", exact: true })).toBeVisible();
   await editor.getByRole("button", { name: "Close" }).click();
 
-  await page.getByRole("link", { name: "Brand kit" }).click();
+  await page.getByRole("navigation", { name: "Library" }).getByRole("link", { name: "Brand kit" }).click();
   await expect(page.getByRole("img", { name: "fomo logo" })).toBeVisible();
 });

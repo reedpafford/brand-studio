@@ -21,8 +21,9 @@ NARRATION = ("Every morning starts the same. The bowl, the wait, the wag. Iron P
 
 
 @pytest.fixture(autouse=True)
-def songs_on(monkeypatch):  # as on the test site's stand-ins (get_settings there)
-    monkeypatch.setattr("app.director_song._on", lambda db, draft: True)
+def songs_on(monkeypatch, app):  # as on the test site's stand-ins (get_settings there), with
+    monkeypatch.setattr("app.director_song._on", lambda db, draft: True)  # a music provider on
+    monkeypatch.setattr(app.state.settings, "kie_suno", True)
 
 
 def _sent(owner, type_, text):

@@ -31,7 +31,7 @@ export function SettingsRow({ children, steps }: { children?: ReactNode; steps: 
   return (
     <div className="flex min-h-13 flex-wrap items-center gap-x-1.5 gap-y-2 border-b border-border px-4 py-2 sm:px-6">
       {children && (
-        <div role="group" aria-label="Script settings" className="flex flex-wrap items-center gap-1.5">
+        <div role="group" aria-label="Script settings" className="flex flex-wrap items-center gap-1">
           {children}
         </div>
       )}
@@ -43,7 +43,8 @@ export function SettingsRow({ children, steps }: { children?: ReactNode; steps: 
 
 /** A setting's picker in that row: a quiet bordered press reading "Look House style ▾". */
 // The value is bright and its label muted (C_NewScript), so the picker isn't the ghost button's grey all through.
-export const pickClass = "border border-border text-sm text-text! !gap-1.5 lg:!px-2.5 [&>svg:last-child]:size-4";
+// Tight enough that the pickers and the steps share one row beside the v6 rail (248 px, S0-01) at 1440.
+export const pickClass = "border border-border text-sm text-text! !gap-1.5 lg:!px-2 [&>svg:last-child]:size-4";
 export function PickLabel({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>

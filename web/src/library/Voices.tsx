@@ -52,9 +52,13 @@ export function VoiceRow({ voice: v, picked, onPick }: { voice: Voice; picked?: 
   const why = v.state === "cloning" ? "Cloning…" : v.state === "expired" || v.state === "failed" ? v.error : v.state === "may_expire" ? v.error || "Unused for a while: MiniMax may delete it soon." : "";
   return (
     <div className={`flex min-h-13 items-center gap-3 rounded-md border px-2.5 py-2 ${picked ? "border-accent bg-accent-soft" : "border-border bg-surface"}`}>
-      <button type="button" disabled={!src} title={src ? undefined : "No free sample yet"} aria-label={`${playing ? "Pause" : "Play"} ${v.name}`} onClick={() => (playing ? audio.current?.pause() : void audio.current?.play())} className="grid size-11 shrink-0 place-items-center rounded-md border border-border-button text-text disabled:text-faint lg:size-7">
-        {playing ? <Pause size={12} strokeWidth={2} aria-hidden /> : <Play size={12} strokeWidth={2} aria-hidden />}
-      </button>
+      {src ? (
+        <button type="button" aria-label={`${playing ? "Pause" : "Play"} ${v.name}`} onClick={() => (playing ? audio.current?.pause() : void audio.current?.play())} className="grid size-11 shrink-0 place-items-center rounded-md border border-border-button text-text lg:size-7">
+          {playing ? <Pause size={12} strokeWidth={2} aria-hidden /> : <Play size={12} strokeWidth={2} aria-hidden />}
+        </button>
+      ) : (
+        <span aria-hidden className="size-11 shrink-0 lg:size-7" /> // no free sample yet: no Play
+      )}
       {src && <audio ref={audio} src={src} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} className="hidden" />}
       <button type="button" disabled={!onPick} onClick={onPick} className="flex min-w-0 flex-1 flex-col text-left disabled:cursor-default">
         <span className="truncate text-sm font-semibold">{v.name}{v.kind === "cloned" && !/clon/i.test(v.name) ? " (cloned)" : ""}</span>

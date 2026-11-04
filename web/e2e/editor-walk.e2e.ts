@@ -140,7 +140,7 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
 test("editor walk: published script with no breakdown, variations or cast, at 390", async ({ page, browser }) => {
   test.setTimeout(1_500_000);
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const id = async (name: string) => brands.find((b) => b.name === name)?.id ?? (await emptyBrand(page, name));
   const iron = await id("Iron Paws"), fomo = await id("fomo");
@@ -158,7 +158,7 @@ test("editor walk: published script with no breakdown, variations or cast, at 39
   const ed = await ctx.newPage();
   console.log("accept", (await ed.request.post("/api/auth/accept-invite", { data: { token: inv.token, name: "Walker", password: "correct horse battery staple" } })).status());
   await ed.goto("/");
-  await expect(ed.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(ed.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   for (const [brand, title] of made.filter(([, t]) => !process.env.E2E_WALK_ONLY || t.includes(process.env.E2E_WALK_ONLY))) await walk(ed, brand, title, title.includes("Pitbull") ? "iron" : "fomo");
   console.log("BLOCKS", blocks.length, JSON.stringify(blocks, null, 1));
   expect(blocks).toEqual([]);

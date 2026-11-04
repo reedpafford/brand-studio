@@ -44,6 +44,11 @@ blurb: One line for the style's card.
   video to its narration, a story to its lines). A narrated format may also have `host: yes`:
   the site then makes a host who says the narration on camera (one still on green, lip-synced
   in pieces) and lays them over the B-roll in the final cut (Presenter).
+- New video's cards (optional): `card` is the short line under the name ("Handmade clay"); a
+  style's `broll` names its B-roll look ("Clay props"), shown as "B-roll: clay props" and in
+  Change B-roll look. Without `card`, the card shows the blurb. `hidden: yes` keeps a style
+  out of every list (Reed, 3 Nov, on Paper, Watercolor, Wool crochet and Anime comic: "do not
+  build it").
 - Notes for people go in `<!-- ... -->` before the first section; the model never sees them.
 
 Most sections are guidance: write them like advice to a director, and every writing step reads

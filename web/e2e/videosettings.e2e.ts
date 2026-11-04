@@ -5,7 +5,7 @@ for (const width of [1440, 390]) {
   test(`at ${width}: the Video settings row switches the video model and Undo puts it back, with no sideways scroll (flows VS1)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
-    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Settings Co ${width}`);
     const id = (await (await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Settings test", planned_seconds: 20 } })).json()).id;
     const before = await (await page.request.get(`/api/projects/${id}/settings`)).json();

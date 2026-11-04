@@ -32,7 +32,7 @@ class VoiceOut(BaseModel):
     look: str | None  # a style's own voice (for every brand), e.g. "dr-pickle"
     brand_id: int | None
     sample_file_id: int | None  # the clone's uploaded sample
-    sample_url: str | None  # a free committed sample (an app voice, a style's voice)
+    sample_url: str | None  # an API path ("/voices/samples/Roger.mp3"): the web adds /api
     preview_file_id: int | None  # MiniMax's preview of the clone
     cloned_at: UtcTime | None
     last_used_at: UtcTime | None
@@ -54,25 +54,26 @@ class VoiceCloneIn(BaseModel):
     sample_file_id: int
 
 
-def _url(request: Request, name: str | None) -> str | None:
-    return str(request.url_for("voice_sample", name=name)) if name else None
+def _url(name: str | None) -> str | None:
+    """The sample's path on the API: the web adds its /api, as for every file it plays."""
+    return f"/voices/samples/{name}.mp3" if name else None
 
 
-def _out(db: Session, request: Request, voice: Voice, used: dict) -> VoiceOut:
+def _out(db: Session, voice: Voice, used: dict) -> VoiceOut:
     state, why = voices.state(db, voice)
     return VoiceOut(id=voice.id, name=voice.name, kind=voice.kind, stock_key=None,
                     provider=voice.provider, description=voice.description, look=voice.look,
                     brand_id=voice.brand_id, sample_file_id=voice.sample_file_id,
-                    sample_url=_url(request, voices.sample_name(voice)),
+                    sample_url=_url(voices.sample_name(voice)),
                     preview_file_id=voice.preview_file_id, cloned_at=voice.cloned_at,
                     last_used_at=voice.last_used_at, expires_at=voices.expires_at(voice),
                     state=state, error=why, used_by=used.get(voice.id, []))  # fmt: skip
 
 
-def _stock_out(request: Request, key: str) -> VoiceOut:
+def _stock_out(key: str) -> VoiceOut:
     given = voices.stock(key)
     return VoiceOut(id=None, look=None, brand_id=None, sample_file_id=None,
-                    sample_url=_url(request, voices.sample_name(None, key)),
+                    sample_url=_url(voices.sample_name(None, key)),
                     preview_file_id=None, cloned_at=None, last_used_at=None, expires_at=None,
                     state="ready", error="", used_by=[], **given)  # fmt: skip
 
@@ -87,7 +88,7 @@ def _voice(db: Session, user: User, voice_id: int) -> Voice:
 
 
 @router.get("/brands/{brand_id}/voices", response_model=VoicesOut)
-def list_voices(brand_id: int, request: Request, user: User = Depends(current_user),
+def list_voices(brand_id: int, user: User = Depends(current_user),
                 db: Session = Depends(get_db)):  # fmt: skip
     """The brand's own voices, the styles' voices, then every app voice (Reed, 4 Nov: a brand
     saves only voices uploaded or cloned for it). An `all` query from the first version is
@@ -95,8 +96,8 @@ def list_voices(brand_id: int, request: Request, user: User = Depends(current_us
     get_brand(db, user, brand_id)
     rows = voices.rows(db, user.workspace_id, brand_id)
     used = voices.used_by(db, [v.id for v in rows])
-    out = [_out(db, request, v, used) for v in rows]
-    out += [_stock_out(request, k) for k in voices.stock_keys()]
+    out = [_out(db, v, used) for v in rows]
+    out += [_stock_out(k) for k in voices.stock_keys()]
     db.commit()  # a style's voice made on first read
     usd = voices.clone_usd() if user.is_owner else None
     return VoicesOut(voices=out, clone_credits=float(voices.clone_credits(db, user.workspace_id)),
@@ -112,7 +113,7 @@ def clone_voice(brand_id: int, body: VoiceCloneIn, request: Request,
     stored = get_file(db, user, body.sample_file_id, "audio")
     voice = voices.clone(db, user, brand_id, request.app.state.storage, stored, body.name,
                          body.description)  # fmt: skip
-    return _out(db, request, voice, {})
+    return _out(db, voice, {})
 
 
 @router.delete("/voices/{voice_id}", status_code=204)
@@ -124,12 +125,12 @@ def remove_voice(voice_id: int, user: User = Depends(current_user),
 
 
 @router.post("/voices/{voice_id}/restore", response_model=VoiceOut)
-def restore_voice(voice_id: int, request: Request, user: User = Depends(current_user),
+def restore_voice(voice_id: int, user: User = Depends(current_user),
                   db: Session = Depends(get_db)):  # fmt: skip
     voice = _voice(db, user, voice_id)
     voices.restore(voice)
     db.commit()
-    return _out(db, request, voice, voices.used_by(db, [voice.id]))
+    return _out(db, voice, voices.used_by(db, [voice.id]))
 
 
 @router.get("/voices/samples/{name}.mp3", response_class=FileResponse, name="voice_sample")

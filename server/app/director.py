@@ -634,11 +634,26 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                                          Job.input[RUN]["id"].as_string() == run["id"],
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
     video = {**video_state(db, project), "treatment": "written" if own else "none"}  # this run's
+    from app.routes.reel_video import look_reference
+
+    files, reel = attached(db, project), look_reference(db, project)  # New video's picks
     parts = (("video", video), ("last_actions", done), ("allowed", allowed),
-             *((("chat", asked),) if asked else ()))  # fmt: skip
+             *((("chat", asked),) if asked else ()),
+             *((("attachments", files),) if files else ()),
+             *((("look_reference", reel),) if reel else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
     return {"system": system, "prompt": f"{brief}\n{story(db, project)}{tagged}",
             READ: len(asked)}  # fmt: skip
+
+
+def attached(db: Session, project: Project) -> list[dict]:
+    """The pictures or clips attached for this video only (New video, rule 12), by file id,
+    name and kind. Words only for now: seeing them comes with the ask move (piece B)."""
+    from app.models.files import StoredFile
+
+    rows = [db.get(StoredFile, i) for i in project.attachments or []]
+    return [{"file_id": f.id, "name": f.filename, "kind": f.content_type.split("/")[0]}
+            for f in rows if f is not None]  # fmt: skip
 
 
 def story(db: Session, project: Project) -> str:

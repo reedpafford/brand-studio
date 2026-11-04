@@ -235,6 +235,8 @@ def what(db: Session, job: Job) -> str:
     if job.input.get("script_id"):
         script = db.get(Script, job.input["script_id"])
         return f"{STEPS.get(step, 'Script')} · {script.title}" if script else STEPS.get(step, "")
+    if step == "voice_clone":  # a brand's cloned voice (app/voices.py)
+        return f"Voice clone · {job.input.get('voice_name') or 'a voice'}"
     return STEPS.get(step, "Quick clip")
 
 

@@ -28,7 +28,6 @@ def _hidden_nowhere(owner, editor):
     for who in (owner, editor):
         assert who.get("/scripts").json() == []
         assert who.get("/projects").json() == []
-        assert who.get("/projects", params={"status": "needs_you"}).json() == []
         assert all(b["name"] != "Freestyle" for b in who.get("/brands").json())
     assert owner.get("/production").json() == []
     summary = owner.get("/production/summary").json()

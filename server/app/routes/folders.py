@@ -22,6 +22,7 @@ from app.routes.brands import get_brand
 router = APIRouter(tags=["folders"])
 Name = Field(min_length=1, max_length=120)
 SHOWN = 5  # ideas under an open folder in the tree, then "+ N more" (S0-01)
+ALL = "all"  # ?folder=all: every idea in the brand
 
 
 class FolderIn(BaseModel):
@@ -77,6 +78,7 @@ class Dot(BaseModel):
     id: int
     title: str
     status: ideas.Status  # the tree shows the dot; the words are on hover
+    can_manage: bool = False  # it can be dragged to another folder: whoever made it, or the owner
 
 
 class Branch(BaseModel):
@@ -94,7 +96,7 @@ class Branch(BaseModel):
 
 
 class TreeOut(BaseModel):
-    folders: list[Branch]  # at the top, by name
+    folders: list[Branch]  # at the top, in the order made
     unsorted: Branch
 
 
@@ -107,7 +109,9 @@ class Counts(BaseModel):
 
 class IdeasOut(BaseModel):
     total: int  # in this tab, for the pages ("Showing 1–13 of 124")
-    counts: Counts  # the tabs, with the search and Made by applied
+    counts: (
+        Counts  # the tabs and the header: the whole folder (the search and Made by narrow `total`)
+    )
     archived: int  # this folder's archived ideas
     folders_inside: int  # "124 video ideas · 2 folders inside"
     makers: list[ideas.Named]  # the Made by filter's people
@@ -123,7 +127,7 @@ def _out(db: Session, user: User, folder: Folder, items: dict | None = None) -> 
 
 @router.get("/brands/{brand_id}/folders", response_model=list[FolderOut])
 def list_folders(brand_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """The brand's folders, by name, each with its `parent_id`; Unsorted isn't listed."""
+    """The brand's folders in the order made, each with its `parent_id`; Unsorted isn't listed."""
     rows = folders.live(db, get_brand(db, user, brand_id).id)
     counts = folders.counts(db, user, [f.id for f in rows])
     return [_out(db, user, f, counts[f.id]) for f in rows]
@@ -152,7 +156,8 @@ def tree(brand_id: int, user: User = Depends(current_user), db: Session = Depend
     named = ideas.titles(db, [p.id for p in shown])
 
     def dots(ps: list[Project]) -> list[Dot]:
-        return [Dot(id=p.id, title=named.get(p.id, p.name), status=status[p.id])
+        return [Dot(id=p.id, title=named.get(p.id, p.name), status=status[p.id],
+                    can_manage=user.is_owner or p.created_by_id == user.id)
                 for p in ps[:SHOWN]]  # fmt: skip
 
     def branch(f: Folder) -> Branch:
@@ -172,7 +177,7 @@ def tree(brand_id: int, user: User = Depends(current_user), db: Session = Depend
 @router.get("/brands/{brand_id}/ideas", response_model=IdeasOut)
 def folder_ideas(
     brand_id: int,
-    folder: str = folders.NONE,  # a folder's id (with the folders inside it), or none: Unsorted
+    folder: str = folders.NONE,  # a folder (and the folders inside), none: Unsorted, all: the brand
     tab: ideas.Tab = "all",
     q: str = "",  # in the idea's title
     made_by: int | None = None,  # a person's id: "Made by"
@@ -185,42 +190,51 @@ def folder_ideas(
 ):
     """One folder's ideas as cards or list rows (S1-04 to S1-08, P-02), a page at a time."""
     brand = get_brand(db, user, brand_id)
-    if folder != folders.NONE:
+    whole = folder == ALL  # the rail's quick search (S-gaps-04 R2)
+    if folder not in (folders.NONE, ALL):
         try:
             opened = folders.get(db, user, int(folder))
         except ValueError:
             raise HTTPException(404, folders.NO_FOLDER) from None
         if opened.brand_id != brand.id:  # brands stay apart
             raise HTTPException(404, folders.NO_FOLDER)
-    filed = folders.where(Project.folder_id, folder)
-    base = _live_ideas(db, brand.id, archived).where(filed)
-    gone = 0 if archived else db.scalar(select(func.count()).select_from(
+    filed = Project.id.is_not(None) if whole else folders.where(Project.folder_id, folder)
+    gone = db.scalar(select(func.count()).select_from(
         _live_ideas(db, brand.id, True).where(filed).subquery()))  # fmt: skip
-    every = list(db.scalars(base))
+    every = list(db.scalars(_live_ideas(db, brand.id).where(filed)))
     makers = {p.created_by_id for p in every if p.created_by_id}
     named = ideas.titles(db, [p.id for p in every])
     title = {p.id: named.get(p.id, p.name) for p in every}
     found = [p for p in every if q.strip().lower() in title[p.id].lower()]
     if made_by is not None:
         found = [p for p in found if p.created_by_id == made_by]
-    known = ideas.facts(db, found)
-    status = ideas.statuses(db, user, found, known)
-    in_tab = {t: [p for p in found if status[p.id].kind in kinds]
+    known = ideas.facts(db, every)
+    status = ideas.statuses(db, user, every, known)
+    # The tabs and the header count the whole folder; the search and Made by narrow the rows.
+    in_tab = {t: [p for p in every if status[p.id].kind in kinds]
               for t, kinds in ideas.TABS.items()}  # fmt: skip
-    rows = found if tab == "all" else in_tab[tab]
+    shown = {p.id for p in found}
+    rows = [p for p in (every if tab == "all" else in_tab[tab]) if p.id in shown]
+    if archived:  # S1-06: the folder's archived ideas; the tabs and the header keep its live ones
+        rows = list(db.scalars(_live_ideas(db, brand.id, True).where(filed)))
+        named = ideas.titles(db, [p.id for p in rows])
+        title.update({p.id: named.get(p.id, p.name) for p in rows})
+        rows = [p for p in rows if q.strip().lower() in title[p.id].lower()]
+        known = ideas.facts(db, rows)
+        status = ideas.statuses(db, user, rows, known)
     order = {"newest": lambda p: (-known.last[p.id].timestamp(), -p.id),
              "oldest": lambda p: (known.last[p.id].timestamp(), p.id),
              "name": lambda p: (title[p.id].lower(), p.id)}  # fmt: skip
     rows = sorted(rows, key=order[sort])
     page = rows[offset : offset + limit]
     inside = 0
-    if folder != folders.NONE:
+    if folder not in (folders.NONE, ALL):
         inside = len(folders.below(folders.live(db, brand.id), int(folder))) - 1
     from app.auth import user_name
 
     return IdeasOut(
         total=len(rows),
-        counts=Counts(all=len(found), **{t: len(ps) for t, ps in in_tab.items()}),
+        counts=Counts(all=len(every), **{t: len(ps) for t, ps in in_tab.items()}),
         archived=gone, folders_inside=inside,
         makers=sorted((ideas.Named(id=i, name=user_name(db, i)) for i in makers),
                       key=lambda m: m.name.lower()),

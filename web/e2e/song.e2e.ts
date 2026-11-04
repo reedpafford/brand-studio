@@ -6,7 +6,7 @@ const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks i
 /** New script → Song, lyrics and style saved, two takes made on the free stand-in until one is Preferred, then Cast asks who sings. */
 async function walk(page: Page, brand: string) {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, brand);
   await page.goto(`/b/${brandId}/scripts`);
   await page.getByRole("button", { name: "New script" }).click();

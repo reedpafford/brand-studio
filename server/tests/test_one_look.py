@@ -26,10 +26,11 @@ def test_a_lane_is_found_named_by_its_style_and_follows_its_switch(db, owner, ed
     with pytest.raises(HTTPException):
         looks.get("song")  # a format is neither
     cards = [c["id"] for c in editor.get("/looks").json()]
-    assert not LANES & set(cards) and {"paper", "claymation", "skeleton"} <= set(cards)
+    assert not LANES & set(cards) and {"claymation", "skeleton"} <= set(cards)
     assert len(cards) == len(set(cards))  # one card per style
-    paper = next(c for c in editor.get("/looks").json() if c["id"] == "paper")
-    assert {"id": "paper-flat", "name": "Paper · Flat"} in paper["lanes"]  # to name a video
+    clay = next(c for c in editor.get("/looks").json() if c["id"] == "claymation")
+    goofy = {"id": "claymation-goofy", "name": looks.get("claymation-goofy")["name"]}
+    assert goofy in clay["lanes"]  # to name a video
     assert next(c for c in editor.get("/looks").json() if c["id"] == "house")["lanes"] == []
     ws = owner.get("/auth/me").json()["workspace_id"]
     assert not looks.is_on(db, ws, "paper-flat")

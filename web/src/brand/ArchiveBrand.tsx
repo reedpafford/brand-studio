@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Ellipsis } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
-import { Dialog, Menu, MenuItem } from "../components";
+import { Dialog } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
@@ -21,8 +20,9 @@ export function useRestoreBrand() {
   };
 }
 
-/** Archive brand, for Reed: a menu next to the page title, a confirm, then the app moves to the first other brand with an Undo. */
-export function ArchiveBrand({ brand, others }: { brand: Brand; others: Brand[] }) {
+/** Archive brand, for Reed: a confirm, then the app moves to the first other brand with an Undo. `ask` opens the confirm;
+ *  `dialog` renders it. In the brand switcher's menu (S-gaps-05) and, until it goes, beside the brand page's title. */
+export function useArchiveBrand(brand: Brand | undefined, others: Brand[]) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -31,6 +31,7 @@ export function ArchiveBrand({ brand, others }: { brand: Brand; others: Brand[] 
   const toast = useToast();
   const restore = useRestoreBrand();
   const confirm = async () => {
+    if (!brand) return;
     setBusy(true);
     setProblem(null);
     const { error, response } = await api.DELETE("/brands/{brand_id}", { params: { path: { brand_id: brand.id } } });
@@ -41,36 +42,12 @@ export function ArchiveBrand({ brand, others }: { brand: Brand; others: Brand[] 
     navigate(others[0] ? `/b/${others[0].id}` : "/team", { replace: true });
     toast(`Archived ${brand.name}.`, () => void restore(brand));
   };
-  return (
-    <>
-      <Menu
-        title={`More for ${brand.name}`}
-        align="right"
-        trigger={(p) => (
-          <button type="button" {...p} aria-label={`More for ${brand.name}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2">
-            <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
-          </button>
-        )}
-      >
-        {(close) => (
-          <MenuItem
-            danger
-            onClick={() => {
-              close();
-              setAsking(true);
-            }}
-          >
-            <Archive size={20} strokeWidth={1.75} aria-hidden />
-            Archive brand
-          </MenuItem>
-        )}
-      </Menu>
-      {asking && (
-        <Dialog title={`Archive ${brand.name}?`} cancelLabel="Keep it" actionLabel="Archive" danger busy={busy} onCancel={() => setAsking(false)} onConfirm={() => void confirm()}>
-          It leaves the brand menu. Its scripts, videos and screens are kept, and you can bring it back from Usage.
-          {problem && <p role="alert" className={`mt-2 ${errorClass}`}>Couldn't do that. Nothing changed. {problem}</p>}
-        </Dialog>
-      )}
-    </>
-  );
+  const dialog =
+    asking && brand ? (
+      <Dialog title={`Archive ${brand.name}?`} cancelLabel="Keep it" actionLabel="Archive" danger busy={busy} onCancel={() => setAsking(false)} onConfirm={() => void confirm()}>
+        It leaves the brand menu. Its scripts, videos and screens are kept, and you can bring it back from Usage.
+        {problem && <p role="alert" className={`mt-2 ${errorClass}`}>Couldn't do that. Nothing changed. {problem}</p>}
+      </Dialog>
+    ) : null;
+  return { ask: () => (setProblem(null), setAsking(true)), dialog };
 }

@@ -75,7 +75,7 @@ SAMPLE_KIND = "The sample must be an MP3, WAV or M4A recording."
 SAMPLE_SHORT = "The sample must be at least 10 seconds of the voice. This one is {:.0f} s."
 SAMPLE_LONG = "The sample can be 5 minutes at most. This one is {:.0f} s."
 SAMPLE_BIG = "The sample must be under 20 MB."
-SAMPLE_UNREADABLE = "This sample can't be read as audio. Upload it again as an MP3 or WAV."
+SAMPLE_UNREADABLE = "That sample couldn't be read; try another file."
 NO_NAME = "Give the voice a name."
 HELD = "Cloning a voice costs money, so it waits for the owner's OK. Nothing is charged yet."
 CLONE_FAILED = "The voice couldn't be cloned. Nothing was charged. Try another sample."
@@ -87,6 +87,11 @@ LOST = ("MiniMax no longer has {name}'s cloned voice. Clone it again in Library 
 NOT_READY = "{name}'s voice is still being cloned. It's ready in a moment."
 NO_SOUNDS = ("{name}'s cloned voice can't read sounds like (breath): leave them out and keep "
              "the pause marks.")  # fmt: skip
+REMOVED = ("The voice {name} was removed. Pick another voice in Cast, or bring it back in "
+           "Library > Presenters & voices.")  # fmt: skip
+HOST_VOICE_GONE = ("{who}'s voice, {name}, can't be used in this video (it was removed, or "
+                   "belongs to another brand), so the narration uses the style's voice. Pick "
+                   "another voice for {who} in Cast.")  # fmt: skip
 VOICE_GONE = re.compile(r"voice[ _-]?id[^.]*(?:not (?:exist|found)|invalid)|2054", re.I)
 
 
@@ -188,7 +193,10 @@ def _seconds(data: bytes) -> float:
         path.write_bytes(data)
         probe = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
                  "csv=p=0", str(path)]  # fmt: skip
-        done = subprocess.run(probe, capture_output=True, text=True, timeout=60)  # noqa: S603
+        try:
+            done = subprocess.run(probe, capture_output=True, text=True, timeout=60)  # noqa: S603
+        except subprocess.TimeoutExpired:  # a probe that hangs reads as unreadable
+            return 0.0
     try:
         return float(done.stdout.strip())
     except ValueError:
@@ -225,7 +233,8 @@ def clone(db: Session, user: User, brand_id: int, storage, stored: StoredFile, n
     db.add(voice)
     db.flush()
     job = enqueue(db, user, "voice", {
-        "step": STEP, "model": CLONER, "voice_row_id": voice.id, "brand_id": brand_id,
+        "step": STEP, "model": CLONER, "voice_row_id": voice.id, "voice_name": voice.name,
+        "brand_id": brand_id,
         "input": {"model": TRAINED_FOR, "need_volume_normalization": True,
                   "need_noise_reduction": False},
         "files": {"voice_file": [stored.id]}}, units=1, provider="replicate",
@@ -264,12 +273,26 @@ def restore(voice: Voice) -> None:
 # --- Speaking --------------------------------------------------------------------------------
 
 
-def named(db: Session, workspace_id: int, said: str) -> Voice | None:
-    """A saved voice from its narration name "voice:<id>", in this workspace."""
+def named(db: Session, workspace_id: int, said: str, brand_id: int | None) -> Voice | None:
+    """A saved voice from its narration name "voice:<id>": a style's voice (any brand in the
+    workspace) or this brand's own (a brand's voices are private to it)."""
     if not (said or "").startswith(PREFIX) or not said[len(PREFIX) :].isdigit():
         return None
     voice = db.get(Voice, int(said[len(PREFIX) :]))
-    return voice if voice and voice.workspace_id == workspace_id else None
+    return voice if voice and mine(voice, workspace_id, brand_id) else None
+
+
+def mine(voice: Voice, workspace_id: int, brand_id: int | None) -> bool:
+    """The voice may be used here: its workspace, and a style's voice or this brand's."""
+    return voice.workspace_id == workspace_id and voice.brand_id in (None, brand_id)
+
+
+def usable(db: Session, workspace_id: int, brand_id: int | None, said: str | None) -> bool:
+    """An app voice, or a saved voice this brand may use that isn't removed."""
+    if said in narration.VOICES:
+        return True
+    voice = named(db, workspace_id, said or "", brand_id)
+    return voice is not None and voice.archived_at is None
 
 
 def ready(db: Session, voice: Voice) -> None:
@@ -281,24 +304,24 @@ def ready(db: Session, voice: Voice) -> None:
         raise HTTPException(409, why)
 
 
-def narration_job(db: Session, workspace_id: int, script: str, said: str, note: str = "",
-                  emotion: str | None = None, reading: str = "") -> dict:  # fmt: skip
+def narration_job(db: Session, workspace_id: int, brand_id: int | None, script: str,
+                  said: str, note: str = "", emotion: str | None = None,
+                  reading: str = "", speed: float | None = None) -> dict:  # fmt: skip
     """The voice call in a saved voice: MiniMax's own inputs (narration's), its voice id, on
     the model it was cloned for. A voice that may be gone is refused (409), never swapped."""
-    voice = named(db, workspace_id, said)
-    if voice is None or voice.archived_at is not None:
+    voice = named(db, workspace_id, said, brand_id)
+    if voice is None or voice.kind != "cloned":
         raise HTTPException(422, NO_VOICE)
-    if voice.kind != "cloned":
-        raise HTTPException(422, NO_VOICE)
+    if voice.archived_at is not None:
+        raise HTTPException(422, REMOVED.format(name=voice.name))
     ready(db, voice)
-    if voice.speech_model != narration.MINIMAX and any(
-        f"({s})" in (reading or "") for s in narration.SOUNDS
-    ):
-        raise HTTPException(422, NO_SOUNDS.format(name=voice.name))
     try:
-        built = narration.job(script, narration.MINIMAX_VOICES[0], note, emotion, reading)
+        built = narration.job(script, narration.MINIMAX_VOICES[0], note, emotion, reading, speed)
     except ValueError as no:
         raise HTTPException(422, str(no)) from None
+    sent = built["input"]["text"]  # the words as read: the reading, else the script's own
+    if voice.speech_model != narration.MINIMAX and any(f"({s})" in sent for s in narration.SOUNDS):
+        raise HTTPException(422, NO_SOUNDS.format(name=voice.name))
     built["input"]["voice_id"] = voice.provider_voice_id
     return {**built, "model": voice.speech_model, "saved_voice": voice.id}
 
@@ -326,8 +349,9 @@ def default_for(db: Session, project) -> str | None:
 
     ensure_style_voices(db, project.workspace_id)
     item = host.host_look(db, project) if host.on(db, project) else None
-    if item is not None and item.voice_id:
-        return f"{PREFIX}{item.voice_id}"
+    own = f"{PREFIX}{item.voice_id}" if item is not None and item.voice_id else None
+    if own and usable(db, project.workspace_id, project.brand_id, own):
+        return own  # a removed one (or another brand's) falls back: host_note says so
     if item is not None and item.voice_stock_key in narration.VOICES:
         return item.voice_stock_key
     look = looks.base(project.look) if project.look else ""  # a lane speaks as its style
@@ -341,9 +365,22 @@ def default_for(db: Session, project) -> str | None:
     return f"{PREFIX}{found}" if found else None
 
 
-def for_director(db: Session, workspace_id: int, said: str | None) -> dict | None:
+def host_note(db: Session, project) -> str:
+    """When the host's own chosen voice can't be used here (removed, or another brand's): what
+    happened and what to do, in plain words; "" otherwise."""
+    from app import host
+
+    item = host.host_look(db, project) if host.on(db, project) else None
+    voice = db.get(Voice, item.voice_id) if item is not None and item.voice_id else None
+    if voice is None or usable(db, project.workspace_id, project.brand_id, f"{PREFIX}{voice.id}"):
+        return ""
+    return HOST_VOICE_GONE.format(who=item.name, name=voice.name)
+
+
+def for_director(db: Session, workspace_id: int, brand_id: int | None,
+                 said: str | None) -> dict | None:  # fmt: skip
     """The saved voice a narration is (or will be) read in, as the director reads it."""
-    voice = named(db, workspace_id, said or "")
+    voice = named(db, workspace_id, said or "", brand_id)
     if voice is None:
         return None
     status, why = state(db, voice)

@@ -14,10 +14,10 @@ async function saveKit(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   await page.goto(`/b/${await emptyBrand(page)}`);
   await onBrand(page, "Night Owl");
-  await page.getByRole("link", { name: "Brand", exact: true }).click();
+  await page.getByRole("link", { name: "Brand kit", exact: true }).first().click();
   await expect(page.getByRole("link", { name: "Brand kit" })).toHaveAttribute("aria-current", "page");
 });
 

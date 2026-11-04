@@ -99,7 +99,7 @@ def test_a_finished_video_with_changed_clips_says_so(app, db, owner, editor, set
     editor.get(f"{base}/clips.zip")  # the whole video sent: done
 
     def listed():
-        (row,) = editor.get("/projects", params={"status": "done"}).json()
+        (row,) = [p for p in editor.get("/projects").json() if p["finished_at"]]
         brand = f"/usage/brands/{row['brand_id']}/videos"
         (used,) = owner.get(brand, params={"period": "all", "status": "done"}).json()["items"]
         assert used["final_out_of_date"] == row["final_out_of_date"]  # Usage says the same

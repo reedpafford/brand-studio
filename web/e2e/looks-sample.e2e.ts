@@ -7,7 +7,7 @@ for (const [width, look] of [[1440, "Zack D"], [390, "Skeleton"]] as const) {
   test(`at ${width}: a ${look} sample shows whole on its card, and opens full size with its clip playing`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
-    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     await page.goto("/looks"); // the old address lands on Settings › Looks
     await expect(page.getByRole("tab", { name: "Styles" })).toHaveAttribute("aria-selected", "true");
     const card = page.getByRole("listitem", { name: look, exact: true }); // not "Skeleton X-Ray"

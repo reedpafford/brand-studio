@@ -250,7 +250,7 @@ test("S8-04 / L4: the brand's own voices, then every app voice with its free sam
   expect(within(list).getByText("Deep, fixed · MiniMax clone")).toBeInTheDocument();
   expect(within(list).getByText(/^The app’s voices · 2 · usable in any video/)).toBeInTheDocument();
   expect(within(list).getByRole("button", { name: "Play Roger" })).toBeEnabled();
-  expect(within(list).getByRole("button", { name: "Play Sarah" })).toBeDisabled(); // no free sample yet
+  expect(within(list).queryByRole("button", { name: "Play Sarah" })).toBeNull(); // no free sample yet: no Play
   expect(list.querySelector("audio[src='/api/voices/samples/Roger.mp3']")).not.toBeNull();
   expect(await screen.findByRole("link", { name: /^Presenters & voices\s*2$/ })).toBeInTheDocument(); // Mark and the brand's one voice
   await userEvent.click(within(list).getByRole("button", { name: "Clone a voice · up to $3.00" }));

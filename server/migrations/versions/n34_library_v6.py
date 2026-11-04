@@ -6,15 +6,15 @@ names are matched to its products by name (any case); a name with no product mak
 as the screens named it. Screens with no product (app screens) go to the brand's app,
 "<brand> app", made when it has none.
 
-Revision ID: n32
-Revises: n31
+Revision ID: n34
+Revises: n33
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n32"
-down_revision = "n31"
+revision = "n34"
+down_revision = "n33"
 branch_labels = None
 depends_on = None
 

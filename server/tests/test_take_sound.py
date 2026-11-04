@@ -3,6 +3,8 @@ made): MMAudio on the picked takes, asked in the director's chat or on a clip, m
 voice in the cut, which goes out of date and is made again. Stand-ins only."""
 
 import json
+import re
+import subprocess
 from decimal import Decimal
 from pathlib import Path
 
@@ -106,6 +108,47 @@ def test_the_sound_is_mixed_under_a_silent_take_and_slight_sits_lower():
     (folder / "out.mp4").write_bytes(out)
     assert _probe(folder, "out.mp4", "a:0", "index")  # the silent take has sound now
     assert take_sound.LEVELS["slight"] < take_sound.LEVELS[take_sound.how("add sound effects")]
+
+
+def _loud(data: bytes, tmp: Path) -> tuple[float | None, float]:
+    """A file's integrated loudness and its true peak (dBFS)."""
+    (tmp / "x.mp4").write_bytes(data)
+    said = subprocess.run(["ffmpeg", "-nostats", "-i", str(tmp / "x.mp4"), "-af",  # noqa: S603, S607
+                           "ebur128=peak=true", "-f", "null", "-"],
+                          capture_output=True, text=True).stderr  # fmt: skip
+    peak = float(re.findall(r"Peak:\s+(-?[\d.]+) dBFS", said)[-1])
+    return take_sound.measured(tmp, "x.mp4"), peak
+
+
+def _quiet(tmp: Path, db: int) -> bytes:
+    """A 3 s take with a quiet effect on it (MMAudio's come back -30 to -60 dB: th-20s)."""
+    out = tmp / f"quiet{db}.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",  # noqa: S603, S607
+                    "color=c=black:s=64x64:d=3", "-f", "lavfi", "-i",
+                    f"anoisesrc=d=3:c=pink:a=1:seed=1,volume={db}dB", "-shortest", "-c:v",
+                    "libx264", "-c:a", "aac", str(out)], check=True)  # fmt: skip
+    return out.read_bytes()
+
+
+def test_each_effect_is_set_to_its_loudness_against_the_voice_and_limited(tmp_path):
+    """th-20s: the effects came back far under a -16 LUFS voice and vanished; each one is
+    measured and brought to its own level against the voice, peaks limited."""
+    silent = fake_local.mp4("9:16", 3)
+    out = take_sound.apply(silent, _quiet(tmp_path, -40), take_sound.level("footsteps"))
+    loud, _ = _loud(out, tmp_path)
+    assert abs(loud - (take_sound.VOICE + take_sound.LEVELS["normal"])) < 1.5  # 12 LU under
+    out = take_sound.apply(silent, _quiet(tmp_path, -2), take_sound.level("the alarm, -3 dB"))
+    loud, peak = _loud(out, tmp_path)
+    assert abs(loud - (take_sound.VOICE - 3)) < 1.5 and peak <= 0.0  # the limiter holds it
+    assert take_sound.how("the alarm louder than the voice") == "over the voice"
+    assert take_sound.level("the alarm louder than the voice") > 0
+    assert take_sound.level("+40 dB") == take_sound.LOUDEST  # never past the cap
+    assert take_sound.level("10 dB under the voice") == -10  # unsigned: under (QA on #1316)
+    assert take_sound.level("3 dB over the voice") == 3 and take_sound.level("-10 dB") == -10
+    assert take_sound.level("over the voice by 3 dB") == 3
+    out = take_sound.apply(silent, _quiet(tmp_path, -1), take_sound.LOUDEST)  # pushed hard
+    assert _loud(out, tmp_path)[1] <= -1.5  # limited at -4 dBFS: under the voice's own peak
+    assert take_sound.gain(None, -12) == 0.0  # nothing to measure: left as it is
 
 
 def test_mmaudios_real_cost_is_its_gpu_time():

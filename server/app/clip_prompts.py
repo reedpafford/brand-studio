@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import cut_in
+from app import cut_in, looks
 from app.advice import names, plain
 from app.breakdown import video_model, video_model_block
 from app.cast_roles import bare
@@ -543,7 +543,7 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
             kind = {"image": "a picture", "audio": "a sound"}.get(ref.kind, f"a {ref.kind}")
             problems.append(f"{clip.clip_id}: {ref.id} is attached as {kind} but isn't one")
     problems += check.text_on_screen_advice(clip.prompt)  # a shot that's only drawn words (#890)
-    problems += check.look_words(clip.prompt, project.look)[2]  # a quoted banned word (ST2)
+    problems += check.look_words(clip.prompt, looks.drawn(project))[2]  # a quoted banned word (ST2)
     return plain(problems, names(known))
 
 
@@ -646,7 +646,7 @@ def repair(db: Session, project: Project) -> int:
             now = now.model_copy(update={"prompt": _sheet_words(now.prompt, n, _name(known, r))})
         fix = row.auto_fix or {}
         kept_words = fix.get("undone") and row.prompt == fix.get("before")
-        if not kept_words and (words := reword(now.prompt, project.look))[1]:
+        if not kept_words and (words := reword(now.prompt, looks.drawn(project)))[1]:
             row.auto_fix = {"before": was.prompt, "after": words[0], "fixed": words[1],
                             "undone": False}  # fmt: skip
             now = now.model_copy(update={"prompt": words[0]})
@@ -713,7 +713,8 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             if job.input.get("fix"):  # the free fix never drops who isn't lip-syncing (c4)
                 c = _kept_voiceover(c, job.input.get("before") or "")
             written_as = c.prompt
-            c = c.model_copy(update={"prompt": (words := reword(c.prompt, project.look))[0]})
+            words = reword(c.prompt, looks.drawn(project))
+            c = c.model_copy(update={"prompt": words[0]})
             problems = clip_problems(db, project, bd, c)
         except Exception:
             log.exception("job %s: saving clip %s's prompt failed", job.id, c.clip_id)

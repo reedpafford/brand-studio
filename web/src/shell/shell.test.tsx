@@ -65,7 +65,7 @@ test("the team page keeps the brand you were in", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /team/members": [200, members], "GET /team/invites": [200, []] });
   renderAt("/team");
   expect(await screen.findByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Brand" })).toHaveAttribute("href", "/b/2/brand");
+  expect(screen.getByRole("link", { name: "Brand kit" })).toHaveAttribute("href", "/b/2/brand");
 });
 
 test("the last brand you used opens next time", async () => {
@@ -85,6 +85,7 @@ test("an editor sees the team but cannot invite or remove", async () => {
 });
 
 test("signing out returns to sign in", async () => {
+  setViewport(1440); // a phone signs out from More
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "POST /auth/logout": [204, null] });
   renderAt("/");
   await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
@@ -108,58 +109,57 @@ test("a failed remove tells you", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't remove that person.");
 });
 
-test("on a phone there are five tabs (Videos first), no More, and Reed gets a Needs you bell with the count, and Settings in the account menu", async () => {
+const tree = { folders: [], unsorted: { id: null, parent_id: null, name: "Unsorted", count: 0, can_manage: false, ideas: [], more: 0, folders: [] } };
+
+test("on a phone there are four tabs (v6 P-01): Videos, Library, Needs you with its count, More; Library and More are short lists", async () => {
   setViewport(390);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []] });
-  renderAt("/b/1/projects");
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /brands/1/tree": [200, tree] });
+  renderAt("/b/1/scripts");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
-  expect(screen.getByRole("banner", { name: "Top bar" })).toBeInTheDocument(); // a phone has the shell's top bar; desktop has none
-  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Videos", "Scripts", "New", "Cast", "Brand"]);
-  expect(within(tabs).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page"); // an earlier-way video sits under Videos
-  expect(within(tabs).getByRole("link", { name: "Cast" })).toHaveAttribute("href", "/b/1/library");
-  expect(within(tabs).getByRole("link", { name: "Brand" })).toHaveAttribute("href", "/b/1/brand");
-  expect(within(tabs).queryByRole("button", { name: "More" })).not.toBeInTheDocument();
-  expect(await screen.findByRole("link", { name: "Needs you, 1 waiting" })).toHaveAttribute("href", "/approvals");
-  await userEvent.click(screen.getByRole("button", { name: "Account menu" }));
-  const account = await screen.findByRole("dialog", { name: "Account" }); // a sheet on a phone
-  expect(within(account).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
-  expect(within(account).queryByRole("link", { name: /^(Looks|Languages)$/ })).toBeNull();
+  expect(within(tabs).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, ""))).toEqual(["Videos", "Library", "Needs you", "More"]);
+  expect(within(tabs).getByRole("link", { name: "Library" })).toHaveAttribute("href", "/b/1/more/library");
+  expect(await within(tabs).findByRole("link", { name: /^Needs you/ })).toHaveTextContent("1");
+  await userEvent.click(within(tabs).getByRole("link", { name: "Library" }));
+  expect(await screen.findByRole("link", { name: "Scripts" })).toHaveAttribute("href", "/b/1/scripts");
+  expect(screen.getByRole("link", { name: "Brand kit" })).toHaveAttribute("href", "/b/1/brand");
+  await userEvent.click(within(tabs).getByRole("link", { name: "More" }));
+  expect(await screen.findByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  expect(screen.getByRole("button", { name: "Your account" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
 });
 
-test("with nothing waiting, Reed sees no Needs you in the top bar or the rail, at 390 and on desktop (Reed, 30 Oct)", async () => {
+test("Needs you is always in the rail with its count, 0 when nothing waits (v6 S0-01, S1-02); the phone tab shows no count then", async () => {
   for (const width of [390, 1440]) {
     setViewport(width);
     const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []] });
-    renderAt("/b/1/projects");
-    await screen.findByRole("link", { name: "Videos" });
-    if (width === 1440) await within(screen.getByRole("navigation", { name: "Main" })).findByRole("link", { name: "In production" });
+    renderAt("/b/1/scripts");
     await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /jobs")).toBe(true));
-    await new Promise((r) => setTimeout(r, 50)); // the answer is drawn
-    expect(screen.queryByRole("link", { name: /Needs you/ })).not.toBeInTheDocument();
+    const needs = await screen.findByRole("link", { name: /^Needs you/ });
+    expect(needs).toHaveAttribute("href", "/approvals");
+    expect(needs.textContent).toBe(width === 1440 ? "Needs you0 waiting" : "Needs you");
     cleanup();
     vi.unstubAllGlobals();
   }
 });
 
-test("when only a changed video waits, Reed still reaches Needs you: the bell and the rail row count it (QA-9 on #1154)", async () => {
+test("when only a changed video waits, Reed still reaches Needs you: the tab and the rail row count it (QA-9 on #1154)", async () => {
   for (const width of [390, 1440]) {
     setViewport(width);
     fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 1 }] });
-    renderAt("/b/1/projects");
-    const needsYou = await screen.findByRole("link", { name: width === 390 ? "Needs you, 1 waiting" : /^Needs you/ });
-    expect(needsYou).toHaveAttribute("href", "/approvals");
-    if (width === 1440) expect(needsYou).toHaveTextContent("1");
+    renderAt("/b/1/scripts");
+    await vi.waitFor(() => expect(screen.getByRole("link", { name: /^Needs you/ })).toHaveTextContent("1"));
     cleanup();
     vi.unstubAllGlobals();
   }
 });
 
-test("an editor has no Needs you bell", async () => {
+test("an editor's third tab is My requests, not Needs you (S-gaps-04 R3)", async () => {
   setViewport(390);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
-  renderAt("/b/1/projects");
-  await screen.findByRole("navigation", { name: "Tabs" });
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] });
+  renderAt("/b/1/scripts");
+  const tabs = await screen.findByRole("navigation", { name: "Tabs" });
+  expect(within(tabs).getByRole("link", { name: "My requests" })).toHaveAttribute("href", "/requests");
   expect(screen.queryByRole("link", { name: /Needs you/ })).not.toBeInTheDocument();
 });
 
@@ -195,28 +195,32 @@ test("an editor's account menu has no Team link", async () => {
   expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
 });
 
-test("on desktop one rail (nav A): the brand switcher, Make and Library, Studio for Reed only, the account at the bottom; no top bar", async () => {
+test("on desktop one rail (v6 S0-01): the brand switcher, New video and search, the folders, Library, Studio for Reed only, the account at the bottom; no top bar", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /brands/1/tree": [200, tree], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["New videoN", "Videos", "Scripts", "Cast & places", "Media", "Brand", "Needs you", "In production", "Usage", "Team", "Settings"]);
+  await within(rail).findByRole("link", { name: /Unsorted/ });
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["New videoN", "Unsorted0", "Scripts", "Cast & places", "Media", "Brand kit", "Needs you", "In production", "Usage", "Team", "Settings"]);
+  expect(within(rail).getByRole("button", { name: "Quick search" })).toBeInTheDocument();
+  expect(within(rail).getByRole("button", { name: "New folder" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "Account menu" })).toBeInTheDocument();
   expect(screen.queryByRole("banner", { name: "Top bar" })).not.toBeInTheDocument(); // the shell's own top bar; a page's PageTop is a header too
-  expect(within(rail).getByRole("link", { name: "Videos" })).toHaveAttribute("aria-current", "page");
-  expect(await within(rail).findByRole("link", { name: /Needs you/ })).toHaveTextContent("1");
+  await vi.waitFor(() => expect(within(rail).getByRole("link", { name: /Unsorted/ })).toHaveAttribute("aria-current", "page")); // the old list lands on the brand's videos
+  await vi.waitFor(() => expect(within(rail).getByRole("link", { name: /Needs you/ })).toHaveTextContent("1"));
   expect(screen.getAllByRole("link", { name: /Needs you/ })).toHaveLength(1); // only the rail row: no top bar on desktop
   expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
 });
 
-test("an editor's rail has no Studio group", async () => {
+test("an editor's rail has no Studio group: Mine has My requests instead (S0-01)", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
-  renderAt("/b/1/projects");
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] });
+  renderAt("/b/1/scripts");
   const rail = await screen.findByRole("navigation", { name: "Main" });
-  expect(within(rail).getAllByRole("link")).toHaveLength(6);
+  expect(within(rail).getByText("Mine")).toBeInTheDocument();
+  expect(within(rail).getByRole("link", { name: /My requests/ })).toHaveAttribute("href", "/requests");
   expect(within(rail).queryByRole("link", { name: /Needs you|Team|Settings/ })).not.toBeInTheDocument();
   expect(screen.queryByText("STUDIO")).not.toBeInTheDocument();
 });
@@ -335,7 +339,7 @@ test("Studio pages and an editor's My credits keep the full rail, on the first b
   renderAt("/team");
   const nav = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(nav).findByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
-  expect(within(nav).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");
+  expect(within(nav).getByRole("link", { name: "Scripts" })).toHaveAttribute("href", "/b/1/scripts");
   expect(within(nav).getByRole("link", { name: "Cast & places" })).toBeInTheDocument();
   cleanup();
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /usage/mine": [200, { credits: 0, quick_clip_credits: 0, script_credits: 0, videos: [], projects: [], scripts: [], sends: [], waiting_credits: 0, week: { used: 0, allowance: 100, lines: [] } }] });
@@ -361,7 +365,7 @@ test("the rail's account row says Owner, and the brand menu has a Brands heading
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
-  expect(await within(rail).findByRole("button", { name: "Account menu" })).toHaveTextContent(/Reed\s*Owner/);
+  expect(await within(rail).findByRole("button", { name: "Account menu" })).toHaveTextContent("Reed"); // S0-01: the name and a gear
   await userEvent.click(within(rail).getByRole("button", { name: "Brand: fomo" }));
   const menu = await screen.findByRole("menu", { name: "Brands" });
   expect(within(menu).getByText("Brands")).toBeInTheDocument();

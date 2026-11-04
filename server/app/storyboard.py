@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import screen_figures, video_settings
+from app import looks, screen_figures, video_settings
 from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
@@ -441,7 +441,7 @@ def frame_problems(db: Session, project: Project, frame: Frame, breakdown_id: in
         for c in shot.character_ids:
             if not any(_same(known, c, r) for r in people):
                 problems.append(f"{_name(known, c)} has no approved look yet. Approve one in Cast.")
-    problems += check.look_words(frame.prompt, project.look)[2]  # a quoted banned word (ST2)
+    problems += check.look_words(frame.prompt, looks.drawn(project))[2]  # a quoted banned word
     return plain(problems, names(known))
 
 
@@ -624,7 +624,7 @@ def save_frames(db: Session, job: Job) -> None:
     for f in (with_cast(db, project, f, bd, known) for f in result.frames):
         note = softened(f.prompt)  # a word the image model refuses never blocks
         f = f.model_copy(update={"prompt": note["after"]}) if note else f
-        after, note = look_fixed(f.prompt, project.look, note)
+        after, note = look_fixed(f.prompt, looks.drawn(project), note)
         f = f.model_copy(update={"prompt": after})
         db.add(
             StoryboardFrame(
@@ -694,7 +694,7 @@ def save_still(db: Session, job: Job) -> None:
                 },  # fmt: skip
             ]
         frame.file_id, frame.approved, frame.still_stale = file_ids[0], False, False
-        frame.look = db.get(Project, frame.project_id).look  # drawn in the video's look now
+        frame.look = looks.drawn(db.get(Project, frame.project_id))  # drawn in the video's look now
         frame.made_with = job.input.get("made_with") or {}  # VS1
         if job.id and (frame.change or {}).get("made_job_id") == job.id:  # Redo: now it's done
             frame.change = {**frame.change, "status": "done"}

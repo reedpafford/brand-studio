@@ -7,8 +7,8 @@ import { useViewOnly } from "./ViewOnly";
  * A menu opened from a button: a popover on desktop, a bottom sheet on a phone.
  * Escape and a tap outside close it; focus goes back to the button. `up` opens it above the button (the rail's account row).
  */
-export function Menu({ title, trigger, align = "left", up = false, children }: { title: string; trigger: (p: { open: boolean; onClick: () => void; "aria-haspopup": "menu"; "aria-expanded": boolean }) => ReactNode; align?: "left" | "right"; up?: boolean; children: (close: () => void) => ReactNode }) {
-  const phone = useMedia("(max-width: 767px)");
+export function Menu({ title, trigger, align = "left", up = false, popover = false, children }: { title: string; trigger: (p: { open: boolean; onClick: () => void; "aria-haspopup": "menu"; "aria-expanded": boolean }) => ReactNode; align?: "left" | "right"; up?: boolean; /** a popover on a phone too, not a sheet */ popover?: boolean; children: (close: () => void) => ReactNode }) {
+  const phone = useMedia("(max-width: 767px)") && !popover;
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {

@@ -11,8 +11,19 @@ from pathlib import Path
 import httpx2 as httpx
 import pytest
 
-from app import host, narration, prompts, room, talker
+from app import (
+    director_song,
+    director_tools,
+    guides,
+    host,
+    model_map,
+    narration,
+    prompts,
+    room,
+    talker,
+)
 from app.catalogue import get_model
+from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
@@ -59,7 +70,9 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
     assert (piece.provider, piece.input["model"], row.start) == ("heygen", talker.MODEL, 0.0)
     assert row.end == pytest.approx(db.get(SongTake, video.song_take_id).seconds)
     sent = piece.input["input"]
-    assert (sent["expressiveness"], sent["resolution"]) == ("medium", "720p")
+    assert (sent["expressiveness"], sent["resolution"]) == ("high", "720p")  # th-20s: high
+    assert sent["motion_prompt"] == talker.MOTION  # no director note: the plain one, no hands
+    assert "hand" not in talker.MOTION
     assert piece.input["files"] == {"image": [host.rows(db, video)[0].file_id],
                                     "audio": [row.audio_file_id]}  # fmt: skip
     assert piece.credits == sent["duration"] * get_model(talker.MODEL).credits_per_unit("720p")
@@ -70,10 +83,65 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
     assert not takes & {rows[c].id for c in said}  # no paid take of a talker clip
     for c in said:  # each cut from the talker's take, free
         assert db.get(ClipTake, rows[c].picked_take_id).job_id == piece.id
+    timed = db.get(SongTake, video.song_take_id).timing
+    assert timed["pace"] == narration.pace(timed["words"])  # its pace, measured
     final = db.query(FinalVideo).filter_by(project_id=video.id).order_by(FinalVideo.id).all()[-1]
     assert len(final.take_ids) == len(rows)
     director = prompts.system("director")
     assert "never more than about 6 s without a swap" in director  # the director's B-roll swaps
+
+
+def test_the_directors_motion_note_makes_the_talker_and_a_remake_keeps_it(app, db, owner):
+    body = {"type": "presenter", "look": "ugc", "shape": "9:16", "text": LINES,
+            "brand_id": first_brand(owner)}  # fmt: skip
+    fs = owner.post("/freestyles", json=body).json()
+    _run(app, db, ticks=200)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    note = "Close to tears, fighting it: chin trembles. Both hands stay on the steering wheel."
+    user, storage = db.get(User, video.created_by_id), app.state.storage
+    said = director_tools.run(db, user, video, {"tool": "host", "note": note}, storage)
+    assert said == "Refused: " + host.MADE  # made already: a piece is made again by number
+    host.make(db, user, video, storage, number=1, motion=note)
+    assert _steps(db, video, host.PIECE)[-1].input["input"]["motion_prompt"] == note
+    _run(app, db, ticks=5)
+    host.make(db, user, video, storage, number=1)  # again with none: the last one stays
+    assert _steps(db, video, host.PIECE)[-1].input["input"]["motion_prompt"] == note
+    assert talker.motion(" ") == talker.MOTION and len(talker.motion("x" * 900)) == 600
+    heard = db.get(SongTake, video.song_take_id).timing["pace"]  # measured, then set from it
+    want = director_song.target(db, video)
+    assert want == (3.3, 3.5) and director_song.state(db, video)["pace_wanted"] == want
+    speed = narration.retimed(narration.MINIMAX_SPEED, heard, want) or narration.MINIMAX_SPEED
+    said = director_song.run(db, user, video, {"tool": "narration", "emotion": "auto"}, {})
+    assert said.startswith("Making the narration"), said
+    (voice, *_) = sorted((j for j in _steps(db, video, "song_take") if j.kind == "speech"),
+                         key=lambda j: -j.id)  # fmt: skip
+    assert voice.input["input"]["speed"] == speed
+
+
+def test_an_emotion_speeds_minimax_up_and_a_remake_is_set_from_the_measured_pace():
+    words = "Two of them get out and walk right at her."
+    speed = {e: narration.job(words, "English_Graceful_Lady", emotion=e)["input"]["speed"]
+             for e in ("fearful", "sad", "auto", "calm")}  # fmt: skip
+    assert speed == {"fearful": 1.5, "sad": 1.3, "auto": 1.1, "calm": 1.1}  # th-20s, measured
+    assert narration.job(words, "English_Graceful_Lady", speed=2.6)["input"]["speed"] == 2.0
+    heard = [{"word": "a", "start": 0.0, "end": 0.4}, {"word": "b", "start": 0.45, "end": 1.0},
+             {"word": "c", "start": 2.0, "end": 2.5}]  # a 1 s pause, left out  # fmt: skip
+    assert narration.pace(heard) == round(3 / 1.5, 2) and narration.pace(heard[:1]) is None
+    assert narration.retimed(1.25, 2.4, (3.3, 3.5)) == round(1.25 * 3.4 / 2.4, 2)  # faster
+    assert narration.retimed(1.5, 3.4, (3.3, 3.5)) is None  # inside the style's range
+    assert guides.pace("ugc", "presenter") == (3.3, 3.5)  # "3.3–3.5 words a second"
+    assert guides.pace("dr-pickle", "presenter") == (3.1, 4.3)
+    assert "English_Graceful_Lady" in narration.VOICES  # the older woman (th-20s)
+    assert director_song.REMAKES >= 1
+
+
+def test_photoreal_seedance_b_roll_describes_people_instead_of_attaching_them():
+    people, nobody = [{"character_ids": ["char:1"]}], [{"character_ids": []}]
+    assert model_map.unsent("ugc", "seedance-2.0", people) == ("char:", "frame:")
+    assert model_map.unsent("ugc", "seedance-1-lite", nobody) == ("char:",)
+    assert model_map.unsent("house", "seedance-2.0", people) == ()  # a drawn look sends them
+    assert model_map.unsent("ugc", "p-video", people) == ()
 
 
 def test_a_minimax_reading_keeps_the_words_and_its_pauses_survive_the_trim(tmp_path):
@@ -127,7 +195,7 @@ PNG = base64.b64encode(b"\x89PNG\r\n\x1a\nstill").decode()
 MP3 = base64.b64encode(b"ID3voice").decode()
 JOB = {"model": talker.MODEL, "input": {
     "image": f"data:image/png;base64,{PNG}", "audio": f"data:audio/mpeg;base64,{MP3}",
-    "aspect_ratio": "9:16", "resolution": "720p", "expressiveness": "medium",
+    "aspect_ratio": "9:16", "resolution": "720p", "expressiveness": "high",
     "motion_prompt": talker.MOTION, "title": "t", "duration": 25}}  # fmt: skip
 
 
@@ -154,7 +222,7 @@ def test_heygen_uploads_the_voice_animates_the_still_and_prices_the_seconds():
     body = json.loads(create.content)
     assert body == {"type": "image", "audio_asset_id": "a1",
                     "image": {"type": "base64", "media_type": "image/png", "data": PNG},
-                    "aspect_ratio": "9:16", "resolution": "720p", "expressiveness": "medium",
+                    "aspect_ratio": "9:16", "resolution": "720p", "expressiveness": "high",
                     "motion_prompt": talker.MOTION, "title": "t"}  # fmt: skip
     assert heygen.poll("v1").state == "running"
     done = heygen.poll("v1")

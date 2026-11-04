@@ -233,7 +233,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         take_warning=(warning := clip_takes.take_warning(db, row)),
         retrying=(retrying := clip_takes.retrying(db, row)),
         retried=clip_takes.retried(db, row),
-        look_fix=prompts.look_fixes(project.look).get("refused")
+        look_fix=prompts.look_fixes(looks.drawn(project)).get("refused")
         if retrying == "refused" or warning
         else None,
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
@@ -418,7 +418,7 @@ def edit_clip(
     clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
     refused = clip_prompts.refusal(row.problems, row.prompt, clip.prompt)
     if clip.prompt != row.prompt:  # new words: fixed as written, with an Undo for these words
-        typed, (fixed, said) = clip.prompt, clip_prompts.reword(clip.prompt, project.look)
+        typed, (fixed, said) = clip.prompt, clip_prompts.reword(clip.prompt, looks.drawn(project))
         clip = clip.model_copy(update={"prompt": fixed})
         row.auto_fix = {"before": typed, "after": fixed, "fixed": said,
                         "undone": False} if said else None  # fmt: skip
