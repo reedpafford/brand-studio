@@ -8,6 +8,7 @@ import { useMe } from "../auth/useMe";
 import { Badge, Button, Card, Dialog, Panel, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { PickLabel, pickClass } from "./ScriptFrame";
 
 /** A look: how the pictures are drawn (flows ST1; Next-Server's GET /looks, #873). House first, then Reed's order. */
 export type Look = components["schemas"]["LookOut"];
@@ -49,8 +50,8 @@ export function useLooks() {
 export function LookPicker({ current, looks, onPick, busy, error, onClose }: { current: string; looks: Look[]; onPick: (l: Look) => void; busy: string | null; error: string | null; onClose: () => void }) {
   const owner = useMe().data?.role === "owner";
   return (
-    <Panel title="Look" onClose={onClose}>
-      <p className="mb-3 text-sm text-muted">How the pictures are drawn. Any look goes with any format.</p>
+    <Panel title="Style" onClose={onClose}>
+      <p className="mb-3 text-sm text-muted">How the pictures are drawn. Any style goes with any format.</p>
       {error && <p role="alert" className={`mb-3 ${errorClass}`}>{error}</p>}
       <ul className="grid gap-3 sm:grid-cols-2 [&>li]:min-w-0">
         {looks.map((l) => {
@@ -71,7 +72,7 @@ export function LookPicker({ current, looks, onPick, busy, error, onClose }: { c
                 {!l.on && owner && <p className="text-sm text-warning">Off for editors: only you can use it.</p>}
                 {!inUse && (
                   <Button variant="secondary" disabled={closed} reason={closed ? "Not switched on yet" : null} busy={busy === l.id} onClick={() => onPick(l)}>
-                    Use this look
+                    Use this style
                   </Button>
                 )}
               </Card>
@@ -108,14 +109,14 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
   if (!looks.data) return null; // the server doesn't offer looks yet
   const id = value ?? looks.data[0]?.id ?? "house";
   const name = lookName(looks.data, id);
-  if (readOnly) return <Badge icon={Palette}>Look: {name}</Badge>;
+  if (readOnly) return <Badge icon={Palette}>Style: {name}</Badge>;
   const change = (l: Look) => {
     const was = id;
     save.mutate(l.id, {
       onSuccess: () => {
         setOpen(false);
         setAsking(null);
-        toast(`The look is ${l.name}.`, () => save.mutate(was));
+        toast(`The style is ${l.name}.`, () => save.mutate(was));
       },
     });
   };
@@ -125,14 +126,14 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
   const n = asking?.change.roles.length ?? 0;
   return (
     <>
-      <Button variant="ghost" dense icon={Palette} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Look: {name}
+      <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Style: ${name}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <PickLabel label="Style">{name}</PickLabel>
       </Button>
       {refused && !open && <p role="alert" className={errorClass}>{refused}</p>}
       {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} />}
       {asking && (
         <Dialog title={`Change to ${asking.look.name}?`} cancelLabel="Not yet" actionLabel="Change" busy={save.isPending} holdReason={asking.change.over_budget ? asking.change.reason || "That would go over this week's credits." : null} onCancel={() => setAsking(null)} onConfirm={() => change(asking.look)}>
-          {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: up to {asking.change.to_finish_credits} credits (was {asking.change.was_credits}).
+          {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: about {asking.change.to_finish_credits} credits (planned; was {asking.change.was_credits}).
         </Dialog>
       )}
     </>

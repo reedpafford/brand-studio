@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
@@ -28,17 +28,18 @@ function open() {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("Directions opens with its card, the price on Suggest directions, and Next to skip it", async () => {
+test("Directions opens on Suggested directions with Notes beside it, the price on Suggest directions, and Next to skip it", async () => {
   setViewport(1440);
   const calls = fakeServer(base({ "POST /scripts/7/drafts/0/enhance": [201, { id: 90, kind: "write-claude", status: "queued", step: "enhance", script_id: 7, created_at: new Date().toISOString() }] }));
   open();
-  expect(await screen.findByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Suggested directions" })).toBeInTheDocument();
+  expect(screen.getByRole("complementary", { name: "Notes" })).toHaveTextContent("Claude's notes on the words, for information. Only people change the words.");
   expect(await screen.findByRole("button", { name: "Next: Variations" })).toBeEnabled();
   await userEvent.click(await screen.findByRole("button", { name: "Suggest directions · up to 4 credits" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/enhance")).toBe(true));
 });
 
-test("suggestions sit under their line with Accept and Reject; Add 1 direction shows only once one is accepted, and Next is still there", async () => {
+test("suggestions are rows on one grid with Accept and Remove; Apply 1 accepted counts only the accepted ones and is the main press while they wait (Next turns secondary)", async () => {
   setViewport(1440);
   const calls = fakeServer(base({
     "GET /scripts/7/drafts/0/suggestions": [200, [mark(), mark({ id: 2, key: "b", kind: "reaction", line: 2, text: "Bo blinks twice.", status: "accepted" })]],
@@ -46,12 +47,16 @@ test("suggestions sit under their line with Accept and Reject; Add 1 direction s
     "POST /scripts/7/drafts/0/apply": [200, script()],
   }));
   open();
-  expect(await screen.findByText(/Slow push-in on Mia's face\./)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Add 1 direction" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Next: Variations" })).toBeEnabled();
+  const rows = within(await screen.findByRole("list", { name: "Suggestions" })).getAllByRole("listitem");
+  expect(rows[0]).toHaveTextContent("Slow push-in on Mia's face.");
+  expect(rows[0]).toHaveTextContent("Camera");
+  expect(within(rows[1]).getByRole("button", { name: "Accepted: Bo blinks twice." })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByText("1 of 2 accepted")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Apply 1 accepted" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Next: Variations" })).not.toHaveClass("bg-accent"); // one main press (rule 33)
   await userEvent.click(screen.getByRole("button", { name: "Accept: Slow push-in on Mia's face." }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/suggestions/1/accept")).toBe(true));
-  await userEvent.click(screen.getByRole("button", { name: "Add 1 direction" }));
+  await userEvent.click(screen.getByRole("button", { name: "Apply 1 accepted" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/drafts/0/apply")).toBe(true));
   expect(await screen.findByText("Added 1 direction.")).toBeInTheDocument();
 });
@@ -64,7 +69,7 @@ test("Undo after adding saves the earlier words back", async () => {
     "PUT /scripts/7/drafts/0": [200, script()],
   }));
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Add 1 direction" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Apply 1 accepted" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body).toEqual({ text: "MIA: Hell no!\nBO: Salmon?" }));
 });
@@ -73,48 +78,42 @@ test("Directions waits for the script's words", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7": [200, script({ versions: [{ ...script().versions[0], text: "", words: 0 }] })] }));
   open();
-  await screen.findByRole("heading", { name: "Bo tries salmon", level: 1 });
-  expect(screen.queryByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.")).toBeNull();
+  expect(await screen.findByLabelText("Script · version A")).toBeInTheDocument(); // back on the Script step
+  expect(screen.queryByRole("heading", { name: "Suggested directions" })).toBeNull();
 });
 
-test("the words stay editable from Directions: Edit the script opens the Script step, with a note once suggestions exist", async () => {
-  setViewport(1440);
-  fakeServer(base({ "GET /scripts/7/drafts/0/suggestions": [200, [mark()]] }));
-  open();
-  expect(await screen.findByText("Changing the words clears these suggestions; ask Claude again after.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Edit the script" }));
-  expect(await screen.findByLabelText("Paste or write your script")).toBeInTheDocument(); // the Script step's editor
-});
-
-test("no Edit the script on a published script", async () => {
+test("a published script's suggestions can't be asked for again", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7": [200, script({ published: true })] }));
   open();
-  await screen.findByText("Claude suggests camera moves, movement, reactions and where brand screens show. Your words never change.");
-  expect(screen.queryByRole("button", { name: "Edit the script" })).toBeNull();
+  await screen.findByRole("heading", { name: "Suggested directions" });
+  expect(screen.queryByRole("button", { name: /Suggest/ })).toBeNull();
 });
 
-test("with nothing accepted there is no Add button, and Next just goes on", async () => {
+test("with nothing accepted Apply 0 accepted waits with its reason, and Next just goes on", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/drafts/0/suggestions": [200, [mark()]] }));
   open();
   await screen.findByText(/Slow push-in on Mia's face\./);
-  expect(screen.queryByRole("button", { name: /^Add \d+ direction/ })).toBeNull();
+  expect(screen.getByRole("button", { name: "Apply 0 accepted" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Apply 0 accepted" })).toHaveAccessibleDescription("Accept a suggestion first");
   await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
-  expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument(); // the Variations step, no question asked
+  expect(await screen.findByRole("heading", { name: "Variations" })).toBeInTheDocument(); // the Variations step, no question asked
 });
 
-test("Next with accepted directions not added asks once, and Stay keeps you here; Leave goes on", async () => {
+test("with accepted directions waiting, leaving by the steps asks once, Stay keeps you here, Leave goes on", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /scripts/7/drafts/0/suggestions": [200, [mark({ status: "accepted" }), mark({ id: 2, key: "b", kind: "reaction", line: 2, text: "Bo blinks twice.", status: "accepted" })]] }));
   open();
   await screen.findByText(/Slow push-in on Mia's face\./);
-  await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
-  expect(await screen.findByRole("alertdialog", { name: "Leave without adding 2 directions?" })).toBeInTheDocument();
-  expect(screen.getByText("They stay accepted but are not added to the script. Leaving doesn't add them.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Apply 2 accepted" })).toBeInTheDocument();
+  const steps = screen.getByRole("list", { name: "Steps" });
+  await userEvent.click(within(steps).getByRole("button", { name: /Variations/ }));
+  expect(await screen.findByRole("alertdialog", { name: "Leave without applying 2 accepted?" })).toBeInTheDocument();
+  expect(screen.getByText("They stay accepted but are not applied to the script. Leaving doesn't apply them.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Stay" }));
-  expect(screen.getByRole("button", { name: "Add 2 directions" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Next: Variations" }));
+  expect(screen.getByRole("button", { name: "Apply 2 accepted" })).toBeInTheDocument();
+  await userEvent.click(within(steps).getByRole("button", { name: /Variations/ }));
   await userEvent.click(screen.getByRole("button", { name: "Leave" }));
-  expect(await screen.findByRole("radio", { name: "None" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Variations" })).toBeInTheDocument();
 });

@@ -12,9 +12,8 @@ async function walk(page: Page, brand: string) {
   await page.getByRole("button", { name: "New script" }).click();
   await page.getByRole("menuitem", { name: /Narrated/ }).click();
 
-  await page.getByLabel("Paste or write your script").fill(WORDS);
-  await page.getByRole("button", { name: "Save script" }).click();
-  await expect(page.getByText("Nothing changed yet")).toBeVisible(); // saved: nothing left to save
+  await page.getByLabel("Write or paste the script").fill(WORDS);
+  await expect(page.getByText(/^Saved \d/)).toBeVisible(); // autosaved
   await page.getByRole("button", { name: "Next: Narration" }).click();
 
   await expect(page.getByText("One voice reads the whole script. Voice: Sarah.")).toBeVisible();

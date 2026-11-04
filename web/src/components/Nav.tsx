@@ -21,8 +21,18 @@ function Mark({ step, n }: { step: Step; n: number }) {
 
 const text = (s: Step) => (s.state === "stale" ? `${s.label} · out of date` : s.label);
 
-/** Six steps. Desktop: a row joined by lines. Phone: one 44px button opening a sheet. */
-export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: string) => void }) {
+/** v5's step mark: a small ring with the number, green with a tick when done, indigo when current. */
+function Ring({ step, n }: { step: Step; n: number }) {
+  const look = step.state === "done" ? "border-success bg-success text-bg" : step.state === "current" ? "border-accent-text text-accent-text" : "border-border";
+  return (
+    <span aria-hidden className={`grid size-[18px] place-items-center rounded-full border text-xs tabular-nums ${look}`}>
+      {step.state === "done" ? <Check size={12} strokeWidth={2.5} /> : step.state === "stale" ? <TriangleAlert size={12} strokeWidth={2} className="text-warning" /> : n}
+    </span>
+  );
+}
+
+/** Six steps. Desktop: a row joined by lines, or (flat, the v5 script steps) a quiet row of rings. Phone: one 44px button opening a sheet. */
+export function StepPicker({ steps, onPick, flat }: { steps: Step[]; onPick: (id: string) => void; flat?: boolean }) {
   const phone = useMedia("(max-width: 1023px)"); // the row of six does not fit below the rail breakpoint
   const uid = useId();
   const [open, setOpen] = useState(false);
@@ -61,6 +71,34 @@ export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: stri
         )}
       </>
     );
+  if (flat)
+    return (
+      <ol aria-label="Steps" className="flex items-center gap-0.5">
+        {steps.map((s, i) => (
+          <li key={s.id}>
+            <button
+              type="button"
+              aria-disabled={s.state === "todo"}
+              aria-current={s.state === "current" ? "step" : undefined}
+              aria-describedby={s.state === "todo" && s.reason ? `${uid}-${s.id}` : undefined}
+              title={s.state === "todo" ? s.reason : undefined}
+              onClick={() => pick(s)}
+              className={`inline-flex min-h-control-dense items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-sm font-medium transition-colors duration-(--dur-fast) ${
+                s.state === "current" ? "bg-surface-2 text-text" : s.state === "todo" ? "cursor-not-allowed text-disabled-text" : "text-muted hover:text-text"
+              }`}
+            >
+              <Ring step={s} n={i + 1} />
+              {text(s)}
+            </button>
+            {s.state === "todo" && s.reason && (
+              <span id={`${uid}-${s.id}`} className="sr-only">
+                {s.reason}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    );
   return (
     <ol aria-label="Steps" className="flex flex-wrap items-center gap-y-2">
       {steps.map((s, i) => (
@@ -93,10 +131,10 @@ export function StepPicker({ steps, onPick }: { steps: Step[]; onPick: (id: stri
 
 export type Tab = { id: string; label: string; count?: number };
 
-/** A pill tab (v4 boards). The chosen one has a 3:1 edge and semibold words, not just a faint fill; hover only brightens the
- *  words (QA-3 on #1164). */
+/** A pill tab (v5): the chosen one is a plain filled pill (surface-2, no ring, no bold), 30 px on a computer and 44 px on a
+ *  phone; the others are muted words that brighten on hover. */
 export const pillClass = (on: boolean) =>
-  `inline-flex min-h-control shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 ${on ? "bg-surface-2 font-semibold text-text ring-1 ring-inset ring-border-strong" : "font-medium text-muted hover:text-text"}`;
+  `inline-flex min-h-control min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 font-medium sm:gap-2 sm:px-3 lg:min-h-7.5 ${on ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`;
 /** A strip of pills that scrolls sideways; its padding keeps the focus ring from being cut off. */
 export const pillStrip = "-m-1 flex gap-1 overflow-x-auto p-1";
 

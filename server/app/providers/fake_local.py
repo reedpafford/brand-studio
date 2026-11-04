@@ -17,7 +17,7 @@ from PIL import Image
 
 from app.prompts import SCHEMAS, check
 from app.prompts.check import DIALOGUE
-from app.providers import Result
+from app.providers import STAND_IN, Result
 
 SIZES = {"9:16": (360, 640), "16:9": (640, 360), "1:1": (512, 512), "4:5": (400, 500)}
 
@@ -50,8 +50,9 @@ def transcript(path: Path) -> list[dict]:
 def hear_take(path: Path, job: dict) -> list[dict]:
     """Stand-in hearing of a take: its script lines, one every 2 s. A marker in the take's
     prompt walks each finding (QA): fake:drop-line (the last line isn't said),
-    fake:extra-line (an unscripted line after them), fake:misname (the brand said "Fobo") or
-    fake:gasp (a gasp after the lines)."""
+    fake:extra-line (an unscripted line after them), fake:misname (the brand said "Fobo"),
+    fake:says-brand (said right, "fomo") or fake:gasp (a gasp after the lines). Each line has
+    its words and when, as whisper gives them."""
     lines, prompt = [x["text"] for x in job["lines"]], job.get("prompt", "")
     if "fake:drop-line" in prompt:
         lines = lines[:-1]
@@ -61,8 +62,19 @@ def hear_take(path: Path, job: dict) -> list[dict]:
         lines = [*lines, "Can't believe it worked."]
     if "fake:gasp" in prompt:
         lines = [*lines, "(gasps)"]
-    return [{"start": 2.0 * i + 0.5, "end": 2.0 * i + 1.8, "text": t, "speaker": None}
+    if "fake:says-brand" in prompt:  # the brand said right (a clean copy for a splice)
+        lines = [f"{lines[0]} I love fomo." if lines else "I love fomo.", *lines[1:]]
+    return [{"start": 2.0 * i + 0.5, "end": 2.0 * i + 1.8, "text": t, "speaker": None,
+             "words": _spread(t, 2.0 * i + 0.5, 2.0 * i + 1.8)}
             for i, t in enumerate(lines)]  # fmt: skip
+
+
+def _spread(text: str, start: float, end: float) -> list[dict]:
+    """A line's words, evenly over its time (whisper gives each word's own)."""
+    words = text.split()
+    each = (end - start) / max(len(words), 1)
+    return [{"word": w.strip(".,!?"), "start": round(start + k * each, 2),
+             "end": round(start + (k + 1) * each, 2)} for k, w in enumerate(words)]  # fmt: skip
 
 
 def hear_cut(path: Path, job: dict) -> list[dict]:
@@ -124,19 +136,24 @@ def hear_song(path: Path, lyrics: str) -> list[dict]:
 # The stand-in narrator: each sentence a tone, 0.3 s a word, with 0.8 s of silence after it
 # (so the pause trim has something to shorten). "fake:fail" in the words fails the voice
 # call; "fake:clip-word" makes the trimmed narration lose its last word when heard again
-# (so it's kept untrimmed: "Kept the pauses").
-WORD, GAP = 0.3, 0.8
+# (so it's kept untrimmed: "Kept the pauses"); "fake:misheard" makes the word after it heard
+# one letter off ("fomo" as "foma") unless the request carries a "[Say …]" note: the voice is
+# read quieter then, which the stand-in Whisper tells by its peak. v3 tags are never read.
+WORD, GAP, MISHEARD = 0.3, 0.8, 0.3
 
 
 def narration(text: str) -> bytes:
     from app.narration import sentences
 
+    told = re.search(r"\[say [^\]]*\]", text, re.I)
+    loud = MISHEARD if "fake:misheard" in text and not told else 1
+    text = re.sub(r"\[[^\]]*\]\s*", "", text)
     parts, t = [], GAP
     for sentence in sentences(text):
         end = t + WORD * len(sentence.split())
         parts.append(f"between(t,{t:.2f},{end:.2f})")
         t = end + GAP
-    tone = f"sin(2*PI*220*t)*({'+'.join(parts) or '0'})"
+    tone = f"{loud}*sin(2*PI*220*t)*({'+'.join(parts) or '0'})"
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "voice.mp3"
         source = ["-f", "lavfi", "-i", f"aevalsrc='{tone}':s=22050:d={t:.2f}"]
@@ -183,6 +200,11 @@ def hear_voice(path: Path, text: str) -> list[dict]:
                   for n, w in enumerate(words)]  # fmt: skip
     if "fake:clip-word" in text and path.name == "trimmed.mp3":
         heard = heard[:-1]
+    if "fake:misheard" in text and max(map(abs, samples), default=0) < 16000:  # no [Say …] note
+        k = next((n + 1 for n, w in enumerate(heard) if w["word"] == "fake:misheard"), len(heard))
+        if k < len(heard):
+            w = heard[k]["word"]
+            heard[k] = {**heard[k], "word": w[:-1] + ("e" if w[-1:] == "a" else "a")}
     return heard
 
 
@@ -243,8 +265,9 @@ def read_site(url: str) -> dict:
 
 
 def study_link(url: str, folder: Path) -> Path:
-    """A song-ad study's link on the stand-ins: the 6 s test clip, so a walk reaches the
-    finished study; a reel id with "blocked" in it is refused, as Instagram would."""
+    """A reel's link on the stand-ins (Import a reel, or a song-ad study): the 6 s test clip,
+    never fetched, so a walk reaches the read reel or the finished study; a reel id with
+    "blocked" in it is refused, as Instagram would."""
     if "blocked" in url:
         return refuse_link(url, folder)
     return two_scenes(folder / "reel.mp4")
@@ -256,11 +279,14 @@ def png(aspect: str) -> bytes:
     return out.getvalue()
 
 
-def mp4(aspect: str, seconds: int) -> bytes:
+def mp4(aspect: str, seconds: int, sound: bool = False) -> bytes:
+    """A few grey seconds; with `sound` a soft tone too (MMAudio's stand-in: the take with the
+    sound it made)."""
     w, h = SIZES.get(aspect, (512, 512))
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "fake.mp4"
         grey = ["-f", "lavfi", "-i", f"color=c=gray:s={w}x{h}:d={seconds}"]
+        grey += ["-f", "lavfi", "-i", f"sine=f=330:d={seconds}", "-c:a", "aac"] if sound else []
         command = ["ffmpeg", "-v", "error", *grey, "-pix_fmt", "yuv420p", str(path)]
         subprocess.run(command, check=True, timeout=60)  # noqa: S603 - fixed arguments
         return path.read_bytes()
@@ -340,7 +366,7 @@ class FakeMedia:
         self._ids = itertools.count(1)
 
     def submit(self, kind: str, input: dict) -> str:
-        ref = f"local-{next(self._ids)}"
+        ref = f"{STAND_IN}local-{next(self._ids)}"
         self._jobs[ref] = {"kind": kind, **input.get("input", {})}
         return ref
 
@@ -358,8 +384,8 @@ class FakeMedia:
     def fetch(self, url: str) -> tuple[bytes, str]:
         job = self._jobs[url.removeprefix("fake://")]
         aspect = job.get("aspect_ratio", "9:16")
-        if job["kind"] == "video":
-            return mp4(aspect, int(job.get("duration", 5))), "video/mp4"
+        if job["kind"] in ("video", "sound"):
+            return mp4(aspect, int(job.get("duration", 5)), job["kind"] == "sound"), "video/mp4"
         if job["kind"] == "speech":
             return narration(job["prompt"]), "audio/mpeg"
         if job["kind"] == "music_bed":
@@ -378,7 +404,7 @@ class FakeSuno:
         self._ids = itertools.count(1)
 
     def submit(self, kind: str, input: dict) -> str:
-        ref = f"suno-{next(self._ids)}"
+        ref = f"{STAND_IN}suno-{next(self._ids)}"
         self._styles[ref] = input["input"]["style"]
         return ref
 
@@ -411,10 +437,60 @@ class FakeWriter:
 
         allowed = json.loads(_tag(prompt, "allowed") or "{}")
         asked = json.loads(_tag(prompt, "chat") or "[]")
-        return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked})
+        done = [a["tool"] for a in json.loads(_tag(prompt, "last_actions") or "[]")]
+        return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked,
+                       "done": done})  # fmt: skip
+
+    def _review_stills(self, prompt):
+        """The stand-in look at the stills: they tell the treatment (a test that walks a
+        redraw gives its own finding)."""
+        return {"ready": True, "findings": []}
+
+    def _treatment(self, prompt):
+        """The stand-in treatment: one beat a spoken line (the Director's)."""
+        from app import prompts
+
+        return prompts.stand_in_treatment(_tag(prompt, "script") or "")
 
     def _enhance(self, prompt):
-        return {"suggestions": [], "notes": []}
+        """Up to three directions on the script's first lines that have words (a camera move,
+        a movement, a reaction), each quoting its line exactly, and one note: enough to walk
+        Directions on the test site for free."""
+        numbered = re.findall(r"^(\d+)\| (.*\S)\s*$", _tag(prompt, "script"), re.M)
+        said = [
+            (int(n), line) for n, line in numbered if not re.match(r"^(SCENE|INT\.|EXT\.)", line)
+        ]
+        kinds = [
+            ("camera", "Slow push in as this line lands.", "Draws the eye to the moment."),
+            (
+                "action",
+                "A small move that shows the line, not just says it.",
+                "Gives the line a picture.",
+            ),
+            (
+                "reaction",
+                "Hold on the listener's face for a beat.",
+                "Lets the line land before the cut.",
+            ),
+        ]
+        suggestions = [
+            {
+                "id": f"s{i + 1}",
+                "kind": kind,
+                "anchor": {"line": n, "quote": line},
+                "placement": "after",
+                "text": text,
+                "screen_id": None,
+                "reason": reason,
+            }
+            for i, ((n, line), (kind, text, reason)) in enumerate(zip(said, kinds, strict=False))
+        ]
+        notes = (
+            [{"line": said[-1][0], "text": "A practice note: the last line could name the brand."}]
+            if said
+            else []
+        )
+        return {"suggestions": suggestions, "notes": notes}
 
     def _script_draft(self, prompt):
         """A practice script; adapting a reel, it says the reel's lines word for word (each

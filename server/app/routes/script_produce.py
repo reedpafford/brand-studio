@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import breakdown, credits, narration, plans, script_preview, song_takes
+from app import breakdown, credits, narration, plans, scorecard, script_preview, song_takes
 from app import script_library as lib
 from app import video_settings as vs
 from app.auth import current_user
@@ -17,7 +17,7 @@ from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
 from app.models.projects import Project
-from app.models.script_library import ScriptCastSlot
+from app.models.script_library import ScriptCastSlot, ScriptDraft
 from app.models.scripts import ScriptVersion
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
@@ -57,63 +57,9 @@ def produce(
         raise HTTPException(409, "Publish this script first.")
     if draft.status != "approved":
         raise HTTPException(409, "Approve this version first.")
-    if db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
-        raise HTTPException(409, "This version already has a video.")
-    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
-    name = f"{script.title} — {draft.title}" if slot and draft.title else script.title
-    project = Project(
-        workspace_id=user.workspace_id,
-        brand_id=script.brand_id,
-        name=name[:120],
-        goal=script.description,
-        created_by_id=user.id,
-        cast_ids=sorted({s.library_item_id for s in slots if s.library_item_id}),
-        reference_breakdown=script_reference(request, script),
-        reference_replace=script.reference_replace,
-        script_draft_id=draft.id,
-        look=script.look,  # the video's own from here on (VS1)
-        product_variants=lib.offered_flavours(db, script.brand_id, draft),  # n03: its defaults
-    )
     settings = body.model_dump(exclude_none=True) if body else {}
-    if "product_variants" in settings:  # the picks sent win, product by product (n03)
-        settings["product_variants"] = {**project.product_variants, **settings["product_variants"]}
-    for field, value in settings.items():
-        setattr(project, *vs.check(db, user, project, {field: value}).popitem())
-    if script.kind in narration.TIMED and (take := song_takes.preferred(db, draft)):
-        project.song_take_id = take.id  # the video's own choice from here on (rule 31)
-    _set_length(db, user, project, draft.target_seconds)
-    draft.reserved_by_id = user.id
-    db.add(project)
-    try:
-        db.flush()  # the unique version link: two people pressing at once can't both win
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "This version already has a video.") from None
-    version = ScriptVersion(
-        project_id=project.id, version=1, text=draft.text, source="library", created_by_id=user.id
-    )
-    db.add(version)
-    plans.copy_to_video(project, draft)  # S6: the owner's approved plan is its start
-    if draft.breakdown and plans.preview_follows(draft):
-        plan = Breakdown.model_validate(draft.breakdown)
-        named = {r for sc in plan.scenes for sh in sc.shots for r in sh.character_ids}
-        live = named & script_preview.live_looks(db, script)  # a look the plan names joins the cast
-        project.cast_ids = sorted({*project.cast_ids, *(int(r[5:]) for r in live)})
-        db.flush()
-        bd, removed = breakdown.land(db, project, plan)
-        breakdown.record_length(project, bd)
-        db.add(
-            BreakdownVersion(
-                project_id=project.id,
-                script_version=1,
-                source="library",
-                data={**bd.model_dump(), **({"plan_version": 1} if project.plan else {})},
-                problems=breakdown.problems(db, project, draft.text, bd) + removed,
-                created_by_id=user.id,
-            )
-        )
-        db.flush()
-        vs.follow_lip_sync(db, project, could=True)  # a no-lip-sync model: Sung shots to B-roll
+    project, version, landed = make_video(db, user, request, script, draft, settings)
+    if landed:
         db.commit()
         return ProduceOut(project_id=project.id, breakdown_job_id=None)
     # Every video gets a plan before its shots (flows 1b): the plan call is what this press
@@ -136,10 +82,78 @@ def produce(
     return ProduceOut(project_id=project.id, breakdown_job_id=None, plan_job_id=job.id)
 
 
+def make_video(db: Session, user: User, request: Request, script, draft, settings: dict,
+               another: bool = False) -> tuple[Project, ScriptVersion, bool]:  # fmt: skip
+    """A version's video (Make this version, and a freestyle made from a script): the
+    script's brand, reel, look and locked cast, its words as script v1, its plan (S6), and its
+    saved breakdown preview landed free when it follows that plan (#934); whether it landed.
+    One a version, but for a director-first video's "Make another" (`another`, n22). Not
+    committed; nothing queued."""
+    credits.lock(db, ScriptDraft, draft.id)  # two presses at once: the second finds the first
+    if not another and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
+        raise HTTPException(409, "This version already has a video.")
+    slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))
+    name = f"{script.title} — {draft.title}" if draft.slot and draft.title else script.title
+    project = Project(
+        workspace_id=user.workspace_id,
+        brand_id=script.brand_id,
+        name=name[:120],
+        goal=script.description,
+        created_by_id=user.id,
+        cast_ids=sorted({s.library_item_id for s in slots if s.library_item_id}),
+        reference_breakdown=script_reference(request, script),
+        reference_replace=script.reference_replace,
+        script_draft_id=draft.id,
+        look=script.look,  # the video's own from here on (VS1)
+        product_variants=lib.offered_flavours(db, script.brand_id, draft),  # n03: its defaults
+        hidden=script.hidden,  # a freestyle's with no brand stays out of every list
+    )
+    if "product_variants" in settings:  # the picks sent win, product by product (n03)
+        settings["product_variants"] = {**project.product_variants, **settings["product_variants"]}
+    for field, value in settings.items():
+        setattr(project, *vs.check(db, user, project, {field: value}).popitem())
+    if script.kind in narration.TIMED and (take := song_takes.preferred(db, draft)):
+        project.song_take_id = take.id  # the video's own choice from here on (rule 31)
+    _set_length(db, user, project, draft.target_seconds)
+    draft.reserved_by_id = user.id
+    db.add(project)
+    try:
+        db.flush()  # the unique version link: two people pressing at once can't both win
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "This version already has a video.") from None
+    version = ScriptVersion(
+        project_id=project.id, version=1, text=draft.text, source="library", created_by_id=user.id
+    )
+    db.add(version)
+    plans.copy_to_video(project, draft)  # S6: the owner's approved plan is its start
+    scorecard.record_forecast(db, project, draft)  # shown beside the price; changes no cap
+    if draft.breakdown and plans.preview_follows(draft):
+        plan = Breakdown.model_validate(draft.breakdown)
+        named = {r for sc in plan.scenes for sh in sc.shots for r in sh.character_ids}
+        live = named & script_preview.live_looks(db, script)  # a look the plan names joins the cast
+        project.cast_ids = sorted({*project.cast_ids, *(int(r[5:]) for r in live)})
+        db.flush()
+        bd, removed = breakdown.land(db, project, plan)
+        breakdown.record_length(project, bd)
+        db.add(
+            BreakdownVersion(
+                project_id=project.id,
+                script_version=1,
+                source="library",
+                data={**bd.model_dump(), **({"plan_version": 1} if project.plan else {})},
+                problems=breakdown.problems(db, project, draft.text, bd) + removed,
+                created_by_id=user.id,
+            )
+        )
+        db.flush()
+        vs.follow_lip_sync(db, project, could=True)  # a no-lip-sync model: Sung shots to B-roll
+        return project, version, True
+    return project, version, False
+
+
 class VersionEstimateOut(BaseModel):
     credits: float  # "about N credits to make", every step: the version's estimate_credits
-    over_cap: bool  # over the video limit
-    reason: str  # why it can't be made like this ("" when nothing is in the way)
 
 
 @router.post("/estimate", response_model=VersionEstimateOut)
@@ -165,6 +179,4 @@ def version_estimate(
     for field, value in (body.model_dump(exclude_none=True) if body else {}).items():
         setattr(video, *vs.check(db, user, video, {field: value}).popitem())
     cost = version_cost(db, draft, video)  # every look it will need included
-    cap = credits.get_limits(db, user.workspace_id).per_video_max_credits
-    reason = vs.OVER_CAP.format(cap) if cost > cap else ""
-    return VersionEstimateOut(credits=float(cost), over_cap=cost > cap, reason=reason)
+    return VersionEstimateOut(credits=float(cost))

@@ -9,6 +9,7 @@ their lines and Sung marks."""
 
 import bisect
 import math
+import re
 
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
@@ -19,40 +20,30 @@ from app.models.projects import Project
 from app.models.songs import SongTake
 from app.prompts.schemas import Breakdown, SongBreakdown
 
+MIN_CLIP = 4  # seconds: a shorter span is made 4 s long and cut to it (Song-Producer)
+PEOPLE_MAX = 16  # seconds: a clip with people in it is split past this
+
 
 def take_for(db: Session, project: Project) -> SongTake | None:
     return db.get(SongTake, project.song_take_id) if project.song_take_id else None
 
 
-def timing_used(take: SongTake) -> dict:
-    """The take's timing, cut to its trim ("Use the first 0:55") if it has one."""
-    timing = take.timing or {}
-    end = take.trim_to
-    if not end:
-        return timing
-    sections = [{**s, "end": min(s["end"], end),
-                 "cuts": [c for c in s.get("cuts", []) if c < end]}
-                for s in timing.get("sections", []) if s["start"] < end]  # fmt: skip
-    return {**timing, "seconds": end, "beats": [b for b in timing.get("beats", []) if b < end],
-            "lines": [ln for ln in timing.get("lines", []) if ln["start"] < end],
-            "sections": sections}  # fmt: skip
-
-
-def split(bd: SongBreakdown, take_id: int) -> tuple[Breakdown, dict]:
+def split(bd: SongBreakdown, take_id: int, broll: bool = False) -> tuple[Breakdown, dict]:
     """The AI's song breakdown as the plan every step reads, plus its song part, the shots'
-    and clips' lengths taken from the song (`fit`)."""
+    and clips' lengths taken from the song (`fit`; `broll`: a narration's)."""
     shots = {s.id: {"start": s.song_start, "end": s.song_end, "sung": s.sung}
              for scene in bd.scenes for s in scene.shots}  # fmt: skip
     song = {"take_id": take_id, "shots": shots}
-    return Breakdown.model_validate(fit({**bd.model_dump(), "song": song})), song
+    return Breakdown.model_validate(fit({**bd.model_dump(), "song": song}, broll)), song
 
 
-def fit(data: dict) -> dict:
+def fit(data: dict, broll: bool = False) -> dict:
     """The song is the clock (V2, V6): each shot lasts its time in the song and each clip its
     shots' span, rounded up to whole seconds, whatever the plan said (the stand-in counted
     spoken words: a 0:24 song read "1 clip · 14 s"). A clip over the video model's limit
     keeps it: the breakdown check names it, never cut to fit. `data` is a plan with its
-    song part; shots the song part doesn't know keep their own."""
+    song part; shots the song part doesn't know keep their own. `broll`: under a narration,
+    a shot too short to be a clip is a clip of its own (`_apart`)."""
     timed = (data.get("song") or {}).get("shots") or {}
     if not timed:
         return data
@@ -60,14 +51,48 @@ def fit(data: dict) -> dict:
                                                       - timed[sh["id"]]["start"], 2)}
                                if sh["id"] in timed else sh for sh in sc["shots"]]}
               for sc in data.get("scenes", [])]  # fmt: skip
+    peopled = {sh["id"] for sc in data.get("scenes", []) for sh in sc.get("shots", [])
+               if sh.get("character_ids")}  # fmt: skip
     clips = []
     for clip in data.get("clips", []):
-        known = [timed[s] for s in clip.get("shot_ids", []) if s in timed]
-        if known:
-            span = max(t["end"] for t in known) - min(t["start"] for t in known)
-            clip = {**clip, "seconds": max(1, math.ceil(span - 0.01))}
-        clips.append(clip)
+        whole = _apart(clip, timed) if broll else [clip]
+        for part in (p for c in whole for p in _split(c, timed, peopled)):
+            known = [timed[s] for s in part.get("shot_ids", []) if s in timed]
+            if known:
+                span = max(t["end"] for t in known) - min(t["start"] for t in known)
+                part = {**part, "seconds": max(MIN_CLIP, math.ceil(span - 0.01))}  # its span
+            clips.append(part)
     return {**data, "scenes": scenes, "clips": clips}
+
+
+def _apart(clip: dict, timed: dict) -> list[dict]:
+    """F7 (Reed, 3 Nov: "generating several clips and splicing them together"): a B-roll clip
+    with a shot shorter than a clip can be (MIN_CLIP) is made as one clip a shot, each at least
+    MIN_CLIP long and cut to its shot's time in the edit (clip_takes.song_cut); "c3", "c3b"."""
+    ids = clip.get("shot_ids", [])
+    short = [s for s in ids if s in timed and timed[s]["end"] - timed[s]["start"] < MIN_CLIP]
+    if len(ids) < 2 or not short:
+        return [clip]
+    return [{**clip, "id": clip["id"] + ("" if n == 0 else chr(ord("a") + n)), "shot_ids": [s]}
+            for n, s in enumerate(ids)]  # fmt: skip
+
+
+def _split(clip: dict, timed: dict, peopled: set[str]) -> list[dict]:
+    """A clip with people in it over PEOPLE_MAX seconds of song, split at its shots into
+    pieces of at most that (Song-Producer: faces hold up only so long); "c3", "c3b", "c3c"."""
+    ids = [s for s in clip.get("shot_ids", []) if s in timed]
+    if not ids or not peopled & set(ids):
+        return [clip]
+    if timed[ids[-1]]["end"] - timed[ids[0]]["start"] <= PEOPLE_MAX:
+        return [clip]
+    groups: list[list[str]] = [[]]
+    for s in ids:
+        start = timed[groups[-1][0]]["start"] if groups[-1] else timed[s]["start"]
+        if groups[-1] and timed[s]["end"] - start > PEOPLE_MAX:
+            groups.append([])
+        groups[-1].append(s)
+    return [{**clip, "id": clip["id"] + ("" if n == 0 else chr(ord("a") + n)),
+             "shot_ids": group} for n, group in enumerate(groups)]  # fmt: skip
 
 
 def joined(bd: Breakdown, song: dict) -> SongBreakdown:
@@ -88,15 +113,69 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
     """A new row without a song part (an edit, a fix, a recast) takes the newest row's, its
     shots packed back to back over the same song, free (rule 22: an edit never leaves a gap
     to fix by hand): see `repack`. A shot an edit brings back (Undo) gets its earlier times
-    from the rows before, so an Undo is exact."""
-    if "song" not in row.data:
-        order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
-        with Session(bind=connection) as db:
-            song = carried(db, row.project_id, order)
-        if song:
-            row.data = {**row.data, "song": song}
+    from the rows before, so an Undo is exact. Only a row that brings its own song part (the
+    AI's plan, a new take) is word-snapped: an edit never moves another shot's time."""
+    with Session(bind=connection) as db:
+        if row.data.get("song"):
+            take = db.get(SongTake, row.data["song"].get("take_id") or 0)
+            row.data = snap(row.data, take.timing or {} if take else {})
+        else:
+            order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
+            if song := carried(db, row.project_id, order):
+                row.data = {**row.data, "song": song}
+        take = db.get(SongTake, (row.data.get("song") or {}).get("take_id") or 0)
+        broll = bool(take and take.kind == "narration")  # every shot under a narration
     if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
-        row.data = fit(row.data)
+        row.data = fit(row.data, broll)
+
+
+LEAD = 0.1  # seconds: a shot that shows what a word names lands just before it's sung
+MIN_SNAP = 1.0  # seconds: a snap never leaves either shot shorter than this
+NUMBERS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+           "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()  # fmt: skip
+SKIP = {"the", "and", "with", "her", "his", "its", "for", "from", "into", "onto", "our",
+        "their", "they", "then", "this", "that", "shot", "close", "wide", "camera", "are",
+        "was", "who", "she", "him", "them", "out", "off", "all", "one's"}  # fmt: skip
+
+
+def _key(word: str) -> str:
+    """A word as both sides compare it: lower case, "4" and "four" alike, a plural's s off."""
+    w = re.sub(r"[^\w']", "", word.lower()).removesuffix("'s")
+    if w.isdigit():
+        return NUMBERS[int(w)] if int(w) < len(NUMBERS) else w
+    return w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w
+
+
+def _named(shot: dict) -> set[str]:
+    """The things a shot shows, by name: its action's words and its screen figure's."""
+    figure = " ".join(str(v) for v in (shot.get("screen_figure") or {}).values())
+    found = re.findall(r"\d+|[a-z']+", f"{shot.get('action') or ''} {figure}".lower())
+    return {_key(w) for w in found if w.isdigit() or (len(w) > 2 and w not in SKIP)}
+
+
+def snap(data: dict, timing: dict) -> dict:
+    """Word-snap (P1): a B-roll shot that shows a thing its line names starts just before
+    that word is sung, not at the line's start (Reed's scorecard showed a second early before
+    "four"). The shot before it in the same clip ends there instead, so a clip's span never
+    moves, and neither shot drops under MIN_SNAP. The first such word sung inside the shot
+    counts; snapping again changes nothing. Words are the take's measured ones (timing)."""
+    song, words = data.get("song"), timing.get("words") or []
+    if not song or not words:
+        return data
+    shots = {sh["id"]: sh for sc in data.get("scenes", []) for sh in sc.get("shots", [])}
+    times = {sid: dict(t) for sid, t in song["shots"].items()}
+    for clip in data.get("clips", []):
+        ids = [s for s in clip.get("shot_ids", []) if s in times and s in shots]
+        for prev, sid in zip(ids, ids[1:], strict=False):
+            here, before, named = times[sid], times[prev], _named(shots[sid])
+            if here.get("sung") or before["end"] != here["start"] or not named:
+                continue
+            word = next((w for w in words if here["start"] < w["start"] < here["end"]
+                         and _key(w["word"]) in named), None)  # fmt: skip
+            at = round(word["start"] - LEAD, 2) if word else here["start"]
+            if at > here["start"] and at - before["start"] >= MIN_SNAP <= here["end"] - at:
+                before["end"] = here["start"] = at
+    return {**data, "song": {**song, "shots": times}}
 
 
 def slice_of(data: dict, clip_id: str) -> dict | None:
@@ -240,7 +319,7 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     old, new = db.get(SongTake, song["take_id"]) if song else None, take_for(db, project)
     if not old or not new or old.id == new.id:
         return None
-    moved = reflow(song, timing_used(old), timing_used(new), new.id)
+    moved = reflow(song, old.timing or {}, new.timing or {}, new.id)
     plan = Breakdown.model_validate(row.data)
     text = db.scalar(
         select(ScriptVersion.text).where(ScriptVersion.project_id == project.id,

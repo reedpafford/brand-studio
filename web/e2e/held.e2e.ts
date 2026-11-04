@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { onBrand, signIn } from "./helpers";
 
 // QA on #1088 (with #1099): an editor's song takes on a script read Send for approval, wait on that script, and Withdraw
-// takes them back for nothing. (An editor's Freestyle send waiting for Reed is in freestyle.e2e.ts; Quick clip is gone.)
+// takes them back for nothing. (An editor's New video send waiting for the owner is in freestyle.e2e.ts; Quick clip is gone.)
 test("at 390, an editor's song takes on a script are sent for approval and wait on that script", async ({ page, browser, baseURL }) => {
   test.setTimeout(120_000);
   await signIn(page, "reed@example.com");

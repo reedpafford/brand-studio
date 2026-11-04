@@ -4,12 +4,10 @@ video, the script's language and the brand's default cast. Free, on the stand-in
 
 from sqlalchemy import select
 
-from app import sheets
 from app import video_settings as vs
 from app.models.brands import BrandScreen
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
-from app.models.credits import CreditLimits
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -56,6 +54,7 @@ def test_the_choices_carry_their_prices_and_the_scripts_language(owner, editor, 
     assert (
         models["seedance-2.0"]["credits_per_second"] < models["seedance-2.5"]["credits_per_second"]
     )
+    assert models["p-video"]["lip_sync"] and models["p-video"]["credits_per_second"] == 0.19  # 720p
     assert {m["id"] for m in got["image_models"]} == {"nano-banana-2.1", "nano-banana-pro"}
     assert got["language"] == "en" and "1:1" in got["shapes"]
 
@@ -102,21 +101,6 @@ def test_a_flavour_switch_outdates_only_what_shows_the_bag(owner, editor, db):
     assert (seen["stills_out_of_date"], seen["clips_out_of_date"]) == (0, 1)
     assert editor.post(f"{video}/settings/preview",
                        json={"product_variants": {"bag": "Kale"}}).status_code == 422  # fmt: skip
-
-
-def test_over_the_cap_is_refused_with_the_reason(owner, editor, db):
-    video, _ = _made(owner, editor, db)
-    db.add(CreditLimits(workspace_id=1, per_video_max_credits=1))
-    db.commit()
-    seen = editor.post(f"{video}/settings/preview", json={"aspect_ratio": "1:1"}).json()
-    assert seen["over_cap"] and seen["reason"] == vs.OVER_CAP.format(1)
-    no = editor.post(f"{video}/settings", json={"aspect_ratio": "1:1"})
-    assert (no.status_code, no.json()["detail"]) == (409, vs.OVER_CAP.format(1))
-    # Undo puts back what the video already had, even over the limit (Flow-QA's case)
-    was = editor.post(f"{video}/settings", json={"aspect_ratio": "1:1", "undo": True})
-    assert was.status_code == 200 and was.json()["was"] == {"aspect_ratio": "9:16"}
-    back = editor.post(f"{video}/settings", json={**was.json()["was"], "undo": True})
-    assert back.json()["settings"]["aspect_ratio"] == "9:16"
 
 
 def test_who_may_switch_and_what_may_be_sent(app, owner, editor, db):
@@ -251,8 +235,8 @@ def test_make_this_version_takes_the_settings_and_a_no_lip_sync_plan_has_no_sung
 
     split = song_breakdown.split
 
-    def one_sung(bd, take_id):  # the stand-in plan has no Sung shot: make its first one Sung
-        plan, part = split(bd, take_id)
+    def one_sung(bd, take_id, broll=False):  # the stand-in plan has no Sung shot: one Sung
+        plan, part = split(bd, take_id, broll)
         first = next(iter(part["shots"]))
         return plan, {
             **part,
@@ -297,17 +281,12 @@ def test_make_this_versions_price_line_follows_the_picks(owner, editor, db):
     url = f"{base}/drafts/0/estimate"
     auto = editor.post(url).json()
     shown = editor.get(base).json()["versions"][0]["estimate_credits"]
-    assert auto == {"credits": shown, "over_cap": False, "reason": ""}  # the card's figure
-    look = owner.post(url, json={"look": "disney-pixar"}).json()  # Mia has only House: one look
-    assert look["credits"] == round(auto["credits"] + float(sheets.look_price(db, 1)), 2)
+    assert auto == {"credits": shown}  # the card's figure
+    look = owner.post(url, json={"look": "disney-pixar"})  # the script's style stays (item 7)
+    assert look.status_code == 409 and "keeps its script's style, House" in look.text
     cheaper = editor.post(url, json={"video_model": "seedance-2.0"}).json()
     assert 0 < cheaper["credits"] < auto["credits"]
-    assert editor.post(url, json={"look": "zack-d"}).status_code == 409  # Off for editors
     assert editor.post(url, json={"video_model": "nope"}).status_code == 422
-    db.add(CreditLimits(workspace_id=1, per_video_max_credits=1))
-    db.commit()
-    over = editor.post(url).json()
-    assert over["over_cap"] and over["reason"] == vs.OVER_CAP.format(1)
     assert db.query(Project).count() == 0  # nothing is made
     models = {m["id"]: m["lip_sync"] for m in editor.get("/models?kind=video").json()}
     assert models["seedance-2.5"] and not models["seedance-2.0"]
@@ -329,8 +308,11 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
     from tests.test_script_library import SCRIPT, _make
 
     monkeypatch.setattr(produce, "_make", lambda c, **kw: _make(c, text=SCRIPT))
-    for picks in ({}, {"look": "disney-pixar"}):
+    for look in ("house", "disney-pixar"):
         base, _ = _published(owner, db)  # Mom is Mia (a House sheet only); Nate has no role
+        db.get(Script, int(base.rsplit("/", 1)[1])).look = look  # its style, kept (item 7)
+        db.commit()
+        picks: dict = {}
         quote = owner.post(f"{base}/drafts/0/estimate", json=picks).json()["credits"]
         card = owner.get(base).json()["versions"][0]["estimate_credits"]
         made = owner.post(f"{base}/drafts/0/produce", json=picks).json()["project_id"]
@@ -339,7 +321,7 @@ def test_make_this_versions_quote_is_what_its_video_will_cost(owner, db, monkeyp
         assert plan == 3  # Make this version charged the plan call at once
         quote -= plan  # what's left after the press: the video's own to-finish and bar
         assert float(vs.to_finish(db, video)) == pytest.approx(quote, abs=0.001)
-        if not picks:  # the version card shows the same figure (in the script's own look)
+        if look == "house":  # the version card shows the same figure (in the script's own look)
             assert card == pytest.approx(quote + plan, abs=0.001)
         added = breakdown.add_speakers(db, db.get(Script, int(base.rsplit("/", 1)[1])))
         db.commit()

@@ -10,10 +10,10 @@ const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paw
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
 const version = (o: object = {}) => ({ slot: 0, status: "draft", title: "Bowl song", seconds: 0, project_id: null, text: LYRICS, words: 10, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, style_line: "pop, female lead, upbeat", singer: "", spoken_end_line: "", song_directions: [], ...o });
 const song = (o: object = {}, v: object = {}) => ({
-  id: 7, brand_id: 1, kind: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
+  id: 7, brand_id: 1, kind: "song", format: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, ...o });
 const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, takes, ...o });
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
@@ -45,11 +45,11 @@ test("Publish on a song lists the song, its style and the singer, and says the l
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song({}, { singer: "Bo" })], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true })])], "GET /scripts/7/cast": [200, cast] });
   open("/b/1/scripts/7?step=publish");
-  const card = await screen.findByRole("listitem", { name: "Version A" });
-  expect(await within(card).findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
-  expect(within(card).getByText("pop, female lead, upbeat")).toBeInTheDocument();
-  expect(within(card).getByText("Bo")).toBeInTheDocument();
-  expect(screen.getByText(/After that the lyrics can't change \(each video still picks its own take\)/)).toBeInTheDocument();
+  expect(await screen.findByRole("listitem", { name: "Version A" })).toBeInTheDocument();
+  expect(await screen.findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
+  expect(screen.getByText("pop, female lead, upbeat")).toBeInTheDocument();
+  expect(screen.getByText("Bo")).toBeInTheDocument();
+  expect(screen.getByText(/Their lyrics become final\./)).toBeInTheDocument();
 });
 
 test("at 390, Make this version on a song shows its song with a 44px play button, and its length in the price line", async () => {
@@ -60,5 +60,5 @@ test("at 390, Make this version on a song shows its song with a 44px play button
   const row = await screen.findByRole("region", { name: "Song" });
   expect(await within(row).findByText("Song: Take 1 · 0:31")).toBeInTheDocument();
   expect(within(row).getByRole("button", { name: "Play Take 1" })).toBeInTheDocument();
-  expect(screen.getByText(/whole video (costs )?up to 40( credits)? · 0:31 song/)).toBeInTheDocument();
+  expect(screen.getByText(/whole video about 40 credits \(planned\) · 0:31 song/)).toBeInTheDocument();
 });

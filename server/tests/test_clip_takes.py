@@ -120,6 +120,37 @@ def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F
     assert db.query(Job).filter_by(kind="video").count() == 2
 
 
+def test_a_p_video_take_runs_at_720p_24_fps_and_costs_its_real_price(app, db, editor, setup, clip):  # noqa: F811
+    """P-Video has no 480p (its takes use its lowest), reads one `image` and no reference
+    lists, and is asked at 24 fps with its prompt left as written (no upsampling); $0.02 a
+    second is 0.19 credits, so 5 s are 0.95, which is what the take shows and what is charged."""
+    from app.models.projects import Project
+
+    db.get(Project, setup["project"]).video_model = "p-video"
+    db.commit()
+    base = f"/projects/{setup['project']}"
+    url = f"{base}/clips/{clip['id']}"
+    assert editor.get(f"{base}/clips").json()[0]["take_credits"] == 0.95
+    job = editor.post(f"{url}/generate")
+    assert job.status_code == 201, job.text
+    assert job.json()["credits"] == 0.95
+    fake = FakeSeedance([_mp4("red")])
+    _work(app, db, fake)
+    sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
+    assert (sent["resolution"], sent["fps"], sent["prompt_upsampling"]) == ("720p", 24, False)
+    assert sent["image"].startswith("data:image/") and "reference_images" not in sent
+    assert "generate_audio" not in sent and sent["duration"] == 5
+
+
+def test_p_video_prompts_never_say_subtitles_captions_or_text():
+    from app import p_video
+
+    said = "A doctor talks.\nNo subtitles or captions. Plain green behind him.\nShow the text."
+    got = p_video.clean(said)
+    assert got == "A doctor talks.\nPlain green behind him.\nThe frame is clean."
+    assert p_video.clean("A doctor talks.") == "A doctor talks."  # nothing to cut: unchanged
+
+
 def test_clip_with_problems_and_other_workspace(app, editor, outsider, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"
@@ -183,16 +214,6 @@ def test_money_rules(app, db, owner, editor, setup, clip):  # noqa: F811
     assert editor.get(base).json()["credits_used"] == pytest.approx(used + 5)
     _work(app, db, FakeSeedance([_mp4("red")]))
 
-    limits = {"max_planned_seconds": 170, "weekly_quick_clip_credits": 150}
-    owner.put("/credits/limits", json={**limits, "per_video_max_credits": int(used) + 9})
-    over = editor.post(f"{url}/generate")  # 5 more would pass the per-video cap
-    assert (over.status_code, over.json()["detail"]) == (409, "This video would go over its limit.")
-    assert "$" not in over.json()["detail"]  # editors never see dollars
-    mine = owner.post(f"{url}/generate")  # the cap holds for the owner too, in dollars
-    assert mine.status_code == 409 and mine.json()["detail"].startswith(
-        "This video would go over its $"
-    )
-
 
 def test_reference_without_a_picture(app, db, editor, setup, clip):  # noqa: F811
     voiceless = editor.post("/library/character", json={"name": "Ghost"}).json()["id"]
@@ -246,31 +267,66 @@ class Refusing(FakeSeedance):
         return super().__call__(request)
 
 
-def test_a_copyright_refusal_says_what_to_do_and_warns_after_two(app, db, editor, setup, clip):  # noqa: F811
+def test_a_look_alike_refusal_steps_down_then_says_what_to_do(app, db, editor, setup, clip):  # noqa: F811
+    """The Producer: a take refused as a look-alike is made again without the opening still,
+    then without the sheets (the characters said in words), then it stops and says what to do.
+    Refused takes are never charged."""
+    from app.clip_takes import GAVE_UP, LOOKALIKE
     from app.credits import credits_used
     from app.models.projects import Project
 
     url = f"/projects/{setup['project']}/clips/{clip['id']}"
     before = credits_used(db, db.get(Project, setup["project"]))
     editor.post(f"{url}/generate")
-    _work(app, db, Refusing([]))  # refused: tried again once on its own (P3)
+    _work(app, db, Refusing([]))  # refused: made again on its own without the still
     assert editor.get(f"/projects/{setup['project']}/clips").json()[0]["retrying"] == "refused"
-    _work(app, db, Refusing([]))  # refused again: nothing more runs on its own
-    retry, first = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
-    assert (retry["auto"], retry["retry_of_id"], first["auto"]) == (True, first["id"], False)
-    assert (
-        retry["error"]
-        == first["error"]
-        == (
-            "The video model thinks this clip looks too much like someone else's character or "
-            "video. Try another look for Mom, or use Change this… on the opening shot. "
-            "Nothing was charged."
-        )
-    )  # never "Ask the owner"
+    for _ in LOOKALIKE:
+        _work(app, db, Refusing([]))
+    db.expire_all()
+    takes = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
+                   key=lambda j: j.id)  # fmt: skip
+    first, *steps = takes
+    assert [j.input.get("lookalike") for j in steps] == [1, 2]  # without the still, then sheets
+    assert [j.retry_of_id for j in steps] == [first.id, steps[0].id]
+    pictures = [len(j.input["files"].get("reference_images", [])) for j in takes]
+    assert pictures[2] < pictures[0]  # without the sheets: fewer pictures (no still here)
+    assert "[Image2]" not in steps[1].input["input"]["prompt"]  # the rest numbered again
+    said = {j["id"]: j["error"] for j in editor.get("/jobs").json()}
+    assert said[first.id].startswith("The video model thinks this clip looks too much like")
+    assert said[steps[-1].id] == GAVE_UP  # plain words, never "Ask the owner"
     shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
     assert shown["retrying"] is None
-    assert shown["take_warning"].startswith("The last two takes of this clip were refused")
     assert credits_used(db, db.get(Project, setup["project"])) == before  # refused takes: free
+
+
+@pytest.mark.parametrize("by", ["person", "director"])
+def test_a_look_alike_retry_keeps_the_redo_note(app, db, editor, setup, clip, by):  # noqa: F811
+    """QA-10: a Redo with a note, a person's or the director's make_take, keeps that note on
+    both look-alike retries, so the take that's made is the change that was asked for."""
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    note = "Mom should look angrier."
+    if by == "person":
+        url = f"/projects/{setup['project']}/clips/{clip['id']}/generate"
+        assert editor.post(url, json={"note": note}).status_code == 201
+    else:
+        user = db.query(User).filter_by(email="ed@example.com").one()
+        project = db.get(Project, setup["project"])
+        decision = {"tool": "make_take", "clip_id": clip["clip_id"], "note": note}
+        said = director_tools.run(db, user, project, decision, app.state.storage)
+        assert said == "Making 1 take.", said
+    for _ in range(3):
+        _work(app, db, Refusing([]))
+    db.expire_all()
+    takes = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
+                   key=lambda j: j.id)  # fmt: skip
+    assert [j.input.get("lookalike") for j in takes] == [None, 1, 2]
+    assert all(f"Change from the last take: {note}" in j.input["input"]["prompt"]
+               for j in takes)  # fmt: skip
+    quoted = [editor.get(f"/jobs/{j.id}").json()["note"] for j in takes]  # Needs you's quote
+    assert quoted == ([note] * 3 if by == "person" else [""] * 3)  # never the director's
 
 
 class Busy(FakeSeedance):
@@ -479,3 +535,30 @@ def test_a_shot_that_is_only_drawn_words_stays_and_gets_advice(app, db, editor, 
     shown = editor.put(url, json=body).json()
     assert "Title card: SALE." in shown["prompt"]  # never emptied (#890)
     assert any(p.startswith("Advice: ") and "only words on screen" in p for p in shown["problems"])
+
+
+def test_a_redo_carries_the_note_as_typed(app, db, editor, setup, clip):  # noqa: F811
+    """Needs you quotes an editor's own "What's wrong?" on a take row (Next-Lead, #1213),
+    never the prompt it went into. The director's notes: test_word_splice's director run."""
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    job = editor.post(f"{url}/generate", json={"note": "Brighter, she smiles."}).json()
+    assert job["note"] == "Brighter, she smiles."
+    assert "Brighter, she smiles." in db.get(Job, job["id"]).input["input"]["prompt"]
+
+
+def test_a_b_roll_take_asks_for_no_sound_and_a_dialogue_take_does(app, db, editor, setup, clip):  # noqa: F811
+    """Reed, 3 Nov: B-roll won't all need sound; sound effects are added on request later."""
+    from app.models.breakdowns import BreakdownVersion
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}/generate"
+    fake = FakeSeedance([_mp4("red"), _mp4("blue")])
+    editor.post(url)
+    _work(app, db, fake)  # Mom and Nate speak on camera
+    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    shots = [{**s, "speaker": None, "line": None} for s in row.data["scenes"][0]["shots"]]
+    row.data = {**row.data, "scenes": [{**row.data["scenes"][0], "shots": shots}]}
+    db.commit()
+    editor.post(url)
+    _work(app, db, fake)  # nobody speaks: B-roll
+    asked = [json.loads(q.content)["input"] for q in fake.requests if q.method == "POST"]
+    assert [a["generate_audio"] for a in asked] == [True, False]

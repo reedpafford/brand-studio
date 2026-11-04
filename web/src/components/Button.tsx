@@ -10,17 +10,19 @@ const base =
   "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-[transform,opacity,background-color] duration-(--dur-fast) active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100";
 const look: Record<Variant, string> = {
   primary: "border border-accent-border bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-pressed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
-  secondary: "border border-border bg-surface-2 text-text hover:bg-surface-3 disabled:bg-disabled disabled:text-disabled-text",
-  ghost: "text-text hover:bg-surface-2 disabled:text-disabled-text",
+  // v5: outlined on the page's colour, no fill; 32 px and 13/500 on a computer, 44 px on a phone.
+  secondary: "border border-border-button bg-transparent text-text hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text lg:text-sm",
+  ghost: "text-muted hover:bg-surface-2 hover:text-text disabled:text-disabled-text",
   danger: "border border-danger bg-danger-soft text-danger hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
 };
 
 /** The same look as a Button, for a link that downloads or goes somewhere (an <a>). */
-export const buttonClass = (variant: Variant = "primary") => `${base} ${look[variant]} min-h-control px-4`;
+export const buttonClass = (variant: Variant = "primary") => `${base} ${look[variant]} ${variant === "secondary" ? secondarySize : "min-h-control px-4"}`;
+const secondarySize = "min-h-control px-4 lg:min-h-control-dense lg:px-3";
 
 /** A paid action says its price inside the button: "Make the takes · 8 credits". `null`: not known yet, so a grey
  *  placeholder holds its place (the label never changes length after it shows) and a press waits for it. A price
- *  always comes with its `charge`, so no paid button can skip saying "up to" when the charge can be lower (rule 32). */
+ *  always comes with its `charge`, so no paid button can skip saying "up to" when the charge can be lower (rule 36). */
 type Priced = { price?: never; charge?: never } | { price: number | null | undefined; charge: Charge };
 
 export type ButtonProps = Priced & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> & {
@@ -41,16 +43,18 @@ export type ButtonProps = Priced & Omit<ButtonHTMLAttributes<HTMLButtonElement>,
   /** It only shows something, so it stays live on a view-only page. A Button that opens and closes a part of the page
    *  (aria-expanded, no price) counts as one unless this says false. */
   reads?: boolean;
+  /** Its keyboard shortcut, after the label and price ("⌘↵"); desktop only. */
+  kbd?: string;
   className?: string;
   children?: ReactNode;
 };
 
-export function Button({ variant = "primary", dense, busy, price, charge, usually, reason, icon: Icon, trailing: Trailing, spread, reads, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "primary", dense, busy, price, charge, usually, reason, icon: Icon, trailing: Trailing, spread, reads, kbd, className = "", children, disabled, onClick, type = "button", ...rest }: ButtonProps) {
   const why = useId();
   const lookOnly = useViewOnly() && !(reads ?? (rest["aria-expanded"] !== undefined && price === undefined));
   // Busy is not disabled: it keeps its colour (amber stays amber) and its focus, and just ignores presses.
   const label = children;
-  const size = dense && variant !== "primary" ? "min-h-control px-4 lg:min-h-control-dense lg:px-3" : "min-h-control px-4";
+  const size = (dense && variant !== "primary") || variant === "secondary" ? secondarySize : "min-h-control px-4";
   const waiting = busy || price === null; // a press never goes before its price is shown
   const button = (
     <button
@@ -80,6 +84,11 @@ export function Button({ variant = "primary", dense, busy, price, charge, usuall
           </>
         )}
       </span>
+      {kbd && (
+        <kbd aria-hidden className="hidden rounded-sm border border-current/30 px-1.5 font-sans text-xs leading-4 opacity-80 lg:inline">
+          {kbd}
+        </kbd>
+      )}
       {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />}
     </button>
   );

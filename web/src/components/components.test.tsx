@@ -30,7 +30,7 @@ test("a paid button says its price inside", () => {
   expect(screen.getByRole("button", { name: "Make the video · free" })).toBeInTheDocument();
 });
 
-test("rule 32: a press whose charge can be lower says up to; rates and totals read one decimal, rounded up", () => {
+test("rule 36: a press whose charge can be lower says up to; rates and totals read one decimal, rounded up", () => {
   const { rerender } = render(<Button charge="estimate" price={2.04}>Write the script</Button>);
   expect(screen.getByRole("button", { name: "Write the script · up to 3 credits" })).toBeInTheDocument();
   rerender(<Button charge="estimate" price={3} usually={2}>Make the look</Button>);
@@ -323,9 +323,10 @@ test("tabs show counts and tell you which is selected", async () => {
   const change = vi.fn();
   render(<Tabs label="Cast and places" value="characters" onChange={change} tabs={[{ id: "characters", label: "Characters", count: 5 }, { id: "places", label: "Places", count: 2 }]} />);
   expect(screen.getByRole("tab", { name: "Characters 5" })).toHaveAttribute("aria-selected", "true");
-  // The chosen pill has a 3:1 edge and semibold words; the others have neither (QA-3 on #1164).
-  expect(screen.getByRole("tab", { name: "Characters 5" })).toHaveClass("ring-1", "ring-border-strong", "font-semibold");
-  expect(screen.getByRole("tab", { name: "Places 2" })).not.toHaveClass("ring-1", "font-semibold");
+  // v5: the chosen pill is a plain fill with bright words, no ring and no bold; the others are muted words with no fill.
+  expect(screen.getByRole("tab", { name: "Characters 5" })).toHaveClass("bg-surface-2", "text-text");
+  expect(screen.getByRole("tab", { name: "Characters 5" })).not.toHaveClass("ring-1", "font-semibold");
+  expect(screen.getByRole("tab", { name: "Places 2" })).not.toHaveClass("bg-surface-2");
   await userEvent.click(screen.getByRole("tab", { name: "Places 2" }));
   expect(change).toHaveBeenCalledWith("places");
 });
@@ -397,4 +398,10 @@ test("Escape closes only the top overlay: a list opened over a panel goes, the p
   expect(screen.getByRole("dialog", { name: "Make this version" })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+test("wholeCredits rounds up and never gives -0", () => {
+  expect(Object.is(wholeCredits(0), 0)).toBe(true);
+  expect(wholeCredits(97.33)).toBe(98);
+  expect(wholeCredits(3)).toBe(3);
 });

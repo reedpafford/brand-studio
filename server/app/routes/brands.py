@@ -2,10 +2,11 @@
 one, and changes BR1's new sections (voice, CTA lines, defaults: app/brand_setup.py; "Only the
 owner changes the brand."); editors still edit what they could before BR1 (Next-Lead)."""
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, StringConstraints
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, HttpUrl, StringConstraints, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -21,6 +22,11 @@ router = APIRouter(prefix="/brands", tags=["brands"])
 
 FILE_FIELDS = ("logo_file_id", "style_board_file_id", "end_card_file_id")
 OWNER_ONLY = "Only the owner changes the brand."
+BAD_ADDRESS = "Paste a web address (https://…)"
+READ_DIDNT_START = (
+    "The brand is made, but reading its site didn't start. Try Import from website on its page."
+)
+log = logging.getLogger(__name__)
 Language = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=10)]
 
 
@@ -56,6 +62,20 @@ class SetupIn(BaseModel):
 
 class BrandIn(KitFields, SetupIn):
     name: Name
+    # New brand's optional Website (F_BrandNew): the site is read once the brand is made
+    website: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("website")
+    @classmethod
+    def _web_address(cls, url: str | None) -> str | None:
+        url = (url or "").strip()
+        if not url:
+            return None
+        try:
+            HttpUrl(url)
+        except ValueError:
+            raise ValueError(BAD_ADDRESS) from None
+        return url
 
 
 class BrandPatch(KitFields, SetupIn):
@@ -90,6 +110,11 @@ class BrandOut(KitFields):
     cta_lines: list[CtaLine] = []  # live lines, one Default
     cast: list[CastPick] = []  # default_cast, named
     advice: list[str] = []  # e.g. no CTA line: never a block
+
+
+class NewBrandOut(BrandOut):
+    site_read_job_id: int | None = None  # its Website's read: the page opens on its review
+    site_read_problem: str = ""  # why the read didn't start; the brand is made all the same
 
 
 def get_brand(db: Session, user: User, brand_id: int) -> Brand:
@@ -147,14 +172,32 @@ def list_brands(user: User = Depends(current_user), db: Session = Depends(get_db
     return [brand_out(db, b) for b in found]
 
 
-@router.post("", response_model=BrandOut, status_code=201)
-def create_brand(body: BrandIn, user: User = Depends(brand_owner), db: Session = Depends(get_db)):
-    """Add a brand (owner only, like archiving one)."""
+@router.post("", response_model=NewBrandOut, status_code=201)
+def create_brand(body: BrandIn, request: Request, user: User = Depends(brand_owner),
+                 db: Session = Depends(get_db)):  # fmt: skip
+    """Add a brand (owner only, like archiving one). With a Website, its site is read too
+    (flows BR2): the brand is made whatever the read does; the read's job is returned so the
+    page opens on its review, or the reason it couldn't start."""
+    from app import site_read
+    from app.routes.clips import generation_on
+
     brand = Brand(workspace_id=user.workspace_id, cta_lines=[], dont_list=[], do_list=[])
-    _apply(db, user, brand, body.model_dump(exclude_unset=True))
+    _apply(db, user, brand, body.model_dump(exclude_unset=True, exclude={"website"}))
     db.add(brand)
     db.commit()
-    return brand_out(db, brand)
+    out = NewBrandOut(**brand_out(db, brand).model_dump())
+    if body.website:
+        try:
+            generation_on(request)
+            out.site_read_job_id = site_read.start(db, user, brand, body.website).id
+        except HTTPException as no:
+            db.rollback()
+            out.site_read_problem = no.detail
+        except Exception:  # never a 500: the brand is made, so a second press makes another
+            log.exception("couldn't start reading %s for brand %s", body.website, brand.id)
+            db.rollback()
+            out.site_read_problem = READ_DIDNT_START
+    return out
 
 
 @router.get("/{brand_id}", response_model=BrandOut)

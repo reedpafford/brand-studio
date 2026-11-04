@@ -7,6 +7,7 @@ import pytest
 
 from app import music, song_timing
 from app.models.accounts import User
+from app.models.brands import Brand
 from app.models.files import StoredFile
 from app.models.jobs import JobStatus
 from app.prompts import song_request
@@ -103,6 +104,24 @@ def test_lines_whisper_missed_sit_between_the_ones_it_heard():
     assert [(ln["start"], ln["end"]) for ln in sung[1:3]] == [(3.8, 6.4), (6.4, 9.0)]
 
 
+def test_extras_are_sung_words_outside_the_lyrics_never_a_misheard_line(timing):
+    assert timing["extras"] == []  # the stand-in sings the lyrics as written
+
+    def at(words, t):
+        return [{"word": w, "start": t + k * 0.5, "end": t + k * 0.5 + 0.4}
+                for k, w in enumerate(words.split())]  # fmt: skip
+
+    heard = (at("Yeah yeah", 0) + at("Wake up hungry, bowl is bright", 2)
+             + at("Iron Paws it feels so night", 6)  # a misheard word: not an extra
+             + at("Gut so happy, tail so high", 10) + at("Iron Paws, my best ally", 14)
+             + at("Woof woof", 18) + at("Bark now", 21))  # fmt: skip
+    assert song_timing.extras(LYRICS, heard) == [
+        {"text": "Yeah yeah", "start": 0, "end": 0.9},
+        {"text": "Woof woof", "start": 18, "end": 18.9},
+        {"text": "Bark now", "start": 21, "end": 21.9},  # past a pause: its own phrase
+    ]
+
+
 def test_a_chorus_written_twice_and_sung_twice_is_no_repeat():
     twice = LYRICS + "\n[Chorus]\nGut so happy, tail so high\nIron Paws, my best ally"
     words = [w for line in sung_lines(twice) for w in line.split()]
@@ -140,6 +159,17 @@ def _run(app, db, style):
     run_once(db, providers, app.state.storage)
     db.refresh(timed)
     return take, timed
+
+
+def test_recent_styles_are_the_brands_latest_sung_ones_each_once(app, db, owner):
+    brand = db.query(Brand).first().id
+    for style in ("pop", "folk", "pop", "trap", "fake:fail"):
+        take, _ = _run(app, db, style)
+        take.brand_id = brand
+    other, _ = _run(app, db, "country")  # another brand's
+    db.commit()
+    assert music.recent_styles(db, brand) == ["trap", "pop", "folk"]  # a failed one isn't sung
+    assert music.recent_styles(db, brand, count=2) == ["trap", "pop"]
 
 
 @pytest.mark.parametrize(

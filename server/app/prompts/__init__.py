@@ -11,6 +11,7 @@ from functools import cache
 from html import escape
 from pathlib import Path
 
+from app import guides
 from app.prompts import schemas
 
 HERE = Path(__file__).parent
@@ -38,6 +39,8 @@ SCHEMAS = {
     "language_sample": schemas.ScriptDrafts,  # flows VS1: a language's sample test
     "director": schemas.DirectorTurn,  # director-chat.md §5: one decision a turn
     "watch_cut": schemas.CutWatch,  # the director's eyes on the finished cut
+    "treatment": schemas.Treatment,  # the director's first move: why it holds a viewer
+    "review_stills": schemas.StillsReview,  # the stills against the treatment, before takes
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -54,60 +57,36 @@ NO_RULES = {
     "item_check",
     "site_read",
     "watch_cut",
+    "review_stills",
 }  # not script writers: the rules would only add tokens
 
 
-# A style's extra guidance, by the steps it's added to (styles/*.md); its look sections fill
-# the {{tokens}} in the step files instead.
-GUIDES = {
-    "still": ["storyboard"],
-    "clip": ["clip_prompts", "song_clip_prompts", "narrated_clip_prompts", "improve"],
-    "breakdown": ["breakdown", "song_breakdown", "narrated_breakdown", "plan", "plan_scene"],
-    "script": ["script_draft", "enhance", "variations"],
-    "lanes": ["plan"],  # a look's lanes: the plan picks one per video
-}
-TOKEN = re.compile(r"\{\{(\w+)\}\}")
+# Every writing step gets the video's brief (guides.brief: craft, format, style). The script
+# writers and Improve get only their own sections of the guides, as before.
+GUIDES = {"Script": ["script_draft", "enhance", "variations"], "Clips": ["improve"]}
+DATA = guides.DATA
 
 
-@cache
 def styles() -> list[dict]:
-    """The style registry, in Reed's order: one styles/<id>.md each (Reed, 2026-10-28). Each is
-    {id, name, kind ("look" or "format"), order, on, image_model, blurb, sections}.
-    `on` is only the starting switch (House alone); the server keeps Reed's own."""
-    out = []
-    for path in (HERE / "styles").glob("*.md"):
-        head, *sections = path.read_text().split("\n## ")
-        meta = dict(m.groups() for m in re.finditer(r"^(\w+): (.+)$", head, re.M))
-        out.append({
-            "id": path.stem,
-            "name": head.splitlines()[0].removeprefix("# "),
-            "kind": meta["kind"],  # look, format, or lane: one way of making a look (Reed, 1 Nov)
-            "parent": meta.get("parent", ""),  # a lane's look
-            "order": float(meta["order"]),  # 5.1: a look's sub-style sits beside it
-            "on": meta["on"] == "yes",
-            "own_sample": meta.get("own_sample") == "yes",  # ST3: never the brand's hero
-            "image_model": meta["image_model"],
-            "blurb": meta["blurb"],
-            "sections": {k: v.strip() for k, v in (x.split("\n", 1) for x in sections)},
-        })  # fmt: skip
-    return sorted(out, key=lambda s: s["order"])
+    """The style registry, in Reed’s order (app/guides/styles): {id, name, kind ("look" or "lane"),
+    parent, order, on, own_sample, image_model, blurb, sections}. `on` is only the starting
+    switch (House alone); the server keeps Reed's own."""
+    return guides.styles()
 
 
-# A look's data, never sent to a model as guidance (flows ST2, ST3): words repaired in its picture
-# descriptions, the fix offered for each failure, and the sample still's person.
-DATA = {"banned", "fixes", "sample"}
+def style(style_id: str) -> dict:
+    return guides.style(style_id)
 
 
 def look_banned(look_id: str) -> list[tuple[str, str]]:
     """The look's banned words and their replacements ("" deletes): its `## banned` lines."""
-    lines = style(look_id)["sections"].get("banned", "").splitlines()
-    return [(a.strip(), b.strip()) for a, _, b in (x.partition("→") for x in lines if "→" in x)]
+    return guides.banned(look_id)
 
 
 def look_sample(look_id: str) -> str:
     """The person in the look's sample still when the brand has no hero (flows ST3): its
     `## sample` line, or "" when it has none (the server then uses its own default)."""
-    return style(look_id)["sections"].get("sample", "").strip()
+    return guides.sample(look_id)
 
 
 def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False) -> str:
@@ -115,7 +94,7 @@ def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False
     brand's hero drawn in another look: it says who they are, never how they're drawn, so
     the sample doesn't copy the House look (Reed, 2026-10-29: samples read as generic Pixar).
     Without it, the look's own `## sample` person."""
-    look = style(look_id)["sections"]
+    look = guides.tokens(look_id)
     if from_picture:
         who = (f"{name}, the same person as in [Image1]: the same face, hair, colouring, age and "
                "outfit, redrawn completely in this look. [Image1] is drawn in another style: "
@@ -131,20 +110,7 @@ def sample_still_prompt(look_id: str, name: str = "", from_picture: bool = False
 
 def look_fixes(look_id: str) -> dict[str, str]:
     """The look's fix for each failure id (refused, face, outfit, product): `## fixes`."""
-    lines = style(look_id)["sections"].get("fixes", "").splitlines()
-    return {a.strip(): b.strip() for a, _, b in (x.partition(":") for x in lines if ":" in x)}
-
-
-def style(style_id: str) -> dict:
-    found = [s for s in styles() if s["id"] == style_id]
-    if not found:
-        raise ValueError(f"unknown style: {style_id}")
-    return found[0]
-
-
-def _styled(text: str, style_id: str) -> str:
-    looks = style(style_id)["sections"]
-    return TOKEN.sub(lambda m: looks[m.group(1)], text)
+    return guides.fixes(look_id)
 
 
 def _in_look(value, style_id: str):
@@ -153,52 +119,55 @@ def _in_look(value, style_id: str):
     example: QA on #1009). House's example is unchanged."""
     if style_id == "house":
         return value
-    house, own = style("house")["sections"], style(style_id)["sections"]
+    house, own = guides.tokens("house"), guides.tokens(style_id)
     if isinstance(value, dict):
         return {k: _in_look(v, style_id) for k, v in value.items()}
     if isinstance(value, list):
         return [_in_look(v, style_id) for v in value]
     if isinstance(value, str):
         for key, text in house.items():
-            if key not in DATA and text and own.get(key):
+            if text and own.get(key):
                 value = value.replace(text, own[key])
     return value
 
 
+def _picked(title: str, intro: str, sections: dict, step: str) -> str:
+    """A guide's own sections for a step that isn't briefed (the script writers, Improve)."""
+    names = tuple(k for k, steps in GUIDES.items() if step in steps)
+    found = guides.guidance(sections, names) if names else []
+    return f"## {title}\n{intro}\n\n" + "\n\n".join(v for _, v in found) if found else ""
+
+
 @cache
-def system(step: str, style_id: str = "house", fmt: str = "") -> str:
-    """`style_id` is the video's look; `fmt` its type when it has a format of its own ("song":
-    its still and clip guides), whatever the look (Song in any look)."""
+def system(step: str, style_id: str = "house", fmt: str = "", picked: str = "") -> str:
+    """`style_id` is the video's look; `fmt` its script's kind (story, song, narrated) and
+    `picked` the script's own format id: guides.video_format reads both. The briefed steps get
+    craft, the format's guide and the style's; the fomo worked examples reach only dialogue."""
+    kind = fmt or next((k for k in ("song", "narrated") if step.startswith(f"{k}_")), "")
+    form = guides.format_(guides.video_format(kind, style_id, picked))
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
     for name in filter(None, [EXTENDS.get(step), step]):
-        parts.append(_styled((HERE / f"{name}.md").read_text(), style_id))
-    example = HERE / "examples" / f"{step}.json"
-    if example.exists():
-        ex = _in_look(json.loads(example.read_text()), style_id)
+        parts.append(guides.fill((HERE / f"{name}.md").read_text(), style_id))
+    if ex := guides.example(form["id"], step):
+        ex = _in_look(ex, style_id)
         parts.append(
             f"## Worked example ({ex['source']})\n{ex['note']}\n\n"
             f"<example_input>\n{ex['input']}\n</example_input>\n\n"
             f"<example_output>\n{json.dumps(ex['output'], indent=1)}\n</example_output>"
         )
-    chosen = style(style_id)
-    guide = [chosen["sections"][k] for k, steps in GUIDES.items()
-             if step in steps and k in chosen["sections"]]  # fmt: skip
-    if guide:
-        parts.append(
-            f"## Style: {chosen['name']}\nThis video is in the {chosen['name']} style. Where "
-            "this section and anything above (the worked example included) differ, this "
-            "section wins.\n\n" + "\n\n".join(guide)
-        )
-    form = next((s for s in styles() if s["id"] == fmt and s["kind"] == "format"), None)
-    guide = [form["sections"][k] for k, steps in GUIDES.items()
-             if form and step in steps and k in form["sections"]]  # fmt: skip
-    if guide:
-        parts.append(
-            f"## Format: {form['name']}\nThis video is a {form['name']} video in the "
-            f"{chosen['name']} look: these add to the look, never change it.\n\n"
-            + _styled("\n\n".join(guide), style_id)
-        )
-    return "\n\n".join(parts)
+    if step in guides.BRIEFED:  # Reed, 2 Nov: one director, briefed by the guides
+        parts.append(guides.brief(form["id"], style_id, step))
+        return "\n\n".join(parts)
+    chosen = guides.style(style_id)
+    parts.append(_picked(
+        f"Style: {chosen['name']}", f"This video is in the {chosen['name']} style. Where this "
+        "section and anything above (the worked example included) differ, this section wins.",
+        chosen["sections"], step))  # fmt: skip
+    parts.append(guides.fill(_picked(
+        f"Format: {form['name']}", f"This video is a {form['name']} video in the "
+        f"{chosen['name']} look: these add to the look, never change it.",
+        form["sections"], step), style_id))  # fmt: skip
+    return "\n\n".join(p for p in parts if p)
 
 
 def number_lines(script: str) -> str:
@@ -320,7 +289,7 @@ def watch_system() -> str:
     """Gemini's system prompt for watching an imported reel: reel_watch.md, its worked example
     and the ReelWatch JSON schema (Gemini has no structured output on Replicate, so it's in the
     text). The video and contact sheet go with the call; reel_watch_input(...) is the message."""
-    ex = json.loads((HERE / "examples" / "reel_watch.json").read_text())
+    ex = guides.example("dialogue", "reel_watch")
     schema = json.dumps(schemas.ReelWatch.model_json_schema())
     return (
         f"{(HERE / 'reel_watch.md').read_text()}\n\n## Worked example ({ex['source']})\n"
@@ -416,7 +385,7 @@ def sheet_prompt(
     item's notes; `role` is the script's part for a look made from a cast slot ("Omar, the
     boyfriend"), given without its name. Names stay out so none is drawn. `style_id` is the
     style the sheet is drawn in (a sheet is per style)."""
-    sections = _styled((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
+    sections = guides.fill((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
     out = [parts[kind]]
     if kind == "character" and from_photo:
@@ -430,7 +399,9 @@ def sheet_prompt(
     return " ".join(out)
 
 
-SUNG_RATE = (2.0, 2.4)  # words a second Suno sang Reed's Iron Paws songs (365 words, 2:38–2:59)
+# Words a second Suno sings (Song-Producer, 2 Nov: about 2.3, ±15%; Iron Paws rounds 1 and 2
+# ran 2.0–2.65). The slow end gives the longest a take is likely to run, for its cost.
+SUNG_RATE = (2.0, 2.65)
 
 
 def song_directions_input(
@@ -442,17 +413,21 @@ def song_directions_input(
     source: str = "",
     sounds_like: str = "",
     reference: str = "",
+    recent_styles: list[str] | None = None,
 ) -> str:
     """The user message for the song_directions step (with brand_block in the system prompt).
     `music_style` is the brand's genre line; `seconds` only when the editor asked for a length;
     `source` a script or voice-over to adapt into lyrics; `sounds_like` a song or artist the
     editor wants it to feel like (the style line describes it, never names it); `reference` a
-    winning song ad's study (its transcript, tempo and sections) whose shape to follow."""
+    winning song ad's study (its transcript, tempo and sections) whose shape to follow;
+    `recent_styles` the style lines of the brand's latest songs, so a set doesn't sound alike."""
     parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
     if music_style:
         parts.append(f"<music_style>{music_style}</music_style>")
     if sounds_like:
         parts.append(f"<sounds_like>{sounds_like}</sounds_like>")
+    if recent_styles:
+        parts.append("<recent_styles>\n" + "\n".join(recent_styles) + "\n</recent_styles>")
     if reference.strip():
         parts.append(f"<reference>\n{reference.strip()}\n</reference>")
     if source.strip():
@@ -490,7 +465,8 @@ def song_study_block(study: dict) -> str:
 def song_block(song: dict) -> str:
     """The preferred take, measured, for the song_breakdown step: Next-Server's song timing
     {seconds, bpm, beats, sections [{name, start, end, cuts}], lines [{section, text, start,
-    end, heard}]} (words and peaks are for the screens, left out). Sections start on bar lines;
+    end, heard}], words [{word, start, end}]} (peaks are for the screens, left out). Each line
+    lists its words' start times, so a picture can land on the word. Sections start on bar lines;
     `cuts` are bar lines inside one that fall outside any sung word, the best shot edges. A
     line heard 0 times has guessed times."""
     lines = [f'<song seconds="{song["seconds"]:.2f}" bpm="{song.get("bpm") or "?"}">', "Sections:"]
@@ -501,30 +477,42 @@ def song_block(song: dict) -> str:
         )
     lines.append("Beats: " + " ".join(f"{b:.2f}" for b in song.get("beats", [])))
     lines.append("Sung lines:")
+    words = song.get("words", [])
     for n, x in enumerate(song.get("lines", []), 1):
         guessed = " (times guessed)" if x.get("heard", 1) == 0 else ""
         lines.append(f"{n}| {x['start']:.2f}–{x['end']:.2f} {x['text']}{guessed}")
+        said = [w for w in words if x["start"] - 0.05 <= w["start"] < x["end"]]
+        if said and not guessed:
+            lines.append("   words: " + ", ".join(f"{w['start']:.2f} {w['word']}" for w in said))
     return "\n".join([*lines, "</song>"])
 
 
 SUNO_PACE = (
-    ", vocals start immediately, no instrumental intro, no instrumental breaks, continuous "
-    "singing, tight ending"
+    ", vocals start immediately, no instrumental intro, at most one short instrumental break, "
+    "short instrumental ending"
 )
+
+
+RAPPED = re.compile(r"\b(rap|rapped|hip-hop|hip hop|trap|drill|grime)\b", re.I)
+VOCALS = (("f", re.compile(r"\b(female|woman|women|girl)\b", re.I)),
+          ("m", re.compile(r"\b(male|man|men|boy)\b", re.I)))  # fmt: skip
 
 
 def song_request(lyrics: str, style_line: str) -> dict:
     """What the music provider (Suno) is sent for a picked direction: the lyrics word for word
     with our [Lip-sync] marks taken out (they're for the breakdown, never sung), opened and
-    closed so the vocals start at once and end tight; the style line plus the pacing, outside
-    its 25 words; and the styles to avoid (Starpop's measured Suno settings)."""
+    closed so the vocals start at once and end on a short tail; the style line plus the pacing,
+    outside its 25 words; the styles to avoid (Starpop's measured Suno settings, plus rap unless the
+    style is rapped); and the vocal gender the style line names ("f", "m" or "")."""
     from app.prompts.check import LIP_SYNC
 
     sung = "\n".join(LIP_SYNC.sub("", x).rstrip() for x in lyrics.strip().splitlines())
     return {
         "lyrics": f"[Intro: vocals start immediately]\n{sung}\n[End]",
         "style": style_line.strip().rstrip(".") + SUNO_PACE,
-        "exclude_styles": "instrumental intro, instrumental break, long outro, spoken word",
+        "exclude_styles": "instrumental intro, long outro, spoken word"
+        + ", rap" * (not RAPPED.search(style_line)),
+        "vocal_gender": next((g for g, w in VOCALS if w.search(style_line)), ""),
     }
 
 
@@ -788,6 +776,48 @@ def watch_cut_input(
         f"<transcript>{json.dumps(transcript, ensure_ascii=False)}</transcript>\n"
         f"<frames>\n{escape(seen)}\n</frames>"
     )
+
+
+def treatment_input(script: str, note: str = "") -> str:
+    """The user message for the treatment, after project_context's <brief> and <cast>: the
+    script numbered, and the owner's or the watch's note when it's made again."""
+    text = f"<script>\n{escape(number_lines(script))}\n</script>"
+    return text + (f"\n<note>{escape(note.strip())}</note>" if note.strip() else "")
+
+
+def treatment_block(treatment: dict | None) -> str:
+    """<treatment> for the steps that follow it (plan, breakdown, clip prompts, the director,
+    review_stills, watch_cut); "" before one is made."""
+    if not treatment:
+        return ""
+    return f"<treatment>\n{json.dumps(treatment, indent=1, ensure_ascii=False)}\n</treatment>"
+
+
+def stand_in_treatment(script: str) -> dict:
+    """A canned treatment for the stand-ins (no paid call): one beat per line but the scene
+    headings, the first
+    the hook, the last the payoff; it validates as schemas.Treatment."""
+    heading = re.compile(r"^\s*(SCENE\b|INT\.|EXT\.)", re.I)
+    lines = [n for n, line in enumerate(script.splitlines(), 1)
+             if line.strip() and not heading.match(line)] or [1]  # fmt: skip
+    last = len(lines)
+    beats = [{"id": f"b{i}", "lines": [n],
+              "purpose": "hook" if i == 1 else "payoff" if i == last else "escalate",
+              "picture": f"Line {n} played big: something happening on the line."}
+             for i, n in enumerate(lines, 1)]  # fmt: skip
+    return {"hook": "The first line, on the conflict, with something happening at once.",
+            "logline": "The story as the script tells it.",
+            "why_it_holds": "Each beat escalates to the payoff.",
+            "beats": beats, "ending": "The payoff, then the end line."}  # fmt: skip
+
+
+def review_stills_input(plan: str, frames: list[tuple[int, str, str, str]]) -> str:
+    """The user message for review_stills, after <treatment>: the plan, and what each still
+    ([ImageN], in order) is for: (n, shot id, its action, its line)."""
+    seen = "\n".join(f"[Image{n}] shot {sid}: {escape(act.strip())}"
+                      + (f' (line: "{escape(line.strip())}")' if line and line.strip() else "")
+                      for n, sid, act, line in frames)  # fmt: skip
+    return f"<plan>{escape(plan.strip())}</plan>\n<frames>\n{seen}\n</frames>"
 
 
 def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:

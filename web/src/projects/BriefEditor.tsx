@@ -4,7 +4,7 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { useViewOnly } from "../components";
 import { btnPrimary, btnSecondary, errorText as errorClass, input, linkText } from "../ui";
-import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useLongestSeconds, useReferences } from "./BriefPickers";
+import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useReferences } from "./BriefPickers";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -27,7 +27,6 @@ export function BriefEditor({ project, hasScript, onEditing }: { project: Projec
   const refs = useReferences();
   const [picks, setPicks] = useState<Record<string, string>>(project.product_variants ?? {});
   const { characters, products, chosen, unchosen } = useBriefChoices(project.brand_id, picks);
-  const longest = useLongestSeconds();
   const save = useMutation({
     mutationFn: async () => {
       const { error, response } = await api.PATCH("/projects/{project_id}", {
@@ -103,7 +102,7 @@ export function BriefEditor({ project, hasScript, onEditing }: { project: Projec
       </label>
       <label className="block">
         Planned length (seconds)
-        <input className={input} type="number" required min={1} max={longest} value={seconds ?? ""} onChange={(e) => setSeconds(Number(e.target.value))} />
+        <input className={input} type="number" required min={1} value={seconds ?? ""} onChange={(e) => setSeconds(Number(e.target.value))} />
         <span className="block text-muted">Budget: {(seconds ?? 0) * 2} credits (twice the length).</span>
       </label>
       <CastPicker characters={characters.data} cast={cast} onChange={setCast} />

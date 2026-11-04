@@ -6,6 +6,7 @@ import { GOING, useJobs } from "../clip/History";
 import { useBreakdown } from "./BreakdownPane";
 import { ReviewChip } from "./Checks";
 import { ClipsPane } from "./ClipsPane";
+import { HostPieces } from "./HostPieces";
 import { Dot } from "./OtherTakes";
 import { StoryboardPane, useFrames } from "./StoryboardPane";
 import { useProjectClips } from "./useProgress";
@@ -15,12 +16,12 @@ type Frame = components["schemas"]["FrameOut"];
 type Shot = components["schemas"]["Shot"];
 
 /** What the clip list says about a clip, as a dot and words. */
-function clipStatus(c: Clip | undefined, f: Frame | undefined, making: boolean): [tone: "ok" | "need" | "run" | "none", words: string] {
+function clipStatus(c: Clip | undefined, f: Frame | undefined, making: boolean, failed: boolean): [tone: "ok" | "need" | "run" | "none", words: string] {
   if (c?.approved) return ["ok", "Approved"];
-  if (making || f?.drawing) return ["run", "Making…"];
+  if (making || f?.drawing) return ["run", "Making"];
   if (c?.stale || f?.still_stale) return ["need", "Out of date"];
   const picked = c?.takes.find((t) => t.id === c.picked_take_id);
-  return picked ? ["need", `Check take ${picked.number}`] : ["none", "No take yet"];
+  return picked ? ["need", `Check take ${picked.number}`] : failed ? ["need", "Didn't finish"] : ["none", "No take yet"];
 }
 
 /** A shot's script line as the list shows it: "BO: Is that… salmon?", or its action in brackets. */
@@ -75,7 +76,11 @@ export function ClipsStep(props: {
   const status = (id: string) => {
     const c = rows.find((r) => r.clip_id === id);
     const f = stills.find((r) => r.clip_id === id);
-    return clipStatus(c, f, making(c, f));
+    // Its newest take failed, and not before a change to its prompt (that one is about the old prompt).
+    const last = (jobs.data ?? []).filter((j) => c && j.step === "clip_take" && j.project_clip_id === c.id).sort((a, b) => b.id - a.id)[0];
+    const change = c?.change as { status?: string; job_id?: number } | null | undefined;
+    const failed = last?.status === "failed" && !(change?.status === "done" && (change.job_id ?? 0) >= last.id);
+    return clipStatus(c, f, making(c, f), failed);
   };
   const open = props.clipsLock === null; // the takes part, once the stills are approved
   // The cost bar's one press goes to the stills until they're approved, then to the takes (a hold says why they wait).
@@ -108,62 +113,65 @@ export function ClipsStep(props: {
   );
   const seconds = (id: string) => rows.find((c) => c.clip_id === id)?.seconds ?? plan?.clips.find((c) => c.id === id)?.seconds;
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        {list && <ReviewChip projectId={projectId} />}
-        <div ref={setStillsBar} className="space-y-2 empty:hidden" />
-        <div ref={setClipsBar} className="space-y-2 empty:hidden" />
-      </div>
-      <div className={list ? "grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6" : ""}>
-        {list && (
-        <ul aria-label="Clip list" className="flex flex-col gap-1 lg:border-r lg:border-border lg:pr-4">
-          {ids.map((id) => {
-            const f = stills.find((r) => r.clip_id === id);
-            const [tone, words] = status(id);
-            const on = id === selected;
-            return (
-              <li key={id}>
-                <button type="button" aria-current={on || undefined} onClick={() => setPicked(id)} className={`flex min-h-control w-full items-start gap-3 rounded-md p-2 text-left ${on ? "bg-surface-2" : "hover:bg-surface-2"}`}>
-                  <span className="w-8 shrink-0 overflow-hidden rounded-sm bg-surface-3" style={{ aspectRatio: props.aspect.replace(":", " / ") }}>
-                    {f?.file_id != null && <img src={fileUrl(f.file_id)} alt="" className="h-full w-full object-cover" />}
-                  </span>
-                  <span className="min-w-0 flex-1 space-y-0.5">
-                    <span className="flex flex-wrap items-center justify-between gap-x-2">
-                      <span className="font-medium tabular-nums">
-                        Clip {id.replace(/^c/, "")}
-                        {seconds(id) !== undefined && ` · ${seconds(id)} s`}
-                      </span>
-                      <Dot tone={tone}>{words}</Dot>
+    // v5 (B_VideoSteps): the clip list on the left, edge to edge under the tabs; the picked clip on the right.
+    <div className={list ? "grid gap-5 lg:-mx-8 lg:-mt-4 lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-0" : ""}>
+      {list && (
+        <div className="min-w-0 lg:border-r lg:border-border">
+          <ul aria-label="Clip list" className="flex flex-col border-t border-border lg:border-t-0">
+            {ids.map((id) => {
+              const f = stills.find((r) => r.clip_id === id);
+              const [tone, words] = status(id);
+              const on = id === selected;
+              return (
+                <li key={id}>
+                  <button type="button" aria-current={on || undefined} onClick={() => setPicked(id)} className={`grid w-full grid-cols-[28px_minmax(0,1fr)] items-center gap-3 border-b border-border px-4 py-2 text-left ${on ? "bg-surface-2" : "hover:bg-surface-2"}`}>
+                    <span className="block w-7 overflow-hidden rounded-md bg-surface-3" style={{ aspectRatio: props.aspect.replace(":", " / ") }}>
+                      {f?.file_id != null && <img src={fileUrl(f.file_id)} alt="" className="h-full w-full object-cover" />}
                     </span>
-                    {line(id) && <span className="block truncate font-script text-sm text-muted">{line(id)}</span>}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="flex flex-wrap items-center justify-between gap-x-2">
+                        <span className="text-sm font-medium tabular-nums">
+                          Clip {id.replace(/^c/, "")}
+                          {seconds(id) !== undefined && ` · ${seconds(id)} s`}
+                        </span>
+                        <Dot tone={tone}>{words}</Dot>
+                      </span>
+                      {line(id) && <span className="block truncate font-script text-xs text-text/80">{line(id)}</span>}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {/* The whole step's presses (Redo stills, Approve all, the Review list) sit under the list, out of the clip's way. */}
+          <div className="space-y-2 pt-4 lg:p-4">
+            <ReviewChip projectId={projectId} />
+            <div ref={setStillsBar} className="space-y-2 empty:hidden" />
+            <div ref={setClipsBar} className="space-y-2 empty:hidden" />
+            <HostPieces projectId={projectId} aspect={props.aspect} />
+          </div>
+        </div>
+      )}
+      <section className={`min-w-0 space-y-4 ${list ? "lg:px-8 lg:py-6" : ""}`} aria-label={selected ? `Clip ${selected.replace(/^c/, "")}` : "Stills"}>
+        {open && list && (
+          <ClipsPane
+            barTaken={props.barTaken}
+            hold={props.clipsHold?.why ?? null}
+            review
+            projectId={projectId}
+            brandId={props.brandId}
+            aspect={props.aspect}
+            projectName={props.projectName}
+            used={props.used}
+            budget={props.budget}
+            only={selected ?? null}
+            bar={clipsBar}
+            stillSlot={setStill}
+            line={line}
+          />
         )}
-        <section className="min-w-0 space-y-4" aria-label={selected ? `Clip ${selected.replace(/^c/, "")}` : "Stills"}>
-          {open && list && (
-            <ClipsPane
-              barTaken={props.barTaken}
-              hold={props.clipsHold?.why ?? null}
-              review
-              projectId={projectId}
-              brandId={props.brandId}
-              aspect={props.aspect}
-              projectName={props.projectName}
-              used={props.used}
-              budget={props.budget}
-              only={selected ?? null}
-              bar={clipsBar}
-              stillSlot={setStill}
-              line={line}
-            />
-          )}
-          {storyboard}
-        </section>
-      </div>
+        {storyboard}
+      </section>
     </div>
   );
 }

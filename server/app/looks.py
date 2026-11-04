@@ -1,6 +1,6 @@
 """Looks (flows ST1–ST3, Reed 2026-10-29): how a video's pictures are drawn, a setting apart
-from its format. Each look is a file in app/prompts/styles/ with `kind: look` (the
-Director's paragraphs); the formats there are not looks. A look is On for editors only once
+from its format. Each look is a guide in app/guides/styles/ (formats are app/guides/formats/).
+A look is On for editors only once
 the owner switches it on, and that needs its sample first (ST3); with no switch, the file's
 own `on:` applies (House alone). The owner may try an Off look on their own drafts."""
 
@@ -15,10 +15,10 @@ from app.models.accounts import User
 from app.models.looks import LookSwitch
 
 DEFAULT = "house"
-UNKNOWN = "There's no such look."
-OFF = "{} is off for editors. Pick a look that's on."
-OTHER = "{} made in another look. Redo them in this video's look, then make the video."
-NO_SAMPLE = "Make a sample first: a look is switched on only once its sample is approved."
+UNKNOWN = "There's no such style."
+OFF = "{} is off for editors. Pick a style that's on."
+OTHER = "{} made in another style. Redo them in this video's style, then make the video."
+NO_SAMPLE = "Make a sample first: a style is switched on only once its sample is approved."
 
 
 def looks() -> list[dict]:
@@ -42,9 +42,9 @@ def get(look_id: str) -> dict:
 
 
 def lanes(look_id: str) -> list[dict]:
-    """A style's lanes, each as get() gives it ("Paper · Flat Paper")."""
-    return [get(s["id"]) for s in prompts.styles()
-            if s["kind"] == "lane" and s.get("parent") == look_id]  # fmt: skip
+    """A style's lanes, each as get() gives it ("Paper · Flat Paper"); a hidden lane isn't."""
+    return [get(s["id"]) for s in prompts.styles() if s["kind"] == "lane"
+            and s.get("parent") == look_id and not s.get("hidden")]  # fmt: skip
 
 
 def base(look_id: str) -> str:
@@ -100,6 +100,27 @@ def pick(db: Session, user: User, look_id: str) -> str:
 
 
 PICKED = "look_picked"  # in Project.locks: a person chose this video's look themselves
+STYLE_KEPT = ("This video keeps its script's style, {}. The style is chosen on the script "
+              "before it's published.")  # fmt: skip
+
+
+def script_style(db: Session, project) -> str | None:
+    """The style a video made from a published script keeps (Reed's walk, item 7): the
+    script's look; None for a video made otherwise. A lane of the same style may still follow
+    its plan (`follow_lane`)."""
+    from app.models.script_library import Script, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    script = db.get(Script, draft.script_id) if draft else None
+    return script.look if script and script.published and script.look else None
+
+
+def keep_style(db: Session, project, look_id: str) -> None:
+    """A person's look for a video that keeps its script's style: another style is refused
+    in plain words (409); the same style, or one of its lanes, is fine."""
+    style = script_style(db, project)
+    if style and base(look_id) != base(style):
+        raise HTTPException(409, STYLE_KEPT.format(get(base(style))["name"]))
 
 
 def picked_by_person(project) -> None:
@@ -121,7 +142,7 @@ def follow_lane(db: Session, project) -> str | None:
     if not lane or project.id is None or lane == project.look:
         return None
     try:
-        if get(lane).get("parent") != base(project.look or DEFAULT):
+        if get(lane).get("parent") != base(project.look or DEFAULT) or get(lane).get("hidden"):
             return None
     except HTTPException:
         return None

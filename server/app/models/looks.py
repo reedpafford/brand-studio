@@ -13,7 +13,7 @@ class LookSwitch(Entity, Base):
     __tablename__ = "look_switches"
     __table_args__ = (UniqueConstraint("workspace_id", "look_id"),)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    look_id: Mapped[str] = mapped_column(String(40))  # a prompts/styles file (kind: look)
+    look_id: Mapped[str] = mapped_column(String(40))  # a style in app/guides/styles
     on: Mapped[bool] = mapped_column(default=False)
     sample_still_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # ST3
     sample_clip_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))

@@ -22,10 +22,10 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
   expect((await page.request.put(`/api/projects/${id}/script`, { data: { text: SCRIPT } })).ok()).toBeTruthy();
   const stage = (name: string) => page.goto(`/b/${brandId}/projects/${id}?stage=${name}`);
 
-  // Enhance runs and finds nothing to add to this short script.
+  // Enhance runs; the stand-in suggests a few directions (or none for a script with no lines).
   await stage("enhance");
   await page.getByRole("button", { name: /^Suggest directions/ }).click();
-  await expect(page.getByText(/already reads well/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^Apply \d+ accepted$/ }).or(page.getByText(/already reads well/)).first()).toBeVisible({ timeout: 30_000 });
 
   // Shots: scenes, clips and shots, with no problems.
   await stage("breakdown");

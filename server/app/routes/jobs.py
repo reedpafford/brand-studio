@@ -1,5 +1,6 @@
 """Jobs as the team sees them (status, output, no money) and usage with dollars (owner only)."""
 
+from contextvars import ContextVar
 from datetime import timedelta
 from decimal import Decimal
 
@@ -15,8 +16,6 @@ from app.credits import (
     FREESTYLE,
     PAST_APPROVED,
     USD_PER_CREDIT,
-    check_clip_cap,
-    check_video_cap,
     estimate,
     is_quick_clip,
     lock,
@@ -31,6 +30,7 @@ from app.models.accounts import User
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project, ProjectStatus
+from app.models.script_library import Script
 from app.schemas import ShortText, UtcTime
 from app.settings import get_settings
 
@@ -50,6 +50,11 @@ class FreestyleRef(BaseModel):
     up_to: float | None = None  # a director-run freestyle: this send's price, "up to"
     total: float | None = None  # and the running total approved, less refused sends (credits)
     spent: float = 0  # what the freestyle has spent so far (credits)
+    script_id: int | None = None  # its script and version (slot 0 the original), for the
+    slot: int | None = None  # owner's request row: "Make a video" from a version, or pasted
+    script_title: str = ""  # its script's title; "" when pasted
+    brand_id: int | None = None  # the freestyle's brand; null with none picked
+    hidden: bool = True  # pasted (no script, or its own hidden one): never read its script
 
 
 class JobOut(BaseModel):
@@ -85,6 +90,7 @@ class JobOut(BaseModel):
     retry_of_id: int | None = None  # P3: the failed take this automatic retry is for
     auto: bool = False  # made on its own (the one automatic retry), not by a press
     freestyle: FreestyleRef | None = None  # a Freestyle take's freestyle (Needs you's row)
+    note: str = ""  # a held step's note as the person typed it ("What's wrong?"), never a prompt
 
     @model_validator(mode="before")
     @classmethod
@@ -140,8 +146,23 @@ class JobOut(BaseModel):
             "declined": bool(job.input.get(DECLINE)),
             "credits": _with_check(db, job) if db else job.credits,
             "freestyle": _freestyle(db, job) if db else None,
+            "note": _note(job),
             **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
         }
+
+
+# Set while a director's tool runs (director_tools.run): every job it starts is marked as the
+# director's, since its tools call the very routes the buttons do.
+DIRECTOR_TOOL: ContextVar[bool] = ContextVar("director_tool", default=False)
+BY_DIRECTOR = "by_director"
+
+
+def _note(job: Job) -> str:
+    """The note a person typed for a redo or a change (Needs you quotes it on the row). The
+    director's own notes are left out: those aren't anyone's words."""
+    note = job.input.get("note")
+    mine = not (job.input.get(BY_DIRECTOR) or job.input.get("director_run"))
+    return note if isinstance(note, str) and mine else ""
 
 
 def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
@@ -151,19 +172,39 @@ def _freestyle(db: Session, job: Job) -> FreestyleRef | None:
     if fs is None:
         return None
     said = job.input.get(SAID, "")
+    draft = _draft(db, fs)
+    script = draft and db.get(Script, draft.script_id, execution_options={hidden.SEE: True})
+    secret = not script or script.hidden  # pasted: no script, or its own hidden one
     return FreestyleRef(id=fs.id, title=fs.title, type=fs.type, change=bool(job.input.get(CHANGE)),
+                        script_id=draft and draft.script_id, slot=draft and draft.slot,
+                        script_title="" if secret else script.title,
+                        brand_id=fs.brand_id, hidden=secret,
                         up_to=Decimal(job.input[PRICE]) if PRICE in job.input else fs.up_to,
                         total=approved(db, fs) if fs.up_to is not None else None,
                         spent=_spent(db, fs),
                         said=said if len(said) <= 280 else said[:279] + "…")  # fmt: skip
 
 
+def _draft(db: Session, fs: Freestyle):
+    """The version a freestyle's video was made from (its video is hidden until the OK)."""
+    from app import hidden
+    from app.models.projects import Project
+    from app.models.script_library import ScriptDraft
+
+    video = fs.project_id and db.get(Project, fs.project_id,
+                                     execution_options={hidden.SEE: True})  # fmt: skip
+    return video and video.script_draft_id and db.get(ScriptDraft, video.script_draft_id)
+
+
 def _with_check(db: Session, job: Job) -> Decimal:
-    """A held take's price as the owner approves it: with the take check that rides along
-    while checks are on (`item_checks.rides`), so the OK is never for less than it costs."""
+    """A held job's price as the owner approves it: a take with the take check that rides
+    along while checks are on (`item_checks.rides`), a Change it… with the redraw it starts
+    (`then`), so the OK is never for less than it costs."""
     from app import item_checks
     from app.models.clips import ProjectClip
 
+    if job.status == JobStatus.needs_owner_approval and job.input.get("then"):
+        return job.credits + Decimal(job.input["then"])  # Change it…: its redraw rides along
     clip_id = job.input.get("project_clip_id")
     if (
         job.status != JobStatus.needs_owner_approval
@@ -236,10 +277,10 @@ def enqueue(
     writing runs free), is held for the owner (Reed: "Hold requests"): it waits as
     `needs_owner_approval`, charged nothing until the owner approves it, and `held` says why.
     `wait`: hold it with that reason anyway (the rest of a press whose first job was held).
-    The per-video cap, an archived video and a length not approved yet are refused (409).
+    An archived video and a length not approved yet are refused (409).
     The check and the reservation are one locked transaction. `prepaid`: a later step of work
     the editor already pressed for at its full price (a run's next step, the reel read chain),
-    so it's never held again; caps, brand, credits and Usage stay as for any job. `hold`: a
+    so it's never held again; brand, credits and Usage stay as for any job. `hold`: a
     later step this press already pays for (e.g. Change it's still or take), checked together."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if no := real_budget_refusal(db, get_settings(), provider, credits + hold):
@@ -249,10 +290,8 @@ def enqueue(
         db.refresh(project)  # read its status after taking the lock
         if project.archived_at is not None:
             raise HTTPException(409, "This video is archived. Bring it back to work on it.")
-        check_video_cap(db, user, project, credits + hold)
     else:
         lock(db, User, user.id)
-        check_clip_cap(db, user, credits)
     if project is not None and project.status != ProjectStatus.active and not user.is_owner:
         db.rollback()
         raise HTTPException(409, NOT_APPROVED)
@@ -265,6 +304,8 @@ def enqueue(
             wait = PAST_APPROVED if project.hidden else OVER_BUDGET
         elif project is None and input.get(ON_SCRIPT):
             wait = SCRIPT_MEDIA
+    if DIRECTOR_TOOL.get():  # started by a director's tool, through the button's own route
+        input = {**input, BY_DIRECTOR: True}
     job = Job(
         workspace_id=user.workspace_id,
         created_by_id=user.id,
@@ -394,10 +435,6 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
     """Owner lets a job that goes over its project budget run."""
     hidden.see(db)  # a freestyle's turn is on its hidden video
     job = _get_job(db, owner, job_id)
-    if job.project_id is not None and job.status == JobStatus.needs_owner_approval:
-        project = db.get(Project, job.project_id)
-        lock(db, Project, project.id)
-        check_video_cap(db, owner, project, job.credits)  # not even the owner goes past it
     done = db.execute(
         update(Job)
         .where(Job.id == job.id, Job.status == JobStatus.needs_owner_approval)
@@ -405,9 +442,22 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job isn't waiting for approval.")
-    db.commit()
     db.refresh(job)
+    if job.input.get("freeze"):  # an editor's director-first video: real from its OK
+        from app.routes.freestyles import freeze
+
+        freeze(db, job.input["freeze"], owner)
+    db.commit()
     return job
+
+
+def _release(db: Session, job: Job) -> None:
+    """A director-first video an editor's send was making: refused before it ran, it lets go
+    of its version (`freestyles.release`)."""
+    if job.input.get("freeze"):
+        from app.routes.freestyles import release
+
+        release(db, job.input["freeze"])
 
 
 class DeclineIn(BaseModel):
@@ -435,6 +485,7 @@ def decline_job(
         raise HTTPException(409, "This job isn't waiting for approval.")
     db.refresh(job)
     job.input = {**job.input, DECLINE: True}  # not a withdrawal: the editor sees it was a no
+    _release(db, job)
     db.commit()
     if job.project_id:  # the director waited on it: it goes on, told what happened
         from app import director
@@ -467,6 +518,7 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     if FREESTYLE in job.input and held:  # taken back before the OK: its thread says Withdrawn
         db.refresh(job)
         job.input = {**job.input, WITHDRAWN: True}
+        _release(db, job)
     db.commit()
     if job.project_id:  # a press the director waited on was withdrawn: it goes on
         from app import director

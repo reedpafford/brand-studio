@@ -39,6 +39,12 @@ def period(name: str) -> Period:
     return Period(None)
 
 
+def month(text: str) -> Period:
+    """A calendar month, UTC ("2026-11")."""
+    year, number = map(int, text.split("-"))
+    return Period(datetime(year, number, 1), datetime(year + number // 12, number % 12 + 1, 1))
+
+
 def previous(name: str, now: Period) -> Period | None:
     """The period before (last week, last month); none for all time."""
     if now.start is None:
@@ -64,6 +70,7 @@ class Figures:
     scripts: dict
     versions_left: dict
     last_activity: dict
+    credits: dict  # charged in the period, in credits (as the owner's Needs you prices them)
 
     def cost_per(self, brand_id) -> float | None:
         done = self.finished.get(brand_id, 0)
@@ -72,6 +79,17 @@ class Figures:
 
 def _grouped(db: Session, query) -> dict:
     return {key: value for key, value in db.execute(query).all()}
+
+
+def director_spend(db: Session, workspace_id: int, when: Period) -> Decimal:
+    """What the director's own jobs cost in the period: every job a run made itself (its
+    turns, watches of the cut, treatment and still reviews), not the takes it asked for."""
+    from app.director import RUN
+
+    own = select(func.sum(Usage.cost_usd)).join(Job, Job.id == Usage.job_id).where(
+        Usage.workspace_id == workspace_id, *when.has(Usage.created_at),
+        Job.input[RUN]["id"].as_string().is_not(None))  # fmt: skip
+    return Decimal(db.scalar(own) or 0)
 
 
 def figures(db: Session, workspace_id: int, when: Period) -> Figures:
@@ -146,9 +164,13 @@ def figures(db: Session, workspace_id: int, when: Period) -> Figures:
         for brand_id, at in db.execute(query).all():
             if at and (brand_id not in last or at > last[brand_id]):
                 last[brand_id] = at
-    return Figures(
-        spend, estimated, finished, finished_spend, in_progress, scripts, versions_left, last
-    )
+    from app.credits import COUNTED
+
+    credits = _grouped(db, select(Job.brand_id, func.sum(Job.credits)).where(
+        Job.workspace_id == workspace_id, Job.status.in_(COUNTED), *when.has(Job.created_at))
+        .group_by(Job.brand_id))  # fmt: skip
+    return Figures(spend, estimated, finished, finished_spend, in_progress, scripts,
+                   versions_left, last, credits)  # fmt: skip
 
 
 def editors_active(db: Session, brand_id: int, when: Period) -> int:
@@ -192,7 +214,8 @@ def video_title(db: Session, project: Project) -> tuple[str, int | None, str | N
 
 
 def what(db: Session, job: Job) -> str:
-    """A charge in plain words: 'Clip take · Bo tries salmon · B', 'Quick clip'."""
+    """A charge in plain words: 'Clip take · Bo tries salmon · B', 'Bo tries salmon · song',
+    'Quick clip'."""
     step = job.input.get("step")
     if job.project_id is not None:
         title, _, _ = video_title(db, db.get(Project, job.project_id))
@@ -204,6 +227,11 @@ def what(db: Session, job: Job) -> str:
         draft = db.get(ScriptDraft, job.input["script_draft_id"])
         script = db.get(Script, draft.script_id) if draft else None
         return f"Breakdown preview · {script.title}" if script else "Breakdown preview"
+    if job.input.get("on_script"):  # a script's song or narration, or a narration's music
+        script = db.get(Script, job.input["on_script"])
+        made = "song" if step == "song_take" and job.kind == "music" else (
+            "narration" if step == "song_take" else "music")  # fmt: skip
+        return f"{script.title} · {made}" if script else made.capitalize()
     if job.input.get("script_id"):
         script = db.get(Script, job.input["script_id"])
         return f"{STEPS.get(step, 'Script')} · {script.title}" if script else STEPS.get(step, "")

@@ -3,6 +3,8 @@ video. It's never in Cast & places or another video's picker (Current rules 12).
 
 import copy
 
+import pytest
+
 from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
@@ -239,11 +241,11 @@ def test_not_now_on_the_missing_looks_sticks(owner, editor, db):
     assert made.status_code == 200 and _row(editor, pid, nate)["declined"] is False
 
 
-def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, db):
-    """QA on #482: a limit that fits one sheet but not two makes neither."""
+def test_missing_looks_are_all_or_none_under_the_videos_budget(owner, editor, db):
+    """QA on #482: a budget that fits one sheet but not two makes neither."""
     from decimal import Decimal
 
-    from app.credits import credits_used
+    from app.credits import budget_used
     from app.sheets import look_price
 
     made = _make(owner, text=NATE_ONLY)
@@ -258,19 +260,21 @@ def test_missing_looks_are_all_or_none_under_the_per_video_limit(owner, editor, 
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     project = db.get(Project, pid)
     one = look_price(db, project.workspace_id)
-    limits = owner.get("/credits/limits").json()
-    cap = int(credits_used(db, project) + one * Decimal("1.5"))  # room for one, not two
-    put = owner.put("/credits/limits", json={**limits, "per_video_max_credits": max(cap, 1)})
-    assert put.status_code == 200
+    room = one * Decimal("1.5")  # room for one, not two
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=project.created_by_id,
+               kind="write-claude", provider="fake", input={}, project_id=pid, status="succeeded",
+               credits=project.budget_credits - budget_used(db, project) - room))  # fmt: skip
+    db.commit()
     url = f"/projects/{pid}/assets"
     said = editor.get(f"{url}/missing-looks").json()
-    assert said["reason"] and "limit" in said["reason"] and len(said["slot_ids"]) == 2
+    assert said["reason"] and "budget" in said["reason"] and len(said["slot_ids"]) == 2
     jobs, looks = db.query(Job).count(), db.query(LibraryItem).count()
     refused = editor.post(f"{url}/make-missing")
     assert (refused.status_code, refused.json()["detail"]) == (409, said["reason"])
     assert (db.query(Job).count(), db.query(LibraryItem).count()) == (jobs, looks)
 
 
+@pytest.mark.usefixtures("own_look")
 def test_a_roles_own_house_look_holds_after_a_switch_and_is_back_with_house(owner, editor, db):
     """Flow-QA on #967: a look made for this video in House is no picture of Nate once the
     video is Disney Pixar (sheet_for), so nothing is drawn or charged with it in the wrong
@@ -318,6 +322,7 @@ def test_a_roles_own_house_look_holds_after_a_switch_and_is_back_with_house(owne
     assert new != look and db.get(LibraryItem, new).sheet_look == "disney-pixar"
 
 
+@pytest.mark.usefixtures("own_look")
 def test_switching_back_recasts_a_role_to_the_own_look_it_has_in_that_look(owner, editor, db):
     """Flows VS1 "U" and ST1 (the earlier looks come back, kept per look): Nate's own House
     look, then a Disney Pixar one; back to House he's ready with his House look again, free,

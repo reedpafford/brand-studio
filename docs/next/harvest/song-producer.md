@@ -6,7 +6,7 @@ From four Iron Paws ads made by hand on 28–29 Oct: two song ads and two narrat
 
 **Creative plan (what Reed liked most)**
 - Read the script line by line and give every line its own vivid, *exaggerated* picture, so the story reads with the sound off. Every action the script mentions is shown.
-- Play symptoms big and funny: a crust-glued eye, a tongue blur, a fur blizzard. Show a hidden cause visually: a translucent glowing x-ray of the character with hot spots, or a trip inside the body. Payoffs are quiet and warm.
+- Play symptoms big and funny: a crust-glued eye, a tongue blur, a fur blizzard. Show a hidden cause visually, in whatever fits the video's world: a cute trip inside the body, the show's big screen, or (mainly for narrated, conspiracy-style ads) a translucent glowing x-ray with hot spots. Reed likes the x-ray but doesn't want it forced into every video. Payoffs are quiet and warm.
 - Structure that works for problem/solution ads:
   1. the symptom hook in the first seconds
   2. the daily routine
@@ -17,14 +17,15 @@ From four Iron Paws ads made by hand on 28–29 Oct: two song ads and two narrat
   7. the apology or hug
   8. proof
   9. the end line with the product pushed to camera
+- Pick one frame for the whole video and keep it throughout (Reed on the game-show song: "it needs to feel more uniform"). For a countdown: every moment is rated on the set, then the camera pans to the show's mega screen and pushes into the real world.
 - The same cast in every scene, and the same owner across a brand's ads when it fits.
 
 **Song ads**
 - The song is the clock. Make the song first, measure the real take, then plan shots to the measured lines. Never guess timing.
 - The hook comes in the first 5 seconds, a symptom list works well as a chant. Make it a real song, not a jingle. Lines of 6–9 words, each a picture.
-- If the editor brings a voice-over script, turn it into lyrics beat for beat. Keep its story, key lines and claims word for word, and only add the brand name to the last line. Once picked, the lyrics are locked.
+- If the editor brings a voice-over script, turn it into lyrics beat for beat. Keep its story, key lines and claims word for word; the brand appears where the script has it, never forced into the last line (Reed, 3 Nov). Once picked, the lyrics are locked.
 - Style line: describe the sound, never name an artist (Suno rejects names). Reed's taste for an older audience: "laid-back, breezy pop", warm female vocal, about 100 BPM, strummed acoustic guitar. He turned down pop-rap.
-- Add "vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending". The last sung line names the brand and where to find it.
+- Add "vocals start immediately, no instrumental intro, no instrumental breaks, continuous singing, tight ending".
 - Suno takes vary by up to 20 s for the same words. Pick the tighter take: it's cheaper to film.
 - About 365 sung words gives about 2:40. Show the expected length before the lyrics lock.
 - B-roll only by default, with lip-sync only where asked. Nobody sings on screen.

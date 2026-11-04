@@ -13,7 +13,7 @@ test("at 390: Cast & places' tabs and New character are 44 px presses, and the B
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   await page.goto(`/b/${brandId}/brand`);
-  await expect(page.getByRole("main").getByRole("heading", { name: "Brand", level: 1 })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Touch Co", level: 1 })).toBeVisible();
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
@@ -48,7 +48,7 @@ test("at 390, a script row's title is a 44 px press and the stage tabs stay on o
   expect((await ready.boundingBox())!.height).toBeLessThanOrEqual(48); // one line, not three
 });
 
-test("at 390, a character page's Add outfit, Save and Archive character are 44 px presses (QA-3 on #1163)", async ({ page }) => {
+test("at 390, a character page's Edit, More, Archive character, Add outfit, Save and Cancel are 44 px presses (QA-3 on #1163)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
@@ -58,8 +58,40 @@ test("at 390, a character page's Add outfit, Save and Archive character are 44 p
   await page.getByLabel("Name").fill("Pip");
   await page.getByRole("button", { name: "Create character" }).click();
   await page.getByRole("link", { name: "Pip" }).click();
-  for (const press of [page.getByRole("button", { name: "Add outfit" }), page.getByRole("button", { name: "Save", exact: true }), page.getByRole("button", { name: "Archive character" })]) {
+  // v5: the page reads first, with Edit and More at the top; Archive is in More.
+  for (const press of [page.getByRole("button", { name: "Edit", exact: true }), page.getByRole("button", { name: "More" })]) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.getByRole("button", { name: "More" }).click();
+  expect((await page.getByRole("menuitem", { name: "Archive character" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  for (const press of [page.getByRole("button", { name: "Add outfit" }), page.getByRole("button", { name: "Save", exact: true }), page.getByRole("button", { name: "Cancel" })]) {
     await press.scrollIntoViewIfNeeded();
     expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
+});
+
+test("New script: at 390 the breadcrumb's Scripts link is a 44 px press; at 1440 the settings and steps share one 52 px row (QA-12 on #1221)", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brand = await emptyBrand(page, "Touch Script Co");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/b/${brand}/scripts/new?format=dialogue`);
+  const link = (await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Scripts" }).boundingBox())!;
+  expect(link.height).toBeGreaterThanOrEqual(44);
+  expect(link.width).toBeGreaterThanOrEqual(44);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(async () => (await page.getByRole("group", { name: "Script settings" }).locator("..").boundingBox())?.height ?? 0).toBeLessThanOrEqual(53);
+});
+
+test("at 390, Breakdown's Version picker is a 44 × 44 px press even before any plan (QA-12 on #1238)", async ({ page }) => {
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  const brand = await emptyBrand(page, "Touch Breakdown Co");
+  const made = await page.request.post("/api/scripts", { data: { brand_id: brand, title: "Version pick", description: "", notes: "", reference_replace: "", text: "BO: Salmon?" } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/b/${brand}/scripts/${(await made.json()).id}?step=breakdown`);
+  // Before any plan the value is just "A": the select is still a 44 × 44 px press.
+  const pick = (await page.getByRole("combobox", { name: "Version" }).boundingBox())!;
+  expect(pick.height).toBeGreaterThanOrEqual(44);
+  expect(pick.width).toBeGreaterThanOrEqual(44);
 });

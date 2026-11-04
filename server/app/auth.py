@@ -8,6 +8,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.advice import REQUEST
@@ -67,6 +68,9 @@ def end_session(db: Session, request: Request, response: Response) -> None:
     response.delete_cookie(cookie)
 
 
+ACTIVE = timedelta(minutes=5)  # last active is kept to within this
+
+
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     raw = request.cookies.get(request.app.state.settings.cookie_name)
     if raw:
@@ -80,6 +84,13 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
             )
         )
         if user:
+            now = utcnow()
+            if user.last_active_at is None or now - user.last_active_at > ACTIVE:
+                try:  # at most one write every few minutes; a busy database never fails a read
+                    user.last_active_at = now
+                    db.commit()
+                except SQLAlchemyError:
+                    db.rollback()
             if (asker := REQUEST.get()) is not None:
                 asker["workspace_id"] = user.workspace_id  # names in messages: theirs only
             return user

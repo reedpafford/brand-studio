@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Settings2 } from "lucide-react";
+import { ChevronDown, Lock, Settings2 } from "lucide-react";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
@@ -25,10 +25,11 @@ export function useVideoSettings(projectId: number) {
 }
 
 /** One choice in a picker, and the one setting it switches (a body with exactly that key; null is Auto). */
-export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; overCap?: boolean; off?: boolean; body: SettingIn };
-export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; choices: Choice[] };
+export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; off?: boolean; body: SettingIn };
+/** `locked`: why it can't be changed here (a script-made video keeps its script's style, Reed's walk item 7); shown, never picked. */
+export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; locked?: string; choices: Choice[] };
 
-const credits = creditsText; // a rate: one decimal, rounded up (rule 32)
+const credits = creditsText; // a rate: one decimal, rounded up (rule 36)
 const perSecond = (x: number) => `${credits(x)} a second`;
 const perStill = (x: number) => `${credits(x)} a still`;
 const n = (k: number, one: string) => `${k} ${one}${k === 1 ? "" : "s"}`;
@@ -42,7 +43,7 @@ export const languageName = (code: string) => {
 };
 
 /** The settings as the row shows them: one field per setting, each choice carrying the body that switches to it. */
-export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined): Field[] {
+export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined, lookLocked = false): Field[] {
   const auto = <M extends { name: string; default: boolean }>(ms: M[]) => ms.find((m) => m.default) ?? ms[0];
   const video = auto(s.video_models);
   const image = auto(s.image_models);
@@ -54,7 +55,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       const now = s.product_variants[product] ?? options[0]; // a product missing from the picks is on its default
       return { key: `flavour:${product}`, label: Object.keys(s.flavours).length > 1 ? `Flavour (${product})` : "Flavour", current: now, valueLabel: now, choices: options.map((o) => ({ id: o, label: o, body: { product_variants: { [product]: o } } })) };
     }),
-    ...(looks ? [{ key: "look", label: "Look", current: s.look, valueLabel: lookName(looks as Look[], s.look), choices: looks.map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }] : []),
+    ...(looks ? [{ key: "look", label: "Style", current: s.look, valueLabel: lookName(looks as Look[], s.look), locked: lookLocked ? "set on the script" : undefined, choices: looks.map((l) => ({ id: l.id, label: l.name, off: !l.on, body: { look: l.id } })) }] : []),
     {
       key: "video_model",
       label: "Video model",
@@ -63,7 +64,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       price: perSecond((nowVideo ?? video)?.credits_per_second ?? 0),
       choices: [
         { id: "auto", label: video ? `Auto (${video.name})` : "Auto", price: video && perSecond(video.credits_per_second), noLipSync: video && !video.lip_sync, body: { video_model: null } },
-        ...s.video_models.map((m) => ({ id: m.id, label: m.name, price: perSecond(m.credits_per_second), noLipSync: !m.lip_sync, overCap: m.over_cap, body: { video_model: m.id } })),
+        ...s.video_models.map((m) => ({ id: m.id, label: m.name, price: perSecond(m.credits_per_second), noLipSync: !m.lip_sync, body: { video_model: m.id } })),
       ],
     },
     {
@@ -74,7 +75,7 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
       price: perStill((nowImage ?? image)?.credits_per_still ?? 0),
       choices: [
         { id: "auto", label: image ? `Auto (${image.name})` : "Auto", price: image && perStill(image.credits_per_still), body: { image_model: null } },
-        ...s.image_models.map((m) => ({ id: m.id, label: m.name, price: perStill(m.credits_per_still), overCap: m.over_cap, body: { image_model: m.id } })),
+        ...s.image_models.map((m) => ({ id: m.id, label: m.name, price: perStill(m.credits_per_still), body: { image_model: m.id } })),
       ],
     },
   ];
@@ -90,8 +91,20 @@ function confirmText(field: Field, choice: Choice, p: PreviewOut, finished: bool
   if (roles.length > 0) lines.push(`${roles.length > 2 ? `${roles.length} roles` : roles.join(" and ")} need${roles.length === 1 ? "s" : ""} a new look, made in Cast.`);
   if (p.sung_to_broll > 0) lines.push(`${choice.label} can't lip-sync. Your ${n(p.sung_to_broll, "Sung shot")} become${p.sung_to_broll === 1 ? "s" : ""} B-roll (picture only).`);
   if (later && !finished) lines.push(`${cap(later)} already made stay as they are and show Out of date.`);
-  lines.push(`To finish: up to ${credits(wholeCredits(p.to_finish_credits))} (was ${wholeCredits(p.was_credits)}).`);
+  lines.push(`To finish: about ${credits(wholeCredits(p.to_finish_credits))} (planned; was ${wholeCredits(p.was_credits)}).`);
   return lines;
+}
+
+/** A setting that can't be changed here, as one plain line: "Style: House · set on the script" (item 7). */
+export function LockedSetting({ field: f }: { field: Field }) {
+  return (
+    <span className="inline-flex min-h-control items-center gap-1.5 px-2 text-sm">
+      <Lock size={16} strokeWidth={1.75} aria-hidden className="text-muted" />
+      <span>
+        <span className="text-muted">Style:</span> {f.valueLabel} <span className="text-muted">· {f.locked}</span>
+      </span>
+    </span>
+  );
 }
 
 /** The Video settings row (flows VS1): Shape · Flavour · Look · Video model · Picture model · Language, and the Song on a song video.
@@ -126,13 +139,17 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
 
   if (settings.isPending) return <Skeleton className="h-control" />;
   if (settings.isError || !settings.data) return null; // the server doesn't offer settings yet: nothing to press
-  const fields = fieldsOf(settings.data, looks.data);
-  const chip = (f: Field) => (
+  // A video made from a published script keeps its script's style (Next-Server's ProjectOut.look_locked); legacy videos switch.
+  const fields = fieldsOf(settings.data, looks.data, p.look_locked);
+  const chip = (f: Field) =>
+    f.locked ? (
+      <LockedSetting key={f.key} field={f} />
+    ) : (
     <Button key={f.key} variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setPicking(f)}>
       <span className="text-muted">{f.label}:</span> {f.valueLabel}
       {f.price && <>{" "}<span className="text-xs text-muted tabular-nums">· {f.price}</span></>}
     </Button>
-  );
+    );
   const language = <Badge>Language: {languageName(settings.data.language)} (from the script)</Badge>;
   const items = (
     <>
@@ -155,8 +172,6 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   const pick = (f: Field, c: Choice) => (c.id === f.current ? setPicking(null) : setAsking({ field: f, choice: c }));
   const lookOpen = picking?.key === "look" && looks.data;
   const lines = asking && preview.data ? confirmText(asking.field, asking.choice, preview.data, finished) : null;
-  // Only the cap stops a switch; past the budget an editor's later presses wait for the owner (Hold requests, #1068).
-  const hold = preview.data?.over_cap ? (preview.data.reason ?? "Over the video limit.") : null;
   return (
     <>
       {row}
@@ -176,7 +191,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
           cancelLabel="Not yet"
           actionLabel="Switch"
           busy={apply.isPending || preview.isPending}
-          holdReason={preview.isError ? preview.error.message : apply.isError ? apply.error.message : hold}
+          holdReason={preview.isError ? preview.error.message : apply.isError ? apply.error.message : null}
           onCancel={() => {
             setAsking(null);
             apply.reset();
@@ -202,15 +217,13 @@ export function ChoicePanel({ field, owner, onPick, onClose }: { field: Field; o
             <li key={c.id}>
               <button
                 type="button"
-                disabled={!!c.overCap}
                 aria-pressed={c.id === field.current}
                 onClick={() => onPick(c)}
-                className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left disabled:opacity-60 ${c.id === field.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
+                className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left ${c.id === field.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
               >
                 <span className="font-medium">{c.label}</span>
                 {c.price && <span className="text-sm text-muted tabular-nums">· {c.price}</span>}
                 {c.noLipSync && <Badge>No lip-sync</Badge>}
-                {c.overCap && <span className="w-full text-sm text-muted">Over the video limit</span>}
               </button>
             </li>
           ))}

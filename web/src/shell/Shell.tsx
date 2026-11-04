@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Bell, ChevronDown, Film, Plus, FileText, Images, Palette, Check, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { Bell, ChevronDown, Film, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
@@ -8,16 +8,17 @@ import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { useMedia } from "../useMedia";
 import { AccountMenu, STUDIO } from "./AccountMenu";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
-import { NewBrand } from "./NewBrand";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
 // Phone tabs keep this order; the desktop rail groups them (Make, Library) in the order work happens (Reed, 2 Nov: nav A).
+// New video is the rail's one press above them (v5 A_Shell); on a phone it is the middle tab (B_PhoneNew).
+export const NEW_VIDEO = "videos/new";
 const SECTIONS: { to: string; also?: string; label: string; short: string; icon: LucideIcon; railOnly?: boolean }[] = [
   { to: "videos", also: "projects", label: "Videos", short: "Videos", icon: Film },
   { to: "scripts", label: "Scripts", short: "Scripts", icon: FileText },
-  { to: "/freestyle", label: "Freestyle", short: "Freestyle", icon: Sparkles }, // not under a brand
+  { to: NEW_VIDEO, label: "New video", short: "New", icon: Plus },
   { to: "media", label: "Media", short: "Media", icon: Images, railOnly: true }, // on a phone: from the Videos header (five tabs)
   { to: "library", label: "Cast & places", short: "Cast", icon: Users },
   { to: "brand", label: "Brand", short: "Brand", icon: Palette },
@@ -31,7 +32,8 @@ function sectionOf(pathname: string) {
   return m && SECTIONS.some((s) => s.to === m) ? m : "";
 }
 
-const href = (to: string, brand: number) => (to.startsWith("/") ? to : `/b/${brand}/${to}`);
+const href = (to: string, brand: number) => `/b/${brand}/${to}`;
+const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 const dot = (brand?: Brand) => <span aria-hidden className="size-3 shrink-0 rounded-full bg-brand" style={brand?.colours?.[0] ? { background: brand.colours[0] } : undefined} />;
 
 function useOnline() {
@@ -63,8 +65,9 @@ function Frame() {
   const { data: brands, isPending, isError } = useBrands();
   const { brandId } = useParams();
   const fromUrl = Number(brandId) || null;
-  // Off brand pages (e.g. /team) you stay "in" the brand you were last in.
-  const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : null);
+  // Off brand pages (e.g. /team) you stay "in" the brand you were last in, or the first one: the rail keeps Make and
+  // Library on every page, Studio ones and an editor's My credits included (v5 A_Shell; audit lane 2).
+  const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : (brands?.[0]?.id ?? null));
   const brand = brands?.find((b) => b.id === current);
   const rail = useMedia("(min-width: 1024px)");
   const wide = useMedia("(min-width: 1280px)");
@@ -91,11 +94,24 @@ function Frame() {
   const oldVideo = useMatch("/b/:brandId/projects/:projectId");
   const newVideo = useMatch("/b/:brandId/videos/:projectId");
   const video = newVideo ?? oldVideo;
-  const inVideo = !rail && video !== null && /^\d+$/.test(video.params.projectId ?? "");
+  // New video has its own title bar on a phone too (B_PhoneNew).
+  const inVideo = !rail && video !== null && (/^\d+$/.test(video.params.projectId ?? "") || video.params.projectId === "new");
 
   useEffect(() => {
     if (fromUrl) rememberBrand(fromUrl);
   }, [fromUrl]);
+
+  // N opens New video from anywhere but a box being typed in or an open dialog (A_Shell's keys).
+  const navigate = useNavigate();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "n" || e.metaKey || e.ctrlKey || e.altKey || typing(e.target) || !current || document.querySelector("[aria-modal]")) return;
+      e.preventDefault();
+      navigate(href(NEW_VIDEO, current));
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [current, navigate]);
 
   useEffect(() => {
     const root = document.documentElement.style;
@@ -161,7 +177,7 @@ function Badge({ n }: { n: number | null }) {
 
 function TopBar({ brands, brand, current, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; waiting: number | null }) {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
+    <header aria-label="Top bar" className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg px-4">
       <BrandSwitcher brands={brands} brand={brand} current={current} />
       <div className="ml-auto flex items-center gap-2">
         {/* Needs you shows only while something waits (Reed, 30 Oct); the page itself stays at /approvals. */}
@@ -180,7 +196,6 @@ function TopBar({ brands, brand, current, waiting }: { brands: Brand[]; brand?: 
 function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: Brand[]; brand?: Brand; current: number | null; inRail?: boolean; iconOnly?: boolean }) {
   const navigate = useNavigate();
   const owner = useMe().data?.role === "owner";
-  const [creating, setCreating] = useState(false);
   const { pathname } = useLocation();
   const go = (id: number) => {
     const section = sectionOf(pathname);
@@ -224,7 +239,7 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
                 <MenuItem
                   onClick={() => {
                     close();
-                    setCreating(true);
+                    navigate("/brands/new");
                   }}
                 >
                   <Plus size={20} strokeWidth={1.75} aria-hidden />
@@ -235,7 +250,6 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
           </>
         )}
       </Menu>
-      {creating && <NewBrand onClose={() => setCreating(false)} />}
     </div>
   );
 }
@@ -243,7 +257,8 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
 /** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
 function NavItem({ to, also, className, children, ...rest }: { to: string; also?: string; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
   const { pathname } = useLocation();
-  const active = pathname === to || pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`));
+  const onNew = pathname.endsWith(`/${NEW_VIDEO}`); // under /videos, but its own place
+  const active = pathname === to || (!onNew && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
   return (
     <Link to={to} className={className(active)} aria-current={active ? "page" : undefined} {...rest}>
       {children}
@@ -271,8 +286,15 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
     <nav aria-label="Main" className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-border bg-surface p-2 ${wide ? "w-rail" : "w-[64px]"}`}>
       {/* Only the rows scroll: the brand and account menus are wider than the rail and must not be clipped by it. */}
       <BrandSwitcher brands={brands} brand={brand} current={current} inRail iconOnly={!wide} />
+      {current && (
+        <Link to={href(NEW_VIDEO, current)} aria-label="New video" title="New video (N)" className="mt-2 inline-flex min-h-control-dense items-center justify-center gap-2 rounded-md bg-accent px-2 font-medium text-on-accent hover:bg-accent-hover">
+          <Plus size={16} strokeWidth={1.75} aria-hidden />
+          {wide && <span aria-hidden>New video</span>}
+          {wide && <kbd aria-hidden className="rounded-sm border border-white/40 px-1.5 font-sans text-xs leading-4">N</kbd>}
+        </Link>
+      )}
       <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
-        {current && group("Make", ["scripts", "videos", "/freestyle"].map((to) => { const s = section(to); return row(href(s.to, current), s.label, s.icon, undefined, s.also); }))}
+        {current && group("Make", ["videos", "scripts"].map((to) => { const s = section(to); return row(href(s.to, current), s.label, s.icon, undefined, s.also); }))}
         {current && group("Library", ["library", "media", "brand"].map((to) => { const s = section(to); return row(`/b/${current}/${s.to}`, s.label, s.icon, undefined, s.also); }))}
         {owner &&
           group(

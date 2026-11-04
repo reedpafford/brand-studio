@@ -1,18 +1,23 @@
-import { ChevronLeft } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { PageTop, buttonClass } from "../components";
+import { useBrands } from "../shell/useBrands";
 import { ReelPicker } from "./ReelImport";
 
-/** Import a reel: a link or a video file. The script is made at once and opens on its Script screen while the reel is prepared. */
+/** Import a reel (v5 G_ImportReel): a link or a video file. The script is made at once and opens on its Script screen while the reel is prepared. */
 export function ImportReelPage() {
   const brandId = Number(useParams().brandId);
+  const brand = useBrands().data?.find((b) => b.id === brandId);
+  const scripts = `/b/${brandId}/scripts`;
   return (
-    <main className="mx-auto max-w-content space-y-5 p-4 sm:p-8">
-      <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline lg:min-h-control-dense">
-        <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-        Scripts
-      </Link>
-      <h1 className="type-page">Import a reel</h1>
-      <ReelPicker brandId={brandId} />
+    <main className="space-y-6 p-4 sm:p-6">
+      <PageTop title="Import a reel" crumb={{ to: scripts, label: "Scripts" }}>
+        <Link to={scripts} className={buttonClass("ghost")}>
+          Cancel
+        </Link>
+      </PageTop>
+      <div className="sm:px-2">
+        <ReelPicker brandId={brandId} brandName={brand?.name} />
+      </div>
     </main>
   );
 }

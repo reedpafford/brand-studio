@@ -71,14 +71,14 @@ export function CostBarProvider(props: {
     </Button>
   );
   const bar = (
-    <div role="region" aria-label="Cost" className={rail ? "sticky bottom-2 z-10 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-border bg-surface p-3 shadow-md" : "space-y-2 text-left"}>
+    <div role="region" aria-label="Cost" className={rail ? "flex flex-wrap items-center gap-x-8 gap-y-3 rounded-md border border-border bg-surface px-4 py-3 shadow-md" : "space-y-2 text-left"}>
       <div className="min-w-48 flex-1">
         <Meter used={props.used} budget={props.budget} pct={props.pct} />
         {!!props.director && <p className="mt-1 text-xs tabular-nums text-muted">Not in the budget: the director's time, {creditsText(props.director)}.</p>}
       </div>
       {estimate.data && (
         <p className="text-sm tabular-nums text-muted">
-          {estimate.data.remaining_credits === 0 ? "Nothing left to make." : `To finish: up to ${creditsLabel(estimate.data.remaining_credits)}`} · {wholeCredits(Math.max(0, left))} credit{wholeCredits(Math.max(0, left)) === 1 ? "" : "s"} left
+          {estimate.data.remaining_credits === 0 ? "Nothing left to make." : `To finish: about ${creditsLabel(estimate.data.remaining_credits)} (planned)`} · {wholeCredits(Math.max(0, left))} credit{wholeCredits(Math.max(0, left)) === 1 ? "" : "s"} left
         </p>
       )}
       {press && (
@@ -93,7 +93,8 @@ export function CostBarProvider(props: {
   return (
     <Ctx.Provider value={value}>
       {props.children}
-      {rail ? bar : <ActionBar phone>{bar}</ActionBar>}
+      {/* Desktop: lined up with the page's own column and padding, held to the bottom while it scrolls (Reed's walk item 6). */}
+      {rail ? <div className="sticky bottom-4 z-10 mx-auto max-w-content px-4 pb-4 sm:px-8">{bar}</div> : <ActionBar phone>{bar}</ActionBar>}
     </Ctx.Provider>
   );
 }

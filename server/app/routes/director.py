@@ -40,6 +40,7 @@ class ThreadItem(BaseModel):
     status: Literal["queued", "running", "held", "done", "refused"] | None  # moves only
     why: str = ""  # a move's reason, as the director gave it; "" for messages and deliveries
     answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
+    treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
 
 
 class MessageIn(BaseModel):
@@ -55,6 +56,7 @@ class DirectorOut(BaseModel):
     start_blocked: str  # "" when this person can press Make it now; else why (the 409's words)
     thread: list[ThreadItem] = []  # the whole chat on the video, every run, oldest first
     unread: int = 0  # notes waiting for the next Make it ("Start again with this note")
+    run_price: float = 0  # before Make it (again): the most one run may charge, "up to" (rule 34)
 
 
 def _out(db: Session, user: User, project) -> DirectorOut:
@@ -78,7 +80,19 @@ def _out(db: Session, user: User, project) -> DirectorOut:
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,
                        start_blocked=blocked, thread=director.thread(db, project),
-                       unread=len(director.leftover(db, project)))  # fmt: skip
+                       unread=len(director.leftover(db, project)),
+                       run_price=0 if status == "running" else _run_price(db, project))  # fmt: skip
+
+
+def _run_price(db: Session, project) -> float:
+    """A run's "up to" as a freestyle's (rule 34, the Producer): the video's planned cost,
+    every clip made again MAX_REDOS times with its check, and the director's own limit
+    (`estimate.run_price`). A person's own presses keep their own prices."""
+    from app.models.script_library import ScriptDraft
+    from app.routes.estimate import run_price
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    return float(run_price(db, draft, project)) if draft else 0
 
 
 @router.get("", response_model=DirectorOut)

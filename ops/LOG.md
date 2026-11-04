@@ -1,4 +1,31 @@
 # Log (newest first; Scribe trims entries older than 30 days into a monthly summary)
+- 2026-10-29 10:10 · Into `next`: #873 Format and Look step 1 (n07); #858 narrated ads step 1; #892 Director breakdown films the approved plan; #888 Videos in the menu and an editor's home; #881 cost bar part 2 for Storyboard; #883 P3 retry wording; #897 song directions follow the study; #890 quoted words to be drawn; #889 song banner; #899, #900, #903 data.md brand setup BR1 and migration order
+- 2026-10-29 09:01 · Agents (#895): Builder-Server-6 archived; Builder-Server-7's new items merged (by the Producer)
+- 2026-10-29 09:00 · #894 ops: HANDOFF/LOG refresh as of 39fa54b merged (by the Producer)
+- 2026-10-29 09:05 · Into `next`: #866 Director scene plan; #869 advisory check on stills and takes and the on-screen text fix; #864 real Suno on the test site only, stopped at the test budget; #882 final cut names the song; #879 song-ad web follow-ups; #875 study Stop and 10-minute limit; #885 stand-in test clip; #887 narration_text fix
+- 2026-10-29 08:14 · #878 Clips: a save puts words after the audio line where they will stay (Builder-Server-6) merged
+- 2026-10-29 08:00 · #884 ops: HANDOFF/LOG refresh as of 71784ae merged (by the Producer)
+- 2026-10-29 08:05 · Into `next`: #871 the five video steps; #876 Plan (web) Scenes | Shots switch; #877 cost bar part 2 for Clips; #862 refused or busy takes retry once on their own, wording flags fix themselves, with Undo; #851 song study; #874 NEXT.md on what must move to main together; #880 data.md real migration order
+- 2026-10-29 07:27 · #868 Clips: an editor's words after the closing audio line are kept (Builder-Server-6) merged
+- 2026-10-29 06:57 · #872 ops: HANDOFF/LOG refresh as of 49097e3 merged (by the Producer)
+- 2026-10-29 07:02 · Into `next`: #829 song final cut; #818 Write 2 song directions; #857 Study a song ad (web); #826 shot times; #853 narrated clips keep their own sound; #831 real names in style lines; #865 cost bar on the video page; #870, #867 data.md merge order and n07 (Format and Look)
+- 2026-10-29 06:08 · #859 Downloads: an older look says so in the Out of date banner, not "Clips changed since" merged
+- 2026-10-29 05:56 · Agents (#861): the sessions table adds Builder-Server-7/8, Builder-Screens-4, Next-Layout, UX-Auditor and Song-Producer merged (by the Producer)
+- 2026-10-29 05:55 · #860 ops: HANDOFF/LOG refresh as of 3f93bf0 merged (by the Producer)
+- 2026-10-29 06:00 · Into `next`: #816 Write 2 song directions (web); #828 Director narrated videos; #834 narrated-ad sound mix; #825 Usage archived brands first; #842 Suno through KIE (written, switched off); #849 UX audit part 7; #844, #846, #848, #850, #855 flow map for narrated formats, Format and Look, the creative plan and the AI check; #852 migration merge order
+- 2026-10-29 05:50 · #803 Storyboard: an out-of-date frame has its own Redo this frame · N, or says why not with Redo storyboard merged
+- 2026-10-29 05:34 · #847 gitignore: match .venv and node_modules links too merged
+- 2026-10-29 05:31 · Decisions (#845, Reed, all videos and every brand, Next first then live): a creative-plan step before the breakdown; refused or "service busy" takes retry once on their own and clip-prompt wording flags fix themselves; an advisory AI check on stills and takes replaces rule 11 once shipped merged
+- 2026-10-29 05:22 · #841 Redo frame: no passing "failed" between the rewrite and its still merged
+- 2026-10-29 05:21 · Decisions (#843, Reed, Next): narrated ads are a format; Format (Dialogue, Song, Narrated) and Look are separate settings; real Suno through KIE on the test site with a $5 test budget, MiniMax dropped (supersedes the 2026-10-28 music line) merged
+- 2026-10-29 05:02 · #822 Clips and Downloads: a take made from an older Cast & places look says Out of date, still approved, with Make another take or Keep anyway merged
+- 2026-10-29 04:55 · #833 Spend: narrated ads v2 audio (~$1.30), the narrated pair about $33.92 of $40; #838 ops: HANDOFF/LOG refresh as of f2be1c8 merged (by the Producer)
+- 2026-10-29 05:00 · Into `next`: #799, #783 song breakdown and Suno's input; #814 narrated Iron Paws ads and song_ad fixes; #823 flow map for narrated videos; #819 Director follows the workflow behind Reed's song ads, plus the song-ad study; #773 layout words; #830 data.md notes; #836 S3a's study job goes to Builder-Server-7
+- 2026-10-29 04:50 · #827, #824 A copyright refusal says to make it again first (it costs nothing); an insert is a shot about a thing, never a person, merged
+- 2026-10-29 04:08 · #820 Spend: Iron Paws narrated ads ($32.62 of $40) merged
+- 2026-10-29 03:59 · #812 Three false alarms from Reed's song pilot merged
+- 2026-10-29 03:58 · #809, #808 A changed Cast & places sheet marks the stills and takes made from the old one (N6); Redo this frame stays "changing" until its still is drawn, merged
+- 2026-10-29 03:53 · #815 ops: HANDOFF/LOG refresh as of 5bc5823 merged (by the Producer)
 - 2026-10-29 03:58 · Into `next`: #781 song and Change song on the Breakdown; #794 Director adapt a script, sounds-like, length; #802 a video's own takes are never Preferred; #800 song sidecar in data.md; #807, #811 Reed's song workflow recipe and flow map; #766, #771, #779 Next-Layout words for Clips, Storyboard and small words; #787 UX audit fold-in; #776, #806 Flow-QA checklists
 - 2026-10-29 03:42 · Process (#813): three push rules for agents: check the PR is still open before every push, branch every PR from its base (never from another open PR), don't push to a head after QA passes it unless the Producer asks merged
 - 2026-10-29 03:15 · #804 Usage says Finished · changes waiting too, and In production's count of them links to Usage merged

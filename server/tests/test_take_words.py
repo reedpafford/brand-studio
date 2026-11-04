@@ -57,7 +57,8 @@ def test_the_brand_said_wrong_is_flagged_with_how_to_say_it(misheard):
     found = compare(LINES, _heard(f"{misheard} made me rich!", "No way."), "fomo", "FOH-moh", [])
     assert _kinds(found) == [("name", 0.5)]
     assert "Listen first: the transcript can mishear." in found[0]["text"]
-    assert found[0]["change_note"] == f"Say fomo as FOH-moh, never “{misheard}”."
+    # never quoting the word misheard: a Redo note may quote only what the clip says
+    assert found[0]["change_note"] == "Say fomo as FOH-moh."
 
 
 def test_words_near_the_brand_that_arent_it_are_left_alone():
@@ -169,3 +170,35 @@ def test_takes_are_heard_with_their_sounds_and_the_stand_in_gasps_on_cue(monkeyp
     assert asked == {"sounds": True}  # whisper keeps its "(gasps)" tags for a take
     said = [h["text"] for h in hear_take(tmp_path, {"lines": LINES, "prompt": "fake:gasp"})]
     assert said[-1] == "(gasps)"
+
+
+def test_in_a_song_or_narrated_video_any_voice_in_a_take_is_a_fault():
+    """Song-Producer: B-roll only; nobody speaks or sings on screen."""
+    from app.take_words import voices
+
+    heard = [{"start": 0.5, "end": 1.8, "text": "Can't believe it worked.", "speaker": None},
+             {"start": 2.0, "end": 2.4, "text": "(music)", "speaker": None}]  # fmt: skip
+    (found,) = voices(heard, "song")
+    assert found["kind"] == "voiced" and found["span"] == [0.5, 1.8]
+    assert (
+        found["text"].startswith("“Can't believe it worked.” at 0:00")
+        and "song video" in (found["text"])
+    )
+    assert found["change_note"].endswith("the song carries every word.")
+    assert voices([], "narrated") == []
+    assert voices(heard, "narrated")[0]["change_note"].endswith("the narrator carries every word.")
+
+
+def test_a_narrated_takes_voices_are_muted_at_once(db, monkeypatch):
+    from types import SimpleNamespace
+
+    from app import take_words
+
+    take = SimpleNamespace(made_with={}, clip_id=1)
+    monkeypatch.setattr(take_words.plans, "fmt", lambda db, project: "narrated")
+    monkeypatch.setattr(db, "get", lambda model, i: {"ClipTake": take}.get(
+        model.__name__, SimpleNamespace(seconds=5)))  # fmt: skip
+    row = SimpleNamespace(project_id=1, target_id=1,
+                          findings=[{"kind": "voiced", "span": [0.5, 1.8]}])  # fmt: skip
+    take_words._mute_voices(db, row)
+    assert take.made_with["mutes"] == [[0.5, 1.8]]

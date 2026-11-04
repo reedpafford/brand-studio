@@ -441,7 +441,7 @@ def _make_look(
 
 
 NOT_IN_LOOK = "This character isn't one that needs its own look in this video."
-HAS_LOOK = "{} already has a look in this video's look."
+HAS_LOOK = "{} already has a look in this video's style."
 
 
 @router.post(

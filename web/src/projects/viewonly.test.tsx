@@ -21,7 +21,7 @@ const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, cr
 const clip = { id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: 51, takes: [take(1, 1)], picked_take_id: 1, approved: false, stale: false, take_credits: 24, inserts: [] };
 const settings = {
   look: "house", video_model: null, image_model: null, aspect_ratio: "9:16", product_variants: {}, language: "en",
-  video_models: [{ id: "seedance-2.5", name: "Seedance 2.5", credits_per_second: 1, lip_sync: true, default: true, over_cap: false }], image_models: [], shapes: ["9:16", "1:1"], flavours: {},
+  video_models: [{ id: "seedance-2.5", name: "Seedance 2.5", credits_per_second: 1, lip_sync: true, default: true }], image_models: [], shapes: ["9:16", "1:1"], flavours: {},
 };
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, eli],
@@ -71,7 +71,7 @@ for (const [step, ready] of [
     expect(live().map((b) => b.textContent?.trim() || b.getAttribute("aria-label")).filter((n) => CHANGES.test(n ?? ""))).toEqual([]);
     for (const f of within(screen.getByRole("main")).queryAllByRole("textbox")) expect(f.matches("[readonly], :disabled")).toBe(true);
     for (const b of within(screen.getByRole("tablist", { name: "Steps" })).getAllByRole("tab")) expect(b).toBeEnabled(); // moving between steps is looking
-    expect(screen.getByRole("button", { name: "Show script" })).toBeEnabled();
+    if (step !== "storyboard" && step !== "clips") expect(screen.getByRole("button", { name: "Show script" })).toBeEnabled(); // Clips (v5) shows its count there
     const bar = screen.getByRole("region", { name: "Cost" });
     for (const b of within(bar).queryAllByRole("button").filter((b) => !/^Next:/.test(b.textContent ?? ""))) {
       expect(b).toBeDisabled();

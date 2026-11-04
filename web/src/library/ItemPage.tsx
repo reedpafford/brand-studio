@@ -6,14 +6,16 @@ import { fileUrl, uploadFile } from "../api/upload";
 import type { components } from "../api/schema";
 import { useToast } from "../toast";
 import { useBrands } from "../shell/useBrands";
-import { PageTop } from "../components";
+import { Button, Menu, MenuItem } from "../components";
 import { backLink, btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
+import { ItemView } from "./ItemView";
 import { CharacterExtras } from "./CharacterExtras";
 import { SheetPanel } from "./SheetPanel";
 import { LookSheets } from "./LookSheets";
 import { SheetVersions } from "./SheetVersions";
 import { KINDS, isKindSlug } from "./kinds";
 import { serverTime } from "../time";
+import { useRail } from "../useMedia";
 
 type Item = components["schemas"]["ItemOut"];
 
@@ -50,6 +52,9 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
     main_claim: item.main_claim ?? "",
   };
   const [form, setForm] = useState(start);
+  // v5 (G_Character, G_Place, G_Prop): the item reads as a page; Edit opens the form in its place. A save shows the page again.
+  const [editing, setEditing] = useState(false);
+  const rail = useRail();
   const changed = JSON.stringify(form) !== JSON.stringify(start);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
   const path = { kind, item_id: item.id };
@@ -90,20 +95,52 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
 
   return (
     <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">
-      <Link to={backTo ?? `/b/${brandId}/library/${slug}`} className={backLink}>
-        {backTo ? "← Back to your video" : `← ${title}`}
-      </Link>
-      <PageTop title={item.name} line={others.length > 0 ? `Shared with ${others.join(", ")}. Changes apply there too.` : undefined} />
-      {/* Full width like the other library pages (W10): the sheets on the left, the details on the right. */}
-      <div className={kind === "prop" ? "max-w-3xl space-y-6" : "grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-10"}>
-      {kind !== "prop" && (
-        <div className="min-w-0 space-y-6">
-          <SheetPanel item={item} kind={kind} ensureSaved={async () => changed && form.brand_ids.length > 0 && (await save.mutateAsync())} />
-          {kind === "character" && <LookSheets item={item} />}
-          <SheetVersions item={item} kind={kind} />
-        </div>
+      {backTo && (
+        <Link to={backTo} className={backLink}>
+          ← Back to your video
+        </Link>
       )}
-      <div className="min-w-0 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+        <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm text-muted">
+          <Link to={`/b/${brandId}/library/characters`} className="inline-flex min-h-control min-w-11 items-center justify-center hover:text-text sm:min-h-control-dense">Cast &amp; places</Link>
+          <span aria-hidden>›</span>
+          <Link to={`/b/${brandId}/library/${slug}`} className="inline-flex min-h-control min-w-11 items-center justify-center hover:text-text sm:min-h-control-dense">{slug === "props" ? "Props & products" : title}</Link>
+          <span aria-hidden>›</span>
+          <span className="font-medium text-text" aria-current="page">{item.name}</span>
+        </nav>
+        <div className="flex items-center gap-1">
+          {!editing && <Button variant="ghost" onClick={() => setEditing(true)}>Edit</Button>}
+          <Menu title="More" align="right" trigger={(t) => <Button variant="ghost" {...t}>More</Button>}>
+            {(close) => (
+              <MenuItem danger onClick={() => { close(); archive.mutate(); }}>
+                Archive {one}
+              </MenuItem>
+            )}
+          </Menu>
+        </div>
+      </div>
+      {archive.isError && <p role="alert" className={errorClass}>{archive.error.message}</p>}
+      <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+        <div className="order-2 min-w-0 space-y-6 lg:order-1">
+          {kind === "prop" ? (
+            <PropPictures ids={item.image_file_ids ?? []} name={item.name} onAdd={() => setEditing(true)} />
+          ) : (
+            <>
+              <SheetPanel item={item} kind={kind} ensureSaved={async () => changed && form.brand_ids.length > 0 && (await save.mutateAsync())} />
+              <SheetVersions item={item} kind={kind} />
+            </>
+          )}
+        </div>
+        {kind === "character" && !rail && (
+          <div className="order-3 min-w-0">
+            <LookSheets item={item} />
+          </div>
+        )}
+        {/* On a phone the name and its sections come first, the sheet after (QA-3 on #1204: not 1,500 px down). */}
+        <div className="order-1 min-w-0 max-w-[720px] space-y-0 lg:order-2">
+      {!editing ? (
+        <ItemView item={item} kind={kind} shared={others as string[]} brandNames={(item.brand_ids ?? []).map((id) => brands?.find((b) => b.id === id)?.name).filter((n): n is string => !!n)} onEdit={() => setEditing(true)} />
+      ) : (
       <form onSubmit={submit} className={`${card} space-y-4`}>
         {kind === "prop" && (
         <div className="space-y-2">
@@ -179,17 +216,22 @@ function ItemEditor({ item, slug, brandId }: { item: Item; slug: keyof typeof KI
           {form.brand_ids.length > 0 && item.brand_ids?.includes(brandId) && !form.brand_ids.includes(brandId) && (
             <span className="text-sm text-warning">This will remove {form.name} from {currentName}'s library.</span>
           )}
+          <button type="button" className={`${btnSecondary} min-h-control`} onClick={() => { setForm(start); setEditing(false); }}>
+            Cancel
+          </button>
         </div>
       </form>
-      <History kind={kind} item={item} onRestored={refresh} />
-      {archive.isError && <p role="alert" className={errorClass}>{archive.error.message}</p>}
-      <button
-        className={`${btnSecondary} min-h-control`}
-        onClick={() => archive.mutate()}
-      >
-        Archive {one}
-      </button>
-      </div>
+      )}
+          {/* A character's sheets in other styles: a full-width row here, not squeezed under the house sheet. On a phone
+              they come after the House sheet instead (QA-3 on #1204: name, sections, House sheet, other styles). */}
+          {kind === "character" && rail && (
+            <div className="border-t border-border pt-4">
+              <LookSheets item={item} />
+            </div>
+          )}
+          {/* History stays under the page and the form alike: a restore works from either. */}
+          <History kind={kind} item={item} onRestored={refresh} />
+        </div>
       </div>
     </main>
   );
@@ -216,8 +258,10 @@ function History({ kind, item, onRestored }: { kind: "character" | "place" | "pr
     },
   });
   const who = (id: number | null) => members.data?.find((m) => m.id === id)?.name ?? "someone";
+  // Nothing to restore yet (only the version in use): no History at all (QA-3 on #1204).
+  if (!versions.data || versions.data.filter((v) => v.version !== item.version).length === 0) return null;
   return (
-    <section className="space-y-2">
+    <section className="space-y-2 border-t border-border pt-4">
       <h2 className="text-[length:var(--text-md)] font-semibold">History</h2>
       {restore.isError && <p role="alert" className={errorClass}>{restore.error.message}</p>}
       <ul className="divide-y divide-border text-sm">
@@ -234,6 +278,25 @@ function History({ kind, item, onRestored }: { kind: "character" | "place" | "pr
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** A prop's pictures (G_Prop): the first large, the rest small; adding one opens Edit, where pictures are added and removed. */
+function PropPictures({ ids, name, onAdd }: { ids: number[]; name: string; onAdd: () => void }) {
+  return (
+    <section aria-label="Pictures" className="space-y-3">
+      {ids[0] ? (
+        <img src={fileUrl(ids[0])} alt={name} className="aspect-square w-full rounded-md border border-border bg-surface-2 object-cover" />
+      ) : (
+        <div className="grid aspect-square w-full place-items-center rounded-md border border-border bg-surface-2 text-muted">No picture yet</div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {ids.length > 1 && ids.map((id, n) => (
+          <img key={id} src={fileUrl(id)} alt={`${name} ${n + 1}`} className="size-16 rounded-md border border-border bg-surface-2 object-cover" />
+        ))}
+        <Button variant="ghost" onClick={onAdd}>Add image</Button>
+      </div>
     </section>
   );
 }

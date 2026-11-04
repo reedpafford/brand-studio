@@ -34,7 +34,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
   "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145 }],
 };
 
 function open(query = "?step=cast") {
@@ -94,7 +94,8 @@ test("?step=make opens Clips: the clip list, and the picked clip's takes with it
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, [{ ...done }]] });
   open("?step=make");
   expect(await screen.findByRole("tab", { name: "Clips", selected: true })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Clips", level: 2 })).toBeNull(); // v5: the list is the heading, its count ends the tabs
+  expect(screen.getByText("1 of 1 approved")).toBeInTheDocument();
   expect(within(screen.getByRole("list", { name: "Clip list" })).getByRole("button", { name: /^Clip 1 · 8 s/ })).toHaveAttribute("aria-current", "true");
   const card = await screen.findByLabelText("Clip c1");
   expect(within(card).getByLabelText("Frame c1")).toBeInTheDocument(); // its still, with the still's own presses
@@ -115,6 +116,18 @@ test("the picked clip's approved still is a small thumbnail beside its prompt, s
   expect(within(sheet).getByRole("button", { name: "Undo approve" })).toBeInTheDocument();
   expect(within(sheet).getByRole("button", { name: /Make another/ })).toBeInTheDocument();
   expect(within(sheet).getByLabelText("Change this… still c1")).toBeInTheDocument();
+});
+
+test("v5: one press makes the next take, at its exact price; a note typed for the next take makes it the note's, priced up to", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]], "GET /projects/9/clips/3/change": [200, { credits: 27 }] });
+  open("?step=clips");
+  const card = await clipCard("c1");
+  const make = within(card).getByRole("button", { name: "Make another take · 24 credits" });
+  expect(make).toHaveTextContent(/^Make · 24 credits$/); // the tile already says Another take
+  expect(within(card).queryAllByRole("button", { name: /Change it/ })).toHaveLength(0); // no second press beside the note
+  await userEvent.type(within(card).getByLabelText("Note for the next take c1"), "Slower");
+  expect(within(card).getByRole("button", { name: "Change it and make a new take · up to 27 credits" })).toHaveTextContent(/^Make · up to 27 credits$/);
 });
 
 test("a Review link's ?to= picks its clip once: a press on another clip in the list wins while ?to= stays (QA-11)", async () => {
@@ -285,7 +298,7 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false, stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: true }] });
   open("?step=clips");
   expect(await screen.findByLabelText("Clip c1")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Clips", level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Clip list" })).toBeInTheDocument();
 });
 
 test("Final cut puts the clips together by itself the first time, for free", async () => {
@@ -446,6 +459,49 @@ test("what the note changed shows only the changed words, struck and bold, with 
   expect(within(changed).getByRole("button", { name: "Show the whole prompt" })).toBeInTheDocument();
 });
 
+test("on the video page, Undo of a redone frame waits for the new still, then picks the earlier one back (#749 LW3, the server's order in #808)", async () => {
+  setViewport(390);
+  const at = (frame: object) => ({ ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown], "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }] as [number, unknown], "POST /projects/9/storyboard/frames/1/pick": [200, {}] as [number, unknown] });
+  const redo = { note: "Redo this frame", job_id: 51, was_file_id: 40, before: "p", after: "p2" };
+  // 1. The prompt is being written again.
+  fakeServer(at(still({ stale: true, redo_credits: 4, change: { ...redo, status: "changing" } })));
+  open("?step=storyboard");
+  expect(await screen.findByText("Making the change…")).toBeInTheDocument();
+  // 2. Written, its still drawing: still "changing", so no Undo yet.
+  fakeServer(at(still({ prompt: "p2", drawing: true, change: { ...redo, status: "changing", made_job_id: 52 } })));
+  expect(await screen.findByText("Drawing…", {}, { timeout: 9000 })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  // 3. The new still lands, the earlier one kept: Undo stays on the card (not only a toast).
+  fakeServer(at(still({ prompt: "p2", file_id: 41, earlier: [{ file_id: 40, prompt: "p" }], change: { ...redo, status: "done", made_job_id: 52 } })));
+  expect(await screen.findByText("Redone from the new breakdown. The earlier still is kept.", {}, { timeout: 9000 })).toBeInTheDocument();
+  // 4. Undo picks the earlier still; once it is back, there is nothing to undo.
+  const calls = fakeServer(at(still({ prompt: "p", file_id: 40, earlier: [{ file_id: 41, prompt: "p2" }], change: { ...redo, status: "done", made_job_id: 52 } })));
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/pick")?.body).toMatchObject({ file_id: 40 }));
+  await vi.waitFor(() => expect(screen.queryByText(/Redone from the new breakdown/)).toBeNull());
+}, 30000);
+
+test("a redo keeps reading through one stray failed read between its rewrite and its still, and ends with Undo (#803, QA-2's 2 in 12)", async () => {
+  setViewport(390);
+  const now = new Date().toISOString();
+  const at = (frame: object, jobs: object[] = []) => ({ ...base, "GET /projects/9/assets": [200, []] as [number, unknown], "GET /projects/9/storyboard": [200, [frame]] as [number, unknown], "GET /projects/9/storyboard/frames/1/change": [200, { credits: 4 }] as [number, unknown], "GET /jobs": [200, jobs] as [number, unknown], "POST /projects/9/storyboard/frames/1/redo": [201, { id: 51, kind: "write-claude", status: "queued", credits: 4, project_id: 9, created_at: now }] as [number, unknown] });
+  const redo = { note: "Redo this frame", job_id: 51, was_file_id: 40, before: "p", after: "p2" };
+  fakeServer(at(still({ stale: true, redo_credits: 4 })));
+  open("?step=storyboard");
+  const press = await screen.findByRole("button", { name: /Redo this frame/ });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  // The server answers the press's read in the gap between the rewrite and its still: "failed", nothing drawing.
+  fakeServer(at(still({ prompt: "p2", change: { ...redo, status: "failed", error: "That change didn't finish, so nothing was charged. Try again." } }), [{ id: 51, kind: "write-claude", status: "succeeded", project_id: 9, credits: 4, created_at: now, finished_at: now }]));
+  await userEvent.click(press);
+  expect(await screen.findByText(/That change didn't finish/)).toBeInTheDocument();
+  // The next read has the still on its way, then landed: the page kept reading, so it ends with Undo.
+  fakeServer(at(still({ prompt: "p2", drawing: true, change: { ...redo, status: "changing", made_job_id: 52 } })));
+  expect(await screen.findByText("Drawing…", {}, { timeout: 9000 })).toBeInTheDocument();
+  fakeServer(at(still({ prompt: "p2", file_id: 41, earlier: [{ file_id: 40, prompt: "p" }], change: { ...redo, status: "done", made_job_id: 52 } })));
+  expect(await screen.findByText("Redone from the new breakdown. The earlier still is kept.", {}, { timeout: 9000 })).toBeInTheDocument();
+  expect(screen.queryByText(/That change didn't finish/)).toBeNull();
+}, 30000);
+
 test("a note that left the prompt as it was says so, and nothing is made", async () => {
   setViewport(1440);
   fakeServer({
@@ -508,6 +564,7 @@ test("a take that failed before the prompt was changed no longer reads as failin
   expect(within(card).queryByText(/couldn't finish this/)).toBeNull();
   expect(within(card).queryByText("Failed · credits returned")).toBeNull();
   expect(within(card).getByText(/Prompt updated\. Read it, then press Make clip/)).toBeInTheDocument();
+  await userEvent.type(within(card).getByLabelText("Note for the next take c1"), "Slower"); // a note makes the tile's press the note's
   expect(within(card).getByRole("button", { name: "Change the prompt · up to 3 credits" })).toBeInTheDocument(); // no take yet: only the prompt
 });
 
@@ -539,8 +596,9 @@ test("when the newest take failed but an earlier take is picked, the clip stays 
   const line = await within(card).findByText(/The newest take didn't work; Take 1 is still picked\./);
   expect(line.closest("p")).toHaveClass("text-muted");
   expect(within(card).queryByText("Didn't finish")).toBeNull();
-  expect(within(card).getByRole("button", { name: "Change it and make a new take · up to 22 credits" })).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: /Make another take/ })).toBeEnabled(); // the failed one can be tried again: no dead end
+  expect(within(card).getByRole("button", { name: "Make another take · 24 credits" })).toBeEnabled(); // tried again at its exact price: no dead end
+  await userEvent.type(within(card).getByLabelText("Note for the next take c1"), "Slower");
+  expect(within(card).getByRole("button", { name: "Change it and make a new take · up to 22 credits" })).toBeEnabled();
 });
 
 test("when the newest take failed and no take is picked, the clip still reads Failed and points to the other takes", async () => {
@@ -554,7 +612,7 @@ test("when the newest take failed and no take is picked, the clip still reads Fa
   open("?step=clips");
   const card = await screen.findByLabelText("Clip c1");
   expect((await within(card).findByText(/The last try didn't finish; your other takes are below\./)).closest("p")).toHaveClass("text-danger");
-  expect(within(card).getByText("Didn't finish")).toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Clip list" })).getByRole("button", { name: /^Clip 1 / })).toHaveTextContent("Didn't finish");
 });
 
 test("once a clip has a take, Change it shows the full price (rewrite and take), not the rewrite-only price read before", async () => {
@@ -575,7 +633,9 @@ test("once a clip has a take, Change it shows the full price (rewrite and take),
   open("?step=clips");
   await userEvent.type(await screen.findByLabelText("Note for the next take c1"), "Slower");
   expect(await screen.findByRole("button", { name: "Change the prompt · up to 3 credits" })).toBeInTheDocument();
+  await userEvent.clear(screen.getByLabelText("Note for the next take c1")); // an empty note: the tile makes the take as it is
   await userEvent.click(screen.getByRole("button", { name: /^Make clip/ }));
+  await userEvent.type(await screen.findByLabelText("Note for the next take c1"), "Slower");
   expect(await screen.findByRole("button", { name: "Change it and make a new take · up to 22 credits" }, { timeout: 9000 })).toBeInTheDocument();
 }, 15000);
 
@@ -857,6 +917,47 @@ test("a problem line never shows a raw id: the character's name stands in, the c
   const keepLabels = within(advice).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? "");
   expect(keepLabels.some((l) => l.startsWith("Keep anyway: "))).toBe(true);
   expect(keepLabels.join(" ")).not.toMatch(/char:|slot:/); // the screen reader hears names too
+});
+
+test("a take made from an older Cast & places look says Out of date, stays approved, and offers Make another take or Keep anyway (N6)", async () => {
+  setViewport(390);
+  const older = "Advice: Its take was made from an older look of Bo. Make another take to show it.";
+  const calls = fakeServer({
+    ...toClips,
+    "GET /projects/9/clips": [200, [clip({ prompt_ok: true, approved: true, take_stale: true, takes: [take(1, 1)], picked_take_id: 1, file_id: 51, problems: [older] })]],
+    "POST /projects/9/clips/3/keep": [200, {}],
+  });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).getByText("Out of date")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Undo approval" })).toBeInTheDocument(); // a sheet edit never unapproves
+  expect(within(card).getByRole("button", { name: /^Make another take/ })).toBeEnabled();
+  const advice = within(card).getByLabelText("Advice for c1");
+  await userEvent.click(within(advice).getByText(/Advice \(/));
+  expect(advice).toHaveTextContent("Its take was made from an older look of Bo");
+  await userEvent.click(within(advice).getAllByRole("button").find((b) => (b.getAttribute("aria-label") ?? "").startsWith("Keep anyway: "))!);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/3/keep")?.body).toMatchObject({ problem: older }));
+});
+
+test("Downloads agrees with the lists: a take from an older look marks the finished video Out of date, and Make it again waits for a new take or Keep anyway (N6)", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [{ ...done, take_stale: true }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  open("?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
+  expect(screen.getByText("Out of date.")).toBeInTheDocument();
+  expect(screen.queryByText("Ready")).toBeNull();
+  expect(screen.getByText(/every clip approved/)).toBeInTheDocument(); // still approved
+  expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Make another take on Clips, or keep the older look (1 left)");
+  expect(screen.getByText("A clip's take shows an older look from Cast & places. This MP4 still downloads. Making it again is free.")).toBeInTheDocument();
+  expect(screen.queryByText(/Clips changed since/)).toBeNull();
+});
+
+test("a take from the current look shows no Out of date", async () => {
+  setViewport(390);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true, approved: true, take_stale: false, takes: [take(1, 1)], picked_take_id: 1, file_id: 51 })]] });
+  open("?step=clips");
+  const card = await screen.findByLabelText("Clip c1");
+  expect(within(card).queryByText("Out of date")).toBeNull();
 });
 
 test("a frame's problem reads as a name too", async () => {
@@ -1549,8 +1650,8 @@ test("the video's back link says where it goes: this brand's videos", async () =
 test("Storyboard's counts are said once, in the step heading's line", async () => {
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [] }]], "GET /projects/9/clips": [200, []] });
   open("?step=storyboard");
-  expect(await screen.findByText("1 still · 1 approved")).toBeInTheDocument();
-  expect(screen.queryByText(/· 1 still · 1 approved/)).toBeNull(); // no second heading in the work area
+  expect(await screen.findByText("1 of 1 stills approved")).toBeInTheDocument(); // at the end of the tabs (v5)
+  expect(screen.queryByText(/1 still · 1 approved/)).toBeNull(); // said once
 });
 
 test("changing the shape after stills exist asks in the app, says the stills keep their shape, and is free", async () => {
@@ -1618,15 +1719,15 @@ test("switching the look re-reads the cast, so a role with no sheet in the new l
     "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }]],
     "GET /looks": [200, looks],
     "GET /projects/9/settings": [200, settings],
-    "POST /projects/9/settings/preview": [200, { to_finish_credits: 30, was_credits: 30, stills_out_of_date: 1, clips_out_of_date: 0, sung_to_broll: 0, over_budget: false, over_cap: false, reason: null, roles_needing_look: ["Bo"] }],
+    "POST /projects/9/settings/preview": [200, { to_finish_credits: 30, was_credits: 30, stills_out_of_date: 1, clips_out_of_date: 0, sung_to_broll: 0, over_budget: false, reason: null, roles_needing_look: ["Bo"] }],
     "POST /projects/9/settings": [200, { settings: { ...settings, look: "pixar" }, was: { look: "house" } }],
   };
   fakeServer(routes);
   open("?step=storyboard");
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(screen.queryByText("Waiting on the cast")).toBeNull();
-  await userEvent.click(await screen.findByRole("button", { name: /Look: House/ }));
-  await userEvent.click((await screen.findAllByRole("button", { name: "Use this look" }))[0]);
+  await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
+  await userEvent.click((await screen.findAllByRole("button", { name: "Use this style" }))[0]);
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
   routes["GET /projects/9/assets"] = [200, [asset({ locked: true })]]; // Bo has no sheet in Disney Pixar yet
   await userEvent.click(await within(ask).findByRole("button", { name: "Switch" }));
@@ -1749,7 +1850,7 @@ test("the clip list: each clip's still, length, script line and status; a row op
   expect(row(2)).toHaveAttribute("aria-current", "true"); // it opens on the first clip that needs you
   const card = await screen.findByLabelText("Clip c2");
   expect(within(card).getByRole("button", { name: "Approve take 2" })).toBeInTheDocument();
-  expect(within(card).getByLabelText("Take 1")).toHaveTextContent("Use this take"); // the other take, side by side
+  expect(within(within(card).getByLabelText("Take 1")).getByRole("button", { name: "Use take 1" })).toBeInTheDocument(); // the other take, side by side
   expect(within(card).getByRole("button", { name: /^Make another take/ })).toBeInTheDocument();
   await userEvent.click(row(3));
   expect(await screen.findByLabelText("Clip c3")).toBeInTheDocument();

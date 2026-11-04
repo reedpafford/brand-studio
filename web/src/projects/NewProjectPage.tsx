@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
-import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices, useLongestSeconds } from "./BriefPickers";
+import { CastPicker, FlavourPicker, ReferencePicker, useBriefChoices } from "./BriefPickers";
 import { backLink, btnPrimary, errorText as errorClass, input, linkText, pageTitle } from "../ui";
 
 const ASPECTS = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;
@@ -22,7 +22,6 @@ export function NewProjectPage() {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
 
   const { characters, products, chosen, unchosen } = useBriefChoices(brandId, picks);
-  const longest = useLongestSeconds();
 
   const upload = useMutation({ mutationFn: uploadFile, onSuccess: (f) => setReference(f.id) });
   const create = useMutation({
@@ -101,7 +100,7 @@ export function NewProjectPage() {
         </label>
         <label className="block text-sm">
           Planned length (seconds)
-          <input className={input} type="number" required min={1} max={longest} value={form.seconds} onChange={(e) => set("seconds", Number(e.target.value))} />
+          <input className={input} type="number" required min={1} value={form.seconds} onChange={(e) => set("seconds", Number(e.target.value))} />
           <span className="block text-muted">Budget: {form.seconds * 2} credits (twice the length).</span>
         </label>
         <CastPicker characters={characters.data} cast={cast} onChange={setCast} />

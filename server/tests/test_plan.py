@@ -78,7 +78,8 @@ def test_change_this_scene_keeps_its_lines_and_carries_the_plan():
         "the changed scene's lines differ: keep the same lines, in order"
     ]
     text = prompts.system("plan_scene")
-    assert text.startswith(prompts.system("plan")) and "**Change one scene.**" in text
+    plan = prompts.system("plan").split("\n\n## Producer craft")[0]  # the skill comes last
+    assert text.startswith(plan) and "**Change one scene.**" in text
     assert prompts.SCHEMAS["plan_scene"] is PlanScene and prompts.SCHEMAS["plan"] is ScenePlan
     block = prompts.plan_block(GOOD, SCRIPT)
     assert "Scene 2 (Problem): INT. KITCHEN — DAY · char:1" in block
@@ -89,7 +90,13 @@ def test_change_this_scene_keeps_its_lines_and_carries_the_plan():
 
 def test_the_plan_prompt_keeps_the_words_and_names_its_patterns():
     text = prompts.system("plan")
-    for part in ("rule 19", "rule 29", "**Proven patterns**", "**Pet supplement:**", "★"):
+    for part in (
+        "The editor owns the script",
+        "never crosses a place or time change",
+        "**Proven patterns**",
+        "**Pet supplement:**",
+        "★",
+    ):
         assert part in text, part
     message = prompts.plan_input("Brief.", ["char:1 Biscuit: a pit bull"], SCRIPT, "narrated",
                                  "Seedance, 12 s a clip", note="make it funny")  # fmt: skip

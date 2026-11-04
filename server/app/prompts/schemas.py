@@ -259,7 +259,8 @@ class SongDirection(BaseModel):
     concept: str = Field(description="1–2 sentences: the song's vibe and the angle it sings.")
     lyrics: str = Field(
         description="The whole song, one sung line a line, with section tags on their own "
-        "lines ([Verse 1], [Chorus], [Bridge]); the last sung line names the brand."
+        "lines ([Verse 1], [Chorus], [Bridge]); the brand where the song brings it in, never "
+        "forced into the last line."
     )
     style_line: str = Field(
         description="Under 25 words: genre, vocal, tempo or BPM, mood, production; never an "
@@ -576,11 +577,49 @@ class CutWatch(BaseModel):
     )
 
 
+# --- The treatment (the Producer, 2 Nov): the director's first move, why the video holds ---
+
+
+class Beat(BaseModel):
+    id: str = Field(description="'b1', 'b2', … in order.")
+    lines: list[int] = Field(description="The script line numbers this beat covers, in order.")
+    purpose: str = Field(description="What it does for the story: hook, escalate, turn, payoff…")
+    picture: str = Field(description="What we see: something happening, readable with no sound.")
+
+
+class Treatment(BaseModel):
+    hook: str = Field(description="The first 2 seconds: what we see and hear.")
+    logline: str = Field(description="The story in one plain sentence.")
+    why_it_holds: str = Field(description="Why a viewer of this look keeps watching.")
+    beats: list[Beat] = Field(
+        description="The video in order; together every line but the scene headings, once."
+    )
+    ending: str = Field(description="The payoff and the call to action, and why they land.")
+
+
+# --- Review the stills (the Producer, 2 Nov): against the treatment, before any take ---
+
+
+class StillFinding(BaseModel):
+    shot_id: str = Field(description="The still's shot, from <frames>: '3.1'.")
+    problem: str = Field(description="One plain line for the owner: what's wrong for the story.")
+    note: str = Field(description="The change note for the redraw, ready to send.")
+
+
+class StillsReview(BaseModel):
+    ready: bool = Field(description="True when the stills tell the treatment and takes can start.")
+    findings: list[StillFinding] = Field(
+        max_length=8, description="Worst first; only what a viewer would notice; empty if ready."
+    )
+
+
 # --- The director (director-chat.md §5): one decision a turn, run by the server ---
 class DirectorTurn(BaseModel):
     tool: Literal[
-        "plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take", "pick_take",
-        "final_cut", "watch_cut", "mute", "wait", "deliver", "stop",
+        "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
+        "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
+        "mute", "splice_word", "add_sound", "song", "narration", "host", "wait", "deliver",
+        "stop",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -588,16 +627,38 @@ class DirectorTurn(BaseModel):
     )  # fmt: skip
     clip_id: str | None = Field(
         default=None,
-        description="For make_take, pick_take and mute: the clip, e.g. 'c3'. For make_take, null "
-        "makes a first take of every clip that has none. Else null.",
+        description="For make_take, pick_take, mute, splice_word and add_sound: the clip, e.g. "
+        "'c3'. For make_take, null makes a first take of every clip that has none; for "
+        "add_sound, null adds sound to every silent take in the cut. Else null.",
     )
     take_id: int | None = Field(
-        default=None, description="For pick_take: the take's id (not its number); else null."
+        default=None,
+        description="For pick_take: the take's id (not its number). For song or narration "
+        "with no note: the take to use. Else null.",
+    )
+    shot_id: str | None = Field(
+        default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
+    )
+    voice: Literal["Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger"] | None = Field(
+        default=None,
+        description="For narration being made: the narrator's voice; null gives Sarah on the "
+        "first narration and keeps the voice in use on a remake. Else null.",
+    )
+    word: str | None = Field(
+        default=None,
+        description="For splice_word: the brand word as the script spells it, e.g. 'fomo', from "
+        "that clip's can_splice; else null.",
     )
     note: str = Field(
         default="",
-        description="For make_take as a redo: what to fix, from the take check's notes, in plain "
-        "words (e.g. 'say fomo as FOH-moh; no extra people'); else empty.",
+        description="What it must change, in plain words: for make_take as a redo, what to fix "
+        "(e.g. 'say fomo as FOH-moh; no extra people'); for redraw_still, what the beat needs "
+        "in the frame; for treatment or plan made again, what changes; for song with no style "
+        "yet, the style line ('laid-back breezy pop, warm female vocal, 100 BPM, acoustic "
+        "guitar, sunny, modern polished'); for song made again, the music's change ('vocals "
+        "start immediately, no instrumental intro'); for narration "
+        "made again, the voice's change ('slower and warmer'); for add_sound, the sounds "
+        "asked for and how much, in the person's words ('slight sound effects'); else empty.",
     )
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "

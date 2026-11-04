@@ -31,7 +31,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
   "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145 }],
 };
 
 function open(query = "?step=cast") {
@@ -93,7 +93,7 @@ test("a clean check is only ✓ checked in the chip; checking and a failed check
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips] }));
   open("?step=clips");
   const c1 = await clipCard("c1");
-  expect(within(c1).getByText("Approved · ✓ checked")).toBeInTheDocument();
+  expect(within(c1).getByText("Approved · Check found nothing")).toBeInTheDocument(); // under the picked take (v5)
   expect(within(await clipCard("c2")).getByText("Checking…")).toBeInTheDocument();
   expect(within(await clipCard("c2")).getByRole("button", { name: "Approve take 1" })).toBeEnabled();
   expect(within(await clipCard("c3")).getByText("Couldn't check this one.")).toBeInTheDocument();
@@ -156,7 +156,7 @@ test("Approve all approves items with Advice too, and says how many", async () =
   expect(await screen.findByText(/1 approved with Advice, listed under items with Advice\./)).toBeInTheDocument();
 });
 
-test("the look's own fixes: Fixed for the look with Undo before the still is drawn, and its tip beside a refusal and a note", async () => {
+test("the look's own fixes: Fixed for the style with Undo before the still is drawn, and its tip beside a refusal and a note", async () => {
   setViewport(390);
   const fixed = { fixed: ["stage → world"], before: "On a stage, Bo grins.", after: "In a world, Bo grins." };
   const calls = fakeServer(routes({
@@ -166,13 +166,13 @@ test("the look's own fixes: Fixed for the look with Undo before the still is dra
   }));
   open("?step=storyboard");
   await pickClip("c1");
-  const note = await screen.findByRole("note", { name: "Fixed for the look" });
-  expect(within(note).getByText("Fixed for the look: stage → world.")).toBeInTheDocument();
+  const note = await screen.findByRole("note", { name: "Fixed for the style" });
+  expect(within(note).getByText("Fixed for the style: stage → world.")).toBeInTheDocument();
   await userEvent.click(within(note).getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/storyboard/frames/1")?.body).toMatchObject({ prompt: fixed.before }));
   await pickClip("c2");
   await userEvent.click(screen.getByRole("button", { name: "1 note on clip c2" }));
-  expect(within(screen.getByRole("dialog")).getByText("For this look: Make another first.")).toBeInTheDocument();
+  expect(within(screen.getByRole("dialog")).getByText("For this style: Make another first.")).toBeInTheDocument();
 });
 
 test("after Undo (the prompt is the one before) the note goes, though the server still sends look_fixed", async () => {
@@ -180,14 +180,14 @@ test("after Undo (the prompt is the one before) the note goes, though the server
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, file_id: null, prompt: "a", look_fixed: { fixed: ["stage → world"], before: "a", after: "b" } }]] }));
   open("?step=storyboard");
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
-  expect(screen.queryByRole("note", { name: "Fixed for the look" })).toBeNull();
+  expect(screen.queryByRole("note", { name: "Fixed for the style" })).toBeNull();
 });
 
-test("once the still is drawn, Fixed for the look shows what changed without an Undo that would redraw", async () => {
+test("once the still is drawn, Fixed for the style shows what changed without an Undo that would redraw", async () => {
   setViewport(1440);
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, prompt: "b", look_fixed: { fixed: ["stage → world"], before: "a", after: "b" } }]] }));
   open("?step=storyboard");
-  const note = await screen.findByRole("note", { name: "Fixed for the look" });
+  const note = await screen.findByRole("note", { name: "Fixed for the style" });
   expect(within(note).queryByRole("button", { name: "Undo" })).toBeNull();
 });
 
@@ -196,7 +196,7 @@ test("a refused take shows the look's fix beside its own press", async () => {
   const clips = [clip({ id: 4, clip_id: "c2", take_warning: "The video model refused this prompt.", look_fix: "Take out any studio or film name, then Make another take." })];
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips] }));
   open("?step=clips");
-  expect(await within(await clipCard("c2")).findByText("For this look: Take out any studio or film name, then Make another take.")).toBeInTheDocument();
+  expect(await within(await clipCard("c2")).findByText("For this style: Take out any studio or film name, then Make another take.")).toBeInTheDocument();
 });
 
 test("a take's words check has its own chip: what's off and when, Change this… fills the change box, Looks fine dismisses it", async () => {

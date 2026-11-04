@@ -3,11 +3,11 @@ measured song: B-roll under it, lip-sync only where the script asks."""
 
 import json
 
-from app import prompts
+from app import guides, prompts
 from app.prompts import check, schemas
 from app.prompts.schemas import SongBreakdown
 
-EXAMPLES = prompts.HERE / "examples"
+EXAMPLES = guides.ROOT / "formats" / "song" / "examples"
 LYRICS = (
     "[Verse 1]\nBowl stays full\nThen the green goes on\n[Chorus] [Lip-sync]\nGet Iron Paws now"
 )
@@ -69,7 +69,7 @@ def test_directions_advise_on_length_style_and_the_brand_line():
     result.directions[1].lyrics = "[Chorus]\nShort and sweet"
     problems = check.song_directions(result, "Iron Paws", 30)
     assert "Advice: direction 1: the music style is over 25 words" in problems
-    assert f"Advice: direction 2: {check.NO_CTA}" in problems
+    assert not any(check.NO_CTA in p for p in problems)  # a song isn't forced to end on the brand
     assert any(p.startswith("Advice: direction 2: 3 sung words") for p in problems)
     result.directions.pop()
     assert "1 directions; write exactly 2" in check.song_directions(result, "Iron Paws")
@@ -79,9 +79,9 @@ def test_a_song_breakdown_is_the_breakdown_plus_its_own_part():
     song, story = prompts.system("song_breakdown"), prompts.system("breakdown")
     assert song.startswith(story.split("## Worked example")[0].strip())  # same rules first
     assert "# Song ads" in song and "# Song ads" not in story
-    assert "## Worked example" not in song  # the story example would teach dialogue shots
+    assert "\n## Worked example" not in song  # the story example would teach dialogue shots
     assert "Style: Song" not in song
-    assert prompts.style("song")["sections"].get("clip") in prompts.system(
+    assert guides.format_("song")["sections"]["Clips"] in prompts.system(
         "clip_prompts", "house", "song"
     )
 
@@ -93,8 +93,9 @@ def test_song_block_lists_sections_beats_and_timed_lines():
     assert "Beats: 0.00 0.50 1.00" in block
     assert "1| 0.10–1.90 Bowl stays full\n" in block
     assert "2| 2.10–3.80 Then the green goes on (times guessed)" in block
-    assert "peaks" not in block and "0.40" not in block  # words and peaks stay out
-    assert "<length>30 s (about 66 sung words)</length>" in prompts.song_directions_input(
+    assert "   words: 0.10 Bowl\n2|" in block  # a picture can land on its word
+    assert "peaks" not in block and "0.40" not in block  # peaks and word ends stay out
+    assert "<length>30 s (about 70 sung words)</length>" in prompts.song_directions_input(
         "Goal: x", ["char:1 Biscuit"], "folk", 30
     )
 
@@ -192,10 +193,10 @@ def test_a_sounds_like_song_becomes_a_style_line_without_its_name():
 def test_the_length_is_shown_before_the_lyrics_are_locked():
     lyrics = "[Verse]\n" + "\n".join(["one two three four five"] * 73)  # the pilot's 365 words
     words, short, long = check.sung_length(lyrics)
-    assert words == 365 and 150 <= short <= 160 and 180 <= long <= 185
-    assert check.length_note(lyrics) == "365 sung words: a song of about 2:32–3:02."
+    assert words == 365 and 135 <= short <= 140 and 180 <= long <= 185  # 2.3 a second ±15%
+    assert check.length_note(lyrics) == "365 sung words: a song of about 2:18–3:02."
     near = "\n".join(["one two three four five six seven eight nine ten eleven"] * 13)
-    assert check.length_note(near) == "143 sung words: a song of about 1:00–1:12."  # not 0:60
+    assert check.length_note(near) == "143 sung words: a song of about 0:54–1:12."
 
 
 def test_each_shot_plays_while_its_line_is_sung():
@@ -224,7 +225,7 @@ def test_the_prompts_carry_what_made_reeds_song_ads_good():
     for part in ("**A shape that has worked.**", "mid-air leap", "nudges the product to the lens",
                  "never gross", "at four moments", "past about 16 s"):  # fmt: skip
         assert part in breakdown, part
-    assert "## Style:" not in prompts.system("breakdown")  # story breakdowns untouched
+    assert "## Format: Song" not in prompts.system("breakdown")  # story breakdowns: no song guide
 
 
 STUDY = {
@@ -324,22 +325,21 @@ def test_a_name_after_a_genre_word_goes_and_leaves_no_like_the():
 
 
 def test_a_song_in_any_look_gets_its_looks_tokens_and_songs_guides():
-    """Song in any look: the look fills the tokens; song.md's still and clip guides come
-    after it. A story's (or narrated) prompts are byte for byte as before."""
-    song, clay = prompts.style("song")["sections"], prompts.style("claymation")["sections"]
-    for step, guide in (("clip_prompts", "clip"), ("storyboard", "still")):
+    """Song in any look: the look fills the tokens; the song guide adds to the look, never
+    changes it, and reaches only a song (formats/song/guide.md)."""
+    song, clay = guides.format_("song")["sections"], prompts.style("claymation")["sections"]
+    for step, guide in (("clip_prompts", "Clips"), ("storyboard", "Stills")):
         made = prompts.system(step, "claymation", "song")
-        assert made.startswith(prompts.system(step, "claymation"))  # the look's own, unchanged
         assert song[guide] in made and "## Format: Song" in made
+        assert "follow this video's look, and never write a studio's name" in made
         assert clay["clip_style"] in made or clay["still_look"] in made
         for kind in ("", "story", "narrated"):
             assert song[guide] not in prompts.system(step, "house", kind)
-            assert prompts.system(step, "house", kind) == prompts.system(step, "house")
-    assert prompts.system("plan", "claymation", "song") == prompts.system("plan", "claymation")
+        assert prompts.system(step, "house", "story") == prompts.system(step, "house")
 
 
 def test_reeds_song_skill_is_folded_in():
-    """Reed's song-ad skill (docs/next/skills, #1095): the whole genre map, the Suno pacing
+    """Reed's song-ad skill (#1095): the whole genre map, the Suno pacing
     and tags (already in song_request), and a shape that worked stays a pattern, never a rule
     (story logic is per story, Reed)."""
     directions = prompts.system("song_directions")
@@ -350,4 +350,47 @@ def test_reeds_song_skill_is_folded_in():
     sent = prompts.song_request("[Chorus]\nWe sing.", "indie pop, 100 BPM")
     assert sent["lyrics"].startswith("[Intro: vocals start immediately]\n")
     assert sent["lyrics"].endswith("\n[End]") and "spoken word" in sent["exclude_styles"]
-    assert sent["style"].endswith("continuous singing, tight ending")
+    assert sent["style"].endswith("at most one short instrumental break, short instrumental ending")
+
+
+def test_song_producer_review_the_hook_first_the_rate_the_vocal_and_a_set_that_varies():
+    """Song-Producer's review (2 Nov): [Hook] is the first tag, about 2.3 sung words a second
+    (±15%), the vocal gender and "no rap" (unless it's rapped) go to Suno, and a brand's set
+    of songs doesn't sound alike."""
+    directions = prompts.system("song_directions")
+    assert "The first tag is always [Hook]" in directions
+    assert "about 2.3 words a second" in directions and "<recent_styles>" in directions
+    sung = prompts.song_request("[Hook]\nWe sing.", "breezy pop, warm female vocal, 100 BPM")
+    assert sung["vocal_gender"] == "f" and sung["exclude_styles"].endswith(", rap")
+    rap = prompts.song_request("[Hook]\nWe rap.", "hip-hop, male rap, 92 BPM")
+    assert rap["vocal_gender"] == "m" and "rap" not in rap["exclude_styles"]
+    assert prompts.song_request("x", "choir, 80 BPM")["vocal_gender"] == ""
+    message = prompts.song_directions_input("Goal: x", [], recent_styles=["folk, 90 BPM"])
+    assert "<recent_styles>\nfolk, 90 BPM\n</recent_styles>" in message
+    assert round(400 / prompts.SUNG_RATE[0]) == 200  # 400 words: costed at about 3:20
+
+
+def test_a_song_follows_its_script_and_is_never_forced_to_end_on_the_brand():
+    """Reed, 3 Nov: "Only one note is the product being mentioned last line - its really just
+    the song being based on the script - not a force." Lyrics whose last line doesn't name the
+    brand get no advice about it, and no song prompt asks for it."""
+    ex = json.loads((EXAMPLES / "song_directions.json").read_text())
+    result = schemas.SongDirections.model_validate(ex["output"])
+    for d in result.directions:
+        d.lyrics = d.lyrics.rstrip() + "\n[Outro]\nAnd the bowl stayed empty every night"
+    assert not any("brand" in p for p in check.song_directions(result, "Iron Paws", 30))
+    directions = prompts.system("song_directions")
+    assert (
+        "never forced into the last line" in directions and "last sung line names" not in directions
+    )
+    assert "the last sung line names the brand" not in str(
+        schemas.SongDirection.model_json_schema()
+    )
+    lyrics = "[Verse 1]\nBowl stays full\nThen the green goes on\n[Chorus]\nNow the bowl is clean"
+    shots = [_shot("1.1", [1, 2], 0.0, 2.0), _shot("1.2", [3], 2.0, 4.0),
+             _shot("1.3", [4, 5], 4.0, 6.0)]  # fmt: skip
+    end = {"end_line": "Get Iron Paws now", "brand": "Iron Paws"}
+    sung = check.song_breakdown(lyrics, _breakdown(shots), SONG, {}, 4, 15, **end)
+    assert not any(check.NO_CTA in p for p in sung)
+    narrated = check.song_breakdown(lyrics, _breakdown(shots), SONG, {}, 4, 15, sung=False, **end)
+    assert f"Advice: {check.NO_CTA}" in narrated  # a narration is a spoken script (rule 18)

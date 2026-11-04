@@ -66,8 +66,7 @@ export const Words = ({ parts }: { parts: Part[] }) => (
   </>
 );
 
-/** "Change this…": say in plain words what should change; the prompt is rewritten and the still or take is made again. */
-export function ChangeBox(props: {
+type ChangeProps = {
   kind: "frame" | "clip";
   projectId: number;
   /** The frame's or the clip row's id. */
@@ -88,15 +87,21 @@ export function ChangeBox(props: {
   title?: string;
   /** A ready note to put in the box (an AI check's "Change this…"); a new n puts it in again. */
   seed?: { text: string; n: number };
-}) {
+  /** False where no note is taken (the old page's clip card): its price isn't read. */
+  enabled?: boolean;
+};
+
+/** A note's state, its price, its press and the lines it says after. The Clips tab puts the note and its press apart (the
+ *  note under the prompt, the press in the Another take tile); ChangeBox keeps them together. */
+export function useChange(props: ChangeProps) {
   const { kind, projectId, id, change } = props;
   const queryClient = useQueryClient();
   const toast = useToast();
   const [note, setNote] = useState("");
   const [edited, setEdited] = useState(false);
   const [whole, setWhole] = useState(false);
-  const was = useRef<number | null>(null); // what was picked when the note was sent
-  const box = useRef<HTMLDivElement>(null);
+  const [was, setWas] = useState<number | null>(null); // what was picked when the note was sent
+  const [box, setBox] = useState<HTMLDivElement | null>(null); // a state, not a ref: the hook hands it out
   const [seeded, setSeeded] = useState<number>();
   if (props.seed && props.seed.n !== seeded) {
     setSeeded(props.seed.n);
@@ -105,9 +110,9 @@ export function ChangeBox(props: {
   }
   useEffect(() => {
     if (!seeded) return;
-    box.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-    box.current?.querySelector("textarea")?.focus({ preventScroll: true }); // the note is ready to read or edit
-  }, [seeded]);
+    box?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    box?.querySelector<HTMLElement>("textarea, input")?.focus({ preventScroll: true }); // the note is ready to read or edit
+  }, [seeded]); // eslint-disable-line react-hooks/exhaustive-deps
   // "Changing…" never outlasts its rewrite: a job that failed, was stopped or is gone (or finished a while ago while the
   // note still says changing, so its answer wasn't saved) reads as a change that didn't finish.
   const lost = useQuery({
@@ -127,6 +132,7 @@ export function ChangeBox(props: {
   const price = useQuery({
     // A clip's first take adds the new take to the price (the rewrite alone before it): read it again when the takes change.
     queryKey: ["change-price", kind, projectId, id, props.snapshot ?? null],
+    enabled: props.enabled ?? true,
     queryFn: async () =>
       (kind === "frame"
         ? await api.GET("/projects/{project_id}/storyboard/frames/{frame_id}/change", { params: { path: { project_id: projectId, frame_id: id } } })
@@ -153,7 +159,7 @@ export function ChangeBox(props: {
   const seen = useRef(change?.status);
   useEffect(() => {
     if (seen.current === "changing" && change?.status === "done") {
-      toast("Changed. The earlier one is kept.", props.onUndo ? () => props.onUndo!(was.current) : undefined);
+      toast("Changed. The earlier one is kept.", props.onUndo ? () => props.onUndo!(was) : undefined);
       void queryClient.invalidateQueries({ queryKey: ["change-price", kind, projectId, id] });
     }
     seen.current = change?.status;
@@ -165,12 +171,18 @@ export function ChangeBox(props: {
   // The server says in its own words when a note touches what is said; the note stays so it can be edited.
   const said = press.error && (press.error as Error & { status?: number }).status === 422;
   const snippets = change && change.status === "done" && change.before !== undefined && change.after !== undefined ? changedSnippets(change.before, change.after) : [];
-  return (
-    <div ref={box} className="space-y-2">
-      <TextArea label={props.title ?? "Change this…"} rows={2} maxLength={500} placeholder="What should change?" value={changing ? change!.note : text} readOnly={changing} onChange={(e) => { setNote(e.target.value); setEdited(true); press.reset(); }} aria-label={`${props.title ?? "Change this…"} ${props.label}`} />
-      <Button variant="secondary" icon={Wand2} busy={changing || press.isPending} charge="estimate" price={changing ? undefined : price.isPending ? null : credits} reason={reason} disabled={!changing && !!reason} onClick={() => { was.current = props.snapshot ?? null; press.mutate(text.trim()); }}>
-        {changing ? "Changing…" : failed && text.trim() === change?.note ? "Try again" : props.action ?? "Change it"}
-      </Button>
+  const label = changing ? "Changing…" : failed && text.trim() === change?.note ? "Try again" : props.action ?? "Change it";
+  const send = () => {
+    setWas(props.snapshot ?? null);
+    press.mutate(text.trim());
+  };
+  const onText = (value: string) => {
+    setNote(value);
+    setEdited(true);
+    press.reset();
+  };
+  const lines = (
+    <>
       {press.isError && (
         <p role="alert" className={said ? "text-sm text-warning" : errorClass}>
           {press.error.message}
@@ -197,6 +209,21 @@ export function ChangeBox(props: {
           {whole && <p className="whitespace-pre-wrap rounded-md bg-surface-2 p-2">{change!.after}</p>}
         </div>
       )}
+    </>
+  );
+  return { box: setBox, text: changing ? change!.note : text, onText, changing, busy: changing || press.isPending, price: changing ? undefined : price.isPending ? null : credits, reason, label, send, lines };
+}
+
+/** "Change this…": say in plain words what should change; the prompt is rewritten and the still or take is made again. */
+export function ChangeBox(props: ChangeProps) {
+  const { box, ...c } = useChange(props);
+  return (
+    <div ref={box} className="space-y-2">
+      <TextArea label={props.title ?? "Change this…"} rows={2} maxLength={500} placeholder="What should change?" value={c.text} readOnly={c.changing} onChange={(e) => c.onText(e.target.value)} aria-label={`${props.title ?? "Change this…"} ${props.label}`} />
+      <Button variant="secondary" icon={Wand2} busy={c.busy} charge="estimate" price={c.price} reason={c.reason} disabled={!c.changing && !!c.reason} onClick={c.send}>
+        {c.label}
+      </Button>
+      {c.lines}
     </div>
   );
 }

@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_tools, take_mute
+from app import director_song, director_tools, take_mute, take_sound, word_splice
 from app.credits import COUNTED, lock
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -32,9 +32,12 @@ STEP = "director"
 RUN = "director_run"
 MAX_TURNS = 40  # a run's turns at most
 MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
+MAX_REPLANS = 1  # plans made again from the watch ("Re-plan: …"), a run
 MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
+OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
+UNWATCHED = "Refused: watch the cut first."
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -49,12 +52,13 @@ PENDING = {JobStatus.queued: "Deciding what to do next.",
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 
 
-def start(db: Session, user: User, project: Project, *, wait: str = "", extra: dict | None = None
-          ) -> Job:  # fmt: skip
+def start(db: Session, user: User, project: Project, *, wait: str = "", extra: dict | None = None,
+          frozen: bool = True) -> Job:  # fmt: skip
     """A run on a video made from a published script (its words are locked): its first turn.
     `wait`: the turn waits for the owner with that reason (a freestyle's editor send);
-    `extra`: more of its input (the freestyle it's for)."""
-    if why := blocked(db, project):
+    `extra`: more of its input (the freestyle it's for). `frozen=False`: a freestyle's, whose
+    version is frozen and published when its run starts (`freestyles.freeze`)."""
+    if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
     lock(db, Project, project.id)  # the notes it takes can't change under it
@@ -143,21 +147,49 @@ def thread(db: Session, project: Project) -> list[dict]:
         out.append({"id": f"m{n}", "kind": "message", "at": m["at"],
                     "who": user_name(db, m["by"]), "text": m["text"], "status": None, "why": "",
                     "answered": place[m.get("run")] in done.get(m.get("run"), set())})  # fmt: skip
+    from app.credits import price
+
+    written = db.scalars(select(Job).where(Job.project_id == project.id,
+                                           Job.input["step"].as_string() == "treatment",
+                                           Job.status == JobStatus.succeeded)
+                         .order_by(Job.id)).all()  # fmt: skip
+    written = [j for j in written if not j.input.get("redone")]  # its check's one redo replaced it
+    for n, j in enumerate(written):  # the treatment, posted in the chat as plain lines
+        out.append({"id": f"s{j.id}", "kind": "move", "at": (j.finished_at or j.created_at
+                    ).isoformat(), "who": "Director", "text": named(told(j.output or {}, n > 0)),
+                    "status": "done", "why": "", "answered": None,
+                    "treatment": j.output})  # fmt: skip
     for j in rows:
+        if j.input.get(GRANT) and j.status in COUNTED:  # the owner's OK at the director's limit
+            out.append({"id": f"g{j.id}", "kind": "move", "at": j.created_at.isoformat(),
+                        "who": "Director", "text": GRANTED.format(n=price(own_limit())),
+                        "status": "done", "why": "", "answered": None})  # fmt: skip
         result = j.input.get("result") or ""
         tool = (j.output or {}).get("tool")
+        # The worker keeps a turn's answer (succeeded) before its tool runs and its result is
+        # written (`after`): until then it is still going, never "Stopped." (QA on #1194).
+        acting = (
+            j.status == JobStatus.succeeded and "result" not in j.input and "ended" not in j.input
+        )
         text = (
-            ((j.output or {}).get("why") if tool == "deliver" else result)
-            or (
-                j.input.get("held")  # a held turn says why it waits
-                if j.status == JobStatus.needs_owner_approval
-                else ""
+            PENDING[JobStatus.running]
+            if acting
+            else (
+                ((j.output or {}).get("why") if tool == "deliver" else result)
+                or (
+                    j.input.get("held")  # a held turn says why it waits
+                    if j.status == JobStatus.needs_owner_approval
+                    else ""
+                )
+                or PENDING.get(
+                    j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
+                )
             )
-            or PENDING.get(j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped.")
         )
         why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
         text, why = named(text), named(why)
         status = ("held" if j.status == JobStatus.needs_owner_approval
+                  else "running" if acting
                   else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
                   else "refused" if result.startswith("Refused") else "done")  # fmt: skip
         out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
@@ -244,6 +276,42 @@ def spent(db: Session, run_id: str) -> Decimal:
                              .where(Usage.job_id.in_(ids))))  # fmt: skip
 
 
+OWN_LIMIT = "Waiting for the owner's OK: the director has used its own limit of {n} credits."
+GRANTED = "OK'd: up to {n} more credits of the director's time."
+GRANT = "own_grant"  # in a run's job's input: held at the director's own limit (`past_own`)
+
+
+def own_limit() -> Decimal:
+    """The director's own limit a run, in credits, as the quote shows it: OWN_CREDITS (MAX_USD
+    stays the real-cost backstop)."""
+    return OWN_CREDITS
+
+
+def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
+    """What the run's own jobs (its turns and its watches of the cut) were charged, at the
+    flat price each was charged (not their real cost, `spent`), and how many OKs the owner
+    gave at its limit."""
+    mine = (Job.input[RUN]["id"].as_string() == run_id, Job.status.in_(COUNTED))
+    charged = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(*mine))
+    oks = db.scalar(select(func.count()).where(*mine, Job.input[GRANT].as_boolean()))
+    return Decimal(charged), oks
+
+
+def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal) -> str:
+    """A run's next turn or watch that would take its charges past the director's own limit
+    (the Producer): it waits for the owner, the owner's own run too, with a freestyle's
+    reason for a step past its price, else OWN_LIMIT. Each OK grants another limit's worth,
+    not one step. "" if it fits."""
+    from app.credits import PAST_APPROVED, price
+
+    if not run_id:
+        return ""
+    charged, oks = own_charged(db, run_id)
+    if charged + credits <= own_limit() * (1 + oks):
+        return ""
+    return PAST_APPROVED if project.hidden else OWN_LIMIT.format(n=price(own_limit()))
+
+
 def after(db: Session, job: Job, storage) -> None:
     """The worker finished `job`: a turn's answer is acted on; any other work on a video with
     a run going may wake the next turn."""
@@ -255,8 +323,36 @@ def after(db: Session, job: Job, storage) -> None:
         else:
             _end(job, TURN_FAILED)
         return
+    run_id = (job.input.get(RUN) or {}).get("id")
+    if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
+        if run_id and over(db, run_id):  # stopped meanwhile: nothing more runs for it
+            return
+        if _treatment_checked(db, job):  # one redo with its problems: the redo wakes the run
+            return
     if job.project_id:
         wake(db, db.get(Project, job.project_id))
+
+
+def _treatment_checked(db: Session, job: Job) -> bool:
+    """The Director's free check on a saved treatment (check.treatment: every line once, in
+    order, word for word): problems mean one redo with them as its note; a redo's problems
+    are kept and shown. Whether a redo was queued."""
+    from app import plans
+    from app.prompts import check
+
+    project = db.get(Project, job.project_id)
+    version = plans.script(db, project)
+    problems = check.treatment(job.output or {}, version.text if version else "")
+    if not problems:
+        return False
+    if job.input.get("redo"):  # kept as it is, its problems shown in the thread
+        job.output = {**(job.output or {}), "problems": problems}
+        db.commit()
+        return False
+    job.input = {**job.input, "redone": True}  # the thread shows the one it kept
+    write_treatment(db, db.get(User, job.created_by_id), project, job.input.get(RUN),
+                    "Fix: " + " ".join(problems), redo=True)  # fmt: skip
+    return True
 
 
 def wake(db: Session, project: Project) -> None:
@@ -292,6 +388,11 @@ def _act(db: Session, job: Job, storage) -> None:
     run = dict(job.input[RUN])
     tool = decision.get("tool")
     if tool == "deliver":
+        watch = _watch(db, project)
+        watched = watch.get("current") and watch.get("state") in ("done", "failed")
+        if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
+                and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
+            return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
         named = {int(n) for n in NOTE.findall(decision.get("why") or "")}
         given = max((t.input.get(READ, 0) for t in turns(db, project)
                      if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
@@ -317,6 +418,15 @@ def _act(db: Session, job: Job, storage) -> None:
         return _record(db, job, run, IDLE if idle else "Waiting.")
     if (refused := _refused_again(db, job, decision)) is not None:
         return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
+    if tool == "redraw_still":  # the review's redraws: twice a still, a run
+        from app.still_review import REDRAWS
+
+        sid = decision.get("shot_id") or ""
+        if run.get("redraws", {}).get(sid, 0) >= REDRAWS:
+            return _record(db, job, run, f"Refused: shot {sid} was drawn again {REDRAWS} times.")
+    replan = tool == "plan" and bool((decision.get("note") or "").strip())
+    if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
+        return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
         watch = _watch(db, project)
         if run.get("watches", 0) >= MAX_WATCHES:
@@ -328,6 +438,11 @@ def _act(db: Session, job: Job, storage) -> None:
     result = director_tools.run(db, user, project, decision, storage, run)
     if tool == "watch_cut" and not result.startswith("Refused"):
         run["watches"] = run.get("watches", 0) + 1
+    if replan and not result.startswith("Refused"):
+        run["replans"] = run.get("replans", 0) + 1
+    if tool == "redraw_still" and not result.startswith("Refused"):
+        sid = decision.get("shot_id") or ""
+        run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
     _record(db, job, run, result)
 
 
@@ -337,6 +452,12 @@ def _mutes(db: Session, job: Job, run: dict) -> list[str]:
     return [j.input["result"] for j in rows if j.input[RUN]["id"] == run["id"]
             and (j.output or {}).get("tool") == "mute"
             and j.input.get("result", "").startswith("Muted")]  # fmt: skip
+
+
+def _stills_review(db: Session, project: Project) -> dict:
+    from app import still_review
+
+    return still_review.state(db, project)
 
 
 def _watch(db: Session, project: Project) -> dict:
@@ -447,17 +568,18 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
-    if not wait:  # a freestyle: its turns count too; past its price the run pauses for an OK
+    if not wait:  # past its own limit, or a freestyle's price, the run pauses for an OK
         from app.credits import estimate, past_approved
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
-        wait = past_approved(db, project, user, turn)
+        wait = past_own(db, project, run["id"], turn)
+        data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
+        wait = wait or past_approved(db, project, user, turn)
     try:
         return enqueue(db, user, "write-claude", data, project=project, provider="claude",
                        prepaid=not wait, wait=wait)  # fmt: skip
-        # its own limit (MAX_USD), never the video's budget; the per-video cap still counts
-        # it (director-chat.md §2, DECISIONS #1066)
-    except HTTPException as no:  # e.g. the per-video cap: the run ends, saying why
+        # its own limit (MAX_USD), never the video's budget (director-chat.md §2, DECISIONS #1066)
+    except HTTPException as no:  # e.g. the video was archived: the run ends, saying why
         if last is None or run["turn"] == 1:  # its first turn: the start itself is refused
             raise
         last = db.get(Job, last.id)
@@ -489,21 +611,104 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": j.input.get("result")} for j in turns(db, project)[-8:]]  # fmt: skip
+             "result": j.input.get("result")} for j in turns(db, project)
+            if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
-               "own_time_limit_usd": float(MAX_USD)}  # fmt: skip
+               "own_time_limit_usd": float(MAX_USD),
+               "replans_left": MAX_REPLANS - run.get("replans", 0),
+               "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
+               "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
+               "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
     closed = answered(db, run["id"])
     asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
     # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
-    parts = (("video", video_state(db, project)), ("last_actions", done), ("allowed", allowed),
+    own = db.scalar(select(Job.id).where(Job.input["step"].as_string() == "treatment",
+                                         Job.input[RUN]["id"].as_string() == run["id"],
+                                         Job.status.in_(COUNTED)).limit(1))  # fmt: skip
+    video = {**video_state(db, project), "treatment": "written" if own else "none"}  # this run's
+    parts = (("video", video), ("last_actions", done), ("allowed", allowed),
              *((("chat", asked),) if asked else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
-    return {"system": system, "prompt": f"{brief}\n{tagged}", READ: len(asked)}
+    return {"system": system, "prompt": f"{brief}\n{story(db, project)}{tagged}",
+            READ: len(asked)}  # fmt: skip
+
+
+def story(db: Session, project: Project) -> str:
+    """What the video is (the Director, on Reed's first real run: it never read the words):
+    its script, numbered; its plan's beats; its treatment, when there is one."""
+    from app import plans, prompts
+    from app.watch_cut import _plan
+
+    version = plans.script(db, project)
+    if version is None:
+        return ""
+    parts = [f"<script>\n{prompts.number_lines(version.text)}\n</script>"]
+    if beats := _plan(plans.current(db, project), version):
+        parts.append(f"<plan>\n{beats}\n</plan>")
+    return "\n".join(parts) + "\n" + treatment_block(db, project)
+
+
+def treatment(db: Session, project: Project) -> dict | None:
+    """The video's newest treatment (the Director's step: hook, logline, why it holds, beats,
+    ending), or None."""
+    job = db.scalar(select(Job).where(Job.project_id == project.id,
+                                      Job.input["step"].as_string() == "treatment",
+                                      Job.status == JobStatus.succeeded)
+                    .order_by(Job.id.desc()).limit(1))  # fmt: skip
+    return (job.output or None) if job else None
+
+
+def write_treatment(db: Session, user: User, project: Project, run: dict | None,
+                    note: str = "", redo: bool = False) -> str:  # fmt: skip
+    """Queue the treatment (the Director's step: hook, logline, why it holds, beats, ending),
+    on the director's own limit like a watch; its words in plain lines."""
+    from app import plans, prompts
+    from app.credits import estimate, past_approved
+    from app.enhance import project_context
+    from app.routes.jobs import enqueue
+
+    version = plans.script(db, project)
+    system, context = project_context(db, project, "treatment")  # its look's skill and craft
+    text = f"{context}\n{prompts.treatment_input(version.text, note)}"
+    data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
+            "prompt": text, "max_tokens": 6000, **({"redo": True} if redo else {})}  # fmt: skip
+    again = treatment(db, project) is not None
+    price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
+    wait = past_own(db, project, (run or {}).get("id"), price)
+    data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
+    wait = wait or past_approved(db, project, user, price)
+    enqueue(db, user, "write-claude", data, project=project, provider="claude",
+            prepaid=not wait, wait=wait)  # fmt: skip
+    return "Changing the treatment." if again else "Writing the treatment."
+
+
+def told(made: dict, again: bool) -> str:
+    """A treatment as plain lines in the thread (the Director: the delivery note's style)."""
+    beats = " ".join(f"{b.get('id', '')}: {b.get('purpose', '')}, {b.get('picture', '')}."
+                     for b in made.get("beats") or [])  # fmt: skip
+    head = "Changed the treatment:" if again else "The treatment:"
+    still = " ".join(made.get("problems") or [])
+    return (f"{head} {made.get('logline', '')} Hook: {made.get('hook', '')} {beats} "
+            f"Ending: {made.get('ending', '')}" + (f" Still to fix: {still}" if still else "")
+            ).strip()  # fmt: skip
+
+
+def treatment_block(db: Session, project: Project) -> str:
+    """<treatment> for a step's user message (plan, breakdown, clip prompts, the watch, the
+    director), or "" before one is made (the Director's prompts.treatment_block)."""
+    from app import prompts
+
+    told = prompts.treatment_block(treatment(db, project))
+    return f"{told}\n" if told else ""
+
+
+def _audio_key(db: Session, project: Project) -> str:
+    return "song" if director_song.kind(db, project) == "song" else "narration"
 
 
 def video_state(db: Session, project: Project) -> dict:
@@ -516,6 +721,9 @@ def video_state(db: Session, project: Project) -> dict:
     bd = newest(db, project)
     frames = [f for f in db.scalars(select(StoryboardFrame).where(
         StoryboardFrame.project_id == project.id)) if bd and f.breakdown_id == bd.id]  # fmt: skip
+    data = bd.data if bd else {}  # what each clip shows and says (the Director: not only verdicts)
+    shots = {x["id"]: x for sc in data.get("scenes", []) for x in sc.get("shots", [])}
+    ids_of = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
     clips = []
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                           .order_by(ProjectClip.id)):  # fmt: skip
@@ -530,9 +738,15 @@ def video_state(db: Session, project: Project) -> dict:
             out.append({"id": t.id, "number": t.number, "verdict": verdict(checks),
                         "notes": notes})  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
+                      "shots": [{"id": i, "action": shots[i].get("action", ""),
+                                 "line": shots[i].get("line")}
+                                for i in ids_of.get(row.clip_id, []) if i in shots],
                       "picked_take_id": row.picked_take_id, "takes": out,
-                      "muted": take_mute.spans(db.get(ClipTake, row.picked_take_id)
-                                               if row.picked_take_id else None)})  # fmt: skip
+                      "muted": take_mute.spans(picked := db.get(ClipTake, row.picked_take_id)
+                                               if row.picked_take_id else None),
+                      "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
+                                if k in ("state", "how")},
+                      **word_splice.state(db, row)})  # splice_word  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
     acted = [j for j in turns(db, project) if "result" in j.input]
@@ -541,8 +755,14 @@ def video_state(db: Session, project: Project) -> dict:
         Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
     from app.plans import status
 
+    audio = director_song.state(db, project)  # a song or narrated video's song or narration
+    from app import host
+
+    hosted = {"host": host.state(db, project)} if host.on(db, project) else {}  # a presenter's
     return {
+        **hosted,
         "plan": status(db, project),  # none, ready (waits for approval) or approved
+        **({_audio_key(db, project): audio} if audio else {}),  # the clock its shots follow
         # choices fixed for it (director-chat.md §1), kept as is; a person's own look pick isn't
         "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
@@ -557,6 +777,7 @@ def video_state(db: Session, project: Project) -> dict:
                            if j.status == JobStatus.needs_owner_approval],
         "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
         "watch": _watch(db, project),  # its last watch of the cut, and its findings
+        "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
 
 
@@ -580,6 +801,10 @@ def choose(state: dict) -> dict:
     picked_by_watch = {f["clip_id"]: f.get("take_id") for f in found if f.get("fix") == "pick"}
     if state["being_made"] or state["held_for_owner"]:
         return go("wait", "Something is still being made or waits for the owner.")
+    if state.get("treatment") == "none":  # the story first, on every run (the Director)
+        return go("treatment", "The story first: what holds a viewer, beat by beat.")
+    if audio := _audio_move(state, go):  # a song or narrated video: its audio is the clock
+        return audio
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
     if state["missing_looks"]:
@@ -588,18 +813,34 @@ def choose(state: dict) -> dict:
         return go("storyboard", "The shots are ready; the storyboard is next.")
     if state["stills"]["drawn"] < state["stills"]["frames"]:
         return go("stills", "Some frames have no still yet.")
+    review = state.get("stills_review") or {"state": "done"}  # (a hand-made state: none asked)
+    if review["state"] == "none":  # its own look at the stills before any take
+        return go("review_stills", "The stills are drawn: check them against the treatment.")
+    if review["state"] == "reviewing":
+        return go("wait", "It's looking at the stills.")
+    used = state.get("allowed", {}).get("redraws_used", {})
+    for f in review.get("findings") or [] if review.get("current") else []:
+        if not used.get(f["shot_id"]):
+            return go("redraw_still", f"{f['problem']} Drawing it again.",
+                      shot_id=f["shot_id"], note=f["note"])  # fmt: skip
     if asked := _asked(state):
         return asked  # a new note: what the person asked, once; then cut and deliver again
     if not clips or any(c["stale"] for c in clips):
         return go("clip_prompts", "The clips need their prompts.")
     if any(not c["takes"] for c in clips):
         return go("make_take", "Some clips have no take yet.")
+    for c in clips:  # the brand said wrong, with a clean copy in the same voice (word_splice)
+        if c.get("can_splice"):
+            word = c["can_splice"][0]["word"]
+            return go("splice_word", f"{c['clip_id']} says “{word}” wrong; a clean copy is "
+                      "spliced in.", clip_id=c["clip_id"], word=word)  # fmt: skip
     for c in clips:
         last = c["takes"][-1]
         if last["verdict"] == "checking":
             return go("wait", f"{c['clip_id']}'s take is being checked.")
         mine = not notes or c["clip_id"] in wanted
-        if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS and mine:
+        spliced = c.get("splices")  # the wrong word is covered: no take made again for it
+        if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS and mine and not spliced:
             note = "; ".join(last["notes"]) or "Fix what the take check found."
             return go("make_take", f"The take check flagged {c['clip_id']}.",
                       clip_id=c["clip_id"], note=note[:500])  # fmt: skip
@@ -613,6 +854,10 @@ def choose(state: dict) -> dict:
                    else f"No take of {c['clip_id']} is clean: using the newest, take "
                    f"{best['number']}.")  # fmt: skip
             return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
+    if (host := state.get("host")) and host["state"] != "ready":  # a presenter: before the cut
+        if host["state"] == "making":
+            return go("wait", "The host is being made.")
+        return go("host", "all: the host says the narration on camera over the B-roll.")
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
     if state["cut"] != "made":
@@ -622,16 +867,77 @@ def choose(state: dict) -> dict:
         return go("final_cut", f"Every clip has its take.{said}")
     if watch.get("state") == "watching":
         return go("wait", "It's watching the cut.")
-    left = state.get("allowed", {}).get("watches_left", 0)  # it watches twice (the server: 3)
-    if not watch.get("current") and left > MAX_WATCHES - 2:
+    left = state.get("allowed", {}).get("watches_left", 0)
+    if not watch.get("current") and left > 0:  # it delivers only a cut it watched (UNWATCHED)
         return go("watch_cut", "The cut is made: it watches it as a viewer would.")
     keep = " ".join(f"Kept: {f['says']}" for f in found if f.get("fix") == "keep")
     done = _answers(state)
     noticed = " ".join(
         f"I also noticed: {f['says'].rstrip('.')}. Want me to fix it?" for f in older
     )
-    said = " ".join(x for x in (done, keep, noticed) if x)
+    said = " ".join(x for x in (done, keep, _still_wrong(state), noticed) if x)
     return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
+
+
+def _still_wrong(state: dict) -> str:
+    """For the delivery note: the brand's name the narration in use still says wrong, once
+    its remakes are used (director.md: say what's off)."""
+    audio = state.get("narration") or {}
+    used = next((t for t in audio.get("takes") or [] if t["used"]), None)
+    if not used or not used.get("misheard"):
+        return ""
+    w = used["misheard"][0]
+    return (f"The narration still says “{w['heard']}” for {w['word']} at {w['at']:.1f} s: it "
+            "was read again as often as allowed, so listen before you share it.")  # fmt: skip
+
+
+STAND_IN_STYLE = "bright pop, warm female vocal, 110 bpm"  # a song version with no style line
+
+
+def _audio_move(state: dict, go) -> dict | None:
+    """The stand-in's song or narration: make it, wait for it, then use its best take; a
+    failed one is tried again (free when the service failed; refused, it says so). A narration
+    that says the brand's name wrong is read again with the pronunciation note (while
+    narrations are left), and the plan follows one that says it right."""
+    tool = "song" if "song" in state else "narration" if "narration" in state else None
+    audio = state.get(tool) if tool else None
+    if audio is None:
+        return None
+    if tool == "narration" and (said := _say_it_right(audio, state, go)):
+        return said
+    if audio.get("used_take_id"):
+        return None
+    what = "song" if tool == "song" else "narration"
+    if audio["state"] == "none":
+        style = {} if audio.get("style", True) else {"note": STAND_IN_STYLE}  # a song's first
+        return go(tool, f"The {what} first: its timing is what the shots follow.", **style)
+    if audio["state"] == "making":
+        return go("wait", f"The {what} is being made.")
+    if audio["state"] == "ready":
+        return go(tool, f"The {what} is made and timed: use its best take.")
+    return go(tool, f"The {what} didn't come out: try it again.")  # free once; then a note
+
+
+def _say_it_right(audio: dict, state: dict, go) -> dict | None:
+    """A narration that says the brand's name wrong, before the plan: read again with the
+    pronunciation note while narrations are left, then the one that says it right is used."""
+    if audio["state"] not in ("ready", "making") or state["shots"] != "none":
+        return None
+    timed = [t for t in audio["takes"] if t["state"] == "ready" and t["timed"]]
+    used = next((t for t in timed if t["used"]), None)
+    good = [t for t in timed if not t.get("misheard")]
+    if used and not used.get("misheard") or not timed:
+        return None
+    if audio["state"] == "making":
+        return go("wait", "The narration is being read again.")
+    if good:
+        return go("narration", "This narration says the brand's name right: use it.",
+                  take_id=good[-1]["id"])  # fmt: skip
+    wrong = timed[-1]["misheard"][0]
+    if state.get("allowed", {}).get("narrations_left", 0) > 0:
+        return go("narration", f"The narration says “{wrong['heard']}” for {wrong['word']} at "
+                  f"{wrong['at']:.1f} s: read it again.", note=audio["say"])  # fmt: skip
+    return None
 
 
 # Rule 19, not here: an ask to change the script's words ("change the line to ...", "make her
@@ -641,6 +947,9 @@ WORDS = re.compile(
     r"(?:words?|lines?|script|dialogue|wording)\b|say\s+['\"“‘])",
     re.I,
 )
+
+
+SOUND = re.compile(r"\bsound effects?\b|\bsfx\b|\badd\b[^.]{0,30}\bsounds?\b", re.I)
 
 
 def _clip_of(note: dict) -> str | None:
@@ -657,6 +966,13 @@ def _asked(state: dict) -> dict | None:
     used = state.get("allowed", {}).get("redos_used", {})
     for m in state.get("chat") or []:
         clip = _clip_of(m)
+        if not m.get("answered") and SOUND.search(m["text"]):  # sound effects, asked for once
+            ready = clips and all(c["picked_take_id"] for c in clips.values())
+            if "add_sound" in state.get("done", []) or not ready:
+                continue  # tried this run (a refusal is said in the delivery note), or no takes
+            return {"tool": "add_sound", "why": f"Note {m['note']}: you asked: {m['text']}"[:300],
+                    "clip_id": clip if clip in clips else None, "take_id": None,
+                    "note": m["text"][:300]}  # fmt: skip
         if (
             m.get("answered")
             or WORDS.search(m["text"])
@@ -680,6 +996,8 @@ def _answers(state: dict) -> str:
         clip, n = _clip_of(m), m["note"]
         if m.get("answered"):
             out.append(f"Note {n}: done, as you asked ({m['text']}).")
+        elif SOUND.search(m["text"]):
+            out.append(f"Note {n}: {take_sound.ALL_HAVE}")
         elif WORDS.search(m["text"]):
             out.append(f"Note {n}: the script's words stay as written here. I can change how a "
                        "line is delivered, the pictures or the pacing instead.")  # fmt: skip
@@ -759,12 +1077,24 @@ def _item(db: Session, job: Job) -> str:
     if clip := job.input.get("project_clip_id"):
         row = db.get(ProjectClip, clip)
         return f"Clip {row.clip_id.removeprefix('c')}'s take" if row else "A take"
+    if piece := job.input.get("host_piece_id"):
+        from app.models.clips import HostPiece
+
+        row = db.get(HostPiece, piece)
+        return f"The host's piece {row.number}" if row and row.number else "The host's still"
     return f"The {str(job.input.get('step') or job.kind).replace('_', ' ')}"
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:
+    """What's being made for the video: its own jobs, and its narration's (or song's) timing
+    and music bed, which carry no video (the dry run: two waits through the timing ended it)."""
+    from app.models.songs import SongTake
+
     step = Job.input["step"].as_string()
-    return list(db.scalars(select(Job).where(Job.project_id == project.id,
+    takes = select(SongTake).where(SongTake.project_id == project.id)
+    audio = or_(Job.id.in_(takes.with_only_columns(SongTake.timing_job_id)),
+                Job.id.in_(takes.with_only_columns(SongTake.music_job_id)))  # fmt: skip
+    return list(db.scalars(select(Job).where(or_(Job.project_id == project.id, audio),
                                              Job.status.in_(WAITING),
                                              or_(step.is_(None), step != STEP))))  # fmt: skip
 

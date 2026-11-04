@@ -543,7 +543,7 @@ def look_fixed(prompt: str, look: str, note: dict | None) -> tuple[str, dict | N
     after, fixed, _ = check.look_words(prompt, look)
     if not fixed:
         return prompt, note
-    said = f"Fixed for the look: {', '.join(fixed)}."
+    said = f"Fixed for the style: {', '.join(fixed)}."
     base = note or {"note": "", "status": "done", "before": prompt, "unchanged": False}
     return after, {**base, "note": f"{base['note']} {said}".strip(), "after": after,
                    "look_fixed": fixed}  # fmt: skip
@@ -675,7 +675,8 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
     shots = [s for sc in breakdown.data["scenes"] for s in sc["shots"] if s["id"] == frame.shot_id]
     drawn = screen_figures.for_job(db, frame.reference_ids, shots)
     return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id,
-            "made_with": made, "screen_figures": drawn}  # fmt: skip
+            "made_with": made, "screen_figures": drawn,
+            **({"note": note} if note else {})}  # fmt: skip  # the editor's own words
 
 
 def save_still(db: Session, job: Job) -> None:

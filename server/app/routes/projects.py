@@ -15,15 +15,12 @@ from app.credits import (
     budget_used,
     credits_used,
     director_credits,
-    get_limits,
     lock,
-    over_cap,
     price,
 )
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
-from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
 from app.models.projects import Project, ProjectStatus
@@ -84,6 +81,8 @@ class ProjectOut(BaseModel):
     song_take_id: int | None = None
     look: str = "house"  # how its pictures are drawn (VS1)
     look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
+    freestyle_id: int | None = None  # P3: made through a freestyle (the director's chat view)
+    look_locked: bool = False  # made from a published script: it keeps that style (item 7)
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
     status: ProjectStatus
@@ -175,6 +174,8 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         song_take_id=project.song_take_id,
         look=project.look,
         look_redo_credits=looks.redo_credits(db, project),
+        freestyle_id=_freestyle_of(db, project),
+        look_locked=looks.script_style(db, project) is not None,
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
         status=project.status,
@@ -194,6 +195,12 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         plan_status=plans.status(db, project),
         plan_credits=price(plans.price(db, project)),
     )
+
+
+def _freestyle_of(db: Session, project: Project) -> int | None:
+    from app.models.freestyles import Freestyle
+
+    return db.scalar(select(Freestyle.id).where(Freestyle.project_id == project.id))
 
 
 BRIEF_FIELDS = tuple(BriefPatch.model_fields)
@@ -245,16 +252,6 @@ def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[
 
 
 def _set_length(db: Session, user: User, project: Project, seconds: int | None) -> None:
-    limits = get_limits(db, user.workspace_id)
-    if (
-        seconds is not None and seconds * BUDGET_MULTIPLIER > limits.per_video_max_credits
-    ):  # budget = 2x 480p seconds
-        longest = limits.per_video_max_credits // BUDGET_MULTIPLIER
-        raise HTTPException(
-            422,
-            f"{over_cap(user, limits.per_video_max_credits).detail} "
-            f"Plan {longest} seconds or less.",
-        )
     project.planned_seconds = seconds
     if user.is_owner:
         project.status, project.approved_by_id = ProjectStatus.active, user.id
@@ -291,7 +288,7 @@ def list_projects(
     from app.routes.project_clips import out_of_date
 
     old = out_of_date(db, list(found))
-    waits = needs_you.waiting_on(db, list(found), old)
+    waits = needs_you.waiting_on(db, list(found), old, owner=user.is_owner)
     out = [_out(db, p, user, old) for p in found]
     for row, project in zip(out, found, strict=True):
         row.poster_file_id = (frames.get(project.id) or (None, None))[1]
@@ -403,7 +400,9 @@ def update_project(
     if body.name is not None:
         project.name = body.name
     if body.look is not None:
-        project.look = looks.pick(db, user, body.look)
+        look = looks.pick(db, user, body.look)
+        looks.keep_style(db, project, look)  # a published script's style stays (item 7)
+        project.look = look
         looks.picked_by_person(project)  # a plan's lane leaves it as they chose
     if "planned_seconds" in body.model_fields_set:  # null clears it: the breakdown decides
         _set_length(db, user, project, body.planned_seconds)
@@ -442,7 +441,7 @@ def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
         .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
         .order_by(Job.id)
     )
-    ceiling = project.budget_credits  # never above the per-video cap
+    ceiling = project.budget_credits
     for job in held:
         if used + job.credits <= ceiling:
             job.status, job.approved_by_id = JobStatus.queued, owner.id

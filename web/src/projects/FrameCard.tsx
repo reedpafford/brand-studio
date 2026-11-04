@@ -14,6 +14,7 @@ import { SoftenedNote, SoftenIt, type Softened } from "./Soften";
 import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 import { LookFixedNote, LookTip, type LookFixed } from "./LookFix";
 import { EarlierStills } from "./Versions";
+import { Tag } from "./OtherTakes";
 
 type Frame = components["schemas"]["FrameOut"];
 const ratio = (a: string) => a.replace(":", " / ");
@@ -52,6 +53,13 @@ export function FrameCard(props: {
   onUndoSoften: (before: string) => void;
   /** Opens the still full size; left out where the still is already open in a sheet. */
   onOpen?: () => void;
+  /** Redo this frame (#749 LW3): an out-of-date frame written again from the new breakdown, then drawn. */
+  redoing: boolean;
+  /** A still was started for this frame after its last redo. */
+  newerJob: boolean;
+  onRedo: () => void;
+  /** When this frame can't be redone alone (its clip's shots changed): the page's Redo storyboard. */
+  redoAll: { label: string; price: number | undefined; held: boolean; onPress: () => void };
 }) {
   const viewOnly = useViewOnly(); // a video only its maker or the owner may change
   const { frame: f } = props;
@@ -70,6 +78,15 @@ export function FrameCard(props: {
   // A word the image model may refuse: Soften it or Draw it as is, in place of Make still; a refusal said plainly (QA-2).
   const refusable = f.file_id === null && f.problems.some((p) => /may refuse/.test(p));
   const refused = f.problems.find((p) => /refused to draw/.test(p));
+  const changing = (f.change as ChangeState)?.status === "changing";
+  // Redo this frame is not a note: its states show on the card, not in Change this…. It is "changing" until its new still
+  // lands; then Undo stays on the card while the still in use is not the one from before the redo.
+  const change = f.change as ChangeState;
+  const redone = change?.note === "Redo this frame";
+  // A failed redo says why until something newer is made for this frame (Make still after "its still didn't finish").
+  const redoFailed = redone && change?.status === "failed" && !props.newerJob;
+  const was = (change as { was_file_id?: number | null } | null)?.was_file_id;
+  const before = redone && change?.status === "done" && was != null && f.file_id !== was && f.earlier.some((e) => (e as { file_id: number }).file_id === was) ? was : undefined;
   const redraws = f.file_id !== null && !props.stopped; // saving a prompt draws the still again (past a limit it is only saved)
   const problems = blocking(f.problems).length > 0;
   // A grey paid button always says why, naming the press that moves it on.
@@ -98,11 +115,9 @@ export function FrameCard(props: {
   if (props.thumb)
     return (
       <li className="w-16" aria-label={`Frame ${f.clip_id}`}>
-        <button type="button" className="block w-full space-y-1 text-left text-xs text-muted" aria-label={`Still for clip ${f.clip_id}: approve, redo or change it`} onClick={() => setOpened(true)}>
-          <span className="block overflow-hidden rounded-sm bg-surface-2" style={{ aspectRatio: ratio(props.aspect) }}>
-            {f.file_id !== null && <img src={fileUrl(f.file_id)} alt="" className="h-full w-full object-cover" />}
-          </span>
-          Still
+        <button type="button" className="relative block w-full overflow-hidden rounded-md bg-surface-2" style={{ aspectRatio: ratio(props.aspect) }} aria-label={`Still for clip ${f.clip_id}: approve, redo or change it`} onClick={() => setOpened(true)}>
+          {f.file_id !== null && <img src={fileUrl(f.file_id)} alt="" className="h-full w-full object-cover" />}
+          <Tag>Still</Tag>
         </button>
         {opened && (
           <Sheet title={`Still for clip ${f.clip_id.replace(/^c/, "")}`} onClose={() => setOpened(false)}>
@@ -150,6 +165,28 @@ export function FrameCard(props: {
       </div>
       <CheckNotes check={check} projectId={props.projectId} label={`clip ${f.clip_id}`} onChange={(text) => (props.oneStep ? setSeed({ text, n: (seed?.n ?? 0) + 1 }) : setRedo(text))} />
       {f.stale && <span className="inline-block rounded-sm bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">The plan changed: redo this frame</span>}
+      {f.stale && f.redo_credits != null && (
+        <Button dense charge="fixed" busy={props.redoing} price={f.redo_credits} disabled={props.busy || changing || !!props.stopFor(f.redo_credits)} reason={props.stopFor(f.redo_credits)} onClick={props.onRedo}>
+          Redo this frame
+        </Button>
+      )}
+      {redoFailed && <p role="alert" className={errorClass}>{change?.error ?? "The redo didn't finish. Try again."}</p>}
+      {before !== undefined && (
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted" role="status">
+          Redone from the new breakdown. The earlier still is kept.
+          <Button variant="ghost" dense onClick={() => props.onPick(before)}>
+            Undo
+          </Button>
+        </p>
+      )}
+      {f.stale && f.redo_credits == null && f.redo_blocked && (
+        <div className="space-y-2">
+          <p className="text-sm text-warning">{f.redo_blocked}</p>
+          <Button variant="secondary" dense charge="estimate" price={props.redoAll.price} disabled={props.redoAll.held} onClick={props.redoAll.onPress}>
+            {props.redoAll.label}
+          </Button>
+        </div>
+      )}
       {props.error && <p role="alert" className={errorClass}>{props.error}</p>}
       {props.failed && <span className="inline-block rounded-sm bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Didn't finish · credits returned</span>}
       <p className="flex flex-wrap gap-1 text-xs">
@@ -226,8 +263,8 @@ export function FrameCard(props: {
               projectId={props.projectId}
               id={f.id}
               label={`still ${f.clip_id}`}
-              change={f.change as ChangeState}
-              hold={props.busy ? "This one is still being made" : f.stale ? "Redo storyboard first" : null}
+              change={redone ? null : change}
+              hold={props.busy || changing ? "This one is still being made" : f.stale ? (f.redo_credits != null ? "Press Redo this frame first" : "Redo storyboard first") : null}
               stopFor={props.stopFor}
               seed={seed}
               onUndo={f.earlier.length ? () => props.onPick((f.earlier.at(-1) as { file_id: number }).file_id) : undefined}

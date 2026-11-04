@@ -1,13 +1,14 @@
 import type { StepState } from "../components";
 import type { Script } from "./useScript";
 
-/** The writing flow: six steps. Directions, Variations and Breakdown are optional. */
+/** The writing flow (v5): Script, Directions, Variations, Breakdown, Cast, then Publish. Directions, Variations and Breakdown are
+ *  optional. Publish is not in the v5 step bar (it is "Publish to library"), but stays the step after Cast. */
 export const WRITING_STEPS = [
   { id: "script", label: "Script" },
   { id: "directions", label: "Directions" },
   { id: "variations", label: "Variations" },
-  { id: "cast", label: "Cast" },
   { id: "breakdown", label: "Breakdown" },
+  { id: "cast", label: "Cast" },
   { id: "publish", label: "Publish" },
 ] as const;
 
@@ -35,7 +36,7 @@ type WritingStep = (typeof WRITING_STEPS)[number]["id"] | (typeof SONG_STEPS)[nu
 export const isNarrated = (s: Pick<Script, "kind">) => s.kind === "narrated";
 
 /** What the song steps need to know about the takes: is one Preferred, how many sing the lyrics as they are now, and how many sing older words. */
-export type SongState = { preferred: boolean; overCap?: boolean; takes: number; older: number; making?: boolean };
+export type SongState = { preferred: boolean; takes: number; older: number; making?: boolean };
 
 export const stepsFor = (s: Pick<Script, "kind">) => (s.kind === "song" ? SONG_STEPS : isNarrated(s) ? NARRATED_STEPS : WRITING_STEPS);
 
@@ -52,7 +53,6 @@ export function lockReason(step: WritingStep, s: Script, song?: SongState): stri
     if (!hasWords(s)) return "Write or pick the lyrics first";
     if (step === "takes") return null;
     // Cast, Breakdown and Publish follow the Preferred take (flows S5–S7).
-    if (song?.overCap) return "The Preferred take is too long for a video. Use the first part of it first";
     if (!song?.preferred && song?.making) return "Wait for the takes to finish";
     if (!song?.preferred) return song && song.takes > 0 ? "Pick the preferred take first" : song && song.older > 0 ? "Make takes of the new lyrics first" : "Make the song first";
     return null;

@@ -5,34 +5,34 @@ import { expectSignedInAs, fill, PASSWORD } from "./helpers";
 test.describe.configure({ mode: "serial" });
 
 const setupForm = (code: string) => ({
-  "Setup code (from your server settings)": code,
+  "Setup code (from the server's environment)": code,
   "Studio name": "Studio",
   "Your name": "Reed",
   Email: "reed@example.com",
-  "Password (10 or more characters)": PASSWORD,
+  "Password (at least 10 characters)": PASSWORD,
 });
 
 test("signed-out visitors are sent to sign in", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to Brand Studio" })).toBeVisible();
 });
 
 test("first-run setup needs the right code, then creates the owner and signs in", async ({ page }) => {
   await page.goto("/setup");
   await fill(page, setupForm("wrong-code"));
-  await page.getByRole("button", { name: "Create owner account" }).click();
+  await page.getByRole("button", { name: "Create the studio" }).click();
   await expect(page.getByRole("alert")).toHaveText("Setup is not allowed.");
 
-  await page.getByLabel("Setup code (from your server settings)").fill("e2e-setup-code");
-  await page.getByRole("button", { name: "Create owner account" }).click();
+  await page.getByLabel("Setup code (from the server's environment)").fill("e2e-setup-code");
+  await page.getByRole("button", { name: "Create the studio" }).click();
   await expectSignedInAs(page, "Reed");
 });
 
 test("setup cannot be run a second time", async ({ page }) => {
   await page.goto("/setup");
   await fill(page, setupForm("e2e-setup-code"));
-  await page.getByRole("button", { name: "Create owner account" }).click();
+  await page.getByRole("button", { name: "Create the studio" }).click();
   await expect(page.getByRole("alert")).toHaveText("Already set up.");
 });
 
@@ -40,7 +40,7 @@ test("sign-in rejects a wrong password, accepts the right one", async ({ page })
   await page.goto("/login");
   await fill(page, { Email: "reed@example.com", Password: "not the password" });
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Wrong email or password.");
+  await expect(page.getByRole("alert")).toHaveText("That email and password don't match.");
 
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();

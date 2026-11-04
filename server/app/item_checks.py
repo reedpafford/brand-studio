@@ -51,7 +51,7 @@ def on() -> bool:
 
 
 def price(db: Session, project: Project, target: str = "take") -> Decimal:
-    """One check's "up to": a take's strip of frames costs more than one still (rule 32)."""
+    """One check's "up to": a take's strip of frames costs more than one still (rule 36)."""
     if target == "take":
         return estimate(db, project.workspace_id, KIND, Decimal(TAKE_LOOKS), {})
     return estimate(db, project.workspace_id, KIND, Decimal(1), {})

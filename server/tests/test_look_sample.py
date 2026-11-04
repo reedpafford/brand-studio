@@ -136,11 +136,13 @@ def test_real_samples_on_the_test_site_go_real_until_the_budget(app, db, owner, 
 
     settings = app.state.settings
     settings.fake_providers, settings.real_look_samples = True, True
-    settings.look_samples_budget_usd = 0.6  # one sample (a still and a 5 s clip, about $0.55)
+    settings.look_samples_budget_usd = (
+        0.6  # one sample (a still and a 5 s clip, about $0.55 in Pixar)
+    )
     brand = _brand(owner)
-    url = f"/looks/zack-d/sample?brand_id={brand}"
+    url = f"/looks/disney-pixar/sample?brand_id={brand}"
     assert owner.get(url).json()["test_site"] == look_samples.REAL_NOTE  # said before the press
-    owner.post("/looks/zack-d/sample", json={"brand_id": brand})
+    owner.post("/looks/disney-pixar/sample", json={"brand_id": brand})
     still = db.query(Job).filter(Job.input["step"].as_string() == look_samples.STILL).one()
     assert still.provider == REAL_SAMPLES
     still.status, still.output = "succeeded", {"file_ids": [upload(owner)]}
@@ -186,7 +188,7 @@ def test_two_presses_before_the_first_still_is_back_never_pass_the_budget(app, d
 
     settings = app.state.settings
     settings.fake_providers, settings.real_look_samples = True, True
-    settings.look_samples_budget_usd = 1.0  # one sample is about $0.55
+    settings.look_samples_budget_usd = 0.6  # a Pixar sample is about $0.55, a Zack D one $0.13
     brand = _brand(owner)
     owner.post("/looks/disney-pixar/sample", json={"brand_id": brand})
     shown = owner.get(f"/looks/zack-d/sample?brand_id={brand}").json()

@@ -1,14 +1,13 @@
 import { ProjectsChip, folderQuery, useFolderFilter } from "../folders/Projects";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Film, Search } from "lucide-react";
+import { ChevronRight, Film, Plus, Search } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, EmptyState, Skeleton, Tabs } from "../components";
+import { Banner, Button, EmptyState, PageTop, Skeleton, Tabs, buttonClass } from "../components";
 import { useDebounced } from "../scripts/status";
-import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { VideoTable, type MadeFrom } from "./VideoRows";
 
@@ -30,7 +29,6 @@ const done = (p: Project) => !p.needs_you && !!p.finished_at;
  *  with search and Mine. Everything lives in the address. */
 export function VideosPage() {
   const brandId = Number(useParams().brandId);
-  const { data: brands } = useBrands();
   const { data: me } = useMe();
   const rail = useRail();
   const [params, setParams] = useSearchParams();
@@ -71,7 +69,6 @@ export function VideosPage() {
     setText("");
     setParams({}, { replace: true });
   };
-  const brand = brands?.find((b) => b.id === brandId);
   const rows = videos.data ?? [];
   const all = live.data ?? [];
   const tab = archived ? "archived" : status || "all";
@@ -93,18 +90,21 @@ export function VideosPage() {
 
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="type-eyebrow text-muted">{brand?.name}</p>
-          <h1 className="type-page">Videos</h1>
-        </div>
+      {/* v5 C_Videos: "Videos" and the one primary, + New video, in the flush 52 px bar. */}
+      <PageTop title="Videos">
         {!rail && ( // the phone's five tabs have no Media: it opens from here
           <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline">
             Media
             <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
           </Link>
         )}
-      </div>
+        {rail && (
+          <Link to={`/b/${brandId}/videos/new`} className={`${buttonClass("primary")} lg:min-h-control-dense lg:px-3`}>
+            <Plus size={16} strokeWidth={1.75} aria-hidden />
+            New video
+          </Link>
+        )}
+      </PageTop>
       <Tabs label="Status" tabs={tabs} value={tab} onChange={(id) => set({ status: id === "all" || id === "archived" ? "" : id, archived: id === "archived" ? "1" : "" })} />
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative block w-full sm:w-[320px]">

@@ -4,8 +4,21 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 
 ## What Reed decided (2026-10-28)
 - **Styles.** Our current look stays as the **House style** (the default). Starpop's styles are added as registry entries. Their order: **Disney Pixar, Song, Zack D, Skeleton** first, then the rest. Style guidance may come from the providers' docs and the styles studied in docs/research/starpop-2026-10-28/ (rule 20).
+- **Format and Look are two settings (Reed, 2026-10-29).** Format is Dialogue, Song or Narrated. Look is House (default), Disney Pixar, Zack D or Skeleton. Any format goes with any look; "Song" moves out of the styles list into Format.
+- **Narrated ads are a format (Reed, 2026-10-29).** This is the recipe that made Reed's two narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads" and "v2: the sound"):
+  - one narrator track (ElevenLabs v3 via Replicate, voice "Sarah");
+  - B-roll timed to the measured sentences;
+  - each take's own sound effects kept;
+  - background music that ducks under the narrator (Stable Audio 2.5 via Replicate, or Suno instrumental);
+  - pauses trimmed only on real silence, checked so no word is clipped.
+  Changing the voice and the music is a nice-to-have for later.
 - **Models.** Other image/video models are allowed, each priced in credits at its real Replicate cost (rule 2). 480p Seedance stays the default.
-- **Music.** Reed asked about a Suno API key. Suno has no official public API (only unofficial wrappers), so the music step sits behind one provider interface. MiniMax Music on Replicate (exact lyrics) comes first, with a slot for Suno if Reed gets real access. Any key goes in the server's environment through the deploy secrets, never in chat or code.
+- **Music (updated 2026-10-29).** Suno through KIE (kie.ai, Suno V6, about $0.06 for 2 takes) is the song provider, and it's on for the test site with a $5 test budget (Reed, 2026-10-29). The key is `KIE_API_KEY` in the deploy secrets, never in code or chat. Every real song is logged in ops/SPEND.md. MiniMax is dropped (Reed: "use the exact softwares we would use live").
+- **For every video, not just songs (Reed, 2026-10-29).** These are built and tested here first, then brought to live. Redo the UX and UI as needed, very thoroughly:
+  - **A creative plan before the breakdown.** The script becomes a scene plan the editor approves, edits or redoes: the structure (from the reference, or a proven pattern for the genre and brand), one vivid exaggerated action per line, the product at the key moments, and the same cast throughout. The words never change. Worked examples: docs/next/ironpaws-vo/plan.py, docs/next/song-pilot/ironpaws-shot-plans.md.
+  - **Automatic fixes.** A refused or "service busy" take retries once on its own (refusals are free), and clip-prompt wording flags fix themselves.
+  - **An advisory AI check** on stills and takes against the character sheets and the product image. It flags likely face, outfit and product problems as Advice, each with a ready "Change this…" note, and never blocks or redoes anything. It costs a few cents a video, which Reed approved. It replaces rule 11 when it ships.
+  - **What stays with people:** approving the plan, approving the looks (one click), and watching the final video.
 - **Song ads are mostly B-roll with the song over it.** The song leads: the storyboard and the clips are timed to the real track (as Starpop does it). Lip-sync is a rare extra, not the core.
 - **A separate test site** on the same machine. The live site and its data are never touched.
 
@@ -21,6 +34,12 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
   - Each state says what the person sees and the one press that moves them on (rule 22).
   - Each PR names the flows it touches and the effects on other steps.
   - Flow-QA walks them all.
+- **Saving Claude usage, nothing lost (Reed, 2 Nov).**
+  - Routine work runs on the lighter model: building screens to the wireframes, small test and lint fixes, and QA test runs.
+  - The top model stays for: the Director's prompts, the Song/Narrated workflow design and its core, the house-style work, final QA on any director, money or Song/Narrated PR, and Next-Lead, Next-Server, UX-Auditor and Song-Producer.
+  - Running sessions keep their model. When a routine piece finishes, its next piece goes to a lighter-model session.
+  - Before a session is shut down, it writes a handoff (open PRs, unfinished items, gotchas) into this file through its next PR, or sends it to Next-Lead. Next-Lead confirms the handoff is complete, and only then does the Producer shut the session down. Any PR or finding with no owner goes to Next-Lead.
+  - Fewer messages. A tester sends a PASS once, to Next-Lead, with the head SHA, and Next-Lead forwards it to the Producer in one line. Only failures get detailed findings. Builders send status to Next-Lead, not the Producer.
 - **Order:** 0 infra + flow map → 1 song ads → 2 styles (Disney, Song, Zack D, Skeleton) → 3 brand setup → 4 video settings (look, models, shape, flavour, language) → 5 organization → 6 cleaner layout. Layout is designed alongside, built last.
 
 ## Team
@@ -34,14 +53,16 @@ Reed approved the Phase 2 spec on 2026-10-28 (docs/research/starpop-2026-10-28/s
 | QA / QA-2 | Review PRs into `next` as they do for `main` |
 
 ## Queued (Next-Lead keeps this list)
-Every builder tells Next-Lead when a PR is up; Next-Lead names the tester (QA or QA-3; QA-4, Flow-QA and Switch-On retired 30 Oct to save credits) with the lighter queue. As of 30 Oct, 05:15 (merge freeze until 06:00 UTC while Reed redoes the look samples; credit cuts: builders finish open fixes only, no new work without the Producer):
-- **Merged in the 04:45 batch:** #1020, #1021, #1023, #1024, #1025, #1017, #1018, #1027, #1012, #1029, #1030, #1033. Deployed (run 188, df2afe25); Reed can redo the look samples.
-- **Passed, need next merged in, then a re-pass:** #1008, #1028 (Next-Screens). **Passed, held:** #1026.
-- **QA:** #1036 (`started_at` on jobs). **QA-3:** #1013 (Split; last attempt, parked if it fails again), #1022 re-check (after #1008 lands, CostBar conflict), #1031 (Song in any look, n15; merging next with the `fmt` rename).
-- **Next-Screens:** after #1026 and #1036, one PR: the song, clip and storyboard "Making…" clocks count from `started_at`.
-- **Director:** after #1031, song.md keeps only its still and clip guides; delete the podcast, vox and whiteboard style files and their test lines.
+Every builder tells Next-Lead when a PR is up; Next-Lead checks the head and names the tester: QA (UX-Auditor's PRs), QA-3 (Next-Screens' and wording PRs), QA-10 (server PRs). As of 2 Nov, 19:45 UTC:
+- **In test:** #1194 (director-first video screens; three small fixes going in: "up to free" on a held change, editor chips wrapping at 1440, "in all" on the change row), #1202 (server "style" wording), #1203 (House's blurb "Our style"), #1204 (v5 character, place, prop and media item pages).
+- **v5 build (Reed approved 2 Nov, DECISIONS rule 33).** The audit of every screen against its wireframe is at https://claude.ai/artifact/Rp2NnBfwcuGbu9JQ1ifiK8 (57 boards: 3 match, 16 close, 35 differ, 3 not built). Every web PR shows each changed screen's wireframe beside a screenshot at 1440 and 390, and lists any difference with its reason; QA fails anything else. Estimate 2–3 days with both builders, plus QA rounds.
+  - **UX-Auditor:** (1) #1194; (2) Clips under "Open the steps"; (3) the Scripts table, the editor Scripts table and a script's Overview (unpublished scripts too, with "Make a video · up to N" and "Publish to library"); (4a) script steps to v5: New script (Shape, Language, step order, counts), Script (Courier, autosave, counts), Directions (the grid, Notes, "3 of 5 accepted"), the Breakdown table, Variations and Publish; (4b) song takes, Import a reel and reel review.
+  - **Next-Screens:** (5) the Brand area to F_BrandLook (C_Brand retired); (6) Cast & places, Media and the Media item (#1204 is part of this); (7) Studio: Needs you and its phone version, In production, Usage, My credits, Team, Settings, Setup, and the 52 px page top.
+  - **Next-Server:** "Used in" on library items and a media item's read and Delete (for #1204); Needs you counting held sends; owner-set limits (for the Limits tab); Freestyle Song and Narrated types (item 2 below); brand import from a website.
+  - **Decisions (Next-Lead, 2 Nov):** an editor's held send shows from the first send as a request card in Needs you (counted) and as "Waiting for the owner's OK" (screen words say "the owner"; a name shows only where it comes from data, rule 4) in the editor's Sent; the video and the version's freeze still come at the owner's OK (rule 31). Make it again is the main press when a note waits.
 - **After the 1 Nov reset (no builder work before):** the advisory AI check on takes, part of the four-step flow (DECISIONS rule 21), takes its spec from docs/next/take-review-checklist.md. It should cover: the transcript against the script (extra, missing or wrong-speaker lines), brand-name pronunciation (FOMO said FOH-moh), glowing or red eyes, screens (real UI, wins only, figures that match the beat), cast and continuity, and the end line. Advice only, with a ready "Change this…" note, never a block (rule 11).
 - **Parked (credit cuts; small, not regressions):** a queued song take's "Waiting to start" counts from page open and resets on reload (needs the job's `created_at` on SongTakeOut plus one line in TakesStep; QA-3 on #1043). After Split and Rewrite the cost bar reads a little high (19) until a reload (16); above the charge, never below (QA-3 on #1013). An editor's character sheets and look samples made outside a video have no limit (cheap images, trusted team; Producer, 1 Nov): add a hold or an allowance if abused (QA on #1068).
+- **Parked (v5 and after, small; not in Reed's test):** a final cut's phone-insert fallback when a screen has no figure spot (FOMO-Producer's onphone and chart animation); bring a Delete-from-Media item back to Media (today it is off Media for good, the video keeps its copy); the workspace's own time zone for Last active and the month's charges (today UTC); a sweep for unsaved brand logos; removing Approve all; the Shape chip's wording; word-snap notes from P1. After Reed's test: one retry when a clip is refused as sensitive, and per-video FOMO screens. Reed's first real test answers whether the song model obeys a "[Say …]" tag.
 - **After Reed's test, in this order (Producer and Reed, 1 Nov):**
   1. **Word splice, first** (Reed: "First thing after my test"): when a take says a word wrong ("fogo" for "fomo"), the director cuts a correctly spoken copy of the word, in the same voice, from another take or clip over the bad one, with a short crossfade, using the words check's timestamps. If no clean copy exists, it redoes the clip with a pronunciation note. A director fix alongside watch_cut's findings.
   2. **Freestyle Song and Narrated (3c):** server tools for a song take and a narration, plus the Director's prompt lines, so the director makes the song or narration first and times the plan to it (Producer, 2 Nov). Until then Freestyle Song and Narrated read "coming next".

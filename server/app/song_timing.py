@@ -134,17 +134,10 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) ->
     get times between their neighbours, so the order and the words never change.
     `times_sung` is 1 for a line sung as often as it's written (a chorus written twice and
     sung twice), 2 when the song sings it once more than written, and so on."""
-    out, section = [], ""
-    for raw in lyrics.strip().splitlines():
-        text = LIP_SYNC.sub("", raw).strip()
-        if SECTION.match(raw):
-            section = section_name(raw)
-        elif text:
-            out.append({"section": section, "text": text, "words": text.split()})
-    ours = [(i, _norm(w)) for i, line in enumerate(out) for w in line["words"]]
+    out = _written(lyrics)
     theirs = [_norm(h["word"]) for h in heard]
     times: dict[int, list[tuple[float, float]]] = {}
-    matcher = SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)
+    ours, matcher = _matcher(out, theirs)
     for block in matcher.get_matching_blocks():
         for k in range(block.size):
             h = heard[block.b + k]
@@ -162,6 +155,43 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) ->
         line["end"] = max((b for _, b in found), default=None)
     _fill(out, start, seconds)
     return out
+
+
+def _written(lyrics: str) -> list[dict]:
+    """The sung lines as written: [{section, text, words}] (no tags, no [Lip-sync] marks)."""
+    out, section = [], ""
+    for raw in lyrics.strip().splitlines():
+        text = LIP_SYNC.sub("", raw).strip()
+        if SECTION.match(raw):
+            section = section_name(raw)
+        elif text:
+            out.append({"section": section, "text": text, "words": text.split()})
+    return out
+
+
+def _matcher(out: list[dict], theirs: list[str]) -> tuple[list[tuple[int, str]], SequenceMatcher]:
+    """The lyric words, (line index, word), lined up with the words heard."""
+    ours = [(i, _norm(w)) for i, line in enumerate(out) for w in line["words"]]
+    return ours, SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)
+
+
+def extras(lyrics: str, heard: list[dict], pause: float = 1.0) -> list[dict]:
+    """What the song sings that isn't in the lyrics (an ad-lib, a repeated hook, an invented
+    line): [{text, start, end}], in phrases split at a pause. Heard words with no lyric word
+    to line up with count; a word heard in place of a lyric word is that word misheard."""
+    theirs = [_norm(h["word"]) for h in heard]
+    _, matcher = _matcher(_written(lyrics), theirs)
+    loose = [k for tag, i1, i2, j1, j2 in matcher.get_opcodes() if tag in ("insert", "replace")
+             for k in range(j1 + (i2 - i1), j2)]  # fmt: skip
+    phrases: list[dict] = []
+    for n, k in enumerate(loose):
+        h = heard[k]
+        if n and k == loose[n - 1] + 1 and h["start"] - phrases[-1]["end"] <= pause:
+            phrases[-1]["text"] += f" {h['word'].strip()}"
+            phrases[-1]["end"] = h["end"]
+        else:
+            phrases.append({"text": h["word"].strip(), "start": h["start"], "end": h["end"]})
+    return phrases
 
 
 def _fill(out: list[dict], start: float, seconds: float) -> None:
@@ -236,6 +266,7 @@ def measure(path: Path, lyrics: str, hear=words) -> dict:
         "beats": beat_times,
         "words": heard,
         "lines": sung,
+        "extras": extras(lyrics, heard),
         "sections": sections(sung, beat_times, heard, seconds),
         "peaks": peaks(samples),
     }

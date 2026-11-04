@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import screen_figures, video_settings
+from app import p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -29,13 +29,16 @@ from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
 
 log = logging.getLogger(__name__)
-RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
+RESOLUTION = "480p"  # clips are planned at 480p; a model without it uses its own lowest
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
 
 
-def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "") -> dict:
+def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
+               drop: tuple[str, ...] = ()) -> dict:  # fmt: skip
     """The Seedance job for one clip: its prompt as written (it already says which picture is
-    which), the project's aspect ratio, and its references by file id in the clip's order."""
+    which), the project's aspect ratio, and its references by file id in the clip's order.
+    `drop`: references left out for a look-alike retry ("frame:", then "char:"), each of their
+    [ImageN] said in words instead and the rest renumbered (`LOOKALIKE`)."""
     from app.breakdown import would_show
 
     fits_model(db, project, clip)
@@ -47,7 +50,11 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
     images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
+    prompt = _in_words(db, clip.prompt, images, drop, known) if drop else clip.prompt
+    images = [i for i in images if not i.startswith(drop)] if drop else images
     for ref in clip.references:
+        if drop and ref["id"].startswith(drop):
+            continue
         if ref["id"] not in known:
             raise HTTPException(
                 409, "A picture on this clip is no longer part of this video. Edit the prompt."
@@ -62,11 +69,20 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
     model = video_model(project)
+    resolution = model.take_resolution
+    take, sent = p_video.fit(model.id, {
+        "prompt": _with_note(in_english(prompt), note),
+        "duration": clip.seconds,
+        "resolution": resolution,
+        "aspect_ratio": project.aspect_ratio,
+        "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
+    }, {k: v for k, v in files.items() if v})  # fmt: skip
     return {
         "step": "clip_take",
         "project_id": project.id,
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
+        **({"note": note} if note else {}),  # its Redo note, kept for a look-alike's retries
         "model": model.id,
         "made_with": {  # VS1: what the take is made with; OR3: its prompt's version
             **video_settings.made_with(
@@ -75,25 +91,68 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "")
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
         },
         "brand_id": project.brand_id,
-        "fit_images_to": LONG_SIDE[RESOLUTION],
+        "fit_images_to": LONG_SIDE[resolution],
         "exact_file_ids": exact,
-        "input": {
-            "prompt": _with_note(in_english(clip.prompt), note),
-            "duration": clip.seconds,
-            "resolution": RESOLUTION,
-            "aspect_ratio": project.aspect_ratio,
-            "generate_audio": True,
-        },
-        "files": {k: v for k, v in files.items() if v},
+        "input": take,
+        "files": sent,
         "screen_figures": screen_figures.for_job(
             db, [r["id"] for r in clip.references], _shots(breakdown, shots)
         ),
     }
 
 
+LOOKALIKE = ("frame:", "char:")  # left out in turn when a take is refused as a look-alike
+
+
+def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...],
+              known: dict) -> str:  # fmt: skip
+    """A clip prompt with its dropped pictures said in words: a character's [ImageN] becomes
+    their name and sheet description, the opening still "the opening shot"; the pictures it
+    keeps are numbered again in order."""
+    from app.clip_prompts import TAGS_N
+
+    kept = [i for i in images if not i.startswith(drop)]
+    said = names(known)
+
+    def word(m: re.Match) -> str:
+        n = int(m.group(1))
+        if not 1 <= n <= len(images):
+            return m.group(0)
+        ref = images[n - 1]
+        if ref in kept:
+            return f"[Image{kept.index(ref) + 1}]"
+        if ref.startswith("char:"):
+            item = db.get(LibraryItem, int(ref.split(":")[1]))
+            told = (item.notes or item.short_description or "").strip() if item else ""
+            who = said.get(ref) or (item.name if item else "the character")
+            return f"{who} ({told.rstrip('.')})" if told else who
+        return "the opening shot"
+
+    return TAGS_N.sub(word, prompt)
+
+
 def _shots(breakdown: dict, ids: list[str]) -> list[dict]:
     by_id = {s["id"]: s for scene in breakdown["scenes"] for s in scene["shots"]}
     return [by_id[i] for i in ids if i in by_id]
+
+
+VOICE_OVER = re.compile(r"v\.?o\b|narrator|voice-?over|off.?screen", re.I)  # a speaker nobody sees
+
+
+def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: list[dict]) -> bool:
+    """Whether someone speaks or sings on camera in this clip, so its take keeps sound (Reed,
+    3 Nov: B-roll won't all need sound; sound effects are added on request afterwards). A
+    narrated video's clips and a song's B-roll shots are silent; a song's sung shots and a
+    story's spoken lines are not."""
+    from app.narration import video_kind
+
+    kind = video_kind(db, project)
+    if kind == "narrated":
+        return False
+    if kind == "song" or clip.song_slice:
+        return bool((clip.song_slice or {}).get("sung_shots"))
+    return any(s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
+               for s in shots)  # fmt: skip
 
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
@@ -113,7 +172,9 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
                         f"{m.duration.max} s a clip. {then}. Nothing was charged.")  # fmt: skip
 
 
-ENGLISH = "Use English: every spoken line is in English, and any text on screen is in English."
+ENGLISH = ("Language: every spoken line is in American English, and any text on screen is in "
+           "English.")  # fmt: skip
+SAID_AMERICAN = "every spoken line is in American English"  # the clip prompt's own (the Director)
 
 
 def in_english(prompt: str) -> str:
@@ -121,7 +182,7 @@ def in_english(prompt: str) -> str:
     after "Change this…"): one fixed line right after the References line, so the prompt still
     opens and closes on the same audio line. Free; the saved prompt is unchanged."""
     lines = prompt.splitlines()
-    if ENGLISH in lines:
+    if ENGLISH in lines or SAID_AMERICAN in prompt:  # said once, in American English (Reed)
         return prompt
     at = next((i for i, x in enumerate(lines) if x.startswith("References: ")), 0)
     return "\n".join([*lines[: at + 1], ENGLISH, *lines[at + 1 :]])
@@ -206,13 +267,18 @@ def retry(db: Session, job: Job) -> None:
     """P3 (flows.md 1b): a take refused or not finished because the service was busy is
     tried again once on its own. A busy service gets a short wait; a refusal read as
     something ("flagged for: sexual") is reworded first by the free fix, then retried
-    (`after_fix`). Never a second automatic retry, never on a video that's gone, and never
-    past the video's limit, budget or the editor's week. The failed take isn't counted, so
-    the credits are held once and come back if the retry fails too."""
+    (`after_fix`). A look-alike refusal steps down instead (`_again_without`: without the
+    still, then without the sheets). No other second automatic retry, never on a video
+    that's gone, and never past the video's limit, budget or the editor's week. The failed
+    take isn't counted, so the credits are held once and come back if the retry fails too."""
     from app.clip_prompts import fix_job, is_stale, newest
 
     why = why_failed(job)
-    if job.auto or not why or job.input.get("discard") or not job.project_id:
+    if not why or job.input.get("discard") or not job.project_id:
+        return
+    if _lookalike(job):
+        return _again_without(db, job)
+    if job.auto:  # one automatic retry, but for a look-alike's steps
         return
     if db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
         return
@@ -232,6 +298,42 @@ def retry(db: Session, job: Job) -> None:
     _again(db, job, job.input, wait=why == "busy")
 
 
+def _lookalike(job: Job) -> bool:
+    return "copyright" in (job.error_detail or "").lower() and not job.input.get("discard")
+
+
+def _again_without(db: Session, job: Job) -> None:
+    """A take refused as a look-alike (Seedance's copyright check, the Producer): made again
+    without the opening still, then without the sheets, the characters said in words, its Redo
+    note kept; after that it stops and says so plainly. A refused take isn't charged: only the
+    one that's made counts, against the cap and the price like any take."""
+    step = job.input.get("lookalike", 0)
+    project = db.get(Project, job.project_id)
+    row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+    if step >= len(LOOKALIKE) or not row or project.archived_at is not None:
+        if step >= len(LOOKALIKE):
+            job.error = GAVE_UP
+        return
+    if db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
+        return
+    try:
+        data = take_input(db, project, row, job.input.get("note", ""), drop=LOOKALIKE[: step + 1])
+    except HTTPException as exc:
+        log.info("clip %s: no look-alike retry: %s", row.id, exc.detail)
+        return
+    from app.routes.jobs import BY_DIRECTOR
+
+    mark = {BY_DIRECTOR: True} if job.input.get(BY_DIRECTOR) else {}  # the director's still
+    _again(db, job, {**data, "lookalike": step + 1, **mark}, wait=False)
+
+
+GAVE_UP = (
+    "The video model kept refusing this clip as looking like someone else's character, even "
+    "with the characters described in words. Change the character's look (the hair, the "
+    "outfit) or the opening shot, then make it again. Nothing was charged."
+)
+
+
 def after_fix(db: Session, row: ProjectClip, failed_id: int) -> None:
     """The free rewording of a refused take landed: its one retry, from the new prompt, if
     nothing else stops it."""
@@ -247,6 +349,14 @@ def after_fix(db: Session, row: ProjectClip, failed_id: int) -> None:
         log.info("clip %s: no automatic retry: %s", row.id, exc.detail)
         return
     _again(db, failed, again, wait=False)
+
+
+def once_more(db: Session, job: Job) -> None:
+    """A failed host still or piece, or a take's added sound: tried again once on its own
+    (never charged twice); after that Make again makes it (rule 22)."""
+    if job.auto or db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
+        return
+    _again(db, job, job.input, wait=bool(BUSY_SAID.search(job.error_detail or "")))
 
 
 def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
@@ -277,6 +387,8 @@ def still_wanted(db: Session, job: Job) -> bool:
     prompt is the one it was made from (Flow-QA: an edit during a busy wait)."""
     row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
     project = db.get(Project, job.project_id) if job.project_id else None
+    if row is None and job.input.get("step") in ("host_still", "host_piece", "take_sound"):
+        return bool(project and project.archived_at is None)  # not a take: only its video
     return bool(row and project and project.archived_at is None
                 and row.prompt == job.input.get("clip_prompt"))  # fmt: skip
 
@@ -322,7 +434,8 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     along while checks are on (`item_checks.rides`)."""
     from app import item_checks
 
-    job = {"model": video_model(project).id, "input": {"resolution": RESOLUTION}}
+    m = video_model(project)
+    job = {"model": m.id, "input": {"resolution": m.take_resolution}}
     take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
     return take + item_checks.rides(db, project, clip)
 
@@ -425,14 +538,41 @@ def _narrated_mix(folder: Path, lengths: list[float], music: bool, fade: str) ->
     return graph
 
 
+def ends_at(lengths: list[float], end: float | None) -> list[float]:
+    """The clips' lengths cut to end at `end` (the last sung line and a breath after it):
+    the clips past it drop, the one across it is shortened. None or later: as they are."""
+    if end is None or end >= sum(lengths):
+        return lengths
+    out, t = [], 0.0
+    for d in lengths:
+        if t >= end:
+            break
+        out.append(round(min(d, end - t), 2))
+        t += d
+    return out
+
+
+def _length(folder: Path, name: str) -> float:
+    probe = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+             name]  # fmt: skip
+    done = subprocess.run(probe, cwd=folder, capture_output=True, text=True,  # noqa: S603
+                          timeout=60).stdout.strip()  # fmt: skip
+    try:
+        return float(done)
+    except ValueError:
+        return 0.0
+
+
 def song_cut(
     videos: list[bytes], lengths: list[float], song: bytes,
     narrated: bool = False, music: bytes | None = None,
 ) -> bytes:  # fmt: skip
     """A song video (flows V6, free): each picked take cut to its piece of the song, counting
-    from its start (a short one holds its last frame), joined in order with its own sound
-    dropped, the song laid under the whole picture, and the end faded. A narrated video
-    (V6n) keeps each take's own sound under the narration, with its music bed if made."""
+    from its start (a short one slowed to fill it, never sped up: Song-Producer), joined in
+    order with its own sound dropped, the song laid under the whole picture, and the end
+    faded. A narrated video (V6n) keeps each take's own sound under the narration, with its
+    music bed if made. `lengths` may cover fewer clips than `videos` (`ends_at`)."""
+    videos = videos[: len(lengths)]
     total = sum(lengths)
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
@@ -440,9 +580,12 @@ def song_cut(
             (folder / f"{n}.mp4").write_bytes(data)
         (folder / "song").write_bytes(song)
         size = _probe(folder, "0.mp4", "v:0", "width,height") or "720x1280"
-        parts = [f"[{n}:v]trim=duration={d},setpts=PTS-STARTPTS,tpad=stop_mode=clone:"
-                 f"stop_duration={d},trim=duration={d},scale={size.replace('x', ':')},setsar=1,"
-                 f"fps=30,format=yuv420p[v{n}]" for n, d in enumerate(lengths)]  # fmt: skip
+        slow = [max(1.0, d / have) if (have := _length(folder, f"{n}.mp4")) else 1.0
+                for n, d in enumerate(lengths)]  # fmt: skip
+        parts = [f"[{n}:v]setpts={slow[n]:.4f}*(PTS-STARTPTS),trim=duration={d},"
+                 f"tpad=stop_mode=clone:stop_duration={d},trim=duration={d},"
+                 f"scale={size.replace('x', ':')},setsar=1,fps=30,format=yuv420p[v{n}]"
+                 for n, d in enumerate(lengths)]  # fmt: skip
         joined = "".join(f"[v{n}]" for n in range(len(videos)))
         fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
         sound = (_narrated_mix(folder, lengths, music is not None, fade) if narrated else [

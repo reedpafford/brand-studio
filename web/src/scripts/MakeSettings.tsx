@@ -5,7 +5,7 @@ import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { useMe } from "../auth/useMe";
 import { Badge, Button, Panel } from "../components";
-import { ChoicePanel, fieldsOf, languageName, type Choice, type Field } from "../projects/VideoSettings";
+import { ChoicePanel, fieldsOf, languageName, LockedSetting, type Choice, type Field } from "../projects/VideoSettings";
 import { useRail } from "../useMedia";
 import { LookPicker, useLooks } from "./Looks";
 import type { Script } from "./useScript";
@@ -19,6 +19,7 @@ export type Picks = Omit<components["schemas"]["SettingIn"], "undo">;
  *  models, 9:16, each product's first flavour. */
 function useChoices(script: Script, picks: Picks, defaults: Record<string, string>): (SettingsOut & { auto: string[] }) | null {
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
+  const looks = useLooks();
   const screens = useQuery({ queryKey: ["screens", script.brand_id], queryFn: async () => (await api.GET("/brands/{brand_id}/screens", { params: { path: { brand_id: script.brand_id } } })).data ?? [] });
   if (!models.data || !screens.data) return null;
   const flavours: Record<string, string[]> = {};
@@ -27,6 +28,10 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
   // Auto, never as current. One rule, the server's, the one Make this version uses.
   const kept = defaults;
   const variants = { ...kept, ...picks.product_variants };
+  // Auto is the server's rule (breakdown.video_model): a song gets the catalogue default, else its style's.
+  const look = picks.look ?? script.look;
+  const styled = looks.data?.find((l) => l.id === look || l.lanes.some((x) => x.id === look))?.video_model;
+  const auto = (m: (typeof models.data)[number]) => (script.kind === "song" || !styled ? m.default : m.id === styled);
   const rate = (m: (typeof models.data)[number], at: string) => m.credits_per_unit[at] ?? Object.values(m.credits_per_unit)[0] ?? 0;
   return {
     look: picks.look ?? script.look,
@@ -36,8 +41,8 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
     product_variants: variants,
     auto: Object.keys(flavours).filter((p) => !(p in kept)), // may go back to Auto (no default to fall back on)
     language: script.language,
-    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, "480p"), lip_sync: m.lip_sync, default: m.default, over_cap: false })),
-    image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default, over_cap: false })),
+    video_models: models.data.filter((m) => m.kind === "video").map((m) => ({ id: m.id, name: m.name, credits_per_second: rate(m, m.resolutions.includes("480p") ? "480p" : m.resolutions[0]), lip_sync: m.lip_sync, default: auto(m) })),
+    image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default })),
     shapes: ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"],
     flavours,
   };
@@ -64,7 +69,8 @@ export function MakeSettings({ script, defaults, picks, onPick }: { script: Scri
   const [picking, setPicking] = useState<Field | null>(null);
   if (!settings) return null;
   // A product with no flavour (none picked, no default) is Auto: the server picks, as on a video.
-  const fields = fieldsOf(settings, looks.data).map((f) => {
+  // The video keeps the script's style (item 7): it shows here as a locked line, never a pick.
+  const fields = fieldsOf(settings, looks.data, true).map((f) => {
     const product = f.key.startsWith("flavour:") ? f.key.slice("flavour:".length) : null;
     if (!product || !settings.auto.includes(product)) return f;
     const picked = product in settings.product_variants;
@@ -80,12 +86,15 @@ export function MakeSettings({ script, defaults, picks, onPick }: { script: Scri
     const { product_variants, ...one } = c.body;
     onPick(product_variants ? { ...picks, product_variants: { ...picks.product_variants, ...product_variants } } : { ...picks, ...one });
   };
-  const chip = (f: Field) => (
+  const chip = (f: Field) =>
+    f.locked ? (
+      <LockedSetting key={f.key} field={f} />
+    ) : (
     <Button key={f.key} variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setPicking(f)}>
       <span className="text-muted">{f.label}:</span> {f.valueLabel}
       {f.price && <>{" "}<span className="text-xs text-muted tabular-nums">· {f.price}</span></>}
     </Button>
-  );
+    );
   const items = (
     <>
       {fields.map(chip)}

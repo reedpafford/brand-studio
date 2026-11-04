@@ -36,7 +36,7 @@ test("at 390, an editor presses Make it and sees the progress line in credits, a
   show();
   await userEvent.click(await screen.findByRole("button", { name: "Make it" }));
   expect(calls.some((c) => c.key === "POST /projects/9/director")).toBe(true);
-  expect(await screen.findByText("Making the storyboard · up to 31 credits so far · you can leave this page")).toBeInTheDocument();
+  expect(await screen.findByText("Making the storyboard · 31 credits spent so far · you can leave this page")).toBeInTheDocument();
   expect(screen.getByText("Making the shots.")).toBeInTheDocument();
   expect(screen.getByText("The looks are approved, so the storyboard comes next.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
@@ -46,7 +46,7 @@ test("at 390, an editor presses Make it and sees the progress line in credits, a
 test("making clips, the line counts them: Making clips: 6 of 9", async () => {
   fakeServer(routes({ "GET /projects/9/clips": [200, clips(6, 9)], "GET /projects/9/director": [200, run({ spent_usd: null, credits: 42, turns: [turn(1, { tool: "make_take", result: "Making 9 takes." })] })] }));
   show();
-  expect(await screen.findByText("Making clips: 6 of 9 · up to 42 credits so far · you can leave this page")).toBeInTheDocument();
+  expect(await screen.findByText("Making clips: 6 of 9 · 42 credits spent so far · you can leave this page")).toBeInTheDocument();
 });
 
 test("Make it is disabled with the server's plain reason when the script isn't published", async () => {
@@ -60,12 +60,12 @@ test("the owner sees the director's own time in dollars; even if the server sent
   setViewport(1440);
   fakeServer(routes({ "GET /projects/9/director": [200, run()] }));
   show();
-  expect(await screen.findByText(/up to 31 credits so far · the director's own time \$0\.42/)).toBeInTheDocument();
+  expect(await screen.findByText(/31 credits spent so far · the director's own time \$0\.42/)).toBeInTheDocument();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   fakeServer(routes({ "GET /auth/me": [200, editor], "GET /projects/9/director": [200, run()] }));
   show();
-  expect(await screen.findByText(/up to 31 credits so far/)).toBeInTheDocument();
+  expect(await screen.findByText(/31 credits spent so far/)).toBeInTheDocument();
   expect(document.body.textContent).not.toContain("$");
 });
 
@@ -73,7 +73,7 @@ test("a held move says Waiting for approval", async () => {
   fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: [turn(1), turn(2, { tool: null, why: "", result: "", status: "needs_owner_approval" })] })] }));
   show();
   expect(await screen.findByText("Waiting for approval")).toBeInTheDocument();
-  expect(screen.getByText(/^Waiting for the owner's OK · up to 31 credits/)).toBeInTheDocument();
+  expect(screen.getByText(/^Waiting for the owner's OK · 31 credits spent so far/)).toBeInTheDocument();
 });
 
 test("Stop asks first, says what still finishes, and stops the run", async () => {
@@ -83,7 +83,7 @@ test("Stop asks first, says what still finishes, and stops the run", async () =>
   expect(screen.getByText(/What it already started still finishes, and nothing is undone/)).toBeInTheDocument();
   await userEvent.click(screen.getAllByRole("button", { name: "Stop" }).at(-1)!);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/director/stop")).toBe(true));
-  expect(await screen.findByText(/^Stopped\. · up to 31 credits for this run/)).toBeInTheDocument();
+  expect(await screen.findByText(/^Stopped\. · spent 31 credits on this run/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
 });
 
@@ -106,7 +106,7 @@ test("at 390, the delivered cut plays and downloads, with the total, the note, w
   expect(await screen.findByLabelText("The finished video")).toBeInTheDocument();
   expect(screen.getByText("Delivered")).toBeInTheDocument();
   expect(screen.getAllByText("Every take checked clean; take 2 of clip 3 has the clearest product shot.")[0]).toBeVisible(); // the note, and again in Every move
-  expect(screen.getByText("54 s · up to 58 credits for this run")).toBeInTheDocument(); // its length, and never below the charge
+  expect(screen.getByText("54 s · spent 58 credits on this run")).toBeInTheDocument(); // its length, and never below the charge
   expect(screen.getByText("What it redid on its own (1)")).toBeInTheDocument();
   expect(screen.getAllByText("Take 1 of clip 3 is flagged: the label is hard to read.")[0]).toBeVisible();
   expect(screen.getByRole("link", { name: /Download MP4/ })).toHaveAttribute("download", "cat-buys-the-dip.mp4");
@@ -181,7 +181,8 @@ test("during a run a note says the director reads it on its next move; a double 
   expect(calls.filter((c) => c.key === "POST /projects/9/director/messages")).toHaveLength(1);
   expect(screen.queryByRole("alert")).toBeNull();
   const thread = screen.getByRole("list", { name: "Conversation with the director" });
-  expect(within(thread).getByText("Waiting for approval.")).toBeInTheDocument();
+  expect(within(thread).getAllByText(/Waiting for the owner.s OK/)).toHaveLength(1); // said once, never a name
+  expect(within(thread).queryByText("Waiting for approval.")).toBeNull();
   expect(within(thread).queryByRole("link", { name: "See it in Needs you" })).toBeNull();
 });
 
@@ -193,6 +194,21 @@ test("each note says whether a move has answered it yet", async () => {
   const list = await screen.findByRole("list", { name: "Conversation with the director" });
   expect(within(list).getAllByText(/· Answered$/)).toHaveLength(1);
   expect(within(list).getAllByText(/· Open$/)).toHaveLength(1); // and never on a move
+});
+
+test("a refused move reads as plain words, without the server's Refused: prefix (Advice on #1176)", async () => {
+  fakeServer(routes({ "GET /projects/9/director": [200, run({ turns: [turn(1, { result: "Refused: the cast is locked, so it stays." }), turn(2, { result: "Refused again: that take is already picked." })] })] }));
+  show();
+  expect(await screen.findByText("The cast is locked, so it stays.")).toBeInTheDocument();
+  expect(screen.getByText("That take is already picked.")).toBeInTheDocument(); // the run's last refusal too
+  expect(screen.queryByText(/Refused:/)).toBeNull();
+});
+
+test("Make it names the cap a run can spend, up to N credits, in credits only (rule 34)", async () => {
+  fakeServer(routes({ "GET /auth/me": [200, editor], "GET /projects/9/director": [200, run({ status: "none", turns: [], start_blocked: "", run_price: 119.4 })] }));
+  show();
+  expect(await screen.findByRole("button", { name: "Make it · up to 120 credits" })).toBeEnabled();
+  expect(screen.queryByText(/\$/)).toBeNull();
 });
 
 test("before the first run there's no message box: Make it starts the director", async () => {
@@ -229,9 +245,9 @@ test("the locks it builds around: a press locks or unlocks one and keeps the out
   show();
   const chips = await screen.findByRole("list", { name: "Locked" });
   expect(within(chips).getByRole("button", { name: "Cast" })).toHaveAttribute("aria-pressed", "true");
-  await userEvent.click(within(chips).getByRole("button", { name: "Look" }));
+  await userEvent.click(within(chips).getByRole("button", { name: "Style" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/locks")?.body).toEqual({ locks: { ...locks, look: true }, outfits }));
-  expect(await within(chips).findByRole("button", { name: "Look", pressed: true })).toBeInTheDocument();
+  expect(await within(chips).findByRole("button", { name: "Style", pressed: true })).toBeInTheDocument();
   expect(within(chips).queryByRole("button", { name: /Screens/ })).toBeNull();
   expect(within(chips).getByText("Screens")).toBeInTheDocument();
 });

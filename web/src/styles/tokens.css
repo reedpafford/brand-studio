@@ -24,6 +24,7 @@
   --surface-3: #25262b;       /* hover / pressed on surface-2 */
   --border: #23252a;           /* dividers, card edges */
   --border-strong: #666a73;    /* inputs, checkboxes: 3.4:1 on surface */
+  --border-button: #2c2e34;    /* a secondary button's outline (v5: no fill) */
   --scrim: rgb(0 0 0 / 0.64);  /* behind sheets and dialogs */
   --media-shade: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0) 70%); /* text on pictures */
 
@@ -131,6 +132,7 @@
   --surface-3: #ebebef;
   --border: #e7e7ea;
   --border-strong: #8b8e97;    /* 3.3:1 */
+  --border-button: #d9dadf;
   --scrim: rgb(20 20 18 / 0.45);
   --text: #1b1c1f;
   --text-muted: #62656e;       /* 5.8:1 on surface */
@@ -159,7 +161,7 @@
   [data-theme="system"] {
     color-scheme: light;
     --bg: #fbfbfc; --surface: #ffffff; --surface-2: #f4f4f6; --surface-3: #ebebef;
-    --border: #e7e7ea; --border-strong: #8b8e97; --scrim: rgb(20 20 18 / 0.45);
+    --border: #e7e7ea; --border-strong: #8b8e97; --border-button: #d9dadf; --scrim: rgb(20 20 18 / 0.45);
     --text: #1b1c1f; --text-muted: #62656e; --text-faint: #9a9da5;
     --accent-border: transparent; --accent-soft: #eef0ff; --accent-text: #4146b8; --focus: #5e63d6;
     --disabled-bg: #ebebef; --disabled-text: #62656e;
@@ -187,6 +189,7 @@
   --color-surface-3: var(--surface-3);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-border-button: var(--border-button);
   --color-text: var(--text);
   --color-muted: var(--text-muted);
   --color-faint: var(--text-faint);

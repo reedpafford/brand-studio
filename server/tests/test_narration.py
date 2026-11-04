@@ -1,6 +1,9 @@
 """Narrated ads (flows N1): one voice reads the version's words, its pauses trimmed on real
 silence, each sentence timed; all on the free stand-ins (no paid calls)."""
 
+import json
+from pathlib import Path
+
 import pytest
 
 from app import narration
@@ -37,6 +40,23 @@ def test_the_narrator_reads_the_directors_narration_text():
     ]  # fmt: skip
 
 
+def test_a_remakes_note_reaches_the_voice_as_a_tag_and_the_voice_is_one_of_ours():
+    made = narration.job(WORDS, "Jane", note="Say fomo as FOH-moh.")
+    assert made["input"] == {"prompt": f"[Say fomo as FOH-moh.] {check.narration_text(WORDS)}",
+                             "voice": "Jane"}  # fmt: skip
+    with pytest.raises(ValueError, match="voice"):
+        narration.job(WORDS, "Morgan Freeman")
+
+
+def test_the_male_voices_are_elevenlabs_own_names():
+    """Austin and Roger are in Replicate's elevenlabs/v3 voice list (the recorded schema)."""
+    recorded = Path(__file__).parent / "fixtures/replicate/elevenlabs_v3.json"
+    schema = json.loads(recorded.read_text())
+    assert set(narration.VOICES) <= set(schema["enums"]["voice"]["enum"])
+    for voice in ("Austin", "Roger"):
+        assert narration.job(WORDS, voice)["input"]["voice"] == voice
+
+
 def test_a_narration_is_made_trimmed_timed_and_used(app, db, owner, narrated):
     before = owner.get(f"{narrated}/songs").json()
     assert before["songs_on"] and before["estimate_credits"] > 0
@@ -66,6 +86,21 @@ def test_a_trim_that_would_clip_a_word_keeps_the_pauses(app, db, owner, narrated
     (take,) = owner.get(f"{narrated}/songs").json()["takes"]
     assert take["status"] == "ready" and take["advice"] == [narration.KEPT_PAUSES]
     assert take["untrimmed_seconds"] is None  # the untrimmed narration is the one kept
+
+
+def test_a_trim_heard_with_its_number_written_another_way_is_kept(tmp_path):
+    from app.providers.fake_local import narration as voice
+
+    path = tmp_path / "voice.mp3"
+    path.write_bytes(voice("We hit $5,000 today."))
+
+    def hear(file, text):  # Whisper writes the number one way, then the other
+        trim = file.name == "trimmed.mp3"
+        said = "We hit $5,000 today." if trim else "We hit 5000 dollars today."
+        return [{"word": w, "start": 0.0, "end": 0.3} for w in said.split()]
+
+    timing, trimmed = narration.measure(path, "We hit $5,000 today.", hear=hear)
+    assert trimmed is not None and timing["trimmed"]  # the same words: the trim is used
 
 
 def test_a_failed_narration_says_so_and_costs_nothing(app, db, owner, narrated):
@@ -173,13 +208,12 @@ def test_a_script_switches_between_dialogue_and_narrated_before_publishing(owner
     from app.routes.script_library import SONG_STAYS
 
     base = narrated.rsplit("/drafts", 1)[0]
-    assert owner.patch(base, json={"kind": "story"}).json()["kind"] == "story"
+    assert owner.patch(base, json={"format": "dialogue"}).json()["kind"] == "story"
     assert owner.get(base).json()["versions"][0]["reads_narrated"]  # all one voice (ST0 Advice)
-    assert owner.patch(base, json={"kind": "narrated"}).json()["kind"] == "narrated"  # Undo
-    assert owner.patch(base, json={"kind": "song"}).status_code == 422  # never to a song
+    assert owner.patch(base, json={"format": "narrated"}).json()["kind"] == "narrated"  # Undo
     brand = owner.get("/brands").json()[0]["id"]
     song = owner.post("/scripts", json={"brand_id": brand, "title": "S", "kind": "song"}).json()
-    no = owner.patch(f"/scripts/{song['id']}", json={"kind": "narrated"})
+    no = owner.patch(f"/scripts/{song['id']}", json={"format": "narrated"})
     assert (no.status_code, no.json()["detail"]) == (409, SONG_STAYS)
 
 

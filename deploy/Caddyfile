@@ -30,9 +30,11 @@
 	}
 }
 
-# Brand Studio Next (the test site, branch `next`): the same address on port 8443. Its own stack
-# (deploy/next/) answers on the shared edge network; if it's down, only this port fails.
-{$DOMAIN}:8443 {
+# Brand Studio Next (the test site, branch `next`): the same address on port 8443, and its own
+# name on 443 (Reed's domain; cloud sessions only reach 443). Its own stack (deploy/next/) answers
+# on the shared edge network; if it's down, only these addresses fail. Until the name's DNS points
+# here, Caddy keeps retrying its certificate in the background; live's address is unaffected.
+{$DOMAIN}:8443, thisisatestingenv.online {
 	encode zstd gzip
 	header {
 		X-Content-Type-Options nosniff

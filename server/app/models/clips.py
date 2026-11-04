@@ -1,6 +1,8 @@
 """A project's clips: one video prompt per clip of the breakdown (Claude writes it, the editor
 can edit it), and later the generated video."""
 
+from datetime import datetime
+
 from sqlalchemy import JSON, ForeignKey, String, Text, event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -68,3 +70,20 @@ class FinalVideo(Entity, Base):
     cut_ins: Mapped[list[str]] = mapped_column(JSON, default=list)  # "c1/1.2" for each one used
     song_take_id: Mapped[int | None] = mapped_column(ForeignKey("song_takes.id"))  # laid under
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    off_media_at: Mapped[datetime | None]  # the owner took it off Media; its video keeps it
+
+
+class HostPiece(Entity, Base):
+    """A presenter video's host (app/host.py): number 0 is the host's still on green, 1, 2, …
+    the pieces that lip-sync its narration from `start` to `end` (seconds). Each is made by
+    its newest job (input host_piece_id); a remake keeps the one before in `earlier`."""
+
+    __tablename__ = "host_pieces"
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    take_id: Mapped[int] = mapped_column(ForeignKey("song_takes.id"))  # the narration
+    number: Mapped[int]
+    start: Mapped[float] = mapped_column(default=0)
+    end: Mapped[float] = mapped_column(default=0)
+    audio_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # its narration
+    file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # once made
+    earlier: Mapped[list[int]] = mapped_column(JSON, default=list)  # earlier makes' files

@@ -541,7 +541,7 @@ It never blocks, never redoes anything on its own, and never changes an approval
 - **Look** is how the pictures are drawn: **House** (the default, our current look), **Disney Pixar**, **Zack D** or **Skeleton**, then the rest in Reed's order.
 - Any format goes with any look. "Song" is no longer in the styles list, and no look is "narrated" any more: narration is the Narrated format.
 
-A look is a config file (in `server/app/prompts/styles/`, kind: look), not code. A look is **On** (editors can pick it) only after Reed has approved a sample. Below, "style" in ST2 and ST3 means a look.
+A look is a config file (a guide in `server/app/guides/styles/`), not code. A look is **On** (editors can pick it) only after Reed has approved a sample. Below, "style" in ST2 and ST3 means a look.
 
 ## ST0. Changing the format (before publishing)
 
@@ -643,7 +643,7 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 
 | State | What they see | The one press |
 |---|---|---|
-| E | "Paste the brand's website" box. | **Read the site · about 3 credits** (owner only). |
+| E | "Paste the brand's website" box. | **Read the site · up to 3 credits** (owner only). |
 | R | "Reading the site…" | — |
 | Done | A review screen: each found item (logo, colours, products) with a tick, nothing saved yet. A colour the brand already has reads "Already in your colours", with no tick; ticked colours are added to the brand's, never replacing them. A product is new, or "fills an empty description" for one already in the library (never overwriting). There's no description item: the brand has no such field. | **Save the ticked ones** (toast, Undo), or **Cancel**. |
 | Logo didn't come | At Save: "Couldn't get the logo from the site." The rest is saved. | — |
@@ -651,6 +651,8 @@ One Brand page with sections, each saying where it's used ("Used in: script, sti
 | F | "Couldn't read that site. Nothing was charged." (also a private or internal address, a page too big or too slow, or too many redirects). | **Try again**, or fill it in by hand. |
 | Bad address | "Paste a web address (https://…)" | — |
 | Nothing found | "Nothing useful on that page. Try the home page." Nothing is charged. | — |
+| From New brand (F_BrandNew) | Website is optional beside Name, Colour and Logo; once typed, the press reads "Make the brand · up to 3 credits". The brand is made, then the page opens on this read (Reading, then Done). If the read can't start, the brand is still made and the reason shows on its page. | **Make the brand**. |
+| Back later | Import from website reopens on the brand's last read: the address box filled, "Read it again · up to N credits" above the list. | **Read it again**, or Save / Cancel. |
 
 The price shown is the most it costs. On the test site the read is a stand-in unless its real switch is on.
 

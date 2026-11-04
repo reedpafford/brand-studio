@@ -15,7 +15,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
-from app.models.jobs import WAITING, Job
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
@@ -45,6 +45,11 @@ class SongPart(BaseModel):
     shots: dict[str, SongShotTime]  # by shot id
 
 
+class NeedsYou(BaseModel):
+    text: str  # one plain sentence
+    action: Literal["cast", "plan", "approvals"]
+
+
 class BreakdownOut(BaseModel):
     id: int
     script_version: int
@@ -61,6 +66,8 @@ class BreakdownOut(BaseModel):
     song: SongPart | None = None  # a song video's: each shot's time in the song, and Sung
     older_plan: bool = False  # P2: made from an earlier plan ("Made for an older plan")
     was_id: int | None = None  # OR3 Go back to this: the one it replaced (Undo uses it)
+    director_run: bool = False  # Reed's item 9: the director owns this video (a freestyle's)
+    needs_you: NeedsYou | None = None  # then, only what a person must do: one line, one action
 
 
 class Maker(BaseModel):
@@ -92,9 +99,7 @@ def _song(db: Session, row: BreakdownVersion) -> dict | None:
     text = db.scalar(select(ScriptVersion.text).where(
         ScriptVersion.project_id == row.project_id, ScriptVersion.version == row.script_version
     )) or ""  # fmt: skip
-    unsure = song_breakdown.guessed(
-        Breakdown.model_validate(row.data), text, song_breakdown.timing_used(take)
-    )
+    unsure = song_breakdown.guessed(Breakdown.model_validate(row.data), text, take.timing or {})
     shots = {sid: {**t, "guessed": sid in unsure} for sid, t in song["shots"].items()}
     return {**song, "shots": shots}
 
@@ -114,7 +119,23 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         song=_song(db, row),
         fixes=breakdown_fix.fixes(row.problems or [], row.data),
         older_plan=plans.older(db, project, row),
+        **_director_run(db, project),
     )
+
+
+def _director_run(db: Session, project) -> dict:
+    """Item 9: a director-run video's problems and advice are the director's (it puts the
+    right cast in each shot and makes missing looks inside its price): no box for people,
+    only what waits for the owner, as one line."""
+    from app.models.freestyles import Freestyle
+
+    if not db.scalar(select(Freestyle.id).where(Freestyle.project_id == project.id)):
+        return {}
+    waiting = (Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
+    held = db.scalar(select(Job).where(*waiting).limit(1))
+    needs = held and {"text": held.input.get("held") or "Waiting for the owner's OK.",
+                      "action": "approvals"}  # fmt: skip
+    return {"director_run": True, "needs_you": needs or None}
 
 
 def _working(db: Session, user: User, project_id: int):

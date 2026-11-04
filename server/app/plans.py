@@ -92,7 +92,7 @@ def copy_to_video(project: Project, draft) -> None:
 def plan_first(db, draft) -> Decimal:
     """What Make this version charges at once for the plan (flows 1b): one call, unless the
     saved preview lands free or an owner's approved plan goes straight to the shots. The
-    quote counts it (rule 32: QA-3, 28.06 quoted while the video came to 31.06)."""
+    quote counts it (rule 36: QA-3, 28.06 quoted while the video came to 31.06)."""
     from app.credits import estimate
     from app.models.script_library import Script
 
@@ -187,7 +187,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
         draft = db.get(ScriptDraft, project.script_draft_id)
         context = script_preview.with_slots(db, draft.script_id, context, project)
     cast = [x for x in _tag(context, "cast").splitlines() if x.strip()]
-    model = video_model()
+    model = video_model(project)
     reference = ""
     if project.reference_breakdown:
         reference = prompts.reference_block(project.reference_breakdown, project.reference_replace)
@@ -197,11 +197,27 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
         places=[x for x in escape(_places(db, project)).splitlines() if x],
         reference=escape_block(reference) if reference else "", note=escape(note),
     )  # fmt: skip
+    from app.director import treatment_block
+
+    message = treatment_block(db, project) + message  # the story it serves, when there is one
+    if (block := _song(db, project)) is not None:  # the song or narration made before the plan
+        message = f"{message}\n{block}"
     return {"step": STEP, "project_id": project.id, "script_version": version.version,
             "system": system, "prompt": message, "max_tokens": 16000,
             "script": version.text, "fmt": fmt(db, project),
             "cast_ids": re.findall(r"^((?:char|slot):\d+)", "\n".join(cast), re.M),
             "stars": _stars(db, project), "max_seconds": model.duration.max}  # fmt: skip
+
+
+def _song(db: Session, project: Project) -> str | None:
+    """The video's song or narration, timed (Freestyle makes it before the plan, so the plan
+    maps its beats onto the measured sections or sentences); None before it's timed."""
+    from app import song_breakdown
+
+    take = song_breakdown.take_for(db, project)
+    if take is None or take.timing is None:
+        return None
+    return escape_block(prompts.song_block(take.timing or {}))
 
 
 def _plan_of(plan: dict) -> ScenePlan:

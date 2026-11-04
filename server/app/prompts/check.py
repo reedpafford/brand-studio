@@ -44,6 +44,7 @@ SAYS = re.compile(  # action that reads like a line; the model voices it (fomo m
     r"|(does not|doesn't|won't|will not) (sell|say|speak|answer|reply|agree|give in))\b",
     re.I,
 )
+RHYME = 'call a picture that answers an earlier one a "callback", never a "rhyme"'
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
 FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23;
     # not everyday words that over-flag: a dog's "crusty eyes", "her lap" (Reed's frame, 10-28)
@@ -604,6 +605,7 @@ def variations(
     cast: list[str] = (),
     brand: str = "",  # the brand's name: the closing call to action says it
     note: str = "",  # the author's note: a length it asks for ("about 45 s") is the target
+    sung: bool = False,  # a song: it follows its lyrics, never asked to end on the brand
 ) -> list[str]:
     """Alternates of an approved script (workflow v2): the brand, the end line and the locked
     cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
@@ -619,7 +621,7 @@ def variations(
         name = f"variation {i}"
         lines = [line.strip() for line in script.splitlines() if line.strip()]
         said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
-        if end_line.strip() and not says_brand(said[-1] if said else "", brand):
+        if not sung and end_line.strip() and not says_brand(said[-1] if said else "", brand):
             problems.append(f"{ADVICE}{name}: {NO_CTA}")
         for star in sorted(stars - _stars(script)):
             problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
@@ -1075,8 +1077,6 @@ def song_directions(
             continue
         if len(d.style_line.split()) > 25:
             problems.append(f"{ADVICE}direction {n}: the music style is over 25 words")
-        if not says_brand(sung[-1], brand):
-            problems.append(f"{ADVICE}direction {n}: {NO_CTA}")
         if named := [x for x in names if f" {_words(x)} " in f" {_words(d.style_line)} "]:
             problems.append(
                 f"{ADVICE}direction {n}: the music style names “{named[0]}”; the music service "
@@ -1093,17 +1093,27 @@ def song_directions(
 
 
 def song_breakdown(
-    lyrics: str, bd: SongBreakdown, song: dict, *args, written: bool = False, **kwargs
+    lyrics: str,
+    bd: SongBreakdown,
+    song: dict,
+    *args,
+    written: bool = False,
+    sung: bool = True,
+    **kwargs,
 ) -> list[str]:
     """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
     back over the whole take (a fix: the slices are cut from them), B-roll silent, and edges on
     beats, inside a section (advice). Only on a breakdown the AI `written` (off unless said, so
     an edit stays quiet): a Sung shot the
     script didn't ask for (advice); an editor's own Sung flips are theirs (rule 31), and the
-    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's."""
+    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's.
+    A `sung` song follows its script and is never asked to end on the brand (Reed, 3 Nov); a
+    narration (`sung` False) is a spoken script and keeps rule 18's closing-line advice."""
     clean = "\n".join("" if SECTION.match(x) else LIP_SYNC.sub("", x).strip()
                       for x in lyrics.splitlines())  # fmt: skip
     problems = breakdown(clean, bd, *args, **kwargs)
+    if sung:
+        problems = [p for p in problems if p != f"{ADVICE}{NO_CTA}"]
     shots = [shot for scene in bd.scenes for shot in scene.shots]
     if not shots:
         return problems
@@ -1214,6 +1224,48 @@ def _said(line: str, labelled: bool) -> str:
 def _lines(ns: list[int], many: str = "are", one: str = "is") -> str:
     """ "line 4 is", "lines 4, 7 are"."""
     return f"lines {', '.join(map(str, ns))} {many}" if len(ns) > 1 else f"line {ns[0]} {one}"
+
+
+HEADING = re.compile(r"^\s*(SCENE\b|INT\.|EXT\.)", re.I)
+RHYME = 'call a picture that answers an earlier one a "callback", never a "rhyme"'
+QUOTED = re.compile(r"[\"“]([^\"”]{3,}?)[\"”]")
+
+
+def treatment(made: dict, script: str) -> list[str]:
+    """The treatment never varies from the script (Reed, 2 Nov: "not vary from the scripts"):
+    its beats cover every line but the scene headings once, in order; any line it quotes is the
+    script's word for word (a trailing "…" marks a cut-off quote); and a picture that answers an
+    earlier one is a callback, never a "rhyme"."""
+    lines = script.splitlines()
+    want = [n for n, line in enumerate(lines, 1) if line.strip() and not HEADING.match(line)]
+    got = [n for beat in made.get("beats", []) for n in beat.get("lines", [])]
+    problems = []
+    if got != want:
+        missing = [n for n in want if n not in got]
+        extra = [n for n in got if n not in want or got.count(n) > 1]
+        said = "the beats must cover every line but the scene headings once, in order"
+        if missing:
+            said += f"; missing {missing}"
+        if extra:
+            said += f"; not lines to cover, or twice: {sorted(set(extra))}"
+        problems.append(said)
+
+    def bare(text: str) -> str:  # an ellipsis is a cut, in the script or the quote
+        return " ".join(text.replace("…", " ").replace("...", " ").split())
+
+    flat = bare(" ".join(lines))
+    texts = [made.get(k, "") for k in ("hook", "logline", "why_it_holds", "ending")]
+    texts += [b.get(k, "") for b in made.get("beats", []) for k in ("purpose", "picture")]
+    for text in texts:
+        for quote in QUOTED.findall(text):
+            words = bare(quote)
+            if len(words.split()) >= 2 and words not in flat:
+                problems.append(f"\"{quote}\" isn't the script's words: quote lines exactly")
+        if re.search(r"\brhym", text, re.I):
+            problems.append(
+                'call a picture that answers an earlier one a "callback", never a "rhyme"'
+            )
+    return problems
 
 
 def plan(

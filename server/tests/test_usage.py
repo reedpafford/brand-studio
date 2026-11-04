@@ -3,7 +3,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from app.credits import week_start
+from app.credits import get_limits, week_start
 from app.db import utcnow
 from app.models.accounts import Role, User
 from app.models.jobs import Usage
@@ -199,3 +199,47 @@ def test_all_time_counts_only_finished_videos(owner, db):
                if b["brand_id"] == fomo)  # fmt: skip
     assert (row["finished"], row["cost_per_finished_usd"]) == (1, 3.0)
     assert owner.get("/usage/summary").json()["finished"] == 0  # this week: none
+
+
+def test_the_directors_own_spend_this_month(owner, editor, db):
+    """v5 Settings > Limits (UX-Auditor, Next-Lead): the director's own time, in dollars, for
+    the owner only. Its takes are the video's spend, not the director's."""
+    from app.director import RUN
+
+    me, _, project = _setup(owner, db)
+    run = {RUN: {"id": "r1"}}
+    _charge(db, enqueue(db, me, "write-claude", {"step": "director", **run}, project=project),
+            "0.40")  # fmt: skip
+    _charge(db, enqueue(db, me, "check-claude", {"step": "watch_cut", **run}, project=project),
+            "0.35")  # fmt: skip
+    _charge(db, enqueue(db, me, "video-480p", {}, project=project), "3.00")  # a take it asked for
+    _charge(db, enqueue(db, me, "write-claude", {"step": "director", **run}, project=project),
+            "9.99", when=utcnow() - timedelta(days=40))  # last month  # fmt: skip
+    month = owner.get("/usage/summary", params={"period": "month"}).json()
+    assert month["director_spend_usd"] == 0.75
+    assert (
+        owner.get("/usage/summary", params={"period": "all"}).json()["director_spend_usd"] == 10.74
+    )
+    assert editor.get("/usage/summary", params={"period": "month"}).status_code == 404
+
+
+def test_by_person_credits_dollars_videos_and_the_week(owner, editor, db):
+    """v5 Usage › By person: everyone in the team, most spent first; an editor's week as their
+    allowance counts it; the owner has no weekly limit. Editors never see it."""
+    me, fomo, project = _setup(owner, db)
+    ed = db.query(User).filter_by(role=Role.editor).one()
+    _charge(db, enqueue(db, me, "video-480p", {}, project=project), "6.50")
+    clip = enqueue(db, ed, "video-480p", {"brand_id": fomo})  # an editor's Quick clip
+    _charge(db, clip, "0.50")
+    project.finished_at = utcnow()
+    db.commit()
+    rows = {r["name"]: r for r in owner.get("/usage/people").json()}
+    mine, theirs = rows[me.name], rows[ed.name]
+    assert (mine["role"], mine["spend_usd"], mine["videos"], mine["week_allowance"]) == (
+        "owner", 6.5, 1, None)  # fmt: skip
+    assert (theirs["role"], theirs["spend_usd"], theirs["videos"]) == ("editor", 0.5, 0)
+    assert theirs["credits"] == theirs["week_used"] == float(clip.credits)
+    assert theirs["week_allowance"] == float(
+        get_limits(db, ed.workspace_id).weekly_quick_clip_credits
+    )
+    assert editor.get("/usage/people").status_code == 404

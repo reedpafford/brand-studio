@@ -85,7 +85,7 @@ def test_a_flagged_take_is_made_again_with_its_notes_at_most_twice(
 def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor, monkeypatch):
     """A director that keeps asking for a redo of one clip: refused past MAX_REDOS, and the
     run stops at MAX_TURNS."""
-    monkeypatch.setattr(director, "MAX_TURNS", 9)
+    monkeypatch.setattr(director, "MAX_TURNS", 16)  # room past the treatment and the stills
     real = director.choose
 
     def stubborn(state):
@@ -99,8 +99,8 @@ def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor,
     owner.post(f"/projects/{pid}/director")  # never held: the limits alone
     _run(app, db)
     out = editor.get(f"/projects/{pid}/director").json()
-    assert out["status"] == "ended" and out["ended"] == "It stopped after 9 turns."
-    assert len(out["turns"]) == 9
+    assert out["status"] == "ended" and out["ended"] == "It stopped after 16 turns."
+    assert len(out["turns"]) == 16
     results = [t["result"] for t in out["turns"] if t["why"] == "Once more."]
     made = [r for r in results if r.startswith("Making")]
     assert len(made) == director.MAX_REDOS
@@ -232,11 +232,9 @@ def test_a_take_for_a_clip_that_isnt_there_is_refused(db, owner, editor, app):
     assert director.named(said) == "Refused: there's no clip 9."  # QA-3: never "clip clip 9"
 
 
-def test_its_own_turns_never_use_the_videos_budget_but_the_cap_counts_them(app, db, owner, editor):
-    """Next-Lead (DECISIONS #1066): the video's budget, the director's own and the per-video
-    cap are three limits. An editor's run is never held for the budget by its own turns."""
-    from app.credits import get_limits
-
+def test_its_own_turns_never_use_the_videos_budget(app, db, owner, editor):
+    """Next-Lead (DECISIONS #1066): the video's budget and the director's own are two limits. An
+    editor's run is never held for the budget by its own turns."""
     pid = _made(app, owner, editor, db)
     project = db.get(Project, pid)
     earlier = {"step": director.STEP, "ended": "Stopped.",
@@ -251,11 +249,6 @@ def test_its_own_turns_never_use_the_videos_budget_but_the_cap_counts_them(app, 
     out = editor.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered", out["ended"]
     assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
-
-    turns.credits = get_limits(db, project.workspace_id).per_video_max_credits
-    db.commit()  # its turns alone reach the per-video cap: nothing more, for anyone
-    refused = editor.post(f"/projects/{pid}/director")
-    assert refused.status_code == 409 and "limit" in refused.json()["detail"]
 
 
 def test_an_editors_run_approves_its_own_videos_plan(app, db, owner, editor):
@@ -405,10 +398,10 @@ def test_it_watches_the_cut_fixes_what_it_found_and_cuts_again(app, db, owner, e
     out = editor.get(f"/projects/{pid}/director").json()
     tools = [t["tool"] for t in out["turns"]]
     assert out["status"] == "delivered", (out["ended"], tools)
-    assert tools.count("watch_cut") == 2  # the stand-in watches twice (the server allows 3)
+    assert tools.count("watch_cut") == 3, tools  # it delivers only a cut it watched (3 at most)
     redos = [t for t in out["turns"] if t["tool"] == "make_take" and "watch found" in t["why"]]
     assert len(redos) == 1  # the stand-in remakes a clip once for a watch
-    assert tools.count("final_cut") == 3 and tools[-2:] == ["final_cut", "deliver"]
+    assert tools.count("final_cut") == 3 and tools[-2:] == ["watch_cut", "deliver"]
     last = db.query(ProjectClip).filter_by(project_id=pid).order_by(ProjectClip.id.desc()).first()
     muted = f"Muted a stretch of clip {last.clip_id.removeprefix('c')} instead of remaking it."
     assert [t["result"] for t in out["turns"] if t["tool"] == "mute"] == [muted]
@@ -501,8 +494,7 @@ def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owne
 
 def test_every_budget_check_counts_as_the_hold_does(app, db, owner, editor, monkeypatch):
     """QA-6: the hold left the director's spend out, but the take retry's check (fits), the
-    settings preview and the cost bar's percent still counted it. All read budget_used now;
-    the per-video cap still counts everything."""
+    settings preview and the cost bar's percent still counted it. All read budget_used now."""
     from decimal import Decimal
 
     from app import credits
@@ -975,3 +967,37 @@ def test_a_note_about_the_scripts_words_is_an_ask_to_change_them_not_any_says():
         assert director.WORDS.search(ask), ask
     for note in notes:
         assert not director.WORDS.search(note), note
+
+
+def test_make_it_shows_the_most_one_run_may_charge(app, db, owner, editor):
+    """Rule 34 (the Producer): a run on a video is quoted as a freestyle's, the planned cost and
+    every clip made again with its check and the director's own limit; not while it runs."""
+    from app.models.script_library import ScriptDraft
+    from app.routes.estimate import run_price, version_cost
+
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    project = db.get(Project, pid)
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    shown = editor.get(url).json()["run_price"]
+    assert shown == float(run_price(db, draft, project)) > float(version_cost(db, draft, project))
+    editor.post(url)
+    assert editor.get(url).json()["run_price"] == 0  # running: its "so far" is what it shows
+
+
+def test_a_turn_kept_before_its_tool_runs_reads_as_going_never_stopped(app, db, owner, editor):
+    """The worker keeps a turn's answer (succeeded) and only then runs its tool and writes its
+    result: read in between, the move is still going, not "Stopped." (QA on #1194: a "Stopped."
+    flashed after "Making the plan." and the run then delivered)."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db, ticks=3)
+    project = db.get(Project, pid)
+    turn = next(j for j in director.turns(db, project) if j.status == JobStatus.succeeded)
+    turn.input = {
+        k: v for k, v in turn.input.items() if k not in ("result", "ended")
+    }  # as `after` finds it
+    db.commit()
+    move = next(m for m in editor.get(url).json()["thread"] if m["id"] == f"t{turn.id}")
+    assert (move["text"], move["status"]) == ("Deciding what to do next.", "running")

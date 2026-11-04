@@ -67,10 +67,9 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
   const songLength = useSongLength(scriptId, s?.kind === "song");
   const lines = (v?.text ?? "").split("\n");
   const readyToMake = v?.status === "approved";
-  // The whole video's price follows the picks (#956's estimate); over the video limit, the press says why.
+  // The whole video's price follows the picks (#956's estimate).
   const estimate = useMakeEstimate(scriptId, slot, picks, readyToMake);
   const whole = estimate.data?.credits ?? v?.estimate_credits ?? 0;
-  const held = (estimate.data?.over_cap ? estimate.data.reason || "Over the video limit." : null);
   return (
     <Panel title={s ? `${s.title} · Version ${letter}` : "Version"} onClose={onClose}>
       {!s || !v ? (
@@ -117,14 +116,14 @@ export function VersionPanel({ scriptId, slot, brandId, onClose }: { scriptId: n
           {readyToMake && whole > 0 && (
             <p className="text-sm text-muted">
               {/* One line that ties the button's price to the whole video's (#749 LW5). */}
-              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (${planned ? "the shots" : "the plan"}) · the whole video up to ${wholeCredits(whole)} credits` : `Starting is free · the whole video up to ${wholeCredits(whole)} credits`}
+              {cost !== undefined ? `Starting costs ${wholeCredits(cost)} (${planned ? "the shots" : "the plan"}) · the whole video about ${wholeCredits(whole)} credits (planned)` : `Starting is free · the whole video about ${wholeCredits(whole)} credits (planned)`}
               {songLength && ` · ${songLength} song`}
             </p>
           )}
           {estimate.isError && <p role="alert" className={errorClass}>{estimate.error.message}</p>}
           {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
           {readyToMake ? (
-            <Button charge="estimate" price={cost} disabled={held !== null} reason={held} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
+            <Button charge="estimate" price={cost} busy={make.isPending} onClick={() => make.mutate()} className="w-full">
               Make this version
             </Button>
           ) : (

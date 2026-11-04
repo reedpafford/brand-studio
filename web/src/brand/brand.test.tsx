@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
+import { setViewport } from "../test/viewport";
 
 const editor = { id: 2, email: "eli@b.co", name: "Eli", role: "editor", workspace_id: 1 };
 const brand = { id: 1, name: "fomo", slug: "fomo", colours: ["#112233"], fonts: ["Inter"], tone_notes: "Punchy", never_say: [], legal_line: "", logo_file_id: null };
@@ -19,10 +20,11 @@ test("saving the kit sends the edited fields", async () => {
     "GET /brands": [200, [brand]],
     "PATCH /brands/1": [200, brand],
   });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   const tone = await screen.findByLabelText("How we sound");
   await userEvent.clear(tone);
   await userEvent.type(tone, "Calm");
+  await userEvent.click(screen.getByRole("tab", { name: "Look" })); // one form across both tabs: the tone is kept
   await userEvent.click(screen.getByRole("button", { name: "Add colour" }));
   await userEvent.clear(screen.getByLabelText("Colour 2"));
   await userEvent.type(screen.getByLabelText("Colour 2"), "#000001");
@@ -48,7 +50,7 @@ test("a bad colour code is explained and blocks saving", async () => {
 
 test("save is disabled until something changes", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]] });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   expect(await screen.findByRole("button", { name: "Save changes" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Save changes" })).toHaveAccessibleDescription("No changes yet");
   await userEvent.type(screen.getByLabelText("Legal line"), "Not advice");
@@ -68,8 +70,8 @@ test("Add screens takes several pictures; each is uploaded and saved as a screen
   await userEvent.click(screen.getByRole("button", { name: "Add 2 screens" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /brands/1/screens")).toHaveLength(2));
   expect(calls.filter((c) => c.key === "POST /brands/1/screens").map((c) => c.body)).toEqual([
-    { name: "home", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
-    { name: "chart", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
+    { name: "Home", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
+    { name: "Chart", file_id: 9, tags: [], default_for: [], product: "", variant: "" },
   ]);
 });
 
@@ -142,7 +144,7 @@ test("renaming a screen to a deleted screen's name shows the server's words and 
 test("a screen always used for a moment says so on its tile", async () => {
   withScreens([{ ...bag, default_for: ["buy-moment"] }]);
   renderAt("/b/1/brand?tab=screens");
-  expect(await screen.findByText("buy moment")).toBeInTheDocument();
+  expect(await screen.findByText(/buy moment/)).toBeInTheDocument();
 });
 
 test("Products groups screens by product and lists their flavours; renaming a product renames it on every screen", async () => {
@@ -150,7 +152,8 @@ test("Products groups screens by product and lists their flavours; renaming a pr
   const calls = withScreens([bag, peanut], { "PATCH /brands/1/screens/4": [200, bag], "PATCH /brands/1/screens/5": [200, peanut] });
   renderAt("/b/1/brand?tab=products");
   expect(await screen.findByRole("heading", { name: /bag/ })).toHaveTextContent("2 flavours");
-  expect(screen.getByRole("link", { name: /line and main claim are on its page in Cast & places/ })).toHaveAttribute("href", "/b/1/library/props");
+  expect(screen.getByText(/line and main claim are on its page in Cast & places/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Open Cast & places" })).toHaveAttribute("href", "/b/1/library/props");
   expect(screen.getByRole("button", { name: "Chicken" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Peanut butter" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "More for bag" }));
@@ -178,7 +181,7 @@ test("Add product takes a name, a first flavour and its picture, and saves it as
 
 test("the End line's example uses the brand's own name (#749 LW10)", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, name: "Iron Paws", slug: "iron-paws" }]] });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   const end = await screen.findByLabelText(/End line/);
   expect(end).toHaveAccessibleDescription(/Find Iron Paws through the link in my bio/);
   expect(end).not.toHaveAccessibleDescription(/fomo/);
@@ -190,7 +193,7 @@ test("the End line is shown and saved with the kit", async () => {
     "GET /brands": [200, [{ ...brand, end_line: "Download fomo through the link in my bio." }]],
     "PATCH /brands/1": [200, brand],
   });
-  renderAt("/b/1/kit");
+  renderAt("/b/1/brand?tab=voice");
   const end = await screen.findByLabelText(/End line/);
   expect(end).toHaveValue("Download fomo through the link in my bio.");
   await userEvent.clear(end);
@@ -203,6 +206,7 @@ test("fonts and never-say words are chips: one can be added and one removed, and
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, never_say: ["guaranteed"] }]], "PATCH /brands/1": [200, brand] });
   renderAt("/b/1/brand");
   await userEvent.type(await screen.findByLabelText("Add to fonts"), "Manrope{Enter}");
+  await userEvent.click(screen.getByRole("tab", { name: "Voice & lines" })); // v5: voice fields have their own tab
   await userEvent.click(screen.getByRole("button", { name: "Remove guaranteed" }));
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   expect(await screen.findByText("Saved.")).toBeInTheDocument();
@@ -211,7 +215,7 @@ test("fonts and never-say words are chips: one can be added and one removed, and
 
 test("leaving Look with unsaved changes asks first; Keep editing stays, Leave goes to App screens", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /brands/1/screens": [200, []] });
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   await userEvent.type(await screen.findByLabelText("Legal line"), "Not advice");
   await userEvent.click(screen.getByRole("tab", { name: /^App screens/ }));
   const dialog = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
@@ -224,7 +228,7 @@ test("leaving Look with unsaved changes asks first; Keep editing stays, Leave go
 
 test("a never-say word that was typed but not added is kept when you move on, and a reload asks while there are unsaved changes", async () => {
   const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "PATCH /brands/1": [200, brand] });
-  renderAt("/b/1/brand");
+  renderAt("/b/1/brand?tab=voice");
   const box = await screen.findByLabelText("Add to never say");
   await userEvent.type(box, "guaranteed");
   await userEvent.tab(); // moving on adds it
@@ -255,7 +259,7 @@ test("Bag and bag are one product, shown with the spelling most screens use; ren
 test("a tile shows its first moment and how many more", async () => {
   withScreens([{ ...bag, default_for: ["trading", "win"] }]);
   renderAt("/b/1/brand?tab=screens");
-  expect(await screen.findByText("trading +1")).toBeInTheDocument();
+  expect(await screen.findByText(/trading \+1/)).toBeInTheDocument();
 });
 
 test("the Products tab counts Bag and bag as one product", async () => {
@@ -263,4 +267,38 @@ test("the Products tab counts Bag and bag as one product", async () => {
   withScreens([mk(4, "Bag", "Chicken"), mk(5, "bag", "Salmon")]);
   renderAt("/b/1/brand");
   expect(await screen.findByRole("tab", { name: /^Products 1$/ })).toBeInTheDocument();
+});
+
+test("at 1440, with products and screens already there, Add product and Add screens sit in the top bar (QA-3 on #1210)", async () => {
+  setViewport(1440);
+  withScreens([bag]);
+  renderAt("/b/1/brand?tab=products");
+  const top = (await screen.findByRole("heading", { name: "fomo", level: 1 })).closest("header")!;
+  expect(await within(top).findByRole("button", { name: "Add product" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: /App screens/ }));
+  expect(await within(top).findByRole("button", { name: "Add screens" })).toBeInTheDocument();
+});
+
+test("Undo changes puts the form back as saved; a colour whose code is cleared is dropped on save (v5 F_BrandEdit, F_BrandLook)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [{ ...brand, colours: ["#112233", "#445566"] }]], "PATCH /brands/1": [200, brand] });
+  renderAt("/b/1/brand");
+  const name = await screen.findByLabelText("Name");
+  await userEvent.type(name, " shop");
+  await userEvent.click(screen.getByRole("button", { name: "Undo changes" }));
+  expect(name).toHaveValue("fomo");
+  expect(screen.queryByRole("button", { name: "Undo changes" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Remove colour/ })).toBeNull();
+  await userEvent.clear(screen.getByLabelText("Colour 2"));
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await vi.waitFor(() => expect((calls.find((c) => c.key === "PATCH /brands/1")?.body as { colours: string[] }).colours).toEqual(["#112233"]));
+});
+
+test("a blank brand's top bar has no Import from website: it is the set-up card's primary (v5 F_BrandEmpty)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /brands": [200, [{ ...brand, colours: [], tone_notes: "" }]] });
+  renderAt("/b/1/brand");
+  const card = await screen.findByRole("region", { name: "Set up fomo" });
+  expect(within(card).getByRole("button", { name: "Import from website" })).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Import from website" })).toHaveLength(1);
 });

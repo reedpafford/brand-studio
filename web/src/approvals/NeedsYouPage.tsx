@@ -4,7 +4,7 @@ import { Bell } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Card, creditsText, Dialog, EmptyState, Skeleton, Tabs } from "../components";
+import { Banner, Button, creditsLabel, Dialog, EmptyState, PageTop, Skeleton, Tabs } from "../components";
 import { FLAGS, reason, STEPS as AT, who } from "../production/ProductionPage";
 import { ActionBar } from "../shell/ActionBar";
 import { useToast } from "../toast";
@@ -74,7 +74,7 @@ export function NeedsYouPage() {
   if (me && !owner) return <Navigate to="/" replace />; // the inbox is the owner's: an editor lands on Home
   if (!me || held.isPending || stuck.isPending || changes.isPending)
     return (
-      <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6" aria-label="Loading">
+      <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6" aria-label="Loading">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
@@ -82,7 +82,7 @@ export function NeedsYouPage() {
     );
   if (held.isError)
     return (
-      <main className="mx-auto max-w-4xl p-4 sm:p-6">
+      <main className="mx-auto max-w-content p-4 sm:p-6">
         <Banner title="Couldn't load what needs you." action={<Button variant="secondary" onClick={() => void refresh()}>Try again</Button>}>
           Check your connection.
         </Banner>
@@ -90,11 +90,12 @@ export function NeedsYouPage() {
     );
   const stuckRows = stuck.data ?? [];
   const counts: Record<TabId, number> = { all: held.count + stuckRows.length + changes.rows.length, requests: held.count, stuck: stuckRows.length, changes: changes.rows.length };
-  const credits = held.heldJobs.reduce((n, j) => n + j.credits, 0);
+  const credits = held.heldJobs.reduce((n, j) => n + (j.freestyle?.up_to ?? j.credits), 0); // what approving commits to: a Freestyle run its cap (rules 34, 36)
   const known = held.heldJobs.every((j) => usd.get(j.id) !== undefined);
-  const totalUsd = held.heldJobs.reduce((n, j) => n + (usd.get(j.id) ?? 0), 0);
+  // A held Freestyle's dollars are its first turn's; scale them to its up to at the same rate, so the owner's total matches the credits.
+  const totalUsd = held.heldJobs.reduce((n, j) => n + (usd.get(j.id) ?? 0) * (j.freestyle?.up_to != null && j.credits > 0 ? j.freestyle.up_to / j.credits : 1), 0);
   const money = known && held.heldJobs.length > 0 ? ` (${dollars(totalUsd)})` : "";
-  const worth = held.count > 0 ? ` · ${plural(held.count, "request")}${credits > 0 ? ` worth ${creditsText(credits)}${money}` : ""}` : "";
+  const worth = held.count > 0 ? ` · ${plural(held.count, "request")}${credits > 0 ? ` worth ${creditsLabel(credits)}${money}` : ""}` : "";
   const all = (
     <Button charge="estimate" price={credits > 0 ? credits : undefined} disabled={held.count === 0} busy={approveAll.isPending} onClick={() => setAsking(true)}>
       Approve all
@@ -106,7 +107,7 @@ export function NeedsYouPage() {
     ...(show("requests") ? held.heldProjects.map((p) => <ProjectRow key={`project-${p.id}`} project={p} heldJobs={held.allHeldJobs.filter((j) => j.project_id === p.id).length} />) : []),
     ...(show("stuck")
       ? stuckRows.map((r) => (
-          <VideoRow key={`stuck-${r.project_id}`} tone={r.flag === "failed" ? "danger" : "warning"} status={r.flag ? FLAGS[r.flag].label : "Stuck"} brandId={r.brand.id} title={`${r.script.title} · ${r.letter}`} poster={r.poster_file_id}
+          <VideoRow key={`stuck-${r.project_id}`} tone={r.flag === "failed" ? "danger" : "warning"} status={r.flag ? FLAGS[r.flag].label : "Stuck"} brandId={r.brand.id} title={`${r.script.title} · ${r.letter}`}
             line={[r.flag === "failed" ? "" : `At ${AT[r.step]}`, reason(r), who(r)].filter(Boolean).join(" · ")} to={`/b/${r.brand.id}/videos/${r.project_id}`} />
         ))
       : []),
@@ -119,21 +120,20 @@ export function NeedsYouPage() {
   ];
   const [title, hint] = NONE[tab];
   return (
-    <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="type-page">Needs you</h1>
-          <p className="text-sm tabular-nums text-muted">Every brand · {plural(counts.all, "thing")}{worth}</p>
-        </div>
+    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
+      <PageTop title="Needs you" line={`Every brand · ${plural(counts.all, "thing")}${worth}`}>
         {held.count > 0 && rail && all}
-      </div>
+      </PageTop>
       {held.count > 0 && !rail && <ActionBar phone>{all}</ActionBar>}
-      <Tabs label="Show" value={tab} onChange={(t) => setParams(t === "all" ? {} : { tab: t }, { replace: true })} tabs={[
-        { id: "all", label: "All", count: counts.all },
-        { id: "requests", label: "Requests", count: counts.requests },
-        { id: "stuck", label: "Stuck", count: counts.stuck },
-        { id: "changes", label: "Changes waiting", count: counts.changes },
-      ]} />
+      {/* On a phone "Changes waiting" is "Changes", so the four tabs fit across 390 px. */}
+      <div className="-mx-4 border-b border-border -mt-4 px-4 py-2 sm:-mx-6 sm:px-6">
+        <Tabs label="Show" value={tab} onChange={(t) => setParams(t === "all" ? {} : { tab: t }, { replace: true })} tabs={[
+          { id: "all", label: "All", count: counts.all },
+          { id: "requests", label: "Requests", count: counts.requests },
+          { id: "stuck", label: "Stuck", count: counts.stuck },
+          { id: "changes", label: rail ? "Changes waiting" : "Changes", count: counts.changes },
+        ]} />
+      </div>
       {approveAll.isError && <p role="alert" className={errorClass}>{approveAll.error.message}</p>}
       {(stuck.isError || changes.isError) && (
         <Banner title="Couldn't load every video that needs you." action={<Button variant="secondary" onClick={() => void Promise.all([stuck.refetch(), changes.refetch()])}>Try again</Button>}>
@@ -143,12 +143,10 @@ export function NeedsYouPage() {
       {rows.length === 0 ? (
         <EmptyState icon={Bell} title={title}>{hint}</EmptyState>
       ) : (
-        <Card className="p-0 sm:p-0">
-          <ul className="divide-y divide-border">{rows}</ul>
-        </Card>
+        <ul className="space-y-3 lg:-mx-6 lg:-mt-4 lg:space-y-0">{rows}</ul>
       )}
       {asking && (
-        <Dialog title={`Approve ${plural(held.count, "request")} for ${creditsText(credits)}${money}?`} cancelLabel="Keep them" actionLabel="Approve all" busy={approveAll.isPending} onCancel={() => setAsking(false)} onConfirm={() => approveAll.mutate()}>
+        <Dialog title={`Approve ${plural(held.count, "request")} for ${creditsLabel(credits)}${money}?`} cancelLabel="Keep them" actionLabel="Approve all" busy={approveAll.isPending} onCancel={() => setAsking(false)} onConfirm={() => approveAll.mutate()}>
           Everything waiting starts now.
         </Dialog>
       )}

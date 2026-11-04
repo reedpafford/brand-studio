@@ -176,11 +176,15 @@ test("a held change in a Freestyle thread says Change asked", async () => {
   expect(screen.queryByText("First send")).toBeNull();
 });
 
-test("a held Freestyle change shows its own price and the running total, in credits", async () => {
-  fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue", change: true, said: "Slower ending", up_to: 12, total: 46, spent: 30 })]] });
+test("a held Freestyle change shows its own price and only what's spent so far, never a second total or budget figure (QA-3 on #1213, #1194)", async () => {
+  const change = freestyle({ type: "dialogue", change: true, said: "Slower ending", up_to: 12, total: 46, spent: 30 });
+  fakeServer({ ...base, "GET /jobs": [200, [{ ...change, project_id: 9 }]] }); // on its video, which has a budget
   open();
   expect(await screen.findByText("Up to 12 credits for this change")).toBeInTheDocument();
-  expect(screen.getByText("30 credits spent so far · 46 credits in all with this change")).toBeInTheDocument();
+  expect(screen.getByText("30 credits spent so far")).toBeInTheDocument();
+  expect(screen.queryByText(/in all/)).toBeNull();
+  expect(screen.queryByText(/of its budget/)).toBeNull(); // the run's "up to" is its one price
+  expect(screen.queryByText("27 credits")).toBeNull();
 });
 
 test("each row says who asked, and the owner sees the dollars next to the credits", async () => {
@@ -193,8 +197,27 @@ test("each row says who asked, and the owner sees the dollars next to the credit
   open();
   expect(await screen.findByText(/asked by Sam, /)).toBeInTheDocument();
   expect(await screen.findByText(/27 credits \(\$2\.36\) · takes the video to/)).toBeInTheDocument();
-  expect(screen.getByText("asked by Jo")).toBeInTheDocument();
+  expect(screen.getByText(/asked by Jo$/)).toBeInTheDocument();
   expect(screen.getByText("To decline, ask Jo to shorten the plan.")).toBeInTheDocument();
+});
+
+test("a held Freestyle row shows credits only, even to the owner: no dollars beside Approve (Advice on #1176)", async () => {
+  const calls = fakeServer({ ...base, "GET /jobs": [200, [freestyle({ type: "dialogue" })]], "GET /jobs/70/detail": [200, { ...freestyle({ type: "dialogue" }), cost_usd: 0.31 }], "GET /credits/allowances": allowances });
+  open();
+  expect(await screen.findByText("Freestyle · Dialogue · Bo at the beach")).toBeInTheDocument();
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /jobs/70/detail")).toBe(true));
+  await new Promise((r) => setTimeout(r, 100)); // the detail with its dollars has been drawn
+  const row = screen.getByText("Freestyle · Dialogue · Bo at the beach").closest("li")!;
+  expect(row.textContent).toMatch(/27 credits/);
+  expect(row.textContent).not.toMatch(/\$/); // the page's owner total at the top keeps its dollars
+});
+
+test("the top total counts what approving commits to: a held Freestyle's up to, not its first charge (rules 34, 36)", async () => {
+  const job = { ...freestyle({ type: "dialogue", up_to: 203.1 }), credits: 3 };
+  fakeServer({ ...base, "GET /jobs": [200, [job]], "GET /jobs/70/detail": [200, { ...job, cost_usd: 0.3 }], "GET /credits/allowances": allowances });
+  open();
+  expect(await screen.findByText("Every brand · 1 thing · 1 request worth 204 credits ($20.31)")).toBeInTheDocument(); // the owner's dollars at the same rate
+  expect(screen.getByRole("button", { name: /Approve all · up to 204 credits/ })).toBeInTheDocument();
 });
 
 test("an editor who opens Needs you sees no held work and no dollars", async () => {
@@ -282,4 +305,52 @@ test("the brands' video lists are read only when the summary says changes wait; 
   open("/approvals?tab=stuck");
   expect(await screen.findByText("Nothing is stuck.")).toBeInTheDocument();
   expect(calls.some((c) => c.key.startsWith("GET /usage/"))).toBe(false);
+});
+
+test("on a phone the tabs fit (Changes, not Changes waiting) and who asked sits on the status line; on a computer it follows the title (v5 D_NeedsYou)", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]] });
+  open();
+  expect(await screen.findByText(/^Request · asked by Sam, just now$/)).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /^Changes 0$/ })).toBeInTheDocument();
+});
+
+test("on a computer who asked follows the title and the tab says Changes waiting", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ created_by_name: "Sam" })]] });
+  open();
+  expect(await screen.findByText("asked by Sam, just now")).toBeInTheDocument();
+  expect(screen.getByText("Request")).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /^Changes waiting 0$/ })).toBeInTheDocument();
+});
+
+test("a held take on a video has Open, Decline and Approve, and never quotes the model's prompt (QA-3 on #1213)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ prompt_summary: "Audio: only the spoken lines…" })]] });
+  open();
+  expect(await screen.findByRole("link", { name: "Open Mia buys the dip" })).toHaveAttribute("href", "/b/1/videos/9?step=clips");
+  expect(screen.getByRole("button", { name: /^Decline/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Approve a new take/ })).toBeInTheDocument();
+  expect(screen.queryByText(/Audio: only the spoken lines/)).toBeNull();
+});
+
+test("a held take quotes the editor's note as typed, never the model's prompt (#1232)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /jobs": [200, [held({ prompt_summary: "Audio: only the spoken lines…", note: "Hold the chart a second longer" })]] });
+  open();
+  expect(await screen.findByText('"Hold the chart a second longer"')).toBeInTheDocument();
+  expect(screen.queryByText(/Audio: only the spoken lines/)).toBeNull();
+});
+
+test("a held Freestyle send is one line, Freestyle · type · title, with no source line and no brand or video before it (audit lane 2)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /jobs": [200, [{ ...freestyle({ type: "dialogue", title: "MIA: Green candles only.", script_id: 3, slot: 1, up_to: 144, script_title: "Bo tries salmon", brand_id: 2, hidden: false }), project_id: 9, brand_id: 1, credits: 3 }]] });
+  open();
+  const list = await screen.findByRole("list");
+  expect(await within(list).findByText("Freestyle · Dialogue · MIA: Green candles only.")).toBeInTheDocument();
+  expect(within(list).queryByRole("link", { name: "Mia buys the dip" })).toBeNull(); // not its hidden video
+  expect(within(list).queryByText("fomo")).toBeNull();
+  expect(within(list).queryByText(/^From |Pasted text/)).toBeNull();
+  expect(screen.getByText("Up to 144 credits · your OK covers the whole run")).toBeInTheDocument();
+  expect(calls.some((c) => c.key.startsWith("GET /scripts/"))).toBe(false);
 });

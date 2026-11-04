@@ -73,8 +73,11 @@ def test_a_song_video_is_cut_to_the_song(app, db, owner, editor, song, tmp_path)
     assert made.status_code == 201, made.text
     assert made.json()["song_take_id"] == songs["song_take_id"] and not made.json()["out_of_date"]
     got = _probe(editor.get(f"/files/{made.json()['file_id']}").content, tmp_path)
-    end = max(r.song_slice["end"] for r in rows)
-    assert abs(got["seconds"] - end) < 0.3 and got["streams"] == ["audio", "video"]
+    from app.routes.project_clips import song_end
+
+    take = db.get(SongTake, songs["song_take_id"])
+    end = min(max(r.song_slice["end"] for r in rows), song_end(take))  # a breath after the
+    assert abs(got["seconds"] - end) < 0.3 and got["streams"] == ["audio", "video"]  # last line
     other = songs["takes"][1]["id"]
     editor.put(f"{video}/song", json={"take_id": other})  # a new song: make it again
     assert editor.get(f"{video}/video").json()["out_of_date"] is True
@@ -97,3 +100,32 @@ def test_after_a_song_change_the_old_clips_are_never_cut_to_it(app, db, owner, e
     made = editor.post(f"{video}/video")
     count = len(editor.get(f"{video}/clips").json())
     assert (made.status_code, made.json()["detail"]) == (409, SONG_CHANGED.format(count))
+
+
+def test_a_song_video_ends_a_breath_after_its_last_line():
+    """Song-Producer: the cut ends about 1 s after the last sung line, then fades."""
+    from app.clip_takes import ends_at
+
+    assert ends_at([5, 5, 5], 11.0) == [5, 5, 1.0]  # the third clip shortened to the end
+    assert ends_at([5, 5, 5], 9.5) == [5, 4.5]  # a clip wholly after it drops
+    assert ends_at([5, 5], 30.0) == [5, 5] and ends_at([5, 5], None) == [5, 5]
+
+
+def test_a_short_take_is_slowed_to_fill_its_piece_never_sped_up(tmp_path):
+    import subprocess
+
+    from app.clip_takes import _length, song_cut
+
+    def clip(name, seconds):
+        path = tmp_path / name
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",  # noqa: S603, S607
+                        f"testsrc=s=64x64:r=24:d={seconds}", "-c:v", "libx264", str(path)],
+                       check=True)  # fmt: skip
+        return path.read_bytes()
+
+    track = tmp_path / "song.mp3"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",  # noqa: S603, S607
+                    "sine=frequency=440:duration=8", str(track)], check=True)  # fmt: skip
+    out = song_cut([clip("a.mp4", 2), clip("b.mp4", 6)], [4.0, 3.0], track.read_bytes())
+    (tmp_path / "out.mp4").write_bytes(out)
+    assert abs(_length(tmp_path, "out.mp4") - 7.0) < 0.2  # the 2 s take filled its 4 s

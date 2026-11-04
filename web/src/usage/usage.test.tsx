@@ -82,7 +82,7 @@ const mine = {
     { project_id: 9, title: "Bo tries salmon · B", status: "in_production", credits: 40, budget_credits: 600, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
     { project_id: 10, title: "Kimchi at the vet · A", status: "done", credits: 10, budget_credits: 120, folder_id: null, finished_at: "2026-10-27T10:00:00Z", last_activity_at: "2026-10-27T10:00:00Z" },
   ],
-  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }],
+  projects: [], scripts: [{ script_id: 7, title: "Bo tries salmon", credits: 3 }], sends: [], waiting_credits: 0,
   week: { used: 72, allowance: 145, lines: [{ label: "Videos", credits: 50 }, { label: "Quick clips", credits: 8 }, { label: "Scripts", credits: 3 }, { label: "A look", credits: 11 }] },
 };
 
@@ -96,8 +96,8 @@ test("Usage: an editor is sent to My credits, which lists their week, videos, qu
   const week = screen.getByRole("list", { name: "This week's charges" });
   expect(within(week).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Videos50 credits", "Quick clips8 credits", "Scripts3 credits", "A look11 credits"]);
   const videos = screen.getByRole("list", { name: "My videos" });
-  expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Being made.*40 credits of 600 credits/ })).toHaveAttribute("href", "/b/1/videos/9");
-  expect(within(videos).getByText("Finished")).toBeInTheDocument();
+  expect(within(videos).getByRole("link", { name: /Bo tries salmon · B.*Making.*spent 40/ })).toHaveAttribute("href", "/b/1/videos/9");
+  expect(within(videos).getByText("Delivered")).toBeInTheDocument(); // D_MyCredits: a dot and "Delivered"
   expect(screen.getByRole("link", { name: 'Writing "Bo tries salmon"' })).toHaveAttribute("href", "/b/1/scripts/7");
   expect(document.body.textContent).not.toMatch(/\$/);
   expect(urls()[0]).toContain("brand_id=1");
@@ -294,4 +294,88 @@ test("on a phone the line reads '0 credits' before the badge, and one credit is 
   const lines = await screen.findAllByText(/credits?/);
   expect(lines.some((n) => n.textContent === "0 credits")).toBe(true);
   expect(screen.getByText(/1 credit ·/)).toBeInTheDocument();
+});
+
+test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to Needs you, and each brand's share of the spend is a bar", async () => {
+  setViewport(1440);
+  const held = { id: 50, kind: "video", project_id: null, credits: 4, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: null, brand_id: 1, freestyle: { id: 4, title: "Bo", type: "dialogue", said: "", change: false, up_to: 204, spent: 0 } };
+  fakeServer({ ...base, "GET /jobs": [200, [held]], "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])] });
+  open();
+  const totals = await screen.findByRole("group", { name: "Totals" });
+  expect(await within(totals).findByText("up to 204 credits")).toBeInTheDocument();
+  expect(within(totals).getByRole("link", { name: "1 request in Needs you" })).toHaveAttribute("href", "/approvals");
+  expect(await screen.findByRole("img", { name: "62% of what was spent" })).toBeInTheDocument(); // 52.30 of 84.12
+});
+
+test("Usage (v5 D_Usage, #1208): the director's own time is its own card, in dollars, outside the credit budget", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, { ...summary, director_spend_usd: 6.4 }], "GET /usage/brands": [200, brands([row()])] });
+  open();
+  const totals = await screen.findByRole("group", { name: "Totals" });
+  expect(await within(totals).findByText("$6.40")).toBeInTheDocument();
+  expect(within(totals).getByText("Outside the credit budget")).toBeInTheDocument();
+});
+
+test("My credits counts every send waiting for the owner, from the server, and lists sends with Declined and its reason (#1232, QA-3 on #1218)", async () => {
+  setViewport(1440);
+  const at = "2026-11-02T20:00:00Z";
+  const sends = [
+    { freestyle_id: 4, title: "Garden scene", brand: "", status: "waiting", up_to_credits: 143.06, reason: "", created_at: at },
+    { freestyle_id: 5, title: "Rain on neon", brand: "fomo", status: "waiting", up_to_credits: 4, reason: "", created_at: at },
+    { job_id: 70, title: "Another take", brand: "fomo", status: "waiting", up_to_credits: 5.6, reason: "", created_at: at },
+    { freestyle_id: 6, title: "Gym bro", brand: "", status: "declined", up_to_credits: 20, reason: "Let's keep this one short", created_at: at },
+  ];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, sends, waiting_credits: 152.66 }] });
+  open("/usage/mine");
+  expect(await screen.findByText("up to 153 credits")).toBeInTheDocument(); // QA-3's case: 143.06 + 4 + 5.6, in whole credits as Needs you shows
+  expect(screen.getByText("3 sends. Nothing is spent until it's approved.")).toBeInTheDocument();
+  const list = screen.getByRole("list", { name: "My sends" });
+  expect(within(list).getAllByText("Waiting for the owner's OK")).toHaveLength(3);
+  expect(within(list).getByText("Declined")).toBeInTheDocument();
+  expect(within(list).getByText('"Let\'s keep this one short"')).toBeInTheDocument();
+  expect(within(list).getByRole("link", { name: "Garden scene" })).toHaveClass("min-h-11"); // a 44 px press on a phone (QA-3 on #1241)
+  expect(document.body.textContent).not.toMatch(/\$/);
+});
+
+test("Usage's By person lists each person's credits, dollars, videos and week (#1232)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [
+    { user_id: 2, name: "Dee", role: "editor", credits: 804, spend_usd: 80.4, videos: 7, week_used: 40, week_allowance: 100 },
+    { user_id: 1, name: "Reed", role: "owner", credits: 448, spend_usd: 44.8, videos: 5, week_used: 0, week_allowance: null },
+  ]] });
+  open();
+  const people = await screen.findByRole("region", { name: "By person" });
+  const dee = (await within(people).findByText("Dee")).closest("tr")!;
+  expect(within(dee).getByText("804")).toBeInTheDocument(); // whole credits, no unit (D_Usage)
+  expect(dee).toHaveTextContent("$80.40");
+  expect(dee).toHaveTextContent("40 of 100 credits this week");
+  expect(within(people).getByText("No limit")).toBeInTheDocument();
+});
+
+test("My credits' rows read 'spent N' with the director's time included, in whole credits, and 'up to N approved' muted where the owner approved a run (the Producer, 3 Nov)", async () => {
+  setViewport(1440);
+  const videos = [
+    { project_id: 9, title: "Garden scene", status: "in_production", credits: 97.33, director_credits: 70.4, budget_credits: 729, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+    { project_id: 10, title: "Bo at the beach", status: "done", credits: 50, director_credits: 20, approved_up_to: 204, budget_credits: 400, folder_id: null, finished_at: null, last_activity_at: "2026-10-28T10:00:00Z" },
+  ];
+  fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, videos }] });
+  open("/usage/mine");
+  const list = await screen.findByRole("list", { name: "My videos" });
+  const garden = within(list).getByRole("link", { name: /Garden scene/ });
+  expect(garden).toHaveTextContent("spent 98");
+  expect(garden).not.toHaveTextContent(/director time|of 729/);
+  const beach = within(list).getByRole("link", { name: /Bo at the beach/ });
+  expect(beach).toHaveTextContent("spent 50");
+  expect(beach).toHaveTextContent("up to 204 approved");
+  expect(within(beach).getByText("Delivered")).toBeInTheDocument();
+});
+
+test("By person and My credits never show '-0' for nothing used (UX-Auditor on #1246)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/people?period=week": [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
+  open();
+  const people = await screen.findByRole("region", { name: "By person" });
+  const dee = (await within(people).findByText("Dee")).closest("tr")!;
+  expect(dee).toHaveTextContent("0 of 97 credits this week");
+  expect(dee.textContent).not.toMatch(/-0/);
 });

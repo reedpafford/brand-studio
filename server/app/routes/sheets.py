@@ -40,8 +40,8 @@ class SheetIn(BaseModel):
     look_id: str | None = None  # ST2: the owner's "{look} sheet" on a Cast & places item
 
 
-OWNER_LOOKS = "Only the owner adds a sheet in another look to Cast & places."
-OWN_LOOK = "This look is this video's own: it's drawn in the video's look already."
+OWNER_LOOKS = "Only the owner adds a sheet in another style to Cast & places."
+OWN_LOOK = "This look is this video's own: it's drawn in the video's style already."
 
 
 def _look(user: User, item: LibraryItem, look_id: str | None) -> str | None:
@@ -215,7 +215,7 @@ def check_fit(
     (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
     drawn until it answers. A sheet from an uploaded photo is never checked: the photo is the
     truth. It was held at the press (prepaid); `after` (the redo and its check) stays held
-    until it's queued or the look fits. If it's refused anyway (the per-video limit), the
+    until it's queued or the look fits. If it's refused anyway, the
     check is skipped and the look shown, never held."""
     slot = slot or slot_for(db, item)  # its role's words are read against the sheet too
     data = {
@@ -317,7 +317,7 @@ def _approved(item: LibraryItem, look: str | None, value: bool) -> None:
 # --- OR3: the Preferred look -----------------------------------------------------------------
 
 OWNER_PREFERRED = "Only the owner picks which sheet Cast & places uses."
-NOT_A_SHEET = "That isn't one of this look's approved sheets."
+NOT_A_SHEET = "That isn't one of this style's approved sheets."
 
 
 class SheetVersionOut(BaseModel):

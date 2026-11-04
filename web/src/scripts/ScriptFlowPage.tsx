@@ -1,31 +1,39 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, Lock, Pencil } from "lucide-react";
+import { ChevronLeft, Clapperboard, ListOrdered, Plus } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
-import { Badge, Button, Dialog, Field, Skeleton, StepPicker } from "../components";
+import { Button, Dialog, Skeleton, StepPicker } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
-import { BreakdownStep } from "./BreakdownStep";
+import { BreakdownStep, VersionPick, breakdownSlot } from "./BreakdownStep";
 import { CastStep } from "./CastStep";
 import { DirectionsStep } from "./DirectionsStep";
 import { VariationsStep, variationsReason } from "./VariationsStep";
 import { ScriptStep } from "./ScriptStep";
 import { ReadReelButton, useReelImport } from "./ReelImport";
 import { PublishStep } from "./PublishStep";
-import { around, hasWords, isNarrated, lockReason, stepFromParam, stepStates, stepsFor } from "./flow";
+import { WRITING_STEPS, around, hasWords, isNarrated, lockReason, stepFromParam, stepStates, stepsFor } from "./flow";
 import { NarrationStep } from "./NarrationStep";
 import { SongStep } from "./SongStep";
 import { TakesStep } from "./TakesStep";
 import { useSongs } from "./useSongs";
 import { ScriptMenu, toTarget, useDeleteScript, useMayDelete } from "./DeleteScript";
-import { useScript, usePatchScript } from "./useScript";
+import { useScript, type Script } from "./useScript";
 import { LookSetting } from "./Looks";
-import { ProjectPicker } from "../folders/Projects";
+import { ProjectPicker, useFolders } from "../folders/Projects";
+import { ScriptTop, SettingsRow, ShapeChip } from "./ScriptFrame";
 import { FormatAdvice, FormatSetting } from "./Format";
 import { HeldRequests } from "../approvals/HeldRequests";
 import { ScriptOverview } from "./ScriptOverview";
-import { VersionPanel } from "./VersionPanel";
+import { MakeVideoPanel } from "./MakeVideoPanel";
+import { finished } from "../freestyle/FromScript";
+import { directed, useEstimate } from "../freestyle/useFreestyle";
+
+const nextToMake = (s: Script) => {
+  const ready = s.versions.filter(finished);
+  return ready.find((v) => !v.project_id) ?? ready[0];
+};
 
 /** The writing flow for one script, in the same frame as a video: header, step picker, Back and Next. */
 export function ScriptFlowPage() {
@@ -38,16 +46,19 @@ export function ScriptFlowPage() {
   const script = useScript(id);
   const voiced = !!script.data && (script.data.kind === "song" || isNarrated(script.data)); // a song's takes, or a narrated script's narrations
   const songs = useSongs(id, voiced);
-  const patch = usePatchScript(id);
   const navigate = useNavigate();
   const mayDelete = useMayDelete();
   const del = useDeleteScript(() => navigate(`/b/${brandId}/scripts`));
   const reel = useReelImport(id);
-  const [renaming, setRenaming] = useState<string | null>(null);
+  const folders = useFolders(script.data?.brand_id ?? brandId);
   const [asking, setAsking] = useState(false); // the Publish confirmation, opened from the Next slot
   // Something on this step would be lost by leaving (unsaved words, accepted directions not added): Next and every other way out ask once, and Next still always goes on.
   const [hold, setHold] = useState<{ title: string; body: string } | null>(null);
+  const [waiting, setWaiting] = useState(0); // accepted directions not applied yet: Apply is the step's one primary press
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
+  // The Overview's Make a video opens on the next version to make, else the first finished one, and says its price.
+  const toMake = script.data && nextToMake(script.data);
+  const estimate = useEstimate(script.data && toMake ? { script_id: script.data.id, slot: toMake.slot, shape: "9:16" } : null);
   useEffect(() => {
     if (!hold) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -66,117 +77,132 @@ export function ScriptFlowPage() {
   const s = script.data;
   if (!s) return <p className="p-6">That script doesn't exist.</p>;
   const takes = songs.data?.takes ?? [];
-  // Only a Preferred take that sings the lyrics as they are now, and whose video fits the cap, counts: the screen holds the cap whatever the server says.
-  const tooLong = (t: (typeof takes)[number]) => t.over_cap && t.trim_to == null;
+  // Only a Preferred take that sings the lyrics as they are now counts.
   const fit = takes.find((t) => t.preferred && !t.out_of_date);
-  const song = voiced ? { preferred: !!fit && !tooLong(fit), overCap: !!fit && tooLong(fit), takes: takes.filter((t) => !t.out_of_date && t.status === "ready").length, making: takes.some((t) => t.status === "making" || t.status === "timing"), older: takes.filter((t) => t.out_of_date).length } : undefined;
-  // A published script opens on its Overview; a draft on its first step, as before.
-  const overview = s.published && (params.get("step") ?? "overview") === "overview";
+  const song = voiced ? { preferred: !!fit, takes: takes.filter((t) => !t.out_of_date && t.status === "ready").length, making: takes.some((t) => t.status === "making" || t.status === "timing"), older: takes.filter((t) => t.out_of_date).length } : undefined;
+  // Every script opens on its Overview (C_ScriptOverview); one with no words yet opens on its first step.
+  const overview = (params.get("step") ?? "overview") === "overview" && (hasWords(s) || s.published);
   const step = stepFromParam(s, params.get("step"));
   if (!overview && lockReason(step, s, song) !== null) return <Navigate to="?" replace />;
-  const first = s.published ? "overview" : stepsFor(s)[0].id;
   const move = (to: string) => {
     setHold(null);
-    setParams(to === first ? {} : { step: to });
+    setParams(to === "overview" ? {} : { step: to });
   };
   const steps = stepStates(step, s, song).map((x) => (overview && x.state === "current" ? { ...x, state: "open" as const } : x));
-  const making = /^(\d+)$/.exec(params.get("make") ?? ""); // ?make=1: Version B's panel, opened from the Overview
+  const videoSlot = /^(\d+)$/.exec(params.get("video") ?? ""); // ?video=2: the Make a video panel, on version C
   const go = (to: string) => (hold ? setLeaving(() => () => move(to)) : move(to));
   const { prev, next } = around(s, step);
   const nextReason = !next ? null : step === "script" && !hasWords(s) ? "Write or paste the script first" : step === "variations" ? variationsReason(s) : lockReason(next.id, s, song);
   const label = stepsFor(s).find((x) => x.id === step)!.label;
-  const toPublish = s.versions.filter((v) => v.text.trim() !== "").length;
-  const toApprove = s.versions.filter((v) => v.text.trim() !== "" && v.status === "draft").length; // approved on its card first, as Variations says
-  const publishReason = toPublish === 0 ? "Write the script first" : toApprove > 0 ? `Approve every version first (${toApprove} left)` : null;
-  const publishButton = step === "publish" && !s.published && (
-    <Button disabled={!!publishReason} reason={publishReason} onClick={() => setAsking(true)}>
-      Publish {toPublish} version{toPublish === 1 ? "" : "s"}
-    </Button>
-  );
   // A script from a reel isn't ready to move on until the reel is read: Read this reel is the one amber button until then.
   const unread = step === "script" && !!reel.data && reel.data.status !== "done";
   const reelReady = unread && !s.published && !rail && (reel.data?.status === "ready" || reel.data?.status === "failed") && reel.data?.failed_step !== "prepare";
-  const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : publishButton || (next && !unread && (
-    <Button disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
+  // While accepted directions wait, "Apply N accepted" is the one indigo press, so Next turns secondary (C_Directions).
+  // v5 G_Publish: Publish is its own page, with its presses at the end of it, so the top has no Next there.
+  const nextButton = reelReady ? <ReadReelButton scriptId={id} /> : step !== "publish" && next && !unread && (
+    <Button variant={(step === "directions" && waiting > 0) || step === "breakdown" ? "secondary" : "primary"} disabled={nextReason !== null} reason={nextReason} onClick={() => go(next.id)}>
       Next: {next.label}
     </Button>
-  ));
+  );
+  // In the 52 px top bar a held Next says why on its left, so the bar keeps its height.
+  const topNext = !reelReady && step !== "publish" && next && !unread && nextReason ? (
+    <span className="flex items-center gap-3">
+      <span id="next-why" className="text-xs text-muted">
+        {nextReason}
+      </span>
+      <Button disabled aria-describedby="next-why">
+        Next: {next.label}
+      </Button>
+    </span>
+  ) : (
+    nextButton
+  );
   const backButton = prev && (
     <Button variant="ghost" icon={ChevronLeft} aria-label={rail ? undefined : "Back"} onClick={() => go(prev.id)}>
       {rail ? "Back" : ""}
     </Button>
   );
   const published = s.published;
-  // Who can see a draft: its author and Reed.
   const mine = s.created_by_id === me?.id;
-  const draftNote = mine ? (me?.role === "owner" ? "Draft · only you can see it" : "Draft · only you and the owner can see it") : `Draft · ${s.created_by_name || "an editor"}'s, not published`;
+
+  // Where a way out goes: every one asks first while something on this step would be lost.
+  const leave = (to: string) => (e: React.MouseEvent) => {
+    if (!hold) return;
+    e.preventDefault();
+    setLeaving(() => () => navigate(to));
+  };
+  const project = folders.data?.find((f) => f.id === s.folder_id);
+  const crumbs = [
+    <Link key="s" to={`/b/${brandId}/scripts`} onClick={leave(`/b/${brandId}/scripts`)} className="inline-flex min-h-control min-w-11 items-center hover:text-text hover:underline lg:min-h-0 lg:min-w-0">
+      Scripts
+    </Link>,
+    ...(project ? [<span key="p">{project.name}</span>] : []),
+    <span key="t" className="font-medium text-text">{s.title}</span>,
+    ...(overview || step === "publish" ? [] : [<span key="x">Steps</span>]),
+  ];
+  // v5 settings per step (C_ScriptWrite: Type, Style, Project and Shape; C_Directions: Type, Style, Project).
+  const slot = breakdownSlot(s, params.get("v"));
+  const settings = step === "breakdown" ? (
+    // C_Breakdown: the version and the shape (read only: each video picks its own).
+    <>
+      <VersionPick script={s} value={slot} onChange={(v) => setParams({ step: "breakdown", ...(v ? { v: String(v) } : {}) })} />
+      <ShapeChip value="9:16" />
+    </>
+  ) : (
+    <>
+      <FormatSetting script={s} />
+      <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
+      {(mine || me?.role === "owner") && <ProjectPicker pick brandId={s.brand_id} kind="script" id={s.id} folderId={s.folder_id} />}
+      {step === "script" && <ShapeChip />}
+    </>
+  );
+  // A story's v5 step bar ends at Cast: Publish is "Publish to library", still the step after Cast (Next: Publish).
+  const barSteps = stepsFor(s) === WRITING_STEPS && step !== "publish" ? steps.filter((x) => x.id !== "publish") : steps;
+  const v5 = ["script", "directions", "variations", "breakdown", "publish"].includes(step); // the steps built to v5 so far: their own headings, no step title row
+  // v5 settings rows: Variations shows only the steps (G_Variations); Publish has neither (G_Publish).
+  const row = overview || (step !== "variations" && step !== "publish");
 
   return (
-    <main className={`mx-auto max-w-content space-y-4 p-4 sm:p-8 ${rail || overview ? "" : "pb-28"}`}>
-      <Link
-        to={`/b/${brandId}/scripts`}
-        onClick={(e) => {
-          if (hold) {
-            e.preventDefault();
-            setLeaving(() => () => navigate(`/b/${brandId}/scripts`));
-          }
-        }}
-        className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline lg:min-h-control-dense"
-      >
-        <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-        Scripts
-      </Link>
-      <div className="flex flex-wrap items-center gap-3">
-        {renaming === null ? (
-          <h1 className="flex min-w-0 items-center gap-2 type-page">
-            {published ? (
-              <span className="min-w-0 break-words">{s.title}</span>
-            ) : (
-              <button type="button" aria-label={`Rename ${s.title}`} onClick={() => setRenaming(s.title)} className="min-h-control min-w-0 break-words text-left hover:underline sm:min-h-control-dense">
-                {s.title}
-              </button>
-            )}
-            {!published && (
-              <button type="button" aria-label="Rename" onClick={() => setRenaming(s.title)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
-                <Pencil size={20} strokeWidth={1.75} aria-hidden />
-              </button>
-            )}
-          </h1>
-        ) : (
-          <form
-            className="flex w-full min-w-0 basis-full flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (renaming.trim()) patch.mutate({ title: renaming.trim() }, { onSuccess: () => setRenaming(null) });
-            }}
-          >
-            <div className="min-w-48 flex-1">
-              <Field label="Title" value={renaming} onChange={(e) => setRenaming(e.target.value)} error={patch.isError ? patch.error.message : null} maxLength={200} autoFocus />
-            </div>
-            <Button type="submit" busy={patch.isPending} disabled={!renaming.trim()}>
-              Save
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setRenaming(null)}>
-              Cancel
-            </Button>
-          </form>
+    <main className={rail || overview ? "" : "pb-28"}>
+      <ScriptTop crumbs={crumbs}>
+        {!overview && (hasWords(s) || published) && (
+          <Button variant="ghost" dense className="text-muted" onClick={() => go("overview")}>
+            Back to overview
+          </Button>
         )}
-        {published ? (
-          <Badge tone="neutral" icon={Lock}>
-            Published · final
-          </Badge>
-        ) : (
-          <Badge tone="neutral">{draftNote}</Badge>
+        {overview && !published && (
+          <Button variant="secondary" dense disabled={lockReason("publish", s, song) !== null} reason={lockReason("publish", s, song)} onClick={() => go("publish")}>
+            Publish to library
+          </Button>
         )}
-        <FormatSetting script={s} />
-        <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
-        {(mine || me?.role === "owner") && <ProjectPicker brandId={s.brand_id} kind="script" id={s.id} folderId={s.folder_id} />}
-        {mayDelete(s) && (
-          <div className="ml-auto">
-            <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />
-          </div>
+        {/* Any finished version becomes a video from here; publishing isn't needed (E_ScriptMakeVideo, #1194). */}
+        {directed(s.kind) && toMake && (
+          <Button variant={overview ? "primary" : "secondary"} dense icon={overview ? Plus : Clapperboard} price={overview ? (estimate.data ?? (estimate.isError ? undefined : null)) : undefined} charge="estimate" onClick={() => setParams({ ...(overview ? {} : { step }), video: String(toMake.slot) })}>
+            Make a video
+          </Button>
         )}
-      </div>
+        {mayDelete(s) && <ScriptMenu title={s.title} onDelete={() => del.ask(toTarget(s))} />}
+        {!overview && rail && topNext}
+      </ScriptTop>
+      {overview ? (
+        // C_ScriptOverview's band: the Overview tab, and the writing steps behind one quiet press.
+        <div className="flex min-h-13 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2 sm:px-6">
+          <span aria-current="page" className="inline-flex min-h-control items-center rounded-md bg-surface-2 px-3 text-sm font-medium lg:min-h-control-dense lg:px-2.5">
+            Overview
+          </span>
+          <Button variant="ghost" dense icon={ListOrdered} className="justify-start text-left" onClick={() => go(stepsFor(s)[0].id)}>
+            Open the steps: {barSteps.map((x) => x.label).join(" · ")}
+          </Button>
+        </div>
+      ) : (
+        step !== "publish" && (
+          <SettingsRow steps={<StepPicker flat steps={barSteps} onPick={(to) => go(to)} />}>
+            {row && settings}
+          </SettingsRow>
+        )
+      )}
+      {videoSlot && <MakeVideoPanel scriptId={s.id} slot={Number(videoSlot[1])} onClose={() => setParams(overview ? {} : { step })} />}
+      <div className="mx-auto max-w-content space-y-4 p-4 sm:p-8">
       {del.dialog}
       <HeldRequests where={{ scriptId: s.id }} />
       {leaving && (
@@ -184,39 +210,32 @@ export function ScriptFlowPage() {
           {hold?.body}
         </Dialog>
       )}
-      <StepPicker steps={s.published ? [{ id: "overview", label: "Overview", state: overview ? "current" : "open" }, ...steps] : steps} onPick={(to) => go(to)} />
-      {overview && <ScriptOverview script={s} brandId={brandId} onStep={go} onMake={(slot) => setParams({ make: String(slot) })} />}
-      {making && <VersionPanel scriptId={s.id} slot={Number(making[1])} brandId={brandId} onClose={() => setParams({})} />}
+      {overview && <ScriptOverview script={s} brandId={brandId} onMake={(slot) => setParams({ video: String(slot) })} />}
       {!overview && (
         <>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <h2 className="type-section">{label}</h2>
-            {rail ? (
-              <div className="flex items-start gap-2">
+          {/* Steps not yet rebuilt to v5 keep their title row; Next sits in the top bar on a computer, in the action bar on a phone. */}
+          {!v5 && <h2 className="flex min-h-control items-center type-section">{label}</h2>}
+          {!rail && (
+            <ActionBar phone>
+              <div className="flex items-start gap-2 [&>button]:w-auto [&>span]:flex-1">
                 {backButton}
-                {nextButton}
+                <span className="flex-1">{nextButton}</span>
               </div>
-            ) : (
-              <ActionBar phone>
-                <div className="flex items-start gap-2 [&>button]:w-auto [&>span]:flex-1">
-                  {backButton}
-                  <span className="flex-1">{nextButton}</span>
-                </div>
-              </ActionBar>
-            )}
-          </div>
+            </ActionBar>
+          )}
           {step === "song" && <SongStep script={s} brandId={brandId} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The lyrics you changed are not saved." } : null)} />}
           {step === "takes" && <TakesStep script={s} />}
           {step === "narration" && <NarrationStep script={s} />}
           {step === "script" && <FormatAdvice script={s} />}
           {step === "script" && <ScriptStep script={s} brandName={brandName} onDirty={(d) => setHold(d ? { title: "Leave without saving?", body: "The words you changed on the Script step are not saved." } : null)} />}
-          {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => setHold(n > 0 ? { title: `Leave without adding ${n} direction${n === 1 ? "" : "s"}?`, body: "They stay accepted but are not added to the script. Leaving doesn't add them." } : null)} onEditWords={() => go("script")} />}
+          {step === "directions" && <DirectionsStep script={s} onAccepted={(n) => { setWaiting(n); setHold(n > 0 ? { title: `Leave without applying ${n} accepted?`, body: "They stay accepted but are not applied to the script. Leaving doesn't apply them." } : null); }} />}
           {step === "variations" && <VariationsStep script={s} own={mine} />}
           {step === "cast" && <CastStep script={s} brandId={brandId} readOnly={s.published} />}
-          {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} />}
-          {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} />}
+          {step === "breakdown" && <BreakdownStep script={s} brandId={brandId} readOnly={s.published} slot={slot} />}
+          {step === "publish" && <PublishStep script={s} brandId={brandId} asking={asking} onAsking={setAsking} onNotYet={() => (prev ? go(prev.id) : go("overview"))} />}
         </>
       )}
+      </div>
     </main>
   );
 }

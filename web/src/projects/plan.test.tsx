@@ -30,7 +30,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /credits/rates": [200, []],
   "GET /jobs": [200, []],
   "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: false, credits_per_unit: { "2K": 1.5 } }, { id: "nano-banana-2.1", kind: "image", name: "Nano Banana 2.1", default: true, credits_per_unit: { "1K": 3 } }]],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145 }],
 };
 
 function open(query = "?step=plan") {
@@ -239,7 +239,7 @@ test("out of date: Made for older words with Make a new plan; earlier plans come
   await userEvent.click(screen.getByText("Earlier plans · 1"));
   await userEvent.click(screen.getByRole("button", { name: "Use this one · free" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
-  // Closed, the header already says the price (rule 32: "up to", as the press inside does).
+  // Closed, the header already says the price (rule 36: "up to", as the press inside does).
   expect(screen.getByText(/^Make a new plan/, { selector: "summary" })).toHaveTextContent("Make a new plan · up to 6 credits");
   await userEvent.click(screen.getByText(/^Make a new plan/, { selector: "summary" }));
   await userEvent.type(screen.getByLabelText("What to change (optional)"), "funnier");

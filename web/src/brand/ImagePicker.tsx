@@ -5,7 +5,7 @@ import { Button, buttonClass } from "../components";
 import { errorText } from "../ui";
 
 /** A labelled image slot: a tile with the current image, and Replace (or Upload) to pick a new one. */
-export function ImagePicker(props: { label: string; fileId: number | null; onChange: (id: number | null) => void; shape?: "square" | "wide" | "tall" }) {
+export function ImagePicker(props: { label: string; fileId: number | null; onChange: (id: number | null) => void; shape?: "square" | "wide" | "tall"; /** The tile and its presses side by side, Replace named (the logo: "Change logo", v5 F_BrandLook). */ inline?: string }) {
   const upload = useMutation({
     mutationFn: uploadFile,
     onSuccess: (f) => props.onChange(f.id),
@@ -14,12 +14,13 @@ export function ImagePicker(props: { label: string; fileId: number | null; onCha
   return (
     <div className="space-y-2">
       <div className="text-sm font-medium">{props.label}</div>
-      <div className="grid w-24 place-items-center overflow-hidden rounded-lg border border-border bg-surface-2 text-muted" style={{ aspectRatio: aspect, width: props.shape === "wide" ? "9rem" : undefined }}>
+      <div className={props.inline ? "flex flex-wrap items-center gap-3" : "space-y-2"}>
+      <div className={`grid place-items-center ${props.inline ? "w-16" : "w-24"} overflow-hidden rounded-lg border border-border bg-surface-2 text-muted`} style={{ aspectRatio: aspect, width: props.shape === "wide" ? "9rem" : undefined }}>
         {props.fileId ? <img src={fileUrl(props.fileId)} alt={props.label} className="size-full object-contain" /> : <Upload size={20} strokeWidth={1.75} aria-hidden />}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <label className={`${buttonClass("secondary")} cursor-pointer text-sm focus-within:outline focus-within:outline-2 focus-within:outline-accent lg:min-h-control-dense lg:px-3`}>
-          {props.fileId ? "Replace" : "Upload"}
+          {props.fileId ? (props.inline ?? "Replace") : "Upload"}
           <input type="file" accept="image/*" className="sr-only" aria-label={`${props.label} file`} onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
         </label>
         {props.fileId && (
@@ -28,6 +29,7 @@ export function ImagePicker(props: { label: string; fileId: number | null; onCha
           </Button>
         )}
         {upload.isPending && <span className="text-sm text-muted">Uploading…</span>}
+      </div>
       </div>
       {upload.isError && (
         <p role="alert" className={errorText}>
