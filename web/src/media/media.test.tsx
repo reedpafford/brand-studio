@@ -154,6 +154,15 @@ test("an editor sees no Restore on someone else's deleted video, even on a take 
   expect(within(list).queryByRole("button", { name: "Restore the video" })).toBeNull();
 });
 
+test("a Video filter with nothing in the pages loaded so far still offers Show more (no dead end)", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, page([item()], "2026-10-28T10:00:00+00:00|take:3")));
+  open("/b/1/media?video=p5");
+  expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Show more" }));
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("before="))).toBe(true));
+});
+
 test("Show more asks for the next page", async () => {
   setViewport(1440);
   fakeServer(base(owner, page([item()], "2026-10-28T10:00:00+00:00|take:3")));

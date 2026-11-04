@@ -188,15 +188,16 @@ export function MediaPage() {
                 <Tile key={m.key} m={m} brandId={brandId} meId={me?.id} owner={owner} />
               ))}
             </ul>
-            {media.hasNextPage && (
-              <div className="flex justify-center">
-                <Button variant="secondary" busy={media.isFetchingNextPage} onClick={() => void media.fetchNextPage()}>
-                  Show more
-                </Button>
-              </div>
-            )}
           </>
         ))}
+      {/* Also under "Nothing matches": the Video filter reads the pages loaded so far, so older ones may hold it. */}
+      {media.data && media.hasNextPage && (
+        <div className="flex justify-center">
+          <Button variant="secondary" busy={media.isFetchingNextPage} onClick={() => void media.fetchNextPage()}>
+            Show more
+          </Button>
+        </div>
+      )}
     </main>
   );
 }
