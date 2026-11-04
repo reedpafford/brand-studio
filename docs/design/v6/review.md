@@ -72,3 +72,41 @@ Reed said "yes to all" to [S-gaps-02](boards/S-gaps-02.jpg):
 - Unsorted opens on desktop, and the folder list on a phone;
 - the set-up list only while a brand is empty;
 - P-02's phone tabs fixed to All · Needs you · Working · Delivered.
+
+## Gaps the builders found, parts 3 to 8 (4 Nov), approved
+
+Reed said "yes to all" to [S-gaps-03](boards/S-gaps-03.jpg) and [S-gaps-04](boards/S-gaps-04.jpg):
+- the Locks menu, the video's ⋯ menu, and the phone Preview's tab row always showing;
+- Scripts first under Library in the rail, the quick search, the phone's Library and More tabs, and an editor's My requests.
+
+[S-gaps-05](boards/S-gaps-05.jpg), the library and video settings, drawn to his answers:
+- the Brand kit is short (name, logo, colours, tone and rules), and products can be apps (their screens) or physical things (their photos);
+- Import from website is dropped everywhere;
+- a saved presenter is a face and a voice, and each video picks how they appear (talks to camera, in a corner over the B-roll, or acts in the story);
+- every app voice is listed with a free sample, and a brand's own voices are only the ones uploaded or cloned on purpose;
+- each video's settings sit at the top of the Plan tab, with the new price and Undo;
+- a person approves a library sheet before videos use it.
+
+[S-gaps-06](boards/S-gaps-06.jpg), the open folder, approved with these details:
+- the list view's Status column is 230 px, so the reason fits;
+- the Move menu opens upward from the Move to… button, left-aligned to it, and stays inside the window;
+- phones can select several ideas, with a count and a way out;
+- an empty Unsorted reads "Nothing in Unsorted · New ideas land here until you put them in a folder." with New video;
+- a phone folder has a ⋯ beside search, so Archived ideas and the folder's menu are reachable.
+
+[S-gaps-07](boards/S-gaps-07.jpg), the Cast tab:
+- **Places: yes, extended.** Characters and places sit together in the video's Cast. Each is picked from the library, uploaded, or made for this video only, and labelled with where it came from. Looks the director makes in the chat land in the same list. Items made for a video never go into the brand's library by themselves. Places are settings; Plan decides scenes and action.
+- **Approving looks: neither a per-card OK nor no OK.** Instead there is one combined "Approve cast & places":
+  - the full set is shown with previews, made within the budget already approved;
+  - the person requests changes and checks the revised previews, then presses once;
+  - storyboards and clips that use the set wait, and the app enforces that pause;
+  - a later change needs the combined OK again, while unchanged items stay approved and unrelated work carries on;
+  - clips already made are kept, with the ones needing an update and their price shown first;
+  - the person making the video approves, with no extra owner OK for an editor on a published library script;
+  - library sheets keep their own approval.
+- S5-03's line is now: "The director prepares the characters and places. Review them together, request any changes, then approve the cast and places to continue."
+
+[S-gaps-08](boards/S-gaps-08.jpg), the Clips tab:
+- 12 clips or fewer show as a grid, and more than 12 as the list grouped by scene. On a phone the grid is two columns with a clear way back.
+- Earlier stills stay reachable, with no per-still approval list, and the Cast & places check still applies. Each press says whether it needs a new take, with the real "up to" price (credits for editors), and a suitable existing take is reused. A change that would alter an approved character or place goes back to Cast.
+- "Use this take · free" rebuilds the cut automatically, and the previous cut stays playable until the new one is ready. Any paid review follows the budget and approval rules.

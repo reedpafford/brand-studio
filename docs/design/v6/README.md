@@ -152,12 +152,17 @@ For Reed. Design only: nothing here is built, and nothing here spent money. Appr
 | [P-14](boards/P-14.jpg) | Owner’s inbox |
 | [P-15](boards/P-15.jpg) | Ask card · options ready |
 
-### Gaps the builders found (options for Reed)
+### Gaps the builders found (approved by Reed)
 
 | Board | State |
 |---|---|
 | [S-gaps-01](boards/S-gaps-01.jpg) | Approved: B-roll look, reel look, upload, status words, sort |
 | [S-gaps-02](boards/S-gaps-02.jpg) | Approved: folder menu and Archived, checkboxes, no folder picked, set-up list, phone tabs |
-| [S-gaps-03](boards/S-gaps-03.jpg) | 3 options for Reed: Locks menu, the video’s ⋯ menu, phone Preview tabs |
+| [S-gaps-03](boards/S-gaps-03.jpg) | Approved: Locks menu, the video’s ⋯ menu, phone Preview tabs |
+| [S-gaps-04](boards/S-gaps-04.jpg) | Approved: Scripts in the rail, quick search, phone Library and More, My requests |
+| [S-gaps-05](boards/S-gaps-05.jpg) | Approved: short brand kit, no import, presenter = face + voice, every voice, video settings, a person approves sheets |
+| [S-gaps-06](boards/S-gaps-06.jpg) | Approved: list Status width, Move menu, phone selecting, empty Unsorted, phone folder ⋯ |
+| [S-gaps-07](boards/S-gaps-07.jpg) | Approved: characters and places in Cast, one combined Approve cast & places |
+| [S-gaps-08](boards/S-gaps-08.jpg) | Approved: grid or list, earlier stills, Use this take |
 
-80 boards in all: 65 desktop (1440) and sheets, 15 phone (390).
+85 boards in all: 70 desktop (1440) and sheets, 15 phone (390).

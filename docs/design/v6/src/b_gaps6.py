@@ -1,10 +1,10 @@
-"""S-gaps-06: five open-folder details the boards leave open (the brand-home build, #1304, 4 Nov). For Reed's yes or no."""
+"""S-gaps-06: five open-folder details the boards left open (the brand-home build, #1304, 4 Nov). Approved by Reed, 4 Nov."""
 from lib import *
 from b_s01 import IDEAS
 from b_phone import BACK
 
 W = 1344
-ASK = ("need", "For Reed: yes or no?")
+ASK = ("ok", "Approved by Reed, 4 Nov")
 
 
 def cell(n, title, ask, drawn, verdicts, w=W):
@@ -150,21 +150,21 @@ g19 = f'''<div class="row g6 start">
   {side("Phone · P-02 with ⋯ beside search", p19, w=390)}
   {side("Phone · on Unsorted", uns19, w=250)}</div>'''
 
-sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found, part 6: the open folder</span><span class="t-sm muted" style="max-width:1100px">Five questions from the brand-home build (#1304, 4 Nov), drawn at full size: desktop (1440) and phone (390) side by side. Where an approved board already settles a point, it says so and is drawn as that board has it. Everything else is one recommended option, for Reed’s yes or no. The boards they extend are unchanged until Reed answers.</span></div>
+sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found, part 6: the open folder</span><span class="t-sm muted" style="max-width:1100px">Five questions from the brand-home build (#1304, 4 Nov), drawn at full size: desktop (1440) and phone (390) side by side. Reed approved all five on 4 Nov, with the details under each. They are part of v6, and the boards they extend are unchanged.</span></div>
   <div class="col g8" style="row-gap:40px">
   {cell(7, "The list view’s Status column (S1-05)", "S1-05 draws it 150 px wide. S-gaps-01 puts the reason after the status, which needs about 230 px. The build uses 230 px.", g7,
         [("ok", "Already specified by S-gaps-01", "the list shows the reason after the status, like the cards and the header."),
-         (*ASK, "Status is 230 px wide, taken from the Idea column. Why: at 150 px “Needs a fix · Stopped at clip 4” is cut off before the reason, and the reason is the part you act on.")])}
+         (*ASK, "Status is 230 px wide, taken from the Idea column.")])}
   {cell(8, "Where the Move menu opens, and its order (S1-07)", "S1-07 draws the menu off to the right, over the cards. The build puts it above the bar’s right end, in the tree’s order.", g8,
         [("ok", "Already specified by S1-07", "the order: the menu lists the folders exactly as the rail’s tree does, without the folder you’re in; Unsorted and New folder… come last."),
-         (*ASK, "The menu opens straight up from the Move to… button, its left edge on the button. Why: a menu belongs to the button you pressed; S1-07’s spot floats free of the bar.")])}
+         (*ASK, "The menu opens upward from the Move to… button, left-aligned to it, and stays inside the window.")])}
   {cell(12, "Selecting several ideas on a phone", "S1-07 is a desktop board. The build lets only desktop select.", g12,
-        [(*ASK, "Phones select too: press and hold a card, then tap more; the dark bar replaces the tabs, with the same Move to… and Archive. Why: a phone can’t drag ideas onto the tree, so without it, tidying a folder means opening every video.")])}
+        [(*ASK, "Phones select too: press and hold a card, then tap more. The bar shows the count and a way out (× or Back), with the same Move to… and Archive.")])}
   {cell(14, "Empty Unsorted’s words, and the phone’s empty-folder line", "No board draws an empty Unsorted, and S1-03’s line points at “the list on the left”, which a phone doesn’t have.", g14,
-        [(*ASK, "Unsorted says “Nothing in Unsorted · New ideas land here until you put them in a folder.” with New video; a phone’s empty folder says “move ideas in from another folder.” Why: you can’t drag into Unsorted, and a phone has no list on the left.")])}
+        [(*ASK, "Empty Unsorted: “Nothing in Unsorted · New ideas land here until you put them in a folder.” with New video. A phone’s empty folder says “move ideas in from another folder.”")])}
   {cell(19, "The ⋯ on a phone folder (P-02)", "P-02 draws only search. Without a ⋯ a phone can’t rename, move or delete a folder, or reach Archived ideas.", g19,
         [("ok", "Already specified by S-gaps-02", "what’s in the menu: New folder inside, Rename, Move to…, Delete folder…, then Archived ideas · N (hidden at 0)."),
-         (*ASK, "A ⋯ beside search in P-02’s top bar, opening that same menu under it. Why: it’s the only way to reach those on a phone, and the video page already does the same (S-gaps-03).")])}
+         (*ASK, "A ⋯ beside search in P-02’s top bar, opening the folder menu, so Rename, Move, Delete and Archived ideas are reachable on a phone.")])}
   </div>'''
 
-board("S-gaps-06", "Gaps the builders found, part 6", "5 options for Reed: list Status width, Move menu, phone selecting, empty Unsorted, phone folder ⋯", sheet, "s", h=4120)
+board("S-gaps-06", "Gaps the builders found, part 6", "Approved: list Status width, Move menu, phone selecting, empty Unsorted, phone folder ⋯", sheet, "s", h=4120)

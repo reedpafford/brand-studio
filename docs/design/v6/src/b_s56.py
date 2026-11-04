@@ -76,7 +76,7 @@ def s5_states():
         ("No sheet yet: Clips waits, one press away", role_card(None, "Chase", "Rival · in 4 clips", "Clips 2–4 can’t start without him.", status("need", "Needs a look"),
                                                                 btn("Pick from fomo’s cast", "primary", "users") + btn("Upload", "", "upload") + btn("Make a look", "", "wand-sparkles", "$0.08"), cls="need")),
         ("Editor’s view", role_card("house_marcus_rain", "Marcus", "Main character", "Look made for this video", status("ok", "Approved"), btn("Change this…", "", "pencil", "1 credit"))),
-        ("A brand with no saved characters", f'<div class="role" style="flex-direction:column;align-items:flex-start"><span class="w6">Resilia has no saved characters yet</span><span class="t-sm muted">The director makes looks for this video and asks you to approve them. To reuse a person in every video, add them in Cast &amp; places.</span><div class="row g2">{btn("Open Cast & places","","users")}</div></div>'),
+        ("A brand with no saved characters", f'<div class="role" style="flex-direction:column;align-items:flex-start"><span class="w6">Resilia has no saved characters yet</span><span class="t-sm muted">The director prepares the characters and places. Review them together, request any changes, then approve the cast and places to continue. To reuse a person in every video, add them in Cast &amp; places.</span><div class="row g2">{btn("Open Cast & places","","users")}</div></div>'),
     ]
     cols = [cells[0::2], cells[1::2]]
     c = "".join(f'<div class="col g6" style="width:{W}px">{"".join(f"<div class=\'col g2\'><span class=\'t-sm w6\'>{a}</span>{b}</div>" for a, b in col)}</div>' for col in cols)
