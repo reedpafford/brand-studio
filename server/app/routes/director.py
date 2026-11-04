@@ -86,7 +86,7 @@ class ClipCellOut(BaseModel):
     credits: str | None  # waiting or failed: the price of the press that moves it on, as the
     # viewer reads money ("$0.32" to the owner, "4 credits" to an editor)
     changed: bool  # the director made it again: outlined…
-    seen: bool  # …until this person has watched that take (POST …/seen)
+    watched: bool  # …until this person has watched that take (POST …/seen)
     found: bool  # its watch found something on one of its takes (the Flagged filter)
 
 
@@ -110,7 +110,7 @@ class ChangedClipOut(BaseModel):
     number: int
     take_id: int | None
     frame_file_id: int | None
-    seen: bool
+    watched: bool
 
 
 class RunStoppedOut(BaseModel):

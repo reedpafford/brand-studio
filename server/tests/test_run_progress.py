@@ -163,12 +163,12 @@ def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch)
 
     two = _remade(db, row)  # the director watched it and made it again
     c = cell()
-    assert (c["state"], c["note"], c["changed"], c["seen"]) == (
+    assert (c["state"], c["note"], c["changed"], c["watched"]) == (
         "redone", "Mia's face drifts", True, False)  # fmt: skip
     assert c["take_id"] == two.id and _progress(owner, pid)["changed"][0]["take_id"] == two.id
     assert owner.post(f"/projects/{pid}/director/seen", json={"take_ids": [two.id, 999999]}
                       ).status_code == 204  # another video's take is ignored  # fmt: skip
-    assert cell()["seen"] is True and cell(editor)["seen"] is False  # a mark a person
+    assert cell()["watched"] is True and cell(editor)["watched"] is False  # a mark a person
     assert owner.post(f"/projects/{pid}/director/seen", json={"take_ids": [two.id]}
                       ).status_code == 204  # twice is fine  # fmt: skip
 

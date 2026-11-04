@@ -180,7 +180,7 @@ def _model(take: ClipTake | None, fallback: str) -> str:
 
 def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     """One clip as the filmstrip and the Clips list read it: its state, frame and line.
-    `changed`: the director made its take again (its watch, or a note); `seen`: this person
+    `changed`: the director made its take again (its watch, or a note); `watched`: this person
     has watched that take since; `found`: its watch found something on one of its takes."""
     from app.credits import WAIT_OK
 
@@ -202,7 +202,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
            "model": _model(picked, video.model), "frame_file_id": video.frames.get(row.clip_id),
            "take_id": picked.id if picked else None, "state": "done", "note": "",
            "percent": None, "minutes_left": None, "credits": None, "changed": changed,
-           "seen": bool(picked and picked.id in video.seen),
+           "watched": bool(picked and picked.id in video.seen),
            "found": bool(found(takes))}  # fmt: skip
     if held is not None:  # its take waits for the owner's OK (past the budget)
         why = (held.input.get("held") or "").removeprefix(WAIT_OK)
@@ -413,8 +413,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "steps": steps(db, video, turns, cells, how, holds is not None, owner),
            "spent": float(charged), "up_to": float(up_to),
            "spent_usd": float(usd) if owner else None,
-           "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id", "seen")}
-                       for c in cells if c["changed"]],
+           "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id",
+                                          "watched")} for c in cells if c["changed"]],
            "stopped": None, "failed": None}  # fmt: skip
     if how == "stopped":
         by = next(j.input for j in turns if j.input.get(STOPPED_BY))
