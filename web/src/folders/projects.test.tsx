@@ -29,7 +29,7 @@ function Where() {
   return <span data-testid="where" hidden>{l.pathname + l.search}</span>;
 }
 const where = () => screen.getByTestId("where").textContent;
-function open(at = "/b/1/videos") {
+function open(at = "/b/1/scripts") { // the Videos page is a folder now (v6 S1); Scripts keeps Project ▾
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[at]}>
@@ -56,10 +56,10 @@ test("Project: All ▾ opens the list: All, each project with its count, and No 
   expect(within(list).getByRole("button", { name: "November launch · 6 items" })).toBeInTheDocument();
   expect(within(list).getByRole("button", { name: "No project" })).toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "November launch · 6 items" }));
-  expect(where()).toBe("/b/1/videos?folder=4");
-  await vi.waitFor(() => expect(urls().some((u) => u.includes("/projects?") && u.includes("folder=4"))).toBe(true));
+  expect(where()).toBe("/b/1/scripts?folder=4");
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("/scripts?") && u.includes("folder=4"))).toBe(true));
   await userEvent.click(within(await openList()).getByRole("button", { name: "No project" })); // picking closes the panel
-  expect(where()).toBe("/b/1/videos?folder=none");
+  expect(where()).toBe("/b/1/scripts?folder=none");
   expect(document.body.textContent!.replace(where()!, "")).not.toMatch(/folder/i); // people only ever see "Project"
 });
 
@@ -95,8 +95,8 @@ test("Delete says where its items go, nothing inside is deleted, and Undo restor
 
 test("an editor gets no Rename or Delete on a project someone else made", async () => {
   setViewport(1440);
-  fakeServer(base(editor, [theirs]));
-  open();
+  fakeServer(base(editor, [theirs], { "GET /brands/1/media": [200, { items: [], next: null }] }));
+  open("/b/1/media"); // an editor's Scripts has no Project ▾; Media does
   await openList();
   await screen.findByRole("button", { name: "Spring · 1 item" });
   expect(screen.queryByRole("button", { name: "More for Spring" })).toBeNull();
@@ -190,7 +190,7 @@ test("on a phone the list opens from Project: All ▾ in a sheet", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Project: All" }));
   const sheet = await screen.findByRole("dialog", { name: "Projects" });
   await userEvent.click(within(sheet).getByRole("button", { name: "November launch · 6 items" }));
-  expect(where()).toBe("/b/1/videos?folder=4");
+  expect(where()).toBe("/b/1/scripts?folder=4");
   expect(await screen.findByRole("button", { name: "Project: November launch" })).toBeInTheDocument();
 });
 
@@ -198,7 +198,7 @@ test("without the server's projects nothing about projects shows", async () => {
   setViewport(1440);
   fakeServer(base(owner, null));
   open();
-  await screen.findByRole("heading", { name: "Videos" });
+  await screen.findByRole("heading", { name: "Scripts" });
   expect(screen.queryByRole("button", { name: /^Project: / })).toBeNull();
 });
 

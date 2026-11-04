@@ -193,10 +193,9 @@ def folder_ideas(
         if opened.brand_id != brand.id:  # brands stay apart
             raise HTTPException(404, folders.NO_FOLDER)
     filed = folders.where(Project.folder_id, folder)
-    base = _live_ideas(db, brand.id, archived).where(filed)
-    gone = 0 if archived else db.scalar(select(func.count()).select_from(
+    gone = db.scalar(select(func.count()).select_from(
         _live_ideas(db, brand.id, True).where(filed).subquery()))  # fmt: skip
-    every = list(db.scalars(base))
+    every = list(db.scalars(_live_ideas(db, brand.id).where(filed)))
     makers = {p.created_by_id for p in every if p.created_by_id}
     named = ideas.titles(db, [p.id for p in every])
     title = {p.id: named.get(p.id, p.name) for p in every}
@@ -208,6 +207,11 @@ def folder_ideas(
     in_tab = {t: [p for p in found if status[p.id].kind in kinds]
               for t, kinds in ideas.TABS.items()}  # fmt: skip
     rows = found if tab == "all" else in_tab[tab]
+    if archived:  # S1-06: the folder's archived ideas; the tabs and the header keep its live ones
+        rows = list(db.scalars(_live_ideas(db, brand.id, True).where(filed)))
+        rows = [p for p in rows if q.strip().lower() in p.name.lower()]
+        known = ideas.facts(db, rows)
+        status = ideas.statuses(db, user, rows, known)
     order = {"newest": lambda p: (-known.last[p.id].timestamp(), -p.id),
              "oldest": lambda p: (known.last[p.id].timestamp(), p.id),
              "name": lambda p: (title[p.id].lower(), p.id)}  # fmt: skip

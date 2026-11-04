@@ -77,6 +77,7 @@ class Idea(BaseModel):
     updated_at: UtcTime  # the latest activity
     cost: Cost | None  # None: nothing used and no price yet
     can_manage: bool  # move and archive: whoever made it, or the owner
+    from_script: bool  # made from a script version; false: an earlier-style video (its own page)
 
 
 @dataclass
@@ -263,5 +264,6 @@ def cards(db: Session, user: User, projects: list[Project], known: Facts,
             made_by=Named(id=p.created_by_id, name=who) if p.created_by_id and who else None,
             created_at=p.created_at, updated_at=known.last[p.id],
             cost=_cost(db, user, p, status, known),
-            can_manage=user.is_owner or p.created_by_id == user.id))  # fmt: skip
+            can_manage=user.is_owner or p.created_by_id == user.id,
+            from_script=p.script_draft_id is not None))  # fmt: skip
     return out

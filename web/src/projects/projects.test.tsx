@@ -143,5 +143,5 @@ test("an earlier video's card is one link to its page and says the step it is at
   vi.unstubAllGlobals();
   fakeServer({ ...base, ...scripts, "GET /projects": [200, [project]] });
   renderAt("/b/1/projects");
-  expect(await screen.findByRole("heading", { name: "Videos", level: 1 })).toBeInTheDocument();
+  expect(await screen.findByText("Unsorted")).toBeInTheDocument(); // the brand's videos open on a folder (v6 S1)
 });
