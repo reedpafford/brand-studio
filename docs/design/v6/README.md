@@ -152,4 +152,10 @@ For Reed. Design only: nothing here is built, and nothing here spent money. Appr
 | [P-14](boards/P-14.jpg) | Owner’s inbox |
 | [P-15](boards/P-15.jpg) | Ask card · options ready |
 
-77 boards in all: 62 desktop (1440) and sheets, 15 phone (390).
+### Gaps the builders found (options for Reed)
+
+| Board | State |
+|---|---|
+| [S-gaps-01](boards/S-gaps-01.jpg) | 5 options for Reed: B-roll look, reel look, upload, status words, sort |
+
+78 boards in all: 63 desktop (1440) and sheets, 15 phone (390).

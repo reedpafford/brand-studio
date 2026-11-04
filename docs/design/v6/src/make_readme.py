@@ -9,7 +9,7 @@ for f in sorted(os.listdir(os.path.join(HERE, "html")), key=lambda x: (x.startsw
     rows.append(tuple(html.unescape(x) for x in m.groups()))
 
 SECTIONS = [("S0", "The frame and folder tree"), ("S1", "Brand home: an open folder"), ("S2", "New video"), ("S3", "The video: chat + preview panel"),
-            ("S4", "Ask cards"), ("S5", "Cast and presenter"), ("S6", "Clips"), ("S7", "Cut editor"), ("S8", "Brand library"), ("S9", "Needs you"), ("P-", "Phone (390)")]
+            ("S4", "Ask cards"), ("S5", "Cast and presenter"), ("S6", "Clips"), ("S7", "Cut editor"), ("S8", "Brand library"), ("S9", "Needs you"), ("P-", "Phone (390)"), ("S-gaps", "Gaps the builders found (options for Reed)")]
 
 out = [open(os.path.join(HERE, "README.head.md")).read().rstrip(), ""]
 for pre, name in SECTIONS:
