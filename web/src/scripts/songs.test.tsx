@@ -98,19 +98,16 @@ test("lyrics: the sung length counts words not tags; over 4,960 characters says 
   expect(await screen.findByText("Sung word for word")).toBeInTheDocument();
 });
 
-test("saved lyrics: Edit lyrics asks first when takes exist; Advice offers Sing the end line, free, with Undo", async () => {
+test("saved lyrics: Edit lyrics asks first when takes exist; no advice asks the song to name the brand (rule 18)", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true })])], "PUT /scripts/7/drafts/0": [200, song()] });
+  fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs([take({ preferred: true })])], "PUT /scripts/7/drafts/0": [200, song()] });
   open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Edit lyrics" }));
   const ask = screen.getByRole("alertdialog", { name: "Edit the lyrics?" });
   expect(ask).toHaveTextContent("Your take will be out of date.");
   await userEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
-  await userEvent.click(screen.getByText(/Advice · /));
-  expect(screen.getByText("The song doesn't say Iron Paws or where to find it.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Sing the end line/ }));
-  await vi.waitFor(() => expect((calls.find((c) => c.key === "PUT /scripts/7/drafts/0")?.body as { text: string }).text).toBe(`${LYRICS}\n\n[Outro]\nGet Iron Paws through the link in my bio.`));
-  expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
+  expect(screen.queryByText("The song doesn't say Iron Paws or where to find it.")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Sing the end line/ })).toBeNull();
 });
 
 test("Takes, empty: Make 2 takes shows its price and makes one request; Cast stays locked until a take is Preferred", async () => {
