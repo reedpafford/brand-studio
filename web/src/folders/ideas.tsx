@@ -28,6 +28,8 @@ export function useTree(brandId: number) {
 
 export type IdeasAsk = { folder: string; tab: Tab; q: string; sort: Sort; madeBy: number | null; archived: boolean };
 const PAGE = 60;
+/** The folder asked for isn't there (deleted, or another brand's). */
+export const GONE = "gone";
 
 /** One folder's ideas a page at a time; the list loads the next page as you scroll (S1-05). */
 export function useIdeas(brandId: number, ask: IdeasAsk) {
@@ -36,10 +38,13 @@ export function useIdeas(brandId: number, ask: IdeasAsk) {
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const query = { folder: ask.folder, tab: ask.tab, sort: ask.sort, offset: pageParam, limit: PAGE, ...(ask.q ? { q: ask.q } : {}), ...(ask.madeBy ? { made_by: ask.madeBy } : {}), ...(ask.archived ? { archived: true } : {}) };
-      const { data } = await api.GET("/brands/{brand_id}/ideas", { params: { path: { brand_id: brandId }, query } });
-      if (!data) throw new Error("load");
+      const { data, response } = await api.GET("/brands/{brand_id}/ideas", { params: { path: { brand_id: brandId }, query } });
+      if (!data) throw new Error(response.status === 404 ? GONE : "load");
       return data;
     },
+    retry: (n, e) => e.message !== GONE && n < 3, // a gone folder won't come back by asking again
+    // Another tab, search or sort in the same folder keeps the cards and counts up while it loads.
+    placeholderData: (previous, query) => ((query?.queryKey[2] as IdeasAsk | undefined)?.folder === ask.folder && (query?.queryKey[2] as IdeasAsk).archived === ask.archived ? previous : undefined),
     getNextPageParam: (last, pages) => {
       const shown = pages.reduce((n, p) => n + p.ideas.length, 0);
       return shown < last.total ? shown : undefined;

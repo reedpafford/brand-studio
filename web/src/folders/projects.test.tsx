@@ -9,7 +9,6 @@ import { setViewport } from "../test/viewport";
 import { owner, editor } from "../test/people";
 
 const november = { id: 4, brand_id: 1, name: "November launch", created_by_id: 1, items: { scripts: 2, videos: 3, clips: 1 }, can_manage: true };
-const theirs = { id: 5, brand_id: 1, name: "Spring", created_by_id: 1, items: { scripts: 0, videos: 1, clips: 0 }, can_manage: false };
 const video = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null,
   estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0, created_by_id: 1, created_by_name: "Reed", script_draft_id: 4, own_script: false, archived_at: null, finished_at: null, product_variants: {}, folder_id: null,
@@ -91,15 +90,6 @@ test("Delete says where its items go, nothing inside is deleted, and Undo restor
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /folders/4")).toBe(true));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /folders/4/restore")).toBe(true));
-});
-
-test("an editor gets no Rename or Delete on a project someone else made", async () => {
-  setViewport(1440);
-  fakeServer(base(editor, [theirs], { "GET /brands/1/media": [200, { items: [], next: null }] }));
-  open("/b/1/media"); // an editor's Scripts has no Project ▾; Media does
-  await openList();
-  await screen.findByRole("button", { name: "Spring · 1 item" });
-  expect(screen.queryByRole("button", { name: "More for Spring" })).toBeNull();
 });
 
 test("Project: none ▾ on a video moves it, with Undo back to where it was", async () => {

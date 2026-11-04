@@ -8,7 +8,7 @@ import { Button, Dialog, Field, Menu, MenuItem, useToast } from "../components";
 import { costText, day, flatten, StatusLine, useRefreshIdeas, useTree, type Idea } from "../folders/ideas";
 import { age } from "../scripts/status";
 
-const to = (brandId: number, i: Idea) => (i.from_script ? `/b/${brandId}/videos/${i.id}` : `/b/${brandId}/projects/${i.id}`);
+const to = (brandId: number, i: Idea) => (i.from_script ? `/b/${brandId}/videos/${i.id}${i.status.kind === "delivered" ? "?step=downloads" : ""}` : `/b/${brandId}/projects/${i.id}`);
 const length = (i: Idea) => (i.seconds ? `${i.seconds} s` : "—");
 const ideas = (n: number) => `${n} idea${n === 1 ? "" : "s"}`;
 
@@ -36,23 +36,25 @@ export function IdeaCard({ brandId, i, phone, picked, picking, onPick }: { brand
   const { made, total } = i.status;
   const meta = phone ? [i.style, costText(i.cost)] : [i.style, i.seconds ? `${i.seconds} s` : "", i.made_by?.name, age(i.updated_at)];
   return (
-    <Link to={to(brandId, i)} className="group relative flex min-w-0 flex-col gap-2">
-      <span className="relative block">
-        <Still i={i} className={`aspect-[212/290] w-full rounded-md ${picked ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
-        {i.status.kind === "working" && total > 0 && (
-          <span aria-hidden className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-sm bg-surface-3">
-            <span className="block h-full rounded-sm bg-accent" style={{ width: `${Math.round((made / total) * 100)}%` }} />
-          </span>
-        )}
-        {onPick && <Tick on={picked} label={`Select ${i.title}`} onChange={onPick} className={`absolute right-2 top-2 ${picking || picked ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`} />}
-      </span>
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className={`truncate font-semibold ${phone ? "text-md" : "text-base leading-[19px]"}`}>{i.title}</span>
-        <StatusLine status={i.status} />
-        <span className="truncate text-xs text-muted">{meta.filter(Boolean).join(" · ")}</span>
-        {!phone && <span className="text-xs text-muted tabular-nums">{costText(i.cost)}</span>}
-      </span>
-    </Link>
+    <div className="group relative min-w-0">
+      <Link to={to(brandId, i)} className="flex min-w-0 flex-col gap-2">
+        <span className="relative block">
+          <Still i={i} className={`${phone ? "aspect-[175/230]" : "aspect-[212/290]"} w-full rounded-md ${picked ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
+          {i.status.kind === "working" && total > 0 && (
+            <span aria-hidden className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-sm bg-surface-3">
+              <span className="block h-full rounded-sm bg-accent" style={{ width: `${Math.round((made / total) * 100)}%` }} />
+            </span>
+          )}
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <span className={`truncate font-semibold ${phone ? "text-md" : "text-base leading-[19px]"}`}>{i.title}</span>
+          <StatusLine status={i.status} />
+          <span className="truncate text-xs text-muted">{meta.filter(Boolean).join(" · ")}</span>
+          {!phone && <span className="text-xs text-muted tabular-nums">{costText(i.cost)}</span>}
+        </span>
+      </Link>
+      {onPick && <Tick on={picked} label={`Select ${i.title}`} onChange={onPick} className={`absolute right-2 top-2 ${picking || picked ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`} />}
+    </div>
   );
 }
 

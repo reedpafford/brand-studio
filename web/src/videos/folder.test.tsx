@@ -180,3 +180,11 @@ test("Reed's brand still opens on Scripts", async () => {
   open("/b/1");
   expect(await screen.findByRole("heading", { name: "Scripts" })).toBeInTheDocument();
 });
+
+test("a folder that's gone says so, with a way to Unsorted (QA on #1304)", async () => {
+  setViewport(1440);
+  fakeServer({ ...base(owner), "GET /brands/1/ideas": [404, { detail: "No such folder." }] });
+  open("/b/1/videos?folder=99");
+  expect(await screen.findByText("This folder isn't here any more. It may have been deleted.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Open Unsorted" })).toHaveAttribute("href", "/b/1/videos");
+});

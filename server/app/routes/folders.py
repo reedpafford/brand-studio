@@ -107,7 +107,9 @@ class Counts(BaseModel):
 
 class IdeasOut(BaseModel):
     total: int  # in this tab, for the pages ("Showing 1–13 of 124")
-    counts: Counts  # the tabs, with the search and Made by applied
+    counts: (
+        Counts  # the tabs and the header: the whole folder (the search and Made by narrow `total`)
+    )
     archived: int  # this folder's archived ideas
     folders_inside: int  # "124 video ideas · 2 folders inside"
     makers: list[ideas.Named]  # the Made by filter's people
@@ -202,14 +204,18 @@ def folder_ideas(
     found = [p for p in every if q.strip().lower() in title[p.id].lower()]
     if made_by is not None:
         found = [p for p in found if p.created_by_id == made_by]
-    known = ideas.facts(db, found)
-    status = ideas.statuses(db, user, found, known)
-    in_tab = {t: [p for p in found if status[p.id].kind in kinds]
+    known = ideas.facts(db, every)
+    status = ideas.statuses(db, user, every, known)
+    # The tabs and the header count the whole folder; the search and Made by narrow the rows.
+    in_tab = {t: [p for p in every if status[p.id].kind in kinds]
               for t, kinds in ideas.TABS.items()}  # fmt: skip
-    rows = found if tab == "all" else in_tab[tab]
+    shown = {p.id for p in found}
+    rows = [p for p in (every if tab == "all" else in_tab[tab]) if p.id in shown]
     if archived:  # S1-06: the folder's archived ideas; the tabs and the header keep its live ones
         rows = list(db.scalars(_live_ideas(db, brand.id, True).where(filed)))
-        rows = [p for p in rows if q.strip().lower() in p.name.lower()]
+        named = ideas.titles(db, [p.id for p in rows])
+        title.update({p.id: named.get(p.id, p.name) for p in rows})
+        rows = [p for p in rows if q.strip().lower() in title[p.id].lower()]
         known = ideas.facts(db, rows)
         status = ideas.statuses(db, user, rows, known)
     order = {"newest": lambda p: (-known.last[p.id].timestamp(), -p.id),
@@ -224,7 +230,7 @@ def folder_ideas(
 
     return IdeasOut(
         total=len(rows),
-        counts=Counts(all=len(found), **{t: len(ps) for t, ps in in_tab.items()}),
+        counts=Counts(all=len(every), **{t: len(ps) for t, ps in in_tab.items()}),
         archived=gone, folders_inside=inside,
         makers=sorted((ideas.Named(id=i, name=user_name(db, i)) for i in makers),
                       key=lambda m: m.name.lower()),

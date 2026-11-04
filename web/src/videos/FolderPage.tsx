@@ -6,7 +6,7 @@ import { api, must } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Menu, MenuItem, Skeleton, buttonClass, useToast } from "../components";
 import { ArchivedItem, useFolderActions } from "../folders/FolderActions";
-import { UNSORTED, pathTo, useIdeas, useRefreshIdeas, useTree, type Idea, type Sort, type Tab } from "../folders/ideas";
+import { GONE, UNSORTED, pathTo, useIdeas, useRefreshIdeas, useTree, type Idea, type Sort, type Tab } from "../folders/ideas";
 import { useDebounced } from "../scripts/status";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
@@ -76,7 +76,7 @@ export function FolderPage() {
 
   // Several selected (S1-07): ticks on hover, on every card once one is ticked; Esc or × clears them.
   // A selection belongs to the view it was made in: another folder, tab or Archived starts with none.
-  const scope = `${folder}|${tab}|${archived}`;
+  const scope = `${folder}|${tab}|${archived}|${q}|${madeBy}`;
   const [selection, setSelection] = useState<{ scope: string; ideas: Map<number, Idea> }>({ scope, ideas: new Map() });
   const picked = selection.scope === scope ? selection.ideas : new Map<number, Idea>();
   const setPicked = (next: (was: Map<number, Idea>) => Map<number, Idea>) => setSelection((s) => ({ scope, ideas: next(s.scope === scope ? s.ideas : new Map()) }));
@@ -90,7 +90,7 @@ export function FolderPage() {
       return next;
     });
   useEffect(() => {
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && (setSelection((s) => ({ ...s, ideas: new Map() })), setMoveOpen(false));
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && !document.querySelector("[aria-modal]") && (setSelection((s) => ({ ...s, ideas: new Map() })), setMoveOpen(false));
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
   }, []);
@@ -208,7 +208,7 @@ export function FolderPage() {
             <Search size={20} strokeWidth={1.75} aria-hidden />
           </button>
         )}
-        {rail && (folder !== UNSORTED || !!first?.archived) && more}
+        {(folder !== UNSORTED || !!first?.archived) && more}
         {rail && (
           <Link to={newVideo} className={`${buttonClass(empty ? "secondary" : "primary")} lg:min-h-9 lg:px-3.5`}>
             <Plus size={16} strokeWidth={1.75} aria-hidden /> New video
@@ -222,7 +222,7 @@ export function FolderPage() {
             Back to the folder
           </Button>
           <h2 className="text-lg font-semibold">Archived</h2>
-          <span className="text-sm text-muted">{n(rows.length, "idea")} · kept, not shown in the folder · their files stay downloadable</span>
+          <span className="text-sm text-muted">{n(first?.archived ?? rows.length, "idea")} · kept, not shown in the folder · their files stay downloadable</span>
         </div>
       ) : (
         !empty && (
@@ -276,7 +276,11 @@ export function FolderPage() {
 
       {ideas.isError && (
         <div className="px-4 pt-4 lg:px-6">
-          <Banner tone="danger" title="Couldn't load this folder. Check your connection." action={<Button variant="secondary" onClick={() => ideas.refetch()}>Try again</Button>} />
+          {ideas.error.message === GONE ? (
+            <Banner tone="warning" title="This folder isn't here any more. It may have been deleted." action={<Link to={`/b/${brandId}/videos`} className={buttonClass("secondary")}>Open Unsorted</Link>} />
+          ) : (
+            <Banner tone="danger" title="Couldn't load this folder. Check your connection." action={<Button variant="secondary" onClick={() => ideas.refetch()}>Try again</Button>} />
+          )}
         </div>
       )}
 
@@ -298,7 +302,7 @@ export function FolderPage() {
             ))}
           </div>
           <h2 className="mt-2 text-xl font-semibold">Nothing in {name} yet</h2>
-          <p className="max-w-[420px] text-md text-muted">{folder === UNSORTED ? "Start a video here. New ideas land here until you put them in a folder." : "Start a video here, or drag ideas in from another folder in the list on the left."}</p>
+          <p className="max-w-[420px] text-md text-muted">{folder === UNSORTED ? "Start a video here. New ideas land here until you put them in a folder." : rail ? "Start a video here, or drag ideas in from another folder in the list on the left." : "Start a video here, or move ideas in from another folder."}</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Link to={newVideo} className={`${buttonClass("primary")} lg:min-h-9`}>
               <Plus size={16} strokeWidth={1.75} aria-hidden /> New video in {name}
