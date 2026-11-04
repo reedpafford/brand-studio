@@ -140,7 +140,7 @@ export function ClipsStep(props: {
               );
             })}
           </ul>
-          {/* The whole step's presses (Redo stills, Approve all, the Review list) sit under the list, out of the clip's way. */}
+          {/* The whole step's presses (Redo stills, the Review list) sit under the list, out of the clip's way. */}
           <div className="space-y-2 pt-4 lg:p-4">
             <ReviewChip projectId={projectId} />
             <div ref={setStillsBar} className="space-y-2 empty:hidden" />
@@ -152,7 +152,7 @@ export function ClipsStep(props: {
       <section className={`min-w-0 space-y-4 ${list ? "lg:px-8 lg:py-6" : ""}`} aria-label={selected ? `Clip ${selected.replace(/^c/, "")}` : "Stills"}>
         {open && list && (
           <ClipsPane
-                  hold={props.clipsHold?.why ?? null}
+            hold={props.clipsHold?.why ?? null}
             review
             projectId={projectId}
             brandId={props.brandId}

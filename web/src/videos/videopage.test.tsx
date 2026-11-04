@@ -370,7 +370,7 @@ test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its
 
 test("S3-11: a step that failed says why in plain words, with its one-click fixes", async () => {
   setViewport(1440);
-  const failed = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 4 clips made", tone: "bad", failed: { title: "Clip 4 couldn’t be made", why: "The service was busy. Nothing was charged.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }, { kind: "carry_on", label: "Carry on", price: "$10.74" }] } });
+  const failed = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 4 clips made", tone: "bad", scenes: scenes.slice(0, 1), failed: { title: "Clip 4 couldn’t be made", why: "The service was busy. Nothing was charged.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }, { kind: "carry_on", label: "Carry on", price: "$10.74" }] } });
   const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, failed], "POST /projects/50/clips/44/generate": [201, { id: 1 }], "POST /projects/50/director": [201, run()] });
   renderApp("/b/1/videos/50");
   const box = await screen.findByRole("region", { name: "Clip 4 couldn’t be made" });
@@ -428,4 +428,41 @@ test("P-04: on a phone the card shows one frame a scene with its count, and the 
   expect(within(live).getByText("1/2")).toBeInTheDocument();
   await userEvent.click(within(live).getByRole("button", { name: "Every step" }));
   expect(within(live).getByRole("list", { name: "Every step" })).toBeInTheDocument();
+});
+
+test("a held run keeps the owner's way on under its card: the price for an editor's send, Needs you for a hold mid-run", async () => {
+  setViewport(1440);
+  const held = item("r9", "move", "Director", "Waiting for the owner's OK.", "held", later, { run: "r9" });
+  const waiting = record({ status: "waiting", title: "Waiting for your OK", sub: "Remaking clip 3 goes past the video's budget", tone: "wait" });
+  server(owner, null, run({ thread: [held] }), { "GET /projects/50/director/progress": [200, waiting] });
+  const first = renderApp("/b/1/videos/50");
+  const live = await screen.findByRole("region", { name: "Waiting for your OK" });
+  expect(within(live).getByText("Remaking clip 3 goes past the video's budget", { selector: "p" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "See it in Needs you" })).toHaveAttribute("href", "/approvals");
+  first.unmount();
+  const sent = fs({ status: "waiting", created_by_name: "Eli", up_to: 34, thread: [item("m1", "message", "Eli", SCRIPT), held] });
+  server(editor, sent, run({ thread: [held], turns: [{ turn: 0, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: later }] }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "GET /projects/50/director/progress": [200, waiting] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("Sent to the owner for approval")).toBeInTheDocument();
+  expect(screen.getByText("up to 34 credits")).toBeInTheDocument();
+});
+
+test("Try again can't be pressed twice: while its clip is made the press waits, and a stop with nothing made says so", async () => {
+  setViewport(1440);
+  const failed = { title: "Clip 4 couldn’t be made", why: "Busy.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }] };
+  server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, record({ status: "needs_fix", title: "Stopped at clip 4", tone: "bad", failed })] });
+  const first = renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: "Try again · up to $0.32" })).toHaveAttribute("aria-busy", "true"); // clip 3 of the record is still being made: a press does nothing
+  first.unmount();
+  server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, record({ status: "stopped", title: "Stopped", tone: "stop", stopped: { by: "Reed", at, made: 0, total: 4, carry_on: "$10.74" } })] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("Stopped. Nothing was finished yet. Tell me what to change, or carry on where I left off.")).toBeInTheDocument();
+});
+
+test("rule 22: with no stills or clips yet, the Clips tab points to the chat; on a phone it goes there", async () => {
+  setViewport(390);
+  server(owner, null, run({ status: "none", turns: [] }), { "GET /projects/50/assets": [200, []], "GET /projects/50/script": [200, { version: 1, source: "paste", words: 2, created_by_id: 1, created_at: at, text: "Bo." }], "GET /projects/50/breakdown": [200, { id: 1, script_version: 1, source: "claude", stale: false, problems: [], breakdown: { hook: "", scenes: [{ id: 1, heading: "K", look: "", shots: [] }], clips: [] } }] });
+  renderApp("/b/1/videos/50?tab=clips");
+  await userEvent.click(await screen.findByRole("button", { name: "Start it or tell it what to do in the chat." }));
+  expect(screen.getByRole("tab", { name: "Chat", selected: true })).toBeInTheDocument();
 });

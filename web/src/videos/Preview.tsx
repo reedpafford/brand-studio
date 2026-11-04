@@ -21,7 +21,7 @@ import { useProgress, useProjectClips, useProjectVideo } from "../projects/usePr
 import { videoHold, videoLock, type VideoProgress } from "../projects/videoSteps";
 import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
 import { mp4, type Head } from "./VideoHead";
-import { Filmstrip, SceneRow, useRunProgress, useSeen } from "./RunCard";
+import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
 import { useRail } from "../useMedia";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -44,7 +44,7 @@ export const tabFrom = (params: URLSearchParams): TabId | null => {
 };
 
 /** What a tab's pane gets. `go` opens another tab (a hold's "Open Cast"); `lines`/`line` tie the plan to the script. */
-export type PaneProps = { p: Project; head: Head | undefined; lookOnly: string | null; progress: VideoProgress; go: (tab: TabId) => void; lines: number[]; line: number | null; showLines: (lines: number[]) => void; pickLine: (n: number) => void };
+export type PaneProps = { p: Project; head: Head | undefined; run: Progress | null; lookOnly: string | null; progress: VideoProgress; go: (tab: TabId) => void; toChat?: () => void; lines: number[]; line: number | null; showLines: (lines: number[]) => void; pickLine: (n: number) => void };
 
 /** Before there's anything to show: the empty frames and what will fill them (S3-01). */
 function Empty({ title, children, action }: { title: string; children: string; action?: ReactNode }) {
@@ -64,21 +64,21 @@ function Empty({ title, children, action }: { title: string; children: string; a
 const SOON = "The director writes a treatment, then the scenes fill in with stills and clips as they’re made. The cut plays here when it’s ready.";
 
 /** The cut (S3-09): the player, the downloads and what it's made of. The cut editor (screen 10) mounts its own pane here. */
-function CutPane({ p, head, progress }: PaneProps) {
+function CutPane({ p, head, progress, run }: PaneProps) {
   const queryClient = useQueryClient();
   const { media, progress: now } = useProgress(p.id);
   const cut = useProjectVideo(p.id);
   const video = cut.data;
   const phone = !useRail();
-  const run = useRunProgress(p.id).data ?? null;
   const seen = useSeen(p.id);
   const player = useRef<HTMLVideoElement>(null);
   const changed = run?.changed ?? [];
   // A frame (or a changed clip) plays the cut from where that clip starts, and counts as watched (S3-09).
   const jump = (clipId: string, takeId: number | null) => {
     const order = (run?.scenes ?? []).flatMap((s) => s.clips);
-    const at = order.slice(0, order.findIndex((c) => c.clip_id === clipId)).reduce((n, c) => n + c.seconds, 0);
-    if (player.current) {
+    const index = order.findIndex((c) => c.clip_id === clipId);
+    const at = order.slice(0, index).reduce((n, c) => n + c.seconds, 0); // the clips' planned lengths: close, not to the frame
+    if (player.current && index >= 0) {
       player.current.currentTime = at;
       void player.current.play?.()?.catch?.(() => {});
     }
@@ -213,7 +213,7 @@ function CutPane({ p, head, progress }: PaneProps) {
 }
 
 /** The clips (today's Clips step until screen 8): the stills and the takes, each clip's line, and their holds. */
-function ClipsTab({ p, progress, go }: PaneProps) {
+function ClipsTab({ p, progress, go, toChat }: PaneProps) {
   const { media, script } = useProgress(p.id);
   // Nothing drawn yet and the stills can't start: what fills in here, why it waits and the one press that gets it going.
   const waits = progress.frames.total === 0 && progress.clips.total === 0 ? videoLock("storyboard", progress) : null;
@@ -231,6 +231,19 @@ function ClipsTab({ p, progress, go }: PaneProps) {
         <Banner tone="warning" title={held.at === "cast" ? "Waiting on the cast" : "Out of date"} action={held.at !== "storyboard" && <Button variant="secondary" onClick={() => go(held.at === "cast" ? "cast" : "plan")}>Open {held.at === "cast" ? "Cast" : "Plan"}</Button>}>
           {held.why}
         </Banner>
+      )}
+      {(progress.frames.total === 0 || progress.clips.total === 0) && (
+        // Rule 22: with the step presses gone, the way on is the director (screen 4). On a phone the chat is a press away.
+        <p className="text-sm text-muted">
+          The director makes the stills and the clips.{" "}
+          {toChat ? (
+            <button type="button" onClick={toChat} className="font-medium text-accent-text hover:underline max-lg:min-h-control">
+              Start it or tell it what to do in the chat.
+            </button>
+          ) : (
+            "Start it or tell it what to do in the chat."
+          )}
+        </p>
       )}
       <CheckSummary projectId={p.id} />
       {takes && <p className="text-sm text-muted">Takes: {takes}</p>}
@@ -326,7 +339,7 @@ export const firstTab = (progress: VideoProgress): TabId => (progress.video.made
 
 /** The preview panel (S3): its tabs with counts, then the open tab's pane. On a phone the tabs are a segmented row
  *  (P-09, S-gaps-03). */
-export function Preview({ p, head, tab, onTab, lookOnly, phone, facts }: { p: Project | null; head: Head | undefined; tab: TabId; onTab: (t: TabId) => void; lookOnly: string | null; phone: boolean; facts: ReturnType<typeof usePanelFacts> }) {
+export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, facts }: { p: Project | null; head: Head | undefined; run: Progress | null; tab: TabId; onTab: (t: TabId) => void; toChat?: () => void; lookOnly: string | null; phone: boolean; facts: ReturnType<typeof usePanelFacts> }) {
   const [lines, setLines] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
   const count: Partial<Record<TabId, number>> = { clips: facts.progress.clips.total || facts.progress.frames.total, cast: facts.cast.length };
@@ -365,9 +378,11 @@ export function Preview({ p, head, tab, onTab, lookOnly, phone, facts }: { p: Pr
             <Pane
               p={p}
               head={head}
+              run={run}
               lookOnly={lookOnly}
               progress={facts.progress}
               go={onTab}
+              toChat={toChat}
               lines={lines}
               line={line}
               showLines={(ls) => (setLines(ls), setLine(null), onTab("script"))}

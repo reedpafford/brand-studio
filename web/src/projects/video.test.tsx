@@ -8,7 +8,7 @@ import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 import { editor } from "../test/people";
-import { clipCard, pickClip } from "../test/clips";
+import { clipCard } from "../test/clips";
 
 const project = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
@@ -980,17 +980,6 @@ test("a look with nothing wrong shows no look-check note", async () => {
   expect(screen.queryByText(/This look reads as/)).toBeNull();
 });
 
-const waiting = (id: number, o: object = {}) => ({ ...frame, id, clip_id: `c${id}`, approved: false, earlier: [], change: null, ...o });
-
-test("Approve all is not offered when every frame is approved or has no still", async () => {
-  setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }, waiting(2, { file_id: null })]] });
-  open("?step=storyboard");
-  await pickClip("c2");
-  await screen.findByLabelText("Frame c2");
-  expect(screen.queryByRole("button", { name: /^Approve (all|\d)/ })).toBeNull();
-});
-
 test("clips made before the storyboard went out of date stay open, with a banner (audit M14)", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]] });
@@ -1031,14 +1020,6 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
 });
 
 const noMissing: [number, unknown] = [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }];
-
-test("Approve all on Assets is not offered for a library character, which is approved in Cast & places", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({})]], "GET /projects/9/assets/missing-looks": noMissing });
-  open();
-  await screen.findByLabelText("Bo");
-  expect(screen.queryByRole("button", { name: /^Approve (all|\d)/ })).toBeNull();
-});
 
 test("a link to a locked step lands on the step that blocks it, not always on Breakdown", async () => {
   setViewport(1440);

@@ -10,19 +10,22 @@ import { mmss } from "../freestyle/FromScript";
 import { serverTime } from "../time";
 
 export type Progress = components["schemas"]["ProgressOut"];
-export type Note = components["schemas"]["DeliveryNoteOut"];
+type Note = components["schemas"]["DeliveryNoteOut"];
 type Cell = components["schemas"]["ClipCellOut"];
 type Scene = components["schemas"]["RunSceneOut"];
 
 const LIVE = ["working", "revising", "waiting"];
 const clock = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
-/** The newest run's live record (v6 piece C), read again every 3 s while it works, revises or waits. */
+/** A clip is being made though the run has ended (Try again on a failed clip). */
+const making = (r: Progress) => r.scenes.some((s) => s.clips.some((c) => c.state === "making"));
+
+/** The newest run's live record (v6 piece C), read again every 3 s while it works, revises or waits, or a clip is made. */
 export function useRunProgress(projectId: number, enabled = true) {
   return useQuery({
     queryKey: ["run-progress", projectId],
     enabled: enabled && projectId > 0,
-    refetchInterval: (q) => (q.state.data && LIVE.includes(q.state.data.status) ? 3_000 : false),
+    refetchInterval: (q) => (q.state.data && (LIVE.includes(q.state.data.status) || making(q.state.data)) ? 3_000 : false),
     queryFn: async () => (await api.GET("/projects/{project_id}/director/progress", { params: { path: { project_id: projectId } } })).data ?? null,
   });
 }
@@ -52,7 +55,7 @@ function look(c: Cell): "todo" | "making" | "redo" | "fresh" | "bad" | "done" {
 const RING = { fresh: "outline outline-[1.5px] outline-offset-1 outline-accent", redo: "outline outline-[1.5px] outline-offset-1 outline-need-dot", bad: "outline outline-[1.5px] outline-offset-1 outline-danger", making: "outline outline-[1.5px] outline-offset-1 outline-accent", todo: "", done: "" };
 
 /** One frame: its still, or the empty or working place it fills. */
-export function Frame({ c, className, onPick }: { c: Cell; className: string; onPick?: (c: Cell) => void }) {
+function Frame({ c, className, onPick }: { c: Cell; className: string; onPick?: (c: Cell) => void }) {
   const l = look(c);
   const body =
     l === "todo" ? (
@@ -98,7 +101,7 @@ export function SceneRow({ scenes }: { scenes: Scene[] }) {
   return (
     <ol aria-label="The video, scene by scene" className="flex gap-2 overflow-x-auto">
       {scenes.map((s) => {
-        const shown = s.clips.find((c) => c.frame_file_id != null && c.state !== "todo") ?? s.clips[0];
+        const shown = s.clips.find((c) => c.frame_file_id != null && c.state !== "todo") ?? s.clips.find((c) => c.state === "making") ?? s.clips[0];
         return (
           <li key={s.id} className="flex shrink-0 flex-col items-center gap-1">
             {shown && <Frame c={{ ...shown, changed: s.clips.some((c) => c.changed && !c.watched), watched: false }} className="h-[78px] w-11 rounded-md" />}
@@ -152,7 +155,7 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
     </ol>
   );
   const toggle = (
-    <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="ml-auto inline-flex shrink-0 items-center gap-1 text-sm text-muted hover:text-text max-lg:min-h-control">
+    <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="ml-auto inline-flex shrink-0 items-center justify-end gap-1 text-sm text-muted hover:text-text max-lg:min-h-control max-lg:min-w-control">
       {!phone && (open ? "Hide steps" : "Every step")}
       <ChevronDown size={phone ? 14 : 12} strokeWidth={1.75} aria-hidden className={open ? "rotate-180" : ""} />
       {phone && <span className="sr-only">{open ? "Hide steps" : "Every step"}</span>}
@@ -168,7 +171,7 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
         {shown.map((s, i) => (
           <li key={s.id} className="flex items-center gap-3 border-t border-border py-1.5 text-[13px]">
             <span className={`min-w-0 flex-1 truncate ${s.done > 0 && s.done < s.total ? "font-medium" : ""}`}>
-              {i + 1}. {s.name}
+              {s.name ? `${i + 1}. ${s.name}` : `Scene ${i + 1}`}
             </span>
             <span className="h-1 w-[120px] overflow-hidden rounded-sm bg-surface-3" aria-hidden>
               <i className="block h-full rounded-sm bg-accent" style={{ width: `${s.total ? Math.round((100 * s.done) / s.total) : 0}%` }} />
@@ -179,8 +182,8 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
           </li>
         ))}
       </ol>
-      {(r.scenes.length > shown.length || r.minutes_left) && (
-        <p className="pt-1.5 text-xs text-muted">{[r.scenes.length > shown.length && `+ ${r.scenes.length - shown.length} more scenes`, r.minutes_left && left(r.minutes_left)].filter(Boolean).join(" · ")}</p>
+      {(r.scenes.length > shown.length || !!r.minutes_left) && (
+        <p className="pt-1.5 text-xs text-muted">{[r.scenes.length > shown.length && `+ ${r.scenes.length - shown.length} more scenes`, !!r.minutes_left && left(r.minutes_left)].filter(Boolean).join(" · ")}</p>
       )}
     </div>
   ) : phone ? (
@@ -213,15 +216,15 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
 }
 
 /** A run that a person stopped (S3-08): the line saying who and when, and the director's reply with Carry on at its price. */
-export function stoppedParts({ progress: r, onCarryOn, busy, error }: { progress: Progress; onCarryOn: () => void; busy: boolean; error: string | null }) {
+export function stoppedParts({ progress: r, onCarryOn, busy, blocked, error }: { progress: Progress; onCarryOn: () => void; busy: boolean; blocked: string | null; error: string | null }) {
   const s = r.stopped!;
   return {
     line: `${s.by} stopped the director at ${clock(s.at)}. Nothing more is being spent.`,
     reply: (
       <div className="flex flex-col gap-2">
-        <p className="leading-[21px]">{`Stopped. The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept. Tell me what to change, or carry on where I left off.`}</p>
+        <p className="leading-[21px]">{`Stopped. ${s.made ? `The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept.` : "Nothing was finished yet."} Tell me what to change, or carry on where I left off.`}</p>
         <div className="flex flex-wrap gap-2">
-          <Button busy={busy} onClick={onCarryOn}>
+          <Button busy={busy} disabled={!!blocked} reason={blocked} onClick={onCarryOn}>
             {`Carry on · up to ${s.carry_on} more`}
           </Button>
         </div>
@@ -232,7 +235,7 @@ export function stoppedParts({ progress: r, onCarryOn, busy, error }: { progress
 }
 
 /** A run that stopped on a problem (S3-11): what went wrong, in plain words, and its one-click fixes (never none). */
-export function Failed({ progress: r, projectId, onCarryOn, busy }: { progress: Progress; projectId: number; onCarryOn: () => void; busy: boolean }) {
+export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; busy: boolean; blocked: string | null }) {
   const f = r.failed!;
   const queryClient = useQueryClient();
   const again = useMutation({
@@ -252,7 +255,7 @@ export function Failed({ progress: r, projectId, onCarryOn, busy }: { progress: 
         <p className="text-[13px] leading-[19px]">{f.why}</p>
         <div className="flex flex-wrap gap-2">
           {f.fixes.map((x, i) => (
-            <Button key={x.kind} variant={i === 0 ? "primary" : "secondary"} busy={x.kind === "again" ? again.isPending : busy} onClick={() => (x.kind === "again" ? again.mutate() : onCarryOn())}>
+            <Button key={x.kind} variant={i === 0 ? "primary" : "secondary"} busy={x.kind === "again" ? again.isPending || making(r) : busy} disabled={x.kind === "carry_on" && !!blocked} reason={x.kind === "carry_on" ? blocked : undefined} onClick={() => (x.kind === "again" ? again.mutate() : onCarryOn())}>
               {x.price ? `${x.label} · up to ${x.price}` : x.label}
             </Button>
           ))}

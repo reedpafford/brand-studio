@@ -121,9 +121,9 @@ export function CheckSummary({ projectId }: { projectId: number }) {
 }
 
 /** "3 items with Advice ▸": the one Review list, grouped by step, each row going to its card (PL8). Open by default on Final cut. */
-export function ReviewChip({ projectId, open: startOpen = false }: { projectId: number; open?: boolean }) {
+export function ReviewChip({ projectId }: { projectId: number }) {
   const review = useReview(projectId).data;
-  const [open, setOpen] = useState(startOpen);
+  const [open, setOpen] = useState(false);
   const [params, setParams] = useSearchParams();
   // The card to go to rides in the address (`to`): a row on Final cut changes step, and this chip on the new step finds the
   // card once it's drawn, scrolls to it and moves focus there (keyboard and screen readers follow), then drops `to`.
