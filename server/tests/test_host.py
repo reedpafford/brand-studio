@@ -8,6 +8,7 @@ import pytest
 
 from app import guides, host, p_video, song_breakdown, talker
 from app.catalogue import get_model
+from app.models.accounts import User
 from app.models.clips import FinalVideo
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus
@@ -58,7 +59,13 @@ def test_the_director_makes_the_host_after_the_narration_and_lays_it_over_the_cu
     sent = job.input["input"]
     assert (job.provider, job.input["model"], sent["resolution"]) == ("heygen", talker.MODEL,
                                                                       "720p")  # fmt: skip
-    assert sent["motion_prompt"] == host.TALK and "green" in host.TALK  # stays on the green
+    assert sent["motion_prompt"] == f"{host.TALK} {host.GREEN}"  # stays on the green
+    note = "Blunt and fed up: a slow head shake, then a jab of the finger at the lens. " * 12
+    host.make(db, db.get(User, video.created_by_id), video, app.state.storage, number=1,
+              motion=note)  # a director's note on a corner host keeps the green  # fmt: skip
+    again = _jobs(db, video, host.PIECE)[-1].input["input"]["motion_prompt"]
+    assert again.startswith("Blunt and fed up") and again.endswith(host.GREEN)
+    assert len(again) <= talker.LONGEST_MOTION
     assert job.input["files"] == {"image": [still.file_id], "audio": [row.audio_file_id]}
     assert job.credits == Decimal(sent["duration"]) * get_model(talker.MODEL).credits_per_unit(
         "720p")  # its "up to", as a take  # fmt: skip

@@ -35,7 +35,7 @@ STILL, PIECE = "host_still", "host_piece"
 NOT_PRESENTER = "This video has no host: its format isn't Presenter."
 NO_NARRATION = "Make the narration first: the host says it."
 MAKING = "The host is being made. It's ready in a moment."
-MADE = "The host is made. Make again any piece to change it."
+MADE = "The host is made. Make it again to change it."
 NOT_READY = "Make the host first: a presenter video lays its host over the B-roll."
 NO_PIECE = "There's no such piece of the host."
 STILL_PROMPT = (
@@ -46,11 +46,14 @@ STILL_PROMPT = (
     "same single colour from edge to edge with no gradient, texture, floor or shadow, and clean "
     "crisp edges around the hair, ears and shoulders."
 )  # the paid test's host still, waist-up as its report advises
+GREEN = (
+    "They stay in place, waist-up. The background stays one flat, solid chroma-key green "
+    "with no shadows or objects. Locked-off static camera."
+)  # every take on green: it's keyed
 TALK = (
     "The host talks straight into the camera: the mouth moves with the stressed words, the "
     "eyebrows move, they blink, and their hands come up at chest height in open-palm and "
-    "pointing gestures. They stay in place, waist-up. The background stays one flat, solid "
-    "chroma-key green with no shadows or objects. Locked-off static camera."
+    "pointing gestures."
 )  # HeyGen's motion prompt for the host on green when the director writes none
 RIGHT = re.compile(r"\b(?:on|to|at) the right\b|\bright(?:-hand)? (?:side|corner|edge)\b|"
                    r"\b(?:frame|bottom|lower)[- ]right\b", re.I)  # fmt: skip
@@ -256,8 +259,12 @@ def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int
     it gives none)."""
     from app.routes.jobs import enqueue
 
-    plain = talker.MOTION if talker.on(db, project) else TALK
-    data = talker.piece_input(project, row, still, motion or plain)
+    if talker.on(db, project):
+        data = talker.piece_input(project, row, still, motion or talker.MOTION)
+    else:  # on green, whatever the director's note says: the cut keys it
+        room = talker.LONGEST_MOTION - len(GREEN) - 1
+        said = " ".join((motion or TALK).split())[:room]
+        data = talker.piece_input(project, row, still, f"{said} {GREEN}")
     enqueue(db, user, "video", data, units=_seconds(row), project=project,
             provider=talker.PROVIDER, **kwargs)  # fmt: skip
 
@@ -294,10 +301,10 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
         drawn = {**still_input(db, project, still), **({"motion": motion} if motion else {})}
         enqueue(db, user, "image", drawn, project=project, provider="replicate",
                 hold=hold)  # fmt: skip
-        return "Drawing the host, then making each piece of it."
+        return "Drawing the host, then making its take."
     for row in todo:
         _piece(db, user, project, row, still.file_id, motion)
-    return f"Making {len(todo)} piece{'' if len(todo) == 1 else 's'} of the host."
+    return "Making the host's take." if len(todo) == 1 else f"Making the host's {len(todo)} takes."
 
 
 def _motion(jobs: dict[int, Job], have: list[HostPiece]) -> str:
@@ -305,6 +312,7 @@ def _motion(jobs: dict[int, Job], have: list[HostPiece]) -> str:
     made = [jobs[r.id] for r in have if r.id in jobs]
     said = [j.input.get("motion") or (j.input.get("input") or {}).get("motion_prompt")
             for j in made]  # fmt: skip
+    said = [(m or "").removesuffix(f" {GREEN}") for m in said]  # the director's own words
     return next((m for m in said if m and m not in (talker.MOTION, TALK)), "")
 
 

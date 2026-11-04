@@ -143,6 +143,10 @@ def test_each_effect_is_set_to_its_loudness_against_the_voice_and_limited(tmp_pa
     assert take_sound.how("the alarm louder than the voice") == "over the voice"
     assert take_sound.level("the alarm louder than the voice") > 0
     assert take_sound.level("+40 dB") == take_sound.LOUDEST  # never past the cap
+    assert take_sound.level("10 dB under the voice") == -10  # unsigned: under (QA on #1316)
+    assert take_sound.level("3 dB over the voice") == 3 and take_sound.level("-10 dB") == -10
+    out = take_sound.apply(silent, _quiet(tmp_path, -1), take_sound.LOUDEST)  # pushed hard
+    assert _loud(out, tmp_path)[1] <= -1.0  # limited at -3 dBFS (AAC overshoots a little)
     assert take_sound.gain(None, -12) == 0.0  # nothing to measure: left as it is
 
 
