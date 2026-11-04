@@ -49,7 +49,7 @@ def test_the_director_makes_the_host_after_the_narration_and_lays_it_over_the_cu
     assert out["status"] == "delivered", moves
     said = next(i for i, m in enumerate(moves) if m.startswith("Making the narration"))
     drawn = next(i for i, m in enumerate(moves) if m.startswith("Drawing the host"))
-    cut = next(i for i, m in enumerate(moves) if m.startswith("Made the cut"))
+    cut = next(i for i, m in enumerate(moves) if m.startswith("Making Cut 1"))
     assert said < drawn < cut
     video = _video(db, fs)
     (still,) = _jobs(db, video, host.STILL)

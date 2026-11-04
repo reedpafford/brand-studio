@@ -490,7 +490,7 @@ def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
     naming the record), the owner's OKs at the director's limit, and each delivery's note."""
     from app import delivery
     from app.credits import COUNTED, price
-    from app.director import GRANT, GRANTED, own_limit
+    from app.director import GRANT, GRANTED, _edit_of, own_limit
 
     out, every = [], runs(db, project)
     for run_id, turns in every.items():
@@ -511,6 +511,14 @@ def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
                 out.append({"id": f"g{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                             "who": "Director", "text": GRANTED.format(n=price(own_limit())),
                             "status": "done"})  # fmt: skip
+            if (
+                (j.output or {}).get("tool") == "edit_cut"
+                and (edit := _edit_of(db, j, "edit_cut", "done"))
+                and not (j.input.get("result") or "Refused").startswith("Refused")
+            ):
+                out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
+                            "who": "Director", "status": "done", "text": said(j.input.get("result") or ""),
+                            "edit": edit})  # fmt: skip  # S7-03: "Clip 9 re-timed · Undo"
             if j.input.get("result") == "Delivered.":
                 note = delivery.shown(db, project, (j.output or {}).get("note"), owner)
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),

@@ -1,26 +1,15 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, Film } from "lucide-react";
-import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Badge, Banner, Button, Card, Skeleton, buttonClass, useToast } from "../components";
-import { useProjectClips, useProjectVideo } from "./useProgress";
+import { Badge, Banner, Button, Card, Skeleton, buttonClass } from "../components";
+import { useCut, useMakeCut, useProjectClips, useProjectVideo } from "./useProgress";
 
 /** The finished video: put the approved clips together (free), watch it, download it. */
 export function FinalPane({ projectId, aspect, projectName }: { projectId: number; aspect: string; projectName: string }) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
   const clips = useProjectClips(projectId);
   const video = useProjectVideo(projectId);
-  const stitch = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/video", { params: { path: { project_id: projectId } } });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
-      toast("Your video is ready.");
-    },
-  });
+  const stitch = useMakeCut(projectId);
+  const cut = useCut(projectId).data;
+  const making = cut?.making;
   if (clips.isPending || video.isPending) return <Skeleton className="h-64" />;
   const list = clips.data ?? [];
   const approved = list.filter((c) => c.approved);
@@ -36,12 +25,12 @@ export function FinalPane({ projectId, aspect, projectName }: { projectId: numbe
     .join(", ");
   const left = list.length - approved.length;
 
-  if (stitch.isPending)
+  if ((stitch.isPending || making) && !v)
     return (
       <Card className="space-y-3">
         <Skeleton className="h-64" />
         <p className="text-sm text-muted" role="status">
-          Putting your clips together…
+          Putting your clips together…{making ? ` ${making.percent}%` : ""}
         </p>
       </Card>
     );
@@ -53,7 +42,15 @@ export function FinalPane({ projectId, aspect, projectName }: { projectId: numbe
           Nothing was charged. {stitch.error.message}
         </Banner>
       )}
-      {v && v.out_of_date && (
+      {making && v && (
+        <p className="text-sm text-muted tabular-nums" role="status">
+          Making Cut {making.number} · {making.percent}% · free. Cut {v.number} keeps playing until then.
+        </p>
+      )}
+      {cut?.failed && !making && (
+        <Banner title={cut.failed.why} action={<Button variant="secondary" onClick={() => stitch.mutate()}>Try again</Button>} />
+      )}
+      {v && v.out_of_date && !making && (
         <Banner tone="warning" title="Out of date." action={<Button onClick={() => stitch.mutate()}>Make the video again</Button>}>
           A clip changed since this video was made.
         </Banner>

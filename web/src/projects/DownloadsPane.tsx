@@ -1,7 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { api, errorText } from "../api/client";
 import { fileUrl } from "../api/upload";
 import {
   Badge,
@@ -13,7 +11,7 @@ import {
 } from "../components";
 import { ActionBar } from "../shell/ActionBar";
 import { useRail } from "../useMedia";
-import { useProjectClips, useProjectVideo } from "./useProgress";
+import { useCut, useMakeCut, useProjectClips, useProjectVideo } from "./useProgress";
 import { serverTime } from "../time";
 import { ReviewChip } from "./Checks";
 import { Scorecard } from "./Scorecard";
@@ -37,21 +35,13 @@ export function DownloadsPane({
   aspect: string;
   projectName: string;
 }) {
-  const queryClient = useQueryClient();
   const rail = useRail();
   const clips = useProjectClips(projectId);
   const video = useProjectVideo(projectId);
   const songChanged = useSongChanged(projectId, video.data?.song_take_id);
-  const stitch = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/video", {
-        params: { path: { project_id: projectId } },
-      });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["project-video", projectId] }),
-  });
+  const stitch = useMakeCut(projectId);
+  const cut = useCut(projectId).data;
+  const making = cut?.making;
   // The whole video is put together the first time the step opens. It is free.
   const asked = useRef(false);
   const ready =
@@ -143,7 +133,15 @@ export function DownloadsPane({
             Nothing was charged. {stitch.error.message}
           </Banner>
         )}
-        {outOfDate && (
+        {making && (
+          <p className="text-sm text-muted tabular-nums" role="status">
+            Making Cut {making.number} · {making.percent}% · free. {v ? `Cut ${v.number} keeps playing until then.` : ""}
+          </p>
+        )}
+        {cut?.failed && !making && (
+          <Banner title={cut.failed.why} action={<Button variant="secondary" onClick={() => stitch.mutate()}>Try again</Button>} />
+        )}
+        {outOfDate && !making && (
           <Banner
             tone="warning"
             title="Out of date."

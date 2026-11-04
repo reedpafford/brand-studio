@@ -242,13 +242,13 @@ test("the video waits for every approval, says how many are left, then stitches 
   const calls2 = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ approved: true, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
-    "POST /projects/9/video": [201, { file_id: 90, take_ids: [5], out_of_date: false }],
+    "POST /projects/9/cut": [202, { number: null, making: { number: 1, percent: 0, doing: "putting the clips together", about_seconds: 10, changes: 0 } }],
   });
   open("?stage=final");
   const make = await screen.findByRole("button", { name: "Make the video" });
   await vi.waitFor(() => expect(make).toBeEnabled());
   await userEvent.click(make);
-  await vi.waitFor(() => expect(calls2.some((c) => c.key === "POST /projects/9/video")).toBe(true));
+  await vi.waitFor(() => expect(calls2.some((c) => c.key === "POST /projects/9/cut")).toBe(true));
 });
 
 test("a finished video is on the Final video step: it can be played and downloaded, and says when it is out of date", async () => {

@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_song, director_tools, take_mute, take_sound, word_splice
+from app import cut_edits, director_song, director_tools, take_mute, take_sound, word_splice
 from app.credits import COUNTED, lock
 from app.db import utcnow
 from app.models.accounts import User
@@ -153,6 +153,15 @@ def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
                     "treatment": j.output})  # fmt: skip
     out += run_progress.thread_items(db, project, owner)
     return sorted(out, key=lambda m: m["at"])
+
+
+def _edit_of(db: Session, turn: Job, tool: str | None, status: str) -> dict | None:
+    """An edit_cut move's edit, for its Undo in the chat (S7-03: "Clip 9 re-timed · Undo")."""
+    from app.models.clips import CutEdit
+
+    edit_id = turn.input.get(RUN, {}).get("edit_id")
+    row = db.get(CutEdit, edit_id) if tool == "edit_cut" and status == "done" and edit_id else None
+    return {"id": row.id, "at": row.at, "undone": row.undone_at is not None} if row else None
 
 
 def named(text: str) -> str:
@@ -684,6 +693,7 @@ def _audio_key(db: Session, project: Project) -> str:
 def video_state(db: Session, project: Project) -> dict:
     """Where the video is, as the director reads it (and `choose` on the stand-ins)."""
     from app.clip_prompts import newest
+    from app.clip_takes import take_credits
     from app.item_checks import latest, shown, verdict
     from app.routes.project_assets import _missing
     from app.routes.project_clips import out_of_date
@@ -714,6 +724,7 @@ def video_state(db: Session, project: Project) -> dict:
                                  "line": shots[i].get("line")}
                                 for i in ids_of.get(row.clip_id, []) if i in shots],
                       "picked_take_id": row.picked_take_id, "takes": out,
+                      "redo_credits": float(take_credits(db, project, row)),  # its "up to"
                       "muted": take_mute.spans(picked := db.get(ClipTake, row.picked_take_id)
                                                if row.picked_take_id else None),
                       "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
@@ -749,6 +760,7 @@ def video_state(db: Session, project: Project) -> dict:
         "held_for_owner": [j.input.get("held", "") for j in waiting
                            if j.status == JobStatus.needs_owner_approval],
         "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
+        "timeline": cut_edits.for_director(db, project),  # the cut's pieces, for edit_cut
         "watch": _watch(db, project),  # its last watch of the cut, and its findings
         "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
@@ -925,6 +937,11 @@ WORDS = re.compile(
 
 
 SOUND = re.compile(r"\bsound effects?\b|\bsfx\b|\badd\b[^.]{0,30}\bsounds?\b", re.I)
+# Notes the cut's own edits answer (free; the stand-in's reading, the real director decides)
+TIGHTEN = re.compile(r"\btighten\b|\bdrags?\b|\btoo slow\b", re.I)
+SHORTER_END = re.compile(r"\bshorter (?:end|ending)\b|\b(?:end|ending) shorter\b", re.I)
+SWAP_AT = re.compile(r"\bswap\b.*?\bat (\d+):(\d\d)\b", re.I)
+SIDE = re.compile(r"\b(?:presenter|host|him|her|them)\b.*?\b(left|right)\b", re.I)
 
 
 def _clip_of(note: dict) -> str | None:
@@ -941,6 +958,8 @@ def _asked(state: dict) -> dict | None:
     used = state.get("allowed", {}).get("redos_used", {})
     for m in state.get("chat") or []:
         clip = _clip_of(m)
+        if not m.get("answered") and (move := _cut_move(state, m)):
+            return move
         if not m.get("answered") and SOUND.search(m["text"]):  # sound effects, asked for once
             ready = clips and all(c["picked_take_id"] for c in clips.values())
             if "add_sound" in state.get("done", []) or not ready:
@@ -959,6 +978,48 @@ def _asked(state: dict) -> dict | None:
             continue  # it can't be made again: the delivery note says so
         return {"tool": "make_take", "why": f"Note {m['note']}: you asked: {m['text']}"[:300],
                 "clip_id": clip, "take_id": None, "note": m["text"][:500]}  # fmt: skip
+    return None
+
+
+def _cut_move(state: dict, m: dict) -> dict | None:
+    """A note the cut's own edits answer, as one free edit (or a redo when the B-roll at a
+    time has no other take to swap to)."""
+    tl, text = state.get("timeline"), m["text"]
+    if (
+        not tl
+        or not tl["pieces"]
+        or not (
+            TIGHTEN.search(text)
+            or SHORTER_END.search(text)
+            or SWAP_AT.search(text)
+            or SIDE.search(text)
+        )
+    ):
+        return None
+    why = f"Note {m['note']}: you asked: {text}"[:300]
+
+    def go(**edit) -> dict:
+        return {"tool": "edit_cut", "why": why, "clip_id": None, "take_id": None, "note": "",
+                "edit": edit}  # fmt: skip
+
+    pieces = tl["pieces"]
+    if at := SWAP_AT.search(text):
+        t = int(at[1]) * 60 + int(at[2])
+        p = next((p for p in pieces if p["start"] <= t < p["end"]), pieces[-1])
+        clip = next((c for c in state["clips"] if c["clip_id"] == p["clip_id"]), None)
+        other = next((x for x in reversed((clip or {}).get("takes") or [])
+                      if x["id"] != p["take_id"]), None)  # fmt: skip
+        if other:
+            return go(kind="swap", piece=p["piece"], take_id=other["id"])
+        return {"tool": "make_take", "why": why, "clip_id": p["clip_id"], "take_id": None,
+                "note": text[:500]}  # fmt: skip
+    if SHORTER_END.search(text):
+        return go(kind="retime", piece=pieces[-1]["piece"])
+    if TIGHTEN.search(text):
+        return go(kind="retime", piece=pieces[len(pieces) // 2]["piece"])
+    if tl.get("presenter"):
+        side = SIDE.search(text)[1].lower()
+        return go(kind="presenter", start=0, end=tl["length"], side=side)
     return None
 
 

@@ -303,10 +303,10 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
 
 test("Final cut puts the clips together by itself the first time, for free", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/video": [201, { file_id: 60, take_ids: [2], out_of_date: false }] });
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/cut": [202, { number: null, making: { number: 1, percent: 0, doing: "putting the clips together", about_seconds: 10, changes: 0 } }] });
   open("?step=downloads");
   expect(await screen.findByText("Putting your clips together…")).toBeInTheDocument();
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/video")).toHaveLength(1));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/cut")).toHaveLength(1));
 });
 
 test("a video made from a library version opens on the new page", async () => {

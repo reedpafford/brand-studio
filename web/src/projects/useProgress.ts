@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { blocking } from "./problems";
-import { api } from "../api/client";
+import { api, errorText } from "../api/client";
 import { useBreakdown } from "./BreakdownPane";
 import type { Progress } from "./steps";
 import { useFrames } from "./StoryboardPane";
@@ -27,6 +28,36 @@ export const videoQuery = (projectId: number) => ({
 /** The stitched video, or null when none has been made yet. */
 export function useProjectVideo(projectId: number) {
   return useQuery(videoQuery(projectId));
+}
+
+/** The cut (GET …/cut): the one that plays and the one being made, polled while it's made. */
+export function useCut(projectId: number) {
+  const queryClient = useQueryClient();
+  const cut = useQuery({
+    queryKey: ["project-cut", projectId],
+    queryFn: async () => (await api.GET("/projects/{project_id}/cut", { params: { path: { project_id: projectId } } })).data ?? null,
+    refetchInterval: (q) => (q.state.data?.making ? 2000 : false),
+  });
+  const number = cut.data?.number;
+  const seen = useRef(number);
+  useEffect(() => {
+    if (seen.current !== number) void queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
+    seen.current = number;
+  }, [number, projectId, queryClient]);
+  return cut;
+}
+
+/** Make the cut (free): the next Cut is made on the server while the one before plays. */
+export function useMakeCut(projectId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/cut", { params: { path: { project_id: projectId } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => queryClient.setQueryData(["project-cut", projectId], data),
+  });
 }
 
 /** What each step needs to know about the steps before it. */

@@ -1,8 +1,8 @@
 """Free work done on our own server (`paid = False`, so it runs even with generation off):
 `reel_prepare` (app/reel.py), `song_timing` (app/song_timing.py), `song_study`
-(app/song_study.py), `site_fetch` (app/site_fetch.py) and `take_listen`
-(app/take_words.py). Files it makes are handed to the worker as `local://` paths, which
-`fetch` reads once and deletes."""
+(app/song_study.py), `site_fetch` (app/site_fetch.py), `take_listen` (app/take_words.py),
+`cut_listen` (app/watch_cut.py) and `cut_make` (app/cut_render.py). Files it makes are handed
+to the worker as `local://` paths, which `fetch` reads once and deletes."""
 
 import shutil
 import tempfile
@@ -60,6 +60,8 @@ class LocalProvider:
             return self._hear_take(input)
         if kind == "cut_listen":
             return self._hear_cut(input)
+        if kind == "cut_make":
+            return self._make_cut(input)
         if kind != "reel_prepare":
             raise ValueError(f"Unknown local job {kind!r}.")
         folder = Path(tempfile.mkdtemp(dir=self.root))
@@ -148,6 +150,34 @@ class LocalProvider:
         cut.unlink()
         return Result("succeeded", output={"spans": spans, "words": words, "frames": frames},
                       files=files)  # fmt: skip
+
+    def _make_cut(self, input: dict) -> Result:
+        """A cut (app/cut_render.py), its progress kept where the cut editor reads it. A
+        known problem comes back as plain words with its fixes; anything else as a retry."""
+        import logging
+
+        from app import cut_render
+
+        key = input["progress_key"]
+        folder = Path(tempfile.mkdtemp(dir=self.root))
+        try:
+            data = cut_render.render(input["recipe"], self.storage,
+                                     lambda n: self.storage.put(key, str(n).encode()))  # fmt: skip
+        except cut_render.Problem as no:
+            shutil.rmtree(folder, ignore_errors=True)
+            return Result("succeeded", output={"problem": no.said, "fixes": no.fixes})
+        except Exception:  # an odd file: plain words, Try again
+            logging.getLogger(__name__).exception("the cut couldn't be made")
+            shutil.rmtree(folder, ignore_errors=True)
+            return Result("succeeded", output={"problem": "a clip's file couldn't be read. "
+                                               "Redo the odd one out, or try again",
+                                               "fixes": ["again"]})  # fmt: skip
+        finally:
+            if self.storage.exists(key):
+                self.storage.delete(key)
+        out = folder / "cut.mp4"
+        out.write_bytes(data)
+        return Result("succeeded", output={}, files=[f"local://{out}"])
 
     def _study(self, input: dict) -> Result:
         """A song ad's study and its frames; a plain reason when it can't be read. An

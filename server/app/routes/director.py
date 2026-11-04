@@ -53,6 +53,12 @@ class DeliveryNoteOut(BaseModel):
     clips: int
 
 
+class EditRef(BaseModel):
+    id: int
+    at: float  # seconds into the cut ("0:24")
+    undone: bool
+
+
 class ThreadItem(BaseModel):
     id: str  # stable: "m3" a message, "r40" a run's progress card, "t41" a delivery
     kind: Literal["message", "move"]  # what a person said, or the director's
@@ -66,6 +72,7 @@ class ThreadItem(BaseModel):
     treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
     run: str | None = None  # a run's progress card: GET …/director/progress is its record
     note: DeliveryNoteOut | None = None  # a delivery: its note
+    edit: EditRef | None = None  # an edit_cut move's edit: Undo beside it (POST …/cut/edits/…)
 
 
 class ClipCellOut(BaseModel):

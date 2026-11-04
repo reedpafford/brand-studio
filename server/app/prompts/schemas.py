@@ -614,12 +614,40 @@ class StillsReview(BaseModel):
 
 
 # --- The director (director-chat.md §5): one decision a turn, run by the server ---
+class CutMove(BaseModel):
+    """One free edit to the cut (the cut editor's own, app/cut_edits.py), for edit_cut."""
+
+    kind: Literal["trim", "retime", "split", "swap", "presenter", "music", "undo"] = Field(
+        description="retime: a piece's edges onto the words (tightens a dragging stretch); "
+        "trim: a piece's start or end to a time (the last piece's end shortens or holds the "
+        "ending); split: a piece in two at `at`; swap: a piece's B-roll for another take "
+        "(`take_id`); presenter: `side`, `size` or `hidden` over a piece or start..end; "
+        "music: `quieter_db` under the voice, `gaps`, or `removed`; undo: an edit (`edit_id`)."
+    )
+    piece: str | None = Field(
+        default=None, description="The piece from <video>.timeline.pieces, e.g. 'c7' or 'c7.12'."
+    )
+    start: float | None = Field(default=None, description="Seconds into the cut.")
+    end: float | None = Field(default=None, description="Seconds into the cut.")
+    at: float | None = Field(default=None, description="For split: seconds into the cut.")
+    take_id: int | None = Field(default=None, description="For swap: a take's id.")
+    side: Literal["left", "right"] | None = None
+    size: Literal["small", "medium", "large"] | None = None
+    hidden: bool | None = None
+    quieter_db: float | None = Field(default=None, description="0 to 30; 18 is 'a lot'.")
+    gaps: Literal["down", "rise"] | None = Field(
+        default=None, description="When no one speaks the music stays down, or rises."
+    )
+    removed: bool | None = None
+    edit_id: int | None = Field(default=None, description="For undo: from timeline.edits.")
+
+
 class DirectorTurn(BaseModel):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
-        "mute", "splice_word", "add_sound", "song", "narration", "host", "wait", "deliver",
-        "stop",
+        "mute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut", "wait",
+        "deliver", "stop",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -686,6 +714,9 @@ class DirectorTurn(BaseModel):
         "to tears, fighting it: chin trembles, lips pressed between phrases, a glance down and "
         "back; both hands stay on the steering wheel'); for add_sound, the sounds "
         "asked for and how much, in the person's words ('slight sound effects'); else empty.",
+    )
+    edit: CutMove | None = Field(
+        default=None, description="For edit_cut: the one edit (free). Else null."
     )
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "

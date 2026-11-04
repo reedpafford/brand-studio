@@ -9,6 +9,7 @@ from app.credits import price
 from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from tests.conftest import make_cut
 from tests.test_enhance import setup  # noqa: F401 - fixture
 from tests.test_fake_local import _drain
 from tests.test_song_takes import song  # noqa: F401 - fixture
@@ -99,8 +100,8 @@ def test_the_final_cut_is_free(app, db, editor, setup):  # noqa: F811
         _drain(app, db, providers)
         assert editor.post(f"{url}/clips/{c['id']}/approve").status_code == 200
     since = _last(db)
-    made = editor.post(f"{url}/video")
-    assert made.status_code == 201, made.text
+    made = make_cut(app, db, editor, url)
+    assert made.status_code == 200, made.text
     assert _charged(db, since) == 0  # Make the video: no credits, no provider
 
 

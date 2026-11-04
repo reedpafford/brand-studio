@@ -14,7 +14,7 @@ from app.models.clips import ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.screen_figures import draw, shot_figure
-from tests.conftest import png, upload
+from tests.conftest import make_cut, png, upload
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_cut_in import approved  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
@@ -104,7 +104,7 @@ def test_a_take_sends_the_screen_with_its_shots_figure(app, db, editor, setup, c
     assert any(any(_red(c) for c in _colours(p)) for p in pictures)  # the loss, written in
 
 
-def test_a_cut_in_carries_its_shots_figure(db, editor, setup, approved):  # noqa: F811
+def test_a_cut_in_carries_its_shots_figure(app, db, editor, setup, approved):  # noqa: F811
     base, made = approved
     _with_figure(
         db, editor, made["id"], "1.2", setup["screen"], {"balance": "$46,500", "change": None}
@@ -113,4 +113,4 @@ def test_a_cut_in_carries_its_shots_figure(db, editor, setup, approved):  # noqa
     (insert,) = inserts(db, project, db.get(ProjectClip, made["id"]))
     assert insert.figure["balance"] == "$46,500"
     editor.put(f"{base}/clips/{made['id']}/inserts/1.2", json={"use_real_image": True})
-    assert editor.post(f"{base}/video").status_code == 201
+    assert make_cut(app, db, editor, base).status_code == 200

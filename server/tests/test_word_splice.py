@@ -16,6 +16,7 @@ from app.models.projects import Project
 from app.providers import get_providers
 from app.providers.fake_local import _spread
 from app.worker import run_once
+from tests.conftest import make_cut
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
@@ -83,8 +84,8 @@ def test_wrong_brand_is_spliced_from_same_voice(app, db, editor, setup, clip, mo
     assert word_splice.labels(row, db.get(ClipTake, second.id)) == ["c1/splice:1.37-1.8"]
     db.get(ProjectClip, row.id).approved = True  # the clip's take, approved as a person would
     db.commit()
-    cut = editor.post(f"/projects/{setup['project']}/video")  # the stitch runs with it
-    assert cut.status_code == 201, cut.text
+    cut = make_cut(app, db, editor, f"/projects/{setup['project']}")  # the stitch runs with it
+    assert cut.status_code == 200, cut.text
     db.expire_all()
     from app.models.clips import FinalVideo
 

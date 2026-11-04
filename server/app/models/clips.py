@@ -61,10 +61,14 @@ class ClipTake(Entity, Base):
 
 
 class FinalVideo(Entity, Base):
-    """The picked takes stitched in order (free). Out of date once any pick changes."""
+    """A cut of the video (Cut 1, Cut 2, …: app/cut.py), made free from the picked takes and the
+    cut's edits. Out of date once a pick, an edit or anything laid over a take changes."""
 
     __tablename__ = "final_videos"
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    number: Mapped[int] = mapped_column(default=1)  # Cut 1, Cut 2, … within the video (n29)
+    edit_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # the edits it was made with
+    timeline: Mapped[dict | None] = mapped_column(JSON)  # where each piece sat (cut.timeline)
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     take_ids: Mapped[list[int]] = mapped_column(JSON)
     cut_ins: Mapped[list[str]] = mapped_column(JSON, default=list)  # "c1/1.2" for each one used
@@ -72,6 +76,22 @@ class FinalVideo(Entity, Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     off_media_at: Mapped[datetime | None]  # the owner took it off Media; its video keeps it
     seconds: Mapped[float | None]  # its length, kept when it's made (Media shows it)
+
+
+class CutEdit(Entity, Base):
+    """One edit to the cut (app/cut.py): a trim, a re-time to the words, a split, a B-roll swap,
+    the presenter's side, size or hiding over a span, or the music. Edits replay in order over
+    the picked takes; Undo marks one undone (any one: the director's edits each have Undo)."""
+
+    __tablename__ = "cut_edits"
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    director: Mapped[bool] = mapped_column(default=False)  # made by the director's move
+    kind: Mapped[str] = mapped_column(String(20))  # trim, retime, split, swap, presenter, music
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    said: Mapped[str] = mapped_column(Text, default="")  # "Clip 9 re-timed to the words"
+    at: Mapped[float] = mapped_column(default=0)  # where in the cut, seconds ("0:24")
+    undone_at: Mapped[datetime | None]
 
 
 class HostPiece(Entity, Base):

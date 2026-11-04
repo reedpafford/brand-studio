@@ -21,7 +21,7 @@ from app.models.storyboards import StoryboardFrame
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
-         "final_cut", "watch_cut")  # fmt: skip
+         "edit_cut", "final_cut", "watch_cut")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -155,16 +155,44 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app.director import write_treatment
 
             return write_treatment(db, user, project, run, decision.get("note") or "")
-        if tool == "final_cut":
+        if tool == "edit_cut":  # free: the cut editor's own edit, marked as the director's
+            return _edit_cut(db, project, decision.get("edit") or {}, request, me, run)
+        if tool == "final_cut":  # free, on the worker: the cut before plays until it's made
+            from app.routes import cut
+
             project_clips.approve_all(**me)  # the picked takes it cuts with
-            project_clips.make_video(request=request, **me)
-            return "Made the cut."
+            made = cut.make(request=request, **me)
+            return f"Making Cut {made.making.number}."
     except HTTPException as no:
         db.rollback()
         return f"Refused: {no.detail}"
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
     return f"Refused: there's no tool called {tool}."
+
+
+def _edit_cut(db: Session, project: Project, move: dict, request, me: dict,
+              run: dict | None) -> str:  # fmt: skip
+    """One edit through the cut editor's route (its dot and its own Undo on the page); the
+    turn keeps its id (`run["edit_id"]`) so the chat shows Undo beside it."""
+    from pydantic import ValidationError
+
+    from app.routes import cut
+
+    run = run if run is not None else {}
+    run.pop("edit_id", None)
+    if move.get("kind") == "undo":
+        out = cut.undo_one(edit_id=int(move.get("edit_id") or 0), request=request, **me)
+        said = next((e.said for e in out.edits if e.id == move.get("edit_id")), "the edit")
+        return f"Undid: {said}."
+    asked = {k: v for k, v in move.items() if v is not None and k in cut.EditIn.model_fields}
+    try:
+        out = cut.edit(body=cut.EditIn(**asked), request=request, **me)
+    except ValidationError:
+        return "Refused: say the edit's kind and its piece."
+    made = max(out.edits, key=lambda e: e.id)
+    run["edit_id"] = made.id
+    return f"{made.said}. Free; it shows in the next cut."
 
 
 def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectClip]:
