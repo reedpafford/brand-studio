@@ -114,7 +114,7 @@ export function NewScriptPage() {
       const text = keeps() ? "" : start.text;
       const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind, format: format?.id, ...(start.look ? { look: start.look } : {}), ...(start.language ? { language: start.language } : {}) } });
       if (!data) throw new Error(errorText(error));
-      if (start.folder != null) await api.POST("/folders/file", { body: { kind: "script", id: data.id, folder_id: start.folder } });
+      if (start.folder != null) await api.POST("/folders/file", { body: { kind: "script", ids: [data.id], folder_id: start.folder } });
       return data;
     },
     onError: () => {

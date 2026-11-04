@@ -47,7 +47,14 @@ export function MediaItemPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["media"] });
-      toast("Deleted from Media.");
+      // An added picture or clip, or a final cut, comes back with Undo (#1267's restore).
+      const back = key.startsWith("upload:") || key.startsWith("final:")
+        ? () => void api.POST("/brands/{brand_id}/media/{key}/restore", { params: { path: { brand_id: brandId, key } } }).then(({ response, error }) => {
+            if (!response.ok) toast(errorText(error), undefined, "error");
+            void queryClient.invalidateQueries({ queryKey: ["media"] });
+          })
+        : undefined;
+      toast("Deleted from Media.", back);
       navigate(`/b/${brandId}/media`, { replace: true });
     },
     onError: () => setAsking(false),
@@ -74,7 +81,7 @@ export function MediaItemPage() {
         </div>
       </main>
     );
-  const deletable = owner && (m.kind === "song" || m.kind === "final" || m.open_step === "quick");
+  const deletable = owner && (m.kind === "song" || m.kind === "final" || m.kind === "upload" || m.open_step === "quick");
   const { to, step } = opens(m, brandId);
   const src = fileUrl(m.file_id);
   const isVideo = m.content_type.startsWith("video/");
@@ -100,10 +107,16 @@ export function MediaItemPage() {
           </div>
           <div className="space-y-2 border-t border-border py-4">
             <h2 className="text-sm font-medium">Where it came from</h2>
-            <Link to={to} className="inline-flex min-h-control items-center text-accent-text hover:underline">
-              {m.video_name ? `Open its video: ${m.video_name}` : `Open in ${step}`}
-            </Link>
-            <p className="text-sm text-muted">{m.open_step === "quick" ? "Made in Freestyle; it opens its own thread." : m.video_name ? `Opens the video at ${step}, where it was made.` : `Opens ${step}, where it was made.`}</p>
+            {m.kind === "upload" ? (
+              <p className="text-sm text-muted">Added to this brand's Media{m.made_by ? ` by ${m.made_by.name}` : ""}.</p>
+            ) : (
+              <>
+                <Link to={to} className="inline-flex min-h-control items-center text-accent-text hover:underline">
+                  {m.video_name ? `Open its video: ${m.video_name}` : `Open in ${step}`}
+                </Link>
+                <p className="text-sm text-muted">{m.open_step === "quick" ? "Made in Freestyle; it opens its own thread." : m.video_name ? `Opens the video at ${step}, where it was made.` : `Opens ${step}, where it was made.`}</p>
+              </>
+            )}
           </div>
           <div className="space-y-2 border-t border-border py-4">
             <h2 className="text-sm font-medium">Kind</h2>

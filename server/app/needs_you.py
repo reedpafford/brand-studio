@@ -31,6 +31,16 @@ def _count(n: int, one: str, many: str) -> str:
 HELD = "Waiting for your OK"
 
 
+def failures(db: Session, ids: list[int]) -> dict[int, Job]:
+    """Video id -> its newest job, for the videos whose newest job failed (an advisory
+    check's never counts)."""
+    newest_job = dict(db.execute(select(Job.project_id, func.max(Job.id))
+                                 .where(Job.project_id.in_(ids), Job.kind != ADVISORY)
+                                 .group_by(Job.project_id)).all())  # fmt: skip
+    return {j.project_id: j for j in db.scalars(select(Job).where(
+        Job.id.in_(newest_job.values()), Job.status == JobStatus.failed))}  # fmt: skip
+
+
 def waiting_on(
     db: Session, projects: list[Project], old: set[int], owner: bool = False
 ) -> dict[int, str]:
@@ -43,11 +53,7 @@ def waiting_on(
     on_hold = Job.status == JobStatus.needs_owner_approval
     waiting = select(Job.project_id).where(Job.project_id.in_(ids), on_hold)
     held = set(db.scalars(waiting)) if owner else set()
-    newest_job = dict(db.execute(select(Job.project_id, func.max(Job.id))
-                                 .where(Job.project_id.in_(ids), Job.kind != ADVISORY)
-                                 .group_by(Job.project_id)).all())  # fmt: skip
-    failed = {j.project_id: j for j in db.scalars(select(Job).where(
-        Job.id.in_(newest_job.values()), Job.status == JobStatus.failed))}  # fmt: skip
+    failed = failures(db, ids)
     looks = dict(db.execute(select(LibraryItem.owner_project_id, func.count())
                             .where(LibraryItem.owner_project_id.in_(ids),
                                    LibraryItem.sheet_file_id.is_not(None),

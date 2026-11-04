@@ -1,0 +1,63 @@
+{
+ "model": "heygen/avatar-iv",
+ "version": "v3",
+ "fetched": "2026-11-03",
+ "source": "developers.heygen.com/reference/create-video: CreateVideoFromImage (POST /v3/videos, type image), the fields we send; the engine defaults to Avatar IV",
+ "Input": {
+  "type": "object",
+  "required": [
+   "type",
+   "image"
+  ],
+  "properties": {
+   "type": {
+    "const": "image",
+    "type": "string"
+   },
+   "image": {
+    "description": "Image to animate. Accepts URL, asset ID, or base64-encoded data."
+   },
+   "audio_asset_id": {
+    "type": "string",
+    "description": "HeyGen asset ID of an uploaded audio file. Mutually exclusive with script."
+   },
+   "title": {
+    "type": "string"
+   },
+   "resolution": {
+    "enum": [
+     "4k",
+     "1080p",
+     "720p"
+    ],
+    "type": "string",
+    "description": "Output video resolution. Defaults to 720p."
+   },
+   "aspect_ratio": {
+    "enum": [
+     "16:9",
+     "9:16",
+     "4:5",
+     "5:4",
+     "1:1",
+     "auto"
+    ],
+    "type": "string"
+   },
+   "motion_prompt": {
+    "type": "string",
+    "description": "Natural-language prompt controlling avatar body motion."
+   },
+   "expressiveness": {
+    "enum": [
+     "high",
+     "medium",
+     "low"
+    ],
+    "type": "string",
+    "description": "Defaults to 'low' when omitted."
+   }
+  }
+ },
+ "enums": {}
+}

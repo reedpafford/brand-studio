@@ -158,9 +158,9 @@ export function ScriptFlowPage() {
   );
   // A story's v5 step bar ends at Cast: Publish is "Publish to library", still the step after Cast (Next: Publish).
   const barSteps = (stepsFor(s) === WRITING_STEPS || s.kind === "song") && step !== "publish" ? steps.filter((x) => x.id !== "publish") : steps;
-  const v5 = ["script", "directions", "variations", "breakdown", "publish"].includes(step); // the steps built to v5 so far: their own headings, no step title row
+  const v5 = ["script", "directions", "variations", "breakdown", "cast", "publish"].includes(step); // the steps built to v5 so far: their own headings, no step title row
   // v5 settings rows: Variations shows only the steps (G_Variations); Publish has neither (G_Publish).
-  const row = overview || (step !== "variations" && step !== "publish");
+  const row = overview || (step !== "variations" && step !== "cast" && step !== "publish"); // Cast shows only the steps (C_CastLock)
 
   return (
     <main className={rail || overview ? "" : "pb-28"}>

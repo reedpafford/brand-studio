@@ -29,7 +29,7 @@ afterEach(() => {
 test("New script → Song waits for a word or a setting, then opens on its Song step: five steps, Next waits for lyrics", async () => {
   setViewport(1440);
   const empty = song({ title: "Untitled script" }, { text: "", style_line: "" });
-  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /folders/file": [200, { was_folder_id: null }] });
+  const calls = fakeServer({ ...base, "GET /scripts": [200, []], "POST /scripts": [201, empty], "GET /scripts/7": [200, empty], "GET /scripts/7/drafts/0/songs": [200, songs()], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /folders/file": [200, { folder_id: 3, was: [{ id: 7, folder_id: null }] }] });
   open("/b/1/scripts");
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Song/ }));

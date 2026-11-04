@@ -71,6 +71,10 @@ test("the invite page says who invited you, to which studio, and as what; the to
   renderAt("/invite/abc123");
   expect(await screen.findByRole("heading", { name: "Join Studio" })).toBeInTheDocument();
   expect(screen.getByText("Ada invited you as an editor. You can write scripts and make videos; Ada approves anything past your weekly credits.")).toBeInTheDocument();
+  const email = screen.getByLabelText("Email"); // v5 A_Invite: the invite's email, read-only, above Your name
+  expect(email).toHaveValue("ada@x.co");
+  expect(email).toHaveAttribute("readonly");
+  expect(screen.getAllByRole("textbox")[0]).toBe(email);
   expect(calls.find((c) => c.key === "POST /auth/invite")?.body).toEqual({ token: "abc123" });
 });
 
@@ -183,4 +187,36 @@ test("the setup page says it shows once and who you'll be, and asks for the code
   const labels = [...document.querySelectorAll("form label")].map((l) => l.textContent);
   expect(labels.at(0)).toBe("Studio name");
   expect(labels.at(-1)).toBe("Setup code (from the server's environment)");
+});
+
+test("a refused email invite puts the focus on Your name, not the read-only email", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup], "POST /auth/accept-invite": [400, { detail: "This invite link is not valid any more." }] });
+  renderAt("/invite/abc123");
+  await userEvent.type(await screen.findByLabelText("Your name"), "Ada");
+  await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(screen.getByLabelText("Your name")).toHaveFocus();
+});
+
+test("the studio's standing editor link asks for an email and sends it; an email already in use says so (#1247)", async () => {
+  const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, email: "" }], "POST /auth/accept-invite": [409, { detail: "That email already has an account here, so this link can't use it. Sign in, or join with another email." }] });
+  renderAt("/invite/link9");
+  await userEvent.type(await screen.findByLabelText("Email"), "new@x.co");
+  await userEvent.type(screen.getByLabelText("Your name"), "Neo");
+  await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("That email already has an account here, so this link can't use it. Sign in, or join with another email.");
+  expect(calls.find((c) => c.key === "POST /auth/accept-invite")?.body).toMatchObject({ token: "link9", email: "new@x.co", name: "Neo" });
+  expect(screen.queryByText(/Your email is/)).toBeNull();
+});
+
+test("a standing link that was used or stopped shows the server's words when the form is sent (#1247)", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, email: "" }], "POST /auth/accept-invite": [400, { detail: "This invite link is not valid any more." }] });
+  renderAt("/invite/link9");
+  await userEvent.type(await screen.findByLabelText("Email"), "new@x.co");
+  await userEvent.type(screen.getByLabelText("Your name"), "Neo");
+  await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("This invite link is not valid any more.");
 });

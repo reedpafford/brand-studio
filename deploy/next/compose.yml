@@ -21,7 +21,7 @@ services:
       <<: *next-env
       # Songs too (Suno: the stand-in, or real through KIE when Reed switches it on), and real
       # look samples on Replicate when Reed switches them on (the only worker with its key)
-      BS_WORKER_PROVIDERS: '["fake", "replicate", "suno", "replicate-samples"]'
+      BS_WORKER_PROVIDERS: '["fake", "replicate", "suno", "replicate-samples", "heygen"]'
       KIE_API_KEY: ${KIE_API_KEY:-}
   claude-worker:
     image: brand-studio-next-server

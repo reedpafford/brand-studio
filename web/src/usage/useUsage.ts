@@ -9,11 +9,11 @@ export type Sort = "spend" | "finished" | "cost" | "activity" | "name";
 export const periodFrom = (p: string | null): Period => (p === "month" || p === "all" ? p : "week");
 
 /** Reed's totals for the period. A 404 means the person isn't the owner. */
-export function useSummary(period: Period) {
+export function useSummary(period: Period, month?: string) {
   return useQuery({
-    queryKey: ["usage", "summary", period],
+    queryKey: ["usage", "summary", period, month ?? null],
     queryFn: async () => {
-      const { data, response } = await api.GET("/usage/summary", { params: { query: { period } } });
+      const { data, response } = await api.GET("/usage/summary", { params: { query: month ? { month } : { period } } });
       if (!data) throw new Error(response.status === 404 ? "404" : "load");
       return data;
     },
@@ -22,12 +22,12 @@ export function useSummary(period: Period) {
 }
 
 /** The brands table, 25 at a time. */
-export function useBrandRows(a: { period: Period; q: string; archived: boolean; sort: Sort }) {
+export function useBrandRows(a: { period: Period; q: string; archived: boolean; sort: Sort; month?: string }) {
   return useInfiniteQuery({
     queryKey: ["usage", "brands", a],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const { data } = await api.GET("/usage/brands", { params: { query: { period: a.period, q: a.q || undefined, archived: a.archived, sort: a.sort, cursor: pageParam, limit: 25 } } });
+      const { data } = await api.GET("/usage/brands", { params: { query: { ...(a.month ? { month: a.month } : { period: a.period }), q: a.q || undefined, archived: a.archived, sort: a.sort, cursor: pageParam, limit: 25 } } });
       if (!data) throw new Error("load");
       return data;
     },

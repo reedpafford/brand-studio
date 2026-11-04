@@ -30,6 +30,7 @@ from app import (
     take_approval,
     take_mute,
     take_sound,
+    talker,
     video_settings,
     word_splice,
 )
@@ -849,6 +850,10 @@ def make_video(
     clips = _clips(db, project.id)
     if not clips:
         raise HTTPException(409, "Write the clip prompts and make the clips first.")
+    if talker.on(db, project):  # a UGC talker's clips are cut from its one take, free
+        if not host.ready(db, project):
+            raise HTTPException(409, host.NOT_READY)
+        talker.fill(db, request.app.state.storage, project)
     left = sum(not c.approved for c in clips)
     if left:
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
@@ -890,6 +895,8 @@ def make_video(
         raise HTTPException(
             422, "The clips couldn't be put together. Redo the odd one out."
         ) from exc
+    from app.routes.media import _probe as media_probe
+
     key = f"{project.workspace_id}/{uuid.uuid4().hex}"
     storage.put(key, data)
     stored = StoredFile(
@@ -910,11 +917,22 @@ def make_video(
         cut_ins=_cut_ins(db, project, clips),
         song_take_id=song.id if song else None,
         created_by_id=user.id,
+        seconds=_seconds(media_probe, data),  # Media shows it without reading it again
     )
     db.add(video)
     project.finished_at = project.finished_at or utcnow()
     db.commit()
     return _video_out(db, video)
+
+
+def _seconds(probe, data: bytes) -> float | None:
+    """A new cut's length; None when it can't be read in time (Media reads it once later)."""
+    from app.routes.media import ProbeTimeout
+
+    try:
+        return probe(data)[1]
+    except ProbeTimeout:
+        return None
 
 
 AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end

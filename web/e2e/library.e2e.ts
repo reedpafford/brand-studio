@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function newCharacter(page: import("@playwright/test").Page, name: string, withImage = false) {
-  await page.getByRole("button", { name: "New character" }).click();
+  await page.getByRole("button", { name: "+ New character" }).click();
   await page.getByLabel("Name").fill(name);
   if (withImage) await page.getByLabel("Photo (optional)").setInputFiles(image(`${name}.png`));
   await page.getByRole("button", { name: "Create character" }).click();
@@ -25,12 +25,12 @@ test("a new character shows up in this brand's library with its image", async ({
   await expect(page.getByText("No characters for this brand yet.")).toBeVisible();
   await newCharacter(page, "Max", true);
   await expect(page.getByRole("img", { name: "Max" })).toBeVisible();
-  await expect(page.getByText("v1")).toBeVisible();
+  await expect(page.getByText("No sheet yet")).toBeVisible();
 });
 
 test("search narrows the list by name", async ({ page }) => {
   await newCharacter(page, "Rex");
-  await page.getByLabel("Search").fill("ma");
+  await page.getByLabel(/^Search/).fill("ma");
   await expect(page.getByText("Max", { exact: true })).toBeVisible();
   await expect(page.getByText("Rex", { exact: true })).toHaveCount(0);
 });
@@ -84,9 +84,9 @@ test("archiving hides a character, and unarchiving brings it back", async ({ pag
   await page.getByRole("menuitem", { name: "Archive character" }).click();
   await expect(page.getByText("Max", { exact: true })).toHaveCount(0);
 
-  await page.getByLabel("Show archived").check();
+  await page.getByRole("button", { name: "Archived" }).click();
   await page.getByRole("button", { name: "Unarchive Max" }).click();
-  await page.getByLabel("Show archived").uncheck();
+  await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByText("Max", { exact: true })).toBeVisible();
 });
 
@@ -105,7 +105,7 @@ test("the owner can delete an archived character for good", async ({ page }) => 
   await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("menuitem", { name: "Archive character" }).click();
 
-  await page.getByLabel("Show archived").check();
+  await page.getByRole("button", { name: "Archived" }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete Rex forever" }).click();
   await expect(page.getByText("Nothing archived.")).toBeVisible();

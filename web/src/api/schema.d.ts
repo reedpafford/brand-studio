@@ -352,12 +352,56 @@ export interface paths {
         };
         /**
          * List Folders
-         * @description The brand's projects, by name; "No project" is always there and isn't listed.
+         * @description The brand's folders, by name, each with its `parent_id`; Unsorted isn't listed.
          */
         get: operations["list_folders_brands__brand_id__folders_get"];
         put?: never;
-        /** Make Folder */
+        /**
+         * Make Folder
+         * @description New folder, at the top or inside one ("New folder inside").
+         */
         post: operations["make_folder_brands__brand_id__folders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tree
+         * @description The rail's tree (S0-01, P-01): folders inside folders with their ideas counted at any
+         *     depth, each folder's newest own ideas with their status, and Unsorted.
+         */
+        get: operations["tree_brands__brand_id__tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/ideas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Folder Ideas
+         * @description One folder's ideas as cards or list rows (S1-04 to S1-08, P-02), a page at a time.
+         */
+        get: operations["folder_ideas_brands__brand_id__ideas_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -376,13 +420,18 @@ export interface paths {
         post?: never;
         /**
          * Delete Folder
-         * @description Its items move to No project; nothing inside is deleted. Undo: POST …/restore.
+         * @description It goes with the folders inside it; their ideas move to Unsorted and nothing inside is
+         *     deleted. Undo: POST …/restore.
          */
         delete: operations["delete_folder_folders__folder_id__delete"];
         options?: never;
         head?: never;
-        /** Rename Folder */
-        patch: operations["rename_folder_folders__folder_id__patch"];
+        /**
+         * Change Folder
+         * @description Rename it, or move it ("Move to…", or dragged): inside another folder of its brand, or
+         *     to the top; never inside itself or a folder inside it.
+         */
+        patch: operations["change_folder_folders__folder_id__patch"];
         trace?: never;
     };
     "/folders/{folder_id}/restore": {
@@ -412,10 +461,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * File Item
-         * @description Project: none ▾ → picked: filed (toast, Undo files it back to was_folder_id).
+         * File Items
+         * @description Move one or many ideas (or scripts, or quick clips) into a folder, or Unsorted: a drag
+         *     onto the tree, "Move to…", or several selected. Undo files each back where it was.
          */
-        post: operations["file_item_folders_file_post"];
+        post: operations["file_items_folders_file_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5312,6 +5362,31 @@ export interface paths {
         /** List Media */
         get: operations["list_media_brands__brand_id__media_get"];
         put?: never;
+        /**
+         * Add Media
+         * @description Add a picture or a clip to a brand's Media (anyone with the brand; free). It is checked
+         *     by its contents: its type, its size, a picture's pixels, a clip's video and length.
+         */
+        post: operations["add_media_brands__brand_id__media_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/media-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Media Counts
+         * @description How many items each of v5's tabs has, with the same project and maker filters.
+         */
+        get: operations["media_counts_brands__brand_id__media_counts_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -5336,11 +5411,33 @@ export interface paths {
         /**
          * Remove Media
          * @description Owner only: a Quick clip or a script's own song leaves Media (Undo: the clip's or the
-         *     song's restore); a final cut leaves Media only, its video keeps it. A still or take a video
+         *     song's restore); a final cut leaves Media only, its video keeps it, and an added picture or
+         *     clip leaves Media (Undo for both: POST …/restore). A still or take a video
          *     is made of, or a Cast & places sheet, is removed where it's used, so a video never loses a
          *     part without its maker seeing it.
          */
         delete: operations["remove_media_brands__brand_id__media__key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/media/{key}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Media
+         * @description Undo for the owner's Delete on an added picture or clip, or on a final cut taken off
+         *     Media. (A Quick clip or a song comes back through its own restore.)
+         */
+        post: operations["restore_media_brands__brand_id__media__key__restore_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5656,6 +5753,11 @@ export interface components {
             /** Before */
             before: string;
         };
+        /** Body_add_media_brands__brand_id__media_post */
+        Body_add_media_brands__brand_id__media_post: {
+            /** Upload */
+            upload: string;
+        };
         /** Body_import_upload_scripts_import_upload_post */
         Body_import_upload_scripts_import_upload_post: {
             /** File */
@@ -5695,6 +5797,35 @@ export interface components {
             file: string;
             /** Brand Id */
             brand_id: number;
+        };
+        /**
+         * Branch
+         * @description A folder in the tree: its ideas at any depth (`count`), its newest own ideas, and the
+         *     folders inside it. Unsorted has no id.
+         */
+        Branch: {
+            /** Id */
+            id: number | null;
+            /** Parent Id */
+            parent_id?: number | null;
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            /** Ideas */
+            ideas: components["schemas"]["Dot"][];
+            /** More */
+            more: number;
+            /**
+             * Folders
+             * @default []
+             */
+            folders: components["schemas"]["Branch"][];
         };
         /** BrandIn */
         BrandIn: {
@@ -6214,6 +6345,29 @@ export interface components {
              */
             skip_screen_ids: number[];
         };
+        /** Cost */
+        Cost: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "up_to" | "so_far" | "total";
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd?: number | null;
+        };
+        /** Counts */
+        Counts: {
+            /** All */
+            all: number;
+            /** Needs You */
+            needs_you: number;
+            /** Working */
+            working: number;
+            /** Delivered */
+            delivered: number;
+        };
         /** CtaDeleted */
         CtaDeleted: {
             /** Promoted Id */
@@ -6258,6 +6412,8 @@ export interface components {
         DeletedOut: {
             /** Moved */
             moved: number;
+            /** Ideas */
+            ideas: number;
         };
         /** DialogueLine */
         DialogueLine: {
@@ -6331,6 +6487,14 @@ export interface components {
              * @default 0
              */
             run_price: number;
+        };
+        /** Dot */
+        Dot: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            status: components["schemas"]["Status"];
         };
         /** DraftIn */
         DraftIn: {
@@ -6450,8 +6614,8 @@ export interface components {
              * @enum {string}
              */
             kind: "script" | "video" | "clip";
-            /** Id */
-            id: number;
+            /** Ids */
+            ids: number[];
             /** Folder Id */
             folder_id: number | null;
         };
@@ -6475,8 +6639,8 @@ export interface components {
         FiledOut: {
             /** Folder Id */
             folder_id: number | null;
-            /** Was Folder Id */
-            was_folder_id: number | null;
+            /** Was */
+            was: components["schemas"]["Was"][];
         };
         /** FindingOut */
         FindingOut: {
@@ -6545,6 +6709,8 @@ export interface components {
         FolderIn: {
             /** Name */
             name: string;
+            /** Parent Id */
+            parent_id?: number | null;
         };
         /** FolderOut */
         FolderOut: {
@@ -6552,6 +6718,8 @@ export interface components {
             id: number;
             /** Brand Id */
             brand_id: number;
+            /** Parent Id */
+            parent_id: number | null;
             /** Name */
             name: string;
             /** Created By Id */
@@ -6559,6 +6727,16 @@ export interface components {
             items: components["schemas"]["Items"];
             /** Can Manage */
             can_manage: boolean;
+        };
+        /**
+         * FolderPatch
+         * @description Send what changes: a new name, and/or a new place (`parent_id` null: to the top).
+         */
+        FolderPatch: {
+            /** Name */
+            name?: string | null;
+            /** Parent Id */
+            parent_id?: number | null;
         };
         /** FormatOut */
         FormatOut: {
@@ -6879,6 +7057,52 @@ export interface components {
             error: string;
             /** Credits */
             credits: number;
+        };
+        /** Idea */
+        Idea: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Folder Id */
+            folder_id: number | null;
+            status: components["schemas"]["Status"];
+            /** Still File Id */
+            still_file_id: number | null;
+            /** Look */
+            look: string;
+            /** Style */
+            style: string;
+            /** Seconds */
+            seconds: number | null;
+            made_by: components["schemas"]["Named"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            cost: components["schemas"]["Cost"] | null;
+            /** Can Manage */
+            can_manage: boolean;
+        };
+        /** IdeasOut */
+        IdeasOut: {
+            /** Total */
+            total: number;
+            counts: components["schemas"]["Counts"];
+            /** Archived */
+            archived: number;
+            /** Folders Inside */
+            folders_inside: number;
+            /** Makers */
+            makers: components["schemas"]["Named"][];
+            /** Ideas */
+            ideas: components["schemas"]["Idea"][];
         };
         /** ImageModelOut */
         ImageModelOut: {
@@ -7749,6 +7973,17 @@ export interface components {
             /** Workspace Id */
             workspace_id: number;
         };
+        /** MediaCounts */
+        MediaCounts: {
+            /** All */
+            all: number;
+            /** Clips */
+            clips: number;
+            /** Stills */
+            stills: number;
+            /** Songs */
+            songs: number;
+        };
         /** MediaItem */
         MediaItem: {
             /** Key */
@@ -7757,7 +7992,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "still" | "sheet" | "take" | "song" | "final";
+            kind: "still" | "sheet" | "take" | "song" | "final" | "upload";
             /** File Id */
             file_id: number;
             /** Content Type */
@@ -7784,7 +8019,7 @@ export interface components {
              * Open Step
              * @enum {string}
              */
-            open_step: "storyboard" | "cast" | "clips" | "song" | "final" | "quick";
+            open_step: "storyboard" | "cast" | "clips" | "song" | "final" | "quick" | "upload";
             /**
              * From Deleted Video
              * @default false
@@ -7805,6 +8040,13 @@ export interface components {
             /** Library Item Id */
             library_item_id?: number | null;
             library_kind?: components["schemas"]["Kind"] | null;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "clip" | "still" | "song";
+            /** Duration Seconds */
+            duration_seconds?: number | null;
         };
         /** MediaPage */
         MediaPage: {
@@ -10015,6 +10257,30 @@ export interface components {
             /** Note */
             note: string;
         };
+        /** Status */
+        Status: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "working" | "needs_you" | "waiting" | "needs_fix" | "delivered" | "stopped" | "archived";
+            /** Words */
+            words: string;
+            /** Reason */
+            reason?: string | null;
+            /** At */
+            at?: string | null;
+            /**
+             * Made
+             * @default 0
+             */
+            made: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
         /** StoryboardIn */
         StoryboardIn: {
             /**
@@ -10264,6 +10530,12 @@ export interface components {
         TitleIn: {
             /** Title */
             title: string;
+        };
+        /** TreeOut */
+        TreeOut: {
+            /** Folders */
+            folders: components["schemas"]["Branch"][];
+            unsorted: components["schemas"]["Branch"];
         };
         /** TurnOut */
         TurnOut: {
@@ -10799,6 +11071,13 @@ export interface components {
             songs_note?: string | null;
             /** Song Take Id */
             song_take_id: number | null;
+        };
+        /** Was */
+        Was: {
+            /** Id */
+            id: number;
+            /** Folder Id */
+            folder_id: number | null;
         };
         /** WeekLine */
         WeekLine: {
@@ -12031,6 +12310,77 @@ export interface operations {
             };
         };
     };
+    tree_brands__brand_id__tree_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    folder_ideas_brands__brand_id__ideas_get: {
+        parameters: {
+            query?: {
+                folder?: string;
+                tab?: "all" | "needs_you" | "working" | "delivered";
+                q?: string;
+                made_by?: number | null;
+                sort?: "newest" | "oldest" | "name";
+                archived?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdeasOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_folder_folders__folder_id__delete: {
         parameters: {
             query?: never;
@@ -12062,7 +12412,7 @@ export interface operations {
             };
         };
     };
-    rename_folder_folders__folder_id__patch: {
+    change_folder_folders__folder_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -12073,7 +12423,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FolderIn"];
+                "application/json": components["schemas"]["FolderPatch"];
             };
         };
         responses: {
@@ -12128,7 +12478,7 @@ export interface operations {
             };
         };
     };
-    file_item_folders_file_post: {
+    file_items_folders_file_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -21885,9 +22235,11 @@ export interface operations {
     list_media_brands__brand_id__media_get: {
         parameters: {
             query?: {
-                kind?: ("still" | "sheet" | "take" | "song" | "final") | null;
+                kind?: ("still" | "sheet" | "take" | "song" | "final" | "upload") | null;
+                group?: ("clip" | "still" | "song") | null;
                 folder?: string | null;
                 by?: number | null;
+                sort?: "newest" | "oldest";
                 before?: string | null;
             };
             header?: never;
@@ -21905,6 +22257,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MediaPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_media_brands__brand_id__media_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_media_brands__brand_id__media_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    media_counts_brands__brand_id__media_counts_get: {
+        parameters: {
+            query?: {
+                folder?: string | null;
+                by?: number | null;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaCounts"];
                 };
             };
             /** @description Validation Error */
@@ -21951,6 +22372,36 @@ export interface operations {
         };
     };
     remove_media_brands__brand_id__media__key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_media_brands__brand_id__media__key__restore_post: {
         parameters: {
             query?: never;
             header?: never;
