@@ -59,8 +59,8 @@ export function AuthForm(props: {
     },
     onError: (e) => {
       if (e instanceof Throttled) setThrottled(true);
-      // The first field (Email on sign in) gets the focus back.
-      form.current?.querySelector("input")?.focus();
+      // The first field that can be typed in (Email on sign in; not an invite's read-only email) gets the focus back.
+      form.current?.querySelector<HTMLInputElement>("input:not([readonly])")?.focus();
     },
   });
   // A throttled button comes back after a minute.

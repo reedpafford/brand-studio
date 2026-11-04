@@ -189,6 +189,16 @@ test("the setup page says it shows once and who you'll be, and asks for the code
   expect(labels.at(-1)).toBe("Setup code (from the server's environment)");
 });
 
+test("a refused email invite puts the focus on Your name, not the read-only email", async () => {
+  fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, lookup], "POST /auth/accept-invite": [400, { detail: "This invite link is not valid any more." }] });
+  renderAt("/invite/abc123");
+  await userEvent.type(await screen.findByLabelText("Your name"), "Ada");
+  await userEvent.type(screen.getByLabelText(/Choose a password/), "correct horse battery");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(screen.getByLabelText("Your name")).toHaveFocus();
+});
+
 test("the studio's standing editor link asks for an email and sends it; an email already in use says so (#1247)", async () => {
   const calls = fakeServer({ "GET /auth/me": [401, {}], "POST /auth/invite": [200, { ...lookup, email: "" }], "POST /auth/accept-invite": [409, { detail: "That email already has an account here, so this link can't use it. Sign in, or join with another email." }] });
   renderAt("/invite/link9");

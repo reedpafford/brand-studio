@@ -134,10 +134,12 @@ test("the owner makes the standing editor link, copies it, and later sees it's o
   expect(await within(card).findByLabelText("Invite link")).toHaveValue(`${location.origin}/invite/tok123`);
   expect(within(card).getByText("Works once · ends in 7 days")).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Copy link" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "New link" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Stop link" })).toBeInTheDocument();
   expect(calls.some((c) => c.key === "POST /team/invite-link")).toBe(true);
 });
 
-test("a link already out says when it ends; Stop link revokes it (#1247)", async () => {
+test("a link already out says when it ends; Stop link asks first, then revokes it (#1247)", async () => {
   setViewport(1440);
   const calls = fakeServer(base({ "GET /team/invite-link": [200, { expires_at: "2026-11-10T03:00:00Z" }], "DELETE /team/invite-link": [204, null] }));
   open();
@@ -145,5 +147,8 @@ test("a link already out says when it ends; Stop link revokes it (#1247)", async
   expect(await within(card).findByText(/^Link made · ends /)).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "New link" })).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Stop link" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Stop the invite link?" });
+  expect(calls.some((c) => c.key === "DELETE /team/invite-link")).toBe(false);
+  await userEvent.click(within(ask).getByRole("button", { name: "Stop link" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /team/invite-link")).toBe(true));
 });

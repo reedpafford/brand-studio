@@ -339,6 +339,7 @@ function EditorLink() {
   const toast = useToast();
   const [made, setMade] = useState<{ url: string; expires_at: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const link = useQuery({ queryKey: ["team", "invite-link"], queryFn: async () => (await api.GET("/team/invite-link")).data ?? null });
   const make = useMutation({
     mutationFn: async () => {
@@ -359,6 +360,7 @@ function EditorLink() {
     },
     onSuccess: async () => {
       setMade(null);
+      setStopping(false);
       await queryClient.invalidateQueries({ queryKey: ["team", "invite-link"] });
       toast("The invite link stopped working.");
     },
@@ -385,12 +387,14 @@ function EditorLink() {
             {copied ? "Copied" : "Copy link"}
           </Button>
           <span className="text-xs text-muted">Works once · ends in 7 days</span>
+          <Button variant="secondary" dense busy={make.isPending} onClick={() => make.mutate()}>New link</Button>
+          <Button variant="ghost" dense onClick={() => setStopping(true)}>Stop link</Button>
         </div>
       ) : out ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted">Link made · ends {day(out.expires_at)}. Its address shows only when it's made.</span>
           <Button variant="secondary" dense busy={make.isPending} onClick={() => make.mutate()}>New link</Button>
-          <Button variant="ghost" dense busy={stop.isPending} onClick={() => stop.mutate()}>Stop link</Button>
+          <Button variant="ghost" dense onClick={() => setStopping(true)}>Stop link</Button>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -399,7 +403,13 @@ function EditorLink() {
         </div>
       )}
       {made && <p className="text-xs text-muted">A new link stops the old one.</p>}
-      {(make.isError || stop.isError) && <p role="alert" className={errorClass}>{(make.error ?? stop.error)?.message}</p>}
+      {make.isError && <p role="alert" className={errorClass}>{make.error.message}</p>}
+      {stopping && (
+        <Dialog title="Stop the invite link?" cancelLabel="Keep it" actionLabel="Stop link" danger busy={stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => stop.mutate()}>
+          No one can join with it after this. You can make a new link at any time.
+          {stop.isError && <p role="alert" className={`mt-2 ${errorClass}`}>{stop.error.message}</p>}
+        </Dialog>
+      )}
     </section>
   );
 }

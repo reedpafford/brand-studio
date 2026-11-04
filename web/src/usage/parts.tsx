@@ -98,7 +98,7 @@ export function Stat({ label, children, note, link }: { label: string; children:
 }
 
 /** Spent, Finished, Cost per finished video, In progress. The comparison with the period before is plain text. */
-export function Stats({ figures: f, period, children }: { figures?: Figures; period: Period; /** More cards after these (Usage: what waits for the owner's OK). */ children?: ReactNode }) {
+export function Stats({ figures: f, period }: { figures?: Figures; period: Period }) {
   const last = period === "week" ? "on last week" : "on last month";
   const p = f?.previous;
   const dollars = (now: number, before: number) => (now === before ? null : `${signed(now - before, money(Math.abs(now - before)))} ${last}`);
@@ -120,7 +120,6 @@ export function Stats({ figures: f, period, children }: { figures?: Figures; per
           <Stat label="In progress">
             {f.in_progress} {f.in_progress === 1 ? "video" : "videos"}
           </Stat>
-          {children}
         </>
       )}
     </div>
