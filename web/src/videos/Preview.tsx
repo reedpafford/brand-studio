@@ -10,19 +10,19 @@ import { notInShots } from "../projects/AssetCard";
 import { AssetsPane, useAssets } from "../projects/AssetsPane";
 import { BreakdownPane } from "../projects/BreakdownPane";
 import { useBriefChoices } from "../projects/BriefPickers";
-import { CheckSummary, ReviewChip } from "../projects/Checks";
+import { CheckSummary } from "../projects/Checks";
 import { ClipsStep } from "../projects/ClipsStep";
-import { CostBarProvider } from "../projects/CostBar";
 import { PlanStep } from "../projects/PlanStep";
 import { ShapeRow } from "../projects/ShapeRow";
 import { VideoSettings, useVideoSettings } from "../projects/VideoSettings";
 import { Scorecard } from "../projects/Scorecard";
 import { ScriptText, useLatestScript } from "../projects/ScriptTab";
-import { useUpdateAfter } from "../projects/UpdateAfter";
 import { useProgress, useProjectClips, useProjectVideo } from "../projects/useProgress";
 import { videoHold, videoLock, type VideoProgress } from "../projects/videoSteps";
 import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
 import { mp4, type Head } from "./VideoHead";
+import { Filmstrip, SceneRow, useRunProgress, useSeen } from "./RunCard";
+import { useRail } from "../useMedia";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -69,6 +69,21 @@ function CutPane({ p, head, progress }: PaneProps) {
   const { media, progress: now } = useProgress(p.id);
   const cut = useProjectVideo(p.id);
   const video = cut.data;
+  const phone = !useRail();
+  const run = useRunProgress(p.id).data ?? null;
+  const seen = useSeen(p.id);
+  const player = useRef<HTMLVideoElement>(null);
+  const changed = run?.changed ?? [];
+  // A frame (or a changed clip) plays the cut from where that clip starts, and counts as watched (S3-09).
+  const jump = (clipId: string, takeId: number | null) => {
+    const order = (run?.scenes ?? []).flatMap((s) => s.clips);
+    const at = order.slice(0, order.findIndex((c) => c.clip_id === clipId)).reduce((n, c) => n + c.seconds, 0);
+    if (player.current) {
+      player.current.currentTime = at;
+      void player.current.play?.()?.catch?.(() => {});
+    }
+    if (takeId != null) seen.mutate([takeId]);
+  };
   const clips = useProjectClips(p.id).data ?? [];
   const settings = useVideoSettings(p.id);
   const songChanged = useSongChanged(p.id, video?.song_take_id);
@@ -129,7 +144,7 @@ function CutPane({ p, head, progress }: PaneProps) {
         </Banner>
       )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-        <video controls src={fileUrl(video.file_id)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
+        <video ref={player} controls src={fileUrl(video.file_id)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <div className="flex flex-col gap-1 max-sm:hidden">
             <h2 className="text-lg font-semibold">Final cut</h2>
@@ -144,6 +159,24 @@ function CutPane({ p, head, progress }: PaneProps) {
               Download every clip (.zip)
             </a>
           </div>
+          {changed.length > 0 && !phone && (
+            <>
+              <div className="h-px bg-border" />
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xs font-semibold text-muted">Changed after watching</h3>
+                <ul className="flex flex-wrap gap-2">
+                  {changed.map((c) => (
+                    <li key={c.clip_id}>
+                      <button type="button" aria-label={`Clip ${c.number}${c.watched ? "" : ", not watched yet"}`} onClick={() => jump(c.clip_id, c.take_id)}>
+                        {c.frame_file_id != null ? <img src={fileUrl(c.frame_file_id)} alt="" className={`h-[71px] w-10 rounded-md object-cover ${c.watched ? "" : "outline outline-[1.5px] outline-offset-1 outline-accent"}`} /> : <span className="block h-[71px] w-10 rounded-md bg-surface-2" />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted">Marked until you’ve watched them.</p>
+              </div>
+            </>
+          )}
           <div className="h-px bg-border" />
           <dl className="flex flex-col gap-2 text-sm">
             {rows.map(([k, v]) => (
@@ -155,10 +188,23 @@ function CutPane({ p, head, progress }: PaneProps) {
           </dl>
         </div>
       </div>
-      {/* Kept from the old Final cut until the delivery note (screen 4) carries them. */}
-      <div className="space-y-3 border-t border-border pt-4">
-        <CheckSummary projectId={p.id} />
-        <ReviewChip projectId={p.id} open />
+      {run && run.scenes.length > 0 &&
+        (phone ? (
+          <div className="flex flex-col gap-2">
+            <SceneRow scenes={run.scenes} />
+            {changed.length > 0 && <p className="text-xs text-muted">{`${changed.length} clip${changed.length === 1 ? "" : "s"} changed after watching ${changed.length === 1 ? "is" : "are"} outlined`}</p>}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="flex justify-between text-xs">
+              <span className="font-semibold text-muted">The video, scene by scene</span>
+              <span className="text-muted">Click a frame to jump there</span>
+            </p>
+            <Filmstrip scenes={run.scenes} big onPick={(c) => jump(c.clip_id, c.take_id)} />
+          </div>
+        ))}
+      {/* The song or narration under the cut, and the owner's score: no board draws them, and nothing else carries them. */}
+      <div className="space-y-3 border-t border-border pt-4 empty:hidden">
         <FinalSong projectId={p.id} madeWith={video.song_take_id} narration={video.narration} />
         <Scorecard projectId={p.id} />
       </div>
@@ -167,10 +213,8 @@ function CutPane({ p, head, progress }: PaneProps) {
 }
 
 /** The clips (today's Clips step until screen 8): the stills and the takes, each clip's line, and their holds. */
-function ClipsTab({ p, progress, go, lookOnly }: PaneProps) {
+function ClipsTab({ p, progress, go }: PaneProps) {
   const { media, script } = useProgress(p.id);
-  const updating = !progress.shots.stale && (progress.frames.stale || progress.clips.stale);
-  const update = useUpdateAfter(p.id, updating, () => null, (to) => go(to === "cast" ? "cast" : to === "plan" ? "plan" : "clips"));
   // Nothing drawn yet and the stills can't start: what fills in here, why it waits and the one press that gets it going.
   const waits = progress.frames.total === 0 && progress.clips.total === 0 ? videoLock("storyboard", progress) : null;
   if (waits)
@@ -182,15 +226,12 @@ function ClipsTab({ p, progress, go, lookOnly }: PaneProps) {
   const takes = videoLock("clips", progress);
   const held = videoHold("clips", progress) ?? videoHold("storyboard", progress);
   return (
-    // While a look in the cast isn't ready, the update would be refused at its storyboard step: it waits with the same
-    // reason (Flow-QA on #936).
-    <CostBarProvider used={p.credits_used} budget={p.budget_credits} lookOnly={lookOnly} fallback={update.action && held?.at === "cast" ? { ...update.action, reason: held.why } : update.action}>
-      {held && !update.stopped && (
+    <>
+      {held && (
         <Banner tone="warning" title={held.at === "cast" ? "Waiting on the cast" : "Out of date"} action={held.at !== "storyboard" && <Button variant="secondary" onClick={() => go(held.at === "cast" ? "cast" : "plan")}>Open {held.at === "cast" ? "Cast" : "Plan"}</Button>}>
           {held.why}
         </Banner>
       )}
-      {update.note}
       <CheckSummary projectId={p.id} />
       {takes && <p className="text-sm text-muted">Takes: {takes}</p>}
       <ClipsStep
@@ -206,19 +247,14 @@ function ClipsTab({ p, progress, go, lookOnly }: PaneProps) {
         clipsLock={takes}
         stillsHold={videoHold("storyboard", progress)?.why ?? null}
         clipsHold={videoHold("clips", progress)}
-        barTaken={!!update.action}
       />
-    </CostBarProvider>
+    </>
   );
 }
 
 /** The cast (today's Cast step until screen 9). */
-function CastTab({ p, lookOnly }: PaneProps) {
-  return (
-    <CostBarProvider used={p.credits_used} budget={p.budget_credits} lookOnly={lookOnly} fallback={null}>
-      <AssetsPane bar projectId={p.id} brandId={p.brand_id} variants={p.product_variants ?? {}} />
-    </CostBarProvider>
-  );
+function CastTab({ p }: PaneProps) {
+  return <AssetsPane projectId={p.id} brandId={p.brand_id} variants={p.product_variants ?? {}} />;
 }
 
 /** The plan: the treatment and its scenes, then the shots (today's Plan step). Lines tie to the Script tab. */
@@ -243,7 +279,7 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
       </>
     );
   return (
-    <CostBarProvider used={p.credits_used} budget={p.budget_credits} fallback={null}>
+    <>
       <div className="space-y-4">{choices}</div>
       <PlanStep
         project={p as Project & { plan_status?: "none" | "ready" | "approved" | null }}
@@ -254,7 +290,7 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
           </div>
         }
       />
-    </CostBarProvider>
+    </>
   );
 }
 

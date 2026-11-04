@@ -226,23 +226,6 @@ test("an approved picked character shows no buttons: it is shared with every vid
   expect(within(card).queryByRole("link")).toBeNull();
 });
 
-test("past the budget an editor's one-press storyboard reads Send for approval at its price and can be pressed (Hold requests); nothing says ask", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9": [200, { ...project, credits_used: 590, budget_credits: 600 }],
-    "GET /projects/9/assets": [200, []],
-    "GET /credits/rates": [200, [{ kind: "write-claude", unit: "call", credits_per_unit: 3 }, { kind: "image-nano-banana-2.1", unit: "image", credits_per_unit: 4 }]],
-    "GET /projects/9/breakdown": [200, { ...breakdown, breakdown: { ...breakdown.breakdown, clips: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] } }],
-  });
-  open("?step=storyboard");
-  const send = await screen.findByRole("button", { name: "Send for approval · 15 credits" });
-  expect(send).toBeEnabled();
-  expect(screen.getByText("Goes past the video's budget. Nothing is charged until the owner says yes.")).toBeInTheDocument();
-  expect(screen.queryByText("That's more than this video's budget.")).toBeNull();
-  expect(document.body.textContent).not.toMatch(/ask (Reed|the owner)/i);
-});
-
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });
 const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
 
@@ -999,77 +982,6 @@ test("a look with nothing wrong shows no look-check note", async () => {
 
 const waiting = (id: number, o: object = {}) => ({ ...frame, id, clip_id: `c${id}`, approved: false, earlier: [], change: null, ...o });
 
-test("Approve all on the storyboard approves the frames that can be, says why the others weren't, and Undo takes back exactly those", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...toClips,
-    "GET /projects/9/storyboard": [200, [waiting(1), waiting(2, { file_id: null })]],
-    "POST /projects/9/storyboard/approve-all": [200, { approved: [1], skipped: [{ id: 2, reason: "no still yet" }] }],
-    "POST /projects/9/storyboard/approve-all/undo": [200, []],
-  });
-  open("?step=storyboard");
-  await userEvent.click(await screen.findByRole("button", { name: "Approve 1" })); // one of the two can be approved
-  expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: Frame c2: no still yet");
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/approve-all/undo")?.body).toEqual({ ids: [1] }));
-  expect(screen.queryByText(/Approved 1\./)).toBeNull();
-});
-
-test("the Approve all result line goes away on the next action, but not when its own links are pressed", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...toClips,
-    "GET /projects/9/storyboard": [200, [waiting(1), waiting(2, { file_id: null })]],
-    "POST /projects/9/storyboard/approve-all": [200, { approved: [1], skipped: [{ id: 2, reason: "no still yet" }] }],
-  });
-  open("?step=storyboard");
-  await userEvent.click(await screen.findByRole("button", { name: "Approve 1" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Frame c2" }));
-  expect(screen.getByText(/Approved 1\./)).toBeInTheDocument();
-  await userEvent.tab(); // moving by keyboard leaves it be
-  expect(screen.getByText(/Approved 1\./)).toBeInTheDocument();
-  await userEvent.click(document.body);
-  await vi.waitFor(() => expect(screen.queryByText(/Approved 1\./)).toBeNull());
-});
-
-test("Storyboard's one amber is in the cost bar: Make 1 still, then Approve 1 once it's drawing", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...toClips,
-    "GET /projects/9/storyboard": [200, [waiting(1, { still_credits: 4, still_exact_credits: 4 }), waiting(2, { file_id: null, still_credits: 4, still_exact_credits: 4 })]],
-    "POST /projects/9/storyboard/frames/2/render": [201, { id: 31, kind: "image", status: "queued", credits: 4, project_id: 9 }],
-  });
-  open("?step=storyboard");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  const make = await within(bar).findByRole("button", { name: "Make 1 still · 4 credits" });
-  expect(screen.getAllByRole("button").filter((b) => b.className.includes("bg-accent ") && !bar.contains(b) && /credit|Approve/.test(b.textContent ?? ""))).toHaveLength(0);
-  expect(screen.getByRole("button", { name: "Approve 1" })).not.toHaveClass("bg-accent"); // still offered, grey, beside the frames
-  await userEvent.click(make);
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/frames/2/render")).toBe(true));
-  expect(await within(bar).findByRole("button", { name: "Approve 1" })).toBeInTheDocument(); // the still is drawing: approving is what's left
-  expect(screen.getAllByRole("button", { name: "Approve 1" })).toHaveLength(1);
-});
-
-test("with Redraw in the bar, the missing stills can still be made in one grey press in the step", async () => {
-  setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1, { still_stale: true, still_credits: 4, still_exact_credits: 4 }), waiting(2, { file_id: null, still_credits: 4, still_exact_credits: 4 })]] });
-  open("?step=storyboard");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  expect(await within(bar).findByRole("button", { name: "Redraw 1 out-of-date still · 4 credits" })).toBeInTheDocument();
-  const make = screen.getByRole("button", { name: "Make 1 still · 4 credits" });
-  expect(bar.contains(make)).toBe(false);
-  expect(make).not.toHaveClass("bg-accent");
-});
-
-test("with every still drawn, Approve all is the bar's press and not repeated in the step", async () => {
-  setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [waiting(1), waiting(2)]] });
-  open("?step=storyboard");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  expect(await within(bar).findByRole("button", { name: "Approve all" })).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "Approve all" })).toHaveLength(1);
-});
-
 test("Approve all is not offered when every frame is approved or has no still", async () => {
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, earlier: [], change: null }, waiting(2, { file_id: null })]] });
@@ -1079,29 +991,12 @@ test("Approve all is not offered when every frame is approved or has no still", 
   expect(screen.queryByRole("button", { name: /^Approve (all|\d)/ })).toBeNull();
 });
 
-test("Approve all on Clips approves the clips with a picked take", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...toClips,
-    "GET /projects/9/clips": [200, [clip({ id: 3, clip_id: "c1", prompt_ok: true, takes: [{ id: 5 }], picked_take_id: 5 })]],
-    "POST /projects/9/clips/approve-all": [200, { approved: [3], skipped: [] }],
-  });
-  open("?step=clips");
-  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/approve-all")).toBe(true));
-  expect(await screen.findByText("Approved 1 clip.")).toBeInTheDocument(); // the toast, with Undo: the one message
-  expect(screen.queryByText("Approved 1.")).toBeNull(); // no second line saying the same (Next-Layout's 390 walk)
-});
-
-test("clips made before the storyboard went out of date stay open, with a banner, and their paid presses wait (audit M14)", async () => {
+test("clips made before the storyboard went out of date stay open, with a banner (audit M14)", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]], "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]] });
   open("?step=clips");
   expect(await screen.findByText("The plan changed after these were made. Redo the stills first.")).toBeInTheDocument();
-  const bar = screen.getByRole("region", { name: "Step press" });
-  const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
-  expect(make).toBeDisabled();
-  expect(make).toHaveAccessibleDescription("The plan changed after these were made. Redo the stills first.");
+  expect(screen.queryByRole("button", { name: /^Make the takes/ })).toBeNull(); // v6: the director makes the takes
   expect(screen.getByLabelText("Frame c1")).toBeInTheDocument(); // the still to redo is on the same tab, under the takes
   expect(screen.getByRole("button", { name: /^Redo stills/ })).toBeInTheDocument();
   expect(calls.some((c) => c.key.startsWith("POST /projects/9/clips"))).toBe(false);
@@ -1112,87 +1007,9 @@ test("a storyboard made before the shots changed stays open, and its stills wait
   fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true }], "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, earlier: [], change: null }, { ...frame, id: 2, clip_id: "c2", approved: false, file_id: null, still_credits: 4, earlier: [], change: null }]] });
   open("?step=storyboard");
   expect(await screen.findByText("The plan changed after these were made. Make new shots in Plan first.")).toBeInTheDocument();
-  const make = await within(screen.getByRole("region", { name: "Step press" })).findByRole("button", { name: /^Make 1 still/ }); // the bar fills in once the step has read its frames
-  expect(make).toBeDisabled();
   expect(screen.getByRole("button", { name: "Open Plan" })).toBeInTheDocument();
 });
 
-test("with every take made, Clips' Approve all is the bar's press and not repeated in the step", async () => {
-  setViewport(1440);
-  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ id: 3, clip_id: "c1", prompt_ok: true, takes: [{ id: 5 }], picked_take_id: 5 })]] });
-  open("?step=clips");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  expect(await within(bar).findByRole("button", { name: "Approve all" })).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "Approve all" })).toHaveLength(1);
-});
-
-const updatePlan = { credits: 16, steps: [{ step: "storyboard", what: "Make the storyboard again (1 frame, 1 still)", credits: 10 }, { step: "clip_prompts", what: "Rewrite 1 clip prompt", credits: 6 }], running: false, stopped_at: null, reason: null };
-
-test("held Clips offer Update everything after this in the cost bar, priced and listed, and it runs on the server (audit M14 part 2)", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...toClips,
-    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
-    "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]],
-    "GET /projects/9/update-after?from=plan": [200, updatePlan],
-    "POST /projects/9/update-after?from=plan": [202, { ...updatePlan, running: true, steps: updatePlan.steps.map((s, i) => ({ ...s, status: i ? "waiting" : "started" })) }],
-  });
-  open("?step=clips");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  const update = await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" });
-  expect(within(bar).queryByRole("button", { name: /Make the takes/ })).toBeNull(); // the held press gives the bar up
-  expect(screen.getByText("Update everything after this: Make the storyboard again (1 frame, 1 still) · Rewrite 1 clip prompt.")).toBeInTheDocument();
-  await userEvent.click(update);
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/update-after")).toBe(true));
-  expect(await within(bar).findByRole("button", { name: /Updating…/ })).toBeInTheDocument();
-});
-
-test("a run that stopped says where and why, with that step's own press", async () => {
-  setViewport(390);
-  fakeServer({
-    ...toClips,
-    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
-    "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]],
-    "GET /projects/9/update-after?from=plan": [200, { ...updatePlan, stopped_at: "storyboard", reason: "The storyboard didn't finish. Nothing was charged." }],
-  });
-  open("?step=clips");
-  expect(await screen.findByText("Stopped at Stills")).toBeInTheDocument();
-  expect(screen.getByText("The storyboard didn't finish. Nothing was charged.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Open Stills" }));
-  expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
-});
-
-test("an update the server refuses says why, and the press can be tried again without a reload", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...toClips,
-    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
-    "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]],
-    "GET /projects/9/update-after?from=plan": [200, updatePlan],
-    "POST /projects/9/update-after?from=plan": [409, { detail: "That's more than this video's budget." }],
-  });
-  open("?step=clips");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  await userEvent.click(await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("That's more than this video's budget.");
-  expect(within(bar).getByRole("button", { name: "Update everything after this · 16 credits" })).toBeEnabled();
-});
-
-test("while a look in the cast isn't ready, Update everything after this waits with the same reason", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...toClips,
-    "GET /projects/9/storyboard": [200, [{ ...frame, stale: true, earlier: [], change: null }]],
-    "GET /projects/9/assets": [200, [asset({})]],
-    "GET /projects/9/update-after?from=plan": [200, updatePlan],
-  });
-  open("?step=storyboard");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  const update = await within(bar).findByRole("button", { name: "Update everything after this · 16 credits" });
-  expect(update).toBeDisabled();
-  expect(update).toHaveAccessibleDescription("A look in the cast isn't ready. Make or approve it in Cast first.");
-  expect(calls.some((c) => c.key === "POST /projects/9/update-after")).toBe(false);
-});
 
 const staleClips = [clip({ id: 3, clip_id: "c1", stale: true, takes: [{ id: 5 }], picked_take_id: 5 }), clip({ id: 4, clip_id: "c2", stale: true })];
 const staleRoutes = {
@@ -1202,23 +1019,6 @@ const staleRoutes = {
   "GET /projects/9/clips/prompts/price?clip_id=c1": [200, { clip_ids: ["c1"], credits: 3 }] as [number, unknown],
   "POST /projects/9/clips/prompts": [201, { id: 7, kind: "write-claude", step: "clip_prompts", status: "queued", credits: 6, project_id: 9 }] as [number, unknown],
 };
-
-test("clips made for an older breakdown offer one priced rewrite for all, in the cost bar, and Make the takes waits for it", async () => {
-  setViewport(1440);
-  // A third clip is fine but has no take yet: Make the takes comes once the rewrite is done.
-  const calls = fakeServer({ ...staleRoutes, "GET /projects/9/clips": [200, [...staleClips, clip({ id: 5, clip_id: "c3", prompt_ok: true })]] });
-  open("?step=clips");
-  expect(await screen.findByText("2 clips were made for an older breakdown. Rewrite their prompts so they match.")).toBeInTheDocument();
-  const bar = screen.getByRole("region", { name: "Step press" });
-  expect(await within(bar).findByRole("button", { name: "Rewrite clip prompts · 6 credits" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /^Make the takes/ })).toBeNull();
-  expect(screen.getAllByRole("button", { name: /credits/ }).filter((b) => b.className.includes("bg-accent"))).toHaveLength(1); // one amber: the rewrite
-  await userEvent.click(within(bar).getByRole("button", { name: "Rewrite clip prompts · 6 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")).toBeDefined());
-  expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toBeUndefined(); // every stale clip
-  expect(await screen.findByText("Rewriting clip prompts…")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /^Rewrite/ })).toBeNull();
-});
 
 test("a stale clip has its own priced rewrite in place of Change this…", async () => {
   setViewport(1440);
@@ -1230,33 +1030,7 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
 });
 
-const noLook = asset({ ref: "slot:4", slot_id: 4, library_item_id: null, name: "", role: "Nate", sheet_status: "missing" });
 const noMissing: [number, unknown] = [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }];
-
-test("Approve all on Assets approves the looks made for this video, says which role was left, and Undo sends back exactly those", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own({}), noLook]],
-    "GET /projects/9/assets/missing-looks": noMissing,
-    "POST /projects/9/assets/approve-all": [200, { approved: [12], skipped: [{ id: null, slot_id: 4, label: "Nate", reason: "no look yet" }] }],
-    "POST /projects/9/assets/approve-all/undo": [200, []],
-  });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Approve 1" })); // one of the two roles has a sheet to approve
-  expect(await screen.findByText(/Approved 1\./)).toHaveTextContent("Approved 1. 1 not approved: Nate: no look yet");
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/assets/approve-all/undo")?.body).toEqual({ ids: [12] }));
-});
-
-test("Cast's one press is Approve all, in the cost bar, and not repeated beside the cast", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({})]], "GET /projects/9/assets/missing-looks": noMissing });
-  open();
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  expect(await within(bar).findByRole("button", { name: "Approve all" })).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "Approve all" })).toHaveLength(1);
-});
 
 test("Approve all on Assets is not offered for a library character, which is approved in Cast & places", async () => {
   setViewport(1440);
@@ -1291,21 +1065,6 @@ test("with nothing made yet and a look not ready, Clips says why and opens Cast 
   open("?step=storyboard");
   await userEvent.click(await screen.findByRole("button", { name: "Open Cast" }));
   expect(await screen.findByLabelText("Bo")).toBeInTheDocument();
-});
-
-test("when Undo of Approve all fails, it says why", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own({})]],
-    "GET /projects/9/assets/missing-looks": noMissing,
-    "POST /projects/9/assets/approve-all": [200, { approved: [12], skipped: [] }],
-    "POST /projects/9/assets/approve-all/undo": [409, { detail: "That look changed since. Undo it on its card." }],
-  });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  expect(await screen.findByText("That look changed since. Undo it on its card.")).toBeInTheDocument();
 });
 
 test("Clips names Plan, where the shots live, when problems in them are in the way", async () => {
@@ -1567,17 +1326,6 @@ test("a look from the library says it comes from Cast & places, so the Cast step
   expect(await screen.findByText("From Cast & places")).toBeInTheDocument();
 });
 
-test("Clips' one amber is at the foot of the tab: Make the takes, with its price; nothing else on the step is amber", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [clip({ prompt_ok: true })]], "POST /projects/9/clips/3/generate": [201, { id: 21, kind: "video", status: "queued", credits: 24, project_id: 9 }] });
-  open("?step=clips");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  const make = await within(bar).findByRole("button", { name: "Make the takes · 24 credits" });
-  expect(screen.getAllByRole("button").filter((b) => b.className.includes("bg-accent ") && !bar.contains(b) && /credit/.test(b.textContent ?? ""))).toHaveLength(0);
-  await userEvent.click(make);
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/clips/3/generate")).toBe(true));
-});
-
 test("switching the look re-reads the cast, so a role with no sheet in the new look holds Storyboard's redraw (Flow-QA on #926)", async () => {
   setViewport(1440);
   const looks = [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }, { id: "pixar", name: "Disney Pixar", blurb: "", on: true, sample_still_id: null }];
@@ -1602,15 +1350,6 @@ test("switching the look re-reads the cast, so a role with no sheet in the new l
   await userEvent.click(await within(ask).findByRole("button", { name: "Switch" }));
   await userEvent.click(await screen.findByRole("tab", { name: /^Clips/ }));
   expect(await screen.findByText("Waiting on the cast")).toBeInTheDocument();
-});
-
-test("a storyboard total is one still's exact price times the stills, rounded once: 9 at 0.33 read 3, as charged", async () => {
-  setViewport(1440);
-  const nine = Array.from({ length: 9 }, (_, i) => waiting(i + 1, { file_id: null, still_credits: 1, still_exact_credits: 0.33 }));
-  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, nine] });
-  open("?step=storyboard");
-  const bar = await screen.findByRole("region", { name: "Step press" });
-  expect(await within(bar).findByRole("button", { name: "Make 9 stills · 3 credits" })).toBeInTheDocument();
 });
 
 test("a link to the Cut with no storyboard yet says the cut comes later; Clips offers the stills (A15)", async () => {

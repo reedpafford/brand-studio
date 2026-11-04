@@ -328,3 +328,104 @@ test("while the first move runs the header reads Working, not the server's laggi
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/77/answer")?.body).toEqual({ how: "make_it" }));
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull();
 });
+
+// Screen 4: the run's one live card, the stopped and failed ends, and the delivery note (pieces C and D).
+const cell = (n: number, scene: number, o: object = {}) => ({ clip_id: `c${n}`, number: n, scene, label: "", seconds: 2, model: "Seedance 2.0", state: "done", frame_file_id: 100 + n, take_id: 200 + n, note: "", percent: null, minutes_left: null, credits: null, changed: false, watched: false, found: false, ...o });
+const scenes = [
+  { id: 1, name: "Hook", total: 2, done: 2, clips: [cell(1, 1), cell(2, 1, { state: "redone", changed: true })] },
+  { id: 2, name: "The fix", total: 2, done: 1, clips: [cell(3, 2, { state: "making", frame_file_id: null }), cell(4, 2, { state: "todo", frame_file_id: null, take_id: null })] },
+];
+const record = (o: object = {}) => ({ run: "r9", status: "working", title: "Making the clips", sub: "3 of 4 · scene 2 of 2", tone: "now", started_at: at, ended_at: null, clips: 4, made: 3, redone: 1, scene_at: 2, scenes, counts: { all: 4, needs_you: 0, flagged: 0, redone: 1 }, minutes_left: 3, steps: [{ key: "read", state: "done", text: "Read the script", sub: "" }, { key: "takes", state: "now", text: "Making takes: 3 of 4", sub: "Clip 4 · scene 2 · 2 s · about 3 min" }, { key: "cut", state: "todo", text: "Watch and listen to the whole cut, then deliver", sub: "" }], spent: 40, up_to: 164, spent_usd: 4.1, changed: [{ clip_id: "c2", number: 2, take_id: 202, frame_file_id: 102, watched: false }], stopped: null, failed: null, ...o });
+const card = item("r9", "move", "Director", "Making the clips · 3 of 4 · scene 2 of 2", "running", later, { run: "r9" });
+const note = { made: "A 0:08 rant in 2 scenes.", redid: [{ at: 14, clip: "c2", text: "Clip 2: cartoon eyes landed on the stomach. Remade on Seedance 2.0." }], unsure: "The capsule holds for 1.5 s.", needs: "Nothing. It’s ready to post.", cost: "$9.84 spent of up to $16.86", spent: 96, up_to: 164, spent_usd: 9.84, cut: 2, seconds: 58, clips: 24 };
+
+test("S3-03/04: the run is one card: its frames scene by scene, the scene being made named; Every step opens the steps", async () => {
+  setViewport(1440);
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, record()] });
+  renderApp("/b/1/videos/50");
+  const live = await screen.findByRole("region", { name: "Making the clips" });
+  expect(within(live).getByText("· 3 of 4 · scene 2 of 2")).toBeInTheDocument();
+  const strip = within(live).getByRole("list", { name: "The video, scene by scene" });
+  expect(within(strip).getByText("The fix")).toHaveClass("text-accent-text"); // the scene being made
+  expect(within(strip).getByTitle("Clip 2")).toBeInTheDocument();
+  expect(within(live).queryByRole("list", { name: "Every step" })).toBeNull();
+  await userEvent.click(within(live).getByRole("button", { name: "Every step" }));
+  const steps = within(live).getByRole("list", { name: "Every step" });
+  expect(within(steps).getByText("Clip 4 · scene 2 · 2 s · about 3 min")).toBeInTheDocument();
+  expect(within(live).getByRole("button", { name: "Hide steps" })).toBeInTheDocument();
+  expect(screen.queryByText("Making the clips · 3 of 4 · scene 2 of 2")).toBeNull(); // the card, not its line
+});
+
+test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its price starts it again", async () => {
+  setViewport(1440);
+  const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director": [201, run()] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText(/^Reed stopped the director at \d\d:\d\d\. Nothing more is being spent\.$/)).toBeInTheDocument();
+  expect(screen.getByText("Stopped. The 3 finished clips are kept. Tell me what to change, or carry on where I left off.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull(); // Carry on is the press here
+  await userEvent.click(screen.getByRole("button", { name: "Carry on · up to $10.74 more" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+});
+
+test("S3-11: a step that failed says why in plain words, with its one-click fixes", async () => {
+  setViewport(1440);
+  const failed = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 4 clips made", tone: "bad", failed: { title: "Clip 4 couldn’t be made", why: "The service was busy. Nothing was charged.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }, { kind: "carry_on", label: "Carry on", price: "$10.74" }] } });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, failed], "POST /projects/50/clips/44/generate": [201, { id: 1 }], "POST /projects/50/director": [201, run()] });
+  renderApp("/b/1/videos/50");
+  const box = await screen.findByRole("region", { name: "Clip 4 couldn’t be made" });
+  expect(within(box).getByText("The service was busy. Nothing was charged.")).toBeInTheDocument();
+  await userEvent.click(within(box).getByRole("button", { name: "Try again · up to $0.32" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/clips/44/generate")).toBe(true));
+  await userEvent.click(within(box).getByRole("button", { name: "Carry on · up to $10.74" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+});
+
+test("S3-09: delivered: the note in parts with the times it redid, the real cost; Watch the changes marks them seen and opens the cut; an earlier cut's note folds to a line", async () => {
+  setViewport(1440);
+  const done = record({ status: "delivered", title: "Made in 22 min", sub: "4 clips · 1 redone after watching", tone: "done" });
+  const old = { ...note, cut: 1, spent_usd: 9.1 };
+  const thread = [item("t1", "move", "Director", "…", "done", at, { note: old }), card, item("t2", "move", "Director", "…", "done", later, { note })];
+  const calls = server(owner, null, run({ status: "delivered", thread }), { "GET /projects/50/director/progress": [200, done], "POST /projects/50/director/seen": [204, null], "GET /projects/50/video": [200, { file_id: 8, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50?tab=plan");
+  const n = await screen.findByRole("region", { name: "Delivery note" });
+  expect(within(n).getByText("A 0:08 rant in 2 scenes.")).toBeInTheDocument();
+  expect(within(n).getByText("0:14")).toBeInTheDocument();
+  expect(within(n).getByText("Clip 2: cartoon eyes landed on the stomach. Remade on Seedance 2.0.")).toBeInTheDocument();
+  expect(within(n).getByText("The capsule holds for 1.5 s.")).toBeInTheDocument();
+  expect(within(n).getByText("$9.84 spent of up to $16.86")).toBeInTheDocument();
+  expect(screen.getByText("Delivery note · Cut 1 · 0:58 · $9.10")).toBeInTheDocument(); // S3-12: the earlier cut, folded
+  expect(screen.getByText("Here’s the cut.")).toBeInTheDocument();
+  await userEvent.click(within(n).getByRole("button", { name: "Watch the changes" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/director/seen")?.body).toEqual({ take_ids: [202] }));
+  expect(screen.getByRole("tab", { name: "Cut", selected: true })).toBeInTheDocument();
+  const cut = screen.getByRole("tabpanel", { name: "Cut" });
+  expect(await within(cut).findByRole("button", { name: "Clip 2, not watched yet" })).toBeInTheDocument(); // Changed after watching, outlined until watched
+  await userEvent.click(within(within(cut).getByRole("list", { name: "The video, scene by scene" })).getByRole("button", { name: "Clip 1" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/50/director/seen").map((c) => c.body)).toContainEqual({ take_ids: [201] })); // a frame played is watched
+});
+
+test("S3-13: a long video reads a row a scene with its count, eight at most, and how long is left", async () => {
+  setViewport(1440);
+  const many = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, name: `Scene ${i + 1}`, total: 12, done: i < 4 ? 12 : 0, clips: Array.from({ length: 12 }, (_, j) => cell(i * 12 + j + 1, i + 1)) }));
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, record({ clips: 120, made: 48, scenes: many, sub: "48 of 120 · scene 5 of 10", minutes_left: 130 })] });
+  renderApp("/b/1/videos/50");
+  const live = await screen.findByRole("region", { name: "Making the clips" });
+  const rows = within(live).getByRole("list", { name: "Scenes" });
+  expect(within(rows).getAllByRole("listitem")).toHaveLength(8);
+  expect(within(rows).getAllByText("12/12")).toHaveLength(4);
+  expect(within(live).getByText("+ 2 more scenes · about 2 h 10 min left")).toBeInTheDocument();
+  expect(within(live).queryByRole("list", { name: "The video, scene by scene" })).toBeNull();
+});
+
+test("P-04: on a phone the card shows one frame a scene with its count, and the steps fold under a chevron", async () => {
+  setViewport(390);
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, record()] });
+  renderApp("/b/1/videos/50");
+  const live = await screen.findByRole("region", { name: "Making the clips" });
+  expect(within(live).getByText("3 of 4 · scene 2 of 2 · 1 redone after watching")).toBeInTheDocument();
+  expect(within(live).getByText("2/2")).toBeInTheDocument();
+  expect(within(live).getByText("1/2")).toBeInTheDocument();
+  await userEvent.click(within(live).getByRole("button", { name: "Every step" }));
+  expect(within(live).getByRole("list", { name: "Every step" })).toBeInTheDocument();
+});

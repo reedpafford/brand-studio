@@ -15,12 +15,10 @@ import { useProblemWords } from "./ProblemText";
 import { Banner, Button, creditsLabel, Dialog, pressLabel, useToast, wholeCredits } from "../components";
 import { usePressed } from "./usePressed";
 import { type ChangeState } from "./ChangeBox";
-import { useApproveAll } from "./ApproveAll";
 import { ReviewChip } from "./Checks";
 import { StoryboardVersions, useMayChangeVideo } from "./VersionLists";
 import { type Softened } from "./Soften";
 import { FrameCard } from "./FrameCard";
-import { BarAction } from "./BarAction";
 import { refreshJobs } from "../jobs/refresh";
 
 type Frame = components["schemas"]["FrameOut"];
@@ -38,8 +36,8 @@ export function useFrames(projectId: number, poll?: (frames: Frame[] | undefined
 const msSince = (iso: string) => Date.now() - Date.parse(iso);
 
 /** `oneStep` (the new video page): Make storyboard writes the frames and then draws every still. `clips` is how many stills that is. On the Clips tab
- *  (`only`) it shows one clip's still, in `into` if given, its presses in `bar`; `second`: the takes have the cost bar. */
-export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null; castRedraw?: { [key: string]: unknown } | null; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number; only?: string | null; bar?: HTMLElement | null; into?: HTMLElement | null; second?: boolean }) {
+ *  (`only`) it shows one clip's still, in `into` if given, its presses in `bar`; `second`: the takes come next. */
+export function StoryboardPane(props: { hold?: string | null; castRedraw?: { [key: string]: unknown } | null; oneStep?: boolean; clips?: number; projectId: number; brandId: number; aspect: string; used: number; budget: number; only?: string | null; bar?: HTMLElement | null; into?: HTMLElement | null; second?: boolean }) {
   const { projectId, brandId } = props;
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -213,16 +211,6 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   });
 
   const rows = frames.data ?? [];
-  const approveAll = useApproveAll({
-    projectId,
-    kind: "storyboard",
-    noun: "frame",
-    rows,
-    ready: rows.filter((f) => f.file_id !== null && !f.approved && !f.stale && !f.still_stale && blocking(f.problems).length === 0).length,
-    waiting: rows.filter((f) => !f.approved).length,
-    // The step's one amber goes, in order, to: make the storyboard, redraw what's out of date, make the missing stills, approve all.
-    primary: rows.length > 0 && !rows.some((f) => f.still_stale || (f.file_id === null && !blocking(f.problems).length && blocks.forShot(f.shot_id).length === 0)),
-  });
   const list = rows;
   // After a cast change the stills that show the old cast are redrawn by themselves when the video can pay for it; otherwise they say "Out of date".
   const outOfDate = list.filter((f) => f.still_stale && !f.drawing && !drawingNow[f.id]); // ones already being redrawn (the server queues them after a cast change) are not asked for again
@@ -250,20 +238,8 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   const errorFor = (id: number) => (render.variables?.frame.id === id && render.error?.message) || (edit.variables?.frame.id === id && edit.error?.message) || (redoFrame.variables?.id === id && redoFrame.error?.message) || null;
   const approvedCount = list.filter((f) => f.approved).length;
 
-  // On the video page the step's one amber is in the cost bar, in the same order as above.
+  // On the video page the step's bulk presses are the director's (v6 screen 4); each still keeps its own.
   const bar = !!props.oneStep && !props.second && !frames.isPending && frames.isFetchedAfterMount && !frames.isError && !writingNow && !stillOld;
-  const barApproves = bar && list.length > 0 && outOfDate.length === 0 && missing.length === 0;
-  const barAction =
-    !bar || props.barTaken // the video's Update everything after this has the bar
-      ? null
-      : list.length === 0
-        ? { label: makeLabel, price: makeTotal ?? null, reason: stopFor(makeTotal), busy: make.isPending, onPress: () => make.mutate() }
-        : outOfDate.length > 0
-          ? { label: `Redraw ${outOfDate.length} out-of-date still${outOfDate.length === 1 ? "" : "s"}`, price: redrawCost ?? null, reason: redrawBlocked, busy: render.isPending, onPress: () => void drawAll(outOfDate) }
-          : missing.length > 0
-            ? { label: `Make ${missing.length} still${missing.length === 1 ? "" : "s"}`, price: allCost ?? null, reason: stopFor(allCost), busy: render.isPending, onPress: () => void drawAll(missing) }
-            : approveAll.action;
-  const barSlot = barAction && <BarAction action={barAction} />;
   if (frames.isPending || !frames.isFetchedAfterMount) return <p role="status" className="text-muted">Loading…</p>; // read again for this step, never a cached earlier list
   if (frames.isError) return <p role="alert" className={errorClass}>Could not load the {props.oneStep ? "stills" : "storyboard"}. Try again.</p>;
   const made = list.filter((f) => f.file_id !== null).length;
@@ -316,7 +292,6 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   if (list.length === 0)
     return (
       <section className={`${card} space-y-3`} aria-label="Storyboard">
-        {barSlot}
         {framesFailed && (
           <Banner title={frameRun?.status === "failed" ? "The frames didn't finish." : "We lost track of the frames."}>
             {frameRun?.status === "failed" ? "Nothing was charged. Make them again below." : "If they finish, they show up here. Or make them again below."}
@@ -351,11 +326,9 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
               Make {missing.length} still{missing.length === 1 ? "" : "s"}
             </Button>
           )}
-          {!barApproves && approveAll.button}
           {makeButton}
         </span>
       </div>
-      {approveAll.line}
       {castNote}
       {err && <p role="alert" className={errorClass}>{err.message}</p>}
       {waitingForSheet.length > 0 && (
@@ -418,7 +391,6 @@ export function StoryboardPane(props: { barTaken?: boolean; hold?: string | null
   );
   return (
     <div className="space-y-4" aria-label="Storyboard">
-      {barSlot}
       {props.bar ? createPortal(head, props.bar) : head}
       {props.into ? createPortal(cards, props.into) : cards}
       <StoryboardVersions projectId={projectId} hold={writingNow || Object.values(drawingNow).some(Boolean) ? "Wait for the stills being made." : null} />

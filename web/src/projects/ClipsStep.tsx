@@ -44,8 +44,6 @@ export function ClipsStep(props: {
   clipsLock: string | null;
   stillsHold: string | null;
   clipsHold: { why: string; at: string } | null;
-  /** The video's Update everything after this has the cost bar. */
-  barTaken: boolean;
 }) {
   const { projectId } = props;
   const frames = useFrames(projectId);
@@ -83,7 +81,7 @@ export function ClipsStep(props: {
     return clipStatus(c, f, making(c, f), failed);
   };
   const open = props.clipsLock === null; // the takes part, once the stills are approved
-  // The cost bar's one press goes to the stills until they're approved, then to the takes (a hold says why they wait).
+  // The stills come first until they're approved, then the takes (a hold says why they wait).
   const stillsFirst = !open;
   // Until one is picked: the first clip whose take needs you, else the first still to approve, else the first.
   const stillToApprove = (id: string) => stills.some((f) => f.clip_id === id && f.file_id !== null && !f.approved);
@@ -95,7 +93,6 @@ export function ClipsStep(props: {
   const only = list ? (selected ?? "") : undefined;
   const storyboard = (
     <StoryboardPane
-      barTaken={props.barTaken}
       second={!stillsFirst}
       hold={props.stillsHold}
       castRedraw={props.castRedraw}
@@ -155,8 +152,7 @@ export function ClipsStep(props: {
       <section className={`min-w-0 space-y-4 ${list ? "lg:px-8 lg:py-6" : ""}`} aria-label={selected ? `Clip ${selected.replace(/^c/, "")}` : "Stills"}>
         {open && list && (
           <ClipsPane
-            barTaken={props.barTaken}
-            hold={props.clipsHold?.why ?? null}
+                  hold={props.clipsHold?.why ?? null}
             review
             projectId={projectId}
             brandId={props.brandId}

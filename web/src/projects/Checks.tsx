@@ -4,9 +4,16 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "../components";
 import { useToast } from "../toast";
 import { useMedia } from "../useMedia";
-import { show } from "./ApproveAll";
 import { Sheet } from "./Sheet";
 import { LookTip } from "./LookFix";
+
+/** Brings a card into view and marks it for a moment (a Review row's link). */
+function show(label: string) {
+  const card = document.querySelector<HTMLElement>(`[aria-label="${label}"]`);
+  card?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  card?.classList.add("outline", "outline-2", "outline-accent");
+  setTimeout(() => card?.classList.remove("outline", "outline-2", "outline-accent"), 1500);
+}
 
 /** The advisory check on a still or a take (flows P4; Builder-Server-8's CheckOut, #891). Advice only: it never blocks. */
 export type Finding = { index: number; kind: string; text: string; note: string; fix?: string; at?: number | null };
