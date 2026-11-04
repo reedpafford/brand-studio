@@ -26,12 +26,15 @@ FILES = ("style_board_file_id", "end_card_file_id")
 
 def upgrade() -> None:
     conn = op.get_bind()
+    # A JSON bind: a plain string is sent as VARCHAR, which Postgres won't put in a JSON column
+    update = sa.text("UPDATE projects SET locks = :l WHERE id = :i").bindparams(
+        sa.bindparam("l", type_=sa.JSON())
+    )
     for pid, locks in conn.execute(sa.text("SELECT id, locks FROM projects")).all():
         found = json.loads(locks) if isinstance(locks, str) else (locks or {})
         if "end_line" in found:
             found.pop("end_line")
-            conn.execute(sa.text("UPDATE projects SET locks = :l WHERE id = :i"),
-                         {"l": json.dumps(found), "i": pid})  # fmt: skip
+            conn.execute(update, {"l": found, "i": pid})
     with op.batch_alter_table("brands", schema=None) as batch_op:
         for name in FILES:
             batch_op.drop_constraint(f"fk_brands_{name}_files", type_="foreignkey")
