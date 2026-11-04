@@ -8,7 +8,7 @@ def cell(n, title, ask, drawn, note):
     return f'''<div class="col g3" style="width:{W}px">
       <div class="col g1"><span class="t-lg">{n}. {title}</span><span class="t-sm muted">{ask}</span></div>
       <div style="padding:16px;background:var(--surface-2);border-radius:10px">{drawn}</div>
-      <div class="row g2 t-sm"><span class="tag need">For Reed: yes or no?</span><span class="muted">{note}</span></div></div>'''
+      <div class="row g2 t-sm"><span class="tag ok">Approved by Reed, 3 Nov</span><span class="muted">{note}</span></div></div>'''
 
 
 # 1. Change B-roll look…
@@ -55,7 +55,7 @@ g5 = f'''<div style="position:relative;height:140px"><div class="row g3">{chip("
   <div class="menu" style="left:0;top:36px;width:240px"><div class="mi on">{ic("check","s14")}Newest<span class="grow"></span><span class="t-xs muted">latest activity</span></div>
   <div class="mi"><span style="width:14px"></span>Oldest</div><div class="mi"><span style="width:14px"></span>Name A–Z</div></div></div>'''
 
-sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found</span><span class="t-sm muted">Five states the v6 boards don’t draw. Each is one option for Reed to say yes or no to. The existing boards are unchanged.</span></div>
+sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found</span><span class="t-sm muted">Five states the v6 boards didn’t draw. Reed approved all five on 3 Nov (“yes to all”). They are part of v6, and the boards they extend are unchanged.</span></div>
   <div class="row g8 wrap start" style="row-gap:36px">
   {cell(1, "“Change B-roll look…” on New video (S2)", "What opens behind the link.", g1, "a small picker. The style’s own look first, then other styles’ B-roll looks.")}
   {cell(2, "Use a reel · “Just its look” (S2-07)", "What the director does with it.", g2, "the reel’s look becomes this video’s look; the words come from the brand’s script.")}
@@ -64,4 +64,4 @@ sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">G
   {cell(5, "Sort in a folder (S1-04, S1-05)", "Only Newest is drawn.", g5, "Newest (latest activity), Oldest, Name A–Z.")}
   </div>'''
 
-board("S-gaps-01", "Gaps the builders found", "5 options for Reed: B-roll look, reel look, upload, status words, sort", sheet, "s", h=1580)
+board("S-gaps-01", "Gaps the builders found", "Approved: B-roll look, reel look, upload, status words, sort", sheet, "s", h=1580)

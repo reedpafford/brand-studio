@@ -54,3 +54,12 @@ Below: what they found, what was fixed, and what's still open for Reed.
 5. **A story choice:** after a while, the director picks its suggestion, as S4-02 shows.
 
 Still to know: there are 15 phone boards, because the other states reuse the desktop layouts. The 57-board v5 canvas wasn't reachable for comparison.
+
+## Gaps the builders found (3 Nov), approved
+
+Reed said "yes to all" to the five options on [S-gaps-01](boards/S-gaps-01.jpg):
+- the B-roll look picker;
+- "Just its look" for a reel;
+- the upload button (for this video only);
+- the status words ("Needs you" with a reason; "Needs a fix" when a run stops on its own; "Stopped" only when a person stops it);
+- sorting by Newest, Oldest or Name A–Z.

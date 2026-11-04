@@ -156,6 +156,6 @@ For Reed. Design only: nothing here is built, and nothing here spent money. Appr
 
 | Board | State |
 |---|---|
-| [S-gaps-01](boards/S-gaps-01.jpg) | 5 options for Reed: B-roll look, reel look, upload, status words, sort |
+| [S-gaps-01](boards/S-gaps-01.jpg) | Approved: B-roll look, reel look, upload, status words, sort |
 
 78 boards in all: 63 desktop (1440) and sheets, 15 phone (390).
