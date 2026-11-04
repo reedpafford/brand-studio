@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -66,6 +66,8 @@ HELD = f"{WAIT_OK}every freestyle send is checked first."
 PAST_BUDGET = f"{WAIT_OK}up to {{}} credits is past this video's budget of {{}}."
 OTHER_BRAND = "That folder is in another brand."
 NOT_ATTACHABLE = "Attach pictures or clips only."
+MAX_FILES = 10
+TOO_MANY_FILES = f"Attach up to {MAX_FILES} pictures or clips."
 BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
 MAX_PROMPT = 6000  # what Quick clip sends at most
@@ -257,15 +259,20 @@ def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted:
     elif brand:
         project.cast_ids = brand_setup.live_cast(db, brand)
     project.broll_look = looks.pick_broll(db, user, project, body.broll_look)
-    project.attachments = [get_file(db, user, i).id for i in body.attachments or []
-                           if _attachable(get_file(db, user, i))]  # fmt: skip
+    project.attachments = attachments(db, user, body.attachments)
+    project.reel_script_id = getattr(body, "reel_script_id", None) or project.reel_script_id
     db.flush()
 
 
-def _attachable(stored) -> bool:
-    if stored.content_type.split("/")[0] not in ("image", "video"):
-        raise HTTPException(422, NOT_ATTACHABLE)
-    return True
+def attachments(db: Session, user: User, ids: list[int] | None) -> list[int]:
+    """The pictures or clips attached, each once, at most MAX_FILES (422 otherwise)."""
+    ids = list(dict.fromkeys(ids or []))
+    if len(ids) > MAX_FILES:
+        raise HTTPException(422, TOO_MANY_FILES)
+    for i in ids:
+        if get_file(db, user, i).content_type.split("/")[0] not in ("image", "video"):
+            raise HTTPException(422, NOT_ATTACHABLE)
+    return ids
 
 
 def hold(db: Session, user: User, script: Script | None, draft, project: Project) -> str:
@@ -523,6 +530,7 @@ def estimate_freestyle(
     slot: int = 0,
     brand_id: int | None = None,
     broll_look: str | None = None,
+    cast_ids: Annotated[list[int] | None, Query()] = None,
     *,
     request: Request,
     user: User = Depends(current_user),
@@ -531,7 +539,8 @@ def estimate_freestyle(
     """What a send would cost, at most, and whether it would wait for the owner. Free: nothing
     is queued and nothing is asked of a model; the video it weighs is never kept."""
     body = FreestyleIn(type=type, look=look, shape=shape, text=text, script_id=script_id,
-                       slot=slot, brand_id=brand_id, broll_look=broll_look)  # fmt: skip
+                       slot=slot, brand_id=brand_id, broll_look=broll_look,
+                       cast_ids=cast_ids)  # fmt: skip
     type, look, brand_id, text, script, draft = _source(db, user, body)
     _check(db, user, request, type, look, brand_id)
     if type != ONE_CLIP:  # the video's own price, from a video never kept

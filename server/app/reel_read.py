@@ -210,4 +210,8 @@ def follow_on(db: Session, job: Job, saved: bool) -> None:
         from app.routes.reel_video import then_direct
 
         db.commit()  # the read's last answer first: the held run freezes what it's made of
-        then_direct(db, script)
+        try:
+            then_direct(db, script)
+        except HTTPException as exc:  # its picks were checked at the press: say why, never loop
+            db.rollback()
+            log.warning("script %s: the reel's video couldn't start: %s", script.id, exc.detail)

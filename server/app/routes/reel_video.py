@@ -58,6 +58,30 @@ class ReelVideoIn(BaseModel):
     text: fs_routes.Text | None = None  # Just its look: your own script
 
 
+class _Send(fs_routes.FreestyleIn):
+    """A send New video makes from a reel (`_setup` keeps the reel on its video)."""
+
+    reel_script_id: int | None = None
+
+
+def _picks_hold(db: Session, user: User, body: ReelVideoIn, script: Script) -> None:
+    """Copy and Structure set the video's picks once the script is written: the cast, the
+    attachments and a B-roll look are checked at the press instead, so nothing is refused
+    after the read is paid."""
+    from app import brand_setup, guides
+    from app.models.brands import Brand
+
+    if body.cast_ids:
+        brand_setup.check_cast(db, db.get(Brand, script.brand_id), body.cast_ids)
+    fs_routes.attachments(db, user, body.attachments)
+    if body.broll_look and looks.base(body.broll_look) != looks.base(body.look or looks.DEFAULT):
+        if not guides.format_(body.type).get("host"):
+            raise HTTPException(409, looks.BROLL_HOSTED)
+        if looks.get(body.broll_look)["kind"] != "look":
+            raise HTTPException(422, looks.UNKNOWN)
+        looks.pick(db, user, body.broll_look)
+
+
 class ReelEstimateOut(BaseModel):
     credits: float  # what the read can charge (Copy, Structure); nothing past it runs unasked
     usd: float | None  # the owner's
@@ -90,19 +114,17 @@ def make_from_reel(body: ReelVideoIn, request: Request, user: User = Depends(cur
     status, failed = read.state(db, script)
     if status == "preparing" or failed == "prepare":
         raise HTTPException(409, NOT_READY)
-    send = fs_routes.FreestyleIn(**body.model_dump(exclude={"script_id", "mode"}),
-                                 brand_id=script.brand_id)  # fmt: skip
-    if body.mode == "look":  # your words, the reel's look
+    send = _Send(**body.model_dump(exclude={"script_id", "mode"}), brand_id=script.brand_id,
+                 reel_script_id=script.id)  # fmt: skip
+    if body.mode == "look":  # your words, the reel's look (kept on the video before it starts)
         if not body.text:
             raise HTTPException(422, WORDS)
-        out = fs_routes.create_freestyle(send, request, user, db)
-        db.get(Project, out.project_id).reel_script_id = script.id
-        db.commit()
-        return out
+        return fs_routes.create_freestyle(send, request, user, db)
     if script.reference_breakdown or status in ("reading", "done"):
         raise HTTPException(409, READ_ALREADY)
     look = looks.pick(db, user, body.look or looks.DEFAULT)
     fs_routes._check(db, user, request, body.type, look, script.brand_id, body.folder_id)
+    _picks_hold(db, user, body, script)  # checked now: never refused after the read is paid
     script.new_lines, script.format, script.look = body.mode == "structure", body.type, look
     script.kind = lib.pick_format(body.type)
     fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title=script.title[:60],
@@ -118,7 +140,7 @@ def make_from_reel(body: ReelVideoIn, request: Request, user: User = Depends(cur
     db.flush()
     fs.project_id = project.id
     picks = send.model_dump(include={"folder_id", "cast_ids", "broll_look", "attachments",
-                                     "brand_id"})  # fmt: skip
+                                     "brand_id", "reel_script_id"})  # fmt: skip
     script.reel = {**script.reel, THEN: {"freestyle": fs.id, "by": user.id, "mode": body.mode,
                                          "picks": picks}}  # fmt: skip
     read.queue(db, user, script, read.remaining(script)[0])  # the paid read: commits
@@ -137,8 +159,8 @@ def then_direct(db: Session, script: Script) -> None:
     if not draft.text.strip():
         return
     project.script_draft_id = draft.id  # the written script is the video's from here on
-    fs_routes._setup(db, user, project, fs_routes.FreestyleIn(
-        shape=fs.shape, text=draft.text, **then["picks"]), pasted=True)  # fmt: skip
+    fs_routes._setup(db, user, project, _Send(shape=fs.shape, text=draft.text, **then["picks"]),
+                     pasted=True)  # fmt: skip
     scorecard.record_forecast(db, project, draft)
     db.add(ScriptVersion(project_id=project.id, version=1, text=draft.text, source="library",
                          created_by_id=user.id))  # fmt: skip

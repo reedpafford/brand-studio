@@ -7,8 +7,8 @@ import type { Format } from "../scripts/useFormats";
 
 export type Look = components["schemas"]["LookOut"];
 /** S2-03: Song's music provider is off ("coming next"); a format or style off on this site. */
-export const SOON = "coming next";
-export const OFF = "Off on this site";
+const SOON = "coming next";
+const OFF = "Off on this site";
 
 /** A look's card pictures: the owner's approved sample (Settings → Looks) once there is one, else the 3 Nov test sample
  *  shipped with the site; `tag` says "Test sample" on the paid tests, never on the site's own frame (House). */
@@ -59,8 +59,6 @@ const card = (sel: boolean, off: boolean) =>
   `flex shrink-0 flex-col overflow-hidden rounded-lg border bg-surface text-left ${sel ? "border-accent shadow-[0_0_0_1px_var(--accent)]" : "border-border hover:border-border-strong"} ${off ? "cursor-not-allowed opacity-55" : ""}`;
 const Check = () => <CircleCheckBig size={14} aria-hidden className="shrink-0 text-accent-text" />;
 
-/** Format cards (S2): picture, name, its line; Song "coming next" while its music provider is off, a format off in its
- *  guide "Off on this site". `small`: the phone's (P-03), name only. */
 /** A phone's card row scrolls the picked card into view (P-03). */
 function useShown(value: string, small?: boolean) {
   const row = useRef<HTMLDivElement>(null);
@@ -70,7 +68,9 @@ function useShown(value: string, small?: boolean) {
   return row;
 }
 
-export function FormatCards({ formats, value, onPick, small }: { formats: Format[]; value: string; onPick: (id: string) => void; small?: boolean }) {
+/** Format cards (S2): picture, name, its line; Song "coming next" while its music provider is off, a format off in its
+ *  guide "Off on this site". `small`: the phone's (P-03), name only. `locked`: a saved script's own, shown not picked. */
+export function FormatCards({ formats, value, onPick, small, locked }: { formats: Format[]; value: string; onPick: (id: string) => void; small?: boolean; locked?: boolean }) {
   const shown = useShown(value + formats.length, small);
   return (
     <div ref={shown} role="radiogroup" aria-label="Format" className={`flex gap-3 ${small ? "-mx-4 overflow-x-auto px-4 pb-1" : "flex-wrap"}`}>
@@ -78,7 +78,7 @@ export function FormatCards({ formats, value, onPick, small }: { formats: Format
         const off = f.off ? (f.off === "off" ? OFF : SOON) : null;
         const sel = f.id === value;
         return (
-          <button key={f.id} type="button" role="radio" aria-checked={sel} aria-disabled={!!off || undefined} title={f.off && f.off !== "off" ? `${f.name} is coming next: ${f.off}.` : undefined} onClick={() => !off && onPick(f.id)} className={`${card(sel, !!off)} ${small ? "w-[120px]" : "w-[200px]"}`}>
+          <button key={f.id} type="button" role="radio" aria-checked={sel} aria-disabled={!!off || (locked && !sel) || undefined} title={f.off && f.off !== "off" ? `${f.name} is coming next: ${f.off}.` : undefined} onClick={() => !off && !locked && onPick(f.id)} className={`${card(sel, !!off)} ${small ? "w-[120px]" : "w-[200px]"} ${locked && !sel ? "cursor-default opacity-55" : ""}`}>
             <div className={`relative ${small ? "h-[70px]" : "h-[84px]"} w-full bg-surface-3`}>
               {f.test_still && <img src={`/api/formats/${f.id}/test-sample.jpg`} alt="" className="size-full object-cover" />}
               {f.test_still && tag}
@@ -100,7 +100,7 @@ export function FormatCards({ formats, value, onPick, small }: { formats: Format
 
 /** Style cards (S2): a sample that plays (one at a time), the style's line and its B-roll look; a style off on this
  *  site is greyed with "Off on this site" (S2-03). */
-export function StyleCards({ looks, value, onPick, small }: { looks: Look[]; value: string; onPick: (id: string) => void; small?: boolean }) {
+export function StyleCards({ looks, value, onPick, small, locked }: { looks: Look[]; value: string; onPick: (id: string) => void; small?: boolean; locked?: boolean }) {
   const [playing, setPlaying] = useState<string | null>(null);
   const shown = useShown(value + looks.length, small);
   return (
@@ -108,10 +108,12 @@ export function StyleCards({ looks, value, onPick, small }: { looks: Look[]; val
       {looks.map((l) => {
         const m = lookMedia(l);
         const sel = l.id === value;
+        const can = l.on && !locked;
+        // The picture plays its sample; the words under it pick the style (a radio holds no other button).
         return (
-          <div key={l.id} role="radio" aria-checked={sel} aria-disabled={!l.on || undefined} aria-label={l.name} tabIndex={0} onClick={() => l.on && onPick(l.id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && l.on && (e.preventDefault(), onPick(l.id))} className={`${card(sel, !l.on)} ${small ? "w-[100px]" : "w-[132px]"} cursor-pointer`}>
+          <div key={l.id} className={`${card(sel, !l.on)} ${small ? "w-[100px]" : "w-[132px]"} ${locked && !sel ? "opacity-55" : ""}`}>
             <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h={small ? "h-[130px]" : "h-[150px]"} />
-            <span className="flex flex-col gap-0.5 px-2.5 py-2">
+            <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} onClick={() => can && onPick(l.id)} className={`flex flex-col gap-0.5 px-2.5 py-2 text-left ${can ? "" : "cursor-default"}`}>
               <span className="flex items-center gap-1">
                 <span className="text-sm font-semibold">{l.name}</span>
                 <span className="flex-1" />
@@ -120,7 +122,7 @@ export function StyleCards({ looks, value, onPick, small }: { looks: Look[]; val
               {!small && <span className="line-clamp-2 text-xs text-muted">{sub(l)}</span>}
               {l.broll && <span className="text-xs text-muted">{small ? l.broll : brollLine(l)}</span>}
               {!l.on && !small && <span className="mt-1 self-start rounded-sm bg-surface-2 px-1.5 text-xs font-semibold text-muted">{OFF}</span>}
-            </span>
+            </button>
           </div>
         );
       })}
@@ -133,8 +135,14 @@ export function StyleCards({ looks, value, onPick, small }: { looks: Look[]; val
 export function BrollPicker({ looks, style, value, onPick, onClose }: { looks: Look[]; style: Look; value: string | null; onPick: (id: string | null) => void; onClose: () => void }) {
   const [picked, setPicked] = useState(value ?? style.id);
   const rows = [style, ...looks.filter((l) => l.id !== style.id && l.on)];
+  const box = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    box.current?.querySelector<HTMLElement>("[aria-checked=true]")?.focus();
+    return () => opener?.focus?.();
+  }, []);
   return (
-    <section aria-label="B-roll look for this video" className="absolute right-0 top-7 z-30 w-[600px] rounded-lg border border-border bg-surface shadow-raised">
+    <section ref={box} role="dialog" aria-label="B-roll look for this video" onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onClose())} className="absolute right-0 top-7 z-30 w-[600px] rounded-lg border border-border bg-surface shadow-raised">
       <div className="flex items-center border-b border-border px-3 py-2.5">
         <h3 className="text-sm font-semibold">B-roll look for this video</h3>
         <span className="flex-1" />

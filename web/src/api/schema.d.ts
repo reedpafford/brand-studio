@@ -12793,6 +12793,7 @@ export interface operations {
                 slot?: number;
                 brand_id?: number | null;
                 broll_look?: string | null;
+                cast_ids?: number[] | null;
             };
             header?: never;
             path?: never;

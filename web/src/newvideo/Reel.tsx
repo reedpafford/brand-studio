@@ -24,7 +24,7 @@ const MODES: { id: Mode; name: string }[] = [
 
 /** New video › Use a reel (S2-07; S-gaps-01, 2): upload a reel; Copy it shot by shot or Just its structure read it (its own
  *  "up to") and the director makes the video from the script it writes; Just its look makes your words in its look. */
-export function Reel({ brandId, owner, folder, seg, rail, format, formatName, look }: { brandId: number; owner: boolean; folder: number | null; seg: ReactNode; rail: boolean; format: string; formatName?: string; look?: Look }) {
+export function Reel({ brandId, owner, folder, seg, rail, format, formatName, look, broll }: { brandId: number; owner: boolean; folder: number | null; seg: ReactNode; rail: boolean; format: string; formatName?: string; look?: Look; broll: string | null }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const scriptId = Number(params.get("reel")) || 0;
@@ -47,11 +47,11 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
     enabled: !!scriptId && reel?.status === "ready",
     queryFn: async () => (await api.GET("/freestyles/reel/estimate", { params: { query: { script_id: scriptId } } })).data ?? null,
   }).data;
-  const ownWords = mode === "look" && words.trim() ? { type: format, look: look?.id ?? "house", shape: "9:16" as const, brand_id: brandId, text: words.trim() } : null;
+  const ownWords = mode === "look" && words.trim() ? { type: format, look: look?.id ?? "house", shape: "9:16" as const, brand_id: brandId, broll_look: broll, text: words.trim() } : null;
   const lookEst = useEstimate(ownWords).data;
   const go = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/freestyles/reel", { body: { script_id: scriptId, mode, type: format, look: look?.id, shape: "9:16", folder_id: folder, ...(mode === "look" ? { text: words.trim() } : {}) } });
+      const { data, error } = await api.POST("/freestyles/reel", { body: { script_id: scriptId, mode, type: format, look: look?.id, shape: "9:16", folder_id: folder, broll_look: broll, ...(mode === "look" ? { text: words.trim() } : {}) } });
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -63,7 +63,7 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
   const disabled = !ready || (mode === "look" && !words.trim());
   const press = <Press owner={owner} est={est} busy={go.isPending} disabled={disabled} onClick={() => go.mutate()} go={mode === "look" ? "Make it" : "Watch it and write the script"} wide={!rail} />;
   const file = (
-    <input ref={input} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a reel" className="sr-only" onChange={(e) => {
+    <input ref={input} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" aria-label="Choose a reel" tabIndex={-1} className="sr-only" onChange={(e) => {
       const f = e.target.files?.[0];
       if (f) {
         setName(f.name);

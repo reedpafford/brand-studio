@@ -21,7 +21,7 @@ function useSettled<T>(value: T, ms = 400) {
 /** What a send could charge at most (rules 34, 36), the owner's in dollars too, and why it would wait for the owner. Free:
  *  the server queues nothing and asks no model. */
 export function useEstimate(send: Send | null) {
-  const q = useSettled(send && { type: send.type, look: send.look, shape: send.shape, text: send.text?.trim() || undefined, script_id: send.script_id, slot: send.slot ?? undefined, broll_look: send.broll_look ?? undefined });
+  const q = useSettled(send && { type: send.type, look: send.look, shape: send.shape, text: send.text?.trim() || undefined, script_id: send.script_id, slot: send.slot ?? undefined, brand_id: send.brand_id ?? undefined, broll_look: send.broll_look ?? undefined, cast_ids: send.cast_ids ?? undefined });
   return useQuery({
     queryKey: ["new-video-estimate", q],
     enabled: !!q && (!!q.script_id || (!!q.text && !!q.look)),

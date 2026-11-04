@@ -93,7 +93,7 @@ export function Thread({ fs, items = fs.thread, tags, owner, first, extra }: { f
                   ))}
                 </div>
                 {!first && <p className="whitespace-pre-line break-words font-script text-sm leading-[1.6] text-muted">{t.text}</p>}
-                <Attached ids={(t as { files?: number[] }).files ?? fs.thread.find((x) => x.id === t.id && "files" in x)?.files ?? []} />
+                <Attached ids={(t as { files?: number[] }).files ?? []} />
               </>
             )}
             {extra?.(t)}

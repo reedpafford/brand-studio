@@ -61,3 +61,13 @@ def test_structure_writes_new_lines_and_look_keeps_your_words(app, owner, db, cl
     )
     prompt = director.turn_input(db, video, {"id": "r", "turn": 0, "redos": {}})["prompt"]
     assert "<look_reference>" in prompt
+
+
+def test_a_reels_picks_are_checked_at_the_press_before_the_read_is_paid(app, owner, db, clip):  # noqa: F811
+    sid = _sid(_ready(app, owner, db, clip))
+    body = {"script_id": sid, "mode": "copy", "type": "dialogue", "look": "house", "shape": "9:16"}
+    flat = owner.post("/freestyles/reel", json={**body, "broll_look": "skeleton"})
+    assert flat.status_code == 409  # no host: no B-roll look of its own
+    bad = owner.post("/freestyles/reel", json={**body, "attachments": [999]})
+    assert bad.status_code == 404
+    assert not db.query(Job).filter(Job.input["reel_step"].as_string().is_not(None)).count()

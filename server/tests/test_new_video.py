@@ -143,3 +143,16 @@ def test_a_presenters_b_roll_look_is_set_from_new_video_and_only_with_a_host(own
     assert db.get(Project, fs["project_id"]).broll_look == "skeleton"
     flat = owner.post("/freestyles", json={**sent, "type": "dialogue", "text": "Another."})
     assert flat.status_code == 409 and flat.json()["detail"] == looks.BROLL_HOSTED
+
+
+def test_the_estimate_is_never_below_what_the_send_approves(owner, editor, db):
+    brand = first_brand(owner)
+    sent = {**BODY, "brand_id": brand, "text": SCRIPT + "\nLEO: And the estimate holds."}
+    est = owner.get("/freestyles/estimate", params=sent).json()
+    fs = owner.post("/freestyles", json=sent).json()
+    assert est["credits"] >= fs["up_to"]  # rule 36: "up to" never under what it can charge
+    many = owner.post("/freestyles", json={**sent, "text": "More.", "attachments": [1] * 3})
+    assert many.status_code in (404, 422)  # an unknown file is refused, a repeat counted once
+    files = [upload(owner, f"{n}.png") for n in range(freestyles.MAX_FILES + 1)]
+    too_many = owner.post("/freestyles", json={**sent, "text": "Most.", "attachments": files})
+    assert too_many.status_code == 422 and too_many.json()["detail"] == freestyles.TOO_MANY_FILES

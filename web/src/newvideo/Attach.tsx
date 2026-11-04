@@ -19,7 +19,10 @@ export function useAttachments() {
       );
     }
   };
-  const remove = (local: string) => setFiles((xs) => xs.filter((x) => x.local !== local));
+  const remove = (local: string) => {
+    URL.revokeObjectURL?.(local);
+    setFiles((xs) => xs.filter((x) => x.local !== local));
+  };
   const ids = files.flatMap((f) => (f.id ? [f.id] : []));
   return { files, add, remove, ids, busy: files.some((f) => !f.id && !f.error) };
 }
@@ -30,7 +33,7 @@ export function Attach({ files, onReel }: { files: Attachments; onReel: () => vo
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
-      <input ref={input} type="file" multiple accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" aria-label="Attach pictures or clips" className="sr-only" onChange={(e) => (files.add(e.target.files), (e.target.value = ""))} />
+      <input ref={input} type="file" multiple accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" aria-label="Attach pictures or clips" tabIndex={-1} className="sr-only" onChange={(e) => (files.add(e.target.files), (e.target.value = ""))} />
       <Menu
         title="Add to this video"
         trigger={(p) => (

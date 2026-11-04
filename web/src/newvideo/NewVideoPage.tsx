@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, ChevronRight, Clock, X } from "lucide-react";
+import { ArrowUp, ChevronRight, CircleHelp, Clock, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Button, creditsLabel, wholeCredits } from "../components";
 import { useFolders } from "../folders/Projects";
-import { sentTo } from "../freestyle/useFreestyle";
+import { SHAPES, sentTo } from "../freestyle/useFreestyle";
 import { useLooks } from "../scripts/Looks";
 import { counts } from "../scripts/ScriptFrame";
 import { useFormats } from "../scripts/useFormats";
@@ -26,7 +26,6 @@ const TABS: { id: Tab; name: string; phone: string }[] = [
   { id: "script", name: "From a saved script", phone: "Saved script" },
   { id: "reel", name: "Use a reel", phone: "Use a reel" },
 ];
-const SHAPES = ["9:16", "1:1", "16:9"] as const;
 const PLACEHOLDER = "Paste a script, or describe the video. “A Dr. Pickle rant about beer bellies, under a minute, ending on the capsule.”";
 export const box = "rounded-[14px] border border-border-strong bg-surface shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]";
 export const row = "flex flex-wrap items-center gap-2 border-t border-border px-3 pb-3 pt-2";
@@ -98,16 +97,21 @@ export function NewVideoPage() {
   const [picked, setPicked] = useState<Partial<Send> & { folder?: number | null; cast?: number[] }>({});
   const [text, setText] = useState("");
   const [brolling, setBrolling] = useState(false);
+  // From a saved script: the cards show the script's own format and style, locked (its words, format and style are set).
+  const [locked, setLocked] = useState<{ type: string; look: string } | null>(null);
+  const fixed = tab === "script" ? locked : null;
   const files = useAttachments();
   const firstOn = <T extends { on: boolean; off?: string | null }>(xs: T[]) => xs.find((x) => x.on && !x.off);
-  const format = formats.find((f) => f.id === picked.type) ?? firstOn(formats);
-  const look = looks.find((l) => l.id === picked.look) ?? looks.find((l) => l.on && l.id === brand?.default_look) ?? firstOn(looks);
+  const format = formats.find((f) => f.id === (fixed?.type ?? picked.type)) ?? firstOn(formats);
+  const look = looks.find((l) => l.id === (fixed?.look ?? picked.look)) ?? looks.find((l) => l.on && l.id === brand?.default_look) ?? firstOn(looks);
   const folder = picked.folder !== undefined ? picked.folder : folders.some((f) => f.id === opened) ? opened : null;
   const cast = picked.cast ?? (brand?.cast ?? []).filter((c) => !c.deleted).map((c) => c.id);
   const broll = format?.host ? (picked.broll_look ?? null) : null;
   const settings = { type: format?.id ?? "dialogue", look: look?.id ?? "", shape: picked.shape ?? "9:16", brand_id: brandId, folder_id: folder, broll_look: broll };
   const send: Send = { ...settings, text: text.trim(), cast_ids: cast, attachments: files.ids };
   const est = useEstimate(tab === "paste" && text.trim() && look ? send : null).data;
+  const pickFormat = (type: string) => !fixed && setPicked({ ...picked, type });
+  const pickLook = (l: string) => !fixed && setPicked({ ...picked, look: l, broll_look: null });
   const sent = useSend((fs) => navigate(sentTo(fs, owner, brandId)));
   const empty = !text.trim() || !look || !format || files.busy;
   const go = () => !empty && !sent.isPending && sent.mutate(send);
@@ -115,8 +119,8 @@ export function NewVideoPage() {
 
   const chips = (all: boolean) => (
     <>
-      {all && <Chip label="Format" value={settings.type} options={formats.map((f) => ({ id: f.id, name: f.name, off: f.off ? "Off" : undefined }))} onPick={(type) => setPicked({ ...picked, type })} />}
-      {all && <Chip label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name, off: l.on ? undefined : "Off" }))} onPick={(l) => setPicked({ ...picked, look: l, broll_look: null })} />}
+      {all && <Chip label="Format" value={settings.type} options={formats.map((f) => ({ id: f.id, name: f.name, off: f.off ? "Off" : undefined }))} onPick={pickFormat} />}
+      {all && <Chip label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name, off: l.on ? undefined : "Off" }))} onPick={pickLook} />}
       <Chip label="Cast" icon={CastIcon} many empty="Nobody" value={cast} options={characters.map((c) => ({ id: c.id, name: c.name }))} onPick={(id) => setPicked({ ...picked, cast: cast.includes(id) ? cast.filter((x) => x !== id) : [...cast, id] })} />
       <Chip label="Shape" value={settings.shape} options={SHAPES.map((s) => ({ id: s, name: s }))} onPick={(shape) => setPicked({ ...picked, shape })} />
       <Chip label="Folder" icon={FolderIcon} value={folder ?? 0} options={[...folders.map((f) => ({ id: f.id, name: f.name })), { id: 0, name: "Unsorted" }]} onPick={(f) => setPicked({ ...picked, folder: f || null })} />
@@ -153,20 +157,20 @@ export function NewVideoPage() {
     </>
   );
   const body =
-    tab === "script" ? <SavedScripts brandId={brandId} brandName={brand?.name} owner={owner} folder={folder} seg={seg} rail={rail} /> : tab === "reel" ? <Reel brandId={brandId} owner={owner} folder={folder} seg={seg} rail={rail} format={settings.type} formatName={format?.name} look={look} /> : paste;
+    tab === "script" ? <SavedScripts brandId={brandId} brandName={brand?.name} owner={owner} folder={folder} broll={broll} seg={seg} rail={rail} onScript={setLocked} /> : tab === "reel" ? <Reel brandId={brandId} owner={owner} folder={folder} seg={seg} rail={rail} format={settings.type} formatName={format?.name} look={look} broll={broll} /> : paste;
   const picker = (
     <>
       <section aria-label="Format" className={`flex flex-col gap-2 ${rail ? "" : "pt-1"}`}>
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Format</h2>
-          {rail && <span className="text-xs text-muted">How the words are delivered</span>}
+          {rail && <span className="text-xs text-muted">{fixed ? "From the script" : "How the words are delivered"}</span>}
         </div>
-        <FormatCards formats={formats} value={settings.type} onPick={(type) => setPicked({ ...picked, type })} small={!rail} />
+        <FormatCards formats={formats} value={settings.type} onPick={pickFormat} small={!rail} locked={!!fixed} />
       </section>
       <section aria-label="Style" className="relative flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Style</h2>
-          {rail && <span className="text-xs text-muted">How it looks and how the camera moves. The B-roll follows the style.</span>}
+          {rail && <span className="text-xs text-muted">{fixed ? "From the script. The B-roll follows the style." : "How it looks and how the camera moves. The B-roll follows the style."}</span>}
           <span className="flex-1" />
           {rail && format?.host && look && (
             <button type="button" aria-expanded={brolling} onClick={() => setBrolling(!brolling)} className="text-xs font-medium text-accent-text hover:underline">
@@ -175,7 +179,7 @@ export function NewVideoPage() {
           )}
           {brolling && look && <BrollPicker looks={looks} style={look} value={broll} onPick={(b) => (setPicked({ ...picked, broll_look: b }), setBrolling(false))} onClose={() => setBrolling(false)} />}
         </div>
-        <StyleCards looks={looks} value={settings.look} onPick={(l) => setPicked({ ...picked, look: l, broll_look: null })} small={!rail} />
+        <StyleCards looks={looks} value={settings.look} onPick={pickLook} small={!rail} locked={!!fixed} />
       </section>
     </>
   );
@@ -250,7 +254,8 @@ function Words({ text, setText, go, rail }: { text: string; setText: (t: string)
   const fold = !editing && lines.length > (rail ? 5 : 3);
   if (fold)
     return (
-      <button type="button" aria-label="Paste a script, or describe the video" onClick={() => setEditing(true)} className="block min-h-24 w-full text-left font-script text-sm leading-[1.6]">
+      <button type="button" onClick={() => setEditing(true)} className="block min-h-24 w-full text-left font-script text-sm leading-[1.6]">
+        <span className="sr-only">Edit the words: </span>
         {lines.slice(0, rail ? 4 : 2).map((l, i) => (
           <span key={i} className="block">{l}</span>
         ))}
@@ -299,6 +304,7 @@ function OffNote({ formats, looks, owner }: { formats: { name: string; off?: str
   if (!parts.length) return null;
   return (
     <div className="flex items-start gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-sm">
+      <CircleHelp size={14} aria-hidden className="mt-0.5 shrink-0 text-muted" />
       <span className="min-w-0 flex-1">{parts}</span>
       {owner && (
         <Link to="/settings?tab=looks" className="shrink-0 font-medium text-accent-text hover:underline">

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, FileText, Search } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,20 +12,20 @@ import { ActionBar } from "../shell/ActionBar";
 import { Press, Under, box, row } from "./NewVideoPage";
 import { useEstimate, useSend, usd } from "./useNewVideo";
 
-/** The brand's scripts that can become a video, newest first (an editor sees the published ones). */
+/** The brand's scripts that can become a video (an editor sees the published ones; the owner's drafts too). */
 function useScripts(brandId: number, owner: boolean, q: string) {
   return useQuery({
     queryKey: ["scripts", "new-video", brandId, owner, q],
     queryFn: async () => {
       const { data } = await api.GET("/scripts", { params: { query: { brand_id: brandId, ...(owner ? {} : { status: "published" }), ...(q ? { q } : {}), limit: 50 } } });
-      return (data ?? []).filter((s) => directed(s.kind) && s.versions.some(finished));
+      return (data ?? []).filter((s) => directed(s.kind) && (owner ? s.versions.length > 0 : s.versions.some(finished)));
     },
   });
 }
 
 /** New video › From a saved script (S2-06; S2-05 past the budget): find a script, pick it; its words are set. The
  *  newest finished version is made. An editor's starts at once inside its video's budget, else it goes to the owner. */
-export function SavedScripts({ brandId, brandName, owner, folder, seg, rail }: { brandId: number; brandName?: string; owner: boolean; folder: number | null; seg: ReactNode; rail: boolean }) {
+export function SavedScripts({ brandId, brandName, owner, folder, broll, seg, rail, onScript }: { brandId: number; brandName?: string; owner: boolean; folder: number | null; broll: string | null; seg: ReactNode; rail: boolean; onScript: (s: { type: string; look: string } | null) => void }) {
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const q = useDebounced(text.trim());
@@ -33,8 +33,9 @@ export function SavedScripts({ brandId, brandName, owner, folder, seg, rail }: {
   const looks = useLooks().data;
   const [picked, setPicked] = useState<number | null>(null);
   const script = rows.data?.find((s) => s.id === picked);
-  const version = script?.versions.filter(finished).at(-1);
-  const send = script && version ? { type: "dialogue", script_id: script.id, slot: version.slot, shape: "9:16" as const, folder_id: folder } : null;
+  const version = script && (script.versions.filter(finished).at(-1) ?? script.versions.at(-1));
+  const send = script && version ? { type: script.format, script_id: script.id, slot: version.slot, shape: "9:16" as const, folder_id: folder, broll_look: broll } : null;
+  useEffect(() => onScript(script ? { type: script.format, look: script.look } : null), [script, onScript]);
   const est = useEstimate(send).data;
   const sent = useSend((fs) => navigate(sentTo(fs, owner, brandId)));
   const had = sent.error instanceof SendError ? sent.error.hasVideo : undefined;
@@ -47,11 +48,11 @@ export function SavedScripts({ brandId, brandName, owner, folder, seg, rail }: {
         {rows.data?.map((s) => {
           const on = s.id === picked;
           const ready = s.versions.filter(finished);
-          const v = ready.at(-1)!;
+          const v = ready.at(-1) ?? s.versions.at(-1)!;
           const made = ready.filter((x) => x.project_id).length;
           const used = !s.published ? "owner only" : made ? `${made} of ${ready.length} videos made` : "none made yet";
           return (
-            <li key={s.id} role="radio" aria-checked={on} tabIndex={0} onClick={() => (setPicked(s.id), sent.reset())} onKeyDown={(e) => e.key === "Enter" && (setPicked(s.id), sent.reset())} className={`flex cursor-pointer items-center gap-3 border-t border-border px-3 py-2.5 text-sm first:border-t-0 ${on ? "bg-accent-soft" : "hover:bg-surface-2"}`}>
+            <li key={s.id} role="radio" aria-checked={on} tabIndex={0} onClick={() => (setPicked(s.id), sent.reset())} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setPicked(s.id), sent.reset())} className={`flex cursor-pointer items-center gap-3 border-t border-border px-3 py-2.5 text-sm first:border-t-0 ${on ? "bg-accent-soft" : "hover:bg-surface-2"}`}>
               <span aria-hidden className={`grid size-4 shrink-0 place-items-center rounded-full border ${on ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface"}`}>{on && <Check size={12} />}</span>
               {rail && <FileText size={14} aria-hidden className="shrink-0 text-muted" />}
               <span className="flex min-w-0 flex-1 flex-col">
