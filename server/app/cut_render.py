@@ -70,7 +70,7 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
            "sources": {str(t): _source(db, project, t)
                        for t in dict.fromkeys(p["take_id"] for p in tl["pieces"])},
            "voice": _key(db, voice.file_id) if voice else None,
-           "last_word": max((w["end"] for w in tl.get("words") or []), default=0.0),
+           "last_word": tl.get("last_word") or 0.0,
            "music": {**{k: music[k] for k in ("quieter_db", "gaps", "loop")},
                      "key": _key(db, music["file_id"]),
                      "lines": tl.get("lines") or []} if music else None,

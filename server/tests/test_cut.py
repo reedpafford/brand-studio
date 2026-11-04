@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import pytest
 
-from app import cut, cut_render
+from app import cut, cut_edits, cut_render
 from app.models.clips import FinalVideo
 from app.models.files import StoredFile
 from app.models.projects import Project
@@ -336,7 +336,7 @@ def test_a_lip_synced_piece_keeps_its_picture_on_the_words():
     from app.models.clips import CutEdit
 
     tl = {"mode": "narrated", "length": 9.0, "music": None, "words": [], "presenter": None,
-          "pieces": [_piece(1, 0, 3.0), {**_piece(2, 3.0, 6.0), "lipsync": True},
+          "pieces": [_piece(1, 0, 3.0), {**_piece(2, 3.0, 6.0), "lipsync": True, "picture": 3.0},
                      _piece(3, 6.0, 9.0)]}  # fmt: skip
 
     def trim(**data):
@@ -348,6 +348,26 @@ def test_a_lip_synced_piece_keeps_its_picture_on_the_words():
     assert trim(piece="c2", **{"from": 1.0})[1] == {1}  # its picture is the words' own
     other, _ = trim(piece="c2", end=5.5)  # a B-roll piece's start moves its picture too
     assert (other["pieces"][2]["start"], other["pieces"][2]["from"]) == (5.5, 0.0)
+    assert trim(piece="c3", start=6.5)[1] == {1}  # longer than its picture: it'd be slowed
+    assert trim(piece="c2", end=6.8)[1] == {1}
+    swap = CutEdit(id=2, kind="swap", director=False,
+                   data={"piece": "c2", "take_id": 9, "source": "Take 2"})  # fmt: skip
+    moved = CutEdit(id=1, kind="trim", director=False, data={"piece": "c1", "end": 3.5})
+    kept, _ = cut.replay(tl, [moved, swap])
+    assert kept["pieces"][1]["from"] == 0.5  # another take of its clip, still on the words
+
+
+def test_a_song_cut_must_reach_its_last_good_line_not_every_word_heard():
+    tl = {
+        "mode": "song",
+        "length": 20.0,
+        "seconds": 30.0,
+        "last_word": 19.0,
+        "words": [{"word": "yeah", "start": 24.0, "end": 24.5}],
+    }  # an ad-lib after the end
+    cut_edits._fits(tl)  # the song's own end, a breath after its last line: fine
+    with pytest.raises(cut.Refused):
+        cut_edits._fits({**tl, "length": 18.5})
 
 
 def test_the_end_fades_only_after_the_last_word():

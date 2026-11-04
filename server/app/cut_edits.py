@@ -77,7 +77,7 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
 
 def _fits(tl: dict) -> None:
     """A narrated cut runs at least to its last word; a song cut no further than its song."""
-    last = max((w["end"] for w in tl["words"]), default=0.0)
+    last = tl.get("last_word") or max((w["end"] for w in tl["words"]), default=0.0)
     if tl["mode"] in ("narrated", "song") and tl["length"] < last - 0.005:
         raise Refused(BEFORE_WORDS.format(f"{tc(last)}.{int(last * 10) % 10}"))
     if tl["mode"] == "narrated" and tl["length"] > last + HOLD and last:
@@ -125,7 +125,8 @@ def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
     if tl["mode"] == "takes":
         cut = (start - p["start"]) if start is not None else 0.0
         frm = round(max(0.0, p["from"] + cut), 2)
-        length = round((end if end is not None else p["end"]) - (start or p["start"]), 2)
+        length = round((end if end is not None else p["end"])
+                       - (start if start is not None else p["start"]), 2)  # fmt: skip
         data = {"piece": p["id"], "from": float(d.get("from", frm)), "length": length}
     else:
         data = {
@@ -232,6 +233,10 @@ def _swap_source(db: Session, user: User, project: Project, p: dict, take_id,
     ):
         raise Refused("Here the takes say the lines: a piece swaps only for another take of "
                       "its own clip.")  # fmt: skip
+    elsewhere = other.id != project.id or row.clip_id != p["clip_id"]
+    talks = p.get("lipsync") or (take.made_with or {}).get("talker")
+    if mode == "narrated" and talks and elsewhere:  # its lips say this stretch of the voice
+        raise Refused("A talker piece swaps only for another take of its own clip.")
     if other.aspect_ratio != project.aspect_ratio:
         raise Refused(f"That take is {other.aspect_ratio}; this video is {project.aspect_ratio}.")
     if other.id != project.id:

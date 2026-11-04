@@ -347,7 +347,8 @@ def make(project_id: int, request: Request, user: User = Depends(current_user),
     try:  # a new pick under an old trim, say: never a cut that loses a spoken word
         cut_edits.keeps_every_word(db, tl)
     except cut.Refused as no:
-        raise HTTPException(409, f"{no} Undo or re-time that edit first.") from no
+        hint = " Undo or re-time that edit first." if cut.active(db, project) else ""
+        raise HTTPException(409, f"{no}{hint}") from no
     live = [e.id for e in cut.active(db, project)]
     song = cut.song(db, project)
     data = {"step": cut.STEP, "project_id": project.id,

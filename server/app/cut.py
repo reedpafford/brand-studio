@@ -51,6 +51,7 @@ BEFORE_WORDS = "The cut can't end before the last word, at {}."
 NO_WORDS = "This clip's words aren't heard yet, so it can't be re-timed to them."
 MAKING = "Cut {} is being made. It's ready in a moment."
 SYNCED = "This piece lip-syncs the voice: its start can only move later, with its picture."
+SYNCED_LONG = "This piece lip-syncs the voice: it can't run longer than its picture."
 NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
 SONG_CHANGED = (
     "{} of the clips were made for the video's earlier song. Press Rewrite clip prompts on "
@@ -133,7 +134,8 @@ def base(db: Session, project: Project) -> dict:
                        "source": label(r.clip_id), "start": round(at, 2),
                        "end": round(at + d, 2), "from": 0.0, "whole": mode == "takes",
                        "edited": False, "director": False,
-                       "lipsync": r.clip_id in synced})  # fmt: skip
+                       "lipsync": r.clip_id in synced,
+                       **({"picture": round(d, 2)} if r.clip_id in synced else {})})  # fmt: skip
         at += d
     total = round(at, 2)
     tl = {
@@ -161,6 +163,9 @@ def base(db: Session, project: Project) -> dict:
                        for w in (voice.timing or {}).get("words") or []]  # fmt: skip
         tl["lines"] = [[ln["start"], ln["end"]] for ln in (voice.timing or {}).get("lines") or []
                        if ln.get("start") is not None and ln.get("end") is not None]  # fmt: skip
+        last = song_end(voice) if mode == "song" else None  # a breath after its last good line
+        tl["last_word"] = round(last - AFTER_LAST_LINE, 2) if last else max(
+            (w["end"] for w in tl["words"]), default=0.0)  # fmt: skip
     if mode == "narrated" and voice.music_file_id:
         tl["music"] = {"file_id": voice.music_file_id, "name": _bed_name(db, voice),
                        "quieter_db": QUIETER, "gaps": "rise", "loop": True, "removed": False,
@@ -231,21 +236,24 @@ def _one(tl: dict, e: CutEdit) -> None:
             pieces.insert(i + 1, half)
         elif e.kind == "swap":
             p.update(take_id=d["take_id"], source=d["source"], whole=False, **mark)
-            p["from"] = 0.0
+            p["from"] = p["from"] if p.get("lipsync") else 0.0  # on the words, as it was
         elif tl["mode"] == "takes":  # in the take's own seconds; the rest ripples
             p.update(start=p["start"], end=p["start"] + d["length"], whole=False, **mark)
             p["from"] = d["from"]
         else:  # on the voice's clock: an edge moves, and the picture after it with it
             if "from" in d and p.get("lipsync"):
                 raise Refused(SYNCED)
-            p["from"] = d.get("from", p["from"])
             if "start" in d and i > 0:
                 _edge(pieces, i, d["start"])
             if "end" in d:
                 p["end"] = d["end"]
                 if i + 1 < len(pieces):
                     _edge(pieces, i + 1, d["end"])
+            p["from"] = d.get("from", p["from"])
             p.update(**mark)
+        if any(q.get("lipsync") and q["from"] + q["end"] - q["start"] > q["picture"] + 0.02
+               for q in pieces):  # fmt: skip
+            raise Refused(SYNCED_LONG)  # slowed to fill, its lips would fall behind
         if any(q["end"] - q["start"] < MIN - 0.01 for q in pieces):
             raise Refused(TOO_SHORT)
         _place(tl)
