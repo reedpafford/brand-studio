@@ -228,8 +228,9 @@ def test_a_take_for_a_clip_that_isnt_there_is_refused(db, owner, editor, app):
     pid = _made(app, owner, editor, db)
     project = db.get(Project, pid)
     user = db.query(User).filter_by(email="ed@example.com").one()
-    said = director_tools.run(db, user, project, {"tool": "make_take", "clip_id": "c9"}, None)
-    assert director.named(said) == "Refused: there's no clip 9."  # QA-3: never "clip clip 9"
+    for clip in ("c9", "C9", "9", "clip 9"):  # QA-3: never "clip clip 9" or "there's no 9"
+        said = director_tools.run(db, user, project, {"tool": "make_take", "clip_id": clip}, None)
+        assert director.named(said) == "Refused: there's no clip 9."
 
 
 def test_its_own_turns_never_use_the_videos_budget(app, db, owner, editor):
