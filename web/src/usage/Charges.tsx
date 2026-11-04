@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Ellipsis, Undo2 } from "lucide-react";
+import { Ellipsis, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Badge, Banner, Button, Dialog, Field, Menu, MenuItem, Select, Skeleton, useToast, wholeCredits } from "../components";
@@ -85,10 +85,10 @@ export function Charges() {
   const owner = useMe().data?.role === "owner";
   const giveBack = (c: Charge) => (owner && !c.refunded && c.credits > 0 ? <GiveBack charge={c} /> : null);
   return (
-    <details className="group border-t border-border pt-3" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary className="flex min-h-control cursor-pointer list-none items-center gap-2 font-medium [&::-webkit-details-marker]:hidden">
-        <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
-        Every charge
+    <details className="group lg:max-w-[1100px]" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      {/* Reed (3 Nov): a small link at the bottom, not a section of its own. */}
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm text-accent-text hover:underline lg:min-h-0 [&::-webkit-details-marker]:hidden">
+        See every charge
       </summary>
       <div className="mt-3 space-y-3">
         <div className="max-w-60">

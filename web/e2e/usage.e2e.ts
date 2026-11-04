@@ -20,11 +20,17 @@ test("Reed opens Usage: the totals, a row for every brand, and one brand's page"
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Usage" }).click();
   await expect(page.getByRole("heading", { name: "Usage", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Totals" })).toContainText("Cost per finished video");
-  const fomo = page.getByRole("link", { name: /^fomo: \$[\d,.]+ spent, \d+ finished$/ });
+  await expect(page.getByRole("group", { name: "Totals" })).toContainText("Spent this month"); // v5 D_Usage: one month at a time
+  const byBrand = page.getByRole("table", { name: "By brand" });
+  await expect(byBrand.getByRole("columnheader", { name: "Credits" })).toBeVisible();
+  const month = page.getByRole("combobox", { name: "Month" });
+  const last = await month.locator("option").nth(1).getAttribute("value");
+  await month.selectOption(last!);
+  await expect(page).toHaveURL(new RegExp(`month=${last}`));
+  await expect(page.getByRole("link", { name: "Download CSV" })).toHaveAttribute("href", `/api/usage/charges.csv?month=${last}`);
+  await month.selectOption({ index: 0 });
+  const fomo = byBrand.getByRole("link", { name: "fomo", exact: true });
   await expect(fomo).toBeVisible();
-  await page.getByRole("radio", { name: "All time" }).click();
-  await expect(page).toHaveURL(/period=all/);
   await fomo.click();
   await expect(page.getByRole("heading", { name: "fomo", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Usage", exact: true }).first()).toBeVisible();

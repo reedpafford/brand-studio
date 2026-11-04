@@ -23,11 +23,11 @@ test("lists characters for the brand and searches by name", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [mia, { ...mia, id: 6, name: "Dex" }]] });
   renderAt("/b/1/library/characters");
   expect(await screen.findByText("Mia")).toBeInTheDocument();
-  await userEvent.type(screen.getByLabelText("Search"), "dex");
+  await userEvent.type(screen.getByLabelText(/^Search/), "dex");
   expect(screen.queryByText("Mia")).not.toBeInTheDocument();
-  await userEvent.clear(screen.getByLabelText("Search"));
-  await userEvent.type(screen.getByLabelText("Search"), "zzz");
-  expect(screen.getByText(/Nothing matches "zzz"/)).toBeInTheDocument();
+  await userEvent.clear(screen.getByLabelText(/^Search/));
+  await userEvent.type(screen.getByLabelText(/^Search/), "zzz");
+  expect(screen.getByText(/Nothing matches/)).toBeInTheDocument();
 });
 
 test("each kind tab shows its count, and New character sits in the page top (W10)", async () => {
@@ -37,7 +37,7 @@ test("each kind tab shows its count, and New character sits in the page top (W10
   expect(await within(kinds).findByRole("link", { name: /^Characters\s*2$/ })).toBeInTheDocument();
   expect(await within(kinds).findByRole("link", { name: /^Places\s*0$/ })).toBeInTheDocument();
   expect(await within(kinds).findByRole("link", { name: /^Props\s*1$/ })).toBeInTheDocument();
-  expect(within(screen.getByRole("main").querySelector("header")!).getByRole("button", { name: "New character" })).toBeInTheDocument();
+  expect(within(screen.getByRole("main").querySelector("header")!).getByRole("button", { name: "+ New character" })).toBeInTheDocument();
 });
 
 test("a new character is created in the current brand", async () => {
@@ -45,7 +45,7 @@ test("a new character is created in the current brand", async () => {
   renderAt("/b/1/library/characters");
   expect(await screen.findByText("No characters for this brand yet.")).toBeInTheDocument();
   expect(screen.getByText("Add a character once, use them in every video.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "New character" }));
+  await userEvent.click(screen.getByRole("button", { name: "+ New character" }));
   await userEvent.type(screen.getByLabelText("Name"), "Mia");
   await userEvent.click(screen.getByRole("button", { name: "Create character" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character")).toBe(true));
@@ -87,7 +87,7 @@ test("archived items: editors can bring them back, only the owner can delete for
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  await userEvent.click(await screen.findByLabelText("Show archived"));
+  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
   expect(await screen.findByRole("button", { name: "Unarchive Mia" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /forever/ })).not.toBeInTheDocument();
   view.unmount();
@@ -95,7 +95,7 @@ test("archived items: editors can bring them back, only the owner can delete for
   const calls = fakeServer({ "GET /auth/me": [200, owner], ...archivedRoutes, "DELETE /library/character/5/permanent": [204, null] });
   vi.spyOn(window, "confirm").mockReturnValue(true);
   renderAt("/b/1/library/characters");
-  await userEvent.click(await screen.findByLabelText("Show archived"));
+  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
   await userEvent.click(await screen.findByRole("button", { name: "Delete Mia forever" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/permanent")).toBe(true));
 });
@@ -175,7 +175,7 @@ test("shared items show their brands, and Save needs at least one brand", async 
 test("archived cards carry an Archived badge", async () => {
   fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/place": [200, [{ ...mia, kind: "place" }]] });
   renderAt("/b/1/library/places");
-  await userEvent.click(await screen.findByLabelText("Show archived"));
+  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
   expect(await screen.findByText("Archived")).toBeInTheDocument();
 });
 
@@ -188,7 +188,7 @@ test("a refused restore or delete-forever shows the server's reason", async () =
   });
   vi.spyOn(window, "confirm").mockReturnValue(true);
   renderAt("/b/1/library/characters");
-  await userEvent.click(await screen.findByLabelText("Show archived"));
+  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
   await userEvent.click(await screen.findByRole("button", { name: "Delete Mia forever" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Archive it first.");
 });
@@ -275,11 +275,15 @@ test("a failed sheet says credits came back and offers Try again", async () => {
   expect(screen.getByRole("button", { name: /Try again/ })).toBeInTheDocument();
 });
 
-test("library cards say Needs a sheet until the sheet is approved", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, sheet_status: "none" }, { ...mia, id: 6, name: "Dex", sheet_status: "approved" }]] });
+test("library cards say where each sheet stands, and Sheet: narrows them", async () => {
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, sheet_status: "none" }, { ...mia, id: 6, name: "Dex", sheet_status: "approved" }, { ...mia, id: 7, name: "Rex", sheet_status: "drawing" }, { ...mia, id: 8, name: "Val", sheet_status: "needs_approval" }]] });
   renderAt("/b/1/library/characters");
   await screen.findByText("Dex");
-  expect(screen.getAllByText("Needs a sheet")).toHaveLength(1);
+  for (const line of ["No sheet yet", "Sheet approved", "Drawing the sheet", "Sheet to check"]) expect(screen.getAllByText(line)).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: /Sheet: Any/ }));
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "To check" }));
+  expect(screen.getByText("Val")).toBeInTheDocument();
+  expect(screen.queryByText("Dex")).toBeNull();
 });
 
 test("Open Mia from a video comes back to the same stage", async () => {
@@ -312,7 +316,7 @@ test("a character's photo at creation is the source photo for its sheet, not a l
     "POST /library/character": [201, mia],
   });
   renderAt("/b/1/library/characters");
-  await userEvent.click(await screen.findByRole("button", { name: "New character" }));
+  await userEvent.click(await screen.findByRole("button", { name: "+ New character" }));
   await userEvent.type(screen.getByLabelText("Name"), "Nate");
   await userEvent.upload(screen.getByLabelText("Photo (optional)"), new File(["x"], "nate.jpg", { type: "image/jpeg" }));
   await userEvent.click(screen.getByRole("button", { name: "Create character" }));

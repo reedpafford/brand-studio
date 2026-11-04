@@ -5,10 +5,10 @@ import { api, errorText, must } from "../api/client";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
-import { useBrands } from "../shell/useBrands";
 import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
 import { KINDS, isKindSlug } from "./kinds";
-import { PageTop, pillClass } from "../components";
+import { Button, Menu, MenuItem, PageTop, pillClass } from "../components";
+import { ChevronDown, Search } from "lucide-react";
 
 const tab = ({ isActive }: { isActive: boolean }) => pillClass(isActive);
 
@@ -20,9 +20,9 @@ export function LibraryPage() {
 
 function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS }) {
   const { kind, one, them, title } = KINDS[slug];
-  const { data: brands } = useBrands();
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
+  const [sheet, setSheet] = useState<Filter>("any");
   const [adding, setAdding] = useState(false);
   const { data: me } = useMe();
   const queryClient = useQueryClient();
@@ -54,19 +54,19 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
     mutationFn: (item_id: number) => must(api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path: { kind, item_id } } })),
     onSuccess: refresh,
   });
-  const shown = items.data?.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const shown = items.data?.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase()) && (sheet === "any" || (SHEET[i.sheet_status] ?? SHEET.none).filter === sheet));
 
   return (
     <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
       <PageTop title="Cast & places">
         {!archived && !adding && (
-          <button className={`${btnPrimary} min-h-control`} onClick={() => setAdding(true)}>
-            New {one}
-          </button>
+          <Button className="lg:min-h-9 lg:px-3" onClick={() => setAdding(true)}>
+            + New {one}
+          </Button>
         )}
       </PageTop>
-      {/* One bar: the kinds, then search and Show archived on the right (v4 board). */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border pb-2">
+      {/* One 44 px band: the kinds as pills, then search and the sheet filter on the right (v5 C_CastPlaces). */}
+      <div className="-mx-4 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
         <nav aria-label="Kinds" className="flex flex-wrap items-center gap-1">
           {Object.entries(KINDS).map(([s, k], n) => (
             <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>
@@ -76,11 +76,23 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
           ))}
         </nav>
         <span className="hidden flex-1 sm:block" />
-        <input className={`${input} max-w-xs`} type="search" aria-label="Search" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
-          <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} />
-          Show archived
+        <label className="relative block w-full sm:w-64">
+          <span className="sr-only">Search {them === "them" ? "characters" : title.toLowerCase()}</span>
+          <Search size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input className={`${input} pl-9`} type="search" placeholder={`Search ${title.toLowerCase()}`} value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
+        {kind !== "prop" && (
+          <Menu title="Sheet" align="right" trigger={(p) => (
+            <Button variant="secondary" dense trailing={ChevronDown} {...p}>
+              Sheet: {sheet === "any" ? "Any" : FILTERS[sheet]}
+            </Button>
+          )}>
+            {(close) => Object.entries(FILTERS).map(([id, label]) => <MenuItem key={id} checked={sheet === id} onClick={() => { close(); setSheet(id as Filter); }}>{label}</MenuItem>)}
+          </Menu>
+        )}
+        <Button variant="ghost" dense aria-pressed={archived} onClick={() => setArchived(!archived)}>
+          {archived ? "Back" : "Archived"}
+        </Button>
       </div>
       {!archived && adding && <NewItem brandId={brandId} kind={kind} one={one} onDone={refresh} onClose={() => setAdding(false)} />}
       {items.isError && <p role="alert" className={errorClass}>Could not load the library. Try again.</p>}
@@ -97,10 +109,10 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
       )}
       {items.data && items.data.length > 0 && shown?.length === 0 && (
         <p>
-          Nothing matches "{search}". <button className={linkText} onClick={() => setSearch("")}>Clear search</button>
+          Nothing matches. <button className={linkText} onClick={() => { setSearch(""); setSheet("any"); }}>Clear filters</button>
         </p>
       )}
-      <ul className="grid grid-cols-2 gap-5 md:grid-cols-4 xl:grid-cols-5">
+      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
         {shown?.map((i) => (
           <li key={i.id} className="space-y-1 text-sm">
             {archived ? <Thumb id={cover(i)} name={i.name} faded /> : (
@@ -108,18 +120,10 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
                 <Thumb id={cover(i)} name={i.name} />
               </Link>
             )}
-            <div className="text-[length:var(--text-md)] font-semibold">{i.name}</div>
-            <div className="flex items-center gap-2 text-muted">
-              {i.brand_ids?.map((id) => {
-                const b = brands?.find((x) => x.id === id);
-                return b && <span key={id} title={b.name} className="size-2.5 rounded-full" style={{ background: b.colours?.[0] || "var(--accent)" }}><span className="sr-only">{b.name}</span></span>;
-              })}
-              v{i.version}
-              {!archived && kind !== "prop" && i.sheet_status !== "approved" && <span className="rounded-sm bg-warning-soft px-2 py-0.5 text-xs text-warning">Needs a sheet</span>}
-              {archived && <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs">Archived</span>}
-            </div>
-            {archived && (
-              <div className="flex gap-3">
+            <div className="truncate font-medium">{i.name}</div>
+            {archived ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs text-muted">Archived</span>
                 <button className={linkText} aria-label={`Unarchive ${i.name}`} onClick={() => unarchive.mutate(i.id)}>
                   Unarchive
                 </button>
@@ -133,6 +137,8 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
                   </button>
                 )}
               </div>
+            ) : (
+              kind !== "prop" && <SheetLine status={i.sheet_status} />
             )}
           </li>
         ))}
@@ -141,12 +147,33 @@ function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS 
   );
 }
 
+const SHEET: Record<string, { text: string; dot: string; filter: string }> = {
+  approved: { text: "Sheet approved", dot: "bg-success", filter: "approved" },
+  needs_approval: { text: "Sheet to check", dot: "bg-warning", filter: "check" },
+  drawing: { text: "Drawing the sheet", dot: "bg-accent", filter: "drawing" },
+  waiting_for_owner: { text: "Waiting for the owner's OK", dot: "bg-accent", filter: "drawing" },
+  none: { text: "No sheet yet", dot: "border border-muted", filter: "none" },
+} as const;
+const FILTERS = { any: "Any", approved: "Approved", check: "To check", drawing: "Drawing", none: "No sheet" } as const;
+type Filter = keyof typeof FILTERS;
+
+/** A card's status: a dot and words (a hollow ring for no sheet). */
+function SheetLine({ status }: { status: string }) {
+  const line = SHEET[status] ?? SHEET.none;
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-muted">
+      <span aria-hidden className={`size-2 shrink-0 rounded-full ${line.dot}`} />
+      {line.text}
+    </p>
+  );
+}
+
 function Thumb({ id, name, faded }: { id?: number; name: string; faded?: boolean }) {
   const fade = faded ? " opacity-60" : "";
   return id ? (
-    <img src={fileUrl(id)} alt={name} className={`aspect-square w-full rounded-md border border-border bg-surface-2 object-cover${fade}`} />
+    <img src={fileUrl(id)} alt={name} className={`aspect-[3/4] w-full rounded-md border border-border bg-surface-2 object-cover${fade}`} />
   ) : (
-    <div className={`grid aspect-square w-full place-items-center rounded-md border border-border bg-surface-2 text-muted${fade}`}>No image</div>
+    <div className={`grid aspect-[3/4] w-full place-items-center rounded-md border border-border bg-surface-2 text-muted${fade}`}>No image</div>
   );
 }
 
