@@ -1,6 +1,7 @@
 name: Wool crochet
 order: 9
 on: no
+hidden: yes
 image_model: auto
 video_model: seedance-2.0
 blurb: A cosy miniature world knitted from yarn: knitted dolls with painted faces, bright daylight, stop-motion movement.
