@@ -16,6 +16,7 @@ import { SHEET_MODEL, lookFitNote } from "./sheets";
 import { useJobs } from "../clip/History";
 import { KINDS, PRODUCT_TYPE, cover, day, isKindSlug, upTo, useItems, videos, type Item, type KindSlug } from "./kinds";
 import { addPicture } from "./products";
+import { sampleOf, useVoiceList, voiceFields, voiceOf, type Voice } from "./Voices";
 import { AddScreens } from "../brand/AddScreens";
 import { ScreenEditor, useScreens, type Screen } from "../brand/screens";
 
@@ -248,7 +249,7 @@ function Facts({ item, brandId }: { item: Item; brandId: number }) {
   });
   const rows: [string, ReactNode][] = [["Came from", came]];
   if (item.kind === "character") {
-    rows.push(["Voice", item.voice_file_id ? <VoiceSample fileId={item.voice_file_id} /> : <span className="text-muted">None yet</span>]);
+    rows.push(["Voice", <CharacterVoice key="voice" item={item} brandId={brandId} />]);
     rows.push([
       "Place",
       <Menu key="place" title="Usual place" trigger={(p) => <button type="button" {...p} className="inline-flex items-center gap-1 hover:underline">{place?.name ?? <span className="text-muted">None</span>}<ChevronDown size={14} strokeWidth={1.75} aria-hidden className="text-muted" /></button>}>
@@ -275,15 +276,39 @@ function Facts({ item, brandId }: { item: Item; brandId: number }) {
   );
 }
 
-/** A character's voice sample as one quiet Play. */
-function VoiceSample({ fileId }: { fileId: number }) {
-  const [audio] = useState(() => (typeof Audio === "undefined" ? null : new Audio(fileUrl(fileId))));
+/** A character's voice (S8-03 "Roger · relaxed · Play"): one of the app's voices or a saved one, changed from the list of
+ *  every voice; an uploaded sample of their real voice plays too. */
+function CharacterVoice({ item, brandId }: { item: Item; brandId: number }) {
+  const voices = useVoiceList(brandId).data?.voices ?? [];
+  const queryClient = useQueryClient();
+  const voice = voiceOf(item, voices);
+  const sample = voice ? sampleOf(voice) : item.voice_file_id ? fileUrl(item.voice_file_id) : null;
+  const pick = useMutation({
+    mutationFn: (v: Voice | null) => must(api.PATCH("/library/{kind}/{item_id}", { params: { path: { kind: "character", item_id: item.id } }, body: v ? voiceFields(v) : { voice_id: null, voice_stock_key: null } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library", "character"] }),
+  });
+  const words = voice ? [voice.name, voice.description.split(",")[0].toLowerCase()].filter(Boolean).join(" · ") : item.voice_file_id ? "Their own voice sample" : "";
   return (
-    <span>
-      Voice sample ·{" "}
-      <button type="button" className="text-accent-text hover:underline" onClick={() => void audio?.play()}>Play</button>
+    <span className="inline-flex flex-wrap items-center gap-x-1">
+      {words ? <span>{words}</span> : <span className="text-muted">None yet</span>}
+      {sample && <> · <PlayLink src={sample} /></>}
+      {" · "}
+      <Menu title="Voice" trigger={(p) => <button type="button" {...p} className="text-accent-text hover:underline">{voice ? "Change" : "Pick a voice"}</button>}>
+        {(close) => [
+          ...voices.filter((v) => v.state !== "expired" && v.state !== "failed").map((v) => (
+            <MenuItem key={v.id ?? v.stock_key ?? v.name} checked={v === voice} onClick={() => (close(), pick.mutate(v))}>{v.name}</MenuItem>
+          )),
+          voice && <MenuItem key="none" onClick={() => (close(), pick.mutate(null))}>No voice</MenuItem>,
+        ]}
+      </Menu>
     </span>
   );
+}
+
+/** A quiet Play for a sample (samples play free). */
+function PlayLink({ src }: { src: string }) {
+  const [audio] = useState(() => (typeof Audio === "undefined" ? null : new Audio(src)));
+  return <button type="button" className="text-accent-text hover:underline" onClick={() => void audio?.play()}>Play</button>;
 }
 
 /** "Used in N videos" (S8-03): each with its still, its status and its date; three, then "+ N more". */

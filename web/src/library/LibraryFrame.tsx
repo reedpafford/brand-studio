@@ -3,6 +3,7 @@ import { ChevronRight, Plus, Search } from "lucide-react";
 import { Link, NavLink, useSearchParams } from "react-router-dom";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
+import { useVoices } from "./Voices";
 import { useCounts, type TabSlug } from "./kinds";
 
 const TABS: { slug: TabSlug; title: string; phone?: string }[] = [
@@ -24,14 +25,15 @@ export function useSearch() {
 
 /** The brand library's frame (v6 S8, P-13): Brand › Library with its line and the tab's one press, then the tabs with
  *  their counts and the search box. On a phone: the brand, "Library", a + for the press, and the tabs as a strip. */
-export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, voices, children }: { brandId: number; tab: TabSlug; action?: ReactNode; onAdd?: () => void; addLabel?: string; voices?: number; children: ReactNode }) {
+export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }: { brandId: number; tab: TabSlug; action?: ReactNode; onAdd?: () => void; addLabel?: string; children: ReactNode }) {
   const brand = useBrands().data?.find((b) => b.id === brandId);
   const counts = useCounts(brandId);
+  const voices = useVoices(brandId).length; // the brand's own voices (L4); the app's are everyone's
   const rail = useRail();
   const [q, setQ] = useSearch();
   const name = brand?.name ?? "";
   const count = (slug: TabSlug) =>
-    slug === "kit" ? undefined : slug === "presenters" ? (counts.presenters === undefined ? undefined : counts.presenters + (voices ?? 0)) : counts[slug];
+    slug === "kit" ? undefined : slug === "presenters" ? (counts.presenters === undefined ? undefined : counts.presenters + voices) : counts[slug];
   if (!rail) {
     return (
       <main className="min-h-screen pb-24">

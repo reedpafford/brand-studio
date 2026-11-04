@@ -15,6 +15,8 @@ const old = { ...base, id: 7, name: "Old Dr. Pickle v1", sheet_file_id: 33, arch
 const bag = { ...base, id: 9, kind: "prop", name: "Peanut butter bag", notes: "Main text must read right", product_type: "physical", pictures: [{ screen_id: 40, file_id: 41, name: "Peanut butter bag", variant: "" }] };
 const chicken = { ...bag, id: 10, name: "Chicken bag", notes: "", pictures: [] };
 const app = { ...bag, id: 11, name: "fomo app", product_type: "app", notes: "", pictures: [1, 2, 3].map((n) => ({ screen_id: 50 + n, file_id: 60 + n, name: `Screen ${n}`, variant: "" })) };
+const voice = (o: object) => ({ id: null, name: "", kind: "stock", stock_key: null, provider: "elevenlabs", description: "", look: null, brand_id: null, sample_file_id: null, sample_url: null, preview_file_id: null, cloned_at: null, last_used_at: null, expires_at: null, state: "ready", error: "", used_by: [], ...o });
+const voices = { voices: [voice({ id: 1, name: "Dr. Pickle", kind: "cloned", provider: "minimax", description: "Deep, fixed", look: "dr-pickle", sample_url: "http://localhost:8000/voices/samples/dr-pickle.mp3" }), voice({ name: "Sarah", stock_key: "Sarah", description: "Warm narrator" }), voice({ name: "Roger", stock_key: "Roger", description: "Relaxed man", sample_url: "http://localhost:8000/voices/samples/Roger.mp3" })], clone_credits: 29.18, clone_usd: 3 };
 const looks = [{ id: "house", name: "House", blurb: "", on: true }, { id: "pixar", name: "Disney Pixar", blurb: "", on: true }];
 
 function server(me: object, o: Routes = {}): Routes {
@@ -33,6 +35,8 @@ function server(me: object, o: Routes = {}): Routes {
     "GET /library/character/5/versions": [200, []],
     "GET /library/character/5/sheet/versions": [200, []],
     "GET /jobs": [200, []],
+    "GET /brands/1/voices": [200, (me as { role: string }).role === "owner" ? voices : { ...voices, clone_usd: null }],
+    "GET /brands/2/voices": [200, voices],
     ...o,
   };
 }
@@ -236,4 +240,37 @@ test("P-13: on a phone the tabs are a strip with every tab, and cards say how ma
   expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Characters", "Places", "Products", "Presenters", "Brand kit"]);
   expect(await screen.findByText("6 videos")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "New character" })).toBeInTheDocument();
+});
+
+test("S8-04 / L4: the brand's own voices, then every app voice with its free sample, and Clone a voice with its price", async () => {
+  const calls = fakeServer(server(owner, { "POST /files": [201, { id: 80 }], "POST /brands/1/voices/clone": [201, voice({ id: 2, name: "Kim", kind: "cloned", state: "cloning" })] }));
+  renderApp("/b/1/library/presenters");
+  const list = await screen.findByRole("region", { name: "Voices" });
+  expect(await within(list).findByText("Dr. Pickle (cloned)")).toBeInTheDocument();
+  expect(within(list).getByText("Deep, fixed · MiniMax clone")).toBeInTheDocument();
+  expect(within(list).getByText(/^The app’s voices · 2 · usable in any video/)).toBeInTheDocument();
+  expect(within(list).getByRole("button", { name: "Play Roger" })).toBeEnabled();
+  expect(within(list).getByRole("button", { name: "Play Sarah" })).toBeDisabled(); // no free sample yet
+  expect(list.querySelector("audio[src='/api/voices/samples/Roger.mp3']")).not.toBeNull();
+  expect(await screen.findByRole("link", { name: /^Presenters & voices\s*2$/ })).toBeInTheDocument(); // Mark and the brand's one voice
+  await userEvent.click(within(list).getByRole("button", { name: "Clone a voice · up to $3.00" }));
+  await userEvent.upload(within(list).getByLabelText("Pick a sample"), new File(["a"], "kim.mp3", { type: "audio/mpeg" }));
+  await userEvent.type(within(list).getByLabelText("Name"), "Kim");
+  await userEvent.click(within(list).getByRole("button", { name: "Clone · up to $3.00" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /brands/1/voices/clone")).toEqual({ name: "Kim", description: "", sample_file_id: 80 }));
+});
+
+test("an editor's Clone says credits, never dollars", async () => {
+  fakeServer(server(editor));
+  renderApp("/b/1/library/presenters");
+  expect(await screen.findByRole("button", { name: "Clone a voice · up to 30 credits" })).toBeInTheDocument();
+});
+
+test("S8-03: a character's voice is any app voice or a saved one, picked from every voice", async () => {
+  const calls = fakeServer(server(owner, { "GET /library/character/5": [200, { ...mark, voice_stock_key: "Roger", used_in: [] }], "PATCH /library/character/5": [200, mark] }));
+  renderApp("/b/1/library/characters/5");
+  expect(await screen.findByText("Roger · relaxed man")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Change" }));
+  await userEvent.click(await screen.findByRole("menuitemradio", { name: "Dr. Pickle" }));
+  await vi.waitFor(() => expect(posted(calls, "PATCH /library/character/5")).toEqual({ voice_id: 1, voice_stock_key: null }));
 });

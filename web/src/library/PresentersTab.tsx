@@ -10,7 +10,7 @@ import { useRail } from "../useMedia";
 import { LibraryCard, Picture } from "./Cards";
 import { LibraryFrame, useSearch } from "./LibraryFrame";
 import { usePreview } from "./NewItem";
-import { Voices, useVoiceList, useVoices, voiceFields, voiceOf, type Voice } from "./Voices";
+import { Voices, useVoiceList, voiceFields, voiceOf, type Voice } from "./Voices";
 import { cover, useItems, videos } from "./kinds";
 
 /** Presenters & voices (S8-04): the brand's presenters (characters who present, by how they appear) beside its voices,
@@ -20,7 +20,6 @@ export function PresentersTab({ brandId }: { brandId: number }) {
   const adding = params.get("new") === "1";
   const setAdding = (on: boolean) => setParams((p) => (on ? p.set("new", "1") : p.delete("new"), p), { replace: true });
   const characters = useItems("character", brandId);
-  const voices = useVoices(brandId);
   const all = useVoiceList(brandId).data?.voices ?? [];
   const [q] = useSearch();
   const rail = useRail();
@@ -31,7 +30,7 @@ export function PresentersTab({ brandId }: { brandId: number }) {
     </Button>
   );
   return (
-    <LibraryFrame brandId={brandId} tab="presenters" action={action} onAdd={() => setAdding(true)} addLabel="New presenter" voices={voices.length}>
+    <LibraryFrame brandId={brandId} tab="presenters" action={action} onAdd={() => setAdding(true)} addLabel="New presenter">
       {adding ? (
         <NewPresenter brandId={brandId} onClose={() => setAdding(false)} />
       ) : (

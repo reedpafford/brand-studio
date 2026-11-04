@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pause, Play, Upload } from "lucide-react";
+import { api, must } from "../api/client";
+import type { components } from "../api/schema";
 import { uploadFile, fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Button, creditsLabel } from "../components";
@@ -8,33 +10,13 @@ import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
-/** A voice as v6-models' GET /brands/{id}/voices gives it (#1314). */
-export type Voice = {
-  id: number | null;
-  name: string;
-  kind: "stock" | "cloned" | "described";
-  stock_key: string | null;
-  provider: string;
-  description: string;
-  look: string | null;
-  brand_id: number | null;
-  sample_file_id: number | null;
-  sample_url: string | null;
-  state: "cloning" | "ready" | "may_expire" | "expired" | "failed";
-  error: string;
-  used_by: number[];
-};
-type Voices = { voices: Voice[]; clone_credits: number; clone_usd: number | null };
+export type Voice = components["schemas"]["VoiceOut"];
 
-// The one read and the one write the tab needs; they switch to the generated client once #1314 is on next.
-async function readVoices(brandId: number): Promise<Voices> {
-  void brandId;
-  return { voices: [], clone_credits: 0, clone_usd: null };
+async function readVoices(brandId: number) {
+  return (await must(api.GET("/brands/{brand_id}/voices", { params: { path: { brand_id: brandId } } }))).data!;
 }
-async function cloneVoice(brandId: number, body: { name: string; description: string; sample_file_id: number }): Promise<Voice> {
-  void brandId;
-  void body;
-  throw new Error("Cloning a voice isn't on this site yet.");
+async function cloneVoice(brandId: number, body: { name: string; description: string; sample_file_id: number }) {
+  return (await must(api.POST("/brands/{brand_id}/voices/clone", { params: { path: { brand_id: brandId } }, body }))).data!;
 }
 
 export function useVoiceList(brandId: number) {
@@ -48,14 +30,18 @@ export function useVoices(brandId: number) {
 
 /** A character's voice in the item routes (#1314): a saved or cloned voice's row, or an app voice's key; one at most. */
 export const voiceFields = (v: Voice | null) => (!v ? {} : v.id !== null ? { voice_id: v.id, voice_stock_key: null } : { voice_id: null, voice_stock_key: v.stock_key });
-export function voiceOf(item: object, voices: Voice[]) {
-  const i = item as { voice_id?: number | null; voice_stock_key?: string | null };
+export function voiceOf(i: { voice_id?: number | null; voice_stock_key?: string | null }, voices: Voice[]) {
   return voices.find((v) => (i.voice_id != null && v.id === i.voice_id) || (i.voice_stock_key != null && v.stock_key === i.voice_stock_key));
 }
 
 const PROVIDER: Record<string, string> = { elevenlabs: "ElevenLabs", minimax: "MiniMax", omni: "Omni" };
 export const voiceLine = (v: Voice) => [v.description, v.kind === "cloned" ? `${PROVIDER[v.provider] ?? v.provider} clone` : PROVIDER[v.provider] ?? v.provider].filter(Boolean).join(" · ");
-const sampleOf = (v: Voice) => v.sample_url ?? (v.sample_file_id ? fileUrl(v.sample_file_id) : null);
+// A free sample's address is the server's own (…/voices/samples/Roger.mp3); the app reaches the server under /api.
+const apiPath = (url: string) => {
+  const path = new URL(url, window.location.origin).pathname;
+  return path.startsWith("/api/") ? path : `/api${path}`;
+};
+export const sampleOf = (v: Voice) => (v.sample_url ? apiPath(v.sample_url) : v.sample_file_id ? fileUrl(v.sample_file_id) : v.preview_file_id ? fileUrl(v.preview_file_id) : null);
 const BARS = [6, 10, 14, 8, 16, 12, 6, 10, 18, 12, 8, 14, 10, 6, 12, 16, 10, 8, 12, 6, 9, 13, 7, 11];
 
 /** One voice (S8-04, S4-04): Play, its name and line, and its sample's bars. Samples play free. */
@@ -92,7 +78,7 @@ export function Voices({ brandId }: { brandId: number }) {
   const owner = useMe().data?.role === "owner";
   const voices = list.data?.voices ?? [];
   const own = voices.filter((v) => v.kind !== "stock");
-  const app = voices.filter((v) => v.kind === "stock");
+  const app = voices.filter((v) => v.kind === "stock").sort((a, b) => Number(!sampleOf(a)) - Number(!sampleOf(b))); // samples first
   const price = list.data ? (owner && list.data.clone_usd != null ? `up to $${list.data.clone_usd.toFixed(2)}` : `up to ${creditsLabel(list.data.clone_credits)}`) : "";
   return (
     <section aria-label="Voices" className="flex min-w-0 grow flex-col gap-3">
