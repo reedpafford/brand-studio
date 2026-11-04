@@ -63,3 +63,12 @@ Reed said "yes to all" to the five options on [S-gaps-01](boards/S-gaps-01.jpg):
 - the upload button (for this video only);
 - the status words ("Needs you" with a reason; "Needs a fix" when a run stops on its own; "Stopped" only when a person stops it);
 - sorting by Newest, Oldest or Name A–Z.
+
+## Gaps the builders found, part 2 (3 Nov), approved
+
+Reed said "yes to all" to [S-gaps-02](boards/S-gaps-02.jpg):
+- the folder's ⋯ menu, with "Archived ideas · N" (hidden at 0);
+- card checkboxes on hover, and on every card once one is ticked;
+- Unsorted opens on desktop, and the folder list on a phone;
+- the set-up list only while a brand is empty;
+- P-02's phone tabs fixed to All · Needs you · Working · Delivered.

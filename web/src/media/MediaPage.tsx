@@ -1,13 +1,11 @@
-import { useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Download, Film, Images, Music, Users } from "lucide-react";
+import { ChevronDown, ChevronLeft, Film, Images, Music, Users } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Badge, Banner, Button, EmptyState, MediaCard, Select, Sheet, Skeleton, buttonClass, useToast, PageTop, pillClass, pillStrip } from "../components";
-import { ProjectsChip } from "../folders/Projects";
+import { Banner, Button, EmptyState, Menu, MenuItem, Skeleton, buttonClass, useToast, PageTop, pillClass, pillStrip } from "../components";
 import { useBrands } from "../shell/useBrands";
 import { serverTime } from "../time";
 import { useRail } from "../useMedia";
@@ -18,10 +16,18 @@ type Kind = Item["kind"];
 const KINDS: { id: Kind; label: string; one: string }[] = [
   { id: "still", label: "Stills", one: "Still" },
   { id: "sheet", label: "Character sheets", one: "Sheet" },
-  { id: "take", label: "Takes", one: "Take" },
+  { id: "take", label: "Clips", one: "Take" },
   { id: "song", label: "Songs", one: "Song" },
   { id: "final", label: "Final videos", one: "Final video" },
+  { id: "upload", label: "Added", one: "Upload" }, // a picture or clip added to the brand's Media (#1267)
 ];
+/** The board's tabs: All · Clips · Stills · Songs. A tab is one kind until the server groups them (a final cut and a sheet show under All). */
+const TABS: Kind[] = ["take", "still", "song"];
+/** 130 px tiles, as many to a row as fit (the board shows eight at 1440); three across on a phone. */
+const GRID = "grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-4";
+const CHIP: Record<Exclude<Kind, "upload">, string> = { take: "Clip", final: "Final", still: "Still", sheet: "Sheet", song: "Song" };
+/** An added picture or clip reads as what it is. */
+const chip = (m: Item) => (m.kind === "upload" ? (m.content_type.startsWith("video/") ? "Clip" : "Still") : CHIP[m.kind]);
 export const kindName = (k: Kind) => KINDS.find((x) => x.id === k)!.one;
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
@@ -51,7 +57,6 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
     },
     onError: (e: Error) => toast(e.message, undefined, "error"),
   });
-  const { to, step } = opens(m, brandId);
   const isVideo = m.content_type.startsWith("video/");
   // A song made on a script (not yet in a video) says which script: its title, read once and shared with the script's own page.
   const fromScript = m.kind === "song" && !m.video_name && m.script_id ? m.script_id : null;
@@ -60,39 +65,30 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
   const gone = m.deleted_video_by; // the deleted video's maker: they or the owner may restore it (as the Archived list offers)
   const mayRestore = owner || (!!gone && gone.id === meId);
   const meta = [fromScript ? "Song from the script" : m.kind === "song" && m.video_name ? "Song from the video" : kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
+  const picture = m.poster_file_id ? fileUrl(m.poster_file_id) : m.content_type.startsWith("image/") ? fileUrl(m.file_id) : null;
+  const Icon = m.kind === "song" ? Music : m.kind === "sheet" ? Users : Images;
   return (
-    <li>
-      <MediaCard
-        title={title}
-        meta={meta}
-        aspect="4 / 5"
-        image={m.poster_file_id ? fileUrl(m.poster_file_id) : m.content_type.startsWith("image/") ? fileUrl(m.file_id) : null}
-        video={!m.poster_file_id && isVideo ? fileUrl(m.file_id) : null}
-        playable={isVideo}
-        icon={m.kind === "song" ? Music : m.kind === "sheet" ? Users : Images}
-        to={`/b/${brandId}/media/${encodeURIComponent(m.key)}`} // its own page (v5 G_MediaItem)
-        label={`Open ${title}, ${meta}`}
-        badge={m.from_deleted_video ? <Badge tone="warning">{!gone ? "From a deleted video" : gone.id === meId ? "From your deleted video" : `From ${gone.name}'s deleted video`}</Badge> : undefined}
-      >
-        {m.kind === "song" && <audio controls preload="none" src={fileUrl(m.file_id)} aria-label={`Play ${title}`} className="w-full" />}
-        <div className="flex flex-wrap gap-2">
-          {m.from_deleted_video ? (
-            mayRestore && (
-              <Button variant="secondary" dense busy={restore.isPending} onClick={() => restore.mutate()}>
-                Restore the video
-              </Button>
-            )
-          ) : (
-            <Link to={to} className={buttonClass("secondary")}>
-              Open in {step}
-            </Link>
+    <li className="min-w-0">
+      <Link to={`/b/${brandId}/media/${encodeURIComponent(m.key)}`} aria-label={`Open ${title}, ${meta}`} className="relative block aspect-[9/16] overflow-hidden rounded-md border border-border bg-surface-2">
+        {picture ? <img src={picture} alt="" className="absolute inset-0 size-full object-cover" /> : !m.poster_file_id && isVideo ? <video src={`${fileUrl(m.file_id)}#t=0.1`} muted playsInline preload="metadata" aria-hidden className="absolute inset-0 size-full object-cover" /> : (
+          <span className="absolute inset-0 grid place-items-center text-muted" aria-hidden>
+            <Icon size={24} strokeWidth={1.75} />
+          </span>
+        )}
+        <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{chip(m)}</span>
+      </Link>
+      <p className="mt-1.5 truncate text-xs font-medium">{title}</p>
+      <p className="truncate text-xs text-muted">{meta}</p>
+      {m.from_deleted_video && (
+        <div className="mt-1 space-y-1">
+          <span className="block rounded-sm bg-warning-soft px-1.5 py-0.5 text-xs text-warning [overflow-wrap:anywhere]">{!gone ? "From a deleted video" : gone.id === meId ? "From your deleted video" : `From ${gone.name}'s deleted video`}</span>
+          {mayRestore && (
+            <Button variant="ghost" dense busy={restore.isPending} onClick={() => restore.mutate()}>
+              Restore the video
+            </Button>
           )}
-          <a href={fileUrl(m.file_id)} download aria-label={`Download ${kindName(m.kind).toLowerCase()} from ${title}`} className={`${buttonClass("ghost")} gap-2`}>
-            <Download size={20} strokeWidth={1.75} aria-hidden />
-            Download
-          </a>
         </div>
-      </MediaCard>
+      )}
     </li>
   );
 }
@@ -106,55 +102,44 @@ export function MediaPage() {
   const brand = useBrands().data?.find((b) => b.id === brandId);
   const rail = useRail();
   const [params, setParams] = useSearchParams();
-  const [sheet, setSheet] = useState(false);
   const kind = (KINDS.find((k) => k.id === params.get("kind"))?.id ?? null) as Kind | null;
-  const folder = params.get("folder");
-  const by = owner ? Number(params.get("by")) || null : null;
+  const video = params.get("video"); // one video's own media (a Freestyle counts as a video)
+  const oldest = params.get("sort") === "oldest";
   const set = (key: string, value: string) =>
     setParams((p) => {
       if (value) p.set(key, value);
       else p.delete(key);
       return p;
     }, { replace: true });
-  const clear = () => setParams((p) => { ["kind", "by", "folder"].forEach((k) => p.delete(k)); return p; }, { replace: true });
+  const clear = () => setParams((p) => { ["kind", "video", "sort"].forEach((k) => p.delete(k)); return p; }, { replace: true });
 
-  const people = useQuery({ enabled: owner, queryKey: ["team-members"], queryFn: async () => (await api.GET("/team/members")).data ?? [] });
   const media = useInfiniteQuery({
-    queryKey: ["media", brandId, kind, folder, by],
+    queryKey: ["media", brandId, kind, oldest],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) =>
-      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(kind ? { kind } : {}), ...(folder ? { folder } : {}), ...(by ? { by } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
+      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(kind ? { kind } : {}), ...(oldest ? { sort: "oldest" as const } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
     getNextPageParam: (last) => last.next,
   });
-  const items = media.data?.pages.flatMap((p) => p.items) ?? [];
-  const filtered = !!kind || !!folder || !!by;
+  const loaded = media.data?.pages.flatMap((p) => p.items) ?? [];
+  const videoKey = (m: Item) => (m.project_id ? `p${m.project_id}` : m.freestyle_id ? `f${m.freestyle_id}` : null);
+  const videos = [...new Map(loaded.flatMap((m) => (videoKey(m) && m.video_name ? [[videoKey(m)!, m.video_name] as const] : []))).entries()];
+  const picked = videos.find(([k]) => k === video)?.[1];
+  const items = loaded.filter((m) => !video || videoKey(m) === video); // the server sorts (newest or oldest first)
+  const filtered = !!kind || !!video;
 
-  const controls = (
-    <>
-      {owner && (
-        <div className="w-full lg:w-52">
-          <Select label="Made by" value={by ? String(by) : ""} onChange={(e) => set("by", e.target.value)}>
-            <option value="">Anyone</option>
-            {(people.data ?? []).map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      )}
-      {filtered && (
-        <Button variant="ghost" onClick={clear}>
-          Clear filters
-        </Button>
-      )}
-    </>
+  const menu = (title: string, label: string, options: [string, string][], current: string, onPick: (v: string) => void) => (
+    <Menu title={title} align="right" trigger={(p) => (
+      <Button variant="ghost" dense trailing={ChevronDown} className="text-[13px] lg:min-h-11" {...p}>
+        {label}
+      </Button>
+    )}>
+      {(close) => options.map(([id, name]) => <MenuItem key={id} checked={current === id} onClick={() => { close(); onPick(id); }}>{name}</MenuItem>)}
+    </Menu>
   );
-  const active = by ? 1 : 0; // the kind is its tab; the project shows on its own chip
-  // The kinds as tabs (W11), on every width.
-  const kinds = (
+  // The board's band: the kinds as pills on the left, the filters as plain text on the right.
+  const tabs = (
     <nav aria-label="Kinds" className={pillStrip}>
-      {[{ id: "", label: "Everything" }, ...KINDS].map((k) => (
+      {[{ id: "", label: "All" }, ...TABS.map((id) => ({ id, label: KINDS.find((k) => k.id === id)!.label }))].map((k) => (
         <button key={k.id} type="button" aria-pressed={(kind ?? "") === k.id} className={pillClass((kind ?? "") === k.id)} onClick={() => set("kind", k.id)}>
           {k.label}
         </button>
@@ -163,31 +148,28 @@ export function MediaPage() {
   );
 
   return (
-    <main className="mx-auto max-w-content space-y-5 p-4 sm:p-6">
-      {!rail && ( // on a phone Media opens from Videos
-        <Link to={`/b/${brandId}/videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline">
-          <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
-          Videos
-        </Link>
-      )}
+    <main className="mx-auto max-w-content p-4 sm:p-6">
       <PageTop title="Media">
-        <div className="flex items-center gap-2">
-          <ProjectsChip brandId={brandId} />
-          {!rail && owner && ( // editors have no filter left once the kind is a tab
-            <Button variant={active > 0 ? "primary" : "secondary"} className="shrink-0 whitespace-nowrap" onClick={() => setSheet(true)}>
-              Filters{active > 0 ? ` (${active})` : ""}
-            </Button>
-          )}
-        </div>
+        {!rail && ( // on a phone Media opens from Videos
+          <Link to={`/b/${brandId}/videos`} className="inline-flex min-h-control items-center gap-1 text-accent-text hover:underline">
+            <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+            Videos
+          </Link>
+        )}
       </PageTop>
-      {kinds}
-      {rail && (owner || filtered) && <div className="flex flex-wrap items-end gap-3">{controls}</div>}
+      <div className="-mx-4 mb-4 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
+        {tabs}
+        <span className="hidden flex-1 sm:block" />
+        {menu("Video", picked ? `Video: ${picked}` : "Video", [["", "All videos"], ...videos], video ?? "", (v) => set("video", v))}
+        {menu("Sort", oldest ? "Oldest first" : "Newest first", [["", "Newest first"], ["oldest", "Oldest first"]], oldest ? "oldest" : "", (v) => set("sort", v))}
+        {(filtered || oldest) && <Button variant="ghost" dense onClick={clear}>Clear filters</Button>}
+      </div>
       {media.isError && <Banner tone="danger" title="Couldn't load the media. Check your connection." action={<Button variant="secondary" onClick={() => media.refetch()}>Try again</Button>} />}
       {media.isPending && (
-        <ul role="status" aria-label="Loading" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        <ul role="status" aria-label="Loading" className={GRID}>
           {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
             <li key={i}>
-              <Skeleton className="aspect-[4/5]" />
+              <Skeleton className="aspect-[9/16]" />
             </li>
           ))}
         </ul>
@@ -203,24 +185,20 @@ export function MediaPage() {
           )
         ) : (
           <>
-            <ul aria-label="Media" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            <ul aria-label="Media" className={GRID}>
               {items.map((m) => (
                 <Tile key={m.key} m={m} brandId={brandId} meId={me?.id} owner={owner} />
               ))}
             </ul>
-            {media.hasNextPage && (
-              <div className="flex justify-center">
-                <Button variant="secondary" busy={media.isFetchingNextPage} onClick={() => void media.fetchNextPage()}>
-                  Show more
-                </Button>
-              </div>
-            )}
           </>
         ))}
-      {sheet && (
-        <Sheet title="Filters" onClose={() => setSheet(false)}>
-          <div className="space-y-3">{controls}</div>
-        </Sheet>
+      {/* Also under "Nothing matches": the Video filter reads the pages loaded so far, so older ones may hold it. */}
+      {media.data && media.hasNextPage && (
+        <div className="flex justify-center">
+          <Button variant="secondary" busy={media.isFetchingNextPage} onClick={() => void media.fetchNextPage()}>
+            Show more
+          </Button>
+        </div>
       )}
     </main>
   );

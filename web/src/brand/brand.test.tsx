@@ -302,3 +302,50 @@ test("a blank brand's top bar has no Import from website: it is the set-up card'
   expect(within(card).getByRole("button", { name: "Import from website" })).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Import from website" })).toHaveLength(1);
 });
+
+test("leaving Brand through the rail with unsaved changes asks first; Keep editing stays, Leave goes (QA-12 on #1254)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand");
+  await userEvent.type(await screen.findByLabelText("Name"), " shop");
+  const rail = screen.getByRole("navigation", { name: "Main" });
+  await userEvent.click(within(rail).getByRole("link", { name: "Scripts" }));
+  const ask = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+  await userEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+  expect(screen.getByLabelText("Name")).toHaveValue("fomo shop");
+  await userEvent.click(within(rail).getByRole("link", { name: "Scripts" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave" }));
+  expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
+});
+
+test("the leave question names only the tab with changes: a colour changed says the Look (F_BrandEdit)", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand");
+  const colour = await screen.findByLabelText("Colour 1");
+  await userEvent.clear(colour);
+  await userEvent.type(colour, "#445566");
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toHaveTextContent("Your changes to the Look aren't saved. Leaving drops them.");
+});
+
+test("a change on Voice & lines only says Voice & lines", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand?tab=voice");
+  await userEvent.type(await screen.findByLabelText("How we sound"), " and kind");
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).toHaveTextContent("Your changes to Voice & lines aren't saved.");
+});
+
+test("with nothing changed, opening Brand, looking at Voice & lines and leaving asks nothing", async () => {
+  setViewport(1440);
+  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, [brand]], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand");
+  await screen.findByLabelText("Name");
+  await userEvent.click(screen.getByRole("tab", { name: "Voice & lines" }));
+  await screen.findByLabelText("How we sound");
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});

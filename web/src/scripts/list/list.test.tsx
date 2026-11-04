@@ -73,7 +73,7 @@ test("picked scripts move to a project together, with Undo putting each back", a
     ...base,
     "GET /brands/1/folders": [200, [folder(3, "Spring launch")]],
     "GET /scripts": [200, [script({ id: 7, title: "Bo tries salmon", folder_id: 3 }), script({ id: 8, title: "Morning walk", folder_id: 3 })]],
-    "POST /folders/file": [200, { was_folder_id: 3 }],
+    "POST /folders/file": [200, { folder_id: null, was: [{ id: 7, folder_id: 3 }, { id: 8, folder_id: 3 }] }],
   });
   renderApp("/b/1/scripts");
   await userEvent.click(await screen.findByRole("checkbox", { name: "Select Bo tries salmon" }));
@@ -83,9 +83,9 @@ test("picked scripts move to a project together, with Undo putting each back", a
   await userEvent.click(within(bar).getByRole("button", { name: "Move to project" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "No project" }));
   expect(await screen.findByText("Moved 2 scripts to No project.")).toBeInTheDocument();
-  expect(calls.filter((c) => c.key === "POST /folders/file").map((c) => c.body)).toEqual([{ kind: "script", id: 7, folder_id: null }, { kind: "script", id: 8, folder_id: null }]);
+  expect(calls.filter((c) => c.key === "POST /folders/file").map((c) => c.body)).toEqual([{ kind: "script", ids: [7, 8], folder_id: null }]);
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /folders/file").slice(2).map((c) => c.body)).toEqual([{ kind: "script", id: 7, folder_id: 3 }, { kind: "script", id: 8, folder_id: 3 }]));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /folders/file").slice(1).map((c) => c.body)).toEqual([{ kind: "script", ids: [7, 8], folder_id: 3 }]));
 });
 
 test("Archive asks first, then archives every picked script, with Undo restoring them", async () => {

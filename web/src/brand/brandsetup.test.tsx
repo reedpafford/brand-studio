@@ -164,3 +164,16 @@ test("a brand whose default look is a lane shows the lane's name; the list offer
   expect([...look.options].map((o) => o.textContent)).toEqual(["House", "Disney Pixar (off for editors)", "Paper", "Paper · Flat Paper"]); // not Origami: lanes are chosen per video
   expect(document.body.textContent).not.toContain("paper-flat");
 });
+
+test("a set-up brand with nothing changed asks nothing on leaving, after looking at both tabs (QA on #1266)", async () => {
+  setViewport(1440);
+  fakeServer({ ...routes(owner), "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/brand");
+  await screen.findByLabelText("Name");
+  await userEvent.click(screen.getByRole("tab", { name: "Voice & lines" }));
+  await screen.findByLabelText("How we sound");
+  await userEvent.click(screen.getByRole("tab", { name: "Look" }));
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Scripts" }));
+  expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});

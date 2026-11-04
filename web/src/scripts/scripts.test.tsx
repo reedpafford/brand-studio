@@ -130,7 +130,7 @@ test("New script at 390 and desktop: the header shows on load and opening saves 
   const looks = [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }, { id: "noir", name: "Noir", blurb: "", on: true, sample_still_id: null }];
   for (const width of [1440, 390]) {
     setViewport(width);
-    const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { was_folder_id: null }] });
+    const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { folder_id: 3, was: [{ id: 7, folder_id: null }] }] });
     const { unmount } = renderApp("/b/1/scripts/new?format=dialogue");
     await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
     expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
@@ -138,11 +138,11 @@ test("New script at 390 and desktop: the header shows on load and opening saves 
     await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "story", format: "dialogue", look: "noir" }));
     unmount();
   }
-  const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { was_folder_id: null }] });
+  const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { folder_id: 3, was: [{ id: 7, folder_id: null }] }] });
   renderApp("/b/1/scripts/new?format=dialogue");
   await userEvent.click(await screen.findByRole("button", { name: /Project: none/ }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Launch" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toMatchObject({ kind: "script", id: 7, folder_id: 3 }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toMatchObject({ kind: "script", ids: [7], folder_id: 3 }));
 });
 
 test("New script: the script page opens with its editor already there, so no letter falls between the two boxes", async () => {

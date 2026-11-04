@@ -132,5 +132,5 @@ def message(
 def stop(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Stop the run: no more turns. What it already started goes on; nothing is undone."""
     project = get_project(db, user, project_id)
-    director.stop(db, project)
+    director.stop(db, project, user.id)
     return _out(db, user, project)
