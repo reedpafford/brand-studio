@@ -5,9 +5,10 @@ Undo by switching back. Rules: app/video_settings.py."""
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app import settings_move
 from app import video_settings as vs
 from app.auth import current_user
 from app.db import get_db
@@ -34,6 +35,18 @@ class ImageModelOut(BaseModel):
     default: bool
 
 
+class SettingChangeOut(BaseModel):
+    """One switch of a setting (S-gaps-05 V1): a director's has Undo (switch `field` to `was`
+    with `undo: true`); a person's own choice is kept from the director."""
+
+    field: str
+    was: str | bool | dict | None
+    now: str | bool | dict | None
+    by: Literal["person", "director"]
+    why: str
+    at: str
+
+
 class SettingsOut(BaseModel):
     look: str
     broll_look: str | None = None  # a hosted video's B-roll look; null: the style's own
@@ -46,6 +59,13 @@ class SettingsOut(BaseModel):
     image_models: list[ImageModelOut]
     shapes: list[str]
     flavours: dict[str, list[str]]  # product -> its variants
+    changes: list[SettingChangeOut] = []  # each switch, newest first
+    presenter: str | None = None  # the video's own choice; null: the style's start
+    # how it appears now: talks (to camera, HeyGen, B-roll cut in), corner (HeyGen, keyed over
+    # the B-roll) or acts (in the story, Omni); null: not a Presenter video
+    presenter_now: Literal["talks", "corner", "acts"] | None = None
+    narration_only: bool = False  # no talker speaks on Omni in this video (a person's call)
+    voice: str | None = None  # "stock:<key>" or "voice:<id>"; null: the video's own
 
 
 class VideoSettingsIn(BaseModel):
@@ -57,6 +77,13 @@ class VideoSettingsIn(BaseModel):
     image_model: str | None = None
     aspect_ratio: Literal["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] | None = None
     product_variants: dict[str, str] | None = None
+    # Reed's L3: how a Presenter video's presenter appears; null: the style's start
+    presenter: Literal["talks", "corner", "acts"] | None = None
+    # Reed, 4 Nov: "narration only": no talker speaks on Omni in this video
+    narration_only: bool | None = None
+    # The narrator for this video: "stock:<app voice>" (e.g. stock:Roger) or "voice:<id>" (a
+    # voice saved to this brand); null: the video's own. A person's choice wins
+    voice: str | None = Field(default=None, max_length=60)
 
 
 class SettingIn(VideoSettingsIn):
@@ -123,5 +150,9 @@ def switch_setting(
     `was` and `undo: true`, never refused; the stills and clips made before come back as
     current."""
     project = _video(db, user, project_id, change=True)
-    was = vs.switch(db, user, project, _one(body), undo=bool(body.undo))
+    asked = _one(body)
+    was = vs.switch(db, user, project, asked, undo=bool(body.undo))
+    for field, value in asked.items():  # a person's own choice: the director keeps it
+        settings_move.log(project, user, field, was[field], value, "person")
+    db.commit()
     return SwitchOut(settings=vs.settings(db, project), was=was)

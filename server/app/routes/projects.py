@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import brand_setup, looks, narration, needs_you, plans, reference
+from app import brand_setup, looks, narration, needs_you, plans, reference, settings_move
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     budget_used,
@@ -384,6 +384,7 @@ def update_project(
     db: Session = Depends(get_db),
 ):
     project = _mine(db, user, project_id)
+    was = {"look": project.look, "aspect_ratio": project.aspect_ratio}
     if body.name is not None:
         project.name = body.name
     if body.look is not None:
@@ -396,6 +397,9 @@ def update_project(
     _set_brief(db, user, project, body.model_dump(exclude_unset=True))
     if body.reference_id:
         project.reference_breakdown = references.load(request, body.reference_id)
+    for field, then in was.items():  # a person's own choice: the director keeps it
+        if getattr(project, field) != then:
+            settings_move.log(project, user, field, then, getattr(project, field), "person")
     db.commit()
     return _out(db, project, user)
 

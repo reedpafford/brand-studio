@@ -619,7 +619,7 @@ class DirectorTurn(BaseModel):
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "splice_word", "add_sound", "song", "narration", "host", "wait", "deliver",
-        "stop",
+        "stop", "clip_model", "settings",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -627,7 +627,8 @@ class DirectorTurn(BaseModel):
     )  # fmt: skip
     clip_id: str | None = Field(
         default=None,
-        description="For make_take, pick_take, mute, splice_word and add_sound: the clip, e.g. "
+        description="For make_take, pick_take, mute, splice_word, add_sound and clip_model: the "
+        "clip, e.g. "
         "'c3'. For make_take, null makes a first take of every clip that has none; for "
         "add_sound, null adds sound to every silent take in the cut. Else null.",
     )
@@ -666,6 +667,34 @@ class DirectorTurn(BaseModel):
         "as the script has them, with only pause marks between words, e.g. <#0.3#> (0.2-0.5 s, "
         "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
         "(sighs), where they'd really happen; a changed word is refused. Else empty.",
+    )
+    model: str | None = Field(
+        default=None,
+        description="For clip_model: the catalogue id of the model that makes this clip "
+        "(with value 'speaks' on Omni, the talker says the clip's scripted words in Omni's own "
+        "voice, only for a dramatic moment, an interaction, a reveal or a punchline, never "
+        "merely because they move; `note` describes that voice the first time) "
+        "('seedance-1-lite' where it's enough for a B-roll shot, 'gemini-omni-1.1' for a "
+        "talker's own shot where they move, act or take part in the story, never B-roll); null "
+        "puts the clip back on the video's model. For settings with setting video_model or "
+        "image_model: the model's id, null for Auto. Else null.",
+    )
+    setting: Literal[
+        "look", "video_model", "image_model", "aspect_ratio", "presenter", "narration_only"
+    ] | None = Field(
+        default=None,
+        description="For settings: which of the video's settings to switch, when a person asks "
+        "in the chat or the treatment chose it: look (the style), video_model, image_model, "
+        "aspect_ratio (the shape), presenter (how the presenter appears: talks, corner or "
+        "acts) or narration_only (on when a person says 'narration only': no talker speaks on "
+        "Omni). A setting a person chose themselves stays theirs. Else null.",
+    )  # fmt: skip
+    value: str | None = Field(
+        default=None,
+        description="For settings with setting look, aspect_ratio, presenter or narration_only: "
+        "the new value (a style id, '9:16', talks / corner / acts, or on / off); null for the "
+        "style's own. For clip_model, 'speaks' when the talker says the clip's words on Omni. "
+        "Else null.",
     )
     word: str | None = Field(
         default=None,

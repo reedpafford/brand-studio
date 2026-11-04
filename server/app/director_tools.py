@@ -21,7 +21,7 @@ from app.models.storyboards import StoryboardFrame
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
-         "final_cut", "watch_cut")  # fmt: skip
+         "final_cut", "watch_cut", "clip_model", "settings")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -131,6 +131,23 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said = director_song.run(db, user, project, decision, run if run is not None else {})
             db.commit()
             return said
+        if tool == "clip_model":  # one clip's model, from the model map, its price said first
+            from app import model_map
+
+            rows = _clips(db, pid, decision.get("clip_id")) if decision.get("clip_id") else []
+            if len(rows) != 1:
+                return "Refused: name one clip."
+            said = model_map.choose(db, project, rows[0], decision.get("model"),
+                                    decision.get("why") or "", decision.get("value") == "speaks",
+                                    decision.get("note") or "")  # fmt: skip
+            db.commit()
+            return said
+        if tool == "settings":  # the Plan tab's switch, from the chat; a person's choice stays
+            from app import settings_move
+
+            return settings_move.switch(db, user, project, decision.get("setting"),
+                                        decision.get("model") or decision.get("value"),
+                                        decision.get("why") or "")  # fmt: skip
         if tool == "host":  # a presenter's host, as Make the host
             from app import host
 

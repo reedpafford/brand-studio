@@ -187,9 +187,14 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     from app import item_checks  # each take's check rides along while checks are on
 
     ws = project.workspace_id
-    checks = (sum((item_checks.rides(db, project, c) for c in clips if not c.picked_take_id),
-                  Decimal(0)) + item_checks.per_take(db, ws) * len(
-        [c for c in planned if c["id"] not in {r.clip_id for r in clips}]))  # fmt: skip
+    from app.clip_takes import take_credits
+
+    fresh = [c for c in planned if c["id"] not in {r.clip_id for r in clips}]
+    # each made clip at its own model (Omni's fixed length) with its check; new ones as planned
+    takes = (sum((take_credits(db, project, c) for c in clips if not c.picked_take_id),
+                 Decimal(0)) + _video(db, ws, sum(c["seconds"] for c in fresh) if clips
+                                      else seconds_left, project)
+             + item_checks.per_take(db, ws) * len(fresh))  # fmt: skip
     rewrite = clip_prompts.to_rewrite(db, project) if clips else []
     rows = [
         ("script", script is not None, claude, "one Claude call to draft it"),
@@ -215,7 +220,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
         (
             "clips",
             clips_done,
-            _video(db, project.workspace_id, seconds_left, project) + checks,
+            takes,
             f"{seconds_left} s of video at {video_model(project).take_resolution}, one take each",
         ),
         ("video", False, Decimal(0), "putting the clips together is free"),

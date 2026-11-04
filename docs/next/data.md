@@ -49,6 +49,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n33 | Voices (v6 S8-04): new `voices` {workspace_id, brand_id (null: a style's voice), look, name, kind cloned/described, provider, provider_voice_id, speech_model, description, sample_file_id, preview_file_id, job_id, cloned_at, last_used_at, lost_at, created_by_id, archived_at}; `library_items.voice_id` (nullable FK to `voices`) and `library_items.voice_stock_key` (String(60), an app voice's key), one or neither (S8-03). No data step: a style's voice (Dr. Pickle's clone) is added to a workspace the first time its voices are read (app/voices.py). Downgrade drops both | v6-models | — |
 | n34 | Who has watched which take (v6 piece C, S3-09): new table `take_seen` {take_id (FK clip_takes, indexed), user_id (FK users), created_at}, unique per take and person. A clip the director changed stays outlined for a person until they've watched its new take. Downgrade drops the table. **Renumber at merge** if another n34 lands first | v6-progress | — |
 | n35 | The v6 library (S8, S-gaps-05): `library_items.archived_at` (set on archive, cleared on Undo; items archived before it have none), `created_by_id` FK users, `presenter` bool false (a face and a voice; how they appear is each video's pick), `place_id` FK `library_items` (a character's usual place), `product_type` String(10) null ("app" or "physical"; existing products are physical); `brand_screens.product_id` FK `library_items` replaces the free-text `brand_screens.product`: each brand's product word is matched to its library product by name (any case), a word with no product makes one in that brand, and a screen with no product word goes to the brand's app product ("<brand> app", made once). Downgrade writes physical products' names back | v6-library | — |
+| n36 | The model each clip is made with, who switched a video's settings, how its presenter appears, its Omni voice and narrator (v6 F, S-gaps-05 V1, Reed's L3 and 4 Nov answers): `project_clips.model` (JSON, nullable: `{id, why, by, speaks}`, the director's model for that clip; null: the video's); `projects.settings_log` (JSON list, default []: `{field, was, now, by, by_id, why, at}` per switch; a person's own choice wins over the director's); `projects.presenter` (String(20), nullable: talks, corner or acts; null: the style's start); `projects.omni_voice` (String(300), nullable: the talker's voice described to Omni, the same in every clip); `projects.narration_only` (Boolean, nullable); `projects.voice` (String(60), nullable: "stock:<key>" or "voice:<id>", a person's narrator for this video); `host_pieces.how` (String(20), nullable: the way of appearing a host take was made for). Downgrade drops them | v6-models | — |
 
 ## Merge order (the chain on `next`)
 
@@ -87,9 +88,10 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 28 | n30 | #1296 | n29 | On `next` |
 | 29 | n31 | #1298 | n30 | On `next` |
 | 30 | n32 | — | n31 | On `next` |
-| 31 | n33 | #1314 | n32 | On its PR |
-| 32 | n34 | — | n33 | On its PR (v6-progress) |
-| 33 | n35 | — | n34 | On its PR |
+| 31 | n33 | #1314 | n32 | On `next` |
+| 32 | n34 | #1306 | n33 | On `next` |
+| 33 | n35 | #1326 | n34 | On `next` |
+| 34 | n36 | — | n35 | On its PR (v6-models) |
 
 ## 1. Song ads
 

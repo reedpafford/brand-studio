@@ -219,7 +219,9 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
     if kept and not voices.usable(db, project.workspace_id, project.brand_id, kept):
         kept = None  # its voice was removed since: the video's own voice now
-    voice = (decision.get("voice") or kept if found == "narrated" else None) or _voice(db, project)
+    mine = voices.picked(db, project) if found == "narrated" else None  # a person's: it wins
+    voice = mine or (decision.get("voice") or kept if found == "narrated" else None) or _voice(
+        db, project)  # fmt: skip
     if not voices.usable(db, project.workspace_id, project.brand_id, voice):
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
     song_takes.make(
@@ -254,11 +256,12 @@ def _speed(db: Session, project: Project, emotion: str | None) -> float | None:
 
 
 def _voice(db: Session, project: Project) -> str:
-    """The narrator when none is picked: the video's own (its host's or its style's, e.g.
-    Dr. Pickle's clone), else a UGC talker's MiniMax voice (Reed, 3 Nov), else narration's."""
+    """The narrator when none is picked: a person's for this video, else the video's own (its
+    host's or its style's, e.g. Dr. Pickle's clone), else a UGC talker's MiniMax voice (Reed,
+    3 Nov), else narration's."""
     from app import talker
 
-    if own := voices.default_for(db, project):
+    if own := voices.picked(db, project) or voices.default_for(db, project):
         return own
     return talker.VOICE if talker.on(db, project) else narration.VOICE
 
