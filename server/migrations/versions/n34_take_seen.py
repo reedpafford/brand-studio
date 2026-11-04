@@ -3,15 +3,15 @@ created_at; one row a person a take). A clip the director changed stays outlined
 until they've watched its new take. Its rows go with their take or person (ON DELETE
 CASCADE: a new breakdown deletes the takes of clips it drops). Downgrade drops the table.
 
-Revision ID: n33
-Revises: n32
+Revision ID: n34
+Revises: n33
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n33"
-down_revision = "n32"
+revision = "n34"
+down_revision = "n33"
 branch_labels = None
 depends_on = None
 
