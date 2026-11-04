@@ -184,7 +184,7 @@ function Empty({ brandId, slug, price, onUpload, onMake }: { brandId: number; sl
         <Button icon={Upload} onClick={onUpload}>Upload a photo</Button>
         {slug !== "products" && (
           <Button variant="secondary" icon={WandSparkles} onClick={onMake}>
-            Make one{price && <span className="opacity-80"> · {price}</span>}
+            Make one{price && <>{" "}<span className="opacity-80">· {price}</span></>}
           </Button>
         )}
       </div>

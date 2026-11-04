@@ -33,12 +33,12 @@ export function ItemPage() {
   const back = useSearchParams()[0].get("back"); // "Open Mia" from a video comes back to it
   const backTo = back?.startsWith(`/b/${id}/`) ? back : null;
   const action = backTo ? (
-    <Link to={backTo} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border-button px-3 text-sm font-medium">
+    <Link to={backTo} className="inline-flex min-h-control items-center gap-1.5 rounded-md border border-border-button px-3 lg:min-h-9 text-sm font-medium">
       <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
       Back to your video
     </Link>
   ) : (
-    <Link to={`/b/${id}/library/${slug}`} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border-button px-3 text-sm font-medium">
+    <Link to={`/b/${id}/library/${slug}`} className="inline-flex min-h-control items-center gap-1.5 rounded-md border border-border-button px-3 lg:min-h-9 text-sm font-medium">
       <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
       Back to {KINDS[slug].title.toLowerCase()}
     </Link>
@@ -144,8 +144,8 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
             <div className="flex flex-wrap gap-2">
               {(product ? (item.pictures ?? []).map((p) => ({ file_id: p.file_id, label: p.variant || p.name, version: 0 })) : [{ file_id: cover(item), label: `v${item.version} · in use`, version: item.version }, ...old]).map((v, n) =>
                 v.file_id ? (
-                  <button key={`${v.file_id}-${n}`} type="button" onClick={() => setShown(n === 0 && !product ? null : v.file_id!)} className="flex flex-col gap-1 text-left">
-                    <img src={fileUrl(v.file_id)} alt={`${item.name}, ${v.label}`} className={`h-[94px] w-[70px] rounded-md object-cover ${(shown ?? cover(item)) === v.file_id ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
+                  <button key={`${v.file_id}-${n}`} type="button" aria-label={`${item.name}, ${v.label}`} aria-pressed={(shown ?? cover(item)) === v.file_id} onClick={() => setShown(n === 0 && !product ? null : v.file_id!)} className="flex flex-col gap-1 text-left">
+                    <img src={fileUrl(v.file_id)} alt="" className={`h-[94px] w-[70px] rounded-md object-cover ${(shown ?? cover(item)) === v.file_id ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
                     <span className={`text-xs ${n === 0 ? "font-semibold" : "text-muted"}`}>{v.label}</span>
                   </button>
                 ) : null,
@@ -194,7 +194,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
               {!product && !busy && (
                 <Button variant="secondary" icon={Pencil} onClick={() => (item.sheet_status === "none" ? draw.mutate("") : setChanging(""))} busy={draw.isPending && changing === null}>
                   {item.sheet_status === "none" ? "Make the sheet" : "Change this…"}
-                  {(item.sheet_status === "none" ? makeCost : changeCost) && <span className="opacity-80"> · {item.sheet_status === "none" ? makeCost : changeCost}</span>}
+                  {(item.sheet_status === "none" ? makeCost : changeCost) && <>{" "}<span className="opacity-80">· {item.sheet_status === "none" ? makeCost : changeCost}</span></>}
                 </Button>
               )}
               <Button variant="secondary" icon={Archive} busy={archive.isPending} onClick={() => archive.mutate()}>Archive</Button>
@@ -209,7 +209,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
               </label>
               <div className="flex gap-2">
                 <Button busy={draw.isPending} disabled={!changing.trim()} onClick={() => draw.mutate(changing.trim())}>
-                  Change it{changeCost && <span className="opacity-80"> · {changeCost}</span>}
+                  Change it{changeCost && <>{" "}<span className="opacity-80">· {changeCost}</span></>}
                 </Button>
                 <Button variant="ghost" onClick={() => setChanging(null)}>Cancel</Button>
               </div>
@@ -239,7 +239,7 @@ function Facts({ item, brandId }: { item: Item; brandId: number }) {
   const queryClient = useQueryClient();
   const who = members.data?.find((m) => m.id === item.created_by_id)?.name;
   const from = item.kind === "prop" ? (item.pictures?.length ? "A real photo" : "No photo yet") : item.source_photo_file_id ? "Uploaded" : "Made from a description";
-  const came = [from, who && `by ${who}`].filter(Boolean).join(" ") + `, ${day(item.created_at)}`;
+  const came = [from, who && `by ${who}`].filter(Boolean).join(" ") + (item.created_at ? `, ${day(item.created_at)}` : "");
   const place = places.data?.find((p) => p.id === item.place_id);
   const setPlace = useMutation({
     mutationFn: (place_id: number | null) => must(api.PATCH("/library/{kind}/{item_id}", { params: { path: { kind: "character", item_id: item.id } }, body: { place_id } })),

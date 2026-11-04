@@ -119,7 +119,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" disabled={!ready} busy={create.isPending} reason={!ready ? (product ? "Name it first" : "Name it, then describe it or add a photo") : null}>
               {product ? "Save product" : "Make it"}
-              {!product && cost && <span className="opacity-80"> · {cost}</span>}
+              {!product && cost && <>{" "}<span className="opacity-80">· {cost}</span></>}
             </Button>
             <label className="inline-flex min-h-control cursor-pointer items-center gap-1.5 rounded-md border border-border-button px-3 text-sm font-medium lg:min-h-control-dense">
               <Upload size={16} strokeWidth={1.75} aria-hidden />

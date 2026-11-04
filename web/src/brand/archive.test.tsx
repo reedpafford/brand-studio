@@ -44,7 +44,7 @@ test("an editor sees no Archive brand menu", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 2, role: "editor" }] }));
   open("/b/1/brand");
-  await screen.findByRole("heading", { name: "fomo", level: 1 });
+  await screen.findByRole("button", { name: "Save changes" });
   expect(screen.queryByRole("button", { name: "More for fomo" })).toBeNull();
 });
 

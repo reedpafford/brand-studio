@@ -10,6 +10,8 @@ import { LibraryFrame } from "../library/LibraryFrame";
 import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+import { useMe } from "../auth/useMe";
+import { ArchiveBrand } from "./ArchiveBrand";
 import { ImagePicker } from "./ImagePicker";
 
 type Brand = components["schemas"]["BrandOut"];
@@ -24,7 +26,7 @@ export function BrandKit() {
   if (isError) return <Banner title="Couldn't load the brand." action={<Button variant="secondary" onClick={() => void refetch()}>Try again</Button>}>Check your connection.</Banner>;
   if (brands && !brand) return <p className="p-6">That brand doesn't exist.</p>;
   if (!brand) return null;
-  return <Kit key={brand.id} brand={brand} />;
+  return <Kit key={brand.id} brand={brand} others={(brands ?? []).filter((b) => b.id !== brand.id)} />;
 }
 
 /** The old /kit and /screens addresses land on the Brand kit. */
@@ -35,7 +37,8 @@ export function ToBrand() {
 const startOf = (b: Brand) => ({ name: b.name, logo_file_id: b.logo_file_id ?? null, colours: b.colours ?? [], tone_notes: b.tone_notes ?? "" });
 type Form = ReturnType<typeof startOf>;
 
-function Kit({ brand }: { brand: Brand }) {
+function Kit({ brand, others }: { brand: Brand; others: Brand[] }) {
+  const owner = useMe().data?.role === "owner";
   const [saved, setSaved] = useState(() => startOf(brand));
   const [kit, setKit] = useState(saved);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setKit({ ...kit, [k]: v });
@@ -73,9 +76,13 @@ function Kit({ brand }: { brand: Brand }) {
     },
   });
   const action = (
-    <Button busy={save.isPending} disabled={!changed || !valid} reason={changed && !valid ? (kit.name.trim() ? "Fix the colour codes first" : "Give it a name first") : null} onClick={() => save.mutate()}>
-      Save changes
-    </Button>
+    <div className="flex items-center gap-2">
+      {/* Archive brand stays here until the brand switcher's menu has it (S-gaps-05 L1, screen 1). */}
+      {owner && <ArchiveBrand brand={brand} others={others} />}
+      <Button busy={save.isPending} disabled={!changed || !valid} reason={changed && !valid ? (kit.name.trim() ? "Fix the colour codes first" : "Give it a name first") : null} onClick={() => save.mutate()}>
+        Save changes
+      </Button>
+    </div>
   );
   return (
     <LibraryFrame brandId={brand.id} tab="kit" action={action}>

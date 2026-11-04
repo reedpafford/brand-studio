@@ -1,112 +1,86 @@
 import { expect, test } from "@playwright/test";
 import { image, onBrand, signIn, switchBrand } from "./helpers";
 
-const MP3 = { name: "voice.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("ID3" + "0".repeat(32)) };
-
-// Runs after brand.e2e.ts, in order, on the fomo brand. Characters Max and Rex are made in the first tests.
+// v6 S8 (the brand library) on the stand-ins. Runs after brand.e2e.ts, in order, on the fomo brand: Max and Rex are made
+// in the first tests.
 test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   await page.getByRole("link", { name: "Cast & places" }).click();
-  await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Library" })).toBeVisible();
 });
 
-async function newCharacter(page: import("@playwright/test").Page, name: string, withImage = false) {
-  await page.getByRole("button", { name: "+ New character" }).click();
-  await page.getByLabel("Name").fill(name);
-  if (withImage) await page.getByLabel("Photo (optional)").setInputFiles(image(`${name}.png`));
-  await page.getByRole("button", { name: "Create character" }).click();
-  await expect(page.getByText(name, { exact: true })).toBeVisible();
-}
-
-test("a new character shows up in this brand's library with its image", async ({ page }) => {
-  await expect(page.getByText("No characters for this brand yet.")).toBeVisible();
-  await newCharacter(page, "Max", true);
-  await expect(page.getByRole("img", { name: "Max" })).toBeVisible();
-  await expect(page.getByText("No sheet yet")).toBeVisible();
+test("an empty brand's Make one draws a new character's sheet, its page opens, and a person approves it (S8-02, S8-07, L5)", async ({ page }) => {
+  await expect(page.getByRole("heading", { name: "No characters in fomo yet" })).toBeVisible();
+  await page.getByRole("button", { name: /^Make one · up to \$/ }).click();
+  const form = page.getByRole("form", { name: "New character" });
+  await form.getByPlaceholder("Name").fill("Max");
+  await form.getByLabel("Description").fill("Man, 40s, gym coach, grey hoodie");
+  await form.getByRole("button", { name: /^Make it · up to \$/ }).click();
+  await expect(page.getByRole("heading", { name: "Max", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Needs your OK")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByText("In use")).toBeVisible();
 });
 
-test("search narrows the list by name", async ({ page }) => {
-  await newCharacter(page, "Rex");
-  await page.getByLabel(/^Search/).fill("ma");
-  await expect(page.getByText("Max", { exact: true })).toBeVisible();
-  await expect(page.getByText("Rex", { exact: true })).toHaveCount(0);
+test("a character from a photo, and search narrows the list by name (S8-01)", async ({ page }) => {
+  await page.getByRole("button", { name: "New character" }).click();
+  const form = page.getByRole("form", { name: "New character" });
+  await form.getByPlaceholder("Name").fill("Rex");
+  await form.getByText("Upload a photo").locator("input").setInputFiles(image("rex.png"));
+  await form.getByRole("button", { name: /^Make it/ }).click();
+  await expect(page.getByRole("heading", { name: "Rex", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("link", { name: "Back to characters" }).click();
+  await expect(page.getByRole("link", { name: "Rex" })).toBeVisible();
+  await page.getByLabel("Search the library").fill("ma");
+  await expect(page.getByRole("link", { name: "Max" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Rex" })).toHaveCount(0);
 });
 
 test("a character is not in another brand's library", async ({ page }) => {
   await switchBrand(page, "Iron Paws");
-  await expect(page.getByText("No characters for this brand yet.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No characters in Iron Paws yet" })).toBeVisible();
 });
 
-test("editing keeps history, and an old version can be restored", async ({ page }) => {
-  await page.getByRole("link", { name: "Max" }).click();
-  await page.getByRole("button", { name: "Edit", exact: true }).click(); // the page reads first; Edit opens the form (v5)
-  await page.getByLabel("Notes").fill("Tough but fair.");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Tough but fair.")).toBeVisible(); // saved: the page reads again
-  await expect(page.getByRole("button", { name: "Restore v1" })).toBeVisible();
-
-  await page.getByRole("button", { name: "Restore v1" }).click();
-  await expect(page.getByText("No description yet.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Restore v2" })).toBeVisible();
-});
-
-test("a character always keeps at least one brand", async ({ page }) => {
-  await page.getByRole("link", { name: "Max" }).click();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByLabel("fomo", { exact: true }).uncheck();
-  await expect(page.getByText("Pick at least one brand.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
-});
-
-test("outfits and a voice sample are saved on a character", async ({ page }) => {
-  await page.getByRole("link", { name: "Max" }).click();
-  await page.getByRole("button", { name: "Add outfit" }).click(); // the page's Add outfit opens Edit (v5)
-  await page.getByRole("button", { name: "Add outfit" }).click();
-  await page.getByLabel("Outfit 1 name").fill("Gym kit");
-  await page.getByLabel("Add picture to outfit 1").setInputFiles(image("gym.png"));
-  await expect(page.getByRole("img", { name: "Gym kit" })).toBeVisible();
-  await page.getByLabel("Voice file").setInputFiles(MP3);
-  await expect(page.getByLabel("Voice sample")).toBeVisible();
-  await page.getByRole("button", { name: "Save" }).click();
-
-  await page.reload();
-  await expect(page.getByRole("region", { name: "Outfits" }).getByText("Gym kit")).toBeVisible(); // the page lists it
-  await expect(page.getByRole("img", { name: "Gym kit" })).toBeVisible();
-  await expect(page.getByLabel("Play the voice sample")).toBeVisible();
-});
-
-test("archiving hides a character, and unarchiving brings it back", async ({ page }) => {
+test("More: a change to the words is saved, and the old version can be restored", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
   await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("menuitem", { name: "Archive character" }).click();
-  await expect(page.getByText("Max", { exact: true })).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Archived" }).click();
-  await page.getByRole("button", { name: "Unarchive Max" }).click();
-  await page.getByRole("button", { name: "Back" }).click();
-  await expect(page.getByText("Max", { exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "Description" }).fill("Tough but fair.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Tough but fair.").first()).toBeVisible();
+  await page.getByRole("button", { name: "More" }).click();
+  await expect(page.getByRole("button", { name: /^Restore v\d+$/ }).first()).toBeVisible();
 });
 
-test("archiving shows a message with Undo that puts the character back", async ({ page }) => {
+test("archiving says so with Undo; Show archived lists it with Unarchive (S8-08)", async ({ page }) => {
   await page.getByRole("link", { name: "Max" }).click();
-  await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("menuitem", { name: "Archive character" }).click();
+  await page.getByRole("button", { name: "Archive" }).click();
   await expect(page.getByRole("status")).toContainText("Max archived.");
-  await page.getByRole("button", { name: "Undo" }).click();
-  await expect(page.getByText("Max", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Max" })).toHaveCount(0);
+  await page.getByLabel("Show archived").check();
+  await expect(page.getByText(/^Archived \d+ \w+ · kept for old videos$/)).toBeVisible();
+  await page.getByRole("button", { name: "Unarchive Max" }).click();
+  await page.getByLabel("Show archived").uncheck();
+  await expect(page.getByRole("link", { name: "Max" })).toBeVisible();
 });
 
-test("the owner can delete an archived character for good", async ({ page }) => {
-  // Rex has no image, so the card's link is named "No image" (reported to the builder).
-  await page.getByRole("listitem").filter({ hasText: "Rex" }).getByRole("link").click();
+test("the owner deletes a character for good from its history", async ({ page }) => {
+  await page.getByRole("link", { name: "Rex" }).click();
   await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("menuitem", { name: "Archive character" }).click();
-
-  await page.getByRole("button", { name: "Archived" }).click();
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Delete Rex forever" }).click();
-  await expect(page.getByText("Nothing archived.")).toBeVisible();
+  await page.getByRole("button", { name: "Delete forever" }).click();
+  await expect(page.getByRole("link", { name: "Max" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Rex" })).toHaveCount(0);
+});
+
+test("Products: fomo's app holds its real screens; Iron Paws' bag holds its photos (S8-06, L1)", async ({ page }) => {
+  await page.getByRole("navigation", { name: "Library" }).getByRole("link", { name: /^Products/ }).click();
+  const app = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: "fomo app" }) });
+  await expect(app.getByText("App", { exact: true })).toBeVisible();
+  await expect(app.getByText(/^5 screens · shown as given/)).toBeVisible();
+  await switchBrand(page, "Iron Paws");
+  const bag = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: "bag" }) });
+  await expect(bag.getByText("Physical", { exact: true })).toBeVisible();
 });

@@ -1,499 +1,239 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
-import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
 import { setViewport } from "../test/viewport";
-import { owner } from "../test/people";
+import { owner, editor } from "../test/people";
 
-const editor = { ...owner, id: 2, name: "Eli", role: "editor" };
-const brands = [{ id: 1, name: "fomo", colours: [] }, { id: 2, name: "Iron Paws", colours: [] }];
-const mia = { id: 5, kind: "character", name: "Mia", notes: "", brand_ids: [1], image_file_ids: [9], outfits: [], version: 3 };
+type Routes = Record<string, [number, unknown]>;
+const brands = [{ id: 1, name: "Resilia", colours: ["#2F6B4F"] }, { id: 2, name: "Iron Paws", colours: [] }];
+const base = { kind: "character", notes: "", brand_ids: [1], image_file_ids: [], outfits: [], version: 1, sheet_status: "approved", used_in_count: 0, presenter: false, product_type: null, created_at: "2026-10-28T10:00:00Z", created_by_id: 1, pictures: [], sheet_credits: 2, change_credits: 1, usd: null };
+const mark = { ...base, id: 5, name: "Mark", notes: "late 40s, tired, warm", source_photo_file_id: 30, sheet_file_id: 31, presenter: true, used_in_count: 6, version: 3, usd: { sheet: 0.17, change: 0.08 } };
+const dana = { ...base, id: 6, name: "Dana", sheet_file_id: 32, used_in_count: 2 };
+const old = { ...base, id: 7, name: "Old Dr. Pickle v1", sheet_file_id: 33, archived_at: "2026-10-20T10:00:00Z" };
+const bag = { ...base, id: 9, kind: "prop", name: "Peanut butter bag", notes: "Main text must read right", product_type: "physical", pictures: [{ screen_id: 40, file_id: 41, name: "Peanut butter bag", variant: "" }] };
+const chicken = { ...bag, id: 10, name: "Chicken bag", notes: "", pictures: [] };
+const app = { ...bag, id: 11, name: "fomo app", product_type: "app", notes: "", pictures: [1, 2, 3].map((n) => ({ screen_id: 50 + n, file_id: 60 + n, name: `Screen ${n}`, variant: "" })) };
+const looks = [{ id: "house", name: "House", blurb: "", on: true }, { id: "pixar", name: "Disney Pixar", blurb: "", on: true }];
 
-function renderAt(path: string) {
-  renderApp(path);
+function server(me: object, o: Routes = {}): Routes {
+  return {
+    "GET /auth/me": [200, me],
+    "GET /brands": [200, brands],
+    "GET /team/members": [200, [{ id: 1, name: "Reed", email: "r@b.co", role: "owner" }]],
+    "GET /looks": [200, looks],
+    "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: true, credits_per_unit: { "2K": 1.5 } }]],
+    "GET /library/character": [200, [mark, dana]],
+    "GET /library/character?brand_id=1&archived=true": [200, [old]],
+    "GET /library/place": [200, []],
+    "GET /library/prop": [200, [bag, chicken]],
+    "GET /library/character/price": [200, { credits: 2, usd: (me as { role: string }).role === "owner" ? 0.08 : null }],
+    "GET /library/character/5": [200, { ...mark, used_in: [] }],
+    "GET /library/character/5/versions": [200, []],
+    "GET /library/character/5/sheet/versions": [200, []],
+    "GET /jobs": [200, []],
+    ...o,
+  };
 }
-
+const posted = (calls: { key: string; body: unknown }[], key: string) => calls.filter((c) => c.key === key).at(-1)?.body;
+beforeEach(() => setViewport(1440));
 afterEach(() => vi.unstubAllGlobals());
 
-test("lists characters for the brand and searches by name", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [mia, { ...mia, id: 6, name: "Dex" }]] });
-  renderAt("/b/1/library/characters");
-  expect(await screen.findByText("Mia")).toBeInTheDocument();
-  await userEvent.type(screen.getByLabelText(/^Search/), "dex");
-  expect(screen.queryByText("Mia")).not.toBeInTheDocument();
-  await userEvent.clear(screen.getByLabelText(/^Search/));
-  await userEvent.type(screen.getByLabelText(/^Search/), "zzz");
-  expect(screen.getByText(/Nothing matches/)).toBeInTheDocument();
+test("S8-01: the tabs with their counts, cards saying who presents and how many videos use them, and search", async () => {
+  fakeServer(server(owner));
+  renderApp("/b/1/library/characters");
+  const tabs = await screen.findByRole("navigation", { name: "Library" });
+  expect(await within(tabs).findByRole("link", { name: /^Characters\s*2$/ })).toHaveAttribute("aria-current", "page");
+  expect(within(tabs).getByRole("link", { name: /^Products\s*2$/ })).toHaveAttribute("href", "/b/1/library/products");
+  expect(within(tabs).getByRole("link", { name: "Brand kit" })).toHaveAttribute("href", "/b/1/brand");
+  expect(screen.getByText("Only Resilia sees these. They fill in each video’s cast.")).toBeInTheDocument();
+  const card = screen.getByRole("link", { name: "Mark" }).closest("li")!;
+  expect(within(card).getByText("Uploaded")).toBeInTheDocument();
+  expect(within(card).getByText("Presenter · used in 6 videos")).toBeInTheDocument();
+  expect(screen.getByText("Used in 2 videos")).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Search the library"), "dan");
+  expect(screen.queryByRole("link", { name: "Mark" })).toBeNull();
+  expect(screen.getByRole("link", { name: "Dana" })).toBeInTheDocument();
 });
 
-test("each kind tab shows its count, and New character sits in the page top (W10)", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [mia, { ...mia, id: 6, name: "Dex" }]], "GET /library/place": [200, []], "GET /library/prop": [200, [{ ...mia, id: 7, kind: "prop", name: "Bowl" }]] });
-  renderAt("/b/1/library/characters");
-  const kinds = await screen.findByRole("navigation", { name: "Kinds" });
-  expect(await within(kinds).findByRole("link", { name: /^Characters\s*2$/ })).toBeInTheDocument();
-  expect(await within(kinds).findByRole("link", { name: /^Places\s*0$/ })).toBeInTheDocument();
-  expect(await within(kinds).findByRole("link", { name: /^Props\s*1$/ })).toBeInTheDocument();
-  expect(within(screen.getByRole("main").querySelector("header")!).getByRole("button", { name: "+ New character" })).toBeInTheDocument();
+test("S8-02: an empty brand offers Upload a photo, and Make one with the most it costs in dollars for the owner", async () => {
+  fakeServer(server(owner, { "GET /library/character": [200, []] }));
+  renderApp("/b/1/library/characters");
+  expect(await screen.findByRole("heading", { name: "No characters in Resilia yet" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Upload a photo" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Make one · up to $0.08" })).toBeInTheDocument();
 });
 
-test("a new character is created in the current brand", async () => {
-  const calls = fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, []], "POST /library/character": [201, mia] });
-  renderAt("/b/1/library/characters");
-  expect(await screen.findByText("No characters for this brand yet.")).toBeInTheDocument();
-  expect(screen.getByText("Add a character once, use them in every video.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "+ New character" }));
-  await userEvent.type(screen.getByLabelText("Name"), "Mia");
-  await userEvent.click(screen.getByRole("button", { name: "Create character" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character")).toBe(true));
-  expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ name: "Mia", brand_ids: [1] });
+test("S8-02: an editor sees the price in credits, never dollars", async () => {
+  fakeServer(server(editor, { "GET /library/character": [200, []] }));
+  renderApp("/b/1/library/characters");
+  expect(await screen.findByRole("button", { name: "Make one · up to 2 credits" })).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("$");
 });
 
-test("saving a character sends its changes, and history can restore an old version", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, brands],
-    "GET /team/members": [200, [{ id: 2, name: "Eli", email: "e@b.co", role: "editor" }]],
-    "GET /library/character/5": [200, mia],
-    "PATCH /library/character/5": [200, { ...mia, version: 4 }],
-    "GET /library/character/5/versions": [200, [{ version: 3, snapshot: mia, saved_by_id: 2, created_at: "2026-10-23T10:00:00Z" }, { version: 2, snapshot: mia, saved_by_id: 2, created_at: "2026-10-20T10:00:00Z" }]],
-    "POST /library/character/5/versions/2/restore": [200, { ...mia, version: 4 }],
-  });
-  renderAt("/b/1/library/characters/5");
-  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
-  const name = await screen.findByLabelText("Name");
-  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-  await userEvent.clear(name);
-  await userEvent.type(name, "Mia R");
-  await userEvent.click(screen.getByLabelText("Iron Paws"));
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "PATCH /library/character/5")).toBe(true));
-  expect(calls.find((c) => c.key === "PATCH /library/character/5")?.body).toMatchObject({ name: "Mia R", brand_ids: [1, 2] });
-  await userEvent.click(await screen.findByRole("button", { name: "Restore v2" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/versions/2/restore")).toBe(true));
-  expect(await screen.findByRole("status")).toHaveTextContent("Restored v2 as v4.");
+test("S8-07: New character takes a name and a description, makes the character in this brand and draws its sheet", async () => {
+  const calls = fakeServer(server(owner, { "POST /library/character": [201, { ...dana, id: 12, name: "Kim" }], "POST /library/character/12/sheet": [201, { id: 90 }], "GET /library/character/12": [200, { ...dana, id: 12, sheet_status: "drawing" }] }));
+  renderApp("/b/1/library/characters");
+  await userEvent.click(await screen.findByRole("button", { name: "New character" }));
+  const form = screen.getByRole("form", { name: "New character" });
+  await userEvent.type(within(form).getByPlaceholderText("Name"), "Kim");
+  await userEvent.type(within(form).getByLabelText("Description"), "Woman, late 30s, glasses");
+  await userEvent.click(within(form).getByRole("button", { name: "Make it · up to $0.08" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /library/character/12/sheet")).toMatchObject({ change: "" }));
+  expect(posted(calls, "POST /library/character")).toMatchObject({ name: "Kim", notes: "Woman, late 30s, glasses", brand_ids: [1], presenter: false });
+  expect(await screen.findByText(/Drawing a front, side and back sheet from your description · up to \$0.08 · about 30 s/)).toBeInTheDocument();
 });
 
-test("archived items: editors can bring them back, only the owner can delete forever", async () => {
-  const archivedRoutes = { "GET /brands": [200, brands] as [number, unknown], "GET /library/character": [200, [mia]] as [number, unknown] };
-  fakeServer({ "GET /auth/me": [200, editor], ...archivedRoutes });
-  const view = render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/library/characters"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
-  expect(await screen.findByRole("button", { name: "Unarchive Mia" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /forever/ })).not.toBeInTheDocument();
-  view.unmount();
-
-  const calls = fakeServer({ "GET /auth/me": [200, owner], ...archivedRoutes, "DELETE /library/character/5/permanent": [204, null] });
-  vi.spyOn(window, "confirm").mockReturnValue(true);
-  renderAt("/b/1/library/characters");
-  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Delete Mia forever" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/permanent")).toBe(true));
+test("S8-08: an editor's view says editors add too; Show archived lists the archive, and Unarchive has Undo", async () => {
+  const calls = fakeServer(server(editor, { "POST /library/character/7/unarchive": [200, old], "DELETE /library/character/7": [204, null] }));
+  renderApp("/b/1/library/characters");
+  expect(await screen.findByText("Editors can add and edit characters here too.")).toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText("Show archived"));
+  expect(await screen.findByText("Archived 20 Oct · kept for old videos")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Delete .* forever/ })).toBeNull(); // the owner's only
+  await userEvent.click(screen.getByRole("button", { name: "Unarchive Old Dr. Pickle v1" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/7")).toBe(true));
 });
 
-test("a character's outfits and voice are saved; places don't send them", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, brands],
-    "GET /team/members": [200, []],
-    "GET /library/character/5": [200, { ...mia, outfits: [{ name: "Gym", file_ids: [] }], voice_file_id: null }],
-    "GET /library/character/5/versions": [200, []],
-    "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe" }],
-    "GET /library/place/7/versions": [200, []],
-    "PATCH /library/character/5": [200, mia],
-    "PATCH /library/place/7": [200, mia],
-    "POST /files": [201, { id: 21, filename: "v.mp3", content_type: "audio/mpeg", size: 3, created_at: "2026-10-23T00:00:00Z" }],
-  });
-  renderAt("/b/1/library/characters/5");
-  await userEvent.click(await screen.findByRole("button", { name: "Add outfit" })); // the page's Add outfit opens Edit
-  await userEvent.click(await screen.findByRole("button", { name: "Add outfit" }));
-  await userEvent.type(screen.getByLabelText("Outfit 2 name"), "Office");
-  await userEvent.upload(screen.getByLabelText("Voice file"), new File(["x"], "v.mp3", { type: "audio/mpeg" }));
-  await screen.findByLabelText("Voice sample");
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "PATCH /library/character/5")).toBe(true));
-  expect(calls.find((c) => c.key === "PATCH /library/character/5")?.body).toMatchObject({
-    outfits: [{ name: "Gym", file_ids: [] }, { name: "Office", file_ids: [] }],
-    voice_file_id: 21,
-  });
+test("S8-03: one item open with its status, Change this… at its price, where it came from, its place, and the videos that use it", async () => {
+  const used = [1, 2, 3, 4].map((n) => ({ project_id: 20 + n, name: `Video ${n}`, status: "done", still_file_id: null, at: `2026-11-0${n}T10:00:00Z` }));
+  const calls = fakeServer(server(owner, {
+    "GET /library/character/5": [200, { ...mark, used_in: used }],
+    "GET /library/place": [200, [{ ...base, id: 8, kind: "place", name: "Mark’s kitchen" }]],
+    "PATCH /library/character/5": [200, mark],
+    "POST /library/character/5/sheet": [201, { id: 91 }],
+  }));
+  renderApp("/b/1/library/characters/5");
+  expect(await screen.findByRole("heading", { name: "Mark", level: 1 })).toBeInTheDocument();
+  expect(screen.getByText("In use")).toBeInTheDocument();
+  expect(screen.getByText("Presenter · late 40s, tired, warm")).toBeInTheDocument();
+  expect(await screen.findByText("Uploaded by Reed, 28 Oct")).toBeInTheDocument();
+  const list = screen.getByRole("region", { name: "Used in" });
+  expect(within(list).getByText("Used in 4 videos")).toBeInTheDocument();
+  expect(within(list).getAllByText("Done")).toHaveLength(3);
+  await userEvent.click(within(list).getByRole("button", { name: "+ 1 more" }));
+  expect(within(list).getAllByText("Done")).toHaveLength(4);
+  await userEvent.click(screen.getByRole("button", { name: /^None/ }));
+  await userEvent.click(await screen.findByRole("menuitemradio", { name: "Mark’s kitchen" }));
+  await vi.waitFor(() => expect(posted(calls, "PATCH /library/character/5")).toEqual({ place_id: 8 }));
+  await userEvent.click(screen.getByRole("button", { name: "Change this… · up to $0.08" }));
+  await userEvent.type(screen.getByLabelText("What should change?"), "No hat");
+  await userEvent.click(screen.getByRole("button", { name: "Change it · up to $0.08" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /library/character/5/sheet")).toMatchObject({ change: "No hat" }));
 });
 
-test("places have no outfits or voice", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe" }], "GET /library/place/7/versions": [200, []] });
-  renderAt("/b/1/library/places/7");
-  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
-  await screen.findByLabelText("Name");
-  expect(screen.queryByRole("button", { name: "Add outfit" })).not.toBeInTheDocument();
-});
-
-test("archiving happens at once with a toast, and Undo brings the item back", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, brands],
-    "GET /team/members": [200, []],
-    "GET /library/character": [200, []],
-    "GET /library/character/5": [200, mia],
-    "GET /library/character/5/versions": [200, []],
-    "DELETE /library/character/5": [204, null],
-    "POST /library/character/5/unarchive": [200, mia],
-  });
-  renderAt("/b/1/library/characters/5");
-  await userEvent.click(await screen.findByRole("button", { name: "More" }));
-  await userEvent.click(await screen.findByRole("menuitem", { name: "Archive character" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Mia archived.");
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/unarchive")).toBe(true));
-});
-
-test("shared items show their brands, and Save needs at least one brand", async () => {
-  fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, brands],
-    "GET /team/members": [200, []],
-    "GET /library/character/5": [200, { ...mia, brand_ids: [1, 2] }],
-    "GET /library/character/5/versions": [200, []],
-  });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Shared with Iron Paws. Changes apply there too.")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
-  await userEvent.click(screen.getByLabelText("fomo"));
-  expect(screen.getByText("This will remove Mia from fomo's library.")).toBeInTheDocument();
-  await userEvent.click(screen.getByLabelText("Iron Paws"));
-  expect(screen.getByText("Pick at least one brand.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-});
-
-test("archived cards carry an Archived badge", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/place": [200, [{ ...mia, kind: "place" }]] });
-  renderAt("/b/1/library/places");
-  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
-  expect(await screen.findByText("Archived")).toBeInTheDocument();
-});
-
-test("a refused restore or delete-forever shows the server's reason", async () => {
-  fakeServer({
-    "GET /auth/me": [200, owner],
-    "GET /brands": [200, brands],
-    "GET /library/character": [200, [mia]],
-    "DELETE /library/character/5/permanent": [409, { detail: "Archive it first." }],
-  });
-  vi.spyOn(window, "confirm").mockReturnValue(true);
-  renderAt("/b/1/library/characters");
-  await userEvent.click(await screen.findByRole("button", { name: "Archived" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Delete Mia forever" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Archive it first.");
-});
-
-test("a card without a picture is still linked by the item's name", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, image_file_ids: [] }]] });
-  renderAt("/b/1/library/characters");
-  expect(await screen.findByRole("link", { name: "Mia" })).toHaveAttribute("href", "/b/1/library/characters/5");
-});
-
-const sheetItem = { ...mia, source_photo_file_id: 20, sheet_file_id: null, sheet_status: "none" };
-const sheetBase: Record<string, [number, unknown]> = {
-  "GET /auth/me": [200, editor],
-  "GET /brands": [200, brands],
-  "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", credits_per_unit: { "2K": 1.5 } }]],
-  "GET /jobs": [200, []],
-  "GET /team/members": [200, []],
-  "GET /library/character/5/versions": [200, []],
-};
-
-test("a character without a sheet offers to make one, with the server's price, and sends the job", async () => {
-  const calls = fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem], "POST /library/character/5/sheet": [201, { id: 50, step: "sheet", library_item_id: 5, status: "queued" }] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Source photo, not used in videos")).toBeInTheDocument();
-  expect(screen.getByText("Needs a sheet")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Make house-style sheet · 2 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ model_id: "nano-banana-pro", change: "" }));
-});
-
-test("without a photo or notes a character says to upload one; with notes a sheet can be drawn from them", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, source_photo_file_id: null, notes: "" }] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Upload a photo, or add notes, to make a sheet.")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Make house-style sheet/ })).not.toBeInTheDocument();
-});
-
-test("a character with notes and no photo can make a sheet from the notes", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, source_photo_file_id: null, notes: "A tired coach in a grey hoodie" }] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Make a sheet from the notes?")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Make house-style sheet/ })).toBeInTheDocument();
-});
-
-test("while drawing the card says so and offers nothing to press", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_status: "drawing" }] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("A sheet is being made.")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Make house-style sheet|Approve|Redo/ })).not.toBeInTheDocument();
-});
-
-test("a sheet is approved, then shows as approved and can be undone", async () => {
-  const calls = fakeServer({
-    ...sheetBase,
-    "GET /library/character/5": [200, { ...sheetItem, sheet_file_id: 21, sheet_status: "needs_approval" }],
-    "POST /library/character/5/sheet/approve": [200, {}],
-  });
-  renderAt("/b/1/library/characters/5");
-  await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true));
-});
-
-test("an approved sheet has the approved mark and Redo takes a note", async () => {
-  const calls = fakeServer({
-    ...sheetBase,
-    "GET /library/character/5": [200, { ...sheetItem, sheet_file_id: 21, sheet_status: "approved" }],
-    "POST /library/character/5/sheet": [201, { id: 51, step: "sheet", library_item_id: 5, status: "queued" }],
-  });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("✓ Approved sheet")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo · 2 credits" }));
-  await userEvent.type(screen.getByLabelText(/What should change/), "Shorter hair");
-  await userEvent.click(screen.getAllByRole("button", { name: "Redo · 2 credits" }).at(-1)!);
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ change: "Shorter hair" }));
-});
-
-test("a failed sheet says credits came back and offers Try again", async () => {
-  fakeServer({
-    ...sheetBase,
-    "GET /library/character/5": [200, sheetItem],
-    "GET /jobs": [200, [{ id: 50, kind: "image", step: "sheet", library_item_id: 5, status: "failed", created_at: new Date().toISOString() }]],
-  });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Didn't finish · credits returned")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again/ })).toBeInTheDocument();
-});
-
-test("library cards say where each sheet stands, and Sheet: narrows them", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /library/character": [200, [{ ...mia, sheet_status: "none" }, { ...mia, id: 6, name: "Dex", sheet_status: "approved" }, { ...mia, id: 7, name: "Rex", sheet_status: "drawing" }, { ...mia, id: 8, name: "Val", sheet_status: "needs_approval" }]] });
-  renderAt("/b/1/library/characters");
-  await screen.findByText("Dex");
-  for (const line of ["No sheet yet", "Sheet approved", "Drawing the sheet", "Sheet to check"]) expect(screen.getAllByText(line)).toHaveLength(1);
-  await userEvent.click(screen.getByRole("button", { name: /Sheet: Any/ }));
-  await userEvent.click(screen.getByRole("menuitemradio", { name: "To check" }));
-  expect(screen.getByText("Val")).toBeInTheDocument();
-  expect(screen.queryByText("Dex")).toBeNull();
-});
-
-test("Open Mia from a video comes back to the same stage", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
-  renderAt("/b/1/library/characters/5?back=%2Fb%2F1%2Fprojects%2F9%3Fstage%3Dclips");
-  expect(await screen.findByRole("link", { name: "← Back to your video" })).toHaveAttribute("href", "/b/1/projects/9?stage=clips");
-});
-
-test("a back link to somewhere else is ignored", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
-  renderAt("/b/1/library/characters/5?back=https%3A%2F%2Fevil.example");
-  expect(await screen.findByRole("link", { name: "Characters" })).toHaveAttribute("href", "/b/1/library/characters");
-  expect(screen.queryByRole("link", { name: /Back to your video/ })).toBeNull();
-});
-
-test("a sheet held from before the limits changed says Not started, not Drawing, and offers nothing to press", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_status: "waiting_for_owner" }] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("Not started")).toBeInTheDocument();
-  expect(screen.queryByText(/Drawing/)).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Make house-style sheet|Approve|Redo/ })).not.toBeInTheDocument();
-});
-
-test("a character's photo at creation is the source photo for its sheet, not a loose image", async () => {
-  const calls = fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, brands],
-    "GET /library/character": [200, []],
-    "POST /files": [201, { id: 33, filename: "nate.jpg", content_type: "image/jpeg", size: 3, created_at: "2026-10-23T00:00:00Z" }],
-    "POST /library/character": [201, mia],
-  });
-  renderAt("/b/1/library/characters");
-  await userEvent.click(await screen.findByRole("button", { name: "+ New character" }));
-  await userEvent.type(screen.getByLabelText("Name"), "Nate");
-  await userEvent.upload(screen.getByLabelText("Photo (optional)"), new File(["x"], "nate.jpg", { type: "image/jpeg" }));
-  await userEvent.click(screen.getByRole("button", { name: "Create character" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character")?.body).toMatchObject({ source_photo_file_id: 33, image_file_ids: [] }));
-});
-
-test("a character's page has no second Images box, since the sheet card holds the photo", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, sheetItem] });
-  renderAt("/b/1/library/characters/5");
-  await screen.findByText("House-style sheet");
-  expect(screen.queryByText("Images")).not.toBeInTheDocument();
-});
-
-test("a card shows the sheet, else the source photo", async () => {
-  fakeServer({
-    "GET /auth/me": [200, editor],
-    "GET /brands": [200, brands],
-    "GET /library/character": [200, [{ ...mia, image_file_ids: [], source_photo_file_id: 20, sheet_file_id: 21, sheet_status: "approved" }, { ...mia, id: 6, name: "Dex", image_file_ids: [], source_photo_file_id: 22, sheet_file_id: null }]],
-  });
-  renderAt("/b/1/library/characters");
-  await screen.findByText("Dex");
-  const srcs = screen.getAllByRole("img").map((i) => i.getAttribute("src"));
-  expect(srcs).toContain("/api/files/21");
-  expect(srcs).toContain("/api/files/22");
-});
-
-test("when the server gives the whole press, the sheet button shows the most it can cost and the usual price under it", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_credits: 4, change_credits: 5 }] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByRole("button", { name: "Make house-style sheet · up to 4 credits" })).toBeInTheDocument();
-  expect(await screen.findByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
-});
-
-test("a sheet that reads wrong on the character's page says so, and Fix it with a note opens the redo with the problem as its note", async () => {
-  fakeServer({ ...sheetBase, "GET /library/character/5": [200, { ...sheetItem, sheet_file_id: 70, sheet_status: "needs_approval", look_fit: { seen: "a teenage boy", problem: "Mia is a woman in her 30s" } }] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByText("This look reads as a teenage boy, but Mia is a woman in her 30s.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Fix it with a note" }));
-  expect(await screen.findByLabelText("What should change? (optional)")).toHaveValue("Mia is a woman in her 30s");
-});
-
-const bag = { id: 8, kind: "prop", name: "Salmon bag", notes: "", brand_ids: [2], image_file_ids: [], outfits: [], version: 1, short_description: "", main_claim: "", advice: ["Scripts won't mention a claim for this product."] };
-const propRoutes = (me: object) => ({
-  "GET /auth/me": [200, me] as [number, unknown],
-  "GET /brands": [200, brands] as [number, unknown],
-  "GET /team/members": [200, []] as [number, unknown],
-  "GET /library/prop/8": [200, bag] as [number, unknown],
-  "GET /library/prop/8/versions": [200, []] as [number, unknown],
-  "PATCH /library/prop/8": [200, { ...bag, version: 2 }] as [number, unknown],
-});
-
-test("the owner gives a product its line and main claim; an empty claim is Advice (BR1)", async () => {
-  const calls = fakeServer(propRoutes(owner));
-  renderAt("/b/2/library/props/8");
-  expect(await screen.findByText("Scripts won't mention a claim for this product.")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
-  await userEvent.type(screen.getByLabelText("What it is, in a line"), "Grain-free salmon kibble");
-  await userEvent.type(screen.getByLabelText("Main claim"), "Dogs finish the bowl");
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /library/prop/8")?.body).toMatchObject({ short_description: "Grain-free salmon kibble", main_claim: "Dogs finish the bowl" }));
-});
-
-test("an editor changes a product's line and claim too, and their save sends them (Reed, 30 Oct)", async () => {
-  const calls = fakeServer(propRoutes(editor));
-  renderAt("/b/2/library/props/8");
-  await userEvent.click(await screen.findByRole("button", { name: "Edit" })); // the page reads first; Edit opens the form (v5)
-  const claim = await screen.findByLabelText("Main claim");
-  expect(claim).not.toHaveAttribute("readonly");
-  expect(screen.queryByText("Only the owner changes the brand.")).toBeNull();
-  await userEvent.clear(claim);
-  await userEvent.type(claim, "Bowls come back empty");
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /library/prop/8")).toBeTruthy());
-  expect(calls.find((c) => c.key === "PATCH /library/prop/8")!.body).toMatchObject({ main_claim: "Bowls come back empty" });
-});
-
-const looksList = [{ id: "house", name: "House", blurb: "", on: true }, { id: "pixar", name: "Disney Pixar", blurb: "", on: true }];
-const charRoutes = (me: object, sheets: object) => ({
-  "GET /auth/me": [200, me] as [number, unknown],
-  "GET /brands": [200, brands] as [number, unknown],
-  "GET /team/members": [200, []] as [number, unknown],
-  "GET /looks": [200, looksList] as [number, unknown],
-  "GET /models": [200, [{ id: "nano-banana-pro", kind: "image", name: "Nano Banana Pro", default: true, credits_per_unit: { "2K": 1.5 } }]] as [number, unknown],
-  "GET /library/character/5": [200, { ...mia, look_sheets: sheets }] as [number, unknown],
-  "GET /library/character/5/versions": [200, []] as [number, unknown],
-});
-
-test("the owner makes a character's sheet in another look, then approves it with Undo (ST2)", async () => {
-  const calls = fakeServer({ ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90 }] });
-  renderAt("/b/1/library/characters/5");
-  const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet · up to 2 credits/ }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ look_id: "pixar", change: "" }));
-  expect(screen.queryByLabelText("House sheet")).toBeNull();
-});
-
-test("a sheet waiting in a look: Approve, with Undo; editors see it without the presses", async () => {
-  const calls = fakeServer({ ...charRoutes(owner, { pixar: { file_id: 70, status: "needs_approval" } }), "POST /library/character/5/sheet/approve": [200, mia], "DELETE /library/character/5/sheet/approve": [200, mia] });
-  renderAt("/b/1/library/characters/5");
-  const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  await userEvent.click(within(pixar).getByRole("button", { name: "Approve" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/sheet/approve")).toBe(true));
+test("S-gaps-05 L5: a sheet that needs an OK says so and a person approves it, with Undo", async () => {
+  const calls = fakeServer(server(editor, { "GET /library/character/5": [200, { ...mark, sheet_status: "needs_approval", used_in: [] }], "POST /library/character/5/sheet/approve": [200, mark], "DELETE /library/character/5/sheet/approve": [200, mark] }));
+  renderApp("/b/1/library/characters/5");
+  expect(await screen.findByText("Needs your OK")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Approve" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/5/sheet/approve")).toBe(true));
 });
 
-test("an editor sees the other looks' sheets but can't add one", async () => {
-  fakeServer(charRoutes(editor, {}));
-  renderAt("/b/1/library/characters/5");
-  const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  expect(within(pixar).getByText("Only the owner adds a sheet in another style.")).toBeInTheDocument();
-  expect(within(pixar).queryByRole("button")).toBeNull();
+test("Archive on the item page goes back to the list with Undo", async () => {
+  const calls = fakeServer(server(owner, { "DELETE /library/character/5": [204, null], "POST /library/character/5/unarchive": [200, mark] }));
+  renderApp("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
+  expect(await screen.findByText("Mark archived.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/unarchive")).toBe(true));
 });
 
-test("a first sheet in a look says Drawing… with no second Make until it's in, then offers Approve (QA-3)", async () => {
-  const routes: Record<string, [number, unknown]> = { ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90, status: "queued" }], "GET /jobs/90": [200, { id: 90, status: "running" }] };
-  const calls = fakeServer(routes);
-  renderAt("/b/1/library/characters/5");
-  const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet/ }));
-  expect(await within(pixar).findByText("Drawing…")).toBeInTheDocument();
-  expect(within(pixar).queryByRole("button", { name: /Make a Disney Pixar sheet/ })).toBeNull();
-  routes["GET /library/character/5"] = [200, { ...mia, look_sheets: { pixar: { file_id: 71, status: "needs_approval" } } }];
-  expect(await within(pixar).findByRole("button", { name: "Approve" }, { timeout: 5000 })).toBeInTheDocument();
-  expect(calls.filter((c) => c.key === "POST /library/character/5/sheet")).toHaveLength(1);
+test("a sheet that reads wrong says so, and Fix it with a note opens Change this… with the problem as its note", async () => {
+  fakeServer(server(owner, { "GET /library/character/5": [200, { ...mark, used_in: [], look_fit: { seen: "a man in his 20s", problem: "Mark is in his late 40s" } }] }));
+  renderApp("/b/1/library/characters/5");
+  expect(await screen.findByText(/This look reads as a man in his 20s, but Mark is in his late 40s\./)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Fix it with a note" }));
+  expect(screen.getByLabelText("What should change?")).toHaveValue("Mark is in his late 40s");
 });
 
-test("a first sheet that didn't finish says so, and Try again is the press", async () => {
-  fakeServer({ ...charRoutes(owner, {}), "POST /library/character/5/sheet": [201, { id: 90, status: "queued" }], "GET /jobs/90": [200, { id: 90, status: "failed" }] });
-  renderAt("/b/1/library/characters/5");
-  const pixar = await screen.findByLabelText("Disney Pixar sheet");
-  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet/ }));
-  expect(await within(pixar).findByText("The sheet didn't finish. Nothing was charged.")).toBeInTheDocument();
-  expect(within(pixar).getByRole("button", { name: /Try again/ })).toBeInTheDocument();
+test("More: words are saved, an old version is restored with Undo, and the owner can delete forever", async () => {
+  const versions = [{ version: 3, snapshot: mark, saved_by_id: 1, created_at: "2026-10-28T10:00:00Z" }, { version: 2, snapshot: { ...mark, sheet_file_id: 29 }, saved_by_id: 1, created_at: "2026-10-27T10:00:00Z" }];
+  const calls = fakeServer(server(owner, { "GET /library/character/5/versions": [200, versions], "PATCH /library/character/5": [200, mark], "POST /library/character/5/versions/2/restore": [200, { ...mark, version: 4 }], "POST /library/character/5/versions/3/restore": [200, mark] }));
+  renderApp("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "More" }));
+  const name = screen.getByRole("textbox", { name: "Name" });
+  await userEvent.clear(name);
+  await userEvent.type(name, "Marcus");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await vi.waitFor(() => expect(posted(calls, "PATCH /library/character/5")).toMatchObject({ name: "Marcus", brand_ids: [1] }));
+  await userEvent.click(screen.getByRole("button", { name: "Restore v2" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/5/versions/3/restore")).toBe(true));
+  expect(screen.getByRole("button", { name: "Delete forever" })).toBeInTheDocument();
 });
 
-test("a look starting with a vowel reads Make an …", async () => {
-  fakeServer({ ...charRoutes(owner, {}), "GET /looks": [200, [...looksList, { id: "anime", name: "Anime comic", blurb: "", on: true }]] });
-  renderAt("/b/1/library/characters/5");
-  expect(await screen.findByRole("button", { name: /Make an Anime comic sheet/ })).toBeInTheDocument();
-});
-
-test("v5 pages (QA-3 on #1204): a character's voice is one Play press and it has no Brands section; a place shows its pictures; a prop's crumb is Props & products; no History until there's an earlier version", async () => {
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/character/5": [200, { ...mia, voice_file_id: 21 }], "GET /library/character/5/versions": [200, [{ version: 3, snapshot: mia, saved_by_id: 2, created_at: "2026-10-23T10:00:00Z" }]] });
+test("More: the owner makes a sheet in another style; an editor sees it without the press", async () => {
+  const calls = fakeServer(server(owner, { "POST /library/character/5/sheet": [201, { id: 90 }] }));
   const { unmount } = renderApp("/b/1/library/characters/5");
-  expect(await screen.findByRole("button", { name: "Play the voice sample" })).toBeInTheDocument();
-  expect(screen.queryByRole("region", { name: "Brands" })).toBeNull();
-  expect(screen.queryByRole("heading", { name: "History" })).toBeNull();
+  await userEvent.click(await screen.findByRole("button", { name: "More" }));
+  const pixar = await screen.findByLabelText("Disney Pixar sheet");
+  await userEvent.click(within(pixar).getByRole("button", { name: /Make a Disney Pixar sheet · up to 2 credits/ }));
+  await vi.waitFor(() => expect(posted(calls, "POST /library/character/5/sheet")).toMatchObject({ look_id: "pixar" }));
   unmount();
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/place/7": [200, { ...mia, id: 7, kind: "place", name: "Cafe", image_file_ids: [9] }], "GET /library/place/7/versions": [200, []] });
-  const place = renderApp("/b/1/library/places/7");
-  expect(await within(await screen.findByRole("region", { name: "Pictures" })).findByRole("img", { name: "Cafe 1" })).toBeInTheDocument();
-  place.unmount();
-  fakeServer({ "GET /auth/me": [200, editor], "GET /brands": [200, brands], "GET /team/members": [200, []], "GET /library/prop/8": [200, { ...mia, id: 8, kind: "prop", name: "Bag", short_description: "Grain-free salmon kibble", main_claim: "" }], "GET /library/prop/8/versions": [200, []] });
-  renderApp("/b/1/library/props/8");
-  expect(await screen.findByRole("link", { name: "Props & products" })).toHaveAttribute("href", "/b/1/library/props");
-  expect(screen.getByText("Grain-free salmon kibble")).toBeInTheDocument();
-  expect(screen.queryByRole("region", { name: "What it is" })).toBeNull();
+  fakeServer(server(editor));
+  renderApp("/b/1/library/characters/5");
+  await userEvent.click(await screen.findByRole("button", { name: "More" }));
+  expect(within(await screen.findByLabelText("Disney Pixar sheet")).getByText("Only the owner adds a sheet in another style.")).toBeInTheDocument();
 });
 
-test("at 390 a character reads name and sections, then the House-style sheet, then sheets in other styles (QA-3 on #1204)", async () => {
+test("S8-06 / L1: products are apps or physical things; one with no photo takes one from its card, linked to it", async () => {
+  const calls = fakeServer(server(owner, { "GET /library/prop": [200, [bag, chicken, app]], "POST /files": [201, { id: 77 }], "POST /brands/2/screens": [201, {}] }));
+  renderApp("/b/2/library/products");
+  const pb = (await screen.findByRole("link", { name: "Peanut butter bag" })).closest("li")!;
+  expect(within(pb).getByText("Physical")).toBeInTheDocument();
+  expect(within(pb).getByText("Main text must read right")).toBeInTheDocument();
+  const fomo = screen.getByRole("link", { name: "fomo app" }).closest("li")!;
+  expect(within(fomo).getByText("App")).toBeInTheDocument();
+  expect(within(fomo).getByText("3 screens · shown as given; numbers follow the story")).toBeInTheDocument();
+  expect(screen.getByText("No photo yet. The director asks for it when a video needs it.")).toBeInTheDocument();
+  await userEvent.upload(screen.getByLabelText("Add a photo of Chicken bag"), new File(["x"], "chicken.png", { type: "image/png" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /brands/2/screens")).toMatchObject({ product_id: 10, file_id: 77, name: "Chicken bag", tags: ["product"] }));
+});
+
+test("New product: an app with its screens, each named from its file and linked to the app", async () => {
+  const calls = fakeServer(server(owner, { "POST /library/prop": [201, { ...app, id: 15, pictures: [] }], "POST /files": [201, { id: 78 }], "POST /brands/2/screens": [201, {}] }));
+  renderApp("/b/2/library/products");
+  await userEvent.click(await screen.findByRole("button", { name: "New product" }));
+  const form = screen.getByRole("form", { name: "New product" });
+  await userEvent.type(within(form).getByPlaceholderText("Name"), "fomo app");
+  await userEvent.click(within(form).getByRole("radio", { name: "An app" }));
+  await userEvent.upload(within(form).getByLabelText("Upload screens"), [new File(["a"], "home-rich.png", { type: "image/png" }), new File(["b"], "token-up.png", { type: "image/png" })]);
+  await userEvent.click(within(form).getByRole("button", { name: "Save product" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /brands/2/screens")).toHaveLength(2));
+  expect(posted(calls, "POST /library/prop")).toMatchObject({ name: "fomo app", product_type: "app", brand_ids: [2] });
+  expect(calls.filter((c) => c.key === "POST /brands/2/screens").map((c) => (c.body as { name: string; product_id: number }).name)).toEqual(["Home rich", "Token up"]);
+});
+
+test("the old Props tab lands on Products", async () => {
+  fakeServer(server(owner));
+  renderApp("/b/2/library/props");
+  expect(await screen.findByRole("link", { name: /^Products/, current: "page" })).toBeInTheDocument();
+});
+
+test("S8-04 / L3: presenters are listed beside the voices; a new presenter is a face and a voice, saved free", async () => {
+  const calls = fakeServer(server(owner, { "POST /library/character": [201, { ...mark, id: 13 }], "GET /library/character/13": [200, { ...mark, id: 13, used_in: [] }], "GET /library/character/13/versions": [200, []], "GET /library/character/13/sheet/versions": [200, []] }));
+  renderApp("/b/1/library/presenters");
+  const presenters = await screen.findByRole("region", { name: "Presenters" });
+  expect(await within(presenters).findByRole("link", { name: "Mark" })).toBeInTheDocument();
+  expect(within(presenters).queryByRole("link", { name: "Dana" })).toBeNull();
+  expect(screen.getByRole("region", { name: "Voices" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New presenter" }));
+  await userEvent.type(screen.getByPlaceholderText("Name"), "Paige");
+  expect(screen.getByText("A face and a voice, nothing else.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Save presenter" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /library/character")).toMatchObject({ name: "Paige", presenter: true, brand_ids: [1] }));
+});
+
+test("P-13: on a phone the tabs are a strip with every tab, and cards say how many videos", async () => {
   setViewport(390);
-  fakeServer(charRoutes(owner, {}));
-  renderAt("/b/1/library/characters/5");
-  const others = await screen.findByRole("region", { name: "Sheets in other styles" });
-  const house = screen.getByRole("region", { name: "House-style sheet" });
-  expect(house.compareDocumentPosition(others) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(others.closest(".order-3")).not.toBeNull(); // after the sheet column (order-2), which follows the name (order-1)
-  expect(screen.getAllByRole("region", { name: "Sheets in other styles" })).toHaveLength(1);
-});
-
-test("a character's page lists the videos that use it, each linked, with where it is (#1212)", async () => {
-  setViewport(1440);
-  fakeServer({ ...charRoutes(owner, {}), "GET /library/character/5": [200, { ...mia, look_sheets: {}, used_in: [{ project_id: 11, name: "Bo tries salmon · A", status: "done" }, { project_id: 12, name: "Gym bro tries yoga", status: "making" }] }] });
-  renderAt("/b/1/library/characters/5");
-  const used = await screen.findByRole("region", { name: "Used in" });
-  expect(within(used).getByRole("link", { name: "Bo tries salmon · A" })).toHaveAttribute("href", "/b/1/projects/11");
-  expect(within(used).getByText("Delivered")).toBeInTheDocument();
-  expect(within(used).getByText("Working")).toBeInTheDocument();
+  fakeServer(server(owner));
+  renderApp("/b/1/library/characters");
+  const tabs = await screen.findByRole("navigation", { name: "Library" });
+  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Characters", "Places", "Products", "Presenters", "Brand kit"]);
+  expect(await screen.findByText("6 videos")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "New character" })).toBeInTheDocument();
 });

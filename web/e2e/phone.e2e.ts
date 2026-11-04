@@ -14,14 +14,14 @@ test("on a phone, the five bottom tabs reach every brand section and there is no
   await expect(page.getByRole("heading", { name: "Videos", exact: true })).toBeVisible();
 
   await tabs.getByRole("link", { name: "Cast" }).click();
-  await expect(page.getByRole("heading", { name: "Cast & places" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Library" })).toBeVisible();
 
   await tabs.getByRole("link", { name: "New" }).click();
   await expect(page.getByRole("heading", { name: "New video", exact: true })).toBeVisible();
   await page.goBack(); // New video has its own title bar in place of the tabs' top bar
 
   await tabs.getByRole("link", { name: "Brand" }).click();
-  await expect(page.getByRole("tablist", { name: "Brand" })).toBeVisible(); // v5: the page's heading is the brand's own name
+  await expect(page.getByLabel("Tone and rules")).toBeVisible(); // the library's Brand kit tab (P-13)
 
   await tabs.getByRole("link", { name: "Scripts", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();

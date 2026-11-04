@@ -41,10 +41,12 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, voices, ch
           </span>
           <h1 className="text-md font-semibold">Library</h1>
           <span className="flex-1" />
-          {onAdd && (
+          {onAdd ? (
             <button type="button" aria-label={addLabel} onClick={onAdd} className="grid size-control place-items-center rounded-md text-text">
               <Plus size={20} strokeWidth={1.75} aria-hidden />
             </button>
+          ) : (
+            action
           )}
         </header>
         <nav aria-label="Library" className="overflow-x-auto px-3.5 py-2">

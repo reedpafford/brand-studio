@@ -101,7 +101,7 @@ export function Voices({ brandId }: { brandId: number }) {
         <span className="text-xs text-muted">every voice plays a free sample</span>
         <span className="flex-1" />
         <Button variant="secondary" icon={Upload} aria-expanded={cloning} onClick={() => setCloning(!cloning)}>
-          Clone a voice{price && <span className="opacity-80"> · {price}</span>}
+          Clone a voice{price && <>{" "}<span className="opacity-80">· {price}</span></>}
         </Button>
       </div>
       {cloning && <Clone brandId={brandId} price={price} owner={owner} onDone={() => setCloning(false)} />}
@@ -150,7 +150,7 @@ function Clone({ brandId, price, owner, onDone }: { brandId: number; price: stri
       <input aria-label="How it sounds" placeholder="How it sounds: deep, fixed" value={description} onChange={(e) => setDescription(e.target.value)} className="h-9 rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
       {clone.isError && <p role="alert" className={errorClass}>{clone.error.message}</p>}
       <Button disabled={!ready} busy={clone.isPending} onClick={() => clone.mutate()}>
-        Clone{price && <span className="opacity-80"> · {price}</span>}
+        Clone{price && <>{" "}<span className="opacity-80">· {price}</span></>}
       </Button>
     </div>
   );
