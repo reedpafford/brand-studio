@@ -19,12 +19,15 @@ const KINDS: { id: Kind; label: string; one: string }[] = [
   { id: "take", label: "Clips", one: "Take" },
   { id: "song", label: "Songs", one: "Song" },
   { id: "final", label: "Final videos", one: "Final video" },
+  { id: "upload", label: "Added", one: "Upload" }, // a picture or clip added to the brand's Media (#1267)
 ];
 /** The board's tabs: All · Clips · Stills · Songs. A tab is one kind until the server groups them (a final cut and a sheet show under All). */
 const TABS: Kind[] = ["take", "still", "song"];
 /** 130 px tiles, as many to a row as fit (the board shows eight at 1440); three across on a phone. */
 const GRID = "grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-4";
-const CHIP: Record<Kind, string> = { take: "Clip", final: "Final", still: "Still", sheet: "Sheet", song: "Song" };
+const CHIP: Record<Exclude<Kind, "upload">, string> = { take: "Clip", final: "Final", still: "Still", sheet: "Sheet", song: "Song" };
+/** An added picture or clip reads as what it is. */
+const chip = (m: Item) => (m.kind === "upload" ? (m.content_type.startsWith("video/") ? "Clip" : "Still") : CHIP[m.kind]);
 export const kindName = (k: Kind) => KINDS.find((x) => x.id === k)!.one;
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
@@ -72,7 +75,7 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
             <Icon size={24} strokeWidth={1.75} />
           </span>
         )}
-        <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{CHIP[m.kind]}</span>
+        <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{chip(m)}</span>
       </Link>
       <p className="mt-1.5 truncate text-xs font-medium">{title}</p>
       <p className="truncate text-xs text-muted">{meta}</p>
@@ -111,18 +114,17 @@ export function MediaPage() {
   const clear = () => setParams((p) => { ["kind", "video", "sort"].forEach((k) => p.delete(k)); return p; }, { replace: true });
 
   const media = useInfiniteQuery({
-    queryKey: ["media", brandId, kind],
+    queryKey: ["media", brandId, kind, oldest],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) =>
-      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(kind ? { kind } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
+      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(kind ? { kind } : {}), ...(oldest ? { sort: "oldest" as const } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
     getNextPageParam: (last) => last.next,
   });
   const loaded = media.data?.pages.flatMap((p) => p.items) ?? [];
   const videoKey = (m: Item) => (m.project_id ? `p${m.project_id}` : m.freestyle_id ? `f${m.freestyle_id}` : null);
   const videos = [...new Map(loaded.flatMap((m) => (videoKey(m) && m.video_name ? [[videoKey(m)!, m.video_name] as const] : []))).entries()];
   const picked = videos.find(([k]) => k === video)?.[1];
-  const shown = loaded.filter((m) => !video || videoKey(m) === video);
-  const items = oldest ? [...shown].reverse() : shown;
+  const items = loaded.filter((m) => !video || videoKey(m) === video); // the server sorts (newest or oldest first)
   const filtered = !!kind || !!video;
 
   const menu = (title: string, label: string, options: [string, string][], current: string, onPick: (v: string) => void) => (

@@ -68,7 +68,7 @@ test("with nothing made yet it says so and offers New video", async () => {
   expect(within(screen.getByRole("main")).getByRole("link", { name: "New video" })).toHaveAttribute("href", expect.stringMatching(/^\/b\/\d+\/videos\/new$/));
 });
 
-test("the kind tabs ask the server; Video narrows to one video's own media and Oldest first reverses; Clear filters puts them back", async () => {
+test("the kind tabs ask the server; Video narrows to one video's own media and Oldest first asks the server; Clear filters puts them back", async () => {
   setViewport(1440);
   fakeServer(base(owner, page([
     item({ key: "take:3", made_at: "2026-10-28T10:00:00Z" }),
@@ -89,7 +89,7 @@ test("the kind tabs ask the server; Video narrows to one video's own media and O
   await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
   await userEvent.click(screen.getByRole("button", { name: "Newest first" }));
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Oldest first" }));
-  expect(await names()).toEqual(["Haunted fridge", "Cat buys the dip", "Bo tries salmon"]);
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("/brands/1/media?") && u.includes("sort=oldest"))).toBe(true)); // the server sorts the whole library
   await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
   expect(await names()).toEqual(["Bo tries salmon", "Cat buys the dip", "Haunted fridge"]);
 });
@@ -232,6 +232,21 @@ test("the owner deletes a final cut from its page, after a check that says its v
   await userEvent.click(within(ask).getByRole("button", { name: "Delete" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /brands/1/media/final%3A3")).toBe(true));
   expect(await screen.findByText("Deleted from Media.")).toBeInTheDocument();
+});
+
+test("an added picture reads as a Still, says it was added, and the owner's Delete has Undo (#1267)", async () => {
+  setViewport(1440);
+  const added = item({ key: "upload:7", kind: "upload", group: "still", content_type: "image/png", poster_file_id: null, project_id: null, video_name: null, open_step: null, made_by: { id: 1, name: "Reed" } });
+  const calls = fakeServer({ ...base(owner, page([added])), "GET /brands/1/media/upload%3A7": [200, added], "DELETE /brands/1/media/upload%3A7": [204, null], "POST /brands/1/media/upload%3A7/restore": [204, null] });
+  renderApp("/b/1/media");
+  expect(within(await screen.findByRole("list", { name: "Media" })).getByText("Still")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("link", { name: /^Open Upload/ }));
+  expect(await screen.findByText("Added to this brand's Media by Reed.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Delete this upload?" })).getByRole("button", { name: "Delete" }));
+  expect(await screen.findByText("Deleted from Media.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/media/upload%3A7/restore")).toBe(true));
 });
 
 test("a refused delete says why in plain words; a still has no Delete, and an editor never sees it (#1212)", async () => {
