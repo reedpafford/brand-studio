@@ -1,237 +1,195 @@
-import { useState, type FormEvent } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, NavLink, useParams } from "react-router-dom";
-import { api, errorText, must } from "../api/client";
-import { fileUrl, uploadFile } from "../api/upload";
+import { useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, Upload, WandSparkles } from "lucide-react";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { api, must } from "../api/client";
 import { useMe } from "../auth/useMe";
+import { useBrands } from "../shell/useBrands";
+import { Banner, Button } from "../components";
 import { useToast } from "../toast";
-import { btnPrimary, btnSecondary, card, errorText as errorClass, input, linkText } from "../ui";
-import { KINDS, isKindSlug } from "./kinds";
-import { Button, Menu, MenuItem, PageTop, pillClass } from "../components";
-import { ChevronDown, Search } from "lucide-react";
+import { useRail } from "../useMedia";
+import { LibraryCard, Picture } from "./Cards";
+import { LibraryFrame, useSearch } from "./LibraryFrame";
+import { NewItem } from "./NewItem";
+import { PresentersTab } from "./PresentersTab";
+import { KINDS, PRODUCT_TYPE, cover, day, isKindSlug, upTo, useItems, useNewPrice, videos, type Item, type KindSlug } from "./kinds";
+import { addPicture } from "./products";
 
-const tab = ({ isActive }: { isActive: boolean }) => pillClass(isActive);
-
+/** /b/:brandId/library/:tab: one tab of the brand's library (v6 S8-01 to S8-08, P-13). */
 export function LibraryPage() {
   const { brandId, kindSlug } = useParams();
-  if (!isKindSlug(kindSlug)) return <p className="p-6">That library doesn't exist.</p>;
-  return <Library key={`${brandId}/${kindSlug}`} brandId={Number(brandId)} slug={kindSlug} />;
+  const id = Number(brandId);
+  if (kindSlug === "props") return <Navigate to={`/b/${id}/library/products`} replace />; // the old Props tab
+  if (kindSlug === "presenters") return <PresentersTab key={id} brandId={id} />;
+  if (!isKindSlug(kindSlug)) return <Navigate to={`/b/${id}/library/characters`} replace />;
+  return <KindTab key={`${id}/${kindSlug}`} brandId={id} slug={kindSlug} />;
 }
 
-function Library({ brandId, slug }: { brandId: number; slug: keyof typeof KINDS }) {
-  const { kind, one, them, title } = KINDS[slug];
-  const [archived, setArchived] = useState(false);
-  const [search, setSearch] = useState("");
-  const [sheet, setSheet] = useState<Filter>("any");
-  const [adding, setAdding] = useState(false);
-  const { data: me } = useMe();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const load = (k: typeof kind, gone: boolean) => ({
-    queryKey: ["library", k, brandId, gone],
-    queryFn: async () => {
-      const { data } = await api.GET("/library/{kind}", { params: { path: { kind: k }, query: { brand_id: brandId, archived: gone } } });
-      if (!data) throw new Error("load");
-      return data;
-    },
-  });
-  const items = useQuery(load(kind, archived));
-  // Each kind tab shows how many there are (W10); the same reads the kinds' own pages use.
-  const counts = useQueries({ queries: Object.values(KINDS).map((k) => load(k.kind, false)) });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
-  const unarchive = useMutation({
-    mutationFn: (item_id: number) => must(api.POST("/library/{kind}/{item_id}/unarchive", { params: { path: { kind, item_id } } })),
-    onSuccess: (_, item_id) => {
-      refresh();
-      const name = items.data?.find((i) => i.id === item_id)?.name ?? "Item";
-      toast(`${name} is back.`, async () => {
-        await must(api.DELETE("/library/{kind}/{item_id}", { params: { path: { kind, item_id } } }));
-        refresh();
-      });
-    },
-  });
-  const purge = useMutation({
-    mutationFn: (item_id: number) => must(api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path: { kind, item_id } } })),
-    onSuccess: refresh,
-  });
-  const shown = items.data?.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase()) && (sheet === "any" || (SHEET[i.sheet_status] ?? SHEET.none).filter === sheet));
-
-  return (
-    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
-      <PageTop title="Cast & places">
-        {!archived && !adding && (
-          <Button className="lg:min-h-9 lg:px-3" onClick={() => setAdding(true)}>
-            + New {one}
-          </Button>
-        )}
-      </PageTop>
-      {/* One 44 px band: the kinds as pills, then search and the sheet filter on the right (v5 C_CastPlaces). */}
-      <div className="-mx-4 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
-        <nav aria-label="Kinds" className="flex flex-wrap items-center gap-1">
-          {Object.entries(KINDS).map(([s, k], n) => (
-            <NavLink key={s} to={`/b/${brandId}/library/${s}`} className={tab}>
-              {k.title}
-              {counts[n].data && <span className="tabular-nums text-muted">{counts[n].data.length}</span>}
-            </NavLink>
-          ))}
-        </nav>
-        <span className="hidden flex-1 sm:block" />
-        <label className="relative block w-full sm:w-64">
-          <span className="sr-only">Search {them === "them" ? "characters" : title.toLowerCase()}</span>
-          <Search size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input className={`${input} pl-9`} type="search" placeholder={`Search ${title.toLowerCase()}`} value={search} onChange={(e) => setSearch(e.target.value)} />
-        </label>
-        {kind !== "prop" && (
-          <Menu title="Sheet" align="right" trigger={(p) => (
-            <Button variant="secondary" dense trailing={ChevronDown} {...p}>
-              Sheet: {sheet === "any" ? "Any" : FILTERS[sheet]}
-            </Button>
-          )}>
-            {(close) => Object.entries(FILTERS).map(([id, label]) => <MenuItem key={id} checked={sheet === id} onClick={() => { close(); setSheet(id as Filter); }}>{label}</MenuItem>)}
-          </Menu>
-        )}
-        <Button variant="ghost" dense aria-pressed={archived} onClick={() => setArchived(!archived)}>
-          {archived ? "Back" : "Archived"}
-        </Button>
-      </div>
-      {!archived && adding && <NewItem brandId={brandId} kind={kind} one={one} onDone={refresh} onClose={() => setAdding(false)} />}
-      {items.isError && <p role="alert" className={errorClass}>Could not load the library. Try again.</p>}
-      {(unarchive.isError || purge.isError) && (
-        <p role="alert" className={errorClass}>
-          {(unarchive.error ?? purge.error)?.message}
-        </p>
-      )}
-      {items.data?.length === 0 && (
-        <div className={card}>
-          <p className="text-[length:var(--text-xl)] font-semibold">{archived ? `Nothing archived.` : `No ${title.toLowerCase()} for this brand yet.`}</p>
-          {!archived && <p className="text-muted">Add a {one} once, use {them} in every video.</p>}
-        </div>
-      )}
-      {items.data && items.data.length > 0 && shown?.length === 0 && (
-        <p>
-          Nothing matches. <button className={linkText} onClick={() => { setSearch(""); setSheet("any"); }}>Clear filters</button>
-        </p>
-      )}
-      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-        {shown?.map((i) => (
-          <li key={i.id} className="space-y-1 text-sm">
-            {archived ? <Thumb id={cover(i)} name={i.name} faded /> : (
-              <Link to={`/b/${brandId}/library/${slug}/${i.id}`} aria-label={i.name}>
-                <Thumb id={cover(i)} name={i.name} />
-              </Link>
-            )}
-            <div className="truncate font-medium">{i.name}</div>
-            {archived ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs text-muted">Archived</span>
-                <button className={linkText} aria-label={`Unarchive ${i.name}`} onClick={() => unarchive.mutate(i.id)}>
-                  Unarchive
-                </button>
-                {me?.role === "owner" && (
-                  <button
-                    className="text-danger underline"
-                    aria-label={`Delete ${i.name} forever`}
-                    onClick={() => window.confirm(`Delete ${i.name} forever? This removes all versions and can't be undone.`) && purge.mutate(i.id)}
-                  >
-                    Delete forever
-                  </button>
-                )}
-              </div>
-            ) : (
-              kind !== "prop" && <SheetLine status={i.sheet_status} />
-            )}
-          </li>
-        ))}
-      </ul>
-    </main>
-  );
-}
-
-const SHEET: Record<string, { text: string; dot: string; filter: string }> = {
-  approved: { text: "Sheet approved", dot: "bg-success", filter: "approved" },
-  needs_approval: { text: "Sheet to check", dot: "bg-warning", filter: "check" },
-  drawing: { text: "Drawing the sheet", dot: "bg-accent", filter: "drawing" },
-  waiting_for_owner: { text: "Waiting for the owner's OK", dot: "bg-accent", filter: "drawing" },
-  none: { text: "No sheet yet", dot: "border border-muted", filter: "none" },
+const WIDTH = { characters: "lg:w-[200px]", places: "lg:w-[200px]", products: "lg:w-[220px]" } as const;
+const SIZES = {
+  characters: "aspect-[175/230] w-full lg:aspect-auto lg:h-[266px] lg:w-[200px]",
+  places: "aspect-[175/230] w-full lg:aspect-auto lg:h-[266px] lg:w-[200px]",
+  products: "aspect-[175/230] w-full lg:aspect-auto lg:h-[300px] lg:w-[220px]",
 } as const;
-const FILTERS = { any: "Any", approved: "Approved", check: "To check", drawing: "Drawing", none: "No sheet" } as const;
-type Filter = keyof typeof FILTERS;
 
-/** A card's status: a dot and words (a hollow ring for no sheet). */
-function SheetLine({ status }: { status: string }) {
-  const line = SHEET[status] ?? SHEET.none;
-  return (
-    <p className="flex items-center gap-1.5 text-xs text-muted">
-      <span aria-hidden className={`size-2 shrink-0 rounded-full ${line.dot}`} />
-      {line.text}
-    </p>
+function KindTab({ brandId, slug }: { brandId: number; slug: KindSlug }) {
+  const { kind, one, title } = KINDS[slug];
+  const [params, setParams] = useSearchParams();
+  const adding = params.get("new") === "1";
+  const setAdding = (on: boolean) => setParams((p) => (on ? p.set("new", "1") : p.delete("new"), p), { replace: true });
+  const [photo, setPhoto] = useState<File | null>(null); // S8-02 "Upload a photo": picked first, then named
+  const [archived, setArchived] = useState(false);
+  const [q] = useSearch();
+  const rail = useRail();
+  const me = useMe().data;
+  const owner = me?.role === "owner";
+  const items = useItems(kind, brandId);
+  const gone = useItems(kind, brandId, true);
+  const price = useNewPrice(kind);
+  const picker = useRef<HTMLInputElement>(null);
+  const match = (i: Item) => i.name.toLowerCase().includes(q.trim().toLowerCase());
+  const live = (items.data ?? []).filter(match);
+  const old = archived ? (gone.data ?? []).filter(match) : [];
+  const empty = items.data?.length === 0 && !adding;
+  const New = `New ${one}`;
+  const action = (
+    <Button variant={empty ? "secondary" : "primary"} icon={Plus} onClick={() => setAdding(true)}>
+      {New}
+    </Button>
   );
-}
-
-function Thumb({ id, name, faded }: { id?: number; name: string; faded?: boolean }) {
-  const fade = faded ? " opacity-60" : "";
-  return id ? (
-    <img src={fileUrl(id)} alt={name} className={`aspect-[3/4] w-full rounded-md border border-border bg-surface-2 object-cover${fade}`} />
-  ) : (
-    <div className={`grid aspect-[3/4] w-full place-items-center rounded-md border border-border bg-surface-2 text-muted${fade}`}>No image</div>
-  );
-}
-
-/** The picture on a card: the approved or latest sheet, else the source photo, else the first picture. */
-const cover = (i: { sheet_file_id?: number | null; source_photo_file_id?: number | null; image_file_ids?: number[] }) => i.sheet_file_id ?? i.source_photo_file_id ?? i.image_file_ids?.[0];
-
-function NewItem(props: { brandId: number; kind: "character" | "place" | "prop"; one: string; onDone: () => void; onClose: () => void }) {
-  const [name, setName] = useState("");
-  const [notes, setNotes] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const create = useMutation({
-    mutationFn: async () => {
-      // A character's or place's picture is a source photo (the sheet is what videos use); a prop's picture is used as it is.
-      const stored = file ? (await uploadFile(file)).id : null;
-      const photo = props.kind !== "prop";
-      const { data, error } = await api.POST("/library/{kind}", {
-        params: { path: { kind: props.kind } },
-        body: { name, notes, brand_ids: [props.brandId], image_file_ids: stored && !photo ? [stored] : [], source_photo_file_id: stored && photo ? stored : null, outfits: [] },
-      });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: () => {
-      setName("");
-      setNotes("");
-      setFile(null);
-      props.onClose();
-      props.onDone();
-    },
-  });
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    create.mutate();
+  const start = (file: File | null) => {
+    setPhoto(file);
+    setAdding(true);
   };
   return (
-    <form onSubmit={submit} className={`${card} max-w-[640px] space-y-3`}>
-      <label className="block text-sm">
-        Name
-        <input className={input} required value={name} onChange={(e) => setName(e.target.value)} />
-      </label>
-      {/* G_CharacterNew: the description, which makes the sheet when there's no photo. */}
-      <label className="block text-sm">
-        Description
-        <textarea className={input} rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        {props.kind !== "prop" && <span className="mt-1 block text-muted">Used to make the sheet when there's no photo.</span>}
-      </label>
-      <label className="block text-sm">
-        {props.kind === "prop" ? "Image (optional)" : "Photo (optional)"}
-        <input className={input} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </label>
-      {create.isError && <p role="alert" className={errorClass}>{create.error.message}</p>}
-      <div className="flex gap-2">
-        <button className={`${btnPrimary} min-h-control`} disabled={create.isPending}>
-          Create {props.one}
-        </button>
-        <button type="button" className={btnSecondary} onClick={props.onClose}>
-          Cancel
-        </button>
-      </div>
-    </form>
+    <LibraryFrame brandId={brandId} tab={slug} action={adding ? undefined : action} onAdd={() => setAdding(true)} addLabel={New}>
+      <input ref={picker} type="file" accept="image/*" className="sr-only" aria-label={`${one} photo`} tabIndex={-1} onChange={(e) => e.target.files?.[0] && start(e.target.files[0])} />
+      {items.isError && <Banner title="Couldn't load the library." action={<Button variant="secondary" onClick={() => void items.refetch()}>Try again</Button>}>Check your connection.</Banner>}
+      {adding ? (
+        <NewItem brandId={brandId} kind={kind} photo={photo} onClose={() => (setAdding(false), setPhoto(null))} />
+      ) : empty ? (
+        <Empty brandId={brandId} slug={slug} price={kind === "prop" ? "" : upTo(price.data?.credits, price.data?.usd)} onUpload={() => picker.current?.click()} onMake={() => start(null)} />
+      ) : (
+        items.data && (
+          <>
+            {rail && (
+              <div className="mb-4 flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} className="size-4 rounded-sm" />
+                  Show archived
+                </label>
+                <span className="flex-1" />
+                {me && !owner && <span className="text-sm text-muted">Editors can add and edit {title.toLowerCase()} here too.</span>}
+              </div>
+            )}
+            {live.length + old.length === 0 && q && <p className="text-sm text-muted">Nothing called “{q}”.</p>}
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-3.5 lg:flex lg:flex-wrap lg:items-start lg:gap-5">
+              {live.map((i) => (slug === "products" ? <ProductCard key={i.id} brandId={brandId} item={i} /> : <ItemCard key={i.id} brandId={brandId} slug={slug} item={i} />))}
+              {old.map((i) => <ArchivedCard key={i.id} item={i} slug={slug} owner={owner} />)}
+            </ul>
+          </>
+        )
+      )}
+    </LibraryFrame>
   );
 }
+
+/** A character's or place's card: "UGC presenter · used in 6 videos", tagged Uploaded when it came from a photo. */
+function ItemCard({ brandId, slug, item: i }: { brandId: number; slug: KindSlug; item: Item }) {
+  const rail = useRail();
+  const used = i.used_in_count;
+  const role = i.presenter ? "Presenter" : "";
+  const line = !rail ? videos(used) : role ? `${role} · ${used ? `used in ${videos(used)}` : "not used yet"}` : used ? `Used in ${videos(used)}` : "Not used yet";
+  return <LibraryCard to={`/b/${brandId}/library/${slug}/${i.id}`} size={SIZES[slug]} width={WIDTH[slug]} picture={<Picture id={cover(i)} alt={i.name} className="size-full" />} name={i.name} tag={rail && i.source_photo_file_id ? "Uploaded" : undefined} line={line} />;
+}
+
+/** A product's card (S8-06, S-gaps-05 L1): its first picture, tagged App or Physical, and its line ("10 screens · shown
+ *  as given; numbers follow the story", or what must read right); with no picture yet, a dashed box that takes one. */
+function ProductCard({ brandId, item: i }: { brandId: number; item: Item }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const add = useMutation({
+    mutationFn: (file: File) => addPicture(brandId, i, file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library", "prop"] }),
+    onError: (e: Error) => toast(e.message, undefined, "error"),
+  });
+  const pic = cover(i);
+  const app = i.product_type === "app";
+  const n = i.pictures?.length ?? 0;
+  const words = app ? `${n} screen${n === 1 ? "" : "s"} · shown as given; numbers follow the story` : i.notes || i.main_claim || i.short_description || "";
+  const tag = PRODUCT_TYPE[app ? "app" : "physical"];
+  if (pic) return <LibraryCard to={`/b/${brandId}/library/products/${i.id}`} size={SIZES.products} width={WIDTH.products} picture={<Picture id={pic} alt={i.name} className="size-full" />} name={i.name} tag={tag} line={words} />;
+  const box = (
+    <label className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border-strong bg-surface-2 text-muted ${SIZES.products}`}>
+      <Upload size={20} strokeWidth={1.75} aria-hidden />
+      <span className="text-sm">{add.isPending ? "Uploading…" : i.name}</span>
+      <input type="file" accept="image/*" className="sr-only" aria-label={`Add a photo of ${i.name}`} onChange={(e) => e.target.files?.[0] && add.mutate(e.target.files[0])} />
+    </label>
+  );
+  return <LibraryCard size="" width={WIDTH.products} picture={box} name={i.name} tag={tag} line={app ? "No screens yet. The director asks for them when a video needs them." : "No photo yet. The director asks for it when a video needs it."} />;
+}
+
+/** An archived item (S8-08): faded, "Archived 20 Oct · kept for old videos", with Unarchive (and the owner's Delete
+ *  forever) under it. */
+function ArchivedCard({ item: i, slug, owner }: { item: Item; slug: KindSlug; owner: boolean }) {
+  const { kind } = KINDS[slug];
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const path = { kind, item_id: i.id };
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
+  const back = useMutation({
+    mutationFn: () => must(api.POST("/library/{kind}/{item_id}/unarchive", { params: { path } })),
+    onSuccess: () => {
+      void refresh();
+      toast(`${i.name} is back.`, async () => {
+        await must(api.DELETE("/library/{kind}/{item_id}", { params: { path } }));
+        void refresh();
+      });
+    },
+  });
+  const purge = useMutation({ mutationFn: () => must(api.DELETE("/library/{kind}/{item_id}/permanent", { params: { path } })), onSuccess: refresh });
+  const when = i.archived_at ? `Archived ${day(i.archived_at)}` : "Archived";
+  return (
+    <LibraryCard size={SIZES[slug]} width={WIDTH[slug]} faded picture={<Picture id={cover(i)} alt={i.name} className="size-full" />} name={i.name} tag="Archived" line={`${when} · kept for old videos`}>
+      <span className="mt-1 flex gap-3 text-sm">
+        <button type="button" className="min-h-control text-accent-text hover:underline lg:min-h-0" aria-label={`Unarchive ${i.name}`} onClick={() => back.mutate()}>Unarchive</button>
+        {owner && (
+          <button type="button" className="min-h-control text-danger hover:underline lg:min-h-0" aria-label={`Delete ${i.name} forever`} onClick={() => window.confirm(`Delete ${i.name} forever? This removes all versions and can't be undone.`) && purge.mutate()}>
+            Delete forever
+          </button>
+        )}
+      </span>
+    </LibraryCard>
+  );
+}
+
+const EMPTY: Record<KindSlug, (brand: string) => string> = {
+  characters: (b) => `Add the people who recur in ${b}’s videos. The director casts them without asking, and every shot keeps the same face.`,
+  places: (b) => `Add the places ${b}’s videos come back to. The director uses them without asking, and every shot keeps the same room.`,
+  products: (b) => `Add ${b}’s products: an app with its screens, or a thing with its real photo. Videos show them exactly as given.`,
+};
+
+/** A brand with none yet (S8-02): three empty frames, what they're for, and Upload a photo or Make one with its price. */
+function Empty({ brandId, slug, price, onUpload, onMake }: { brandId: number; slug: KindSlug; price: string; onUpload: () => void; onMake: () => void }) {
+  const name = useBrandName(brandId);
+  const { title } = KINDS[slug];
+  return (
+    <section className="flex min-h-[640px] flex-col items-center justify-center gap-3 text-center">
+      <div aria-hidden className="flex gap-2">
+        {[0, 1, 2].map((n) => <span key={n} className="h-[120px] w-[90px] rounded-md border border-dashed border-border-strong bg-surface-2" />)}
+      </div>
+      <h2 className="text-xl font-semibold">No {title.toLowerCase()} in {name} yet</h2>
+      <p className="max-w-[460px] text-md text-muted">{EMPTY[slug](name)}</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button icon={Upload} onClick={onUpload}>Upload a photo</Button>
+        {slug !== "products" && (
+          <Button variant="secondary" icon={WandSparkles} onClick={onMake}>
+            Make one{price && <span className="opacity-80"> · {price}</span>}
+          </Button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+const useBrandName = (id: number) => useBrands().data?.find((b) => b.id === id)?.name ?? "";

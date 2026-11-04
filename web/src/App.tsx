@@ -17,7 +17,7 @@ import { MediaItemPage } from "./media/MediaItemPage";
 import { FreestylePage, ToNewVideo } from "./freestyle/FreestylePage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
-import { BrandPage, ToBrand } from "./brand/BrandPage";
+import { BrandKit, ToBrand } from "./brand/BrandKit";
 import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
 import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
@@ -50,9 +50,9 @@ export function App() {
           <Route path="b/:brandId/videos" element={<VideosPage />} />
           <Route path="b/:brandId/videos/new" element={<NewVideoPage />} />
           <Route path="b/:brandId/videos/:projectId" element={<VideoRoute />} />
-          <Route path="b/:brandId/brand" element={<BrandPage />} />
+          <Route path="b/:brandId/brand" element={<BrandKit />} />
           <Route path="b/:brandId/kit" element={<ToBrand />} />
-          <Route path="b/:brandId/screens" element={<ToBrand tab="screens" />} />
+          <Route path="b/:brandId/screens" element={<ToBrand />} />
           <Route path="b/:brandId/library" element={<Navigate to="characters" replace />} />
           <Route path="b/:brandId/library/:kindSlug" element={<LibraryPage />} />
           <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />

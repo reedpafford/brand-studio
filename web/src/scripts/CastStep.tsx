@@ -12,7 +12,7 @@ import { useBrandCharacters, useCast, useCastActions, useMergeRoles, type Slot }
 import { RoleFacts } from "../projects/RoleFacts";
 import { MergeRole, mergedText } from "../projects/MergeRole";
 import { MaybeSame, MaybeSameBadge, pairId, type Pair } from "../projects/MaybeSame";
-import { useSheetPrice } from "../library/SheetPanel";
+import { useSheetPrice } from "../library/sheets";
 import { wholeCredits } from "../components/credits";
 
 /** Step 5: the roles of the script, each with one locked look or none (made in the video's Cast). Every role is optional. */

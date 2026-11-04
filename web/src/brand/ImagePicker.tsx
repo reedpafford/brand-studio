@@ -5,7 +5,7 @@ import { Button, buttonClass } from "../components";
 import { errorText } from "../ui";
 
 /** A labelled image slot: a tile with the current image, and Replace (or Upload) to pick a new one. */
-export function ImagePicker(props: { label: string; fileId: number | null; onChange: (id: number | null) => void; shape?: "square" | "wide" | "tall"; /** The tile and its presses side by side, Replace named (the logo: "Change logo", v5 F_BrandLook). */ inline?: string }) {
+export function ImagePicker(props: { label: string; fileId: number | null; onChange: (id: number | null) => void; shape?: "square" | "wide" | "tall"; /** The tile and its presses side by side, Replace named (the logo: "Change logo", v5 F_BrandLook). */ inline?: string; /** Only the presses: the page shows the picture itself (S8-05's logo). */ bare?: boolean }) {
   const upload = useMutation({
     mutationFn: uploadFile,
     onSuccess: (f) => props.onChange(f.id),
@@ -13,9 +13,9 @@ export function ImagePicker(props: { label: string; fileId: number | null; onCha
   const aspect = props.shape === "wide" ? "16 / 9" : props.shape === "tall" ? "9 / 16" : "1 / 1";
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium">{props.label}</div>
+      {!props.bare && <div className="text-sm font-medium">{props.label}</div>}
       <div className={props.inline ? "flex flex-wrap items-center gap-3" : "space-y-2"}>
-      <div className={`grid place-items-center ${props.inline ? "w-16" : "w-24"} overflow-hidden rounded-lg border border-border bg-surface-2 text-muted`} style={{ aspectRatio: aspect, width: props.shape === "wide" ? "9rem" : undefined }}>
+      <div hidden={props.bare} className={`grid place-items-center ${props.inline ? "w-16" : "w-24"} overflow-hidden rounded-lg border border-border bg-surface-2 text-muted`} style={{ aspectRatio: aspect, width: props.shape === "wide" ? "9rem" : undefined }}>
         {props.fileId ? <img src={fileUrl(props.fileId)} alt={props.label} className="size-full object-contain" /> : <Upload size={20} strokeWidth={1.75} aria-hidden />}
       </div>
       <div className="flex flex-wrap items-center gap-2">

@@ -804,6 +804,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/{kind}/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * New Item Price
+         * @description What making a new one's sheet costs at most (S8-02 "Make one · up to $0.08", S8-07).
+         */
+        get: operations["new_item_price_library__kind__price_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/{kind}/{item_id}": {
         parameters: {
             query?: never;
@@ -7333,10 +7353,15 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /** Presenter */
-            presenter?: ("still" | "corner" | "acts") | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
             /** Place Id */
             place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -7370,10 +7395,15 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /** Presenter */
-            presenter?: ("still" | "corner" | "acts") | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
             /** Place Id */
             place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
@@ -7422,6 +7452,7 @@ export interface components {
              * @default 0
              */
             change_credits: number;
+            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -7469,9 +7500,18 @@ export interface components {
             /** Main Claim */
             main_claim?: string | null;
             /** Presenter */
-            presenter?: ("still" | "corner" | "acts") | null;
+            presenter?: boolean | null;
             /** Place Id */
             place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
+        };
+        /** ItemUsd */
+        ItemUsd: {
+            /** Sheet */
+            sheet: number;
+            /** Change */
+            change: number;
         };
         /** Items */
         Items: {
@@ -8550,10 +8590,15 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /** Presenter */
-            presenter?: ("still" | "corner" | "acts") | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
             /** Place Id */
             place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -8783,10 +8828,15 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /** Presenter */
-            presenter?: ("still" | "corner" | "acts") | null;
+            /**
+             * Presenter
+             * @default false
+             */
+            presenter: boolean;
             /** Place Id */
             place_id?: number | null;
+            /** Product Type */
+            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
@@ -8835,6 +8885,7 @@ export interface components {
              * @default 0
              */
             change_credits: number;
+            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -8859,11 +8910,6 @@ export interface components {
             used_in_count: number;
             /** Was File Id */
             was_file_id: number | null;
-        };
-        /** PriceOut */
-        PriceOut: {
-            /** Credits */
-            credits: number;
         };
         /** ProduceOut */
         ProduceOut: {
@@ -10985,6 +11031,10 @@ export interface components {
              * @enum {string}
              */
             status: "needs_you" | "making" | "done";
+            /** Still File Id */
+            still_file_id?: number | null;
+            /** At */
+            at?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -11255,6 +11305,13 @@ export interface components {
         app__routes__freestyles__EstimateOut: {
             /** Credits */
             credits: number;
+        };
+        /** PriceOut */
+        app__routes__library__PriceOut: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd: number | null;
         };
         /** VersionOut */
         app__routes__library__VersionOut: {
@@ -11630,6 +11687,11 @@ export interface components {
             found: components["schemas"]["Found"];
             /** Have Colours */
             have_colours: string[];
+        };
+        /** PriceOut */
+        app__routes__storyboard__PriceOut: {
+            /** Credits */
+            credits: number;
         };
         /** InviteOut */
         app__routes__team__InviteOut: {
@@ -13373,6 +13435,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_item_price_library__kind__price_get: {
+        parameters: {
+            query?: {
+                item_id?: number | null;
+            };
+            header?: never;
+            path: {
+                kind: components["schemas"]["Kind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__library__PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -18427,7 +18522,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PriceOut"];
+                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -19031,7 +19126,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PriceOut"];
+                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
                 };
             };
             /** @description Validation Error */
