@@ -24,10 +24,11 @@ export function Badge({ tone = "neutral", icon: Icon, children }: { tone?: Tone;
 const dots: Record<Tone, string> = { success: "bg-success", warning: "bg-warning", danger: "bg-danger", neutral: "bg-muted", accent: "bg-accent", media: "bg-white" };
 
 /** A list's status: a small dot and the word. The word carries it; the dot's colour is the second signal. */
-export function Dot({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
+/** `hollow`: a ring, for nothing yet ("No video yet", "Writing", "Not published"), as the v5 boards draw it. */
+export function Dot({ tone = "neutral", hollow, children }: { tone?: Tone; hollow?: boolean; children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      <span aria-hidden className={`size-2 shrink-0 rounded-full ${dots[tone]}`} />
+      <span aria-hidden className={`size-2 shrink-0 rounded-full ${hollow ? "border-[1.5px] border-muted" : dots[tone]}`} />
       {children}
     </span>
   );

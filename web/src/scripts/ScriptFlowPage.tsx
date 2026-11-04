@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, Clapperboard, ListOrdered, Plus } from "lucide-react";
+import { ChevronLeft, Clapperboard, List, Plus } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/useMe";
 import { Button, Dialog, Skeleton, StepPicker } from "../components";
@@ -157,7 +157,7 @@ export function ScriptFlowPage() {
     </>
   );
   // A story's v5 step bar ends at Cast: Publish is "Publish to library", still the step after Cast (Next: Publish).
-  const barSteps = stepsFor(s) === WRITING_STEPS && step !== "publish" ? steps.filter((x) => x.id !== "publish") : steps;
+  const barSteps = (stepsFor(s) === WRITING_STEPS || s.kind === "song") && step !== "publish" ? steps.filter((x) => x.id !== "publish") : steps;
   const v5 = ["script", "directions", "variations", "breakdown", "cast", "publish"].includes(step); // the steps built to v5 so far: their own headings, no step title row
   // v5 settings rows: Variations shows only the steps (G_Variations); Publish has neither (G_Publish).
   const row = overview || (step !== "variations" && step !== "cast" && step !== "publish"); // Cast shows only the steps (C_CastLock)
@@ -186,11 +186,11 @@ export function ScriptFlowPage() {
       </ScriptTop>
       {overview ? (
         // C_ScriptOverview's band: the Overview tab, and the writing steps behind one quiet press.
-        <div className="flex min-h-13 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2 sm:px-6">
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-1 sm:px-6">
           <span aria-current="page" className="inline-flex min-h-control items-center rounded-md bg-surface-2 px-3 text-sm font-medium lg:min-h-control-dense lg:px-2.5">
             Overview
           </span>
-          <Button variant="ghost" dense icon={ListOrdered} className="justify-start text-left" onClick={() => go(stepsFor(s)[0].id)}>
+          <Button variant="ghost" dense icon={List} className="justify-start text-left lg:text-sm" onClick={() => go(stepsFor(s)[0].id)}>
             Open the steps: {barSteps.map((x) => x.label).join(" · ")}
           </Button>
         </div>

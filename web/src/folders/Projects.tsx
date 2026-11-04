@@ -144,7 +144,7 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
 
 /** On a list page: "Project: All ▾", opening the brand's projects (pick, New project, Rename, Delete) in a panel.
  *  At every width since the rail lost its Projects list (Reed, 2 Nov: nav A). */
-export function ProjectsChip({ brandId }: { brandId: number }) {
+export function ProjectsChip({ brandId, plain }: { brandId: number; /** The Scripts band's quiet text press, "Project ▾", like Group and Sort (v5 C_Scripts). */ plain?: boolean }) {
   const folders = useFolders(brandId);
   const folder = useFolderFilter();
   const [open, setOpen] = useState(false);
@@ -152,9 +152,15 @@ export function ProjectsChip({ brandId }: { brandId: number }) {
   const name = folder === "none" ? "No project" : folder ? (folders.data.find((f) => String(f.id) === folder)?.name ?? "All") : "All";
   return (
     <>
-      <Button variant="secondary" dense icon={Folder} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Project: {name}
-      </Button>
+      {plain ? (
+        <Button variant="ghost" dense aria-haspopup="dialog" aria-label={`Project: ${name}`} className="text-muted!" onClick={() => setOpen(true)}>
+          {folder ? `Project: ${name}` : "Project"} ▾
+        </Button>
+      ) : (
+        <Button variant="secondary" dense icon={Folder} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          Project: {name}
+        </Button>
+      )}
       {open && (
         <Panel title="Projects" onClose={() => setOpen(false)}>
           <ProjectsList brandId={brandId} onPicked={() => setOpen(false)} />

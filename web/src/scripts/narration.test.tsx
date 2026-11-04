@@ -138,7 +138,7 @@ test("a song, or a published script, shows its format as a plain chip", async ()
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts/7": [200, song()], "GET /scripts/7/drafts/0/songs": [200, songs()] });
   open("/b/1/scripts/7?step=script");
-  expect((await screen.findAllByText("Song")).length).toBeGreaterThan(0);
+  expect((await screen.findAllByText(/Song/)).length).toBeGreaterThan(0);
   expect(screen.queryByRole("button", { name: /^Format:/ })).toBeNull();
 });
 

@@ -216,7 +216,7 @@ export function TakesStep({ script: s }: { script: Script }) {
   const current = takes.filter((t) => !t.out_of_date);
   const videoLine = `A video this long: about ${Math.ceil(data.video_estimate_credits)} credits to make (planned).`;
   const make = (label: string, primary: boolean) => (
-    <Button variant={primary ? "primary" : "secondary"} icon={primary ? Music : undefined} charge="fixed" price={data.estimate_credits} busy={a.make.isPending} onClick={() => a.make.mutate()}>
+    <Button variant={primary ? "primary" : "secondary"} icon={primary ? Music : undefined} charge="estimate" price={data.estimate_credits} busy={a.make.isPending} onClick={() => a.make.mutate()}>
       {a.ask(label, data.estimate_credits)}
     </Button>
   );

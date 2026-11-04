@@ -13,3 +13,6 @@ deploy/backups/
 # TypeScript incremental build output
 *.tsbuildinfo
 server/.study/
+
+# Logs from local stand-in runs
+*.log
