@@ -25,6 +25,7 @@ from app.models.jobs import WAITING, Job, JobStatus, Usage
 from app.models.projects import Project
 from app.models.seen import TakeSeen
 from app.models.storyboards import StoryboardFrame
+from app.prompts.schemas import Breakdown
 
 TYPICAL_TAKE = 180  # seconds a take takes, until this workspace has made some
 HELD = JobStatus.needs_owner_approval
@@ -127,10 +128,11 @@ class _Video:
         self.problems = (bd.problems or []) if bd else []  # "clip c4: 115 s is outside 4–12 s"
         self.clips = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                                 .order_by(ProjectClip.id)).all()  # fmt: skip
-        have = {c.clip_id for c in self.clips}  # a planned clip with no prompt yet: to do
+        # a planned clip with no prompt yet is to do, once clips are written (before: Planning)
+        have = {c.clip_id for c in self.clips}
         self.clips += [SimpleNamespace(id=None, clip_id=c["id"], seconds=c["seconds"],
                                        picked_take_id=None) for c in self.data.get("clips", [])
-                       if c["id"] not in have]  # fmt: skip
+                       if have and c["id"] not in have]  # fmt: skip
         ids = [c.id for c in self.clips if c.id]
         self.takes: dict[int, list[ClipTake]] = defaultdict(list)
         for t in db.scalars(select(ClipTake).where(ClipTake.clip_id.in_(ids))
@@ -411,7 +413,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         head = ("delivered", _took(turns), _n(total, "clip") + (
             f" · {redone} redone after watching" if redone else ""), "done")  # fmt: skip
     elif how:
-        bad = (_blamed(cells, why) or next((c for c in cells if c["state"] == "too_long"), None)
+        long = next((c for c in cells if c["state"] == "too_long"), None)
+        bad = (_blamed(cells, why) or (long if "makes at most" in why else None)
                if how == "needs_fix" else None)  # fmt: skip
         plain = how == "needs_fix" or why == "Stopped."
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
@@ -495,7 +498,7 @@ def _failed(db: Session, video: _Video, cells: list[dict], why: str, owner: bool
     carry = {"kind": "carry_on", "label": "Carry on", "price": money(again, owner)}
     bad = _blamed(cells, why)
     long = next((c for c in cells if c["state"] == "too_long"), None)
-    if bad is None and long is not None:
+    if bad is None and long is not None and "makes at most" in why:  # it stopped on that
         return _too_long(db, video, long, owner, carry)
     if bad is None:
         return {"title": "The director stopped", "why": said(why), "clip": None, "fixes": [carry]}
@@ -538,7 +541,8 @@ def _then(db: Session, project: Project, clips: list) -> Decimal:
 
     ws = project.workspace_id
     shots = sum(len(c.shot_ids) for c in clips)
-    calls = math.ceil(len(clips) / clip_prompts.BATCH_CLIPS)
+    calls = len(clip_prompts.batches(Breakdown(hook="", scenes=[], clips=clips),
+                                     [c.id for c in clips]))  # fmt: skip
     return (_still(db, ws, project) * shots + _claude(db, ws) * calls
             + _video(db, ws, sum(c.seconds for c in clips), project)
             + item_checks.per_take(db, ws) * len(clips))  # fmt: skip

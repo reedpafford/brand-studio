@@ -721,7 +721,9 @@ def video_state(db: Session, project: Project) -> dict:
                       **word_splice.state(db, row),  # splice_word
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
     have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
-    clips += [{"clip_id": c["id"], "stale": True, "shots": [], "picked_take_id": None,
+    clips += [{"clip_id": c["id"], "stale": True, "picked_take_id": None,
+               "shots": [{"id": i, "action": shots[i].get("action", ""), "line": shots[i].get(
+                   "line")} for i in c["shot_ids"] if i in shots],
                "takes": [], "muted": [], "sound": {}} for c in data.get("clips", [])
               if c["id"] not in have]  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))

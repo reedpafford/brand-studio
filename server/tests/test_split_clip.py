@@ -154,3 +154,61 @@ def test_carrying_on_the_director_splits_it_and_delivers(app, db, owner, editor)
     assert sorted(c.seconds for c in clips if c.picked_take_id) == [8, 12]  # both made
     p = _progress(owner, pid)
     assert p["status"] == "delivered" and [c["state"] for c in p["scenes"][0]["clips"]] != []
+
+
+def test_a_camera_line_in_the_cut_shot_stays_in_a_shot():
+    script = NIGHT.replace("\nNARRATOR: Link in my bio.", "\n[Camera] Slow push in.\nNARRATOR: "
+                           "Link in my bio.")  # fmt: skip
+    data = {**LONG, "scenes": [{**LONG["scenes"][0], "shots": [
+        {**LONG["scenes"][0]["shots"][0], "script_lines": [2, 3]},
+        {**LONG["scenes"][0]["shots"][1], "script_lines": [4]}]}]}  # fmt: skip
+    fixed, _ = breakdown_fix.repair(script, Breakdown.model_validate(data), [TOO_LONG], 4, 12)
+    assert 3 in fixed.scenes[0].shots[0].script_lines  # with the first piece
+    assert not [p for p in check.breakdown(script, fixed, {}, 4, 12) if "no shot" in p]
+
+
+def test_a_sentence_still_too_long_is_never_split_or_sent_short():
+    words = " ".join(["word"] * 70)
+    one = {**LONG, "scenes": [{**LONG["scenes"][0], "shots": [
+        _shot("1.1", [2], "NARRATOR", f"{words}. Short one.", 30),
+        _shot("1.2", [3], "NARRATOR", "Link in my bio.", 2)]}]}  # fmt: skip
+    script = NIGHT.replace(SAID + "So does the capsule.", f"{words}. Short one.")
+    assert breakdown_fix.split_into(one, script, "c1", 4, 12) == 1
+    assert breakdown_fix.fixes([TOO_LONG], one, script) == []
+
+
+def test_a_cut_never_falls_inside_a_name():
+    assert breakdown_fix._sentences("Trust Dr. Pickle today. It works! J. Smith said so.") == [
+        "Trust Dr. Pickle today.", "It works!", "J. Smith said so."]  # fmt: skip
+
+
+def test_fix_all_splits_every_clip_too_long():
+    two = {**LONG, "scenes": [{**LONG["scenes"][0], "shots": [
+        _shot("1.1", [2], "NARRATOR", SAID + "So does the capsule.", 30),
+        _shot("1.2", [2], "NARRATOR", SAID + "So does the capsule.", 30)]}],
+        "clips": [{"id": "c1", "shot_ids": ["1.1"], "seconds": 30, "seam": "cut"},
+                  {"id": "c2", "shot_ids": ["1.2"], "seconds": 30, "seam": "end"}]}  # fmt: skip
+    asked = [TOO_LONG, "clip c2: 30 s is outside 4–12 s"]
+    fixed, done = breakdown_fix.repair(NIGHT, Breakdown.model_validate(two), asked, 4, 12)
+    assert len(done) == 2 and len(fixed.clips) == 6 and all(c.seconds <= 12 for c in fixed.clips)
+
+
+def test_a_cut_shot_shares_its_time_in_the_song_and_the_next_shot_stays():
+    from app.song_breakdown import cut_spans
+
+    known = {"3.1": {"start": 0, "end": 4}, "4.1": {"start": 4, "end": 40, "sung": True},
+             "5.1": {"start": 40, "end": 44}}  # fmt: skip
+    order = ["3.1", "4.1.1", "4.1.2", "5.1"]
+    got = cut_spans(known, order, {"4.1.1": 9, "4.1.2": 27})
+    assert got == {"4.1.1": {"start": 4, "end": 13.0, "sung": True},
+                   "4.1.2": {"start": 13.0, "end": 40, "sung": True}}  # fmt: skip
+
+
+def test_a_run_stopped_for_something_else_isnt_blamed_on_a_long_clip(app, db, owner, editor):
+    pid, _ = _stuck(app, db, owner, editor)
+    last = director.turns(db, db.get(Project, pid))[-1]
+    last.input = {**last.input, "ended": "It stopped: the looks kept being refused."}
+    db.commit()
+    p = _progress(owner, pid)
+    assert (p["title"], p["failed"]["title"]) == ("Stopped", "The director stopped")
+    assert p["failed"]["why"] == "It stopped: the looks kept being refused."

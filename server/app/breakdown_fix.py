@@ -72,7 +72,11 @@ def repair(script: str, bd: Breakdown, problems: list[str], min_s: int, max_s: i
         bd, done = new, ["Put the right cast in each shot."]
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
-    for p in problems:
+
+    def later(p: str) -> tuple:  # splits after the rest, the last clip first (each renumbers)
+        return (1, -int(KINDS[k].match(p)[1][1:])) if (k := kind(p)) == "split_clip" else (0, 0)
+
+    for p in sorted(problems, key=later):
         k = kind(p)
         m = KINDS[k].match(p) if k else None
         if k == "add_line" and shots:
@@ -129,28 +133,30 @@ def _split(bd: Breakdown, clip_id: str, min_s: int, max_s: int, lines=()) -> boo
     at = next((i for i, c in enumerate(bd.clips) if c.id == clip_id), None)
     if at is None:
         return False
-    mine, into = set(bd.clips[at].shot_ids), {}  # an over-long shot: cut at a sentence end
-    for scene in bd.scenes:
+    new = bd.model_copy(deep=True)  # kept only when every new clip fits the model
+    mine, into = set(new.clips[at].shot_ids), {}  # an over-long shot: cut at a sentence end
+    for scene in new.scenes:
         for s in scene.shots:
             into[s.id] = _cut(s, lines, max_s) if s.id in mine else [s]
         scene.shots = [x for s in scene.shots for x in into[s.id]]
-    bd.clips[at].shot_ids = [x.id for sid in bd.clips[at].shot_ids for x in into.get(sid, [])]
-    seconds = {s.id: s.seconds for scene in bd.scenes for s in scene.shots}
+    new.clips[at].shot_ids = [x.id for sid in new.clips[at].shot_ids for x in into.get(sid, [])]
+    seconds = {s.id: s.seconds for scene in new.scenes for s in scene.shots}
     groups, run = [[]], 0.0
-    for sid in bd.clips[at].shot_ids:
+    for sid in new.clips[at].shot_ids:
         if groups[-1] and run + seconds.get(sid, 0) > max_s:
             groups, run = [*groups, []], 0.0
         groups[-1].append(sid)
         run += seconds.get(sid, 0)
-    if len(groups) < 2:
-        return False  # one sentence longer than the model makes: shorten the shot instead
-    bd.clips[at : at + 1] = [
-        bd.clips[at].model_copy(update={"shot_ids": ids, "seconds": min(max(
+    if len(groups) < 2 or any(sum(seconds.get(i, 0) for i in g) > max_s + 0.5 for g in groups):
+        return False  # a sentence longer than the model makes: never sent cut short
+    new.clips[at : at + 1] = [
+        new.clips[at].model_copy(update={"shot_ids": ids, "seconds": min(max(
             math.ceil(sum(seconds.get(i, 0) for i in ids) - 0.5), min_s), max_s)})
         for ids in groups
     ]  # fmt: skip
-    for n, clip in enumerate(bd.clips, 1):
+    for n, clip in enumerate(new.clips, 1):
         clip.id = f"c{n}"
+    bd.scenes, bd.clips = new.scenes, new.clips
     return True
 
 
@@ -159,13 +165,11 @@ def _cut(shot, lines, max_s: int) -> list:
     most `max_s` each ("4.1" into "4.1.1", "4.1.2", …: its clip is written again), each as
     long as its share of the words; the words, the picture and the cast stay as they were.
     [shot] when it fits, or has one sentence."""
-    from app.narration import sentences
-
     if shot.seconds <= max_s:
         return [shot]
     said = {n: _words(_said(lines[n - 1])) for n in shot.script_lines if 0 < n <= len(lines)}
     text = shot.line or " ".join(_said(lines[n - 1]) for n in said)
-    parts = sentences(text)
+    parts = _sentences(text)
     if len(parts) < 2:
         return [shot]
     per = shot.seconds / sum(max(1, len(p.split())) for p in parts)
@@ -184,6 +188,23 @@ def _cut(shot, lines, max_s: int) -> list:
             "id": f"{shot.id}.{k + 1}", "script_lines": mine,
             "line": words if shot.line else None,
             "seconds": round(sum(max(1, len(x.split())) for x in g) * per, 1)}))  # fmt: skip
+    left = [n for n in shot.script_lines if not any(n in x.script_lines for x in out)]
+    out[0].script_lines = sorted({*out[0].script_lines, *left})  # a camera or ★ line: kept
+    return out
+
+
+SHORT = re.compile(r"(?:\b(?:Dr|Mr|Mrs|Ms|St|Jr|Sr|vs|No|e\.g|i\.e)|\b[A-Z])\.$")
+
+
+def _sentences(text: str) -> list[str]:
+    """Each sentence, split after . ! ? or …, but never after a title or an initial ("Dr.
+    Pickle"): a cut between clips never falls inside a name."""
+    out = []
+    for part in re.split(r"(?<=[.!?…])\s+", text.strip()):
+        if out and SHORT.search(out[-1]):
+            out[-1] = f"{out[-1]} {part}"
+        elif part:
+            out.append(part)
     return out
 
 

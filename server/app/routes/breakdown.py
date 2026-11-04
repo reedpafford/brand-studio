@@ -442,7 +442,8 @@ def _cut_frames(db: Session, old: BreakdownVersion, row: BreakdownVersion) -> No
             db.add(StoryboardFrame(
                 project_id=base.project_id, breakdown_id=row.id, clip_id=of_shot[sid], shot_id=sid,
                 prompt=base.prompt, reference_ids=base.reference_ids, file_id=base.file_id,
-                look=base.look, made_with=base.made_with, approved=base.approved))  # fmt: skip
+                look=base.look, made_with=base.made_with, approved=base.approved,
+                still_stale=base.still_stale, problems=base.problems, kept=base.kept))  # fmt: skip
     db.commit()
 
 
