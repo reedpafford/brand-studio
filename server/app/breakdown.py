@@ -8,7 +8,7 @@ from inspect import signature
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
-from app import guides, prompts, song_breakdown
+from app import guides, looks, prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
@@ -43,7 +43,7 @@ def video_model(project: Project | None = None, look: str | None = None,
         kind = video_kind(db, project)
     if kind in LIP_SYNC_KINDS:
         return default
-    look = look or (project.look if project is not None else None) or "house"
+    look = look or (looks.drawn(project) if project is not None else None) or "house"
     named = next((s["video_model"] for s in guides.styles() if s["id"] == look), "")
     return models.get(named, default)
 

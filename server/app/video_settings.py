@@ -108,6 +108,8 @@ def check(db: Session, user: User, project: Project, values: dict) -> dict:
     if field == "look":
         value = looks.pick(db, user, value)  # the look's own rules (Off for editors)
         looks.keep_style(db, project, value)  # a published script's style stays (item 7)
+    elif field == "broll_look":  # a hosted video's B-roll in another style's look (n31)
+        value = looks.pick_broll(db, user, project, value)
     elif field in ("video_model", "image_model"):
         kind = field.split("_")[0]
         if value is not None and value not in {m.id for m in _models(kind)}:
@@ -285,6 +287,8 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     if "look" in values:
         looks.picked_by_person(project)  # a plan's lane leaves it as they chose
         follow_own_looks(db, project)
+        if project.broll_look and looks.base(project.broll_look) == looks.base(project.look):
+            project.broll_look = None  # the B-roll look became the style: its own again
     db.commit()
     return was
 
@@ -368,7 +372,8 @@ def settings(db: Session, project: Project) -> dict:
     with trying(db, project, {"video_model": None}):
         auto = video_model(project).id  # what Auto means for this video
     return {
-        "look": project.look, "video_model": project.video_model,
+        "look": project.look, "broll_look": project.broll_look,
+        "video_model": project.video_model,
         "image_model": project.image_model, "aspect_ratio": project.aspect_ratio,
         "product_variants": project.product_variants or {},
         "language": script.language if script else "en",

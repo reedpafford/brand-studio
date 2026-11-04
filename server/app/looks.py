@@ -63,10 +63,33 @@ def is_on(db: Session, workspace_id: int, look_id: str) -> bool:
     return row.on if row else get(look_id)["on"]
 
 
+def drawn(project) -> str:
+    """The look its stills and takes are drawn in: a hosted video's B-roll look when it has
+    one (n31), else its own. Its host, voice and cast sheets keep `project.look`."""
+    return project.broll_look or project.look or DEFAULT
+
+
+BROLL_HOSTED = "Only a video with a presenter has a B-roll look of its own."
+
+
+def pick_broll(db: Session, user: User, project, look_id: str | None) -> str | None:
+    """A B-roll look for a hosted video: another style that this person may pick, or None
+    for the style's own (the video's look itself reads as None)."""
+    from app import host
+
+    if look_id is None or base(look_id) == base(project.look or DEFAULT):
+        return None
+    if not host.on(db, project):
+        raise HTTPException(409, BROLL_HOSTED)
+    if get(look_id)["kind"] != "look" or get(look_id).get("hidden"):
+        raise HTTPException(422, UNKNOWN)
+    return pick(db, user, look_id)
+
+
 def frame_other(project, frame) -> bool:
     """A still drawn in another look than the video's now (VS1): "Out of date"; changing the
     look back (Undo) makes it current again."""
-    return bool(frame.file_id) and frame.look != project.look
+    return bool(frame.file_id) and frame.look != drawn(project)
 
 
 def take_other(db: Session, project, clip) -> bool:
@@ -74,7 +97,7 @@ def take_other(db: Session, project, clip) -> bool:
     from app.models.clips import ClipTake
 
     take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
-    return bool(take) and take.look != project.look
+    return bool(take) and take.look != drawn(project)
 
 
 def redo_credits(db: Session, project) -> float:

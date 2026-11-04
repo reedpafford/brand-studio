@@ -9747,6 +9747,8 @@ export interface components {
         SettingIn: {
             /** Look */
             look?: string | null;
+            /** Broll Look */
+            broll_look?: string | null;
             /** Video Model */
             video_model?: string | null;
             /** Image Model */
@@ -9764,6 +9766,8 @@ export interface components {
         SettingsOut: {
             /** Look */
             look: string;
+            /** Broll Look */
+            broll_look?: string | null;
             /** Video Model */
             video_model: string | null;
             /** Image Model */
@@ -11029,6 +11033,8 @@ export interface components {
         VideoSettingsIn: {
             /** Look */
             look?: string | null;
+            /** Broll Look */
+            broll_look?: string | null;
             /** Video Model */
             video_model?: string | null;
             /** Image Model */

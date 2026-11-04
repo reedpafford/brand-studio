@@ -27,6 +27,9 @@ class Project(Filed, Entity, Base):
     name: Mapped[str] = mapped_column(String(120))
     # How its pictures are drawn (ST1): its script's at Make this version, then its own (VS1)
     look: Mapped[str] = mapped_column(String(40), default="house")
+    # n31: a hosted video's B-roll drawn in another style's look (New video's "Change B-roll
+    # look…"); null: the style's own. The host, voice and cast keep `look` (app/looks.drawn).
+    broll_look: Mapped[str | None] = mapped_column(String(40))
     # Video settings (VS1, n09): the models it's made with; null is Auto (the catalogue default)
     video_model: Mapped[str | None] = mapped_column(String(40))
     image_model: Mapped[str | None] = mapped_column(String(40))
