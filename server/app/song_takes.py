@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import music, narration
+from app import music, narration, voices
 from app.credits import estimate, plan_cost
 from app.db import utcnow
 from app.models.accounts import User
@@ -86,8 +86,11 @@ def _request(
     from app.routes.jobs import enqueue
 
     if narrated(db, draft):  # one voice call (flows N1)
-        try:  # a remake's note: this one only
-            job_input = narration.job(draft.text, voice, note, **(delivery or {}))
+        try:  # a remake's note: this one only; a saved voice ("voice:<id>") through its model
+            job_input = (voices.narration_job(db, user.workspace_id, draft.text, voice, note,
+                                              **(delivery or {}))
+                         if voice.startswith(voices.PREFIX) else
+                         narration.job(draft.text, voice, note, **(delivery or {})))  # fmt: skip
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
         job_input = {**job_input, "step": "song_take", "on_script": draft.script_id}
@@ -153,6 +156,7 @@ def _by_job(db: Session, column, job: Job) -> list[SongTake]:
 def save_take(db: Session, job: Job) -> None:
     """The songs arrived: each take keeps its file and has its timing read (free)."""
     files = job.output["file_ids"]
+    voices.used(db, job)  # a saved voice is kept 7 more days
     for take in _by_job(db, SongTake.job_id, job):
         if take.track < len(files):  # a song the service didn't give stays failed
             take.file_id = files[take.track]

@@ -44,6 +44,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n28 | No per-video cap (Reed, 2026-11-03: "Just remove the cap entirely"): drops `credit_limits.per_video_max_credits` and `song_takes.trim_to` ("Use the first 0:55", which only existed to fit a song video under the cap). A take that was trimmed is used whole. Downgrade adds both back (the cap at 729, trims empty) | No-video-cap | — |
 | n29 | Media for v5 (C_Media): new `media_uploads` {workspace_id, brand_id, created_by_id, file_id, seconds (null for a picture), removed_at}, a picture or clip added to a brand's Media, checked by its contents; `final_videos.seconds` (nullable, no default: kept when a cut is made, an older one's read once). Downgrade drops both | Next-Server | #1267 |
 | n30 | Folders inside folders (v6 S0-01): `folders.parent_id`, nullable FK to `folders` (null: at the top). Downgrade drops it | v6-folders | — |
+| n31 | Voices (v6 S8-04): new `voices` {workspace_id, brand_id (null: a style's voice), look, name, kind stock/cloned/described, stock_key, provider, provider_voice_id, speech_model, description, sample_file_id, preview_file_id, job_id, cloned_at, last_used_at, lost_at, created_by_id, archived_at}; `library_items.voice_id` (nullable FK to `voices`, S8-03). No data step: a style's voice (Dr. Pickle's clone) is added to a workspace the first time its voices are read (app/voices.py). Downgrade drops both | v6-models | — |
 
 ## Merge order (the chain on `next`)
 
@@ -80,6 +81,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 26 | n28 | — | n27 | On its PR |
 | 27 | n29 | #1267 | n28 | On `next` |
 | 28 | n30 | #1296 | n29 | On `next` |
+| 29 | n31 | — | n30 | On its PR (renumber if another n31 lands first) |
 
 ## 1. Song ads
 
@@ -152,6 +154,14 @@ Code notes for Next-Server (not tables):
 | Media (OR2) | No storage: read from stills, sheets, takes, quick clips, songs and final videos | #954. A take's poster is the still it was made from. |
 | `projects.storyboard_history`, `project_clips.prompt_history` | JSON [] : the 10 newest earlier storyboards (their frames as data) and clip prompts | n13. "Use this version" puts the one in hand into history first (Undo). Breakdowns go back by copying the old row as a new one (history only grows). A frame's earlier stills gain `made_at`/`made_by`; a take records its `prompt_version` in `made_with`. Files are never deleted. |
 | Cost log (OR4) | No storage | #958. Spend follows where an item is filed now. |
+
+## Voices (v6 S8-04, n31)
+
+| Where | Change | Notes |
+|---|---|---|
+| `voices` | {id, workspace_id, brand_id, look, name, kind, stock_key, provider, provider_voice_id, speech_model, description, sample_file_id, preview_file_id, job_id, cloned_at, last_used_at, lost_at, created_by_id, created_at, archived_at} | A brand's saved app voices (`stock`), clones (`cloned`, spoken through `speech_model`, minimax-speech-02-hd) and described voices (`described`, for Omni). `brand_id` null: a style's own voice (`look`), e.g. Dr. Pickle's clone. A clone may be deleted by MiniMax 7 days after `last_used_at`; `lost_at` when MiniMax said it's gone. Remove is soft (`archived_at`) with restore. |
+| `library_items.voice_id` | Nullable FK to `voices` | A character's voice (S8-03); a presenter's host speaks in it. |
+| `song_takes.voice` | No new column: "voice:<id>" names a saved voice | A narration in a saved voice is read through its `speech_model`. |
 
 ## Brand: import from website (BR2)
 
