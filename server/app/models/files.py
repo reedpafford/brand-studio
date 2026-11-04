@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,3 +30,16 @@ class VideoUpload(Entity, Base):
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     seconds: Mapped[float]
     used: Mapped[bool] = mapped_column(default=False)
+
+
+class MediaUpload(Entity, Base):
+    """A picture or clip someone added to a brand's Media (v5 C_Media): free, checked by its
+    contents. The owner can take it off Media (`removed_at`)."""
+
+    __tablename__ = "media_uploads"
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
+    seconds: Mapped[float | None]  # a clip's length; null for a picture
+    removed_at: Mapped[datetime | None]

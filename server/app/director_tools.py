@@ -6,6 +6,7 @@ tool can change Limits or another person's work. A refusal comes back as its pla
 The approvals a person gives on the step screens are the director's own here: it approves a
 step when it moves on from it (rule 21's self-approval)."""
 
+import re
 from types import SimpleNamespace
 
 from fastapi import HTTPException
@@ -83,10 +84,14 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             project_clips.write_prompts(body=None, **me)
             return "Writing the clip prompts."
         if tool == "make_take":
-            rows = _clips(db, pid, decision.get("clip_id"))
+            from app import talker
+
+            said = set() if decision.get("clip_id") else talker.clips(db, project)  # the talker's
+            rows = [r for r in _clips(db, pid, decision.get("clip_id")) if r.clip_id not in said]
             if not rows:
                 clip = decision.get("clip_id")
-                return (f"Refused: there's no clip {clip}." if clip
+                clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
+                return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on

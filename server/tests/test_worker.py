@@ -293,4 +293,5 @@ def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
     compose = (REPO_ROOT / "deploy/docker-compose.yml").read_text()
     lanes = [json.loads(m) for m in re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)]
     taken = [p for lane in lanes for p in lane]
-    assert sorted(taken) == ["claude", "fake", "local", "replicate"] and ["claude"] in lanes
+    assert sorted(taken) == ["claude", "fake", "heygen", "local", "replicate"]
+    assert ["claude"] in lanes

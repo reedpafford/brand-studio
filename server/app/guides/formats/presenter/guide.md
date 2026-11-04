@@ -12,7 +12,7 @@ blurb: A host talks to camera the whole video from a bottom corner, over full-fr
 - The B-roll fills the frame and shows each line literally, at the moment it's said. A new picture about every 2 seconds.
 
 ## Stills
-- The host stands in a bottom corner as one continuous layer over every shot, added in editing: never draw the host into a still. Keep each shot's subject in the upper two-thirds and the bottom corners clear, so the host never covers the action.
+- The host stands in a bottom corner as one continuous layer over every shot, added in editing: never draw the host into a still, unless the style's guide puts its talker in a B-roll shot because the line is about them. Keep each shot's subject in the upper two-thirds and the bottom corners clear, so the host never covers the action.
 
 ## Clips
 - The host is added over the clip in editing and never appears in it. The action stays in the upper two-thirds, the bottom corners clear.

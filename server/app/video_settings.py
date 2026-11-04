@@ -239,9 +239,12 @@ def _set_sung(db: Session, project: Project, row: BreakdownVersion, sung: dict[s
 
 def follow_lip_sync(db: Session, project: Project, could: bool) -> int:
     """After a video-model switch on a song video: Sung shots to B-roll when the new model
-    can't lip-sync (remembered), back when it can (unless the editor changed the shot)."""
+    can't lip-sync (remembered), back when it can (unless the editor changed the shot). A UGC
+    talker's shots stay: HeyGen lip-syncs them, whatever the B-roll's model (app/talker.py)."""
+    from app import talker
+
     row = _newest(db, project) if project.song_take_id else None
-    if row is None or not row.data.get("song"):
+    if row is None or not row.data.get("song") or talker.on(db, project):
         return 0
     can = lip_sync(project)
     if could and not can:
