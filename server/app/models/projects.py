@@ -93,6 +93,12 @@ class Project(Filed, Entity, Base):
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="9:16")
     format: Mapped[str] = mapped_column(String(120), default="")  # optional named format
     cast_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # library characters
+    # n32: pictures or clips attached in New video for this video only (rule 12: never the
+    # brand's); the director's context lists them (app/director.turn_input)
+    attachments: Mapped[list[int]] = mapped_column(JSON, default=list)
+    # n32: the reel it was adapted from (Use a reel): its script's read shows on the video; in
+    # Just its look the video keeps its own words and follows the reel's look
+    reel_script_id: Mapped[int | None] = mapped_column(ForeignKey("scripts.id"))
     # Choices fixed for the director (director-chat.md §1; app/locks.py): {"cast": true, …,
     # "screens": [ids]}. Unlocking hands the choice back. People's own presses aren't blocked.
     locks: Mapped[dict] = mapped_column(JSON, default=dict)

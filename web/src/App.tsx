@@ -6,7 +6,7 @@ import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProductionPage } from "./production/ProductionPage";
 import { ProjectPage } from "./projects/ProjectPage";
 import { VideoRoute } from "./videos/VideoChat";
-import { NewVideoPage } from "./videos/NewVideoPage";
+import { NewVideoPage } from "./newvideo/NewVideoPage";
 import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { NewScriptPage } from "./scripts/NewScriptButton";

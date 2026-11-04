@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { editor, owner } from "../test/people";
@@ -15,8 +15,6 @@ const fs = (o: object = {}) => ({
   id: 9, title: SCRIPT, type: "one_clip", look: "pixar", shape: "9:16", brand_id: 1, status: "working", created_by_name: "Reed", created_at: at, credits: 27, file_id: null,
   thread: [said("Reed", SCRIPT), move("Making the clip.", "running")], ...o,
 });
-const version = (slot: number, o: object = {}) => ({ slot, status: "approved", title: "", seconds: 32 + slot * 3, project_id: null, text: `BO: version ${slot}.`, estimate_credits: 170 + slot, ...o });
-const scriptRow = { id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", format: "dialogue", look: "house", folder_id: null, versions: [version(0), version(1)], created_at: at };
 function server(me: object, routes: Record<string, [number, unknown]> = {}) {
   return fakeServer({
     "GET /auth/me": [200, me],
@@ -31,84 +29,6 @@ function server(me: object, routes: Record<string, [number, unknown]> = {}) {
 afterEach(() => vi.unstubAllGlobals());
 
 const words = () => screen.findByLabelText("Paste a script, or describe the video");
-
-test("New video: the owner's Make it carries its whole price, ⌘↵ sends the picked settings with the rail's brand, and it lands on the video", async () => {
-  setViewport(1440);
-  const calls = server(owner, { "POST /freestyles": [201, fs({ type: "dialogue", project_id: 50 })], "GET /projects/50": [200, { id: 50, brand_id: 1, name: SCRIPT, freestyle_id: 9 }], "GET /freestyles/9": [200, fs({ type: "dialogue", project_id: 50 })] });
-  renderApp("/b/1/videos/new");
-  expect(await screen.findByRole("heading", { name: "What should the director make?" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /^Make it/ })).toBeDisabled(); // nothing typed yet
-  await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
-  await userEvent.click(screen.getByRole("menuitemradio", { name: "Disney Pixar" }));
-  expect(screen.queryByRole("menuitemradio", { name: "Zack D" })).toBeNull(); // only the switched-on looks
-  await userEvent.type(await words(), SCRIPT);
-  expect(await screen.findByRole("button", { name: "Make it · up to 34 credits" })).toBeInTheDocument(); // whole credits, rounded up
-  await userEvent.keyboard("{Control>}{Enter}{/Control}");
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toEqual({ type: "dialogue", look: "pixar", shape: "9:16", brand_id: 1, text: SCRIPT }));
-  expect(await screen.findByRole("list", { name: "Thread" })).toBeInTheDocument(); // the video's chat
-});
-
-test("an editor's press reads Send for approval, and it opens on its waiting view by the freestyle", async () => {
-  setViewport(1440);
-  const held = fs({ type: "dialogue", status: "waiting", created_by_name: "Eli", project_id: 50, up_to: 34, thread: [said("Eli", SCRIPT), move("Waiting for the owner's OK.", "held")] });
-  server(editor, { "POST /freestyles": [201, held], "GET /freestyles/9": [200, held], "GET /projects/50": [404, { detail: "No such project." }] });
-  renderApp("/b/1/videos/new");
-  await userEvent.type(await words(), SCRIPT);
-  expect(screen.getByText("The owner approves it before anything is spent. You can withdraw it until then.")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Send for approval · up to 34 credits" }));
-  expect(await screen.findByText("Sent to the owner for approval")).toBeInTheDocument();
-  expect(screen.getByText("Waiting for approval")).toBeInTheDocument();
-  expect(screen.getByText("up to 34 credits")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Withdraw" })).toBeInTheDocument();
-  expect(document.body.textContent).not.toMatch(/\$|Reed/);
-});
-
-test("Song is offered but off; Dialogue, Narrated, Presenter and One clip work, with the line that says so, and Presenter is sent", async () => {
-  setViewport(1440);
-  const presenter = { id: "presenter", name: "Presenter", engine: "narrated", on: true, blurb: "A host talks to camera over B-roll." };
-  const formats = [{ id: "dialogue", name: "Dialogue", engine: "story", on: true, blurb: "" }, { id: "song", name: "Song", engine: "song", on: true, blurb: "" }, { id: "narrated", name: "Narrated", engine: "narrated", on: true, blurb: "" }, presenter];
-  const calls = server(owner, { "GET /formats": [200, formats], "POST /freestyles": [201, fs({ type: "presenter", project_id: 50 })], "GET /projects/50": [200, { id: 50, brand_id: 1, name: SCRIPT, freestyle_id: 9 }], "GET /freestyles/9": [200, fs({ type: "presenter", project_id: 50 })] });
-  renderApp("/b/1/videos/new");
-  expect(await screen.findByText("One clip, Dialogue, Narrated and Presenter work now. Song is coming next.")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Type: Dialogue" }));
-  expect(screen.getByRole("menuitemradio", { name: /^Song/ })).toHaveAttribute("aria-disabled", "true");
-  for (const name of ["Dialogue", "Narrated", "Presenter", "One clip"]) expect(screen.getByRole("menuitemradio", { name })).not.toHaveAttribute("aria-disabled");
-  await userEvent.click(screen.getByRole("menuitemradio", { name: "Presenter" }));
-  await userEvent.type(await words(), SCRIPT);
-  await userEvent.click(await screen.findByRole("button", { name: "Make it · up to 34 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toMatchObject({ type: "presenter", text: SCRIPT }));
-});
-
-test("From a script: find it, pick a version; its words are read-only, type, style and brand locked, and the send names the version", async () => {
-  setViewport(1440);
-  const others = [{ ...scriptRow, id: 8, title: "Drafty", versions: [version(0, { status: "draft" })] }, { ...scriptRow, id: 10, title: "Dr. Pickle reads", kind: "narrated", format: "presenter" }, { ...scriptRow, id: 11, title: "Bo sings", kind: "song", format: "song" }];
-  const calls = server(editor, { "GET /scripts": [200, [scriptRow, ...others]], "GET /scripts/7": [200, scriptRow], "POST /freestyles": [201, fs({ type: "dialogue", status: "waiting" })], "GET /freestyles/9": [200, fs()] });
-  renderApp("/b/1/videos/new");
-  await userEvent.click(await screen.findByRole("radio", { name: "From a script" }));
-  expect(screen.getByRole("button", { name: "Pick a script" })).toBeDisabled();
-  const list = await screen.findByRole("listbox", { name: "Scripts" });
-  expect(within(list).queryByText("Drafty")).toBeNull(); // still being written
-  expect(within(list).getByText("Dr. Pickle reads")).toBeInTheDocument(); // a narrated or presenter script is made too
-  expect(within(list).queryByText("Bo sings")).toBeNull(); // Song comes next
-  await userEvent.click(within(list).getByRole("option", { name: /Bo tries salmon/ }));
-  await userEvent.click(await screen.findByRole("radio", { name: "B · 0:35" }));
-  expect(screen.getByText("BO: version 1.")).toBeInTheDocument();
-  for (const chip of ["Type: Dialogue, from the script", "Style: House, from the script", "Brand: fomo, from the script"]) expect(screen.getByLabelText(chip)).toBeInTheDocument();
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /freestyles/estimate")).toBe(true));
-  await userEvent.click(await screen.findByRole("button", { name: "Send for approval · up to 34 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toEqual({ type: "dialogue", script_id: 7, slot: 1, shape: "9:16" }));
-});
-
-test("a version that already has a video: Open it, or Make another at the price the server names", async () => {
-  setViewport(1440);
-  const calls = server(owner, { "GET /scripts": [200, [scriptRow]], "GET /scripts/7": [200, scriptRow], "POST /freestyles": [409, { detail: { text: "This version already has a video.", project_id: 77, up_to: 50 } }] });
-  renderApp("/b/1/videos/new?from=script");
-  await userEvent.click(await screen.findByRole("option", { name: /Bo tries salmon/ }));
-  await userEvent.click(await screen.findByRole("button", { name: "Make it · up to 34 credits" }));
-  expect(await screen.findByRole("link", { name: "Open it" })).toHaveAttribute("href", "/b/1/videos/77");
-  await userEvent.click(screen.getByRole("button", { name: "Make another · up to 50 credits" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /freestyles").at(-1)?.body).toEqual({ type: "dialogue", script_id: 7, slot: 0, shape: "9:16", make_another: true }));
-});
 
 test("the old addresses: /freestyle and Quick clip open New video; a director-made freestyle opens its video", async () => {
   setViewport(1440);
@@ -143,15 +63,4 @@ test("N opens New video from anywhere but a box being typed in", async () => {
   expect(await words()).toHaveFocus(); // the box is ready to type in on load
   await userEvent.type(await words(), "no new page");
   expect(screen.getByLabelText("Paste a script, or describe the video")).toHaveValue("no new page");
-});
-
-test("at 390, From a script: a tap selects the script (no sheet over the press), and its row picks the version", async () => {
-  setViewport(390);
-  const calls = server(editor, { "GET /scripts": [200, [scriptRow]], "GET /scripts/7": [200, scriptRow], "POST /freestyles": [201, fs({ type: "dialogue", status: "waiting" })], "GET /freestyles/9": [200, fs()] });
-  renderApp("/b/1/videos/new?from=script");
-  await userEvent.click(await screen.findByRole("option", { name: /Bo tries salmon/ }));
-  expect(screen.queryByRole("dialog")).toBeNull();
-  await userEvent.click(await screen.findByRole("radio", { name: "B" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Send for approval · up to 34 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toEqual({ type: "dialogue", script_id: 7, slot: 1, shape: "9:16" }));
 });

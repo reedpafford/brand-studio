@@ -22,7 +22,7 @@ const PROBLEMS: Record<string, { text: string; button: string }> = {
   too_long: { text: `That video is longer than ${MAX_SECONDS} seconds. Reels up to ${MAX_SECONDS} seconds can be read.`, button: "Choose another file" },
 };
 
-function postUpload(path: "/scripts/import/upload", form: Record<string, string>, file: File) {
+export function postUpload(path: "/scripts/import/upload", form: Record<string, string>, file: File) {
   return api.POST(path, {
     body: { file: file as unknown as string, brand_id: Number(form.brand_id) },
     bodySerializer: () => {
