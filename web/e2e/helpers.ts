@@ -25,9 +25,14 @@ export async function signIn(page: Page, email: string, password = PASSWORD) {
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-/** Opens the account menu (the bottom of the rail on desktop, the round button in the top bar on a phone). */
+/** Opens the account menu: the bottom of the rail on desktop; on a phone, More → Your account (v6, S-gaps-04 R3). */
 export async function openAccountMenu(page: Page) {
-  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("button", { name: /^Brand: / }).first().waitFor(); // the page has drawn
+  const tabs = page.getByRole("navigation", { name: "Tabs" });
+  if (await tabs.isVisible()) {
+    await tabs.getByRole("link", { name: "More" }).click();
+    await page.getByRole("button", { name: "Your account" }).click();
+  } else await page.getByRole("button", { name: "Account menu" }).click();
 }
 
 /** The account menu shows who is signed in, with Sign out. */

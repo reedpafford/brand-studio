@@ -41,10 +41,11 @@ def get(db: Session, user: User, folder_id: int, deleted: bool = False) -> Folde
 
 
 def live(db: Session, brand_id: int) -> list[Folder]:
-    """The brand's folders, by name (a folder inside a deleted one is deleted with it)."""
+    """The brand's folders in the order they were made, as S0-01 lists them (a folder inside a
+    deleted one is deleted with it)."""
     return list(db.scalars(select(Folder).where(Folder.brand_id == brand_id,
                                                 Folder.deleted_at.is_(None))
-                           .order_by(func.lower(Folder.name), Folder.id)))  # fmt: skip
+                           .order_by(Folder.id)))  # fmt: skip
 
 
 def below(rows: list[Folder], folder_id: int) -> set[int]:

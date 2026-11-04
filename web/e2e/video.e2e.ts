@@ -16,9 +16,7 @@ for (const width of [1440, 390]) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
-    await expect(
-      page.getByRole("button", { name: "Account menu" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Video Co ${width}`);
     const made = await page.request.post("/api/projects", {
       data: { brand_id: brandId, name: "Video test", planned_seconds: 20 },
@@ -108,9 +106,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     test.setTimeout(180_000);
     await signIn(page, "reed@example.com");
-    await expect(
-      page.getByRole("button", { name: "Account menu" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Video Flow Co ${width}`);
     const made = await page.request.post("/api/projects", {
       data: { brand_id: brandId, name: "Flow test", planned_seconds: 20 },
@@ -202,21 +198,23 @@ for (const width of [1440, 390]) {
   test(`at ${width}: the brand's videos list an idea, search it, and nothing scrolls sideways`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
-    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Videos View Co ${width}`);
     const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Listed video", planned_seconds: 20 } });
     expect(made.ok()).toBeTruthy();
 
     await page.goto(`/b/${brandId}/scripts`);
-    await page.getByRole("navigation", { name: width === 1440 ? "Main" : "Tabs" }).getByRole("link", { name: "Videos" }).click();
+    if (width === 1440) await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /Unsorted/ }).click(); // the rail's folders (S0-01)
+    else await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Videos" }).click();
     await expect(page).toHaveURL(new RegExp(`/b/${brandId}/videos$`));
-    await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible(); // Unsorted opens when no folder is picked (S-gaps-02)
+    if (width !== 1440) await page.getByRole("link", { name: /Unsorted/ }).click(); // a phone opens on its folders (P-01)
+    await expect(page.getByRole("main").getByRole("link", { name: /Listed video/ })).toBeVisible(); // Unsorted opens when no folder is picked (S-gaps-02)
     await expect(page.getByText(width === 1440 ? "1 video idea · 1 needs you" : "1 idea · 1 needs you", { exact: false })).toBeVisible();
     if (width !== 1440) await page.getByRole("button", { name: "Search this folder" }).click();
     await page.getByRole("searchbox", { name: "Search this folder" }).fill("nothing like this");
     await expect(page.getByText("Nothing matches. Try another tab or search.")).toBeVisible();
     await page.getByRole("searchbox", { name: "Search this folder" }).fill("");
-    await expect(page.getByRole("link", { name: /Listed video/ })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: /Listed video/ })).toBeVisible();
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
   });

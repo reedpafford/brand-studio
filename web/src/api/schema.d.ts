@@ -352,7 +352,7 @@ export interface paths {
         };
         /**
          * List Folders
-         * @description The brand's folders, by name, each with its `parent_id`; Unsorted isn't listed.
+         * @description The brand's folders in the order made, each with its `parent_id`; Unsorted isn't listed.
          */
         get: operations["list_folders_brands__brand_id__folders_get"];
         put?: never;
@@ -7653,6 +7653,11 @@ export interface components {
              * @default false
              */
             declined: boolean;
+            /**
+             * Approved
+             * @default false
+             */
+            approved: boolean;
             /** Retry Of Id */
             retry_of_id?: number | null;
             /**
@@ -7757,6 +7762,11 @@ export interface components {
              * @default false
              */
             declined: boolean;
+            /**
+             * Approved
+             * @default false
+             */
+            approved: boolean;
             /** Retry Of Id */
             retry_of_id?: number | null;
             /**

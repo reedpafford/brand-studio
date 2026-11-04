@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronRight, Ellipsis, Layers, ListFilter, Plus, Search, FolderPlus } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Ellipsis, Layers, ListFilter, Plus, Search, FolderPlus } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api, must } from "../api/client";
@@ -11,6 +11,8 @@ import { useDebounced } from "../scripts/status";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { ArchivedCard, IdeaCard, IdeaRows, SelectBar } from "./IdeaCards";
+import { BrandMenu } from "../shell/Shell";
+import { PhoneFolders, rememberFolder } from "./PhoneFolders";
 import { SetUp } from "./SetUp";
 
 const TABS: [Tab, string][] = [
@@ -64,6 +66,9 @@ export function FolderPage() {
   useEffect(() => set({ q }), [q]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tree = useTree(brandId);
+  useEffect(() => {
+    if (params.get("folder")) rememberFolder(brandId, params.get("folder")!);
+  }, [brandId, params]);
   const ideas = useIdeas(brandId, { folder, tab, q, sort, madeBy, archived });
   const first = ideas.data?.pages[0];
   const rows = ideas.data?.pages.flatMap((p) => p.ideas) ?? [];
@@ -72,7 +77,7 @@ export function FolderPage() {
   const name = folder === UNSORTED ? "Unsorted" : (open?.name ?? "");
   const view = params.get("view") === "list" || (params.get("view") !== "cards" && (first?.counts.all ?? 0) >= BIG) ? "list" : "cards";
   const list = rail && view === "list";
-  const actions = useFolderActions(brandId, folder === UNSORTED ? undefined : open, (parent) => set({ folder: parent ? String(parent) : "", archived: "", tab: "" }));
+  const actions = useFolderActions(brandId, folder === UNSORTED ? undefined : open, { onDeleted: (parent) => set({ folder: parent ? String(parent) : "", archived: "", tab: "" }) });
 
   // Several selected (S1-07): ticks on hover, on every card once one is ticked; Esc or × clears them.
   // A selection belongs to the view it was made in: another folder, tab or Archived starts with none.
@@ -120,13 +125,6 @@ export function FolderPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, rows.length]);
 
   const newVideo = `/b/${brandId}/videos/new${folder === UNSORTED ? "" : `?folder=${folder}`}`;
-  // The phone's tabs have no Media yet: it opens from here until the v6 tabs (P-01) come.
-  const media = (
-    <Link to={`/b/${brandId}/media`} className="inline-flex min-h-control items-center gap-0.5 text-sm text-accent-text">
-      Media
-      <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
-    </Link>
-  );
   if (brand && tree.data && !tree.data.folders.length && !tree.data.unsorted.count && first && !first.archived && !q && !archived)
     return (
       <main>
@@ -134,12 +132,13 @@ export function FolderPage() {
           <span className="text-sm font-semibold">{brand.name}</span>
           <span className="text-sm text-muted">New brand</span>
           <span className="flex-1" />
-          {!rail && media}
+          {!rail && <BrandMenu />}
         </header>
         <SetUp brand={brand} others={(brands ?? []).filter((b) => b.id !== brandId).map((b) => b.name)} owner={owner} newVideo={newVideo} />
       </main>
     );
 
+  if (!rail && !params.get("folder")) return <PhoneFolders brandId={brandId} />; // P-01: a phone opens on the folder list (G5)
   const loading = ideas.isPending;
   const counts = first?.counts;
   const filtered = !!(q || madeBy || tab !== "all");
@@ -196,13 +195,17 @@ export function FolderPage() {
             <span className="ml-1 shrink-0">{sub}</span>
           </p>
         ) : (
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold">{name}</h1>
-            <p className="truncate text-sm text-muted">{[brand?.name, sub].filter(Boolean).join(" · ")}</p>
-          </div>
+          <>
+            <Link to={`/b/${brandId}/videos`} aria-label="All folders" className="-ml-2 grid size-control shrink-0 place-items-center rounded-md text-text">
+              <ChevronLeft size={22} strokeWidth={1.75} aria-hidden />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold">{name}</h1>
+              <p className="truncate text-sm text-muted">{[brand?.name, sub].filter(Boolean).join(" · ")}</p>
+            </div>
+          </>
         )}
         <span className="flex-1" />
-        {!rail && media}
         {!rail && (
           <button type="button" aria-label="Search this folder" aria-pressed={searching} onClick={() => setSearching(!searching)} className="grid size-control place-items-center rounded-md text-text">
             <Search size={20} strokeWidth={1.75} aria-hidden />

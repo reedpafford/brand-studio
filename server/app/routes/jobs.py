@@ -87,6 +87,7 @@ class JobOut(BaseModel):
     waiting: str = ""  # why a job hasn't started yet, once it has waited a while (plain)
     held: str = ""  # waiting for the owner: why (plain); withdraw with cancel
     declined: bool = False  # the owner said no; why is in `error`
+    approved: bool = False  # held, then the owner said yes (My requests' "Answered this week")
     retry_of_id: int | None = None  # P3: the failed take this automatic retry is for
     auto: bool = False  # made on its own (the one automatic retry), not by a press
     freestyle: FreestyleRef | None = None  # a Freestyle take's freestyle (Needs you's row)
@@ -144,6 +145,7 @@ class JobOut(BaseModel):
             else "",
             "held": job.input.get(HELD, "") if job.status == JobStatus.needs_owner_approval else "",
             "declined": bool(job.input.get(DECLINE)),
+            "approved": job.approved_by_id is not None and job.approved_by_id != job.created_by_id,
             "credits": _with_check(db, job) if db else job.credits,
             "freestyle": _freestyle(db, job) if db else None,
             "note": _note(job),

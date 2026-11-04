@@ -32,8 +32,9 @@ const PAGE = 60;
 export const GONE = "gone";
 
 /** One folder's ideas a page at a time; the list loads the next page as you scroll (S1-05). */
-export function useIdeas(brandId: number, ask: IdeasAsk) {
+export function useIdeas(brandId: number, ask: IdeasAsk, enabled = true) {
   return useInfiniteQuery({
+    enabled,
     queryKey: ["ideas", brandId, ask],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
@@ -87,7 +88,7 @@ const DOT: Record<Status["kind"], string> = {
 const WORDS: Record<Status["kind"], string> = { working: "text-accent-text", needs_you: "text-warning", waiting: "text-muted", needs_fix: "text-danger", delivered: "text-success", stopped: "text-muted", archived: "text-muted" };
 
 export function StatusDot({ status, label }: { status: Status; label?: boolean }) {
-  return <span aria-hidden={!label || undefined} aria-label={label ? said(status) : undefined} title={said(status)} className={`size-[7px] shrink-0 rounded-full ${DOT[status.kind]}`} />;
+  return <span role={label ? "img" : undefined} aria-hidden={!label || undefined} aria-label={label ? said(status) : undefined} title={said(status)} className={`size-[7px] shrink-0 rounded-full ${DOT[status.kind]}`} />;
 }
 
 const time = (iso: string) => serverTime(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });

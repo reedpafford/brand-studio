@@ -7,6 +7,7 @@ import { fileUrl } from "../api/upload";
 import { Button, Dialog, Field, Menu, MenuItem, useToast } from "../components";
 import { costText, day, flatten, StatusLine, useRefreshIdeas, useTree, type Idea } from "../folders/ideas";
 import { age } from "../scripts/status";
+import { dragIdea } from "../shell/FolderTree";
 
 const to = (brandId: number, i: Idea) => (i.from_script ? `/b/${brandId}/videos/${i.id}${i.status.kind === "delivered" ? "?step=downloads" : ""}` : `/b/${brandId}/projects/${i.id}`);
 const length = (i: Idea) => (i.seconds ? `${i.seconds} s` : "—");
@@ -37,7 +38,7 @@ export function IdeaCard({ brandId, i, phone, picked, picking, onPick }: { brand
   const meta = phone ? [i.style, costText(i.cost)] : [i.style, i.seconds ? `${i.seconds} s` : "", i.made_by?.name, age(i.updated_at)];
   return (
     <div className="group relative min-w-0">
-      <Link to={to(brandId, i)} className="flex min-w-0 flex-col gap-2">
+      <Link to={to(brandId, i)} draggable={i.can_manage} onDragStart={(e) => dragIdea(e, i.id, i.title)} className="flex min-w-0 flex-col gap-2">
         <span className="relative block">
           <Still i={i} className={`${phone ? "aspect-[175/230]" : "aspect-[212/290]"} w-full rounded-md ${picked ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
           {i.status.kind === "working" && total > 0 && (

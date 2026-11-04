@@ -6,7 +6,7 @@ test("with many brands the brand menu scrolls and New brand can still be pressed
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 700 });
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   for (let i = 0; i < 25; i++) await emptyBrand(page, `Many Brands ${String(i).padStart(2, "0")}`);
   await page.reload();
   await page.getByRole("button", { name: /^Brand: / }).click();

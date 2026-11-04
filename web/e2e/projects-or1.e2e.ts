@@ -5,7 +5,7 @@ for (const width of [1440, 390]) {
   test(`at ${width}: an idea moves into a folder with Undo, the folder opens with it, and deleting the folder sends it back to Unsorted with Undo (v6 S1)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
-    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, "Projects Co"); // one brand for both widths; named to sort after fomo (a fresh sign-in opens the first brand)
     const run = `${width}-${Date.now() % 1e6}`; // a retry or a rerun shares the database: new names
     const video = `Filed video ${run}`;
@@ -15,7 +15,7 @@ for (const width of [1440, 390]) {
 
     if (width === 1440) {
       await page.goto(`/b/${brandId}/videos`); // no folder picked: Unsorted
-      await page.getByRole("link", { name: new RegExp(video) }).hover();
+      await page.getByRole("main").getByRole("link", { name: new RegExp(video) }).hover();
       await page.getByRole("checkbox", { name: `Select ${video}` }).click();
       const bar = page.getByRole("region", { name: "Selected ideas" });
       await expect(bar).toContainText("1 selected");
@@ -23,11 +23,11 @@ for (const width of [1440, 390]) {
       await page.getByRole("menu", { name: "Move 1 idea to" }).getByRole("menuitem", { name }).click();
       await expect(page.getByText(`Moved 1 idea to ${name}.`)).toBeVisible();
       await page.getByRole("button", { name: "Undo" }).click();
-      await expect(page.getByRole("link", { name: new RegExp(video) })).toBeVisible(); // back in Unsorted
+      await expect(page.getByRole("main").getByRole("link", { name: new RegExp(video) })).toBeVisible(); // back in Unsorted
     }
     await page.request.post("/api/folders/file", { data: { kind: "video", ids: [id], folder_id: folder } });
     await page.goto(`/b/${brandId}/videos?folder=${folder}`);
-    await expect(page.getByRole("link", { name: new RegExp(video) })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: new RegExp(video) })).toBeVisible();
     if (width === 1440) {
       await page.getByRole("button", { name: `More for ${name}` }).click();
       await page.getByRole("menuitem", { name: "Delete folder…" }).click();

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, FileText, Globe, Image, MapPin, Mic, Package, Plus, Users, type LucideIcon } from "lucide-react";
+import { Check, FileText, Image, MapPin, Mic, Package, Plus, Users, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
@@ -32,14 +32,16 @@ export function SetUp({ brand, others, owner, newVideo }: { brand: Brand; others
   const characters = useCount("character", brand.id).data ?? 0;
   const places = useCount("place", brand.id).data ?? 0;
   const products = groupProducts(useScreens(brand.id).data ?? []).length;
-  const tone = brand.dont_list.length + brand.do_list.length + brand.cta_lines.length > 0 || !!brand.audience;
+  const tone = brand.dont_list.length + brand.do_list.length > 0 || !!brand.audience;
+  // What a brand holds now (S-gaps-05 L1, L4): the kit is name, logo, colours, tone and rules; products are apps or
+  // physical things; a brand's own voices are only ones uploaded or cloned on purpose. No import (L2).
   const steps: [LucideIcon, boolean, string, string, string][] = [
     [Image, !!brand.logo_file_id, "Logo", "Shown on products and in endings", `${b}/brand`],
+    [FileText, tone, "Tone and rules", "What the brand never says, and how it talks", `${b}/brand?tab=voice`],
     [Users, characters > 0, "Characters", "People the director can cast without asking", `${b}/library/characters`],
-    [Package, products > 0, "Products", "The real bottle or bag, so labels read right", `${b}/brand?tab=products`],
+    [Package, products > 0, "Products", "An app’s screens, or the real bottle or bag so labels read right", `${b}/brand?tab=products`],
     [MapPin, places > 0, "Places", "Rooms and streets that recur", `${b}/library/places`],
-    [Mic, false, "Voices and presenters", "For narrated and presenter videos", `${b}/brand?tab=voice`],
-    [FileText, tone, "Tone and rules", "What the brand never says, its end line", `${b}/brand?tab=voice`],
+    [Mic, false, "Voices", "Only ones you upload or clone, for narrated and presenter videos", `${b}/brand?tab=voice`],
   ];
   const row = (Icon: LucideIcon, done: boolean, title: string, line: string, to?: string) => (
     <li key={title} className="flex items-center gap-3 border-t border-border px-4 py-3 first:border-t-0">
@@ -70,11 +72,6 @@ export function SetUp({ brand, others, owner, newVideo }: { brand: Brand; others
           {steps.map(([Icon, done, title, line, to]) => row(Icon, done, title, line, to))}
         </ul>
         <div className="flex flex-wrap items-center gap-3">
-          {owner && (
-            <Link to={`${b}/brand?import=1`} className={`${buttonClass("secondary")} lg:min-h-9`}>
-              <Globe size={16} strokeWidth={1.75} aria-hidden /> Import from the brand’s website
-            </Link>
-          )}
           <span className="flex-1" />
           <Link to={newVideo} className={`${buttonClass("primary")} lg:min-h-9`}>
             <Plus size={16} strokeWidth={1.75} aria-hidden /> Make the first video

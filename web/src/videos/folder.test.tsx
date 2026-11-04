@@ -46,7 +46,7 @@ test("an open folder (S1-04): the crumb and its counts, tabs, and each idea's st
   const calls = fakeServer(base(owner));
   open();
   expect(await screen.findByText("2 video ideas · 1 needs you")).toBeInTheDocument();
-  expect(screen.getByText("Week of 3 Nov")).toBeInTheDocument();
+  expect(within(screen.getByRole("main")).getByText("Week of 3 Nov")).toBeInTheDocument();
   const card = screen.getByRole("link", { name: /Beer gut doctor rant/ });
   expect(card).toHaveAttribute("href", "/b/1/videos/9");
   expect(within(card).getByText("Working · 14 of 24")).toBeInTheDocument();
@@ -116,7 +116,7 @@ test("the folder's ⋯ holds its actions and Archived ideas; Archived lists them
   const gone = idea({ id: 12, title: "Old hangover cure", status: status("archived", "Archived", { at: "2026-10-28T10:00:00Z" }) });
   fakeServer({ ...base(owner, page(two, { archived: 1 })), "GET /brands/1/ideas?folder=4&tab=all&sort=newest&offset=0&limit=60&archived=true": [200, page([gone], { archived: 1 })], "POST /projects/12/restore": [200, {}] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Week of 3 Nov" }));
+  await userEvent.click(await within(await screen.findByRole("main")).findByRole("button", { name: "More for Week of 3 Nov" }));
   const menu = screen.getByRole("menu", { name: "Week of 3 Nov" });
   expect(within(menu).getAllByRole("menuitem").map((m) => m.textContent?.trim())).toEqual(["New folder inside", "Rename", "Move to…", "Delete folder…", "Archived ideas1"]);
   await userEvent.click(within(menu).getByRole("menuitem", { name: /Archived ideas/ }));
@@ -131,7 +131,7 @@ test("deleting a folder says where its ideas go, and Undo brings it back", async
   setViewport(1440);
   const calls = fakeServer({ ...base(owner), "DELETE /folders/4": [200, { moved: 2, ideas: 2 }], "POST /folders/4/restore": [200, {}] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Week of 3 Nov" }));
+  await userEvent.click(await within(await screen.findByRole("main")).findByRole("button", { name: "More for Week of 3 Nov" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Delete folder…" }));
   const ask = screen.getByRole("alertdialog", { name: "Delete Week of 3 Nov?" });
   expect(ask).toHaveTextContent("Its 2 ideas move to Unsorted. Nothing is deleted, and Undo brings it back.");

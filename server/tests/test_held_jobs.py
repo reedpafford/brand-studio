@@ -90,3 +90,9 @@ def test_past_the_week_only_a_quick_clip_waits_for_the_owner(owner, editor, db):
     assert clip.json()["held"] == (
         "Waiting for the owner's OK: this goes past your week's 0 credits (0 used)."
     )
+    assert not clip.json()["approved"]
+    assert owner.post(f"/jobs/{clip.json()['id']}/approve").status_code == 200
+    (mine,) = [j for j in editor.get("/jobs?mine=true").json() if j["id"] == clip.json()["id"]]
+    assert mine["approved"]  # My requests' "Answered this week" (S-gaps-04 R4)
+    own = owner.post("/clips", json={"brand_id": fomo, "prompt": "A cat eats.", "duration": 5})
+    assert not own.json()["approved"]  # the owner's own press was never held

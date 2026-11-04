@@ -6,7 +6,7 @@ const PASSWORD = "correct horse battery staple";
 for (const width of [1440, 390]) {
   test(`at ${width}: a second editor can look at someone else's video, with every press greyed out (Builder-Server-8's 403s)`, async ({ page, browser }) => {
     await signIn(page, "reed@example.com");
-    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, "View Only Co");
     const run = `${width}-${test.info().retry}`; // a CI retry shares the database
     const join = async (name: string) => {

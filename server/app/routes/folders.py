@@ -22,6 +22,7 @@ from app.routes.brands import get_brand
 router = APIRouter(tags=["folders"])
 Name = Field(min_length=1, max_length=120)
 SHOWN = 5  # ideas under an open folder in the tree, then "+ N more" (S0-01)
+ALL = "all"  # ?folder=all: every idea in the brand
 
 
 class FolderIn(BaseModel):
@@ -94,7 +95,7 @@ class Branch(BaseModel):
 
 
 class TreeOut(BaseModel):
-    folders: list[Branch]  # at the top, by name
+    folders: list[Branch]  # at the top, in the order made
     unsorted: Branch
 
 
@@ -125,7 +126,7 @@ def _out(db: Session, user: User, folder: Folder, items: dict | None = None) -> 
 
 @router.get("/brands/{brand_id}/folders", response_model=list[FolderOut])
 def list_folders(brand_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """The brand's folders, by name, each with its `parent_id`; Unsorted isn't listed."""
+    """The brand's folders in the order made, each with its `parent_id`; Unsorted isn't listed."""
     rows = folders.live(db, get_brand(db, user, brand_id).id)
     counts = folders.counts(db, user, [f.id for f in rows])
     return [_out(db, user, f, counts[f.id]) for f in rows]
@@ -174,7 +175,7 @@ def tree(brand_id: int, user: User = Depends(current_user), db: Session = Depend
 @router.get("/brands/{brand_id}/ideas", response_model=IdeasOut)
 def folder_ideas(
     brand_id: int,
-    folder: str = folders.NONE,  # a folder's id (with the folders inside it), or none: Unsorted
+    folder: str = folders.NONE,  # a folder (and the folders inside), none: Unsorted, all: the brand
     tab: ideas.Tab = "all",
     q: str = "",  # in the idea's title
     made_by: int | None = None,  # a person's id: "Made by"
@@ -187,14 +188,15 @@ def folder_ideas(
 ):
     """One folder's ideas as cards or list rows (S1-04 to S1-08, P-02), a page at a time."""
     brand = get_brand(db, user, brand_id)
-    if folder != folders.NONE:
+    whole = folder == ALL  # the rail's quick search (S-gaps-04 R2)
+    if folder not in (folders.NONE, ALL):
         try:
             opened = folders.get(db, user, int(folder))
         except ValueError:
             raise HTTPException(404, folders.NO_FOLDER) from None
         if opened.brand_id != brand.id:  # brands stay apart
             raise HTTPException(404, folders.NO_FOLDER)
-    filed = folders.where(Project.folder_id, folder)
+    filed = Project.id.is_not(None) if whole else folders.where(Project.folder_id, folder)
     gone = db.scalar(select(func.count()).select_from(
         _live_ideas(db, brand.id, True).where(filed).subquery()))  # fmt: skip
     every = list(db.scalars(_live_ideas(db, brand.id).where(filed)))
@@ -224,7 +226,7 @@ def folder_ideas(
     rows = sorted(rows, key=order[sort])
     page = rows[offset : offset + limit]
     inside = 0
-    if folder != folders.NONE:
+    if folder not in (folders.NONE, ALL):
         inside = len(folders.below(folders.live(db, brand.id), int(folder))) - 1
     from app.auth import user_name
 
