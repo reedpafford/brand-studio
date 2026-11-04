@@ -311,22 +311,22 @@ def test_n35_links_each_product_picture_to_its_library_product(tmp_path):
     assert back == {1: "Bag ", 2: "Bag ", 3: "bag", 4: ""}
 
 
-def test_n33_keeps_a_short_brand_kit_and_drops_the_end_line_lock(tmp_path):
+def test_n36_keeps_a_short_brand_kit_and_drops_the_end_line_lock(tmp_path):
     url = f"sqlite:///{tmp_path}/m.db"
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "n32")
+    command.upgrade(cfg, "n35")
     engine = create_engine(url)
     with engine.begin() as conn:
         _row(conn, "workspaces", id=1, name="S")
         _row(conn, "brands", id=1, workspace_id=1, name="B", slug="b", tone_notes="Calm",
              end_line="Link in bio", colours=["#000000"])  # fmt: skip
         _row(conn, "projects", id=1, locks={"cast": True, "end_line": True})
-    command.upgrade(cfg, "n33")
+    command.upgrade(cfg, "n36")
     with engine.connect() as conn:
         cols = {c["name"] for c in sa_inspect(conn).get_columns("brands")}
         locks = json.loads(conn.execute(text("SELECT locks FROM projects")).scalar())
         kit = conn.execute(text("SELECT tone_notes, colours FROM brands")).one()
     assert "end_line" not in cols and "cta_lines" not in cols and "logo_file_id" in cols
     assert locks == {"cast": True} and kit[0] == "Calm" and json.loads(kit[1]) == ["#000000"]
-    command.downgrade(cfg, "n32")
+    command.downgrade(cfg, "n35")

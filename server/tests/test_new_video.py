@@ -48,7 +48,9 @@ def test_song_is_off_while_its_music_provider_is_and_says_why(owner, app):
         app.state.settings.kie_suno = False
 
 
-def test_it_lands_in_the_open_folder_with_the_brands_saved_cast(owner, db):
+def test_it_lands_in_the_open_folder_with_the_cast_picked(owner, db):
+    """A picked cast is kept; with none picked the video starts empty (brands keep no default
+    cast, S-gaps-05 L1)."""
     brand_id = first_brand(owner)
     folder = owner.post(f"/brands/{brand_id}/folders", json={"name": "Week of 3 Nov"}).json()
     hero = LibraryItem(workspace_id=db.get(Brand, brand_id).workspace_id, kind="character",
@@ -56,12 +58,13 @@ def test_it_lands_in_the_open_folder_with_the_brands_saved_cast(owner, db):
     db.add(hero)
     db.flush()
     hero.brands.append(db.get(Brand, brand_id))
-    db.get(Brand, brand_id).default_cast = [hero.id]
     db.commit()
     body = {**BODY, "brand_id": brand_id, "folder_id": folder["id"]}
-    fs = owner.post("/freestyles", json=body).json()
+    fs = owner.post("/freestyles", json={**body, "cast_ids": [hero.id]}).json()
     video = db.get(Project, fs["project_id"])
     assert video.folder_id == folder["id"] and video.cast_ids == [hero.id]
+    plain = owner.post("/freestyles", json={**body, "text": SCRIPT + "\nMIA: Again."}).json()
+    assert db.get(Project, plain["project_id"]).cast_ids == []
     picked = owner.post("/freestyles", json={**body, "text": SCRIPT + "\nMIA: No one.",
                                              "cast_ids": []}).json()  # fmt: skip
     assert db.get(Project, picked["project_id"]).cast_ids == []
