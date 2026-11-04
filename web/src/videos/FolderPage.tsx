@@ -77,7 +77,17 @@ export function FolderPage() {
   const name = folder === UNSORTED ? "Unsorted" : (open?.name ?? "");
   const view = params.get("view") === "list" || (params.get("view") !== "cards" && (first?.counts.all ?? 0) >= BIG) ? "list" : "cards";
   const list = rail && view === "list";
-  const actions = useFolderActions(brandId, folder === UNSORTED ? undefined : open, { onDeleted: (parent) => set({ folder: parent ? String(parent) : "", archived: "", tab: "" }) });
+  // A phone renames in the top bar (S-gaps-06, 19); a computer in a dialog.
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const actions = useFolderActions(brandId, folder === UNSORTED ? undefined : open, { onDeleted: (parent) => set({ folder: parent ? String(parent) : "", archived: "", tab: "" }), renameInPlace: rail ? undefined : () => setRenaming(open?.name ?? "") });
+  const endRename = useRef(false);
+  const saveName = async (keep: boolean) => {
+    if (endRename.current) return;
+    endRename.current = true;
+    const to = renaming?.trim();
+    setRenaming(null);
+    if (keep && to && to !== open?.name) await actions.rename(to).catch((e: Error) => toast(e.message, undefined, "error"));
+  };
 
   // Several selected (S1-07): ticks on hover, on every card once one is ticked; Esc or × clears them.
   // A selection belongs to the view it was made in: another folder, tab or Archived starts with none.
@@ -152,6 +162,7 @@ export function FolderPage() {
     <Menu
       title={name}
       align="right"
+      popover
       trigger={(p) => (
         <button type="button" {...p} aria-label={`More for ${name}`} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-8">
           <Ellipsis size={16} strokeWidth={1.75} aria-hidden />
@@ -200,7 +211,21 @@ export function FolderPage() {
               <ChevronLeft size={22} strokeWidth={1.75} aria-hidden />
             </Link>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold">{name}</h1>
+              {renaming !== null ? (
+                <input
+                  aria-label={`Rename ${name}`}
+                  autoFocus
+                  value={renaming}
+                  maxLength={120}
+                  onFocus={() => (endRename.current = false)}
+                  onChange={(e) => setRenaming(e.target.value)}
+                  onKeyDown={(e) => (e.key === "Enter" ? void saveName(true) : e.key === "Escape" && void saveName(false))}
+                  onBlur={() => void saveName(true)}
+                  className="h-8 w-full rounded-md border border-accent bg-surface px-2 text-lg font-semibold outline-none"
+                />
+              ) : (
+                <h1 className="truncate text-lg font-semibold">{name}</h1>
+              )}
               <p className="truncate text-sm text-muted">{[brand?.name, sub].filter(Boolean).join(" · ")}</p>
             </div>
           </>

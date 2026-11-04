@@ -217,3 +217,17 @@ test("an empty Unsorted says where new ideas land, with New video and no folder 
   expect(within(screen.getByRole("main")).getAllByRole("link", { name: "New video" }).length).toBeGreaterThan(0);
   expect(screen.queryByRole("button", { name: "New folder inside" })).toBeNull();
 });
+
+test("on a phone, the folder's ⋯ opens under it and Rename edits the name in the top bar (S-gaps-06, 19)", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...base(owner), "PATCH /folders/4": [200, {}] });
+  open();
+  await userEvent.click(await within(await screen.findByRole("main")).findByRole("button", { name: "More for Week of 3 Nov" }));
+  expect(screen.getByRole("menu", { name: "Week of 3 Nov" })).toBeInTheDocument(); // a popover, not a sheet
+  expect(screen.queryByRole("dialog", { name: "Week of 3 Nov" })).toBeNull();
+  await userEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+  const box = screen.getByRole("textbox", { name: "Rename Week of 3 Nov" });
+  await userEvent.clear(box);
+  await userEvent.type(box, "Week of 10 Nov{Enter}");
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /folders/4")?.body).toEqual({ name: "Week of 10 Nov" }));
+});

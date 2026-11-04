@@ -23,10 +23,11 @@ function Still({ i, className }: { i: Idea; className: string }) {
 }
 
 /** A tick box: S1-07's on a card, S1-05's on a row. */
-function Tick({ on, label, onChange, className = "" }: { on: boolean; label: string; onChange: () => void; className?: string }) {
+function Tick({ on, label, onChange, className = "", big }: { on: boolean; label: string; onChange: () => void; className?: string; /** a 44 px press around the box (a phone) */ big?: boolean }) {
+  const box = <span className={`grid size-4 shrink-0 place-items-center rounded-sm border ${on ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface"}`}>{on && <Check size={12} strokeWidth={2.5} aria-hidden />}</span>;
   return (
-    <button type="button" role="checkbox" aria-checked={on} aria-label={label} onClick={(e) => (e.preventDefault(), e.stopPropagation(), onChange())} className={`grid size-4 shrink-0 place-items-center rounded-sm border ${on ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface"} ${className}`}>
-      {on && <Check size={12} strokeWidth={2.5} aria-hidden />}
+    <button type="button" role="checkbox" aria-checked={on} aria-label={label} onClick={(e) => (e.preventDefault(), e.stopPropagation(), onChange())} className={`grid shrink-0 place-items-center ${big ? "size-control" : ""} ${className}`}>
+      {box}
     </button>
   );
 }
@@ -75,7 +76,7 @@ export function IdeaCard({ brandId, i, phone, picked, picking, onPick }: { brand
           {!phone && <span className="text-xs text-muted tabular-nums">{costText(i.cost)}</span>}
         </span>
       </Link>
-      {onPick && (!phone || picking) && <Tick on={picked} label={`Select ${i.title}`} onChange={onPick} className={`absolute right-2 top-2 ${picking || picked ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`} />}
+      {onPick && (!phone || picking) && <Tick on={picked} big={phone} label={`Select ${i.title}`} onChange={onPick} className={`absolute ${phone ? "right-0 top-0" : "right-2 top-2"} ${picking || picked ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`} />}
     </div>
   );
 }
