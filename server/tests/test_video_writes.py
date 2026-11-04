@@ -14,6 +14,7 @@ OWN_RULE = {
     ("post", "/projects/{project_id}/release"): "the owner, or whoever is making its version",
     ("post", "/projects/{project_id}/approve"): "owner only (Approvals)",
     ("post", "/projects/{project_id}/settings/preview"): "a read: what a switch would cost",
+    ("put", "/projects/{project_id}/score"): "owner only (a 404 to everyone else)",
 }
 
 

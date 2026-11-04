@@ -3,12 +3,18 @@ import type { components } from "../../api/schema";
 import { Badge, Button, Dot } from "../../components";
 import { serverTime } from "../../time";
 import { ScriptMenu } from "../DeleteScript";
-import { isNarrated } from "../flow";
+import { useFormatName } from "../useFormats";
 import { ReelChip } from "../ReelImport";
 import { finished } from "../../freestyle/FromScript";
 import { age, beingMade, letterOf, statusOf } from "../status";
 
 export type Row = components["schemas"]["ScriptRow"];
+
+/** The script's format, named by the guides, unless it is the usual Dialogue. */
+function FormatBadge({ row }: { row: Row }) {
+  const name = useFormatName();
+  return row.format === "dialogue" ? null : <Badge tone="accent">{name(row.format)}</Badge>;
+}
 type Version = Row["versions"][number];
 type Project = components["schemas"]["ProjectOut"];
 
@@ -119,8 +125,7 @@ export function ScriptRow({ row: r, brandName, narrow, mayOpen, ownScript, panel
           ) : (
             <span className="min-w-0 break-words lg:truncate">{r.title}</span>
           )}
-          {r.kind === "song" && <Badge tone="accent">Song</Badge>}
-          {isNarrated(r) && <Badge tone="accent">Narrated</Badge>}
+          <FormatBadge row={r} />
         </h3>
         {r.reel_imported && <ReelChip reel={r.reel} />}
         {brandName && <span className="shrink-0 text-sm text-muted">{brandName}</span>}
@@ -177,8 +182,7 @@ export function EditorRow({ row: r, project, look, video, onMakeVideo, onDelete 
           <Link to={`/b/${r.brand_id}/scripts/${r.id}`} className="inline-flex min-h-control items-center break-words hover:underline lg:min-h-0">
             {r.title}
           </Link>
-          {r.kind === "song" && <Badge tone="accent">Song</Badge>}
-          {isNarrated(r) && <Badge tone="accent">Narrated</Badge>}
+          <FormatBadge row={r} />
         </h3>
         <p className="text-xs text-muted">{[project, r.created_by_name, done && `ready since ${age(r.created_at)}`].filter(Boolean).join(" · ")}</p>
       </div>

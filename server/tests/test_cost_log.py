@@ -79,7 +79,9 @@ def test_an_editors_own_script_writing_shows_on_their_week_and_no_one_elses(owne
 
     out = editor.get("/usage/mine", params={"brand_id": fomo}).json()
     step = float(db.get(Job, mine.id).credits)
-    assert out["scripts"] == [{"script_id": script, "title": "Gut", "credits": step}]
+    assert out["scripts"] == [
+        {"script_id": script, "title": "Gut", "credits": step, "brand_id": fomo}
+    ]  # its brand, for its link
     assert out["script_credits"] == out["credits"] == step > 0
     assert not any("usd" in k or "dollar" in k for k in _keys(out))
     assert owner.get("/usage/mine", params={"brand_id": fomo}).json()["script_credits"] == float(
@@ -134,3 +136,37 @@ def test_an_editors_held_song_or_narration_is_named_by_its_script_not_quick_clip
     sends = {s["job_id"]: s["title"] for s in out["sends"]}
     assert [sends[j.id] for j in held] == ["Gut · song", "Gut · narration", "Gut · music",
                                           "Quick clip"]  # fmt: skip
+
+
+def test_the_owner_downloads_a_months_charges_as_a_csv(owner, editor, db):
+    import csv
+    import io
+    from datetime import datetime
+
+    me, fomo, video = _setup(owner, db)
+    script = owner.post("/scripts", json={"brand_id": fomo, "title": "=SUM(A1)"}).json()["id"]
+    _charge(db, enqueue(db, me, "write-claude", {"script_id": script, "step": "script_draft"}),
+            "0.30", when=datetime(2026, 10, 31, 23, 59))  # fmt: skip
+    _charge(db, enqueue(db, me, "video-480p", {"brand_id": fomo}), "1.00",
+            when=datetime(2026, 11, 1, 0, 0))  # fmt: skip
+    got = owner.get("/usage/charges.csv", params={"month": "2026-10"})
+    assert got.status_code == 200 and got.headers["content-type"].startswith("text/csv")
+    assert 'filename="brand-studio-charges-2026-10.csv"' in got.headers["content-disposition"]
+    head, *rows = list(csv.reader(io.StringIO(got.text)))
+    assert head[:6] == ["When (UTC)", "Who", "Brand", "What", "Credits", "Dollars"]
+    assert len(rows) == 1 and rows[0][0] == "2026-10-31 23:59" and rows[0][1] == "Reed"
+    assert rows[0][3] == "Script drafts · =SUM(A1)"  # it starts with words: no formula
+    assert float(rows[0][5]) == 0.3
+    november = list(csv.reader(io.StringIO(
+        owner.get("/usage/charges.csv", params={"month": "2026-11"}).text)))  # fmt: skip
+    assert [r[3] for r in november[1:]] == ["Quick clip"]
+    for bad in ("2026-13", "0000-01", "9999-12"):  # never a 500 (QA-10 on #1249)
+        assert owner.get("/usage/charges.csv", params={"month": bad}).status_code == 422
+    assert editor.get("/usage/charges.csv").status_code == 404
+
+
+def test_a_csv_cell_never_starts_a_formula():
+    from app.routes.usage import _cell
+
+    assert [_cell(x) for x in ("=SUM(A1)", "+1", "-2", "@x", "Gut")] == [
+        "'=SUM(A1)", "'+1", "'-2", "'@x", "Gut"]  # fmt: skip

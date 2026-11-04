@@ -230,7 +230,7 @@ def fix_plan(
     every = [
         f["problem"] for f in breakdown_fix.fixes(draft.breakdown_problems or [], draft.breakdown)
     ]
-    m = breakdown.video_model()
+    m = breakdown.video_model(look=script.look, kind=script.kind)
     fixed, done = breakdown_fix.repair(
         text, Breakdown.model_validate(draft.breakdown), (body.problems if body else []) or every,
         m.duration.min, m.duration.max, lambda bd: cast_roles.fix(db, project, draft.text, bd),

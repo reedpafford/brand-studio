@@ -23,6 +23,7 @@ import { StageTabs } from "./list/ScriptFilters";
 import { BulkBar } from "./list/BulkBar";
 import { MakeVideoPanel } from "./MakeVideoPanel";
 import { finished } from "../freestyle/FromScript";
+import { directed } from "../freestyle/useFreestyle";
 import { lookName, useLooks } from "./Looks";
 
 type Version = Row["versions"][number];
@@ -179,7 +180,7 @@ export function ScriptsPage() {
         project={folders.data?.find((f) => f.id === r.folder_id)?.name ?? "No project"}
         look={lookName(looks, r.look)}
         video={r.versions.some((v) => beingMade(v.status) && !!v.project_id)}
-        onMakeVideo={r.kind === "story" && r.versions.some((v) => finished(v) && !v.project_id) ? () => set("video", String(r.id)) : undefined}
+        onMakeVideo={directed(r.kind) && r.versions.some((v) => finished(v) && !v.project_id) ? () => set("video", String(r.id)) : undefined}
         onDelete={mayDelete(r) ? () => del.ask(toTarget(r)) : undefined}
       />
     );

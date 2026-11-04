@@ -21,15 +21,17 @@ class Duration(BaseModel):
 class Price(BaseModel):
     unit: Literal["second", "image", "call", "thousand_characters"]
     usd: dict[str, Decimal]  # per resolution ("any" when it doesn't matter)
+    gpu_usd_per_second: Decimal | None = None  # billed by GPU time: the real cost is its run time
 
 
 class CatalogueModel(BaseModel):
     id: str
     name: str
-    kind: Literal["video", "image", "watch", "text", "speech", "music"]
+    kind: Literal["video", "image", "watch", "text", "speech", "music", "sound"]
     provider_model: str
     provider_version: str
     default: bool = False
+    offered: bool = True  # in the pickers; off for a model only a later step will use
     duration: Duration | None = None
     resolutions: list[str] = []
     aspect_ratios: list[str] = []
@@ -43,9 +45,17 @@ class CatalogueModel(BaseModel):
     first_frame: bool = False
     last_frame: bool = False
     audio: Literal["switch", "always"] | None = None
-    lip_sync: bool = False  # video models: can take a song slice for Sung shots (VS1)
+    lip_sync: bool = False  # video models: a song slice sets the mouth (Sung shots, VS1)
     price: Price
     price_source: str
+
+    @property
+    def take_resolution(self) -> str:
+        """What takes of this model are made and priced at: 480p when it has it, else the
+        lowest it lists (P-Video: 720p)."""
+        if "480p" in self.resolutions:
+            return "480p"
+        return min(self.resolutions, key=lambda r: int(r[:-1]) * (1000 if r.endswith("k") else 1))
 
     def usd_per_unit(self, resolution: str | None = None) -> Decimal:
         usd = self.price.usd

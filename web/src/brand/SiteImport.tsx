@@ -97,7 +97,7 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
   const count = reviewing ? Number(tick.logo && !noLogo) + tick.colours.length + tick.products.length : 0;
   const reading = r?.status === "reading" || start.isPending || (jobId !== null && one.isPending);
   const refused = start.isError ? start.error.message : null;
-  const priceText = price.data !== undefined ? ` · ${pressLabel(price.data, "estimate")}` : ""; // rule 32: a press says "up to"
+  const priceText = price.data !== undefined ? ` · ${pressLabel(price.data, "estimate")}` : ""; // rule 36: a press says "up to"
 
   let found: ReactNode = null;
   if (reading) {
@@ -183,10 +183,10 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
   }
 
   return (
-    <section aria-label="Import from website" className="max-w-[640px] space-y-4">
+    <section aria-label="Import from website" className="max-w-[704px] space-y-4">
       <div>
         <h2 className="text-[15px] font-semibold">Import from website</h2>
-        <p className="text-xs text-muted">Reads the logo, colours and products from the brand's site. You pick what to keep.</p>
+        <p className="mt-6 text-xs text-muted">Reads the logo, colours and products from the brand's site. You pick what to keep.</p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">

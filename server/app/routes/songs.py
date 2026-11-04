@@ -51,10 +51,7 @@ class SongTakeOut(BaseModel):
     advice: list[str]  # e.g. "Timing guessed: …" (never blocks)
     timing_guessed: bool  # spread evenly, not heard
     refused_for: Literal["words", "style"] | None  # a refusal: change the lyrics or the style
-    video_credits: float | None  # about what a video of it costs (its trimmed part, if trimmed)
-    over_cap: bool  # that video is over the per-video cap: offer Use the first …
-    fits_until: float | None  # where "Use the first 0:55" would end it (a section end)
-    trim_to: float | None  # in use: only the take's first this-many seconds
+    video_credits: float | None  # about what a video of it costs
     kind: Literal["song", "narration"] = "song"  # a narration: one voice reads the words (N1)
     voice: str = ""  # a narration's voice ("Sarah")
     # A narration's music bed (N1): none | making | ready | failed, its reason and file, and
@@ -71,7 +68,6 @@ class SongsOut(BaseModel):
     songs_on: bool  # false: this server makes no songs (say so, don't offer Make)
     estimate_credits: float  # "Make 2 takes" (one request)
     video_estimate_credits: float  # about what a video of these lyrics costs (a guess)
-    keep_lines: int | None  # over the cap: keep the first this-many sung lines to fit
     takes: list[SongTakeOut]
     voice: str = ""  # a Narrated version's narrator ("Sarah"); "" for a song
     # Said in place of the price: "Write the words first…" (a narration with nothing to read,
@@ -129,7 +125,6 @@ def _started(db: Session, take: SongTake, status: str):
 
 def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
     status, reason, helps = song_takes.state(db, take)
-    over = song_takes.over_cap(db, take)
     return SongTakeOut(
         id=take.id,
         number=take.number,
@@ -149,9 +144,6 @@ def _take_out(db: Session, take: SongTake, draft: ScriptDraft) -> SongTakeOut:
         timing_guessed=take.timing_guessed,
         refused_for=_refused_for(reason),
         video_credits=float(song_takes.video_credits(db, take)) if take.seconds else None,
-        over_cap=over,
-        fits_until=song_takes.fits_until(db, take) if over else None,
-        trim_to=take.trim_to,
         kind=take.kind,
         voice=take.voice,
         **_music(db, take),
@@ -175,13 +167,11 @@ def _song(db: Session, user: User, script_id: int, slot: int, edit: bool) -> Scr
 
 
 def _songs(request: Request, db: Session, user: User, draft: ScriptDraft) -> SongsOut:
-    video, keep = song_takes.lyrics_estimate(db, draft)
     return SongsOut(
         songs_on=songs_on(request, db, draft),
         voice=narration.VOICE if song_takes.narrated(db, draft) else "",
         estimate_credits=float(song_takes.price(db, user.workspace_id, draft)),
-        video_estimate_credits=float(video),
-        keep_lines=keep,
+        video_estimate_credits=float(song_takes.lyrics_estimate(db, draft)),
         takes=[_take_out(db, t, draft) for t in song_takes.takes(db, draft)],
         songs_note=_note(request, db, draft),
     )
@@ -278,22 +268,6 @@ def spread_timing(take_id: int, user: User = Depends(current_user), db: Session 
     """Timing failed: "Use timing spread evenly" (free)."""
     take, draft = _get_take(db, user, take_id)
     song_takes.spread(db, user, take)
-    return _take_out(db, take, draft)
-
-
-@router.post("/songs/{take_id}/trim", response_model=SongTakeOut)
-def trim_take(take_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Over the cap: "Use the first 0:55" (to the last section end that fits)."""
-    take, draft = _get_take(db, user, take_id)
-    song_takes.trim(db, take, on=True)
-    return _take_out(db, take, draft)
-
-
-@router.delete("/songs/{take_id}/trim", response_model=SongTakeOut)
-def untrim_take(take_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Undo: the whole take again."""
-    take, draft = _get_take(db, user, take_id)
-    song_takes.trim(db, take, on=False)
     return _take_out(db, take, draft)
 
 

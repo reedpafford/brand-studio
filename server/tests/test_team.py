@@ -95,3 +95,127 @@ def test_a_removed_member_is_listed_and_brought_back(owner, editor):
     assert [m["name"] for m in owner.get("/team/members").json()] == ["Reed", "Ed"]
     assert owner.post(f"/team/members/{ed_id}/restore").status_code == 404  # not removed
     assert editor.get("/team/members?removed=true").status_code == 403
+
+
+def test_each_member_shows_when_they_were_last_active(owner, editor, db):
+    from datetime import timedelta
+
+    from app.auth import ACTIVE
+    from app.db import utcnow
+    from app.models.accounts import User
+
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    ed.last_active_at = None
+    db.commit()
+    rows = {m["name"]: m["last_active_at"] for m in owner.get("/team/members").json()}
+    assert rows["Reed"] and rows["Ed"] is None  # the owner just asked; Ed hasn't since
+    editor.get("/auth/me")
+    db.expire_all()
+    first = db.get(User, ed.id).last_active_at
+    assert first and utcnow() - first < ACTIVE
+    editor.get("/auth/me")  # within a few minutes: no new write
+    db.expire_all()
+    assert db.get(User, ed.id).last_active_at == first
+    ed = db.get(User, ed.id)
+    ed.last_active_at = stale = utcnow() - ACTIVE - timedelta(minutes=1)
+    db.commit()
+    editor.get("/auth/me")  # a few minutes on: kept again
+    db.expire_all()
+    assert db.get(User, ed.id).last_active_at > stale + ACTIVE
+
+
+def test_the_standing_editor_link_works_once_and_can_be_revoked(app, owner, editor, outsider):
+    assert owner.get("/team/invite-link").json() is None
+    assert editor.post("/team/invite-link").status_code == 403
+    first = owner.post("/team/invite-link")
+    assert first.status_code == 201
+    link = owner.post("/team/invite-link").json()  # a new one: the first stops working
+    assert owner.get("/team/invite-link").json() == {"expires_at": link["expires_at"]}
+    assert outsider.get("/team/invite-link").json() is None
+    assert owner.get("/team/invites").json() == []  # never in the email invites
+    with TestClient(app) as c:
+        seen = c.post("/auth/invite", json={"token": link["token"]}).json()
+        assert (seen["email"], seen["role"]) == ("", "editor")
+        body = {"name": "Lee", "password": PASSWORD}
+        old = c.post("/auth/accept-invite", json={**body, "token": first.json()["token"],
+                                                   "email": "lee@example.com"})  # fmt: skip
+        assert old.status_code == 400
+        no_email = c.post("/auth/accept-invite", json={**body, "token": link["token"]})
+        assert no_email.status_code == 422
+        taken = {**body, "token": link["token"], "email": "ed@example.com"}
+        assert c.post("/auth/accept-invite", json=taken).status_code == 409  # one wording
+        joined = c.post("/auth/accept-invite", json={**taken, "email": "lee@example.com"})
+        assert joined.status_code == 201 and joined.json()["role"] == "editor"
+    with TestClient(app) as c:  # works once
+        again = {**body, "token": link["token"], "email": "kim@example.com"}
+        assert c.post("/auth/accept-invite", json=again).status_code == 400
+    assert owner.get("/team/invite-link").json() is None
+    revoked = owner.post("/team/invite-link").json()
+    assert owner.delete("/team/invite-link").status_code == 204
+    assert owner.get("/team/invite-link").json() is None
+    with TestClient(app) as c:
+        gone = {**body, "token": revoked["token"], "email": "kim@example.com"}
+        assert c.post("/auth/accept-invite", json=gone).status_code == 400
+
+
+def test_the_standing_link_never_brings_back_a_removed_member(app, owner, editor, db):
+    """QA-13: with the link and a removed member's email, they took over that account."""
+    from app.models.accounts import User
+    from app.routes.auth import LINK_TAKEN
+
+    ed_id = editor.get("/auth/me").json()["id"]
+    owner.delete(f"/team/members/{ed_id}")
+    link = owner.post("/team/invite-link").json()
+    with TestClient(app) as c:
+        body = {"token": link["token"], "name": "Mallory", "password": PASSWORD}
+        for email in ("ed@example.com", "reed@example.com"):  # removed or active: one wording
+            took = c.post("/auth/accept-invite", json={**body, "email": email})
+            assert took.status_code == 409 and took.json()["detail"] == LINK_TAKEN
+    db.expire_all()
+    ed = db.get(User, ed_id)
+    assert (ed.name, ed.active) == ("Ed", False)
+    assert owner.get("/team/invite-link").json() is not None  # still unused
+
+
+def test_two_accepts_at_once_make_one_member(app, owner, db, monkeypatch):
+    """QA-13: both read the link before either claimed it; only one may join."""
+    from app.models.accounts import Invite, User
+    from app.routes import auth
+
+    link = owner.post("/team/invite-link").json()
+    invite_id = db.query(Invite).filter_by(email="").one().id
+
+    def stale(db_, token):  # as a second request would, having read it before the first wrote
+        found = db_.get(Invite, invite_id)
+        found.accepted_at = None  # what that request saw, never written
+        db_.expunge(found)
+        return found
+
+    monkeypatch.setattr(auth, "_open_invite", stale)
+    body = {"token": link["token"], "name": "Lee", "password": PASSWORD}
+    with TestClient(app) as a, TestClient(app) as b:
+        first = a.post("/auth/accept-invite", json={**body, "email": "lee@example.com"})
+        second = b.post("/auth/accept-invite", json={**body, "email": "kim@example.com"})
+    assert (first.status_code, second.status_code) == (201, 400)
+    assert (
+        db.query(User).filter(User.email.in_(["lee@example.com", "kim@example.com"])).count() == 1
+    )
+
+
+def test_a_busy_database_never_fails_a_read_for_last_active(editor, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.orm import Session
+
+    from app.db import utcnow
+    from app.models.accounts import User
+
+    real = Session.commit
+
+    def locked(self):
+        if any(isinstance(o, User) and o.last_active_at for o in self.dirty):
+            raise OperationalError("UPDATE users", {}, Exception("database is locked"))
+        return real(self)
+
+    monkeypatch.setattr(Session, "commit", locked)
+    monkeypatch.setattr("app.auth.ACTIVE", utcnow() - utcnow())  # every request would write
+    assert editor.get("/auth/me").status_code == 200

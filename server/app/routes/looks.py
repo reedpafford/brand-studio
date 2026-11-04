@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import credits, look_samples, looks
+from app import credits, guides, look_samples, looks
 from app.auth import current_user, owner_only
 from app.db import get_db, utcnow
 from app.models.accounts import User
@@ -31,6 +31,7 @@ class LookOut(BaseModel):
     on: bool  # editors can pick it
     sample_still_id: int | None = None  # ST3: the approved sample, once made
     sample_clip_id: int | None = None
+    video_model: str  # the catalogue id of its default video model (its guide)
     own_sample: bool = False  # its sample shows its own person: no hero, no "Who's in it?"
     lanes: list[LaneOut] = []  # the style's lanes, picked by a video's plan (one look per style)
 
@@ -45,7 +46,7 @@ def _out(db: Session, ws: int, look: dict) -> LookOut:
                    on=looks.is_on(db, ws, look["id"]),
                    sample_still_id=row.sample_still_id if row else None,
                    sample_clip_id=row.sample_clip_id if row else None,
-                   own_sample=look["own_sample"],
+                   video_model=look["video_model"], own_sample=look["own_sample"],
                    lanes=[LaneOut(id=x["id"], name=x["name"])
                           for x in looks.lanes(look["id"])])  # fmt: skip
 
@@ -148,3 +149,20 @@ def make_sample(
     settings = request.app.state.settings
     look_samples.make(db, owner, look_id, brand, body.character_id, settings)
     return _sample(db, owner, look_id, brand.id, settings)
+
+
+formats = APIRouter(prefix="/formats", tags=["looks"])  # the format picker, beside the looks
+
+
+class FormatOut(BaseModel):
+    id: str
+    name: str
+    engine: Literal["story", "song", "narrated"]  # which mechanics make it
+    blurb: str
+    on: bool
+
+
+@formats.get("", response_model=list[FormatOut])
+def list_formats(user: User = Depends(current_user)):
+    """Every format in Reed’s order (app/guides/formats), for the format picker."""
+    return [FormatOut(**{k: f[k] for k in FormatOut.model_fields}) for f in guides.formats()]

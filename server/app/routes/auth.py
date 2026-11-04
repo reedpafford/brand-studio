@@ -5,7 +5,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -53,6 +53,7 @@ class AcceptIn(BaseModel):
     token: str
     name: Name
     password: Password
+    email: Email | None = None  # the standing editor link's only: they give their own
 
 
 @router.post("/setup", response_model=Me, status_code=201)
@@ -113,6 +114,8 @@ def me(user: User = Depends(current_user)):
 
 
 INVALID_INVITE = "This invite link is not valid any more."
+LINK_TAKEN = ("That email already has an account here, so this link can't use it. Sign in, "
+              "or join with another email.")  # fmt: skip
 
 
 def _open_invite(db: Session, token: str) -> Invite | None:
@@ -133,7 +136,7 @@ class InviteOut(BaseModel):
     workspace_name: str
     invited_by_name: str
     owner_name: str  # "Join {owner}'s studio" when the studio's name looks like a slug
-    email: str
+    email: str  # "" for the standing editor link: the person gives their own
     role: Role
 
 
@@ -166,17 +169,27 @@ def accept_invite(
     invite = _open_invite(db, body.token)
     if not invite:
         raise HTTPException(400, INVALID_INVITE)
-    user = db.scalar(select(User).where(User.email == invite.email))
+    email = invite.email or body.email  # an invite's own, or what the link's person gave
+    if not email:
+        raise HTTPException(422, "Enter your email.")
+    user = db.scalar(select(User).where(User.email == email))
+    if user and not invite.email:  # the standing link never brings anyone back (QA-13)
+        raise HTTPException(409, LINK_TAKEN)  # one wording: who is a member stays unsaid
     if user and user.active:
         raise HTTPException(409, "That email already has an account.")
+    claimed = db.execute(update(Invite).where(  # one accept per invite, even two at once
+        Invite.id == invite.id, Invite.accepted_at.is_(None), Invite.expires_at > utcnow())
+        .values(accepted_at=utcnow())).rowcount  # fmt: skip
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(400, INVALID_INVITE)
     # A removed member who is invited again comes back with the new name, password and role.
-    user = user or User(email=invite.email)
+    user = user or User(email=email)
     user.workspace_id = invite.workspace_id
     user.name = body.name
     user.password_hash = hash_password(body.password)
     user.role = invite.role
     user.active = True
-    invite.accepted_at = utcnow()
     db.add(user)
     db.commit()
     start_session(db, request, response, user)

@@ -6,6 +6,7 @@ the earlier still or take puts its prompt back. And the owner's refund of one ch
 from decimal import Decimal
 
 from app.clip_takes import ENGLISH, save_take
+from app.db import utcnow
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
@@ -229,14 +230,11 @@ def test_a_stills_change_remembers_the_still_it_replaces(app, db, editor, setup)
 
 
 def test_a_refused_still_never_loses_the_rewrite_it_paid_for(app, db, editor, setup):  # noqa: F811
-    """A Change it rewrite lands after the video's money ran out: the still is refused, but
-    the new prompt (a paid answer) is kept and the change says why."""
+    """A Change it rewrite lands after the video was archived: the still is refused, but the
+    new prompt (a paid answer) is kept and the change says why."""
     url, frame = _frame(app, db, editor, setup)
     editor.post(f"{url}/frames/{frame.id}/change", json={"note": "Brighter."})
-    project = db.get(Project, setup["project"])
-    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
-               project_id=project.id, credits=project.budget_credits * 10,
-               status="succeeded"))  # fmt: skip
+    db.get(Project, setup["project"]).archived_at = utcnow()
     db.commit()
     after = f"{frame.prompt} Brighter."
     _run(app, db, FakeClaude({"prompt": after}))
@@ -355,3 +353,13 @@ def test_a_change_that_cant_be_saved_fails_plainly(app, db, editor, setup, monke
     assert frame.change["status"] == "failed" and frame.change["note"] == "Brighter."
     shown = editor.get(url).json()[0]["change"]
     assert (shown["status"], shown["error"]) == ("failed", UNFINISHED)
+
+
+def test_words_after_the_closing_audio_line_save_where_they_stay(app, db, editor, setup, clip):  # noqa: F811
+    # Flow-QA: the save showed them after the audio line, the next open moved them.
+    url = f"/projects/{setup['project']}/clips"
+    before = editor.get(url).json()[0]
+    body = {"prompt": before["prompt"] + " A new detail.", "references": before["references"]}
+    saved = editor.put(f"{url}/{clip['id']}", json=body).json()
+    assert "\nA new detail.\nKeep: " in saved["prompt"]
+    assert editor.get(url).json()[0]["prompt"] == saved["prompt"]

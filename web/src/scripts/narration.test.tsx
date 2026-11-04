@@ -10,11 +10,11 @@ const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paw
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
 const version = (o: object = {}) => ({ slot: 0, status: "draft", title: "Bowl song", seconds: 0, project_id: null, text: LYRICS, words: 10, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, style_line: "pop, female lead, upbeat", singer: "", spoken_end_line: "", song_directions: [], ...o });
 const song = (o: object = {}, v: object = {}) => ({
-  id: 7, brand_id: 1, kind: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
+  id: 7, brand_id: 1, kind: "song", format: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
-const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, over_cap: false, fits_until: null, trim_to: null, ...o });
-const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes, ...o });
+const take = (o: object = {}) => ({ id: 1, number: 1, status: "ready", failed_reason: null, retry_helps: true, file_id: 40, seconds: 31, made_at: "2026-10-28T10:42:00Z", preferred: false, out_of_date: false, peaks: [0.2, 0.8, 0.5], advice: [], timing_guessed: false, refused_for: null, video_credits: 34, ...o });
+const songs = (takes: object[] = [], o: object = {}) => ({ songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes, ...o });
 const base: Record<string, [number, unknown]> = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
 
 function open(path: string) {
@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 const WORDS = "Bo hated his bowl. Then he found Iron Paws.";
-const narrated = (v: object = {}, o: object = {}) => song({ kind: "narrated", ...o }, { text: WORDS, style_line: "", ...v });
+const narrated = (v: object = {}, o: object = {}) => song({ kind: "narrated", format: "narrated", ...o }, { text: WORDS, style_line: "", ...v });
 const narration = (o: object = {}) => take({ kind: "narration", voice: "Sarah", untrimmed_seconds: null, ...o });
 
 test("New script → Narrated makes a narrated draft on its first word", async () => {
@@ -37,7 +37,7 @@ test("New script → Narrated makes a narrated draft on its first word", async (
   await userEvent.click(await screen.findByRole("button", { name: "New script" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Narrated/ }));
   await userEvent.type(await screen.findByLabelText("Write or paste the script"), "H");
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "narrated" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "narrated", format: "narrated" }));
 });
 
 test("a narrated script has five steps; Narration waits for words, and Cast for a narration in use", async () => {
@@ -121,7 +121,7 @@ test("while the sentences are measured, Make another waits too, and Cast says to
 
 test("the header's format is a picker on a draft: Dialogue → Narrated asks first, saves, and Undo puts it back", async () => {
   setViewport(390);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, narrated({}, { kind: "story" })], "PATCH /scripts/7": [200, {}] });
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, narrated({}, { kind: "story", format: "dialogue" })], "PATCH /scripts/7": [200, {}] });
   open("/b/1/scripts/7?step=script");
   await userEvent.click(await screen.findByRole("button", { name: "Type: Dialogue" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Narrated" }));
@@ -129,9 +129,9 @@ test("the header's format is a picker on a draft: Dialogue → Narrated asks fir
   expect(within(ask).getByText(/nobody speaks on camera/)).toBeInTheDocument();
   expect(calls.some((c) => c.key === "PATCH /scripts/7")).toBe(false);
   await userEvent.click(within(ask).getByRole("button", { name: "Change" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ kind: "narrated" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ format: "narrated" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PATCH /scripts/7").at(-1)?.body).toEqual({ kind: "story" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "PATCH /scripts/7").at(-1)?.body).toEqual({ format: "dialogue" }));
 });
 
 test("a song, or a published script, shows its format as a plain chip", async () => {
@@ -144,12 +144,12 @@ test("a song, or a published script, shows its format as a plain chip", async ()
 
 test("a Dialogue script that reads as narrated says so, with Make it Narrated", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /scripts/7": [200, narrated({ reads_narrated: true }, { kind: "story" })], "PATCH /scripts/7": [200, {}] });
+  const calls = fakeServer({ ...base, "GET /scripts/7": [200, narrated({ reads_narrated: true }, { kind: "story", format: "dialogue" })], "PATCH /scripts/7": [200, {}] });
   open("/b/1/scripts/7?step=script");
   expect(await screen.findByText("This reads as narrated. Make it Narrated?")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it Narrated" }));
   await userEvent.click(within(screen.getByRole("alertdialog", { name: "Make this Narrated?" })).getByRole("button", { name: "Change" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ kind: "narrated" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /scripts/7")?.body).toEqual({ format: "narrated" }));
 });
 
 test("on a Narrated script, a line spoken on camera is Advice: the narrator will read it", async () => {

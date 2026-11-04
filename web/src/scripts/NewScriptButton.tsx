@@ -14,28 +14,15 @@ import type { Script } from "./useScript";
 import { LookPicker, lookName, useLooks } from "./Looks";
 import { errorText as errorClass } from "../ui";
 import { songsQuery } from "./useSongs";
+import { useFormats, type Format } from "./useFormats";
 
 export const UNTITLED = "Untitled script";
-type Kind = "story" | "song" | "narrated";
-const KINDS: Record<Kind, string> = { story: "Dialogue", song: "Song", narrated: "Narrated" };
+const ICON = { story: FileText, song: Music, narrated: Mic };
 
-/** New script: the format first, Dialogue, Song or Narrated (flows S1). Nothing is saved yet: that waits for the first word (NewScriptPage). */
+/** New script: the format first, one of the guides' formats that are on (flows S1). Nothing is saved yet: that waits for the first word (NewScriptPage). */
 export function NewScriptButton({ brandId }: { brandId: number }) {
   const navigate = useNavigate();
-  const choice = (kind: Kind, Icon: typeof FileText, about: string, close: () => void) => (
-    <MenuItem
-      onClick={() => {
-        close();
-        navigate(`/b/${brandId}/scripts/new?kind=${kind}`);
-      }}
-    >
-      <Icon size={20} strokeWidth={1.75} aria-hidden />
-      <span className="flex-1 py-2">
-        <span className="block font-medium">{KINDS[kind]}</span>
-        <span className="block text-sm text-muted">{about}</span>
-      </span>
-    </MenuItem>
-  );
+  const formats = (useFormats().data ?? []).filter((f) => f.on);
   return (
     <Menu
       title="New script"
@@ -46,13 +33,26 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
         </Button>
       )}
     >
-      {(close) => (
-        <>
-          {choice("story", FileText, "People speak on camera", close)}
-          {choice("song", Music, "Your lyrics, sung word for word over a music video", close)}
-          {choice("narrated", Mic, "One voice reads your script over B-roll, with music", close)}
-        </>
-      )}
+      {(close) =>
+        formats.map((f) => {
+          const Icon = ICON[f.engine];
+          return (
+            <MenuItem
+              key={f.id}
+              onClick={() => {
+                close();
+                navigate(`/b/${brandId}/scripts/new?format=${f.id}`);
+              }}
+            >
+              <Icon size={20} strokeWidth={1.75} aria-hidden />
+              <span className="flex-1 py-2">
+                <span className="block font-medium">{f.name}</span>
+                <span className="block text-sm text-muted">{f.blurb}</span>
+              </span>
+            </MenuItem>
+          );
+        })
+      }
     </Menu>
   );
 }
@@ -61,7 +61,7 @@ export function NewScriptButton({ brandId }: { brandId: number }) {
 export const LYRICS_BOX = { label: "Lyrics", rows: 12, placeholder: "[Verse]\nPaste or write the lyrics here" };
 
 /** The words typed here go on as the step's unsaved draft (its tab memory), so its Save works as it always does. */
-const memory = (kind: Kind, id: number) => (kind === "song" ? `song-words-${id}` : `script-words-${id}`);
+const memory = (kind: Format["engine"], id: number) => (kind === "song" ? `song-words-${id}` : `script-words-${id}`);
 const keeps = () => {
   try {
     sessionStorage.setItem("new-script", "1");
@@ -86,7 +86,10 @@ export function useTypingOn(catchUp: () => void) {
  *  opens its page with the words still in the box; leaving before that leaves nothing behind. */
 export function NewScriptPage() {
   const brandId = Number(useParams().brandId);
-  const kind = useSearchParams()[0].get("kind") as Kind;
+  const formats = useFormats().data;
+  const [params, setParams] = useSearchParams();
+  const format = formats?.find((f) => f.id === params.get("format") && f.on);
+  const kind = format?.engine ?? "story"; // the format's engine runs it
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const latest = useRef(""); // the box keeps its own words; what's typed while the save is on its way goes along too
@@ -99,7 +102,6 @@ export function NewScriptPage() {
       /* a private window: saved with it */
     }
   };
-  const [, setParams] = useSearchParams();
   const me = useMe().data;
   const looks = useLooks();
   const brand = useBrands().data?.find((b) => b.id === brandId);
@@ -110,8 +112,7 @@ export function NewScriptPage() {
   const make = useMutation({
     mutationFn: async (start: { text: string; look?: string; folder?: number; language?: string }) => {
       const text = keeps() ? "" : start.text;
-      // "narrated" is Next-Server's #858; the generated types carry it once that's on next.
-      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind: kind as "story", ...(start.look ? { look: start.look } : {}), ...(start.language ? { language: start.language } : {}) } });
+      const { data, error } = await api.POST("/scripts", { body: { brand_id: brandId, title: UNTITLED, description: "", notes: "", reference_replace: "", text, kind, format: format?.id, ...(start.look ? { look: start.look } : {}), ...(start.language ? { language: start.language } : {}) } });
       if (!data) throw new Error(errorText(error));
       if (start.folder != null) await api.POST("/folders/file", { body: { kind: "script", id: data.id, folder_id: start.folder } });
       return data;
@@ -132,7 +133,8 @@ export function NewScriptPage() {
       navigate(`/b/${brandId}/scripts/${made.id}?step=${stepsFor(made)[0].id}`, { replace: true, state: words ? { typing: true } : undefined });
     },
   });
-  if (!(kind in KINDS)) return <Navigate to={`/b/${brandId}/scripts`} replace />;
+  if (!formats) return null;
+  if (!format) return <Navigate to={`/b/${brandId}/scripts`} replace />;
   const start = (text: string, with_: { look?: string; folder?: number; language?: string } = {}) => {
     if (started.current) return;
     started.current = true;
@@ -143,7 +145,7 @@ export function NewScriptPage() {
   // The same steps and reasons the script's own page shows for an empty script.
   const empty = { kind, published: false, versions: [{ slot: 0, text: "", status: "draft" }] } as unknown as Script;
   // Every step after the first is locked with its reason: none can be opened before the script exists (QA-3 on #1191).
-  const steps = (kind in KINDS ? stepStates(stepsFor(empty)[0].id, empty) : [])
+  const steps = stepStates(stepsFor(empty)[0].id, empty)
     // Publish is "Publish to library", not a step in the bar, for stories and songs alike (v5; ScriptFlowPage's barSteps).
     .filter((x) => (kind !== "story" && kind !== "song") || x.id !== "publish")
     .map((x, n) => (n === 0 ? x : { ...x, state: "todo" as const, reason: kind === "song" ? "Write or pick the lyrics first" : "Write a few lines first" }));
@@ -173,11 +175,11 @@ export function NewScriptPage() {
       </ScriptTop>
       {/* v5 C_NewScript: Type, Style, Project and Language; each pick saves the script with it (flows S1 U). */}
       <SettingsRow steps={<StepPicker flat steps={steps} onPick={() => {}} />}>
-        <Menu title="Type" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Type: ${KINDS[kind]}`} {...t}><PickLabel label="Type">{KINDS[kind]}</PickLabel></Button>}>
+        <Menu title="Type" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label={`Type: ${format.name}`} {...t}><PickLabel label="Type">{format.name}</PickLabel></Button>}>
           {(close) =>
-            (Object.keys(KINDS) as Kind[]).map((k) => (
-              <MenuItem key={k} onClick={() => { close(); setParams({ kind: k }, { replace: true }); }}>
-                {KINDS[k]}{k === kind ? " ✓" : ""}
+            formats.filter((f) => f.on).map((f) => (
+              <MenuItem key={f.id} onClick={() => { close(); setParams({ format: f.id }, { replace: true }); }}>
+                {f.name}{f.id === format.id ? " ✓" : ""}
               </MenuItem>
             ))
           }

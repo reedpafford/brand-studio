@@ -21,7 +21,7 @@ const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, cr
 const clip = { id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: 51, takes: [take(1, 1)], picked_take_id: 1, approved: false, stale: false, take_credits: 24, inserts: [] };
 const settings = {
   look: "house", video_model: null, image_model: null, aspect_ratio: "9:16", product_variants: {}, language: "en",
-  video_models: [{ id: "seedance-2.5", name: "Seedance 2.5", credits_per_second: 1, lip_sync: true, default: true, over_cap: false }], image_models: [], shapes: ["9:16", "1:1"], flavours: {},
+  video_models: [{ id: "seedance-2.5", name: "Seedance 2.5", credits_per_second: 1, lip_sync: true, default: true }], image_models: [], shapes: ["9:16", "1:1"], flavours: {},
 };
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, eli],

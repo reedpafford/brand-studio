@@ -265,6 +265,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/team/invite-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invite Link
+         * @description The standing editor link while it works (null: none). Only a hash is kept, so the link
+         *     itself is shown once, when it's made.
+         */
+        get: operations["invite_link_team_invite_link_get"];
+        put?: never;
+        /**
+         * New Invite Link For Anyone
+         * @description A new standing editor link; the one before stops working.
+         */
+        post: operations["new_invite_link_for_anyone_team_invite_link_post"];
+        /** Revoke Invite Link */
+        delete: operations["revoke_invite_link_team_invite_link_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace": {
         parameters: {
             query?: never;
@@ -1252,6 +1278,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/charges.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Charges Csv
+         * @description The month's charges (UTC), oldest first, as a CSV file to download (owner only).
+         */
+        get: operations["charges_csv_usage_charges_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage/charges/{charge_id}/refund": {
         parameters: {
             query?: never;
@@ -1268,6 +1314,57 @@ export interface paths {
          *     service charged stay on the bill. Once per charge: asking again is refused (409).
          */
         post: operations["refund_charge_usage_charges__charge_id__refund_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/by-format-and-style": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** By Format And Style */
+        get: operations["by_format_and_style_usage_by_format_and_style_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/scorecard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Card */
+        get: operations["get_card_projects__project_id__scorecard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Score */
+        put: operations["set_score_projects__project_id__score_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3562,8 +3659,8 @@ export interface paths {
         put?: never;
         /**
          * Generate
-         * @description Make a new take of this clip (a paid video job, counted against the project budget and
-         *     its per-video cap). A clip with problems must be fixed first.
+         * @description Make a new take of this clip (a paid video job, counted against the project budget).
+         *     A clip with problems must be fixed first.
          */
         post: operations["generate_projects__project_id__clips__clip_id__generate_post"];
         delete?: never;
@@ -3801,6 +3898,71 @@ export interface paths {
          * @description Stitch the picked takes, in clip order, into one MP4. Free: no credits, no provider.
          */
         post: operations["make_video_projects__project_id__video_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}/sound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add
+         * @description Add sound effects under the picked take (Make again after a failed run).
+         */
+        post: operations["add_projects__project_id__clips__clip_id__sound_post"];
+        /**
+         * Remove
+         * @description Undo: the picked take plays as it was made (silent B-roll silent again).
+         */
+        delete: operations["remove_projects__project_id__clips__clip_id__sound_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/host": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_projects__project_id__host_get"];
+        put?: never;
+        /**
+         * Make
+         * @description Make what isn't made yet: the still first, then each piece from it.
+         */
+        post: operations["make_projects__project_id__host_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/host/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Again
+         * @description Make again one piece; the still (0) makes every piece again from the new one.
+         */
+        post: operations["again_projects__project_id__host__number__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4413,30 +4575,6 @@ export interface paths {
          */
         post: operations["spread_timing_songs__take_id__spread_timing_post"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/songs/{take_id}/trim": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Trim Take
-         * @description Over the cap: "Use the first 0:55" (to the last section end that fits).
-         */
-        post: operations["trim_take_songs__take_id__trim_post"];
-        /**
-         * Untrim Take
-         * @description Undo: the whole take again.
-         */
-        delete: operations["untrim_take_songs__take_id__trim_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5368,6 +5506,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Formats
+         * @description Every format in Reed’s order (app/guides/formats), for the format picker.
+         */
+        get: operations["list_formats_formats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5380,6 +5538,8 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+            /** Email */
+            email?: string | null;
         };
         /** AdviceOut */
         AdviceOut: {
@@ -5904,6 +6064,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format?: string | null;
             /** Look */
             look?: string | null;
             /** Language */
@@ -5912,6 +6074,27 @@ export interface components {
             reel_url?: string | null;
             /** Upload Id */
             upload_id?: number | null;
+        };
+        /** CardOut */
+        CardOut: {
+            /** Forecast Credits */
+            forecast_credits: number | null;
+            /** Forecast Basis */
+            forecast_basis: string | null;
+            /** Actual Credits */
+            actual_credits: number;
+            /** Director Credits */
+            director_credits: number;
+            /** Within Forecast */
+            within_forecast: boolean | null;
+            /** Words Exact */
+            words_exact: boolean | null;
+            /** Must Show Ok */
+            must_show_ok: boolean | null;
+            /** Score */
+            score: number | null;
+            /** Note */
+            note: string | null;
         };
         /** Cast */
         Cast: {
@@ -5993,11 +6176,8 @@ export interface components {
              * @default 5
              */
             duration: number;
-            /**
-             * Resolution
-             * @default 480p
-             */
-            resolution: string;
+            /** Resolution */
+            resolution?: string | null;
             /**
              * Generate Audio
              * @default true
@@ -6380,6 +6560,22 @@ export interface components {
             /** Can Manage */
             can_manage: boolean;
         };
+        /** FormatOut */
+        FormatOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Engine
+             * @enum {string}
+             */
+            engine: "story" | "song" | "narrated";
+            /** Blurb */
+            blurb: string;
+            /** On */
+            on: boolean;
+        };
         /** Found */
         Found: {
             /** Logo Url */
@@ -6472,9 +6668,8 @@ export interface components {
             /**
              * Type
              * @default dialogue
-             * @enum {string}
              */
-            type: "dialogue" | "song" | "narrated" | "one_clip";
+            type: string;
             /** Look */
             look?: string | null;
             /**
@@ -6532,11 +6727,8 @@ export interface components {
             id: number;
             /** Title */
             title: string;
-            /**
-             * Type
-             * @enum {string}
-             */
-            type: "dialogue" | "song" | "narrated" | "one_clip";
+            /** Type */
+            type: string;
             /**
              * Status
              * @enum {string}
@@ -6615,11 +6807,8 @@ export interface components {
             id: number;
             /** Title */
             title: string;
-            /**
-             * Type
-             * @enum {string}
-             */
-            type: "dialogue" | "song" | "narrated" | "one_clip";
+            /** Type */
+            type: string;
             /**
              * Status
              * @enum {string}
@@ -6633,6 +6822,15 @@ export interface components {
             /** Created By Name */
             created_by_name: string;
         };
+        /** FreestyleUsage */
+        FreestyleUsage: {
+            /** Credits */
+            credits: number;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Videos */
+            videos: number;
+        };
         /** GuideIn */
         GuideIn: {
             /** Use As Guide */
@@ -6642,6 +6840,45 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HostOut */
+        HostOut: {
+            /** On */
+            on: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "making" | "ready" | "failed";
+            /** Pieces */
+            pieces: components["schemas"]["HostPieceOut"][];
+            /** Credits */
+            credits: number;
+        };
+        /** HostPieceOut */
+        HostPieceOut: {
+            /** Number */
+            number: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "making" | "ready" | "failed";
+            /** File Id */
+            file_id: number | null;
+            /** Earlier */
+            earlier: number[];
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Credits */
+            credits: number;
         };
         /** ImageModelOut */
         ImageModelOut: {
@@ -6653,8 +6890,6 @@ export interface components {
             credits_per_still: number;
             /** Default */
             default: boolean;
-            /** Over Cap */
-            over_cap: boolean;
         };
         /** ImportOut */
         ImportOut: {
@@ -6746,11 +6981,8 @@ export interface components {
              * @default 5
              */
             duration: number;
-            /**
-             * Resolution
-             * @default 480p
-             */
-            resolution: string;
+            /** Resolution */
+            resolution?: string | null;
             /**
              * Generate Audio
              * @default true
@@ -6961,6 +7193,11 @@ export interface components {
              * @default []
              */
             used_in: components["schemas"]["UsedIn"][];
+            /**
+             * Used In Count
+             * @default 0
+             */
+            used_in_count: number;
         };
         /**
          * ItemPatch
@@ -7275,15 +7512,11 @@ export interface components {
         LimitsIn: {
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number | string;
-            /** Per Video Max Credits */
-            per_video_max_credits: number;
         };
         /** LimitsOut */
         LimitsOut: {
             /** Weekly Quick Clip Credits */
             weekly_quick_clip_credits: number;
-            /** Per Video Max Credits */
-            per_video_max_credits: number;
         };
         /** Line */
         Line: {
@@ -7337,6 +7570,14 @@ export interface components {
             title?: string | null;
             /** New Lines */
             new_lines?: boolean | null;
+        };
+        /** LinkOut */
+        LinkOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
         };
         /** LockIn */
         LockIn: {
@@ -7447,6 +7688,8 @@ export interface components {
             sample_still_id?: number | null;
             /** Sample Clip Id */
             sample_clip_id?: number | null;
+            /** Video Model */
+            video_model: string;
             /**
              * Own Sample
              * @default false
@@ -7579,6 +7822,8 @@ export interface components {
             /** Name */
             name: string;
             role: components["schemas"]["Role"];
+            /** Last Active At */
+            last_active_at: string | null;
         };
         /** MergeIn */
         MergeIn: {
@@ -7635,6 +7880,11 @@ export interface components {
              * @default 0
              */
             waiting_credits: number;
+            /**
+             * Videos And Freestyles
+             * @default 0
+             */
+            videos_and_freestyles: number;
         };
         /** MissingLooksOut */
         MissingLooksOut: {
@@ -7772,6 +8022,8 @@ export interface components {
             title: string;
             /** Credits */
             credits: number;
+            /** Brand Id */
+            brand_id: number;
         };
         /**
          * MySend
@@ -7837,6 +8089,13 @@ export interface components {
              * Format: date-time
              */
             last_activity_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "delivered" | "making" | "waiting" | "declined" | "stopped" | "failed";
+            /** Brand Id */
+            brand_id: number;
         };
         /**
          * MyWeek
@@ -8028,6 +8287,16 @@ export interface components {
             /** Owner Script Id */
             owner_script_id?: number | null;
         };
+        /** NewLinkOut */
+        NewLinkOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Token */
+            token: string;
+        };
         /** NoteIn */
         NoteIn: {
             /**
@@ -8059,6 +8328,29 @@ export interface components {
             a_slot_id: number;
             /** B Slot Id */
             b_slot_id: number;
+        };
+        /** PairRow */
+        PairRow: {
+            /** Format */
+            format: string;
+            /** Look */
+            look: string;
+            /** Videos */
+            videos: number;
+            /** Seconds */
+            seconds: number;
+            /** Credits */
+            credits: number;
+            /** Director Credits */
+            director_credits: number;
+            /** Credits Per Second */
+            credits_per_second: number;
+            /** Redo Rate */
+            redo_rate: number | null;
+            /** Scored */
+            scored: number;
+            /** Average Score */
+            average_score: number | null;
         };
         /** Person */
         Person: {
@@ -8256,6 +8548,11 @@ export interface components {
              * @default []
              */
             used_in: components["schemas"]["UsedIn"][];
+            /**
+             * Used In Count
+             * @default 0
+             */
+            used_in_count: number;
             /** Was File Id */
             was_file_id: number | null;
         };
@@ -8337,6 +8634,8 @@ export interface components {
             clips_total: number;
             /** Finished At */
             finished_at?: string | null;
+            /** Approved Up To */
+            approved_up_to?: number | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -8405,6 +8704,7 @@ export interface components {
              * @default []
              */
             versions: components["schemas"]["PromptVersionOut"][];
+            sound?: components["schemas"]["SoundOut"] | null;
         };
         /** ProjectCost */
         ProjectCost: {
@@ -8994,6 +9294,13 @@ export interface components {
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
+        /** ScoreIn */
+        ScoreIn: {
+            /** Score */
+            score: number | null;
+            /** Note */
+            note?: string | null;
+        };
         /** ScreenFigure */
         ScreenFigure: {
             /**
@@ -9100,8 +9407,8 @@ export interface components {
             reference_replace?: string | null;
             /** New Lines */
             new_lines?: boolean | null;
-            /** Kind */
-            kind?: ("story" | "narrated") | null;
+            /** Format */
+            format?: string | null;
             /** Look */
             look?: string | null;
         };
@@ -9127,6 +9434,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format: string;
             /**
              * Look
              * @default house
@@ -9613,12 +9922,6 @@ export interface components {
             refused_for: ("words" | "style") | null;
             /** Video Credits */
             video_credits: number | null;
-            /** Over Cap */
-            over_cap: boolean;
-            /** Fits Until */
-            fits_until: number | null;
-            /** Trim To */
-            trim_to: number | null;
             /**
              * Kind
              * @default song
@@ -9661,8 +9964,6 @@ export interface components {
             estimate_credits: number;
             /** Video Estimate Credits */
             video_estimate_credits: number;
-            /** Keep Lines */
-            keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
             /**
@@ -9672,6 +9973,36 @@ export interface components {
             voice: string;
             /** Songs Note */
             songs_note?: string | null;
+        };
+        /** SoundIn */
+        SoundIn: {
+            /**
+             * Asked
+             * @default
+             */
+            asked: string;
+        };
+        /**
+         * SoundOut
+         * @description Sound effects added to the picked take on request (app/take_sound.py).
+         */
+        SoundOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "making" | "ready" | "failed";
+            /** How */
+            how: string;
+            /** Asked */
+            asked: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Credits */
+            credits: number;
         };
         /** StageOut */
         StageOut: {
@@ -10023,6 +10354,16 @@ export interface components {
             versions_left: number;
             /** Last Activity At */
             last_activity_at: string | null;
+            /**
+             * Credits
+             * @default 0
+             */
+            credits: number;
+            /**
+             * Videos
+             * @default 0
+             */
+            videos: number;
             previous: components["schemas"]["UsagePrevious"] | null;
             /** Editors Active */
             editors_active: number;
@@ -10060,6 +10401,16 @@ export interface components {
             versions_left: number;
             /** Last Activity At */
             last_activity_at: string | null;
+            /**
+             * Credits
+             * @default 0
+             */
+            credits: number;
+            /**
+             * Videos
+             * @default 0
+             */
+            videos: number;
         };
         /** UsageBrandsOut */
         UsageBrandsOut: {
@@ -10124,6 +10475,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format: string;
             /**
              * Look
              * @default house
@@ -10229,6 +10582,17 @@ export interface components {
              * @default 0
              */
             director_spend_usd: number;
+            /**
+             * Spend Credits
+             * @default 0
+             */
+            spend_credits: number;
+            /**
+             * Unassigned Credits
+             * @default 0
+             */
+            unassigned_credits: number;
+            freestyle: components["schemas"]["FreestyleUsage"];
         };
         /** UsageVideo */
         UsageVideo: {
@@ -10325,10 +10689,6 @@ export interface components {
         VersionEstimateOut: {
             /** Credits */
             credits: number;
-            /** Over Cap */
-            over_cap: boolean;
-            /** Reason */
-            reason: string;
         };
         /** VersionSummary */
         VersionSummary: {
@@ -10377,8 +10737,6 @@ export interface components {
             lip_sync: boolean;
             /** Default */
             default: boolean;
-            /** Over Cap */
-            over_cap: boolean;
         };
         /** VideoOut */
         VideoOut: {
@@ -10430,8 +10788,6 @@ export interface components {
             estimate_credits: number;
             /** Video Estimate Credits */
             video_estimate_credits: number;
-            /** Keep Lines */
-            keep_lines: number | null;
             /** Takes */
             takes: components["schemas"]["SongTakeOut"][];
             /**
@@ -10624,6 +10980,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format?: string | null;
             /** Look */
             look?: string | null;
             /** Language */
@@ -10644,6 +11002,8 @@ export interface components {
              * @enum {string}
              */
             kind: "story" | "song" | "narrated";
+            /** Format */
+            format: string;
             /**
              * Look
              * @default house
@@ -10966,8 +11326,6 @@ export interface components {
             sung_to_broll: number;
             /** Over Budget */
             over_budget: boolean;
-            /** Over Cap */
-            over_cap: boolean;
             /** Reason */
             reason: string;
         };
@@ -11431,6 +11789,64 @@ export interface operations {
             };
         };
     };
+    invite_link_team_invite_link_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkOut"] | null;
+                };
+            };
+        };
+    };
+    new_invite_link_for_anyone_team_invite_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewLinkOut"];
+                };
+            };
+        };
+    };
+    revoke_invite_link_team_invite_link_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     read_workspace_workspace_get: {
         parameters: {
             query?: never;
@@ -11749,7 +12165,7 @@ export interface operations {
         parameters: {
             query: {
                 shape: "9:16" | "1:1" | "16:9";
-                type?: "dialogue" | "song" | "narrated" | "one_clip";
+                type?: string;
                 look?: string | null;
                 text?: string | null;
                 script_id?: number | null;
@@ -13284,6 +13700,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path?: never;
@@ -13315,6 +13732,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
                 q?: string;
                 archived?: boolean;
                 sort?: "spend" | "finished" | "cost" | "activity" | "name";
@@ -13351,6 +13769,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path: {
@@ -13384,6 +13803,7 @@ export interface operations {
         parameters: {
             query?: {
                 period?: "week" | "month" | "all";
+                month?: string | null;
             };
             header?: never;
             path?: never;
@@ -13486,9 +13906,10 @@ export interface operations {
     };
     mine_usage_mine_get: {
         parameters: {
-            query: {
-                brand_id: number;
+            query?: {
+                brand_id?: number | null;
                 period?: "week" | "month" | "all";
+                month?: string | null;
                 folder?: string | null;
             };
             header?: never;
@@ -13588,6 +14009,37 @@ export interface operations {
             };
         };
     };
+    charges_csv_usage_charges_csv_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     refund_charge_usage_charges__charge_id__refund_post: {
         parameters: {
             query?: never;
@@ -13610,6 +14062,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    by_format_and_style_usage_by_format_and_style_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairRow"][];
+                };
+            };
+        };
+    };
+    get_card_projects__project_id__scorecard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_score_projects__project_id__score_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOut"];
                 };
             };
             /** @description Validation Error */
@@ -18600,6 +19138,168 @@ export interface operations {
             };
         };
     };
+    add_projects__project_id__clips__clip_id__sound_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_projects__project_id__clips__clip_id__sound_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__host_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_projects__project_id__host_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    again_projects__project_id__host__number__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_projects__project_id__director_get: {
         parameters: {
             query?: never;
@@ -19677,68 +20377,6 @@ export interface operations {
         };
     };
     spread_timing_songs__take_id__spread_timing_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                take_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SongTakeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    trim_take_songs__take_id__trim_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                take_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SongTakeOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    untrim_take_songs__take_id__trim_delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -21601,6 +22239,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_formats_formats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormatOut"][];
                 };
             };
         };

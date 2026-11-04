@@ -9,8 +9,8 @@ Look for what a viewer would notice:
 - **The story in order:** reading the stills in order, a viewer follows who wants what, what changes and the payoff. A still that breaks the order or contradicts another is a finding.
 - **The same people:** each person keeps one face and one outfit in every still, and no one in a still the beat doesn't put there. A place stays the same place from still to still (a song is usually one world: its set, its colours and its light the same in every scene).
 - **The style:** the style's skill is followed (its look, its shots, its world). A still that drifts out of the look is a finding.
-- **Text (rule 32):** no captions or random writing; story text (a 3D number, a sign, the brand's real screen) right and readable.
+- **Text:** no captions or random writing; story text (a 3D number, a sign, the brand's real screen) right and readable.
 
-Never a finding: a choice that serves the beat, small things a viewer won't see at phone size, the script's words (final, rule 19), story choices the owner made.
+Never a finding: a choice that serves the beat, small things a viewer won't see at phone size, the script's words (final: "The script's words never change"), story choices the owner made.
 
 Each finding: `shot_id`; `problem`, one plain line ("3.1 shows him sitting; the beat is the jar exploding"); `note`, the change note for the redraw, ready to send, naming what should be in the frame. Worst first, 8 at most. `ready` is true when the stills tell the treatment well enough to make takes, even with small findings; false when a finding would cost the story.

@@ -8,6 +8,7 @@ import { videoStatus, videoTo } from "../videos/progress";
 import { finished } from "../freestyle/FromScript";
 import { lookName, useLooks } from "./Looks";
 import { useBrands } from "../shell/useBrands";
+import { useFormatName } from "./useFormats";
 import { letterOf, statusOf } from "./status";
 import type { Script } from "./useScript";
 
@@ -16,7 +17,6 @@ type Project = components["schemas"]["ProjectOut"];
 
 // v5 C_ScriptOverview: Version 52 | Its video | Maker 64 | Credits 200 | press 132.
 const COLS = "lg:grid lg:grid-cols-[52px_minmax(0,1fr)_64px_200px_132px] lg:items-center lg:gap-x-4";
-const KIND: Record<string, string> = { story: "Dialogue", song: "Song", narrated: "Narrated" };
 
 /** A version's credits as the board says them: what its video has spent in all, the director's own time included (so it
  *  matches the video's chat), or what making it is planned to cost. Never "free": nothing spent yet is "0 credits so far". */
@@ -67,6 +67,7 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
   const videos = useProjectList(brandId);
   const looks = useLooks().data;
   const brand = useBrands().data?.find((b) => b.id === s.brand_id);
+  const formatName = useFormatName();
   const folders = useFolders(brandId);
   const byId = new Map((videos.data ?? []).map((p) => [p.id, p]));
   const versions = s.versions.filter((v) => v.text.trim() !== "" || v.status !== "draft");
@@ -113,7 +114,7 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
         )}
       </section>
       <aside aria-label="About this script" className="space-y-[18px] border-border lg:border-l lg:pl-6">
-        {fact("Type", [KIND[s.kind] ?? s.kind, !s.language || s.language === "en" ? "English" : s.language].join(" · "))}
+        {fact("Type", [formatName(s.format), !s.language || s.language === "en" ? "English" : s.language].join(" · "))}
         {fact("Look", s.look === "house" ? `House style${brand ? ` (${brand.name})` : ""}` : lookName(looks, s.look))}
         {fact("Project", project)}
         {fact(

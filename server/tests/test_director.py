@@ -232,11 +232,9 @@ def test_a_take_for_a_clip_that_isnt_there_is_refused(db, owner, editor, app):
     assert said == "Refused: there's no clip c9."
 
 
-def test_its_own_turns_never_use_the_videos_budget_but_the_cap_counts_them(app, db, owner, editor):
-    """Next-Lead (DECISIONS #1066): the video's budget, the director's own and the per-video
-    cap are three limits. An editor's run is never held for the budget by its own turns."""
-    from app.credits import get_limits
-
+def test_its_own_turns_never_use_the_videos_budget(app, db, owner, editor):
+    """Next-Lead (DECISIONS #1066): the video's budget and the director's own are two limits. An
+    editor's run is never held for the budget by its own turns."""
     pid = _made(app, owner, editor, db)
     project = db.get(Project, pid)
     earlier = {"step": director.STEP, "ended": "Stopped.",
@@ -251,11 +249,6 @@ def test_its_own_turns_never_use_the_videos_budget_but_the_cap_counts_them(app, 
     out = editor.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered", out["ended"]
     assert not db.query(Job).filter_by(status=JobStatus.needs_owner_approval).count()
-
-    turns.credits = get_limits(db, project.workspace_id).per_video_max_credits
-    db.commit()  # its turns alone reach the per-video cap: nothing more, for anyone
-    refused = editor.post(f"/projects/{pid}/director")
-    assert refused.status_code == 409 and "limit" in refused.json()["detail"]
 
 
 def test_an_editors_run_approves_its_own_videos_plan(app, db, owner, editor):
@@ -501,8 +494,7 @@ def test_its_turns_show_apart_so_the_shown_budget_matches_the_hold(app, db, owne
 
 def test_every_budget_check_counts_as_the_hold_does(app, db, owner, editor, monkeypatch):
     """QA-6: the hold left the director's spend out, but the take retry's check (fits), the
-    settings preview and the cost bar's percent still counted it. All read budget_used now;
-    the per-video cap still counts everything."""
+    settings preview and the cost bar's percent still counted it. All read budget_used now."""
     from decimal import Decimal
 
     from app import credits
