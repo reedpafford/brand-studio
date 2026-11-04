@@ -380,6 +380,13 @@ class FakeMedia:
             return Result("succeeded", output={"text": json.dumps(watch(self._jobs[ref]))})
         if self._jobs[ref]["kind"] == "speech" and "fake:fail" in self._jobs[ref]["prompt"]:
             return Result("failed", error="The voice service failed (stand-in)")
+        if self._jobs[ref]["kind"] == "voice":  # a clone: its voice id and a preview
+            fields = {
+                "voice_id": f"stand-in-voice-{ref.rsplit('-', 1)[-1]}",
+                "model": self._jobs[ref].get("model", ""),
+                "preview": f"fake://{ref}",
+            }
+            return Result("succeeded", output={"fields": fields}, files=[f"fake://{ref}"])
         return Result("succeeded", output={"url": f"fake://{ref}"}, files=[f"fake://{ref}"])
 
     def fetch(self, url: str) -> tuple[bytes, str]:
@@ -387,8 +394,8 @@ class FakeMedia:
         aspect = job.get("aspect_ratio", "9:16")
         if job["kind"] in ("video", "sound"):
             return mp4(aspect, int(job.get("duration", 5)), job["kind"] == "sound"), "video/mp4"
-        if job["kind"] == "speech":
-            return narration(job["prompt"]), "audio/mpeg"
+        if job["kind"] in ("speech", "voice"):
+            return narration(job["prompt"] or "This is the cloned voice."), "audio/mpeg"
         if job["kind"] == "music_bed":
             return bed(int(job.get("duration", 10))), "audio/mpeg"
         return png(aspect), "image/png"

@@ -123,8 +123,8 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     again MAX_REDOS times with its take check, and the director's own limit (its turns and
     watches, `director.own_limit`; past it, it waits for an OK); and for a song or narrated
     version with no song yet, its making and one remake (`director_song.price`); a presenter's
-    host, its still and every second on P-Video (`host.run_price`). The cut, mutes and splices
-    are free."""
+    host, its still and every second in one HeyGen take (`host.run_price`). The cut, mutes and
+    splices are free."""
     from app import director, item_checks, narration
 
     script = db.get(Script, draft.script_id)
@@ -140,7 +140,7 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     from app import director_song, host
 
     audio = director_song.price(db, draft)  # a song or narration still to make, and one remake
-    talks = host.run_price(db, draft, said, video)  # a presenter's host on P-Video, once
+    talks = host.run_price(db, draft, said, video)  # a presenter's host on HeyGen, once
     return (version_cost(db, draft, video) + audio + talks + director.MAX_REDOS * takes
             + director.own_limit())  # fmt: skip
 

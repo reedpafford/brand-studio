@@ -642,6 +642,7 @@ class DirectorTurn(BaseModel):
     voice: Literal[
         "Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
         "English_Trustworth_Man", "English_Upbeat_Woman", "English_ConfidentWoman",
+        "English_Graceful_Lady",
     ] | None = Field(
         default=None,
         description="For narration being made: the narrator's voice; null gives Sarah on the "
@@ -654,7 +655,10 @@ class DirectorTurn(BaseModel):
     ] | None = Field(
         default=None,
         description="For narration in an English_ voice (MiniMax): the delivery's emotion; null "
-        "or 'auto' lets the voice choose from the words. Else null.",
+        "or 'auto' lets the voice choose from the words. Its speed follows: an emotion reads "
+        "slower, so the speed rises to keep the style's pace, and a remake in the same emotion "
+        "is set from the last read's measured pace (the take's 'pace' against 'pace_wanted'). "
+        "Else null.",
     )  # fmt: skip
     reading: str = Field(
         default="",
@@ -676,11 +680,31 @@ class DirectorTurn(BaseModel):
         "yet, the style line ('laid-back breezy pop, warm female vocal, 100 BPM, acoustic "
         "guitar, sunny, modern polished'); for song made again, the music's change ('vocals "
         "start immediately, no instrumental intro'); for narration "
-        "made again, the voice's change ('slower and warmer'); for add_sound, the sounds "
+        "made again, the voice's change ('slower and warmer'); for host with a UGC talker, the "
+        "talker's motion, written for this narration's emotion and lines: what the face, head "
+        "and hands do and what's in front of them, never a gesture the place can't hold ('close "
+        "to tears, fighting it: chin trembles, lips pressed between phrases, a glance down and "
+        "back; both hands stay on the steering wheel'); for add_sound, the sounds "
         "asked for and how much, in the person's words ('slight sound effects'); else empty.",
     )
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "
         "'deliver' it is the delivery note (2-4 sentences: the craft choices made and why); on "
         "'stop', what the owner needs to know."
+    )
+    made: str = Field(
+        default="",
+        description="On 'deliver' only: the delivery note's 'What I made', one short paragraph: "
+        "the length, the style and who's in it, the scenes and clips, and how it opens. Else "
+        "empty.",
+    )
+    unsure: str = Field(
+        default="",
+        description="On 'deliver' only: 'What I'm unsure of': a fault kept or a choice a person "
+        "may want changed, and the words that change it ('say \"shorter end\"'), or empty.",
+    )
+    needs: str = Field(
+        default="",
+        description="On 'deliver' only: 'What I need from you', or empty when nothing (the note "
+        "then says it's ready to post).",
     )

@@ -139,7 +139,7 @@ export function ScriptRow({ row: r, brandName, narrow, mayOpen, ownScript, panel
           const by = beingMade(v.status) && v.editor ? (v.editor.id === meId ? "you" : v.editor.name) : null;
           const said = `Version ${letter}, ${s.label.toLowerCase()}${by ? ` by ${by}` : ""}`;
           const to = chipTo(v);
-          const chip = <Dot tone={s.tone}>{`${letter} ${wordOf(v.status)}`}</Dot>;
+          const chip = <Dot tone={s.tone} hollow={v.status === "draft"}>{`${letter} ${wordOf(v.status)}`}</Dot>;
           return (
             <li key={v.slot}>
               {to ? (

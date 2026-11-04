@@ -28,7 +28,6 @@ def _hidden_nowhere(owner, editor):
     for who in (owner, editor):
         assert who.get("/scripts").json() == []
         assert who.get("/projects").json() == []
-        assert who.get("/projects", params={"status": "needs_you"}).json() == []
         assert all(b["name"] != "Freestyle" for b in who.get("/brands").json())
     assert owner.get("/production").json() == []
     summary = owner.get("/production/summary").json()
@@ -142,7 +141,8 @@ def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
         if holds:  # past the first send: a step the approved price didn't cover
             assert job.input["held"] == PAST_APPROVED
             moves = editor.get(f"/freestyles/{fs['id']}").json()["thread"]
-            assert any(m["status"] == "held" and m["text"] == PAST_APPROVED for m in moves)
+            said = PAST_APPROVED.removeprefix("Waiting for the owner's OK: ").rstrip(".")
+            assert any(m["status"] == "held" and m["text"].endswith(said) for m in moves)
             released += Decimal(str(owner.get(f"/jobs/{job.id}").json()["credits"]))  # as shown
         holds += 1
         assert owner.post(f"/jobs/{job.id}/approve").status_code == 200

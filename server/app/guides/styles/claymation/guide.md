@@ -4,6 +4,8 @@ on: no
 image_model: auto
 video_model: seedance-2.0
 blurb: Hand-sculpted plasticine on a miniature set: clay skin with thumbprints, real woven fabric, warm light, gentle handmade movement.
+card: Handmade clay
+broll: Clay props
 
 <!-- Reed's claymation skill (docs/next/skills/claymation.md, #1095; first from Starpop's claymation-ads, docs/research/starpop-2026-10-28, rule 20), its "Cinematic" lane, the one it recommends for most ads. Its other lanes are their own looks: claymation-goofy, claymation-clean, claymation-puppet. Site rules win: adults keep adult faces (so no "young" skin), and the sheets carry each face. -->
 <!-- Moved 2 Nov from server/app/prompts/styles/claymation.md and prompts/skills/claymation.md into one place. -->

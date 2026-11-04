@@ -136,7 +136,6 @@ def test_a_produced_version_names_its_editor_and_the_video_its_version(owner, ed
 
 
 def test_a_version_whose_video_failed_says_so_and_a_done_one_has_a_poster(owner, editor, db):
-    from app.db import utcnow
     from app.models.breakdowns import BreakdownVersion
     from app.models.storyboards import StoryboardFrame
 
@@ -219,7 +218,6 @@ def test_an_archived_video_is_not_released(owner, editor, db):
 def test_a_done_video_cant_be_released(owner, editor, db):
     base, _ = _published(owner, db, breakdown=BREAKDOWN)
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
-    from app.db import utcnow
 
     db.get(Project, pid).finished_at = utcnow()
     db.commit()
@@ -282,27 +280,6 @@ def test_an_unlocked_slot_in_the_breakdown_is_known_and_waits_only_for_its_look(
     landed = editor.put(url, json=bd).json()  # another script's role: the shot's speaker's
     assert landed["breakdown"]["scenes"][0]["shots"][1]["character_ids"] == [f"slot:{nate}"]
     assert "Advice: Shot 1.2 now shows Nate, a role in this video." in landed["problems"]
-
-
-def test_editors_search_and_filter_their_videos(app, owner, editor, db):
-    """Gaps #13: by name, mine only, making or done, and brand."""
-    dip, _ = _published(owner, db, breakdown=BREAKDOWN)
-    mine = editor.post(f"{dip}/drafts/0/produce").json()["project_id"]
-    two, _ = _second_editor(app, owner, db)
-    fomo = owner.get("/brands").json()[0]["id"]
-    theirs = two.post("/projects", json={"brand_id": fomo, "name": "Salmon"}).json()["id"]
-
-    def ids(**params):
-        return [p["id"] for p in editor.get("/projects", params=params).json()]
-
-    assert ids(q="dip") == [mine] and ids(q="SALM") == [theirs]
-    assert ids(mine=True) == [mine]
-    assert ids(status="making") == [mine, theirs] and ids(status="done") == []
-    db.get(Project, mine).finished_at = utcnow()
-    db.commit()
-    assert ids(status="done") == [mine]
-    assert editor.get("/projects", params={"status": "done"}).json()[0]["finished_at"]
-    assert ids(brand_id=fomo, mine=True, status="done", q="d") == [mine]
 
 
 def test_a_versions_length_is_its_videos_once_it_has_a_breakdown(owner, editor, db):

@@ -143,6 +143,28 @@
    "price_source": "replicate.com/minimax/speech-2.8-hd billing, read 2026-11-03: $0.10 per thousand input tokens, one token a character (its logs: 'Each character is 1 token')"
   },
   {
+   "id": "minimax-speech-02-hd",
+   "name": "MiniMax Speech 02 HD",
+   "kind": "speech",
+   "provider_model": "minimax/speech-02-hd",
+   "provider_version": "b2c687e53557eee08b35b59620f88750671e97b9a91f351ea6797ac838a0773d",
+   "default": false,
+   "offered": false,
+   "price": {"unit": "thousand_characters", "usd": {"any": 0.1}},
+   "price_source": "replicate.com/minimax/speech-02-hd billing, read 2026-11-03: $0.10 per thousand input tokens, one token a character. The model a voice cloned with minimax/voice-cloning (model speech-02-hd) speaks through: batch-b's Dr. Pickle clone was made and used on it"
+  },
+  {
+   "id": "minimax-voice-cloning",
+   "name": "MiniMax Voice Cloning",
+   "kind": "voice",
+   "provider_model": "minimax/voice-cloning",
+   "provider_version": "fff8a670880f066d3742838515a88f7f0a3ae40a4f2e06dae0f7f70ba63582d7",
+   "default": true,
+   "offered": false,
+   "price": {"unit": "call", "usd": {"any": 3.0}},
+   "price_source": "replicate.com/minimax/voice-cloning billing table, read 2026-11-03: $3 per output (one cloned voice); batch-b's clone was charged $3.00"
+  },
+  {
    "id": "heygen-avatar-iv",
    "name": "HeyGen Avatar IV",
    "kind": "video",
@@ -154,8 +176,8 @@
    "aspect_ratios": ["9:16", "16:9", "1:1", "4:5"],
    "max_reference_images": 1,
    "first_frame": true,
-   "price": {"unit": "second", "usd": {"720p": 0.039}},
-   "price_source": "HeyGen API wallet, measured 2026-11-03 (.context/tests/batch-b): Avatar IV type image at 720p 9:16 cost $1.16 for 30.67 s and $0.97 for 25.07 s, about $0.038-0.039 a second; HeyGen's pricing page isn't in its API docs"
+   "price": {"unit": "second", "usd": {"720p": 0.05}},
+   "price_source": "HeyGen API wallet, measured (.context/tests/batch-b, th-20s): Avatar IV type image at 720p 9:16 cost $1.16 for 30.67 s, $0.97 for 25.07 s and $0.66-0.67 for 17.86 s, $0.037-0.039 a second. HeyGen reports no price and its pricing page isn't in its API docs, so quotes and credits use $0.05 a second (never below what it can charge); Usage records the measured $0.039 (providers/heygen.MEASURED)"
   },
   {
    "id": "stable-audio-2.5",

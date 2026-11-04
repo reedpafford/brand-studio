@@ -114,7 +114,7 @@ export function DirectionsStep({ script: s, onAccepted }: { script: Script; onAc
               <span className="text-xs tabular-nums text-muted">
                 {accepted} of {live.length} accepted
               </span>
-              <Button disabled={accepted === 0 || e.apply.isPending} reason={accepted === 0 ? "Accept a suggestion first" : null} busy={e.apply.isPending} onClick={() => e.apply.mutate()}>
+              <Button disabled={accepted === 0 || e.apply.isPending} title={accepted === 0 ? "Accept a suggestion first" : undefined} busy={e.apply.isPending} onClick={() => e.apply.mutate()}>
                 Apply {accepted} accepted
               </Button>
             </div>

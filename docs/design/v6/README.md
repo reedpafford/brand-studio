@@ -158,5 +158,6 @@ For Reed. Design only: nothing here is built, and nothing here spent money. Appr
 |---|---|
 | [S-gaps-01](boards/S-gaps-01.jpg) | Approved: B-roll look, reel look, upload, status words, sort |
 | [S-gaps-02](boards/S-gaps-02.jpg) | Approved: folder menu and Archived, checkboxes, no folder picked, set-up list, phone tabs |
+| [S-gaps-03](boards/S-gaps-03.jpg) | 3 options for Reed: Locks menu, the video’s ⋯ menu, phone Preview tabs |
 
-79 boards in all: 64 desktop (1440) and sheets, 15 phone (390).
+80 boards in all: 65 desktop (1440) and sheets, 15 phone (390).

@@ -74,7 +74,7 @@ test("a planned version is a clip table grouped by scene, with the summary, Plan
   expect(clip).toHaveTextContent("MIA: MIA: Hell no!");
   expect(clip).toHaveTextContent("Mia");
   expect(clip).toHaveTextContent("4 s");
-  expect(screen.getByRole("combobox", { name: "Version" })).toHaveValue("0");
+  expect(screen.getByRole("button", { name: "Version: A" })).toBeInTheDocument();
   expect(screen.getByTitle("Each video picks its shape")).toHaveTextContent("Shape 9:16 · each video picks its shape");
   // The advice names shot 1.1, so it sits under clip 1, with a dot on that row.
   expect(within(clip).getByLabelText("Has a problem")).toBeInTheDocument();
@@ -98,7 +98,8 @@ test("the Version picker opens version B's breakdown", async () => {
   setViewport(1440);
   fakeServer(base());
   open();
-  await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Version" }), "1");
+  await userEvent.click(await screen.findByRole("button", { name: "Version: A" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: /^Version B/ }));
   expect(await screen.findByRole("heading", { name: "Breakdown · version B" })).toBeInTheDocument();
 });
 

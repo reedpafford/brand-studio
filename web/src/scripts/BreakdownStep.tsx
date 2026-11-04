@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Ellipsis, MapPin, Pencil, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Ellipsis, MapPin, Pencil, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Elapsed } from "../clip/History";
@@ -15,6 +15,7 @@ import { errorText as errorClass } from "../ui";
 import { useCast } from "./useCast";
 import type { Script } from "./useScript";
 import { ClipTable, sceneGroups } from "./BreakdownTable";
+import { PickLabel, pickClass } from "./ScriptFrame";
 import { refreshJobs } from "../jobs/refresh";
 
 type Breakdown = components["schemas"]["Breakdown"];
@@ -29,19 +30,27 @@ export const breakdownSlot = (script: Script, v: string | null) => {
 /** v5's "Version A ▾" in the settings row (C_Breakdown). */
 export function VersionPick({ script, value, onChange }: { script: Script; value: number; onChange: (slot: number) => void }) {
   const versions = script.versions.filter((x) => x.text.trim() !== "");
+  const letter = (slot: number) => LETTER[slot] ?? String(slot + 1);
+  // v5 C_Breakdown: the app's picker chip, "Version C ▾", like the other pickers in the row (44 px on a phone).
   return (
-    // The select itself fills the box, so its whole 44 px (32 on a computer) opens the list (QA-12 on #1238).
-    <label className="inline-flex items-center gap-1.5 rounded-md border border-border pl-3 text-sm">
-      <span className="text-muted">Version</span>
-      <select aria-label="Version" value={value} onChange={(e) => onChange(Number(e.target.value))} className="min-h-control min-w-11 bg-transparent pr-2 text-text lg:min-h-control-dense">
-        {versions.map((v) => (
-          <option key={v.slot} value={v.slot}>
-            {LETTER[v.slot] ?? v.slot + 1}
-            {v.has_breakdown ? " · planned" : ""}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Menu
+      title="Version"
+      trigger={(t) => (
+        <Button variant="ghost" dense trailing={ChevronDown} className={`min-w-11 ${pickClass}`} aria-label={`Version: ${letter(value)}`} {...t}>
+          <PickLabel label="Version">{letter(value)}</PickLabel>
+        </Button>
+      )}
+    >
+      {(close) => (
+        <>
+          {versions.map((v) => (
+            <MenuItem key={v.slot} onClick={() => { close(); onChange(v.slot); }}>
+              {`Version ${letter(v.slot)}${v.has_breakdown ? " · planned" : ""}${v.slot === value ? " ✓" : ""}`}
+            </MenuItem>
+          ))}
+        </>
+      )}
+    </Menu>
   );
 }
 

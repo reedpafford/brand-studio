@@ -41,7 +41,8 @@ def test_a_lane_holds_only_its_differences_and_inherits_the_rest():
 def test_the_format_picker_lists_every_format(owner):
     found = owner.get("/formats").json()
     assert [f["id"] for f in found] == ["dialogue", "song", "narrated", "zack-d", "presenter"]
-    assert set(found[0]) == {"id", "name", "engine", "blurb", "on"} and found[0]["on"]
+    assert set(found[0]) == {"id", "name", "engine", "blurb", "on", "card", "host", "off",
+                             "test_still"} and found[0]["on"]  # fmt: skip
 
 
 def test_only_guides_py_reads_the_guide_files():

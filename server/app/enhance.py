@@ -125,7 +125,7 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     # the video's look (ST2), and its script's format (its own pick, else its kind's)
     script = video_script(db, project)
     kind, picked = (script.kind, script.format or "") if script else ("story", "")
-    look = prompts.system(step, project.look or "house", kind, picked)
+    look = prompts.system(step, project.look or "house", kind, picked, project.broll_look or "")
     return [look, prompts.brand_block(brand_dict, screens)], message
 
 

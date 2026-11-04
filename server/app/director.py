@@ -47,9 +47,6 @@ GAP, PER_RUN = timedelta(seconds=3), 30  # one note a person every 3 s; notes a 
 TOO_MANY = "Too many messages; wait a moment."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
-PENDING = {JobStatus.queued: "Deciding what to do next.",
-           JobStatus.running: "Deciding what to do next.",
-           JobStatus.needs_owner_approval: "Waiting for the owner's OK."}  # fmt: skip
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 
 
@@ -130,14 +127,12 @@ def leftover(db: Session, project: Project) -> list[int]:
     return out
 
 
-def thread(db: Session, project: Project) -> list[dict]:
-    """The whole conversation on the video, oldest first: what people said and each of the
-    director's moves, as plain lines (a held move says so)."""
+def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
+    """The whole conversation on the video, oldest first: what people said, the treatment,
+    and for each run its progress card and its delivery note (app/run_progress)."""
+    from app import run_progress
     from app.auth import user_name
 
-    rows = db.scalars(select(Job).where(Job.project_id == project.id,
-                                        Job.input["step"].as_string() == STEP)
-                      .order_by(Job.id)).all()  # fmt: skip
     done = {r: answered(db, r) for r in {m.get("run") for m in project.director_chat or []} if r}
     place: dict[str | None, int] = {}  # a note's number in its run ("Note N"), as `answered` reads
     out = []
@@ -146,8 +141,6 @@ def thread(db: Session, project: Project) -> list[dict]:
         out.append({"id": f"m{n}", "kind": "message", "at": m["at"],
                     "who": user_name(db, m["by"]), "text": m["text"], "status": None, "why": "",
                     "answered": place[m.get("run")] in done.get(m.get("run"), set())})  # fmt: skip
-    from app.credits import price
-
     written = db.scalars(select(Job).where(Job.project_id == project.id,
                                            Job.input["step"].as_string() == "treatment",
                                            Job.status == JobStatus.succeeded)
@@ -158,42 +151,7 @@ def thread(db: Session, project: Project) -> list[dict]:
                     ).isoformat(), "who": "Director", "text": named(told(j.output or {}, n > 0)),
                     "status": "done", "why": "", "answered": None,
                     "treatment": j.output})  # fmt: skip
-    for j in rows:
-        if j.input.get(GRANT) and j.status in COUNTED:  # the owner's OK at the director's limit
-            out.append({"id": f"g{j.id}", "kind": "move", "at": j.created_at.isoformat(),
-                        "who": "Director", "text": GRANTED.format(n=price(own_limit())),
-                        "status": "done", "why": "", "answered": None})  # fmt: skip
-        result = j.input.get("result") or ""
-        tool = (j.output or {}).get("tool")
-        # The worker keeps a turn's answer (succeeded) before its tool runs and its result is
-        # written (`after`): until then it is still going, never "Stopped." (QA on #1194).
-        acting = (
-            j.status == JobStatus.succeeded and "result" not in j.input and "ended" not in j.input
-        )
-        text = (
-            PENDING[JobStatus.running]
-            if acting
-            else (
-                ((j.output or {}).get("why") if tool == "deliver" else result)
-                or (
-                    j.input.get("held")  # a held turn says why it waits
-                    if j.status == JobStatus.needs_owner_approval
-                    else ""
-                )
-                or PENDING.get(
-                    j.status, TURN_FAILED if j.status == JobStatus.failed else "Stopped."
-                )
-            )
-        )
-        why = "" if tool == "deliver" else (j.output or {}).get("why") or ""  # deliver's is text
-        text, why = named(text), named(why)
-        status = ("held" if j.status == JobStatus.needs_owner_approval
-                  else "running" if acting
-                  else str(j.status) if j.status in (JobStatus.queued, JobStatus.running)
-                  else "refused" if result.startswith("Refused") else "done")  # fmt: skip
-        out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
-                    "who": "Director",
-                    "text": text, "status": status, "why": why, "answered": None})  # fmt: skip
+    out += run_progress.thread_items(db, project, owner)
     return sorted(out, key=lambda m: m["at"])
 
 
@@ -402,8 +360,10 @@ def _act(db: Session, job: Job, storage) -> None:
         # a note no turn was given yet isn't its to answer: it waits for the next Make it
         if left := [n for n in range(1, given + 1) if n not in answered(db, run["id"]) | named]:
             return _record(db, job, run, OPEN.format(left[0]))
-        why = " ".join([decision.get("why") or "Delivered.", *_mutes(db, job, run)])
-        job.output = {**decision, "why": why}  # the note the video page shows names the mutes
+        from app import delivery
+
+        why = decision.get("why") or "Delivered."
+        job.output = {**decision, "note": delivery.note(db, project, job, decision)}
         return _end(job, why, result="Delivered.")  # a note it didn't read waits for Make it
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
@@ -447,14 +407,6 @@ def _act(db: Session, job: Job, storage) -> None:
         sid = decision.get("shot_id") or ""
         run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
     _record(db, job, run, result)
-
-
-def _mutes(db: Session, job: Job, run: dict) -> list[str]:
-    """What this run muted instead of remaking, for the delivery note."""
-    rows = turns(db, db.get(Project, job.project_id))
-    return [j.input["result"] for j in rows if j.input[RUN]["id"] == run["id"]
-            and (j.output or {}).get("tool") == "mute"
-            and j.input.get("result", "").startswith("Muted")]  # fmt: skip
 
 
 def _stills_review(db: Session, project: Project) -> dict:
@@ -634,11 +586,26 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                                          Job.input[RUN]["id"].as_string() == run["id"],
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
     video = {**video_state(db, project), "treatment": "written" if own else "none"}  # this run's
+    from app.routes.reel_video import look_reference
+
+    files, reel = attached(db, project), look_reference(db, project)  # New video's picks
     parts = (("video", video), ("last_actions", done), ("allowed", allowed),
-             *((("chat", asked),) if asked else ()))  # fmt: skip
+             *((("chat", asked),) if asked else ()),
+             *((("attachments", files),) if files else ()),
+             *((("look_reference", reel),) if reel else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
     return {"system": system, "prompt": f"{brief}\n{story(db, project)}{tagged}",
             READ: len(asked)}  # fmt: skip
+
+
+def attached(db: Session, project: Project) -> list[dict]:
+    """The pictures or clips attached for this video only (New video, rule 12), by file id,
+    name and kind. Words only for now: seeing them comes with the ask move (piece B)."""
+    from app.models.files import StoredFile
+
+    rows = [db.get(StoredFile, i) for i in project.attachments or []]
+    return [{"file_id": f.id, "name": f.filename, "kind": f.content_type.split("/")[0]}
+            for f in rows if f is not None]  # fmt: skip
 
 
 def story(db: Session, project: Project) -> str:
@@ -882,8 +849,9 @@ def choose(state: dict) -> dict:
     noticed = " ".join(
         f"I also noticed: {f['says'].rstrip('.')}. Want me to fix it?" for f in older
     )
-    said = " ".join(x for x in (done, keep, _still_wrong(state), noticed) if x)
-    return go("deliver", f"The cut is made with each clip's best take. {said}".strip())
+    made = f"The cut is made with each clip's best take. {done}".strip()
+    unsure = " ".join(x for x in (keep, _still_wrong(state), noticed) if x)
+    return go("deliver", f"{made} {unsure}".strip(), made=made, unsure=unsure)
 
 
 def _still_wrong(state: dict) -> str:

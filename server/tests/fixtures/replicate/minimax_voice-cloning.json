@@ -1,0 +1,87 @@
+{
+ "model": "minimax/voice-cloning",
+ "version": "fff8a670880f066d3742838515a88f7f0a3ae40a4f2e06dae0f7f70ba63582d7",
+ "fetched": "2026-11-03",
+ "Input": {
+  "type": "object",
+  "title": "Input",
+  "required": [
+   "voice_file"
+  ],
+  "properties": {
+   "model": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/model"
+     }
+    ],
+    "default": "speech-02-turbo",
+    "x-order": 2,
+    "description": "The text-to-speech model to train"
+   },
+   "accuracy": {
+    "type": "number",
+    "title": "Accuracy",
+    "default": 0.7,
+    "maximum": 1,
+    "minimum": 0,
+    "description": "Text validation accuracy threshold (0-1)"
+   },
+   "voice_file": {
+    "type": "string",
+    "title": "Voice File",
+    "format": "uri",
+    "description": "Voice file to clone. Must be MP3, M4A, or WAV format, 10s to 5min duration, and less than 20MB."
+   },
+   "need_noise_reduction": {
+    "type": "boolean",
+    "title": "Need Noise Reduction",
+    "default": false,
+    "description": "Enable noise reduction. Use this if the voice file has background noise."
+   },
+   "need_volume_normalization": {
+    "type": "boolean",
+    "title": "Need Volume Normalization",
+    "default": false,
+    "description": "Enable volume normalization"
+   }
+  }
+ },
+ "enums": {
+  "model": {
+   "enum": [
+    "speech-2.6-turbo",
+    "speech-2.6-hd",
+    "speech-02-turbo",
+    "speech-02-hd"
+   ],
+   "type": "string",
+   "title": "model",
+   "description": "An enumeration."
+  }
+ },
+ "Output": {
+  "type": "object",
+  "title": "VoiceCloningOutputs",
+  "required": [
+   "voice_id",
+   "preview",
+   "model"
+  ],
+  "properties": {
+   "model": {
+    "type": "string",
+    "title": "Model"
+   },
+   "preview": {
+    "type": "string",
+    "title": "Preview",
+    "format": "uri"
+   },
+   "voice_id": {
+    "type": "string",
+    "title": "Voice Id"
+   }
+  }
+ }
+}

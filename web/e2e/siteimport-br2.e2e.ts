@@ -6,7 +6,7 @@ for (const width of [1440, 390]) {
   test(`at ${width}: the owner reads the brand's site, ticks what to keep, saves with Undo; a site that can't be read says so (flows BR2)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
-    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Site Co ${width}-${test.info().retry}`);
     await page.goto(`/b/${brandId}/brand`);
     await page.getByRole("button", { name: "Import from website" }).first().click(); // v5: opened from the top bar (or the setup list)

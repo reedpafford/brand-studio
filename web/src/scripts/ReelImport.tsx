@@ -22,7 +22,7 @@ const PROBLEMS: Record<string, { text: string; button: string }> = {
   too_long: { text: `That video is longer than ${MAX_SECONDS} seconds. Reels up to ${MAX_SECONDS} seconds can be read.`, button: "Choose another file" },
 };
 
-function postUpload(path: "/scripts/import/upload", form: Record<string, string>, file: File) {
+export function postUpload(path: "/scripts/import/upload", form: Record<string, string>, file: File) {
   return api.POST(path, {
     body: { file: file as unknown as string, brand_id: Number(form.brand_id) },
     bodySerializer: () => {
@@ -96,7 +96,7 @@ export function ReelPicker({ brandId, brandName }: { brandId: number; brandName?
           const f = e.dataTransfer.files?.[0];
           if (f && !busy) fromFile.mutate(f);
         }}
-        className={`flex flex-col gap-3 rounded-lg border border-dashed p-4 sm:min-h-24 sm:flex-row sm:items-center ${over ? "border-accent bg-accent-soft" : "border-border-strong"}`}
+        className={`flex flex-col gap-3 rounded-lg border p-4 sm:min-h-24 sm:flex-row sm:items-center ${over ? "border-accent bg-accent-soft" : "border-border-strong"}`}
       >
         <Upload size={20} strokeWidth={1.75} aria-hidden className="hidden shrink-0 text-muted sm:block" />
         <span className="flex-1">Drop an MP4 or MOV, up to {MAX_SECONDS} seconds</span>

@@ -31,7 +31,11 @@ export function useFolderFilter(): string | null {
 export const folderQuery = (folder: string | null) => (folder ? { folder } : {});
 
 const count = (f: FolderOut) => f.items.scripts + f.items.videos + f.items.clips;
-const LISTS = ["scripts", "videos", "media"]; // the lists a project filters
+const LISTS = ["scripts"]; // the list a project filters (a brand's videos are its folders now, v6 S1)
+/** The folders as the tree nests them, each with its depth: the lists indent the ones inside (v6). */
+export function nested(folders: FolderOut[], parent: number | null = null, depth = 0): { f: FolderOut; depth: number }[] {
+  return folders.filter((f) => (f.parent_id ?? null) === parent).flatMap((f) => [{ f, depth }, ...nested(folders, f.id, depth + 1)]);
+}
 
 function useRefresh(brandId: number) {
   const queryClient = useQueryClient();
@@ -103,18 +107,18 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
   const current = params.get("folder");
   const section = /^\/b\/\d+\/([^/]+)$/.exec(pathname)?.[1];
   const go = (folder: string | null) => {
-    const to = LISTS.includes(section ?? "") ? pathname : `/b/${brandId}/videos`;
+    const to = LISTS.includes(section ?? "") ? pathname : `/b/${brandId}/scripts`;
     const next = new URLSearchParams(LISTS.includes(section ?? "") ? params : undefined);
     if (folder) next.set("folder", folder);
     else next.delete("folder");
     navigate(`${to}${next.size ? `?${next}` : ""}`);
     onPicked?.();
   };
-  const row = (key: string, label: string, n: number | null, folder: string | null, menu?: ReactNode) => {
+  const row = (key: string, label: string, n: number | null, folder: string | null, menu?: ReactNode, depth = 0) => {
     const on = LISTS.includes(section ?? "") && current === folder;
     return (
       <li key={key} className="flex items-center gap-1">
-        <button type="button" aria-current={on ? "true" : undefined} aria-label={n !== null ? `${label} · ${n} item${n === 1 ? "" : "s"}` : undefined} onClick={() => go(folder)} className={`flex min-h-control min-w-0 flex-1 items-center gap-2 rounded-md px-3 text-left ${on ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text"}`}>
+        <button type="button" aria-current={on ? "true" : undefined} aria-label={n !== null ? `${label} · ${n} item${n === 1 ? "" : "s"}` : undefined} onClick={() => go(folder)} style={depth ? { paddingLeft: 12 + depth * 16 } : undefined} className={`flex min-h-control min-w-0 flex-1 items-center gap-2 rounded-md px-3 text-left ${on ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text"}`}>
           <span className="min-w-0 flex-1 truncate">{label}</span>
           {n !== null && <span className="text-xs tabular-nums">{n}</span>}
         </button>
@@ -126,7 +130,7 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
     <section aria-label="Projects" className="space-y-1">
       <ul className="space-y-0.5">
         {row("all", "All", null, null)}
-        {folders.data.map((f) => row(String(f.id), f.name, count(f), String(f.id), f.can_manage ? <ProjectMenu folder={f} brandId={brandId} /> : undefined))}
+        {nested(folders.data).map(({ f, depth }) => row(String(f.id), f.name, count(f), String(f.id), f.can_manage ? <ProjectMenu folder={f} brandId={brandId} /> : undefined, depth))}
         {row("none", "No project", null, "none")}
       </ul>
       {folders.data.length === 0 && <p className="px-3 text-sm text-muted">No projects yet. Everything works without one.</p>}
@@ -144,7 +148,7 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
 
 /** On a list page: "Project: All ▾", opening the brand's projects (pick, New project, Rename, Delete) in a panel.
  *  At every width since the rail lost its Projects list (Reed, 2 Nov: nav A). */
-export function ProjectsChip({ brandId }: { brandId: number }) {
+export function ProjectsChip({ brandId, plain }: { brandId: number; /** The Scripts band's quiet text press, "Project ▾", like Group and Sort (v5 C_Scripts). */ plain?: boolean }) {
   const folders = useFolders(brandId);
   const folder = useFolderFilter();
   const [open, setOpen] = useState(false);
@@ -152,9 +156,15 @@ export function ProjectsChip({ brandId }: { brandId: number }) {
   const name = folder === "none" ? "No project" : folder ? (folders.data.find((f) => String(f.id) === folder)?.name ?? "All") : "All";
   return (
     <>
-      <Button variant="secondary" dense icon={Folder} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Project: {name}
-      </Button>
+      {plain ? (
+        <Button variant="ghost" dense aria-haspopup="dialog" aria-label={`Project: ${name}`} className="text-muted!" onClick={() => setOpen(true)}>
+          {folder ? `Project: ${name}` : "Project"} ▾
+        </Button>
+      ) : (
+        <Button variant="secondary" dense icon={Folder} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          Project: {name}
+        </Button>
+      )}
       {open && (
         <Panel title="Projects" onClose={() => setOpen(false)}>
           <ProjectsList brandId={brandId} onPicked={() => setOpen(false)} />
@@ -214,9 +224,9 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
       >
         {(close) => (
           <>
-            {folders.data!.map((f) => (
+            {nested(folders.data!).map(({ f, depth }) => (
               <MenuItem key={f.id} checked={f.id === folderId} onClick={() => { close(); if (f.id !== folderId) move(f.id); }}>
-                {f.name}
+                <span style={{ paddingLeft: depth * 16 }}>{f.name}</span>
               </MenuItem>
             ))}
             <MenuItem checked={folderId == null} onClick={() => { close(); if (folderId != null) move(null); }}>

@@ -9,9 +9,10 @@ export const beingMade = (status: string) => status === "in_production" || statu
 /** A version's status in words, with a tone as the second signal. Never an internal word. `short` is the lists' word. */
 export const STATUS: Record<string, { label: string; short: string; tone: Tone; icon?: typeof Check }> = {
   draft: { label: "Writing", short: "Writing", tone: "neutral", icon: Pencil },
-  approved: { label: "Ready to make", short: "Ready", tone: "accent" },
-  in_production: { label: "In production", short: "Making", tone: "warning", icon: Clock },
-  clips_ready: { label: "In production", short: "Making", tone: "warning", icon: Clock },
+  // v5 C_Scripts: Ready to make is amber (it waits on someone), Making is indigo, Writing is a hollow ring.
+  approved: { label: "Ready to make", short: "Ready", tone: "warning" },
+  in_production: { label: "In production", short: "Making", tone: "accent", icon: Clock },
+  clips_ready: { label: "In production", short: "Making", tone: "accent", icon: Clock },
   done: { label: "Finished", short: "Finished", tone: "success", icon: Check },
   failed: { label: "Didn't finish", short: "Didn't finish", tone: "danger", icon: CircleAlert },
 };

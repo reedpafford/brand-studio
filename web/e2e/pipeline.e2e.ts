@@ -14,7 +14,7 @@ const SCRIPT = [
 test("a script becomes a finished video, step by step, at no cost", async ({ page }) => {
   test.setTimeout(180_000);
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Pipeline Co");
   const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Pipeline test", planned_seconds: 20 } });
   expect(made.ok()).toBeTruthy();

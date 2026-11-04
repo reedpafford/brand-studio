@@ -36,6 +36,7 @@ from app.routes import (
     project_clips,
     projects,
     reel_breakdown,
+    reel_video,
     references,
     scorecard,
     screens,
@@ -60,6 +61,7 @@ from app.routes import (
     uploads,
     usage,
     video_settings,
+    voices,
     workspace,
 )
 from app.routes.scripts import MAX_DOC_BYTES
@@ -100,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         workspace,
         files,
         folders,
+        reel_video,  # /freestyles/reel, ahead of /freestyles/{id}
         freestyles,
         brands,
         screens,
@@ -150,9 +153,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         languages,
         media,
         site_read,
+        voices,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)
+    app.include_router(director.watched)
     app.include_router(looks.formats)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
     app.add_middleware(

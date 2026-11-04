@@ -6,10 +6,10 @@ const WORDS = "Bo would never touch his bowl. Then we found Iron Paws. Now he li
 /** New script → Narrated, words saved, the narration made on the free stand-in and used, then Cast opens (flows S1, N1). */
 async function walk(page: Page, brand: string) {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, brand);
   await page.goto(`/b/${brandId}/scripts`);
-  await page.getByRole("button", { name: "New script" }).click();
+  await page.getByRole("button", { name: "New script" }).first().click(); // an empty list has a second one in its empty state (#1260)
   await page.getByRole("menuitem", { name: /Narrated/ }).click();
 
   await page.getByLabel("Write or paste the script").fill(WORDS);

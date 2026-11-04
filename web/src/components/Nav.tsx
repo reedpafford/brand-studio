@@ -23,7 +23,8 @@ const text = (s: Step) => (s.state === "stale" ? `${s.label} · out of date` : s
 
 /** v5's step mark: a small ring with the number, green with a tick when done, indigo when current. */
 function Ring({ step, n }: { step: Step; n: number }) {
-  const look = step.state === "done" ? "border-success bg-success text-bg" : step.state === "current" ? "border-accent-text text-accent-text" : "border-border";
+  // Every step's number sits in a ring (C_NewScript): the ring takes the words' own colour, faintly.
+  const look = step.state === "done" ? "border-success bg-success text-bg" : step.state === "current" ? "border-accent-text text-accent-text" : "border-current/40";
   return (
     <span aria-hidden className={`grid size-[18px] place-items-center rounded-full border text-xs tabular-nums ${look}`}>
       {step.state === "done" ? <Check size={12} strokeWidth={2.5} /> : step.state === "stale" ? <TriangleAlert size={12} strokeWidth={2} className="text-warning" /> : n}

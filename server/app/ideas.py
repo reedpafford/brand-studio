@@ -77,6 +77,7 @@ class Idea(BaseModel):
     updated_at: UtcTime  # the latest activity
     cost: Cost | None  # None: nothing used and no price yet
     can_manage: bool  # move and archive: whoever made it, or the owner
+    from_script: bool  # made from a script version; false: an earlier-style video (its own page)
 
 
 @dataclass
@@ -202,10 +203,10 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
 
 def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> Cost | None:
     """Delivered: what it cost. Working: the most it can charge before another OK (its budget
-    and the director's own limit, never below what it has used); held: what it has used and
-    what waits for the OK; not started: its run's price. Else what it has used so far; None for
-    an idea with nothing used and no price yet. Every figure before a charge is "up to" and
-    rounded up (rule 36)."""
+    and the director's own limit, never below what it has used). Held: what it has spent (the
+    held step says its own price where it's asked). Not started: its run's price. Else what it
+    has used so far; None for an idea with nothing used and no price yet. Every figure before a
+    charge is "up to" and rounded up (rule 36)."""
     from app.models.script_library import ScriptDraft
     from app.routes.estimate import run_price
 
@@ -218,8 +219,8 @@ def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> 
         if not p.hidden:  # the director's own limit sits beside the budget (rule 34)
             top += max(own, director.OWN_CREDITS)
         kind, credits = "up_to", max(used, top)
-    elif status.kind == "waiting":
-        kind, credits = "up_to", used + known.held[p.id]
+    elif status.kind == "waiting":  # S1-04, S9-01: what it has spent
+        kind = "total"
     elif status.reason == START and not used:
         if not p.script_draft_id:
             return None
@@ -263,5 +264,6 @@ def cards(db: Session, user: User, projects: list[Project], known: Facts,
             made_by=Named(id=p.created_by_id, name=who) if p.created_by_id and who else None,
             created_at=p.created_at, updated_at=known.last[p.id],
             cost=_cost(db, user, p, status, known),
-            can_manage=user.is_owner or p.created_by_id == user.id))  # fmt: skip
+            can_manage=user.is_owner or p.created_by_id == user.id,
+            from_script=p.script_draft_id is not None))  # fmt: skip
     return out

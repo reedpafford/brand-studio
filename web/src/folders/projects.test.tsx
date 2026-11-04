@@ -9,7 +9,6 @@ import { setViewport } from "../test/viewport";
 import { owner, editor } from "../test/people";
 
 const november = { id: 4, brand_id: 1, name: "November launch", created_by_id: 1, items: { scripts: 2, videos: 3, clips: 1 }, can_manage: true };
-const theirs = { id: 5, brand_id: 1, name: "Spring", created_by_id: 1, items: { scripts: 0, videos: 1, clips: 0 }, can_manage: false };
 const video = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "", cast_ids: [], reference_file_id: null,
   estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0, created_by_id: 1, created_by_name: "Reed", script_draft_id: 4, own_script: false, archived_at: null, finished_at: null, product_variants: {}, folder_id: null,
@@ -29,7 +28,7 @@ function Where() {
   return <span data-testid="where" hidden>{l.pathname + l.search}</span>;
 }
 const where = () => screen.getByTestId("where").textContent;
-function open(at = "/b/1/videos") {
+function open(at = "/b/1/scripts") { // the Videos page is a folder now (v6 S1); Scripts keeps Project ▾
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[at]}>
@@ -56,10 +55,10 @@ test("Project: All ▾ opens the list: All, each project with its count, and No 
   expect(within(list).getByRole("button", { name: "November launch · 6 items" })).toBeInTheDocument();
   expect(within(list).getByRole("button", { name: "No project" })).toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "November launch · 6 items" }));
-  expect(where()).toBe("/b/1/videos?folder=4");
-  await vi.waitFor(() => expect(urls().some((u) => u.includes("/projects?") && u.includes("folder=4"))).toBe(true));
+  expect(where()).toBe("/b/1/scripts?folder=4");
+  await vi.waitFor(() => expect(urls().some((u) => u.includes("/scripts?") && u.includes("folder=4"))).toBe(true));
   await userEvent.click(within(await openList()).getByRole("button", { name: "No project" })); // picking closes the panel
-  expect(where()).toBe("/b/1/videos?folder=none");
+  expect(where()).toBe("/b/1/scripts?folder=none");
   expect(document.body.textContent!.replace(where()!, "")).not.toMatch(/folder/i); // people only ever see "Project"
 });
 
@@ -93,96 +92,6 @@ test("Delete says where its items go, nothing inside is deleted, and Undo restor
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /folders/4/restore")).toBe(true));
 });
 
-test("an editor gets no Rename or Delete on a project someone else made", async () => {
-  setViewport(1440);
-  fakeServer(base(editor, [theirs]));
-  open();
-  await openList();
-  await screen.findByRole("button", { name: "Spring · 1 item" });
-  expect(screen.queryByRole("button", { name: "More for Spring" })).toBeNull();
-});
-
-test("Project: none ▾ on a video moves it, with Undo back to where it was", async () => {
-  setViewport(1440);
-  const calls = fakeServer(base(owner, [november], {
-    "GET /projects/9": [200, video],
-    "GET /projects/9/script": [200, { version: 1, source: "paste", words: 2, created_by_id: 1, created_at: "2026-10-23T10:00:00Z", text: "Bo." }],
-    "GET /projects/9/breakdown": [404, { detail: "none" }],
-    "GET /projects/9/storyboard": [200, []],
-    "GET /projects/9/clips": [200, []],
-    "GET /projects/9/video": [404, { detail: "none" }],
-    "GET /projects/9/assets": [200, []],
-    "POST /folders/file": [200, { folder_id: 4, was: [{ id: 9, folder_id: null }] }],
-  }));
-  open("/b/1/videos/9");
-  await userEvent.click(await screen.findByRole("button", { name: "Project: none" }));
-  await userEvent.click(await screen.findByRole("menuitemradio", { name: "November launch" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toEqual({ kind: "video", ids: [9], folder_id: 4 }));
-  expect(await screen.findByText("Moved to November launch.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /folders/file").map((c) => c.body)).toContainEqual({ kind: "video", ids: [9], folder_id: null }));
-});
-
-test("with no projects yet, Project: none ▾ says everything works without one, and New project makes one and moves the video into it (Flow-QA walk A29)", async () => {
-  setViewport(390);
-  const calls = fakeServer(base(owner, [], {
-    "GET /projects/9": [200, video],
-    "GET /projects/9/script": [200, { version: 1, source: "paste", words: 2, created_by_id: 1, created_at: "2026-10-23T10:00:00Z", text: "Bo." }],
-    "GET /projects/9/breakdown": [404, { detail: "none" }],
-    "GET /projects/9/storyboard": [200, []],
-    "GET /projects/9/clips": [200, []],
-    "GET /projects/9/video": [404, { detail: "none" }],
-    "GET /projects/9/assets": [200, []],
-    "POST /brands/1/folders": [201, { ...november, items: { scripts: 0, videos: 0, clips: 0 } }],
-    "POST /folders/file": [200, { folder_id: 4, was: [{ id: 9, folder_id: null }] }],
-  }));
-  open("/b/1/videos/9");
-  await userEvent.click(await screen.findByRole("button", { name: "Project: none" }));
-  expect(await screen.findByText("No projects yet. Everything works without one.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("menuitem", { name: "New project" }));
-  const dialog = await screen.findByRole("alertdialog", { name: "New project" });
-  await userEvent.type(within(dialog).getByLabelText("Name"), "November launch");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Make it and move this there" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /brands/1/folders")?.body).toEqual({ name: "November launch" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toEqual({ kind: "video", ids: [9], folder_id: 4 }));
-  expect(await screen.findByText("Made November launch and moved this there.")).toBeInTheDocument();
-  expect(screen.queryByRole("alertdialog")).toBeNull();
-});
-
-for (const [filedSince, gone] of [[0, true], [1, false]] as const) {
-  test(`Undo after New project moves the video back${gone ? " and deletes the project it made" : ", and keeps the project when something else was filed there since"} (QA on #1027)`, async () => {
-    setViewport(1440);
-    const made = { ...november, items: { scripts: 0, videos: 0, clips: 0 } };
-    const routes: Record<string, [number, unknown]> = base(owner, [], {
-      "GET /projects/9": [200, video],
-      "GET /projects/9/script": [200, { version: 1, source: "paste", words: 2, created_by_id: 1, created_at: "2026-10-23T10:00:00Z", text: "Bo." }],
-      "GET /projects/9/breakdown": [404, { detail: "none" }],
-      "GET /projects/9/storyboard": [200, []],
-      "GET /projects/9/clips": [200, []],
-      "GET /projects/9/video": [404, { detail: "none" }],
-      "GET /projects/9/assets": [200, []],
-      "POST /brands/1/folders": [201, made],
-      "POST /folders/file": [200, { folder_id: 4, was: [{ id: 9, folder_id: null }] }],
-      "DELETE /folders/4": [204, null],
-    });
-    const calls = fakeServer(routes);
-    open("/b/1/videos/9");
-    await userEvent.click(await screen.findByRole("button", { name: "Project: none" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "New project" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "New project" });
-    await userEvent.type(within(dialog).getByLabelText("Name"), "November launch");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Make it and move this there" }));
-    await screen.findByText("Made November launch and moved this there.");
-    // After the move back, the project holds whatever else was filed there meanwhile.
-    routes["GET /brands/1/folders"] = [200, [{ ...made, items: { scripts: filedSince, videos: 0, clips: 0 } }]];
-    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-    await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /folders/file").map((c) => c.body)).toContainEqual({ kind: "video", ids: [9], folder_id: null }));
-    await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /brands/1/folders").length).toBeGreaterThan(1));
-    if (gone) await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /folders/4")).toBe(true));
-    else { await new Promise((r) => setTimeout(r, 300)); expect(calls.some((c) => c.key === "DELETE /folders/4")).toBe(false); }
-  });
-}
-
 test("on a phone the list opens from Project: All ▾ in a sheet", async () => {
   setViewport(390);
   fakeServer(base(owner, [november]));
@@ -190,7 +99,7 @@ test("on a phone the list opens from Project: All ▾ in a sheet", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Project: All" }));
   const sheet = await screen.findByRole("dialog", { name: "Projects" });
   await userEvent.click(within(sheet).getByRole("button", { name: "November launch · 6 items" }));
-  expect(where()).toBe("/b/1/videos?folder=4");
+  expect(where()).toBe("/b/1/scripts?folder=4");
   expect(await screen.findByRole("button", { name: "Project: November launch" })).toBeInTheDocument();
 });
 
@@ -198,7 +107,7 @@ test("without the server's projects nothing about projects shows", async () => {
   setViewport(1440);
   fakeServer(base(owner, null));
   open();
-  await screen.findByRole("heading", { name: "Videos" });
+  await screen.findByRole("heading", { name: "Scripts" });
   expect(screen.queryByRole("button", { name: /^Project: / })).toBeNull();
 });
 

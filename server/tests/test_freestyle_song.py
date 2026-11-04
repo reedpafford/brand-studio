@@ -12,6 +12,7 @@ from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
 from app.routes.estimate import run_price
+from tests import helpers
 from tests.conftest import first_brand
 from tests.test_freestyle_dialogue import _run
 from tests.test_music import LYRICS
@@ -21,8 +22,9 @@ NARRATION = ("Every morning starts the same. The bowl, the wait, the wag. Iron P
 
 
 @pytest.fixture(autouse=True)
-def songs_on(monkeypatch):  # as on the test site's stand-ins (get_settings there)
-    monkeypatch.setattr("app.director_song._on", lambda db, draft: True)
+def songs_on(monkeypatch, app):  # as on the test site's stand-ins (get_settings there), with
+    monkeypatch.setattr("app.director_song._on", lambda db, draft: True)  # a music provider on
+    monkeypatch.setattr(app.state.settings, "kie_suno", True)
 
 
 def _sent(owner, type_, text):
@@ -37,7 +39,7 @@ def test_a_song_freestyle_makes_the_song_first_then_the_video_to_it(app, db, own
     fs = _sent(owner, "song", LYRICS)
     _run(app, db, ticks=120)
     out = owner.get(f"/freestyles/{fs['id']}").json()
-    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
     assert moves[0].startswith("Writing the treatment") or "treatment" in moves[0].lower()
     song = next(i for i, m in enumerate(moves) if m.startswith("Making the song"))
@@ -67,7 +69,7 @@ def test_a_narrated_freestyle_makes_the_narration_first(app, db, owner):
     fs = _sent(owner, "narrated", NARRATION)
     _run(app, db, ticks=120)
     out = owner.get(f"/freestyles/{fs['id']}").json()
-    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
     assert any(m.startswith("Making the narration") for m in moves)
 
@@ -144,7 +146,7 @@ def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app
     fs = _sent(owner, "narrated", "Every morning starts the same. Get fake:misheard fomo today.")
     _run(app, db, ticks=120)
     out = owner.get(f"/freestyles/{fs['id']}").json()
-    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
     again = next(i for i, m in enumerate(moves) if m.startswith("Making the narration (Say"))
     plan = next(i for i, m in enumerate(moves) if m.startswith("Making the plan"))
@@ -308,7 +310,7 @@ def test_a_name_still_wrong_when_the_remakes_are_used_is_said_in_the_delivery(
     fs = _sent(owner, "narrated", "Every morning starts the same. Get fake:misheard fomo today.")
     _run(app, db, ticks=120)
     out = owner.get(f"/freestyles/{fs['id']}").json()
-    moves = [t["text"] for t in out["thread"] if t.get("kind") == "move"]
+    moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
     assert not any(m.startswith("Making the narration (Say") for m in moves)
     assert "The narration still says “foma” for fomo at" in moves[-1], moves[-1]
