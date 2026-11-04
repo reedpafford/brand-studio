@@ -133,8 +133,16 @@ def base(db: Session, project: Project) -> dict:
                        "edited": False, "director": False})  # fmt: skip
         at += d
     total = round(at, 2)
-    tl = {"mode": mode, "pieces": pieces, "length": total, "presenter": None, "voice": None,
-          "music": None, "words": []}  # fmt: skip
+    tl = {
+        "mode": mode,
+        "pieces": pieces,
+        "length": total,
+        "presenter": None,
+        "voice": None,
+        "music": None,
+        "words": [],
+        "seconds": float(voice.seconds or 0) if voice else None,
+    }
     if host.on(db, project) and not talker.on(db, project):  # a talker is in its clips
         look = host.host_look(db, project)
         sides = host.sides(db, project)
@@ -244,8 +252,8 @@ def _one(tl: dict, e: CutEdit) -> None:
         tl["presenter"]["spans"] = _spanned(tl["presenter"]["spans"], d["start"], d["end"],
                                             {**what, **mark})  # fmt: skip
         return
-    if not tl["music"] and "file_id" not in d:
-        raise Refused(NO_MUSIC)
+    if tl["mode"] != "narrated" or (not tl["music"] and "file_id" not in d):
+        raise Refused(NO_MUSIC)  # a story's sound is its takes', a song's its song
     keys = ("quieter_db", "gaps", "loop", "removed", "file_id", "name")
     tl["music"] = {**(tl["music"] or {"quieter_db": QUIETER, "gaps": "rise", "loop": False,
                                       "removed": False}),

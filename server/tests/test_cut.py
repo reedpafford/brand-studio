@@ -13,6 +13,7 @@ from app.models.files import StoredFile
 from app.models.projects import Project
 from app.models.songs import SongTake
 from app.providers.local import LocalProvider
+from app.routes.cut import SAME_AGAIN
 from app.worker import run_once
 from tests.conftest import make_cut
 from tests.helpers import assert_hidden
@@ -180,6 +181,8 @@ def test_music_that_stops_early_fails_with_one_click_fixes(app, db, owner, prese
     )
     assert failed["failed"]["why"].endswith("Nothing was charged.")
     assert failed["failed"]["fixes"] == ["loop_music", "remove_music"]
+    again = owner.post(f"{presenter}/cut")  # nothing changed: it would fail the same way
+    assert again.status_code == 409 and again.json()["detail"].endswith(SAME_AGAIN)
     fixed = owner.post(f"{presenter}/cut/fix", json={"fix": "loop_music"})
     assert fixed.status_code == 202 and fixed.json()["timeline"]["music"]["loop"] is True
     _local(app, db)
@@ -187,21 +190,46 @@ def test_music_that_stops_early_fails_with_one_click_fixes(app, db, owner, prese
     assert (done["number"], done["failed"]) == (n + 1, None)
 
 
-def test_a_story_cut_trims_and_ripples(app, db, editor, approved):  # noqa: F811
+def test_a_story_cut_trims_and_ripples_and_never_cuts_a_word(
+    app,
+    db,
+    editor,
+    approved,  # noqa: F811
+    monkeypatch,
+):
+    from types import SimpleNamespace
+
+    from app import cut_edits
+
     base, _ = approved
     first = make_cut(app, db, editor, base).json()
     got = editor.get(f"{base}/cut").json()
     (piece,) = got["timeline"]["pieces"]
     assert got["timeline"]["mode"] == "takes" and got["number"] == first["number"] == 1
+    monkeypatch.setattr(cut_edits, "_speaks", lambda db, take: True)  # a take that talks
+    unheard = _edit(editor, base, kind="trim", piece=piece["id"], start=0.2, end=0.8)
+    assert (unheard.status_code, unheard.json()["detail"]) == (422, cut_edits.UNHEARD)
+    monkeypatch.setattr(
+        "app.item_checks.latest",
+        lambda db, target, ids: {i: SimpleNamespace(status="done", job_id=None) for i in ids},
+    )
+    monkeypatch.setattr(cut_edits, "_heard", lambda db, take: [
+        {"word": "Get", "start": 0.3, "end": 0.5}])  # fmt: skip
+    cuts = _edit(editor, base, kind="trim", piece=piece["id"], start=0.4)
+    assert (cuts.status_code, cuts.json()["detail"]) == (
+        422, "That would cut the word “Get”. A trim keeps every spoken word.")  # fmt: skip
     trimmed = _edit(editor, base, kind="trim", piece=piece["id"], start=0.2, end=0.8).json()
     (piece,) = trimmed["timeline"]["pieces"]
     assert (piece["start"], piece["end"], piece["in_point"]) == (0, 0.6, 0.2)
     assert make_cut(app, db, editor, base).json()["number"] == 2
     made = db.query(FinalVideo).order_by(FinalVideo.id.desc()).first()
     assert abs(_seconds(editor.get(f"/files/{made.file_id}").content) - 0.6) < 0.15
-    retime = _edit(editor, base, kind="retime", piece=piece["id"])
-    assert (retime.status_code, retime.json()["detail"]) == (422, cut.NO_WORDS)
+    retime = _edit(editor, base, kind="retime", piece=piece["id"]).json()  # onto "Get"
+    (piece,) = retime["timeline"]["pieces"]
+    assert (piece["in_point"], piece["end"]) == (0.15, 0.65)  # 0.15 s before it, 0.15 after
     assert _edit(editor, base, kind="presenter", side="left").json()["detail"] == cut.NO_HOST
+    assert _edit(editor, base, kind="music", quieter_db=6).json()["detail"] == cut.NO_MUSIC
+    assert _edit(editor, base, kind="split").json()["detail"] == cut_edits.SAY["split"]
     shown = editor.get(f"{base}/cut").json()  # an editor sees credits, never dollars
     assert shown["sound_credits"] > 0 and shown["sound_usd"] is None
 

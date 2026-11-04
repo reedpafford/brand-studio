@@ -26,6 +26,7 @@ router = APIRouter(prefix="/projects/{project_id}/cut", tags=["cut"],
                    dependencies=[Depends(video_writer)])  # fmt: skip
 FIXES = {"loop_music": {"loop": True}, "remove_music": {"removed": True}}
 Fix = Literal["loop_music", "remove_music", "again"]
+SAME_AGAIN = "Loop the music to fit, or remove it, first (both free)."
 NOT_MADE = "It didn't finish"
 
 
@@ -256,7 +257,7 @@ def _director(db: Session, project: Project) -> CutDirectorOut:
 
 def _going(db: Session, project: Project, tl: dict, changed: set[str]) -> list[GoingOut]:
     """What the next cut changes: pieces edited since, and clips with a take being made."""
-    remade = {(j.input or {}).get("clip_id") for j in db.scalars(select(Job).where(
+    remade = {(j.input or {}).get("project_clip_id") for j in db.scalars(select(Job).where(
         Job.project_id == project.id, Job.status.in_(WAITING),
         Job.input["step"].as_string() == "clip_take"))}  # fmt: skip
     rows = {r.id: r.clip_id for r in cut.rows(db, project)}
@@ -277,7 +278,8 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
 
     playing = cut.newest(db, project)
     tl, lost = cut.timeline(db, project)
-    was = {p["id"]: p for p in ((playing.timeline or {}).get("pieces") or [])} if playing else {}
+    made = (playing.timeline or cut.base(db, project)) if playing else {}  # a cut before n31: base
+    was = {p["id"]: p for p in made.get("pieces") or []}
     keys = ("start", "end", "from", "take_id")
     changed = {p["id"] for p in tl["pieces"] if playing and (
         p["id"] not in was or any(p[k] != was[p["id"]].get(k) for k in keys))}  # fmt: skip
@@ -332,9 +334,11 @@ def make(project_id: int, request: Request, user: User = Depends(current_user),
          db: Session = Depends(get_db)):  # fmt: skip
     """Make the cut (free): the next Cut, on the worker; the one before plays until it's
     ready. A director tool calls this same route."""
+    from app.credits import lock
     from app.routes.project_clips import _cut_ins
 
     project, storage = _mine(db, user, project_id), request.app.state.storage
+    lock(db, Project, project.id)  # two presses at once: the second sees the first's job
     if job := cut.making(db, project):
         raise HTTPException(409, cut.MAKING.format(job.input["number"]))
     cut.ready(db, project, storage)
@@ -349,6 +353,10 @@ def make(project_id: int, request: Request, user: User = Depends(current_user),
             "recipe": cut_render.recipe(db, project, tl), "doing": cut.doing(tl),
             "changes": len(set(live) ^ set(playing.edit_ids or [] if playing else [])),
             "progress_key": f"progress/cut-{uuid.uuid4().hex}"}  # fmt: skip
+    failed, before = _failed(db, project, playing), _newest_job(db, project)
+    same = ("edit_ids", "take_ids", "cut_ins", "song_take_id")
+    if failed and failed.fixes != ["again"] and all(before.input.get(k) == data[k] for k in same):
+        raise HTTPException(409, f"{failed.why} {SAME_AGAIN}")  # it would fail the same way
     enqueue(db, user, cut.STEP, data, units=0, project=project, provider="local", prepaid=True)
     return state(db, project, storage, user)
 

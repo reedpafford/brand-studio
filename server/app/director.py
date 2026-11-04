@@ -39,6 +39,7 @@ MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); meas
 OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
+REBUILD = "Refused: make the cut again first: edits aren't in it yet."
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -153,6 +154,16 @@ def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
                     "treatment": j.output})  # fmt: skip
     out += run_progress.thread_items(db, project, owner)
     return sorted(out, key=lambda m: m["at"])
+
+
+def _cut_failed(db: Session, project: Project) -> dict | None:
+    """{why, fixes} when the newest cut couldn't be made (a cut's problem is a job that
+    finished with plain words, not a failed job), else None."""
+    from app import cut
+    from app.routes.cut import _failed
+
+    failed = _failed(db, project, cut.newest(db, project))
+    return {"why": failed.why, "fixes": failed.fixes} if failed else None
 
 
 def _edit_of(db: Session, turn: Job, tool: str | None, status: str) -> dict | None:
@@ -360,6 +371,8 @@ def _act(db: Session, job: Job, storage) -> None:
     if tool == "deliver":
         watch = _watch(db, project)
         watched = watch.get("current") and watch.get("state") in ("done", "failed")
+        if (cut_edits.for_director(db, project) or {}).get("changes"):  # rebuilt before shown
+            return _record(db, job, run, REBUILD)
         if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
                 and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
             return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
@@ -468,7 +481,7 @@ def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     rows = turns(db, db.get(Project, job.project_id))
     before = next((j for j in reversed(rows) if j.id < job.id), None)
     said = (before.input.get("result") or "") if before else ""
-    keys = ("tool", "clip_id", "take_id", "note")
+    keys = ("tool", "clip_id", "take_id", "note", "edit")
     same = before is not None and all((before.output or {}).get(k) == decision.get(k) for k in keys)
     if said == WATCHED_AGAIN or not (same and said.startswith("Refused: ")):
         return None
@@ -761,6 +774,7 @@ def video_state(db: Session, project: Project) -> dict:
                            if j.status == JobStatus.needs_owner_approval],
         "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
         "timeline": cut_edits.for_director(db, project),  # the cut's pieces, for edit_cut
+        "cut_failed": _cut_failed(db, project),  # the newest cut couldn't be made: why, fixes
         "watch": _watch(db, project),  # its last watch of the cut, and its findings
         "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
@@ -846,6 +860,11 @@ def choose(state: dict) -> dict:
         return go("host", "all: the host says the narration on camera over the B-roll.")
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
+    if (failed := state.get("cut_failed")) and "loop_music" in failed["fixes"]:
+        return go("edit_cut", f"{failed['why']} Looping the music to fit.",
+                  edit={"kind": "music", "loop": True})  # fmt: skip
+    if failed and failed["fixes"] != ["again"]:
+        return go("stop", failed["why"])
     if state["cut"] != "made":
         unclean = [c["clip_id"] for c in clips
                    if not any(t["verdict"] == "clean" for t in c["takes"])]  # fmt: skip

@@ -6,6 +6,7 @@ tool can change Limits or another person's work. A refusal comes back as its pla
 The approvals a person gives on the step screens are the director's own here: it approves a
 step when it moves on from it (rule 21's self-approval)."""
 
+import logging
 import re
 from types import SimpleNamespace
 
@@ -18,6 +19,7 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 
+log = logging.getLogger(__name__)
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
@@ -156,13 +158,20 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
             return write_treatment(db, user, project, run, decision.get("note") or "")
         if tool == "edit_cut":  # free: the cut editor's own edit, marked as the director's
-            return _edit_cut(db, project, decision.get("edit") or {}, request, me, run)
+            try:
+                return _edit_cut(db, project, decision.get("edit") or {}, request, me, run)
+            except (HTTPException, ValueError):
+                raise
+            except Exception:  # never leave the turn without a result (the run would hang)
+                db.rollback()
+                log.exception("project %s: edit_cut failed", pid)
+                return "Refused: that edit couldn't be made. Name its kind, piece and values."
         if tool == "final_cut":  # free, on the worker: the cut before plays until it's made
             from app.routes import cut
 
             project_clips.approve_all(**me)  # the picked takes it cuts with
             made = cut.make(request=request, **me)
-            return f"Making Cut {made.making.number}."
+            return f"Making Cut {made.making.number if made.making else (made.number or 1)}."
     except HTTPException as no:
         db.rollback()
         return f"Refused: {no.detail}"
@@ -182,8 +191,10 @@ def _edit_cut(db: Session, project: Project, move: dict, request, me: dict,
     run = run if run is not None else {}
     run.pop("edit_id", None)
     if move.get("kind") == "undo":
-        out = cut.undo_one(edit_id=int(move.get("edit_id") or 0), request=request, **me)
-        said = next((e.said for e in out.edits if e.id == move.get("edit_id")), "the edit")
+        if move.get("edit_id") is None:
+            return "Refused: name the edit to undo (its id in timeline.edits)."
+        out = cut.undo_one(edit_id=int(move["edit_id"]), request=request, **me)
+        said = next((e.said for e in out.edits if e.id == move["edit_id"]), "the edit")
         return f"Undid: {said}."
     asked = {k: v for k, v in move.items() if v is not None and k in cut.EditIn.model_fields}
     try:

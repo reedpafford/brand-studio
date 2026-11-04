@@ -29,18 +29,21 @@ from app.cut import (
     _heard,
     _one,
     _snap,
+    _take_seconds,
     active,
     base,
     every,
     label,
     newest,
     rows,
+    song,
     tc,
     timeline,
 )
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.clips import ClipTake, CutEdit, ProjectClip
+from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.songs import SongTake
 
@@ -51,7 +54,12 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
     if kind not in KINDS:
         raise Refused(f"There's no edit called {kind}.")
     tl, _ = timeline(db, project)
-    data, said, at = _shape(db, project, tl, kind, asked)
+    try:
+        data, said, at = _shape(db, user, project, tl, kind, asked)
+    except (KeyError, TypeError, ValueError) as no:
+        if isinstance(no, Refused):
+            raise
+        raise Refused(SAY.get(kind, "Say what the edit changes.")) from no
     row = CutEdit(project_id=project.id, by_id=user.id, director=director, kind=kind,
                   data=data, said=said, at=round(at, 2))  # fmt: skip
     db.add(row)
@@ -70,13 +78,22 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
 def _fits(tl: dict) -> None:
     """A narrated cut runs at least to its last word; a song cut no further than its song."""
     last = max((w["end"] for w in tl["words"]), default=0.0)
-    if tl["mode"] == "narrated" and tl["length"] < last - 0.05:
+    if tl["mode"] in ("narrated", "song") and tl["length"] < last - 0.05:
         raise Refused(BEFORE_WORDS.format(f"{tc(last)}.{int(last * 10) % 10}"))
     if tl["mode"] == "narrated" and tl["length"] > last + HOLD and last:
         raise Refused(f"The cut can hold at most {HOLD:.0f} s past the last word.")
+    if tl["mode"] == "song" and tl.get("seconds") and tl["length"] > tl["seconds"] + 0.05:
+        raise Refused(f"The cut can't run past the song's end, at {tc(tl['seconds'])}.")
 
 
-def _shape(db: Session, project: Project, tl: dict, kind: str,
+UNHEARD = ("This clip's words aren't heard yet, so a trim could cut one. Try again once its "
+           "words check is done.")  # fmt: skip
+SAY = {"split": "Say where to split: a time in the cut.",
+       "trim": "Say the piece's new start or end.",
+       "swap": "Say which take to swap in."}  # fmt: skip
+
+
+def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
            d: dict) -> tuple[dict, str, float]:  # fmt: skip
     """The edit as it's kept (absolute values, so a replay gives the same cut), what it says
     in the list of edits, and where in the cut it is."""
@@ -95,7 +112,7 @@ def _shape(db: Session, project: Project, tl: dict, kind: str,
     i = _find(tl, d.get("piece") or "")
     p = tl["pieces"][i]
     if kind == "swap":
-        take, source = _swap_source(db, project, p, d.get("take_id"))
+        take, source = _swap_source(db, user, project, p, d.get("take_id"), tl["mode"])
         return (
             {"piece": p["id"], "take_id": take.id, "source": source},
             f"{label(p['id'])} swapped for {source[0].lower()}{source[1:]}",
@@ -117,6 +134,12 @@ def _shape(db: Session, project: Project, tl: dict, kind: str,
             **({"end": end} if end is not None else {}),
             **({"from": round(float(d["from"]), 2)} if d.get("from") is not None else {}),
         }
+    take = db.get(ClipTake, p["take_id"]) if p["take_id"] else None
+    longest = _take_seconds(db, take, p["end"] - p["start"])
+    if data.get("from", 0) > longest - MIN:
+        raise Refused(f"The take is {longest:g} s long: start it before {longest - MIN:g} s.")
+    if tl["mode"] == "takes":  # a story's takes say its lines: every spoken word stays
+        _keeps_words(db, take, data["from"], data["from"] + data["length"])
     last = i == len(tl["pieces"]) - 1
     if last and end is not None and start is None:
         cut = round(p["end"] - end, 1)
@@ -124,6 +147,28 @@ def _shape(db: Session, project: Project, tl: dict, kind: str,
     else:
         said = f"{label(p['id'])} trimmed"
     return data, said, start if start is not None else (end if end is not None else p["start"])
+
+
+def _speaks(db: Session, take: ClipTake | None) -> bool:
+    """The take was made with sound, so it may say a line (silent B-roll says nothing)."""
+    job = db.get(Job, take.job_id) if take else None
+    return bool(job and ((job.input or {}).get("input") or {}).get("generate_audio"))
+
+
+def _keeps_words(db: Session, take: ClipTake | None, start: float, end: float) -> None:
+    """A trim keeps every word the take says (Reed, 3 Nov: tightening never cuts a scripted
+    word); with its words not heard yet it can't tell, so it waits for them."""
+    from app.item_checks import latest
+
+    if not _speaks(db, take):
+        return
+    check = latest(db, "words", [take.id]).get(take.id)
+    if check is None or check.status != "done":
+        raise Refused(UNHEARD)
+    for w in _heard(db, take):
+        if w["start"] < start - 0.02 or w["end"] > end + 0.02:
+            raise Refused(f"That would cut the word “{w['word'].strip()}”. A trim keeps every "
+                          "spoken word.")  # fmt: skip
 
 
 def _retime(db: Session, tl: dict, i: int) -> dict:
@@ -156,18 +201,29 @@ def _retime(db: Session, tl: dict, i: int) -> dict:
     return data
 
 
-def _swap_source(db: Session, project: Project, p: dict, take_id) -> tuple[ClipTake, str]:
+def _swap_source(db: Session, user: User, project: Project, p: dict, take_id,
+                 mode: str) -> tuple[ClipTake, str]:  # fmt: skip
     """A take for this piece: the clip's other takes, another clip's, or one from another
-    video of the brand (the Library). Said as the swap row says it: "Take 1", "Clip 4"."""
+    video of the brand the person can see (the Library, as `swaps` offers it), in the same
+    shape. Said as the swap row says it: "Take 1", "Clip 4"."""
     take = db.get(ClipTake, int(take_id)) if take_id else None
     row = db.get(ProjectClip, take.clip_id) if take else None
     other = db.get(Project, row.project_id) if row else None
-    if (
-        not other
-        or other.workspace_id != project.workspace_id
-        or (other.brand_id != project.brand_id)
-    ):
+    if not other or other.workspace_id != project.workspace_id or (
+        other.brand_id != project.brand_id
+    ) or (other.id != project.id and (other.archived_at is not None or not (
+        user.is_owner or other.created_by_id == user.id))):  # fmt: skip
         raise Refused("That take isn't in this brand.")
+    current = db.get(ClipTake, p["take_id"]) if p["take_id"] else None
+    if (
+        mode == "takes"
+        and (other.id != project.id or row.clip_id != p["clip_id"])
+        and (_speaks(db, current) or _speaks(db, take))
+    ):
+        raise Refused("Here the takes say the lines: a piece swaps only for another take of "
+                      "its own clip.")  # fmt: skip
+    if other.aspect_ratio != project.aspect_ratio:
+        raise Refused(f"That take is {other.aspect_ratio}; this video is {project.aspect_ratio}.")
     if other.id != project.id:
         return take, f"{other.name[:60]}, take {take.number}"
     if row.clip_id == p["clip_id"]:
@@ -237,9 +293,13 @@ def _music(db: Session, project: Project, d: dict) -> tuple[dict, str, float]:
 
 
 def music_choices(db: Session, project: Project) -> list[dict]:
-    """Music the cut can swap to: the brand's narration beds and songs, newest first."""
+    """Music the cut can swap to: the brand's narration beds and songs, newest first (only a
+    narrated video has music under it)."""
     from app.models.script_library import Script, ScriptDraft
 
+    voice = song(db, project)
+    if voice is None or voice.kind != narration.KIND:
+        return []
     takes = db.scalars(select(SongTake).join(ScriptDraft, SongTake.draft_id == ScriptDraft.id)
                        .join(Script, ScriptDraft.script_id == Script.id)
                        .where(Script.brand_id == project.brand_id,
@@ -264,7 +324,8 @@ def _music_name(db: Session, project: Project, file_id: int) -> str:
 def undo(db: Session, project: Project, edit_id: int | None = None) -> CutEdit:
     """Undo one edit (the newest, or the one named: the director's each have Undo)."""
     live = active(db, project)
-    row = next((e for e in live if e.id == edit_id), None) if edit_id else (live or [None])[-1]
+    row = (next((e for e in live if e.id == edit_id), None) if edit_id is not None
+           else (live or [None])[-1])  # fmt: skip
     if row is None:
         raise HTTPException(409 if edit_id is None else 404, "There's nothing to undo.")
     row.undone_at = utcnow()
@@ -292,11 +353,11 @@ def undo_all(db: Session, project: Project) -> None:
     """Back to the cut that plays: every edit since undone, every one in it back."""
     cut = newest(db, project)
     keep, now = set(cut.edit_ids or []) if cut else set(), utcnow()
-    for e in every(db, project):
+    for n, e in enumerate(reversed(every(db, project))):
         if e.id in keep:
             e.undone_at = None
         elif e.undone_at is None:
-            e.undone_at = now - timedelta(microseconds=e.id % 1000)  # a stable redo order
+            e.undone_at = now - timedelta(microseconds=n)  # Redo brings back the oldest last
 
 
 LIBRARY = 24  # the brand's other videos' takes offered for a swap, newest first
