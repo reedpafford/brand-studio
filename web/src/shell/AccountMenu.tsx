@@ -7,7 +7,7 @@ import { useMe } from "../auth/useMe";
 import { Menu, MenuItem } from "../components";
 import { applyTheme, getTheme, type Theme } from "../theme";
 
-// Reed's Studio pages: rows in the rail after Needs you; on a phone, in the account menu (Needs you is the top bar's bell).
+// Reed's Studio pages: rows in the rail after Needs you; on a phone, rows in the More tab (S-gaps-04 R3).
 export const STUDIO: [string, string, LucideIcon][] = [
   ["/production", "In production", Clapperboard],
   ["/usage", "Usage", ChartColumn],

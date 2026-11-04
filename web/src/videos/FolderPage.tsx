@@ -304,11 +304,11 @@ export function FolderPage() {
               <span key={k} className="h-32 w-[72px] rounded-md border border-dashed border-border-strong bg-surface-2" />
             ))}
           </div>
-          <h2 className="mt-2 text-xl font-semibold">Nothing in {name} yet</h2>
-          <p className="max-w-[420px] text-md text-muted">{folder === UNSORTED ? "Start a video here. New ideas land here until you put them in a folder." : rail ? "Start a video here, or drag ideas in from another folder in the list on the left." : "Start a video here, or move ideas in from another folder."}</p>
+          <h2 className="mt-2 text-xl font-semibold">{folder === UNSORTED ? "Nothing in Unsorted" : `Nothing in ${name} yet`}</h2>
+          <p className="max-w-[420px] text-md text-muted">{folder === UNSORTED ? "New ideas land here until you put them in a folder." : rail ? "Start a video here, or drag ideas in from another folder in the list on the left." : "Start a video here, or move ideas in from another folder."}</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Link to={newVideo} className={`${buttonClass("primary")} lg:min-h-9`}>
-              <Plus size={16} strokeWidth={1.75} aria-hidden /> New video in {name}
+              <Plus size={16} strokeWidth={1.75} aria-hidden /> {folder === UNSORTED ? "New video" : `New video in ${name}`}
             </Link>
             {folder !== UNSORTED && (
               <Button variant="secondary" icon={FolderPlus} className="lg:min-h-9" onClick={actions.newInside}>
@@ -340,7 +340,7 @@ export function FolderPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 py-5 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] lg:gap-x-4 lg:px-6">
-          {rows.map((i) => (archived ? <ArchivedCard key={i.id} brandId={brandId} i={i} /> : <IdeaCard key={i.id} brandId={brandId} i={i} phone={!rail} picked={picked.has(i.id)} picking={picked.size > 0} onPick={rail && i.can_manage ? () => pick(i) : undefined} />))}
+          {rows.map((i) => (archived ? <ArchivedCard key={i.id} brandId={brandId} i={i} /> : <IdeaCard key={i.id} brandId={brandId} i={i} phone={!rail} picked={picked.has(i.id)} picking={picked.size > 0} onPick={i.can_manage ? () => pick(i) : undefined} />))}
         </div>
       )}
       <div ref={end} aria-hidden />

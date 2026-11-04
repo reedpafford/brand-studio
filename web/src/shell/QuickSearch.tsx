@@ -66,13 +66,12 @@ export function QuickSearch({ brandId, phone }: { brandId: number; phone?: boole
                 }
                 if (e.key === "Enter") go(hits[at] ?? hits[0]);
               }}
-              className="h-8 w-full rounded-md border border-accent bg-surface pl-9 pr-3 text-sm text-text outline-none placeholder:text-muted"
+              className={`w-full rounded-md border border-accent bg-surface pl-9 pr-3 text-text outline-none placeholder:text-muted ${phone ? "h-control text-base" : "h-8 text-sm"}`}
             />
           </label>
-          <ul role="listbox" aria-label="Results">
+          <div role="listbox" aria-label="Results">
             {hits.map((h, n) => (
-              <li key={h.key} role="option" aria-selected={n === at}>
-                <button type="button" onMouseEnter={() => setAt(n)} onClick={() => go(h)} className={`flex h-[30px] w-full items-center gap-2 rounded-[5px] px-2 text-left text-sm ${n === at ? "bg-surface-2" : ""}`}>
+                <button key={h.key} type="button" role="option" aria-selected={n === at} onMouseEnter={() => setAt(n)} onClick={() => go(h)} className={`flex w-full items-center gap-2 rounded-[5px] px-2 text-left text-sm ${phone ? "min-h-control" : "h-[30px]"} ${n === at ? "bg-surface-2" : ""}`}>
                   {h.dot ? (
                     <span className="mx-1 grid place-items-center">
                       <StatusDot status={h.dot} label />
@@ -83,10 +82,9 @@ export function QuickSearch({ brandId, phone }: { brandId: number; phone?: boole
                   <span className="min-w-0 flex-1 truncate">{h.label}</span>
                   <span className="shrink-0 text-xs text-muted">{h.where}</span>
                 </button>
-              </li>
             ))}
-            {q && !ideas.isFetching && hits.length === 0 && <li className="px-2 py-1.5 text-sm text-muted">Nothing called “{q}” in this brand.</li>}
-          </ul>
+          </div>
+          {q && !ideas.isFetching && hits.length === 0 && <p className="px-2 py-1.5 text-sm text-muted">Nothing called “{q}” in this brand.</p>}
           <div className="my-1 border-t border-border" />
           <p className="px-2 py-1 text-xs text-muted">Enter opens the first · ↑↓ to move · Esc closes</p>
         </div>

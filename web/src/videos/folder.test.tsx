@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
@@ -187,4 +187,33 @@ test("a folder that's gone says so, with a way to Unsorted (QA on #1304)", async
   open("/b/1/videos?folder=99");
   expect(await screen.findByText("This folder isn't here any more. It may have been deleted.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Open Unsorted" })).toHaveAttribute("href", "/b/1/videos");
+});
+
+test("on a phone, press and hold a card to select it, tap more; the dark bar takes the tabs' place (S-gaps-06, 12)", async () => {
+  setViewport(390);
+  fakeServer(base(owner, page(two.map((i) => ({ ...i, can_manage: true })))));
+  open();
+  const card = await screen.findByRole("link", { name: /Beer gut doctor rant/ });
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  fireEvent.pointerDown(card);
+  vi.advanceTimersByTime(600);
+  fireEvent.pointerUp(card);
+  fireEvent.click(card);
+  vi.useRealTimers();
+  const bar = await screen.findByRole("region", { name: "Selected ideas" });
+  expect(within(bar).getByText("1 selected")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("link", { name: /Bloated after pizza/ })); // a tap adds while selecting
+  expect(within(bar).getByText("2 selected")).toBeInTheDocument();
+  await userEvent.click(within(bar).getByRole("button", { name: "Clear the selection" }));
+  expect(screen.queryByRole("region", { name: "Selected ideas" })).toBeNull();
+});
+
+test("an empty Unsorted says where new ideas land, with New video and no folder inside (S-gaps-06, 14)", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, page([], { counts: { all: 0, needs_you: 0, working: 0, delivered: 0 } })));
+  open("/b/1/videos?folder=none");
+  expect(await screen.findByRole("heading", { name: "Nothing in Unsorted" })).toBeInTheDocument();
+  expect(screen.getByText("New ideas land here until you put them in a folder.")).toBeInTheDocument();
+  expect(within(screen.getByRole("main")).getAllByRole("link", { name: "New video" }).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: "New folder inside" })).toBeNull();
 });

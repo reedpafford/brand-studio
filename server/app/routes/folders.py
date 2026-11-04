@@ -78,6 +78,7 @@ class Dot(BaseModel):
     id: int
     title: str
     status: ideas.Status  # the tree shows the dot; the words are on hover
+    can_manage: bool = False  # it can be dragged to another folder: whoever made it, or the owner
 
 
 class Branch(BaseModel):
@@ -155,7 +156,8 @@ def tree(brand_id: int, user: User = Depends(current_user), db: Session = Depend
     named = ideas.titles(db, [p.id for p in shown])
 
     def dots(ps: list[Project]) -> list[Dot]:
-        return [Dot(id=p.id, title=named.get(p.id, p.name), status=status[p.id])
+        return [Dot(id=p.id, title=named.get(p.id, p.name), status=status[p.id],
+                    can_manage=user.is_owner or p.created_by_id == user.id)
                 for p in ps[:SHOWN]]  # fmt: skip
 
     def branch(f: Folder) -> Branch:

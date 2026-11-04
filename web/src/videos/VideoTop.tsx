@@ -12,6 +12,7 @@ import { useRail } from "../useMedia";
 /** One video, as the video page reads it. */
 export function useVideoProject(id: number) {
   return useQuery({
+    enabled: id > 0,
     queryKey: ["project", id],
     queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
   });

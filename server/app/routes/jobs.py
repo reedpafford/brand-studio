@@ -145,7 +145,9 @@ class JobOut(BaseModel):
             else "",
             "held": job.input.get(HELD, "") if job.status == JobStatus.needs_owner_approval else "",
             "declined": bool(job.input.get(DECLINE)),
-            "approved": job.approved_by_id is not None and job.approved_by_id != job.created_by_id,
+            "approved": job.approved_by_id is not None
+            and job.approved_by_id != job.created_by_id
+            and job.retry_of_id is None,  # an automatic retry isn't another answer
             "credits": _with_check(db, job) if db else job.credits,
             "freestyle": _freestyle(db, job) if db else None,
             "note": _note(job),

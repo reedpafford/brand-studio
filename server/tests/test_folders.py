@@ -225,6 +225,7 @@ def test_the_tree_counts_at_any_depth_and_shows_each_folders_newest_dots(owner, 
     shown = (inner["name"], inner["count"], inner["ideas"][0]["title"])
     assert shown == ("Hangovers", 1, "On hangovers")
     assert not top["can_manage"]  # the owner's folder, read by an editor
+    assert not top["ideas"][0]["can_manage"]  # the owner's idea: an editor can't drag it
     assert tree["unsorted"]["count"] == 1 and tree["unsorted"]["id"] is None
     assert owner.get("/brands/999/tree").status_code == 404
 

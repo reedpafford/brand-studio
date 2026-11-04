@@ -160,3 +160,15 @@ test("an editor's brand menu has no Archive", async () => {
   await userEvent.click(await within(await screen.findByRole("navigation", { name: "Main" })).findByRole("button", { name: "Brand: Resilia" }));
   expect(screen.queryByRole("menuitem", { name: /^Archive/ })).toBeNull();
 });
+
+test("a drop the server refuses says why, with no Undo (QA on #1321)", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, { "POST /folders/file": [403, { detail: "Only whoever made it, or the owner, can do that." }] }));
+  open();
+  const target = (await within(await screen.findByRole("navigation", { name: "Main" })).findByRole("link", { name: "UGC testimonials" })).closest("div[class*='group']")!;
+  const data = { types: [IDEA], getData: () => JSON.stringify({ id: 10, title: "Bloated after pizza" }), dropEffect: "" };
+  fireEvent.dragOver(target, { dataTransfer: data });
+  fireEvent.drop(target, { dataTransfer: data });
+  expect(await screen.findByText("Only whoever made it, or the owner, can do that.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+});

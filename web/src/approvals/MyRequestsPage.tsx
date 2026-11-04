@@ -54,7 +54,7 @@ export function MyRequestsPage() {
                 <span aria-hidden className="grid h-[53px] w-[30px] shrink-0 place-items-center overflow-hidden rounded-sm bg-surface-2 text-faint">
                   {v?.poster_file_id ? <img src={fileUrl(v.poster_file_id)} alt="" className="size-full object-cover" /> : <Film size={14} strokeWidth={1.75} />}
                 </span>
-                <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex min-w-0 flex-1 basis-[calc(100%-42px)] flex-col lg:basis-auto">
                   {v ? (
                     <Link to={`/b/${v.brand_id}/videos/${v.id}`} className="truncate text-sm font-semibold hover:underline">
                       {name(j)}
@@ -66,11 +66,12 @@ export function MyRequestsPage() {
                     {said(j)} · {pressLabel(j.credits, "estimate")}
                   </span>
                 </span>
-                <span className="w-[70px] text-xs text-muted">Sent {time(j.created_at)}</span>
+                <span className="ml-[42px] text-xs text-muted lg:ml-0 lg:w-[70px]">Sent {time(j.created_at)}</span>
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
                   <span aria-hidden className="size-[7px] rounded-full bg-need-dot shadow-[inset_0_0_0_2px_var(--surface)] outline outline-[1.5px] outline-need-dot" />
                   Waiting
                 </span>
+                <span className="flex-1 lg:hidden" />
                 <Button variant="secondary" busy={withdraw.isPending && withdraw.variables?.id === j.id} onClick={() => withdraw.mutate(j)}>
                   Withdraw
                 </Button>

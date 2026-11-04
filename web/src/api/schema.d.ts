@@ -6577,6 +6577,11 @@ export interface components {
             /** Title */
             title: string;
             status: components["schemas"]["Status"];
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
         };
         /** DraftIn */
         DraftIn: {

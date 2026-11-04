@@ -22,7 +22,7 @@ const readOpen = (brandId: number): number[] => {
   }
 };
 
-type Said = { message: string; undo: () => void; id: number } | null;
+type Said = { message: string; undo?: () => void; id: number } | null;
 const row = "flex h-[30px] items-center gap-2 rounded-md px-2 text-sm";
 
 /** The rail's folder tree (v6 S0-01): folders inside folders with their counts, the open folder's newest ideas with their
@@ -54,7 +54,7 @@ export function FolderTree({ brandId }: { brandId: number }) {
 
   // The rail's own Undo (S0-01: "Deleted “Black Friday”. Its 3 ideas moved to Unsorted. Undo").
   const [said, setSaid] = useState<Said>(null);
-  const say = (message: string, undo: () => void) => setSaid((was) => ({ message, undo, id: (was?.id ?? 0) + 1 }));
+  const say = (message: string, undo?: () => void) => setSaid((was) => ({ message, undo, id: (was?.id ?? 0) + 1 }));
   useEffect(() => {
     if (!said) return;
     const t = setTimeout(() => setSaid(null), 8000);
@@ -78,7 +78,7 @@ export function FolderTree({ brandId }: { brandId: number }) {
         await refresh();
       });
     } catch (err) {
-      say((err as Error).message, () => {});
+      say((err as Error).message); // no Undo: nothing moved
     }
   };
   const dropTarget = (b: Branch) => ({
@@ -88,7 +88,7 @@ export function FolderTree({ brandId }: { brandId: number }) {
       e.dataTransfer.dropEffect = "move";
       setDrop(b.id ?? "none");
     },
-    onDragLeave: () => setDrop(null),
+    onDragLeave: (e: DragEvent) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setDrop(null), // not when crossing its own rows
     onDrop: (e: DragEvent) => void moveIdea(e, b),
   });
 
@@ -103,7 +103,7 @@ export function FolderTree({ brandId }: { brandId: number }) {
           <Link
             key={i.id}
             to={`/b/${brandId}/videos/${i.id}`}
-            draggable
+            draggable={i.can_manage}
             onDragStart={(e) => dragIdea(e, i.id, i.title)}
             aria-current={on ? "page" : undefined}
             style={{ paddingLeft: 12 + depth * 16 }}
@@ -136,10 +136,10 @@ export function FolderTree({ brandId }: { brandId: number }) {
         </button>
       </div>
       {tree.folders.map((b) => (
-        <FolderRow key={b.id} brandId={brandId} b={b} depth={0} here={here} isOpen={isOpen} toggle={toggle} drop={drop} dropTarget={dropTarget} ideas={ideas} say={say} onDeleted={(parent) => here === String(b.id) && navigate(`/b/${brandId}/videos${parent ? `?folder=${parent}` : ""}`)} />
+        <FolderRow key={b.id} brandId={brandId} b={b} depth={0} here={picked} isOpen={isOpen} toggle={toggle} drop={drop} dropTarget={dropTarget} ideas={ideas} say={say} onDeleted={(parent) => here === String(b.id) && navigate(`/b/${brandId}/videos${parent ? `?folder=${parent}` : ""}`)} />
       ))}
       <div {...dropTarget(tree.unsorted)}>
-        <Link to={`/b/${brandId}/videos`} aria-current={here === UNSORTED ? "page" : undefined} className={`${row} font-medium ${drop === "none" ? "bg-accent-soft text-accent-text outline-1 outline-dashed outline-[#9fa3ef]" : here === UNSORTED ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60"}`}>
+        <Link to={`/b/${brandId}/videos`} aria-current={picked === UNSORTED ? "page" : undefined} className={`${row} font-medium ${drop === "none" ? "bg-accent-soft text-accent-text outline-1 outline-dashed outline-[#9fa3ef]" : picked === UNSORTED ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60"}`}>
           <span className="w-3" />
           <Inbox size={14} strokeWidth={1.75} aria-hidden />
           <span className="flex-1 truncate">Unsorted</span>
@@ -151,9 +151,11 @@ export function FolderTree({ brandId }: { brandId: number }) {
       {said && (
         <div role="status" className="fixed bottom-16 left-2 z-40 flex w-[232px] flex-wrap items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2.5 text-sm text-white shadow-overlay">
           <span>{said.message}</span>
-          <button type="button" onClick={() => (said.undo(), setSaid(null))} className="font-semibold text-[#b9bdfa] hover:underline">
-            Undo
-          </button>
+          {said.undo && (
+            <button type="button" onClick={() => (said.undo?.(), setSaid(null))} className="font-semibold text-[#b9bdfa] hover:underline">
+              Undo
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -170,13 +172,14 @@ function FolderRow(props: {
   drop: number | "none" | null;
   dropTarget: (b: Branch) => object;
   ideas: (b: Branch, depth: number) => ReactNode;
-  say: (message: string, undo: () => void) => void;
+  say: (message: string, undo?: () => void) => void;
   onDeleted: (parent: number | null) => void;
 }) {
   const { brandId, b, depth, here, isOpen, toggle, drop, dropTarget, ideas, say, onDeleted } = props;
   const [renaming, setRenaming] = useState<string | null>(null);
+  const ended = useRef(false); // Enter or Esc ended the rename: the blur that follows does nothing
   const [menu, setMenu] = useState(false);
-  const actions = useFolderActions(brandId, b, { say, onDeleted, newVideoHere: true, renameInPlace: () => setRenaming(b.name) });
+  const actions = useFolderActions(brandId, b, { say, onDeleted, newVideoHere: true, renameInPlace: () => start() });
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!menu) return;
@@ -191,10 +194,13 @@ function FolderRow(props: {
   }, [menu]);
   const open = isOpen(b.id!);
   const on = here === String(b.id);
-  const save = async () => {
+  const start = () => ((ended.current = false), setRenaming(b.name));
+  const finish = async (keep: boolean) => {
+    if (ended.current) return;
+    ended.current = true;
     const to = renaming?.trim();
     setRenaming(null);
-    if (to && to !== b.name) await actions.rename(to).catch((e: Error) => say(e.message, () => {}));
+    if (keep && to && to !== b.name) await actions.rename(to).catch((e: Error) => say(e.message)); // an empty name keeps the old one
   };
   const pad = { paddingLeft: 8 + depth * 16 };
   const Icon = open ? FolderOpen : Folder;
@@ -211,8 +217,8 @@ function FolderRow(props: {
               value={renaming}
               maxLength={120}
               onChange={(e) => setRenaming(e.target.value)}
-              onKeyDown={(e) => (e.key === "Enter" ? void save() : e.key === "Escape" && setRenaming(null))}
-              onBlur={() => void save()}
+              onKeyDown={(e) => (e.key === "Enter" ? void finish(true) : e.key === "Escape" && void finish(false))}
+              onBlur={() => void finish(true)}
               className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
             />
           </div>
@@ -221,7 +227,7 @@ function FolderRow(props: {
             <button type="button" aria-label={open ? `Close ${b.name}` : `Open ${b.name}`} aria-expanded={open} onClick={() => toggle(b.id!)} className="grid size-3 place-items-center">
               {open ? <ChevronDown size={12} strokeWidth={1.75} aria-hidden /> : <ChevronRight size={12} strokeWidth={1.75} aria-hidden />}
             </button>
-            <Link to={`/b/${brandId}/videos?folder=${b.id}`} aria-current={on ? "page" : undefined} onDoubleClick={() => b.can_manage && setRenaming(b.name)} className="flex min-w-0 flex-1 items-center gap-2">
+            <Link to={`/b/${brandId}/videos?folder=${b.id}`} aria-current={on ? "page" : undefined} onDoubleClick={() => b.can_manage && start()} className="flex min-w-0 flex-1 items-center gap-2">
               <Icon size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
               <span className="truncate">{b.name}</span>
             </Link>

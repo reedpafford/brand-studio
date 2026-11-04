@@ -175,7 +175,7 @@ export function BrandMenu() {
   const { data: brands } = useBrands();
   const { brandId } = useParams();
   const current = Number(brandId) || null;
-  return <BrandSwitcher brands={brands ?? []} brand={brands?.find((b) => b.id === current)} current={current} />;
+  return <BrandSwitcher brands={brands ?? []} brand={brands?.find((b) => b.id === current)} current={current} inRail />; // P-01: plain, as in the rail
 }
 
 /** A phone's top bar off the folder pages: the brand menu. Needs you and the account are tabs now (v6 P-01). */
@@ -258,10 +258,10 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
 }
 
 /** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
-function NavItem({ to, also, className, children, ...rest }: { to: string; also?: string; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
+function NavItem({ to, also, under, className, children, ...rest }: { to: string; also?: string; /** also current on these pages (the phone's Library tab) */ under?: RegExp; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
   const { pathname } = useLocation();
   const onNew = pathname.endsWith(`/${NEW_VIDEO}`); // under /videos, but its own place
-  const active = pathname === to || (!onNew && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
+  const active = pathname === to || !!under?.test(pathname) || (!onNew && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
   return (
     <Link to={to} className={className(active)} aria-current={active ? "page" : undefined} {...rest}>
       {children}
@@ -338,18 +338,18 @@ function Tabs({ current, owner, waiting }: { current: number | null; owner: bool
         <span className="sr-only"> waiting</span>
       </span>
     ) : null;
-  const tabs: [string, string, LucideIcon, ReactNode?, string?][] = current
+  const tabs: [string, string, LucideIcon, ReactNode?, string?, RegExp?][] = current
     ? [
         [href("videos", current), "Videos", Film, null, "projects"],
-        [`/b/${current}/more/library`, "Library", Users],
+        [`/b/${current}/more/library`, "Library", Users, null, undefined, /^\/b\/\d+\/(scripts|library|media|brand)(\/|$)/],
         owner ? ["/approvals", "Needs you", Inbox, badge(waiting)] : ["/requests", "My requests", Clock, badge(mine)],
         ["/more", "More", Ellipsis],
       ]
     : [];
   return (
     <nav aria-label="Tabs" style={{ height: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
-      {tabs.map(([to, label, Icon, extra, also]) => (
-        <NavItem key={to} to={to} also={also} className={tab}>
+      {tabs.map(([to, label, Icon, extra, also, under]) => (
+        <NavItem key={to} to={to} also={also} under={under} className={tab}>
           <Icon size={20} strokeWidth={1.75} aria-hidden />
           {label}
           {extra}
