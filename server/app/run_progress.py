@@ -81,8 +81,8 @@ def ending(turns: list[Job]) -> tuple[str, str]:
         return "stopped", why or "Stopped."
     if turns[-1].input.get("declined"):  # the owner said no to its held turn: not a fault
         return "stopped", f"The owner declined: {turns[-1].error}".rstrip(": ")
-    if turns[-1].input.get("withdrawn"):
-        return "stopped", "Withdrawn."
+    if turns[-1].input.get("withdrawn") or turns[-1].status == JobStatus.cancelled:
+        return "stopped", "Withdrawn."  # its held turn taken back before the OK
     return "needs_fix", why or "Stopped."
 
 
@@ -277,7 +277,7 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
     words["prompts"] = ("Clip prompts written · " + (f"B-roll on {model}, host on P-Video"
                         if hosted else f"on {model}")) if total else "Clip prompts"  # fmt: skip
     words["takes"] = f"Making takes: {made} of {total}" if made < total else f"Takes: {total} made"
-    if watching := _watching(video, cells, owner):
+    if watching := _watching(db, video, cells, owner):
         words["watching"] = watching[0]
     if hosted:
         words["host"] = f"Lay {cast or 'the presenter'} over the B-roll"
@@ -302,7 +302,8 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
     return out
 
 
-def _watching(video: _Video, cells: list[dict], owner: bool) -> tuple[str, str] | None:
+def _watching(db: Session, video: _Video, cells: list[dict],
+              owner: bool) -> tuple[str, str] | None:  # fmt: skip
     """("Watching each take as it lands: 12 watched, 1 redone", the newest it acted on)."""
     rows = [c["take"] for c in video.checks.values() if "take" in c]
     if not rows:
@@ -315,7 +316,12 @@ def _watching(video: _Video, cells: list[dict], owner: bool) -> tuple[str, str] 
     c = acted[-1]
     job = next((j for j in video.jobs.get(video.pk(c["clip_id"]), []) if j.status in WAITING),
                None) if c["state"] == "making" else None  # fmt: skip
-    tail = f" Remaking it ({money(job.credits, owner)})." if job else ""
+    if job is not None:  # its "up to": the take and the check that rides along (rule 36)
+        from app import item_checks
+
+        row = next(r for r in video.clips if r.clip_id == c["clip_id"])
+        price = job.credits + item_checks.rides(db, video.project, row)
+    tail = f" Remaking it ({money(price, owner)})." if job else ""
     return text, f"Clip {c['number']}: {c['note'].rstrip('.')}.{tail}"
 
 
@@ -521,5 +527,10 @@ def seen(db: Session, user: User, project: Project, take_ids: list[int]) -> None
                                  ClipTake.id.in_(take_ids))))  # fmt: skip
     had = set(db.scalars(select(TakeSeen.take_id).where(TakeSeen.user_id == user.id,
                                                        TakeSeen.take_id.in_(mine))))  # fmt: skip
+    from sqlalchemy.exc import IntegrityError
+
     db.add_all(TakeSeen(take_id=t, user_id=user.id) for t in sorted(mine - had))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:  # the same mark from another press at the same moment: it's there
+        db.rollback()

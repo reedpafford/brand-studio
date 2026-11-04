@@ -382,3 +382,13 @@ def test_a_held_turn_the_owner_declined_reads_as_stopped_with_the_reason(app, db
     assert (p["status"], p["tone"], p["failed"]) == ("stopped", "stop", None)
     (card,) = [m for m in owner.get(f"/projects/{pid}/director").json()["thread"] if m.get("run")]
     assert card["text"] == "The owner declined: Not this week."
+
+
+def test_a_held_turn_taken_back_reads_as_stopped_not_a_fault(app, db, owner, editor):
+    pid = _done(app, db, owner, editor)
+    last = director.turns(db, db.get(Project, pid))[-1]
+    last.input = {k: v for k, v in last.input.items() if k not in ("ended", "result")}
+    last.status = JobStatus.cancelled  # cancelled while it waited for the OK (Jobs' Cancel)
+    db.commit()
+    p = _progress(owner, pid)
+    assert (p["status"], p["sub"], p["failed"]) == ("stopped", "Withdrawn.", None)

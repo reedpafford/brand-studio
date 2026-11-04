@@ -138,7 +138,7 @@ class RunFailedOut(BaseModel):
 class ClipCountsOut(BaseModel):
     all: int
     needs_you: int  # flagged, waiting or failed: a person's press moves it on
-    flagged: int  # its watch found something on one of its takes
+    flagged: int  # the take in use still has what its watch found
     redone: int
 
 
