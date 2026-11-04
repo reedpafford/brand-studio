@@ -30,6 +30,7 @@ from app.credits import (
     WAIT_OK,
     approved,
     budget,
+    budget_used,
     estimate,
     lock,
 )
@@ -277,12 +278,14 @@ def attachments(db: Session, user: User, ids: list[int] | None) -> list[int]:
 
 def hold(db: Session, user: User, script: Script | None, draft, project: Project) -> str:
     """Why a send waits for the owner, or "" when it starts at once: the owner's never; an
-    editor's pasted words always; an editor's published script past its video's budget."""
+    editor's pasted words always; an editor's published script whose whole "up to" is past
+    what's left of its video's budget."""
     if user.is_owner:
         return ""
     if script is None or not script.published:
         return HELD
-    up_to, most = run_price(db, draft, project), budget(db, project)
+    up_to = run_price(db, draft, project)
+    most = budget(db, project) - budget_used(db, project)  # what's left of it (Reed, 4 Nov)
     return "" if up_to <= most else PAST_BUDGET.format(whole(up_to), whole(most))
 
 
@@ -552,8 +555,9 @@ def estimate_freestyle(
         project, draft = made or _video(db, user, fs, text)
         _setup(db, user, project, body, pasted=made is None)
         wait = hold(db, user, script, draft, project)
+        left = budget(db, project) - budget_used(db, project)  # what's left of it
         out = _out_estimate(user, run_price(db, draft, project), held=wait,
-                            budget=budget(db, project) if script else None)  # fmt: skip
+                            budget=left if script else None)  # fmt: skip
         db.rollback()
         return out
     fs = Freestyle(id=0, look=look, shape=shape, brand_id=None)

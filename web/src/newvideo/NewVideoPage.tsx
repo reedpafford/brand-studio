@@ -37,11 +37,12 @@ export function pressWords(owner: boolean, est: Estimate | undefined, go = "Make
   return { label: held ? "Send to the owner" : go, most, held };
 }
 
-/** The line under the box: what the price means, or why it waits and that nothing is spent until then (S2-02, -04, -05). */
+/** The line under the box: what the price means, or why it waits and that no generation starts until then (S2-02, -04,
+ *  -05; Reed, 4 Nov: never "nothing spent" before Make it, as the plan is a small spend). */
 export function Under({ owner, est, phone }: { owner: boolean; est: Estimate | undefined; phone?: boolean }) {
   if (!est) return null;
   if (!owner && est.held) {
-    const past = est.budget != null ? `Up to ${wholeCredits(est.credits)} credits is past this video’s budget of ${wholeCredits(est.budget)}, so it goes to the owner first. Nothing is spent while it waits.` : "The owner approves before anything is spent. You’ll see it in My requests.";
+    const past = est.budget != null ? `Up to ${wholeCredits(est.credits)} credits is past this video’s budget of ${wholeCredits(est.budget)}, so it goes to the owner first. No generation starts while it waits.` : "The owner approves before any generation starts. You’ll see it in My requests.";
     return (
       <span className="flex items-center gap-1 text-xs text-warning">
         <Clock size={12} aria-hidden /> {past}

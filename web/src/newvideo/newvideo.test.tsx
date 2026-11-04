@@ -136,7 +136,7 @@ test("S2-04: an editor's pasted script goes to the owner, in credits, never doll
   renderApp("/b/1/videos/new");
   await userEvent.type(await words(), SCRIPT);
   expect(await screen.findByRole("button", { name: "Send to the owner · up to 164 credits" }, { timeout: 3000 })).toBeInTheDocument();
-  expect(screen.getByText(/The owner approves before anything is spent. You’ll see it in My requests./)).toBeInTheDocument();
+  expect(screen.getByText(/The owner approves before any generation starts. You’ll see it in My requests./)).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\$|Reed/);
 });
 
@@ -161,7 +161,7 @@ test("S2-05: past the video's budget the press goes to the owner and the line sa
   renderApp("/b/1/videos/new?from=script");
   await userEvent.click(await screen.findByRole("radio", { name: /Beer gut doctor rant/ }));
   expect(await screen.findByRole("button", { name: "Send to the owner · up to 212 credits" }, { timeout: 3000 })).toBeInTheDocument();
-  expect(screen.getByText(/Up to 212 credits is past this video’s budget of 194, so it goes to the owner first. Nothing is spent while it waits./)).toBeInTheDocument();
+  expect(screen.getByText(/Up to 212 credits is past this video’s budget of 194, so it goes to the owner first. No generation starts while it waits./)).toBeInTheDocument();
 });
 
 test("S2-07: Use a reel uploads it, Copy it shot by shot reads it at its price; Just its look takes your script", async () => {
