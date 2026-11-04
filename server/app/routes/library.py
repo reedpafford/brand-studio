@@ -1,5 +1,7 @@
 """Characters, places and props, filtered by brand. Edits keep a version history."""
 
+import math
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -112,6 +114,11 @@ class UsedIn(BaseModel):
     status: Literal["needs_you", "making", "done"]  # as the Videos tabs group it
 
 
+class ItemUsd(BaseModel):
+    sheet: float  # sheet_credits, in dollars rounded up to the cent
+    change: float  # change_credits, the same
+
+
 class PictureOut(BaseModel):
     """A product's picture: a brand screen linked to it (its real photo, used as it is)."""
 
@@ -138,10 +145,30 @@ class ItemOut(ItemIn):
     sheet_credits: int = 0  # Make sheet / Redo: "up to" (its check and one redo, held)
     sheet_usual_credits: int = 0  # "Usually N": the sheet and its check
     change_credits: int = 0  # Change this…: the sheet and its check (never redone by itself)
+    usd: ItemUsd | None = None  # the owner's prices in dollars (rule 4: never an editor's)
     advice: list[str] = []  # a product with no main claim: "Scripts won't mention…" (BR1)
     look_sheets: dict[str, LookSheetOut] = {}  # ST2: the owner's sheets in other looks
     used_in: list[UsedIn] = []  # the videos that use it (the item's own page only)
     used_in_count: int = 0  # how many: on the list too ("Sheet approved · in 6 videos")
+
+
+class PriceOut(BaseModel):
+    credits: int  # making a new one from its description or a photo: "up to"
+    usd: float | None  # the owner's, in dollars
+
+
+def usd(user: User, credits: float) -> float | None:
+    """A price in dollars for the owner, rounded up to the cent; None for an editor."""
+    from app.models.credits import USD_PER_CREDIT
+
+    return math.ceil(Decimal(str(credits)) * USD_PER_CREDIT * 100) / 100 if user.is_owner else None
+
+
+def _priced(user: User, out: ItemOut) -> ItemOut:
+    if not user.is_owner or out.kind not in ("character", "place"):
+        return out
+    prices = ItemUsd(sheet=usd(user, out.sheet_credits), change=usd(user, out.change_credits))
+    return out.model_copy(update={"usd": prices})
 
 
 class VersionOut(BaseModel):
@@ -370,7 +397,20 @@ def list_items(
         query = query.where(LibraryItem.brands.any(id=brand_id))
     items = list(db.scalars(query.order_by(func.lower(LibraryItem.name))))
     used, _ = _uses(db, user.workspace_id, items)
-    return [_out(i).model_copy(update={"used_in_count": len(used[i.id])}) for i in items]
+    return [_priced(user, _out(i)).model_copy(update={"used_in_count": len(used[i.id])})
+            for i in items]  # fmt: skip
+
+
+@router.get("/price", response_model=PriceOut)
+def new_item_price(kind: Kind, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """What making a new one's sheet costs at most (S8-02 "Make one · up to $0.08", S8-07)."""
+    from app.credits import price
+    from app.sheets import SHEET_KINDS, press_price
+
+    if kind not in SHEET_KINDS:
+        raise HTTPException(404, "Products are photographed, not drawn.")
+    credits = price(press_price(db, LibraryItem(kind=kind, workspace_id=user.workspace_id)))
+    return PriceOut(credits=credits, usd=usd(user, credits))
 
 
 @router.post("", response_model=ItemOut, status_code=201)
@@ -401,7 +441,8 @@ def read_item(
 ):
     item = get_item(db, user, kind, item_id)
     found = used_in(db, item)
-    return _out(item).model_copy(update={"used_in": found, "used_in_count": len(found)})
+    return _priced(user, _out(item)).model_copy(update={"used_in": found,
+                                                        "used_in_count": len(found)})  # fmt: skip
 
 
 def _uses(db: Session, workspace_id: int, items: list[LibraryItem]) -> tuple[dict, list]:

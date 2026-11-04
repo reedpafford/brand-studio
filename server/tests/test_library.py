@@ -187,8 +187,9 @@ def test_a_products_pictures_are_its_brand_screens(owner, editor):
     bag = owner.post("/library/prop", json={"name": "Bag", "brand_ids": [b["iron-paws"]]}).json()
     assert bag["pictures"] == []
     screens = f"/brands/{b['iron-paws']}/screens"
-    pic = editor.post(screens, json={"name": "Chicken bag", "file_id": upload(editor),
-                                     "product_id": bag["id"], "variant": "Chicken"}).json()  # fmt: skip
+    body = {"name": "Chicken bag", "file_id": upload(editor), "product_id": bag["id"],
+            "variant": "Chicken"}  # fmt: skip
+    pic = editor.post(screens, json=body).json()
     assert pic["product"] == "Bag" and pic["product_id"] == bag["id"]
     got = owner.get("/library/prop", params={"brand_id": b["iron-paws"]}).json()[0]["pictures"]
     assert [(p["screen_id"], p["name"], p["variant"]) for p in got] == [
@@ -200,3 +201,19 @@ def test_a_products_pictures_are_its_brand_screens(owner, editor):
     assert unlinked["product"] == "" and unlinked["product_id"] is None
     owner.delete(f"{screens}/{pic['id']}")
     assert owner.get(f"/library/prop/{bag['id']}").json()["pictures"] == []
+
+
+def test_prices_say_up_to_in_dollars_for_the_owner_and_credits_for_an_editor(owner, editor):
+    """S8-02 "Make one · up to $0.08", S8-03 "Change this… · up to $0.08"; editors see credits."""
+    from tests.helpers import assert_no_dollars
+
+    new = owner.get("/library/character/price").json()
+    assert new["credits"] >= 1 and new["usd"] >= 0.01
+    assert editor.get("/library/character/price").json() == {"credits": new["credits"], "usd": None}
+    assert owner.get("/library/prop/price").status_code == 404
+    item = owner.post("/library/character", json={"name": "Dana", "notes": "late 30s"}).json()
+    mine = owner.get(f"/library/character/{item['id']}").json()
+    assert mine["change_credits"] >= 1 and mine["usd"]["change"] >= 0.01
+    assert owner.get("/library/character").json()[0]["usd"]["sheet"] >= 0.01
+    assert_no_dollars(editor, [f"/library/character/{item['id']}", "/library/character"])
+    assert editor.get(f"/library/character/{item['id']}").json()["usd"] is None
