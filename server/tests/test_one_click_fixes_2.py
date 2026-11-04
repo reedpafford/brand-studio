@@ -238,3 +238,21 @@ def test_an_opening_audio_line_with_an_extra_phrase_is_fixed_free():
     fixed = clip_prompts.repair_shape(clip, bd)
     lines = fixed.prompt.splitlines()
     assert lines[0] == lines[-1] == AUDIO
+
+
+def test_words_after_the_closing_audio_line_are_kept():
+    """Flow-QA: an editor's words after the closing "Audio: …" line were dropped on the next
+    open. They move above the Keep line, on that line or the next, and stay put after."""
+    from app import clip_prompts
+    from app.prompts.schemas import Breakdown, ClipPrompt
+    from tests.test_breakdown import BREAKDOWN
+    from tests.test_project_clips import AUDIO
+
+    bd = Breakdown.model_validate(BREAKDOWN)
+    for grown in (_prompt() + " Warm light.", _prompt() + "\nWarm light."):
+        clip = ClipPrompt(clip_id="c1", seconds=5, prompt=grown, references=[])
+        fixed = clip_prompts.repair_shape(clip, bd)
+        lines = fixed.prompt.splitlines()
+        assert lines[-3:-1] == ["Warm light.", lines[-2]] and lines[-2].startswith("Keep: ")
+        assert lines[0] == lines[-1] == AUDIO and fixed.prompt.count("Keep: ") == 1
+        assert clip_prompts.repair_shape(fixed, bd) == fixed

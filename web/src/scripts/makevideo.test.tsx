@@ -9,7 +9,7 @@ import { setViewport } from "../test/viewport";
 // Make a video from a script (v5 E_EditorScripts, E_ScriptMakeVideo): any finished version, no Publish first.
 const at = "2026-11-02T10:00:00Z";
 const v = (slot: number, o: object = {}) => ({ slot, status: "approved", title: "", seconds: 32 + slot * 3, project_id: null, text: `BO: version ${slot}.`, estimate_credits: 170.2 + slot * 6, ...o });
-const script = { id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", look: "house", published: true, created_by_id: 1, created_by_name: "Reed", created_at: at, versions: [v(0), v(1), v(2, { project_id: 70 })], versions_left: 2 };
+const script = { id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", format: "dialogue", look: "house", published: true, created_by_id: 1, created_by_name: "Reed", created_at: at, versions: [v(0), v(1), v(2, { project_id: 70 })], versions_left: 2 };
 afterEach(() => vi.unstubAllGlobals());
 
 test("an editor's ready row has Make a video: the panel picks a version (its planned price) and shape, and sends it for approval", async () => {

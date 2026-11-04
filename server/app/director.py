@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_song, director_tools, take_mute, word_splice
+from app import director_song, director_tools, take_mute, take_sound, word_splice
 from app.credits import COUNTED, lock
 from app.models.accounts import User
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -576,9 +576,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
     try:
         return enqueue(db, user, "write-claude", data, project=project, provider="claude",
                        prepaid=not wait, wait=wait)  # fmt: skip
-        # its own limit (MAX_USD), never the video's budget; the per-video cap still counts
-        # it (director-chat.md §2, DECISIONS #1066)
-    except HTTPException as no:  # e.g. the per-video cap: the run ends, saying why
+        # its own limit (MAX_USD), never the video's budget (director-chat.md §2, DECISIONS #1066)
+    except HTTPException as no:  # e.g. the video was archived: the run ends, saying why
         if last is None or run["turn"] == 1:  # its first turn: the start itself is refused
             raise
         last = db.get(Job, last.id)
@@ -741,8 +740,10 @@ def video_state(db: Session, project: Project) -> dict:
                                  "line": shots[i].get("line")}
                                 for i in ids_of.get(row.clip_id, []) if i in shots],
                       "picked_take_id": row.picked_take_id, "takes": out,
-                      "muted": take_mute.spans(db.get(ClipTake, row.picked_take_id)
+                      "muted": take_mute.spans(picked := db.get(ClipTake, row.picked_take_id)
                                                if row.picked_take_id else None),
+                      "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
+                                if k in ("state", "how")},
                       **word_splice.state(db, row)})  # splice_word  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
@@ -753,7 +754,11 @@ def video_state(db: Session, project: Project) -> dict:
     from app.plans import status
 
     audio = director_song.state(db, project)  # a song or narrated video's song or narration
+    from app import host
+
+    hosted = {"host": host.state(db, project)} if host.on(db, project) else {}  # a presenter's
     return {
+        **hosted,
         "plan": status(db, project),  # none, ready (waits for approval) or approved
         **({_audio_key(db, project): audio} if audio else {}),  # the clock its shots follow
         # choices fixed for it (director-chat.md §1), kept as is; a person's own look pick isn't
@@ -847,6 +852,10 @@ def choose(state: dict) -> dict:
                    else f"No take of {c['clip_id']} is clean: using the newest, take "
                    f"{best['number']}.")  # fmt: skip
             return go("pick_take", why, clip_id=c["clip_id"], take_id=best["id"])
+    if (host := state.get("host")) and host["state"] != "ready":  # a presenter: before the cut
+        if host["state"] == "making":
+            return go("wait", "The host is being made.")
+        return go("host", "all: the host says the narration on camera over the B-roll.")
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
     if state["cut"] != "made":
@@ -938,6 +947,9 @@ WORDS = re.compile(
 )
 
 
+SOUND = re.compile(r"\bsound effects?\b|\bsfx\b|\badd\b[^.]{0,30}\bsounds?\b", re.I)
+
+
 def _clip_of(note: dict) -> str | None:
     named = re.search(r"\bclip (\d+)\b", note["text"], re.I)
     return f"c{named[1]}" if named else None
@@ -952,6 +964,13 @@ def _asked(state: dict) -> dict | None:
     used = state.get("allowed", {}).get("redos_used", {})
     for m in state.get("chat") or []:
         clip = _clip_of(m)
+        if not m.get("answered") and SOUND.search(m["text"]):  # sound effects, asked for once
+            ready = clips and all(c["picked_take_id"] for c in clips.values())
+            if "add_sound" in state.get("done", []) or not ready:
+                continue  # tried this run (a refusal is said in the delivery note), or no takes
+            return {"tool": "add_sound", "why": f"Note {m['note']}: you asked: {m['text']}"[:300],
+                    "clip_id": clip if clip in clips else None, "take_id": None,
+                    "note": m["text"][:300]}  # fmt: skip
         if (
             m.get("answered")
             or WORDS.search(m["text"])
@@ -975,6 +994,8 @@ def _answers(state: dict) -> str:
         clip, n = _clip_of(m), m["note"]
         if m.get("answered"):
             out.append(f"Note {n}: done, as you asked ({m['text']}).")
+        elif SOUND.search(m["text"]):
+            out.append(f"Note {n}: {take_sound.ALL_HAVE}")
         elif WORDS.search(m["text"]):
             out.append(f"Note {n}: the script's words stay as written here. I can change how a "
                        "line is delivered, the pictures or the pacing instead.")  # fmt: skip
@@ -1054,12 +1075,24 @@ def _item(db: Session, job: Job) -> str:
     if clip := job.input.get("project_clip_id"):
         row = db.get(ProjectClip, clip)
         return f"Clip {row.clip_id.removeprefix('c')}'s take" if row else "A take"
+    if piece := job.input.get("host_piece_id"):
+        from app.models.clips import HostPiece
+
+        row = db.get(HostPiece, piece)
+        return f"The host's piece {row.number}" if row and row.number else "The host's still"
     return f"The {str(job.input.get('step') or job.kind).replace('_', ' ')}"
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:
+    """What's being made for the video: its own jobs, and its narration's (or song's) timing
+    and music bed, which carry no video (the dry run: two waits through the timing ended it)."""
+    from app.models.songs import SongTake
+
     step = Job.input["step"].as_string()
-    return list(db.scalars(select(Job).where(Job.project_id == project.id,
+    takes = select(SongTake).where(SongTake.project_id == project.id)
+    audio = or_(Job.id.in_(takes.with_only_columns(SongTake.timing_job_id)),
+                Job.id.in_(takes.with_only_columns(SongTake.music_job_id)))  # fmt: skip
+    return list(db.scalars(select(Job).where(or_(Job.project_id == project.id, audio),
                                              Job.status.in_(WAITING),
                                              or_(step.is_(None), step != STEP))))  # fmt: skip
 

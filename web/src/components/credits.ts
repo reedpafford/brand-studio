@@ -4,7 +4,7 @@ export const wholeCredits = (n: number) => Math.ceil(n - 1e-9) || 0; // never "-
 export const roundUp = (n: number, places: number) => Math.ceil(n * 10 ** places - 1e-9) / 10 ** places;
 export const creditsLabel = (n: number) => (wholeCredits(n) === 0 ? "free" : `${wholeCredits(n)} credit${wholeCredits(n) === 1 ? "" : "s"}`);
 
-/** How a paid press charges (rule 32). "estimate": held at its most and charged what it used (a Claude call, a look
+/** How a paid press charges (rule 36). "estimate": held at its most and charged what it used (a Claude call, a look
  *  with its check), so it reads "up to N". "fixed": exactly what it says (a still, a take, a quick clip, a song). */
 export type Charge = "estimate" | "fixed";
 /** A press's price as its button says it: whole credits, rounded up, "up to" when the charge can be lower. */

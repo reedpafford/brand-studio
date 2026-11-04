@@ -1,7 +1,7 @@
 """Freestyle 3b (the Producer's rules): a change to a Dialogue freestyle. With no run going
-the send is the press, quoted "up to" the whole video again, the running total under the
-per-video cap: an editor's waits for the owner every time, the owner's runs at once, and the
-new run reads every unread note. During a run it's only a note, read at the next turn."""
+the send is the press, quoted "up to" the whole video again: an editor's waits for the owner
+every time, the owner's runs at once, and the new run reads every unread note. During a run
+it's only a note, read at the next turn."""
 
 from decimal import Decimal
 
@@ -72,9 +72,7 @@ def test_the_owners_change_runs_at_once_and_one_during_a_run_is_only_a_note(
     assert r.json()["status"] == "working" and _held(owner) == []  # the owner's: at once
 
 
-def test_a_change_past_the_cap_is_refused_and_a_declined_one_frees_its_price(
-    app, owner, editor, db
-):
+def test_a_declined_change_frees_its_price(app, owner, editor, db):
     fs = _delivered(app, owner, editor, db)
     row = db.get(Freestyle, fs["id"])
     before = credits.approved(db, row)
@@ -87,10 +85,6 @@ def test_a_change_past_the_cap_is_refused_and_a_declined_one_frees_its_price(
     assert credits.approved(db, db.get(Freestyle, fs["id"])) == before  # nothing ran on it
     shown = owner.get(f"/jobs/{held['id']}").json()["freestyle"]
     assert Decimal(str(shown["total"])) == before  # QA-3: the total drops it at once
-    limits = owner.get("/credits/limits").json()
-    owner.put("/credits/limits", json={**limits, "per_video_max_credits": int(before) + 1})
-    r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": "Warmer."})
-    assert r.status_code == 409 and "past its limit" in r.json()["detail"]
 
 
 def test_an_owners_cancel_reads_stopped_and_a_repeat_after_the_first_is_new(owner, db):
@@ -102,3 +96,37 @@ def test_an_owners_cancel_reads_stopped_and_a_repeat_after_the_first_is_new(owne
     assert out["status"] == "stopped" and out["thread"][-1]["text"] == "Stopped."
     again = owner.post("/freestyles", json=one_clip).json()  # the first isn't waiting: a new one
     assert again["id"] != fs["id"]
+
+
+def test_a_model_switch_before_the_run_moves_its_price_and_past_the_ok_only_the_owner_may(
+    app, owner, editor, db
+):
+    """The dry run: switched to another model before the run, the "up to" kept the first one's."""
+    import math
+
+    from app.models.projects import Project
+    from app.models.script_library import ScriptDraft
+    from app.routes.estimate import run_price
+    from app.video_settings import PAST_OK
+    from tests.conftest import first_brand
+
+    sent = editor.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)}).json()
+    (held,) = _held(owner)
+    owner.post(f"/jobs/{held['id']}/approve")  # the run hasn't asked for a take yet
+    fs = db.get(Freestyle, sent["id"])
+    video = db.get(Project, fs.project_id)
+    draft = db.get(ScriptDraft, video.script_draft_id)
+
+    def switch(who, model):
+        return who.post(f"/projects/{video.id}/settings", json={"video_model": model})
+
+    assert switch(owner, "seedance-2.0").status_code == 200
+    db.expire_all()
+    cheaper = run_price(db, draft, video)
+    assert fs.up_to == cheaper  # the quote follows the model; so does what's covered
+    assert Decimal(db.get(Job, held["id"]).input["price"]) == cheaper  # Needs you's figure
+    r = switch(editor, "seedance-2.5")  # past what the owner said yes to: a new OK
+    assert (r.status_code, r.json()["detail"]) == (409, PAST_OK.format(credits=math.ceil(cheaper)))
+    assert switch(owner, "seedance-2.5").status_code == 200  # the owner's switch is that OK
+    db.expire_all()
+    assert fs.up_to == run_price(db, draft, video) > cheaper

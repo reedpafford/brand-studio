@@ -10,7 +10,7 @@ import { renderApp } from "../test/render";
 import { owner } from "../test/people";
 
 const script = (o: object = {}) => ({
-  id: 7, brand_id: 1, title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, reel_imported: false, new_lines: false, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
+  id: 7, brand_id: 1, kind: "story", format: "dialogue", title: "Bo tries salmon", description: "Show a picky dog.", reference_id: null, reel_imported: false, new_lines: false, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [{ slot: 0, status: "draft", title: "Bo tries salmon", seconds: 0, project_id: null, text: "", words: 0, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null }], ...o,
 });
 const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({

@@ -97,7 +97,7 @@ export function SiteImport({ brandId, waitFor, onSaved, onCancel }: { brandId: n
   const count = reviewing ? Number(tick.logo && !noLogo) + tick.colours.length + tick.products.length : 0;
   const reading = r?.status === "reading" || start.isPending || (jobId !== null && one.isPending);
   const refused = start.isError ? start.error.message : null;
-  const priceText = price.data !== undefined ? ` · ${pressLabel(price.data, "estimate")}` : ""; // rule 32: a press says "up to"
+  const priceText = price.data !== undefined ? ` · ${pressLabel(price.data, "estimate")}` : ""; // rule 36: a press says "up to"
 
   let found: ReactNode = null;
   if (reading) {

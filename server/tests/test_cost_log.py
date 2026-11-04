@@ -79,7 +79,9 @@ def test_an_editors_own_script_writing_shows_on_their_week_and_no_one_elses(owne
 
     out = editor.get("/usage/mine", params={"brand_id": fomo}).json()
     step = float(db.get(Job, mine.id).credits)
-    assert out["scripts"] == [{"script_id": script, "title": "Gut", "credits": step}]
+    assert out["scripts"] == [
+        {"script_id": script, "title": "Gut", "credits": step, "brand_id": fomo}
+    ]  # its brand, for its link
     assert out["script_credits"] == out["credits"] == step > 0
     assert not any("usd" in k or "dollar" in k for k in _keys(out))
     assert owner.get("/usage/mine", params={"brand_id": fomo}).json()["script_credits"] == float(

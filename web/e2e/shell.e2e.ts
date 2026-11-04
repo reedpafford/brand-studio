@@ -61,8 +61,8 @@ test("the owner invites someone with a link, and they join", async ({ browser, p
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
   await guestPage.goto(link);
-  await fill(guestPage, { "Your name": "Ed", "Choose a password (10 or more characters)": PASSWORD });
-  await guestPage.getByRole("button", { name: "Create my account" }).click();
+  await fill(guestPage, { "Your name": "Ed", "Choose a password (at least 10 characters)": PASSWORD });
+  await guestPage.getByRole("button", { name: "Join" }).click();
   await expectSignedInAs(guestPage, "Ed");
   await guest.close();
 
@@ -97,7 +97,7 @@ test("the owner removes a member, who can no longer sign in", async ({ page }) =
   await openAccountMenu(page);
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await signIn(page, "ed@example.com");
-  await expect(page.getByRole("alert")).toHaveText("Wrong email or password.");
+  await expect(page.getByRole("alert")).toHaveText("That email and password don't match.");
 });
 
 test("the owner finds the removed person, restores them, and changes their role with Undo", async ({ page }) => {

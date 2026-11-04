@@ -21,6 +21,7 @@ from app.routes import (
     folders,
     freestyles,
     health,
+    host,
     improve,
     jobs,
     languages,
@@ -36,6 +37,7 @@ from app.routes import (
     projects,
     reel_breakdown,
     references,
+    scorecard,
     screens,
     script_cast,
     script_cast_read,
@@ -52,6 +54,7 @@ from app.routes import (
     song_study,
     songs,
     storyboard,
+    take_sound,
     team,
     update_after,
     uploads,
@@ -105,6 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         sheets,
         jobs,
         usage,
+        scorecard,
         production,
         projects,
         credits,
@@ -128,6 +132,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         breakdown,
         storyboard,
         project_clips,
+        take_sound,
+        host,
         director,
         update_after,
         clips_zip,
@@ -147,6 +153,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)
+    app.include_router(looks.formats)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
     app.add_middleware(UploadLimit, path=r"/projects/\d+/script/upload", max_bytes=MAX_DOC_BYTES)
     app.add_middleware(

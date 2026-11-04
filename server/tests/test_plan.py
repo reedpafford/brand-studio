@@ -90,7 +90,13 @@ def test_change_this_scene_keeps_its_lines_and_carries_the_plan():
 
 def test_the_plan_prompt_keeps_the_words_and_names_its_patterns():
     text = prompts.system("plan")
-    for part in ("rule 19", "rule 29", "**Proven patterns**", "**Pet supplement:**", "★"):
+    for part in (
+        "The editor owns the script",
+        "never crosses a place or time change",
+        "**Proven patterns**",
+        "**Pet supplement:**",
+        "★",
+    ):
         assert part in text, part
     message = prompts.plan_input("Brief.", ["char:1 Biscuit: a pit bull"], SCRIPT, "narrated",
                                  "Seedance, 12 s a clip", note="make it funny")  # fmt: skip

@@ -66,9 +66,7 @@ def test_one_price_then_watch_write_and_cast_in_turn(app, owner, db, clip):
 def test_reading_a_reel_is_never_refused_for_the_week(app, owner, editor, db, clip):
     """One allowance (Reed, 30 Oct): reading a reel is a brand's work, never the week's, so
     an editor with nothing left still reads it and reads it again; no "left" is shown."""
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 0, "per_video_max_credits": 729}
-    )
+    owner.put("/credits/limits", json={"weekly_quick_clip_credits": 0})
     url = _ready(app, editor, db, clip)
     assert editor.get(f"{url}/import").json()["estimate"] == {
         "credits": 7,
@@ -82,14 +80,10 @@ def test_reading_a_reel_is_never_refused_for_the_week(app, owner, editor, db, cl
 
 
 def test_later_steps_are_prepaid(app, owner, editor, db, clip):
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 7, "per_video_max_credits": 729}
-    )
+    owner.put("/credits/limits", json={"weekly_quick_clip_credits": 7})
     url = _ready(app, editor, db, clip)
     assert editor.post(f"{url}/import/read").status_code == 201
-    owner.put(
-        "/credits/limits", json={"weekly_quick_clip_credits": 1, "per_video_max_credits": 729}
-    )
+    owner.put("/credits/limits", json={"weekly_quick_clip_credits": 1})
     _drain(app, db)  # the allowance shrank after the press: the steps still run
     assert editor.get(f"{url}/import").json()["status"] == "done"
 

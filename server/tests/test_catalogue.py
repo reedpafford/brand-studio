@@ -1,5 +1,6 @@
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -15,13 +16,16 @@ def _schema(model):
 
 
 def _enum(schema, field):
-    ref = schema["Input"]["properties"][field]["allOf"][0]["$ref"].split("/")[-1]
-    return schema["enums"][ref]["enum"]
+    prop = schema["Input"]["properties"][field]
+    if "enum" in prop:  # a dereferenced schema (P-Video's) has it in place
+        return prop["enum"]
+    return schema["enums"][prop["allOf"][0]["$ref"].split("/")[-1]]["enum"]
 
 
 def _up_to(schema, field) -> int:
     text = schema["Input"]["properties"][field]["description"]
-    return int(re.search(r"(?:up to|max) (\d+)", text).group(1))
+    found = re.search(r"(?:up to|max) (\d+)|\(\d+-(\d+) ", text)  # Seedance 1 Lite: "(1-4 images)"
+    return int(found.group(1) or found.group(2))
 
 
 @pytest.mark.parametrize("model", catalogue().values(), ids=lambda m: m.id)
@@ -37,17 +41,18 @@ def test_limits_match_replicate_schema(model):
     if model.duration:
         assert model.duration.max == props["duration"]["maximum"]
         assert model.duration.smart == (props["duration"]["minimum"] == -1)
+    opening = "image" in props and model.kind == "video"  # MMAudio's `image` is a sound's source
     images = "reference_images" if "reference_images" in props else None
     images = images or ("image_input" if "image_input" in props else "images")
     if images in props:
         assert model.max_reference_images == _up_to(schema, images)
-    else:  # speech: no pictures
-        assert model.max_reference_images == 0
+    else:  # speech: no pictures; P-Video: its one `image`, the opening frame
+        assert model.max_reference_images == int(opening)
     for kind in ("videos", "audios"):
         field = f"reference_{kind}" if f"reference_{kind}" in props else kind
         if field in props:
             assert getattr(model, f"max_reference_{kind}") == _up_to(schema, field)
-    assert model.first_frame == ("image" in props)
+    assert model.first_frame == opening
     assert model.last_frame == ("last_frame_image" in props)
     assert (model.audio == "switch") == ("generate_audio" in props)
 
@@ -60,9 +65,30 @@ def test_credit_rates_follow_real_price():
         seedance.credits_per_unit("1080p")
 
 
+def test_p_video_is_in_the_pickers_at_720p_and_its_real_cost(editor):
+    """Reed, 2026-11-03: "Unlock p-video at 720p, it is still only $.02 a second." It has no
+    480p, so its takes are made at its lowest, 720p; it lip-syncs to audio it is given."""
+    p_video = get_model("p-video")
+    assert p_video.usd_per_unit("720p") == Decimal("0.02")
+    assert p_video.credits_per_unit("720p") == Decimal("0.19")
+    assert (p_video.take_resolution, p_video.lip_sync) == ("720p", True)
+    shown = {m["id"]: m for m in editor.get("/models").json()}
+    assert shown["p-video"]["credits_per_unit"]["720p"] == 0.19
+
+
+def test_takes_stay_at_480p_for_a_model_that_has_it():
+    assert get_model("seedance-2.5").take_resolution == "480p"
+    assert get_model("seedance-2.0").take_resolution == "480p"
+
+
 def test_editor_sees_models_with_credits_but_no_dollars(editor):
     models = editor.get("/models").json()
-    assert [m["id"] for m in models if m["kind"] == "video"] == ["seedance-2.5", "seedance-2.0"]
+    assert [m["id"] for m in models if m["kind"] == "video"] == [
+        "seedance-2.5",
+        "seedance-2.0",
+        "p-video",
+        "seedance-1-lite",
+    ]
     assert editor.get("/models/seedance-2.5").json()["credits_per_unit"]["480p"] == 1
     assert [m["id"] for m in editor.get("/models", params={"kind": "image"}).json()] == [
         "nano-banana-2.1",
