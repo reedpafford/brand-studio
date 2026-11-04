@@ -65,8 +65,12 @@ def is_on(db: Session, workspace_id: int, look_id: str) -> bool:
 
 def drawn(project) -> str:
     """The look its stills and takes are drawn in: a hosted video's B-roll look when it has
-    one (n31), else its own. Its host, voice and cast sheets keep `project.look`."""
-    return project.broll_look or project.look or DEFAULT
+    one (n31), else its own. Its host, voice and cast sheets keep `project.look`. A B-roll
+    look the style has since become is the style's own (its lane, if the plan picked one)."""
+    own = project.look or DEFAULT
+    return (
+        project.broll_look if project.broll_look and base(project.broll_look) != base(own) else own
+    )
 
 
 BROLL_HOSTED = "Only a video with a presenter has a B-roll look of its own."
@@ -92,12 +96,18 @@ def frame_other(project, frame) -> bool:
     return bool(frame.file_id) and frame.look != drawn(project)
 
 
+def take_look(project, take) -> str:
+    """The look a take should be in now: a UGC talker's clip is the host's (the video's own
+    look); every other take is B-roll (`drawn`)."""
+    return project.look if (take.made_with or {}).get("talker") else drawn(project)
+
+
 def take_other(db: Session, project, clip) -> bool:
     """A clip whose picked take was made in another look than the video's now (VS1)."""
     from app.models.clips import ClipTake
 
     take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
-    return bool(take) and take.look != drawn(project)
+    return bool(take) and take.look != take_look(project, take)
 
 
 def redo_credits(db: Session, project) -> float:

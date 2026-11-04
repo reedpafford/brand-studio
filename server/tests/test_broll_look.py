@@ -2,6 +2,8 @@
 modelled in another style's look while the host, voice and cast keep the video's own; the
 briefed steps get both guides as Reed wrote them. Stand-ins only."""
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
 
@@ -9,6 +11,7 @@ from app import guides, host, looks, prompts
 from app.breakdown import video_model
 from app.models.accounts import User
 from app.models.jobs import Job
+from app.models.looks import LookSwitch
 from app.models.storyboards import StoryboardFrame
 from tests.conftest import first_brand
 from tests.test_freestyle_dialogue import BODY, _run
@@ -87,3 +90,25 @@ def test_only_a_video_with_a_host_has_a_b_roll_look_and_an_editor_picks_one_that
     with pytest.raises(HTTPException) as off:  # Skeleton is off for editors until switched on
         looks.pick_broll(db, kel, video, "skeleton")
     assert off.value.status_code == 409
+
+
+def test_a_talkers_clip_keeps_the_style_and_a_b_roll_look_the_style_became_is_its_own():
+    video = SimpleNamespace(look="house", broll_look="skeleton", video_model=None)
+    assert looks.take_look(video, SimpleNamespace(made_with={"talker": 7})) == "house"  # the host
+    assert looks.take_look(video, SimpleNamespace(made_with={})) == "skeleton"  # B-roll
+    assert looks.drawn(SimpleNamespace(look="skeleton-bare", broll_look="skeleton")) == (
+        "skeleton-bare")  # the style is now Skeleton (its plan's lane): its own again  # fmt: skip
+    assert (
+        video_model(video, "house", "story").id == guides.style("skeleton")["video_model"]
+    )  # quotes too
+
+
+def test_an_editor_picks_a_b_roll_look_thats_on_never_a_lane(db, owner, editor):
+    video = _video(db, _sent(owner, "presenter", NARRATION))
+    kel = db.query(User).filter(User.name == "Ed").one()
+    db.add(LookSwitch(workspace_id=kel.workspace_id, look_id="skeleton", on=True))
+    db.flush()
+    assert looks.pick_broll(db, kel, video, "skeleton") == "skeleton"
+    with pytest.raises(HTTPException) as lane:
+        looks.pick_broll(db, kel, video, "claymation-goofy")
+    assert lane.value.status_code == 422

@@ -287,8 +287,6 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
     if "look" in values:
         looks.picked_by_person(project)  # a plan's lane leaves it as they chose
         follow_own_looks(db, project)
-        if project.broll_look and looks.base(project.broll_look) == looks.base(project.look):
-            project.broll_look = None  # the B-roll look became the style: its own again
     db.commit()
     return was
 
