@@ -228,8 +228,9 @@ def test_a_take_for_a_clip_that_isnt_there_is_refused(db, owner, editor, app):
     pid = _made(app, owner, editor, db)
     project = db.get(Project, pid)
     user = db.query(User).filter_by(email="ed@example.com").one()
-    said = director_tools.run(db, user, project, {"tool": "make_take", "clip_id": "c9"}, None)
-    assert said == "Refused: there's no clip c9."
+    for clip in ("c9", "C9", "9", "clip 9"):  # QA-3: never "clip clip 9" or "there's no 9"
+        said = director_tools.run(db, user, project, {"tool": "make_take", "clip_id": clip}, None)
+        assert director.named(said) == "Refused: there's no clip 9."
 
 
 def test_its_own_turns_never_use_the_videos_budget(app, db, owner, editor):
@@ -898,7 +899,9 @@ def test_every_open_note_is_answered_and_delivery_waits_for_them(
     out = editor.get(url).json()
     assert out["status"] == "delivered", [(t["tool"], t["result"]) for t in out["turns"]]
     results = [t["result"] for t in out["turns"]]
-    assert any(r.startswith("Refused: note 2 is still open.") for r in results), results
+    assert any(r == "Refused: note 2 is still open." for r in results), results  # people's words
+    turns = db.query(Job).filter(Job.input["step"].as_string() == director.STEP).all()
+    assert any(j.input.get("result") == director.OPEN.format(2) for j in turns)  # the director's
     whys = [t["why"] for t in out["turns"]]
     assert whys.count("Note 1: you asked: Make clip 1 warmer.") == 1  # the older note is made
     assert "Note 2: there's no clip 9 in this video." in whys[-1]

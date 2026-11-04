@@ -199,7 +199,9 @@ def thread(db: Session, project: Project) -> list[dict]:
 
 
 def named(text: str) -> str:
-    """Clips as people see them ("clip 1"), never their ids ("c1")."""
+    """A move as people read it: clips as they see them ("clip 1", never "c1"), and a note
+    still open without what OPEN tells the director to do (QA-3)."""
+    text = re.sub(r"^(Refused: note \d+ is still open\.).*", r"\1", text, flags=re.S)
     return re.sub(r"\bc(\d+)\b", r"clip \1", text)
 
 
