@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 import { ChevronDown, ChevronLeft, Film, Images, Music, Users } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
@@ -13,21 +14,33 @@ import { useRail } from "../useMedia";
 type Item = components["schemas"]["MediaItem"];
 type Kind = Item["kind"];
 
-const KINDS: { id: Kind; label: string; one: string }[] = [
-  { id: "still", label: "Stills", one: "Still" },
-  { id: "sheet", label: "Character sheets", one: "Sheet" },
-  { id: "take", label: "Clips", one: "Take" },
-  { id: "song", label: "Songs", one: "Song" },
-  { id: "final", label: "Final videos", one: "Final video" },
-  { id: "upload", label: "Added", one: "Upload" }, // a picture or clip added to the brand's Media (#1267)
+const KINDS: { id: Kind; one: string }[] = [
+  { id: "still", one: "Still" },
+  { id: "sheet", one: "Sheet" },
+  { id: "take", one: "Take" },
+  { id: "song", one: "Song" },
+  { id: "final", one: "Final video" },
+  { id: "upload", one: "Upload" }, // a picture or clip added to the brand's Media (#1267)
 ];
-/** The board's tabs: All · Clips · Stills · Songs. A tab is one kind until the server groups them (a final cut and a sheet show under All). */
-const TABS: Kind[] = ["take", "still", "song"];
+type Group = Item["group"];
+/** The board's tabs: All · Clips · Stills · Songs, each with its count. The server groups the kinds (a final cut and an added clip are
+ *  Clips; a character sheet and an added picture are Stills), so a tab is a group and not one kind. */
+const TABS: { id: Group; label: string; count: "clips" | "stills" | "songs" }[] = [
+  { id: "clip", label: "Clips", count: "clips" },
+  { id: "still", label: "Stills", count: "stills" },
+  { id: "song", label: "Songs", count: "songs" },
+];
+/** What Upload offers: the types the server accepts (it checks the file's first bytes, never this list). */
+const UPLOADABLE = "image/png,image/jpeg,image/webp,video/mp4,video/webm";
+/** The length on a tile, as the board draws it: 00:08. */
+const clock = (seconds: number) => {
+  const s = Math.round(seconds); // whole seconds first, so 59.6 reads 01:00 and not 00:60
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+};
 /** 130 px tiles, as many to a row as fit (the board shows eight at 1440); three across on a phone. */
 const GRID = "grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-4";
-const CHIP: Record<Exclude<Kind, "upload">, string> = { take: "Clip", final: "Final", still: "Still", sheet: "Sheet", song: "Song" };
-/** An added picture or clip reads as what it is. */
-const chip = (m: Item) => (m.kind === "upload" ? (m.content_type.startsWith("video/") ? "Clip" : "Still") : CHIP[m.kind]);
+/** The chip on a tile is its group, only Clip, Still or Song: a final cut is a Clip, a character sheet or an added picture a Still. */
+const CHIP: Record<Group, string> = { clip: "Clip", still: "Still", song: "Song" };
 export const kindName = (k: Kind) => KINDS.find((x) => x.id === k)!.one;
 const date = (iso: string) => serverTime(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
@@ -61,10 +74,10 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
   // A song made on a script (not yet in a video) says which script: its title, read once and shared with the script's own page.
   const fromScript = m.kind === "song" && !m.video_name && m.script_id ? m.script_id : null;
   const script = useQuery({ enabled: fromScript !== null, queryKey: ["script-lib", fromScript], queryFn: async () => (await api.GET("/scripts/{script_id}", { params: { path: { script_id: fromScript! } } })).data ?? null });
-  const title = m.video_name ?? script.data?.title ?? (m.open_step === "quick" ? "Quick clip" : m.kind === "sheet" ? "Cast & places" : kindName(m.kind));
+  const title = m.video_name ?? script.data?.title ?? (m.open_step === "quick" ? "Quick clip" : m.kind === "sheet" ? "Cast & places" : m.kind === "upload" ? isVideo ? "Added clip" : "Added picture" : kindName(m.kind));
   const gone = m.deleted_video_by; // the deleted video's maker: they or the owner may restore it (as the Archived list offers)
   const mayRestore = owner || (!!gone && gone.id === meId);
-  const meta = [fromScript ? "Song from the script" : m.kind === "song" && m.video_name ? "Song from the video" : kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
+  const meta = [fromScript ? "Song from the script" : m.kind === "song" && m.video_name ? "Song from the video" : m.kind === "upload" ? "Added" : m.kind === "final" ? "Director video" : kindName(m.kind), date(m.made_at), m.made_by?.name].filter(Boolean).join(" · ");
   const picture = m.poster_file_id ? fileUrl(m.poster_file_id) : m.content_type.startsWith("image/") ? fileUrl(m.file_id) : null;
   const Icon = m.kind === "song" ? Music : m.kind === "sheet" ? Users : Images;
   return (
@@ -75,7 +88,13 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
             <Icon size={24} strokeWidth={1.75} />
           </span>
         )}
-        <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{chip(m)}</span>
+        <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{CHIP[m.group]}</span>
+        {m.duration_seconds != null && Math.round(m.duration_seconds) > 0 && (
+          <span className="absolute bottom-1.5 left-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium tabular-nums text-on-media">
+            <span className="sr-only">Length </span>
+            {clock(m.duration_seconds)}
+          </span>
+        )}
       </Link>
       <p className="mt-1.5 truncate text-xs font-medium">{title}</p>
       <p className="truncate text-xs text-muted">{meta}</p>
@@ -102,7 +121,7 @@ export function MediaPage() {
   const brand = useBrands().data?.find((b) => b.id === brandId);
   const rail = useRail();
   const [params, setParams] = useSearchParams();
-  const kind = (KINDS.find((k) => k.id === params.get("kind"))?.id ?? null) as Kind | null;
+  const group = TABS.find((t) => t.id === params.get("group"))?.id ?? null;
   const video = params.get("video"); // one video's own media (a Freestyle counts as a video)
   const oldest = params.get("sort") === "oldest";
   const set = (key: string, value: string) =>
@@ -111,13 +130,13 @@ export function MediaPage() {
       else p.delete(key);
       return p;
     }, { replace: true });
-  const clear = () => setParams((p) => { ["kind", "video", "sort"].forEach((k) => p.delete(k)); return p; }, { replace: true });
+  const clear = () => setParams((p) => { ["group", "video", "sort"].forEach((k) => p.delete(k)); return p; }, { replace: true });
 
   const media = useInfiniteQuery({
-    queryKey: ["media", brandId, kind, oldest],
+    queryKey: ["media", brandId, group, oldest],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) =>
-      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(kind ? { kind } : {}), ...(oldest ? { sort: "oldest" as const } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
+      must(api.GET("/brands/{brand_id}/media", { params: { path: { brand_id: brandId }, query: { ...(group ? { group } : {}), ...(oldest ? { sort: "oldest" as const } : {}), ...(pageParam ? { before: pageParam } : {}) } } })).then((r) => r.data!),
     getNextPageParam: (last) => last.next,
   });
   const loaded = media.data?.pages.flatMap((p) => p.items) ?? [];
@@ -125,7 +144,29 @@ export function MediaPage() {
   const videos = [...new Map(loaded.flatMap((m) => (videoKey(m) && m.video_name ? [[videoKey(m)!, m.video_name] as const] : []))).entries()];
   const picked = videos.find(([k]) => k === video)?.[1];
   const items = loaded.filter((m) => !video || videoKey(m) === video); // the server sorts (newest or oldest first)
-  const filtered = !!kind || !!video;
+  const filtered = !!group || !!video;
+  // The tabs' counts are the brand's whole Media (the Video filter reads only the pages loaded, so it doesn't change them).
+  // Under "media" so every add, delete and Undo that refreshes Media refreshes them too.
+  const counts = useQuery({
+    queryKey: ["media", "counts", brandId],
+    queryFn: async () => (await api.GET("/brands/{brand_id}/media-counts", { params: { path: { brand_id: brandId } } })).data ?? null,
+  });
+  const count = (n: number | undefined) => (typeof n === "number" ? n : null);
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const picker = useRef<HTMLInputElement>(null);
+  const add = useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append("upload", file);
+      return must(api.POST("/brands/{brand_id}/media", { params: { path: { brand_id: brandId } }, body: { upload: file as unknown as string }, bodySerializer: () => form })).then((r) => r.data!);
+    },
+    onSuccess: (m) => {
+      void queryClient.invalidateQueries({ queryKey: ["media"] });
+      toast(m.content_type.startsWith("video/") ? "Clip added to Media." : "Picture added to Media.");
+    },
+    onError: (e: Error) => toast(e.message, undefined, "error"),
+  });
 
   const menu = (title: string, label: string, options: [string, string][], current: string, onPick: (v: string) => void) => (
     <Menu title={title} align="right" trigger={(p) => (
@@ -139,11 +180,15 @@ export function MediaPage() {
   // The board's band: the kinds as pills on the left, the filters as plain text on the right.
   const tabs = (
     <nav aria-label="Kinds" className={pillStrip}>
-      {[{ id: "", label: "All" }, ...TABS.map((id) => ({ id, label: KINDS.find((k) => k.id === id)!.label }))].map((k) => (
-        <button key={k.id} type="button" aria-pressed={(kind ?? "") === k.id} className={pillClass((kind ?? "") === k.id)} onClick={() => set("kind", k.id)}>
-          {k.label}
-        </button>
-      ))}
+      {[{ id: "", label: "All", count: "all" as const }, ...TABS].map((k) => {
+        const n = count(counts.data?.[k.count]);
+        return (
+          <button key={k.id} type="button" aria-pressed={(group ?? "") === k.id} className={pillClass((group ?? "") === k.id)} onClick={() => set("group", k.id)}>
+            {k.label}
+            {n !== null && <span className="ml-1.5 tabular-nums text-muted">{n}</span>}
+          </button>
+        );
+      })}
     </nav>
   );
 
@@ -156,6 +201,10 @@ export function MediaPage() {
             Videos
           </Link>
         )}
+        <input ref={picker} type="file" accept={UPLOADABLE} className="sr-only" tabIndex={-1} aria-label="Choose a picture or clip" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) add.mutate(f); }} />
+        <Button variant="secondary" busy={add.isPending} onClick={() => picker.current?.click()}>
+          Upload
+        </Button>
       </PageTop>
       <div className="-mx-4 mb-4 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-1.5 sm:-mx-6 sm:px-6">
         {tabs}
