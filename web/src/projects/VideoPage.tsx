@@ -20,7 +20,6 @@ import { ScriptPanel } from "./ScriptPanel";
 import { ShapeRow } from "./ShapeRow";
 import { VideoSettings, useVideoSettings } from "./VideoSettings";
 import { useUpdateAfter } from "./UpdateAfter";
-import { ProjectPicker } from "../folders/Projects";
 import { SongStrip } from "../scripts/VideoSong";
 import { isDone } from "./steps";
 import { useProgress } from "./useProgress";
@@ -157,7 +156,6 @@ export function VideoPage() {
             {menu}
           </div>
           <WaitingCount projectId={id} className="basis-full" />
-          {mayManage(p) && <ProjectPicker brandId={p.brand_id} kind="video" id={id} folderId={p.folder_id} />}
         </div>
       </div>
       </>

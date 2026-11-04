@@ -19,7 +19,7 @@ const here = (j: Job, w: HeldWhere) =>
 // The server words a decline without a reason itself ("The owner said no this time…"); only a reason the owner typed is shown.
 const reasonOf = (j: Job) => (j.error && !j.error.startsWith("The owner said no") ? j.error : "");
 const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
-const what = (j: Job) =>
+export const what = (j: Job) =>
   j.step === "song_take" ? (j.kind === "speech" ? "Your narration" : "Your song or music") : j.step ? (STEPS[j.step] ?? "Your request") : quick(j) ? "Your Quick clip" : "Your request";
 // Where "Change this…" goes for a declined press: the video step it was pressed on (ux-audit §8.4). A change goes where its
 // still or clip is.

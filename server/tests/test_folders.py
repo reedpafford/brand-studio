@@ -214,8 +214,8 @@ def test_the_tree_counts_at_any_depth_and_shows_each_folders_newest_dots(owner, 
     _idea(db, brand, me, "First test video")
     _idea(db, brand, me, "Put away", rants, archived_at=utcnow())
     tree = editor.get(f"/brands/{brand}/tree").json()  # an editor sees everyone's (S1-08)
-    assert [f["name"] for f in tree["folders"]] == ["Black Friday", "Dr. Pickle rants"]
-    top = tree["folders"][1]
+    assert [f["name"] for f in tree["folders"]] == ["Dr. Pickle rants", "Black Friday"]  # as made
+    top = tree["folders"][0]
     assert (top["count"], top["more"], len(top["ideas"])) == (8, 2, 5)
     assert [i["title"] for i in top["ideas"]] == [f"Rant {n}" for n in (6, 5, 4, 3, 2)]
     assert top["ideas"][0]["status"] == {"kind": "needs_you", "words": "Needs you",
@@ -225,6 +225,7 @@ def test_the_tree_counts_at_any_depth_and_shows_each_folders_newest_dots(owner, 
     shown = (inner["name"], inner["count"], inner["ideas"][0]["title"])
     assert shown == ("Hangovers", 1, "On hangovers")
     assert not top["can_manage"]  # the owner's folder, read by an editor
+    assert not top["ideas"][0]["can_manage"]  # the owner's idea: an editor can't drag it
     assert tree["unsorted"]["count"] == 1 and tree["unsorted"]["id"] is None
     assert owner.get("/brands/999/tree").status_code == 404
 
@@ -242,6 +243,9 @@ def test_each_status_in_words_first_thing_first(app, owner, editor, db):
     _job(db, held, JobStatus.needs_owner_approval, credits=6)
     assert status(held)["words"] == ideas.YOUR_OK
     assert status(held, editor)["words"] == "Waiting for the owner"
+    loose = owner.get(f"/brands/{brand}/ideas?folder=none").json()["ideas"]
+    cost = next(i["cost"] for i in loose if i["id"] == held)
+    assert (cost["kind"], cost["credits"]) == ("total", 10)  # what it has spent (S1-04, S9-01)
 
     broken = _idea(db, brand, me, "Night-time bloat")
     bd = BreakdownVersion(project_id=broken, data=BREAKDOWN, source="ai", script_version=1)
@@ -338,3 +342,5 @@ def test_an_open_folder_tabs_search_made_by_sort_pages_and_archived(owner, edito
     assert owner.get(f"/brands/{other}/ideas?folder={week}").status_code == 404  # brands apart
     assert owner.get(f"/brands/{brand}/ideas?folder=nope").status_code == 404
     assert owner.get(f"/brands/{brand}/ideas?folder=²").status_code == 404
+    found = editor.get(f"/brands/{brand}/ideas?folder=all&q=glow").json()["ideas"]  # quick search
+    assert [i["title"] for i in found] == ["Glow-up"]

@@ -4,7 +4,7 @@ import { emptyBrand, signIn } from "./helpers";
 // Runs last (after the owner exists). The brand's name sorts after "fomo", so no other test's first brand changes.
 test("Reed archives a brand, it leaves the menu, and Restore on Usage brings it back", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const id = await emptyBrand(page, "Zulu Archive Co");
   await page.goto(`/b/${id}/brand`);
   await page.getByRole("button", { name: "More for Zulu Archive Co" }).click();

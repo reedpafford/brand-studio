@@ -5,7 +5,7 @@ import { emptyBrand, signIn } from "./helpers";
 test("a script is made in the library: describe it, write its words, and it is listed as Writing", async ({ page }) => {
   test.setTimeout(90_000); // the variation is written by the worker
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   await page.goto(`/b/${await emptyBrand(page, "Script Library Co")}`);
   await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
   await expect(page.getByText("No scripts for Script Library Co yet.")).toBeVisible();
@@ -100,7 +100,7 @@ test("a script is made in the library: describe it, write its words, and it is l
 
 test("Reed deletes a script from its row, and Undo brings it back", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Removal Co");
   const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Throwaway", description: "A script to delete.", notes: "", reference_replace: "", text: "" } });
   expect(made.ok()).toBeTruthy();
@@ -118,7 +118,7 @@ test("Reed deletes a script from its row, and Undo brings it back", async ({ pag
 test("an empty script with a reel is written from the reference, at the price shown", async ({ page }) => {
   test.setTimeout(90_000);
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Write Ref Co");
   const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Altar again", description: "Remake the altar reel for this brand.", notes: "", reference_replace: "", reference_id: "fomo-DehudnaAmce", text: "" } });
   expect(made.ok()).toBeTruthy();
@@ -133,7 +133,7 @@ test("an empty script with a reel is written from the reference, at the price sh
 
 test("a deleted script is found under Deleted and archived, and Restore puts it back", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Removal Co");
   const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Gone for now", description: "Deleted, then found.", notes: "", reference_replace: "", text: "" } });
   expect(made.ok()).toBeTruthy();
@@ -150,7 +150,7 @@ test("a deleted script is found under Deleted and archived, and Restore puts it 
 test("Directions: Claude suggests lines for a written script, one is accepted and added, and the words stay", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Removal Co");
   const words = "MIA: Hell no!\nBO: Salmon? Again?";
   const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Needs directions", description: "Directions test.", notes: "", reference_replace: "", text: words } });
@@ -174,7 +174,7 @@ test("Directions: Claude suggests lines for a written script, one is accepted an
 test("Directions shows its result when Suggest is pressed while the page's first jobs list is still loading", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Slow Jobs Co");
   const made = await page.request.post("/api/scripts", { data: { brand_id: brandId, title: "Slow jobs list", description: "Race test.", notes: "", reference_replace: "", text: "MIA: Hell no!\nBO: Salmon? Again?" } });
   expect(made.ok()).toBeTruthy();
@@ -194,7 +194,7 @@ test("Directions shows its result when Suggest is pressed while the page's first
 
 test("a new script keeps every letter typed through its first save, at typing speed, Dialogue and Song", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brand = await emptyBrand(page, "Typing Speed Co");
   for (const [kind, label, then, words] of [["dialogue", "Write or paste the script", "Script · version A", "BO: Salmon?"], ["song", "Lyrics", "Lyrics", "[Verse] Salmon"]] as const) {
     await page.goto(`/b/${brand}/scripts/new?format=${kind}`);

@@ -98,7 +98,7 @@
   --control-h: 44px;       /* every control on phones; also the desktop minimum for primary actions */
   --control-h-dense: 32px; /* secondary controls on desktop only (pointer), never on phones */
   --topbar-h: 60px;
-  --rail-w: 232px;         /* desktop side rail */
+  --rail-w: 248px;         /* desktop side rail (v6 S0-01) */
   --tabbar-h: 64px;        /* phone bottom tabs (+ safe area) */
   --actionbar-h: 68px;     /* phone action bar above the tabs */
   --content-max: 1280px;

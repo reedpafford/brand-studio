@@ -11,6 +11,8 @@ import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { NewScriptPage } from "./scripts/NewScriptButton";
 import { ScriptsRoute } from "./videos/ScriptsRoute";
+import { LibraryList, MoreList } from "./shell/PhoneLists";
+import { MyRequestsPage } from "./approvals/MyRequestsPage";
 import { FolderPage } from "./videos/FolderPage";
 import { MediaPage } from "./media/MediaPage";
 import { MediaItemPage } from "./media/MediaItemPage";
@@ -58,6 +60,9 @@ export function App() {
           <Route path="b/:brandId/library/:kindSlug/:itemId" element={<ItemPage />} />
           <Route path="b/:brandId/clip" element={<Navigate to="../videos/new" relative="path" replace />} />
           <Route path="b/:brandId/media" element={<MediaPage />} />
+          <Route path="b/:brandId/more/library" element={<LibraryList />} />
+          <Route path="more" element={<MoreList />} />
+          <Route path="requests" element={<MyRequestsPage />} />
           <Route path="b/:brandId/media/:key" element={<MediaItemPage />} />
           <Route path="brands/new" element={<NewBrandPage />} />
           <Route path="freestyle" element={<ToNewVideo />} />

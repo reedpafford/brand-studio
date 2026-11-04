@@ -6,7 +6,7 @@ test("fomo comes with its real screens and logo", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
 
-  await page.getByRole("link", { name: "Brand", exact: true }).click();
+  await page.getByRole("link", { name: "Brand kit", exact: true }).click();
   await page.getByRole("tab", { name: /^App screens/ }).click();
   await expect(page.getByRole("heading", { name: /^App screens/ })).toContainText("5");
   // fomo's real screens are always used for their moments: the tile says so, and the editor lists both.

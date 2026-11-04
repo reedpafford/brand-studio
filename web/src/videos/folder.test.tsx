@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
@@ -46,7 +46,7 @@ test("an open folder (S1-04): the crumb and its counts, tabs, and each idea's st
   const calls = fakeServer(base(owner));
   open();
   expect(await screen.findByText("2 video ideas · 1 needs you")).toBeInTheDocument();
-  expect(screen.getByText("Week of 3 Nov")).toBeInTheDocument();
+  expect(within(screen.getByRole("main")).getByText("Week of 3 Nov")).toBeInTheDocument();
   const card = screen.getByRole("link", { name: /Beer gut doctor rant/ });
   expect(card).toHaveAttribute("href", "/b/1/videos/9");
   expect(within(card).getByText("Working · 14 of 24")).toBeInTheDocument();
@@ -116,7 +116,7 @@ test("the folder's ⋯ holds its actions and Archived ideas; Archived lists them
   const gone = idea({ id: 12, title: "Old hangover cure", status: status("archived", "Archived", { at: "2026-10-28T10:00:00Z" }) });
   fakeServer({ ...base(owner, page(two, { archived: 1 })), "GET /brands/1/ideas?folder=4&tab=all&sort=newest&offset=0&limit=60&archived=true": [200, page([gone], { archived: 1 })], "POST /projects/12/restore": [200, {}] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Week of 3 Nov" }));
+  await userEvent.click(await within(await screen.findByRole("main")).findByRole("button", { name: "More for Week of 3 Nov" }));
   const menu = screen.getByRole("menu", { name: "Week of 3 Nov" });
   expect(within(menu).getAllByRole("menuitem").map((m) => m.textContent?.trim())).toEqual(["New folder inside", "Rename", "Move to…", "Delete folder…", "Archived ideas1"]);
   await userEvent.click(within(menu).getByRole("menuitem", { name: /Archived ideas/ }));
@@ -131,7 +131,7 @@ test("deleting a folder says where its ideas go, and Undo brings it back", async
   setViewport(1440);
   const calls = fakeServer({ ...base(owner), "DELETE /folders/4": [200, { moved: 2, ideas: 2 }], "POST /folders/4/restore": [200, {}] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Week of 3 Nov" }));
+  await userEvent.click(await within(await screen.findByRole("main")).findByRole("button", { name: "More for Week of 3 Nov" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Delete folder…" }));
   const ask = screen.getByRole("alertdialog", { name: "Delete Week of 3 Nov?" });
   expect(ask).toHaveTextContent("Its 2 ideas move to Unsorted. Nothing is deleted, and Undo brings it back.");
@@ -187,4 +187,47 @@ test("a folder that's gone says so, with a way to Unsorted (QA on #1304)", async
   open("/b/1/videos?folder=99");
   expect(await screen.findByText("This folder isn't here any more. It may have been deleted.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Open Unsorted" })).toHaveAttribute("href", "/b/1/videos");
+});
+
+test("on a phone, press and hold a card to select it, tap more; the dark bar takes the tabs' place (S-gaps-06, 12)", async () => {
+  setViewport(390);
+  fakeServer(base(owner, page(two.map((i) => ({ ...i, can_manage: true })))));
+  open();
+  const card = await screen.findByRole("link", { name: /Beer gut doctor rant/ });
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  fireEvent.pointerDown(card);
+  vi.advanceTimersByTime(600);
+  fireEvent.pointerUp(card);
+  fireEvent.click(card);
+  vi.useRealTimers();
+  const bar = await screen.findByRole("region", { name: "Selected ideas" });
+  expect(within(bar).getByText("1 selected")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("link", { name: /Bloated after pizza/ })); // a tap adds while selecting
+  expect(within(bar).getByText("2 selected")).toBeInTheDocument();
+  await userEvent.click(within(bar).getByRole("button", { name: "Clear the selection" }));
+  expect(screen.queryByRole("region", { name: "Selected ideas" })).toBeNull();
+});
+
+test("an empty Unsorted says where new ideas land, with New video and no folder inside (S-gaps-06, 14)", async () => {
+  setViewport(1440);
+  fakeServer(base(owner, page([], { counts: { all: 0, needs_you: 0, working: 0, delivered: 0 } })));
+  open("/b/1/videos?folder=none");
+  expect(await screen.findByRole("heading", { name: "Nothing in Unsorted" })).toBeInTheDocument();
+  expect(screen.getByText("New ideas land here until you put them in a folder.")).toBeInTheDocument();
+  expect(within(screen.getByRole("main")).getAllByRole("link", { name: "New video" }).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: "New folder inside" })).toBeNull();
+});
+
+test("on a phone, the folder's ⋯ opens under it and Rename edits the name in the top bar (S-gaps-06, 19)", async () => {
+  setViewport(390);
+  const calls = fakeServer({ ...base(owner), "PATCH /folders/4": [200, {}] });
+  open();
+  await userEvent.click(await within(await screen.findByRole("main")).findByRole("button", { name: "More for Week of 3 Nov" }));
+  expect(screen.getByRole("menu", { name: "Week of 3 Nov" })).toBeInTheDocument(); // a popover, not a sheet
+  expect(screen.queryByRole("dialog", { name: "Week of 3 Nov" })).toBeNull();
+  await userEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+  const box = screen.getByRole("textbox", { name: "Rename Week of 3 Nov" });
+  await userEvent.clear(box);
+  await userEvent.type(box, "Week of 10 Nov{Enter}");
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /folders/4")?.body).toEqual({ name: "Week of 10 Nov" }));
 });

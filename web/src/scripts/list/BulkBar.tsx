@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../../api/client";
 import { Button, Dialog, Menu, MenuItem, useToast } from "../../components";
-import { useFolders } from "../../folders/Projects";
+import { nested, useFolders } from "../../folders/Projects";
 import { errorText as errorClass } from "../../ui";
 import type { Row } from "./ScriptRow";
 
@@ -77,9 +77,9 @@ export function BulkBar({ brandId, picked, mayArchive, onDone }: { brandId: numb
         >
           {(close) => (
             <>
-              {folders.data!.map((f) => (
+              {nested(folders.data!).map(({ f, depth }) => (
                 <MenuItem key={f.id} onClick={() => { close(); void move(f.id, f.name); }}>
-                  {f.name}
+                  <span style={{ paddingLeft: depth * 16 }}>{f.name}</span>
                 </MenuItem>
               ))}
               <MenuItem onClick={() => { close(); void move(null, "No project"); }}>No project</MenuItem>

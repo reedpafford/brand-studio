@@ -5,14 +5,14 @@ for (const width of [1440, 390]) {
   test(`at ${width}: Media opens from the rail (from Videos on a phone), says nothing is made yet, and filters (flows OR2)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
-    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, "Media Co");
 
     await page.goto(`/b/${brandId}/videos`);
     if (width === 1440) await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Media" }).click();
     else {
-      await expect(page.getByRole("navigation", { name: "Tabs" }).getByRole("link")).toHaveCount(5); // Media isn't a phone tab
-      await page.getByRole("main").getByRole("link", { name: "Media" }).click(); // it opens from the Videos header
+      await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Library" }).click(); // Media is in the Library tab (S-gaps-04 R3)
+      await page.getByRole("link", { name: "Media" }).click();
     }
     await expect(page).toHaveURL(new RegExp(`/b/${brandId}/media$`));
     await expect(page.getByRole("heading", { name: "Nothing made yet in Media Co." })).toBeVisible();
@@ -33,7 +33,7 @@ for (const width of [1440, 390]) {
 
 test("Upload adds a picture to Media, and it shows as a Still with the tab counts moving", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Upload Co");
   await page.goto(`/b/${brandId}/media`);
   await expect(page.getByRole("heading", { name: /^Nothing made yet/ })).toBeVisible();
@@ -49,7 +49,7 @@ test("Upload adds a picture to Media, and it shows as a Still with the tab count
 test("at 390 a deleted video's badge wraps a long unbroken maker name inside its tile (QA on #997)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Long Name Co");
   const name = "Bartholomewchristopheralexanderjonathanson"; // no break of its own
   const item = { key: "take:1", kind: "take", file_id: 1, content_type: "video/mp4", poster_file_id: null, made_at: "2026-10-28T10:00:00Z", made_by: null, project_id: 9, folder_id: null, video_name: "Bo tries salmon", script_id: null, open_step: "clips", from_deleted_video: true, deleted_video_by: { id: 99, name } };

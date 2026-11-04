@@ -174,13 +174,13 @@ test("Show more asks for the next page", async () => {
   await vi.waitFor(() => expect(urls().some((u) => u.includes("before="))).toBe(true));
 });
 
-test("on a phone the filters open in a sheet, the tabs stay five, and Media opens from the Videos header with < Videos back", async () => {
+test("on a phone Media opens from the Library tab (S-gaps-04 R3), with < Videos back", async () => {
   setViewport(390);
   fakeServer({ ...base(owner, page([item()])), "GET /projects": [200, []], "GET /scripts": [200, []], "GET /references": [200, []] });
-  open("/b/1/videos");
+  open("/b/1/scripts");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
-  await vi.waitFor(() => expect(within(tabs).getAllByRole("link")).toHaveLength(5));
-  expect(within(tabs).queryByRole("link", { name: /Media/ })).toBeNull();
+  await vi.waitFor(() => expect(within(tabs).getAllByRole("link")).toHaveLength(4));
+  await userEvent.click(within(tabs).getByRole("link", { name: "Library" }));
   await userEvent.click(await screen.findByRole("link", { name: "Media" }));
   await screen.findByRole("list", { name: "Media" });
   expect(within(screen.getByRole("main")).getByRole("link", { name: "Videos" })).toHaveAttribute("href", "/b/1/videos");

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Archive, ArrowRightLeft, Folder, FolderPlus, Inbox, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArrowRightLeft, Folder, FolderPlus, Inbox, Pencil, Plus, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { api, must } from "../api/client";
 import { Dialog, Field, MenuItem, useToast } from "../components";
 import { flatten, useRefreshIdeas, useTree, type Branch } from "./ideas";
@@ -10,15 +11,26 @@ type Asking = "new" | "rename" | "move" | "delete" | null;
 /** The ideas and folders inside a folder, counted at any depth: "Its 3 ideas move to Unsorted". */
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
-/** A folder's actions (S0-01's menu; S-gaps-02 for the header's ⋯): New folder inside, Rename, Move to…, Delete folder…,
- *  each with its dialog, and the toast with Undo after a delete. `items` renders the menu rows; `dialogs` their dialogs. */
-export function useFolderActions(brandId: number, folder: Branch | undefined, onDeleted?: (parentId: number | null) => void) {
+type Options = {
+  onDeleted?: (parentId: number | null) => void;
+  /** Where the Undo after a delete shows: the app's toast, or the rail's own (S0-01). */
+  say?: (message: string, undo: () => void) => void;
+  /** The tree renames in place (S0-01 "type, Enter to save"); elsewhere Rename opens a dialog. */
+  renameInPlace?: () => void;
+  /** The tree's menu starts with "New video here" (S0-01); the folder page has its own New video. */
+  newVideoHere?: boolean;
+};
+
+/** A folder's actions (S0-01's menu; S-gaps-02 for the header's ⋯): New video here, New folder inside, Rename, Move to…,
+ *  Delete folder…, each with its dialog, and Undo after a delete. `items` renders the menu rows; `dialogs` their dialogs. */
+export function useFolderActions(brandId: number, folder: Branch | undefined, { onDeleted, say, renameInPlace, newVideoHere }: Options = {}) {
   const [asking, setAsking] = useState<Asking>(null);
   const [name, setName] = useState("");
   const [to, setTo] = useState<number | null>(null);
   const tree = useTree(brandId).data;
   const refresh = useRefreshIdeas();
   const toast = useToast();
+  const navigate = useNavigate();
   const id = folder?.id ?? 0;
   const done = () => {
     setAsking(null);
@@ -33,7 +45,7 @@ export function useFolderActions(brandId: number, folder: Branch | undefined, on
     onSuccess: ({ ideas: n, id: gone, name: was, parent }) => {
       onDeleted?.(parent); // off the folder that's gone: to the one it was in, or Unsorted
       void done();
-      toast(`Deleted “${was}”. ${n ? `Its ${plural(n, "idea")} moved to Unsorted.` : "Nothing was in it."}`, async () => {
+      (say ?? toast)(`Deleted “${was}”. ${n ? `Its ${plural(n, "idea")} moved to Unsorted.` : "Nothing was in it."}`, async () => {
         await must(api.POST("/folders/{folder_id}/restore", { params: { path: { folder_id: gone } } })).catch((e: Error) => toast(e.message, undefined, "error"));
         await refresh();
       });
@@ -53,12 +65,17 @@ export function useFolderActions(brandId: number, folder: Branch | undefined, on
   const items = (close: () => void) =>
     folder?.id ? (
       <>
+        {newVideoHere && (
+          <MenuItem onClick={() => (close(), navigate(`/b/${brandId}/videos/new?folder=${folder.id}`))}>
+            <Plus size={16} strokeWidth={1.75} aria-hidden /> New video here
+          </MenuItem>
+        )}
         <MenuItem onClick={() => (close(), open("new"))}>
           <FolderPlus size={16} strokeWidth={1.75} aria-hidden /> New folder inside
         </MenuItem>
         {folder.can_manage && (
           <>
-            <MenuItem onClick={() => (close(), open("rename"))}>
+            <MenuItem onClick={() => (close(), renameInPlace ? renameInPlace() : open("rename"))}>
               <Pencil size={16} strokeWidth={1.75} aria-hidden /> Rename
             </MenuItem>
             <MenuItem onClick={() => (close(), open("move"))}>
@@ -106,7 +123,7 @@ export function useFolderActions(brandId: number, folder: Branch | undefined, on
       )}
     </>
   );
-  return { items, dialogs, newInside: () => open("new") };
+  return { items, dialogs, newInside: () => open("new"), rename: (to: string) => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { name: to.trim() } })).then(() => refresh()) };
 }
 
 /** "Archived ideas · 2" under a folder's actions (S-gaps-02): hidden when there are none. */

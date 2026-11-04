@@ -5,7 +5,7 @@ import { emptyBrand, signIn } from "./helpers";
 test("at 390: Cast & places' tabs and New character are 44 px presses, and the Brand page is a main landmark", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Touch Co");
   await page.goto(`/b/${brandId}/library/characters`);
   for (const press of [page.getByRole("link", { name: /^Characters/ }), page.getByRole("link", { name: /^Places/ }), page.getByRole("link", { name: /^Props/ }), page.getByRole("button", { name: "+ New character" })]) {
@@ -21,7 +21,7 @@ test("at 390: Cast & places' tabs and New character are 44 px presses, and the B
 // QA sweep (1 Nov): every video page asked for /api/brands/0/screens before its brand loaded, a 404 each time.
 test("a video page never asks for brand 0's screens", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Zero Co");
   const id = (await (await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Zero test", planned_seconds: 20 } })).json()).id;
   const zero: string[] = [];
@@ -36,7 +36,7 @@ test("a video page never asks for brand 0's screens", async ({ page }) => {
 test("at 390, a script row's title is a 44 px press and the stage tabs stay on one line", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Rows Co");
   const title = `Row ${Date.now()}`;
   expect((await page.request.post("/api/scripts", { data: { brand_id: brandId, title, description: "", notes: "", reference_replace: "", text: "NATE: Hi." } })).ok()).toBe(true);
@@ -51,7 +51,7 @@ test("at 390, a script row's title is a 44 px press and the stage tabs stay on o
 test("at 390, a character page's Edit, More, Archive character, Add outfit, Save and Cancel are 44 px presses (QA-3 on #1163)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, `Touch Cast ${test.info().retry}`);
   await page.goto(`/b/${brandId}/library/characters`);
   await page.getByRole("button", { name: "+ New character" }).click();
@@ -72,7 +72,7 @@ test("at 390, a character page's Edit, More, Archive character, Add outfit, Save
 
 test("New script: at 390 the breadcrumb's Scripts link is a 44 px press; at 1440 the settings and steps share one 52 px row (QA-12 on #1221)", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brand = await emptyBrand(page, "Touch Script Co");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/b/${brand}/scripts/new?format=dialogue`);
@@ -85,7 +85,7 @@ test("New script: at 390 the breadcrumb's Scripts link is a 44 px press; at 1440
 
 test("at 390, Breakdown's Version picker is a 44 × 44 px press even before any plan (QA-12 on #1238)", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brand = await emptyBrand(page, "Touch Breakdown Co");
   const made = await page.request.post("/api/scripts", { data: { brand_id: brand, title: "Version pick", description: "", notes: "", reference_replace: "", text: "BO: Salmon?" } });
   await page.setViewportSize({ width: 390, height: 844 });

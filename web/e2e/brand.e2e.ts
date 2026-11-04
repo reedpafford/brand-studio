@@ -14,13 +14,13 @@ async function saveKit(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   await page.goto(`/b/${await emptyBrand(page)}`);
   await onBrand(page, "Night Owl");
 });
 
 test("brand voice and a call to action are saved and still there after a reload (BR1)", async ({ page }) => {
-  await page.getByRole("link", { name: "Brand", exact: true }).click();
+  await page.getByRole("link", { name: "Brand kit", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
   await page.getByRole("tab", { name: "Voice & lines" }).click(); // v5: voice has its own tab
   await page.getByLabel("How we sound").fill("Calm, confident, never hype.");
@@ -43,7 +43,7 @@ test("brand voice and a call to action are saved and still there after a reload 
 });
 
 test("an uploaded logo shows and survives a reload", async ({ page }) => {
-  await page.getByRole("link", { name: "Brand", exact: true }).click();
+  await page.getByRole("link", { name: "Brand kit", exact: true }).click();
   await page.getByLabel("Logo file").setInputFiles(image("logo.png"));
   await expect(page.getByRole("img", { name: "Logo" })).toBeVisible();
   await saveKit(page);
@@ -53,7 +53,7 @@ test("an uploaded logo shows and survives a reload", async ({ page }) => {
 });
 
 test("a brand screen can be added, given tags and a moment, and deleted", async ({ page }) => {
-  await page.getByRole("link", { name: "Brand", exact: true }).click();
+  await page.getByRole("link", { name: "Brand kit", exact: true }).click();
   await page.getByRole("tab", { name: /^App screens/ }).click();
   await expect(page.getByText("No brand screens yet.")).toBeVisible();
   await page.getByRole("button", { name: "Add screens" }).first().click();

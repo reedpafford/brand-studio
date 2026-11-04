@@ -3,7 +3,7 @@ import { emptyBrand, signIn } from "./helpers";
 
 test("a brief becomes a project that is listed with its credit meter", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   // The earlier way to start a video stays on Scripts, under "Videos made before scripts"; the old list is Videos now.
   const brandId = await emptyBrand(page);
   await page.goto(`/b/${brandId}/projects`);
@@ -22,6 +22,6 @@ test("a brief becomes a project that is listed with its credit meter", async ({ 
 
   await page.getByRole("main").getByRole("link", { name: "Videos", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/b/${brandId}/videos$`));
-  const card = page.getByRole("link", { name: /Launch teaser/ }); // an idea card in Unsorted (v6 S1)
+  const card = page.getByRole("main").getByRole("link", { name: /Launch teaser/ }); // an idea card in Unsorted (v6 S1)
   await expect(card).toHaveAttribute("href", /\/projects\/\d+$/); // an earlier-way video opens its own page
 });

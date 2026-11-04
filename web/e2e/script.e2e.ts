@@ -3,7 +3,7 @@ import { emptyBrand, signIn } from "./helpers";
 
 test("a script is pasted, edited into a new version, and an old version is restored", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Script Shop");
   const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Script test", planned_seconds: 20 } });
   expect(made.ok()).toBeTruthy();
@@ -36,7 +36,7 @@ test("a script is pasted, edited into a new version, and an old version is resto
 
 test("a script document can be uploaded", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Script Shop");
   const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Upload test", planned_seconds: 20 } });
   expect(made.ok(), await made.text()).toBeTruthy();

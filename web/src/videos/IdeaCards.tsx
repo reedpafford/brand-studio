@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Archive, Check, ChevronDown, Ellipsis, Film, Folder, FolderPlus, Inbox, RotateCcw, X } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -7,6 +7,7 @@ import { fileUrl } from "../api/upload";
 import { Button, Dialog, Field, Menu, MenuItem, useToast } from "../components";
 import { costText, day, flatten, StatusLine, useRefreshIdeas, useTree, type Idea } from "../folders/ideas";
 import { age } from "../scripts/status";
+import { dragIdea } from "../shell/FolderTree";
 
 const to = (brandId: number, i: Idea) => (i.from_script ? `/b/${brandId}/videos/${i.id}${i.status.kind === "delivered" ? "?step=downloads" : ""}` : `/b/${brandId}/projects/${i.id}`);
 const length = (i: Idea) => (i.seconds ? `${i.seconds} s` : "—");
@@ -22,10 +23,11 @@ function Still({ i, className }: { i: Idea; className: string }) {
 }
 
 /** A tick box: S1-07's on a card, S1-05's on a row. */
-function Tick({ on, label, onChange, className = "" }: { on: boolean; label: string; onChange: () => void; className?: string }) {
+function Tick({ on, label, onChange, className = "", big }: { on: boolean; label: string; onChange: () => void; className?: string; /** a 44 px press around the box (a phone) */ big?: boolean }) {
+  const box = <span className={`grid size-4 shrink-0 place-items-center rounded-sm border ${on ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface"}`}>{on && <Check size={12} strokeWidth={2.5} aria-hidden />}</span>;
   return (
-    <button type="button" role="checkbox" aria-checked={on} aria-label={label} onClick={(e) => (e.preventDefault(), e.stopPropagation(), onChange())} className={`grid size-4 shrink-0 place-items-center rounded-sm border ${on ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface"} ${className}`}>
-      {on && <Check size={12} strokeWidth={2.5} aria-hidden />}
+    <button type="button" role="checkbox" aria-checked={on} aria-label={label} onClick={(e) => (e.preventDefault(), e.stopPropagation(), onChange())} className={`grid shrink-0 place-items-center ${big ? "size-control" : ""} ${className}`}>
+      {box}
     </button>
   );
 }
@@ -34,10 +36,31 @@ function Tick({ on, label, onChange, className = "" }: { on: boolean; label: str
  *  · when, and its cost ("up to $16.86"; an editor's in credits). Ticks show on hover, and on every card once one is ticked. */
 export function IdeaCard({ brandId, i, phone, picked, picking, onPick }: { brandId: number; i: Idea; phone: boolean; picked: boolean; picking: boolean; onPick?: () => void }) {
   const { made, total } = i.status;
+  // A phone selects by press and hold, then taps add or remove (S-gaps-06, 12).
+  const hold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const held = useRef(false);
+  const letGo = () => hold.current && clearTimeout(hold.current);
+  const press = phone && onPick
+    ? {
+        onPointerDown: () => {
+          held.current = false;
+          hold.current = setTimeout(() => ((held.current = true), onPick()), 500);
+        },
+        onPointerUp: letGo,
+        onPointerLeave: letGo,
+        onPointerMove: letGo,
+        onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+        onClick: (e: React.MouseEvent) => {
+          if (held.current || picking) e.preventDefault();
+          if (!held.current && picking) onPick();
+          held.current = false;
+        },
+      }
+    : {};
   const meta = phone ? [i.style, costText(i.cost)] : [i.style, i.seconds ? `${i.seconds} s` : "", i.made_by?.name, age(i.updated_at)];
   return (
     <div className="group relative min-w-0">
-      <Link to={to(brandId, i)} className="flex min-w-0 flex-col gap-2">
+      <Link to={to(brandId, i)} draggable={!phone && i.can_manage} onDragStart={(e) => dragIdea(e, i.id, i.title)} {...press} className="flex min-w-0 flex-col gap-2 select-none lg:select-auto">
         <span className="relative block">
           <Still i={i} className={`${phone ? "aspect-[175/230]" : "aspect-[212/290]"} w-full rounded-md ${picked ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
           {i.status.kind === "working" && total > 0 && (
@@ -53,7 +76,7 @@ export function IdeaCard({ brandId, i, phone, picked, picking, onPick }: { brand
           {!phone && <span className="text-xs text-muted tabular-nums">{costText(i.cost)}</span>}
         </span>
       </Link>
-      {onPick && <Tick on={picked} label={`Select ${i.title}`} onChange={onPick} className={`absolute right-2 top-2 ${picking || picked ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`} />}
+      {onPick && (!phone || picking) && <Tick on={picked} big={phone} label={`Select ${i.title}`} onChange={onPick} className={`absolute ${phone ? "right-0 top-0" : "right-2 top-2"} ${picking || picked ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`} />}
     </div>
   );
 }
@@ -153,6 +176,14 @@ export function SelectBar({ brandId, picked, here, moveOpen, setMoveOpen, onClea
   const toast = useToast();
   const [naming, setNaming] = useState<string | null>(null);
   const n = picked.length;
+  const menuBox = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
+  useLayoutEffect(() => {
+    if (!moveOpen || !menuBox.current) return setShift(0);
+    const box = menuBox.current.getBoundingClientRect();
+    const over = box.right - shift - (window.innerWidth - 8);
+    setShift(over > 0 ? -over : 0);
+  }, [moveOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const file = (ids: number[], folder: number | null) => must(api.POST("/folders/file", { body: { kind: "video", ids, folder_id: folder } })).then((r) => r.data!);
   const move = useMutation({
     mutationFn: async ({ folder, name }: { folder: number | null; name: string }) => ({ ...(await file(picked.map((i) => i.id), folder)), name }),
@@ -188,31 +219,36 @@ export function SelectBar({ brandId, picked, here, moveOpen, setMoveOpen, onClea
   const place = "flex min-h-control w-full items-center gap-2 rounded-md px-2 text-left text-sm text-text hover:bg-surface-2 lg:min-h-[30px]";
   if (!n) return null;
   return (
-    <div role="region" aria-label="Selected ideas" className="fixed bottom-[calc(var(--tabbar-h)+1rem)] left-1/2 z-40 -translate-x-1/2 lg:bottom-6 lg:left-[calc(50%+var(--rail-w)/2)]">
-      {moveOpen && (
-        <div role="menu" aria-label={`Move ${ideas(n)} to`} className="absolute bottom-full right-0 mb-3 max-h-[60vh] w-60 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-raised">
-          <p className="px-2 py-1.5 text-xs text-muted">Move {ideas(n)} to</p>
-          {flatten(tree?.folders ?? []).filter((f) => f.id !== here).map((f) => (
-            <button key={f.id} type="button" role="menuitem" disabled={move.isPending} onClick={() => move.mutate({ folder: f.id, name: f.name })} style={{ paddingLeft: 8 + f.depth * 16 }} className={`${place} disabled:text-faint`}>
-              <Folder size={14} strokeWidth={1.75} aria-hidden /> {f.name}
-            </button>
-          ))}
-          {here !== null && (
-            <button type="button" role="menuitem" disabled={move.isPending} onClick={() => move.mutate({ folder: null, name: "Unsorted" })} className={place}>
-              <Inbox size={14} strokeWidth={1.75} aria-hidden /> Unsorted
-            </button>
-          )}
-          <div className="my-1 border-t border-border" />
-          <button type="button" role="menuitem" onClick={() => (setMoveOpen(false), setNaming(""))} className={place}>
-            <FolderPlus size={14} strokeWidth={1.75} aria-hidden /> New folder…
-          </button>
-        </div>
-      )}
-      <div className="flex items-center gap-2.5 rounded-[10px] bg-ink py-2 pl-4 pr-2 text-white shadow-overlay">
+    <div role="region" aria-label="Selected ideas" className="fixed inset-x-0 bottom-0 z-40 lg:inset-x-auto lg:bottom-6 lg:left-[calc(50%+var(--rail-w)/2)] lg:-translate-x-1/2">
+      {/* On a phone the bar takes the tabs' place (S-gaps-06, 12). */}
+      <div className="flex min-h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] items-center gap-2.5 bg-ink py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pl-4 pr-2 text-white shadow-overlay lg:min-h-0 lg:rounded-[10px] lg:pb-2">
         <span className="whitespace-nowrap text-sm font-medium">{n} selected</span>
-        <button type="button" aria-expanded={moveOpen} onClick={() => setMoveOpen(!moveOpen)} className={dark}>
-          <Folder size={14} strokeWidth={1.75} aria-hidden /> Move to…
-        </button>
+        <span className="flex-1 lg:hidden" />
+        {/* S-gaps-06 (8): the menu opens straight up from Move to…, its left edge on the button, kept on screen. */}
+        <span className="relative">
+          {moveOpen && (
+          <div role="menu" aria-label={`Move ${ideas(n)} to`} ref={menuBox} style={{ transform: `translateX(${shift}px)` }} className="absolute bottom-full left-0 mb-3 max-h-[60vh] w-60 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-raised">
+            <p className="px-2 py-1.5 text-xs text-muted">Move {ideas(n)} to</p>
+            {flatten(tree?.folders ?? []).filter((f) => f.id !== here).map((f) => (
+              <button key={f.id} type="button" role="menuitem" disabled={move.isPending} onClick={() => move.mutate({ folder: f.id, name: f.name })} style={{ paddingLeft: 8 + f.depth * 16 }} className={`${place} disabled:text-faint`}>
+                <Folder size={14} strokeWidth={1.75} aria-hidden /> {f.name}
+              </button>
+            ))}
+            {here !== null && (
+              <button type="button" role="menuitem" disabled={move.isPending} onClick={() => move.mutate({ folder: null, name: "Unsorted" })} className={place}>
+                <Inbox size={14} strokeWidth={1.75} aria-hidden /> Unsorted
+              </button>
+            )}
+            <div className="my-1 border-t border-border" />
+            <button type="button" role="menuitem" onClick={() => (setMoveOpen(false), setNaming(""))} className={place}>
+              <FolderPlus size={14} strokeWidth={1.75} aria-hidden /> New folder…
+            </button>
+          </div>
+        )}
+          <button type="button" aria-expanded={moveOpen} onClick={() => setMoveOpen(!moveOpen)} className={dark}>
+            <Folder size={14} strokeWidth={1.75} aria-hidden /> Move to…
+          </button>
+        </span>
         <button type="button" disabled={archive.isPending} onClick={() => archive.mutate()} className={dark}>
           <Archive size={14} strokeWidth={1.75} aria-hidden /> Archive
         </button>

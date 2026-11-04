@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChartColumn, Clapperboard, Settings, UserPlus, type LucideIcon } from "lucide-react";
+import { ChartColumn, ChevronRight, Clapperboard, Settings, UserPlus, UserRound, type LucideIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Menu, MenuItem } from "../components";
 import { applyTheme, getTheme, type Theme } from "../theme";
 
-// Reed's Studio pages: rows in the rail after Needs you; on a phone, in the account menu (Needs you is the top bar's bell).
+// Reed's Studio pages: rows in the rail after Needs you; on a phone, rows in the More tab (S-gaps-04 R3).
 export const STUDIO: [string, string, LucideIcon][] = [
   ["/production", "In production", Clapperboard],
   ["/usage", "Usage", ChartColumn],
@@ -21,7 +21,7 @@ const THEMES: { id: Theme; label: string }[] = [
   { id: "system", label: "System" },
 ];
 
-export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?: boolean } = {}) {
+export function AccountMenu({ inRail, iconOnly, row }: { inRail?: boolean; iconOnly?: boolean; /** A phone's More list (S-gaps-04 R3): "Your account" */ row?: boolean } = {}) {
   const { data: me } = useMe();
   const signOut = useSignOut();
   const [theme, setTheme] = useState<Theme>(getTheme);
@@ -39,11 +39,17 @@ export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?:
       align={inRail ? "left" : "right"}
       up={inRail}
       trigger={(p) =>
-        inRail ? (
+        row ? (
+          <button type="button" {...p} className="flex min-h-12 w-full items-center gap-3 border-b border-border px-4 text-left text-md">
+            <UserRound size={20} strokeWidth={1.75} aria-hidden className="text-muted" />
+            <span className="flex-1">Your account</span>
+            <ChevronRight size={16} strokeWidth={1.75} aria-hidden className="text-muted" />
+          </button>
+        ) : inRail ? (
           <button type="button" {...p} aria-label="Account menu" className={`flex min-h-control w-full items-center gap-2 rounded-md px-2 hover:bg-surface-2 ${iconOnly ? "justify-center" : ""}`}>
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-3 text-xs font-semibold">{initials}</span>
+            <span className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${me?.role === "editor" ? "bg-success-soft text-success" : "bg-accent-soft text-accent-text"}`}>{initials}</span>
             {!iconOnly && <span className="min-w-0 flex-1 truncate text-left">{me?.name}</span>}
-            {!iconOnly && me && <span className="text-xs text-muted">{me.role === "owner" ? "Owner" : "Editor"}</span>}
+            {!iconOnly && <Settings size={14} strokeWidth={1.75} aria-hidden className="text-faint" />}
           </button>
         ) : (
           <button type="button" {...p} aria-label="Account menu" className="grid size-control place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent-text">
@@ -63,6 +69,7 @@ export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?:
           </div>
           {me?.role === "owner" &&
             !inRail &&
+            !row &&
             STUDIO.map(([to, label, Icon]) => (
               <Link key={to} to={to} onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
                 <Icon size={20} strokeWidth={1.75} aria-hidden />
@@ -105,7 +112,7 @@ export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?:
   );
 }
 
-function useSignOut() {
+export function useSignOut() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   return useMutation({

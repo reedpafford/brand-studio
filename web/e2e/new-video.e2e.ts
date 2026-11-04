@@ -87,7 +87,8 @@ test("at 390, the owner's saved change after a delivery has Make it again in the
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "New" }).click();
+  await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Videos" }).click(); // v6 P-01: New video sits under the folders
+  await page.getByRole("main").getByRole("link", { name: /^(New video|Make the first video)$/ }).click(); // a brand with nothing yet shows its set-up list (S1-02)
   const script = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in ${Date.now()}.`, "NATE: Download fomo through the link in my bio."].join("\n");
   await page.getByLabel("Paste a script, or describe the video").fill(script);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();

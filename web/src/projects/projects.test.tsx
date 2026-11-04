@@ -141,7 +141,8 @@ test("an earlier video's card is one link to its page and says the step it is at
   expect(screen.getByRole("link", { name: "New video (the earlier way)" })).toHaveAttribute("href", "/b/1/projects/new");
   cleanup();
   vi.unstubAllGlobals();
-  fakeServer({ ...base, ...scripts, "GET /projects": [200, [project]] });
+  const empty = { id: null, parent_id: null, name: "Unsorted", count: 1, can_manage: false, ideas: [], more: 0, folders: [] };
+  fakeServer({ ...base, ...scripts, "GET /projects": [200, [project]], "GET /brands/1/tree": [200, { folders: [], unsorted: empty }] });
   renderAt("/b/1/projects");
-  expect(await screen.findByText("Unsorted")).toBeInTheDocument(); // the brand's videos open on a folder (v6 S1)
+  expect((await screen.findAllByText("Unsorted")).length).toBeGreaterThan(0); // the brand's videos open on its folders (v6 S1, P-01)
 });
