@@ -142,7 +142,10 @@ def test_split_retime_swap_and_trim_move_the_pieces(owner, presenter):
     retimed = _edit(owner, presenter, kind="retime", piece=tl["pieces"][-1]["id"]).json()
     assert retimed["edits"][-1]["said"].endswith("re-timed to the words")
     undone = owner.post(f"{presenter}/cut/edits/{split['edits'][-1]['id']}/undo").json()
-    assert any(not e["applies"] for e in undone["edits"]) == (len(tl["pieces"]) > 1)
+    if len(tl["pieces"]) > 1:
+        assert any(not e["applies"] for e in undone["edits"])
+    else:  # the re-timed first half would become the ending, before the last word: refused
+        assert undone["detail"].startswith("The cut can't end before the last word")
 
 
 def test_the_next_cut_is_made_while_the_one_before_plays(app, db, owner, presenter):
@@ -217,7 +220,7 @@ def test_a_story_cut_trims_and_ripples_and_never_cuts_a_word(
         {"word": "Get", "start": 0.3, "end": 0.5}])  # fmt: skip
     cuts = _edit(editor, base, kind="trim", piece=piece["id"], start=0.4)
     assert (cuts.status_code, cuts.json()["detail"]) == (
-        422, "That would cut the word “Get”. A trim keeps every spoken word.")  # fmt: skip
+        422, "Clip 1 would lose the word “Get”. Every spoken word stays.")  # fmt: skip
     trimmed = _edit(editor, base, kind="trim", piece=piece["id"], start=0.2, end=0.8).json()
     (piece,) = trimmed["timeline"]["pieces"]
     assert (piece["start"], piece["end"], piece["in_point"]) == (0, 0.6, 0.2)
@@ -232,6 +235,14 @@ def test_a_story_cut_trims_and_ripples_and_never_cuts_a_word(
     assert _edit(editor, base, kind="split").json()["detail"] == cut_edits.SAY["split"]
     shown = editor.get(f"{base}/cut").json()  # an editor sees credits, never dollars
     assert shown["sound_credits"] > 0 and shown["sound_usd"] is None
+    # the take now also says "now" at 0.9 s, past the trim (as a new pick would): no word is lost
+    words = [{"word": "Get", "start": 0.3, "end": 0.5}, {"word": "now", "start": 0.9, "end": 1.0}]
+    monkeypatch.setattr(cut_edits, "_heard", lambda db, take: words)
+    lost = editor.post(f"{base}/cut")
+    assert lost.status_code == 409 and "would lose the word “now”" in lost.json()["detail"]
+    undo = editor.post(f"{base}/cut/undo")  # back to the trim, which loses it too: refused
+    assert undo.status_code == 422 and "would lose the word “now”" in undo.json()["detail"]
+    assert editor.post(f"{base}/cut/undo-all").status_code == 422  # the cut's own trim loses it
 
 
 def test_only_its_maker_or_the_owner_edits_it(app, db, editor, outsider, approved):  # noqa: F811

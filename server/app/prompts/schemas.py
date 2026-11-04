@@ -639,6 +639,7 @@ class CutMove(BaseModel):
         default=None, description="When no one speaks the music stays down, or rises."
     )
     removed: bool | None = None
+    loop: bool | None = Field(default=None, description="For music: loop it to fit the cut.")
     edit_id: int | None = Field(default=None, description="For undo: from timeline.edits.")
 
 

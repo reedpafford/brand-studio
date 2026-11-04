@@ -71,7 +71,7 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
         except Refused:
             if e.id == row.id:
                 raise
-    _fits(after)
+    keeps_every_word(db, after)
     return row
 
 
@@ -138,8 +138,6 @@ def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
     longest = _take_seconds(db, take, p["end"] - p["start"])
     if data.get("from", 0) > longest - MIN:
         raise Refused(f"The take is {longest:g} s long: start it before {longest - MIN:g} s.")
-    if tl["mode"] == "takes":  # a story's takes say its lines: every spoken word stays
-        _keeps_words(db, take, data["from"], data["from"] + data["length"])
     last = i == len(tl["pieces"]) - 1
     if last and end is not None and start is None:
         cut = round(p["end"] - end, 1)
@@ -149,26 +147,36 @@ def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
     return data, said, start if start is not None else (end if end is not None else p["start"])
 
 
+def keeps_every_word(db: Session, tl: dict) -> None:
+    """Reed (3 Nov): an edit never cuts a scripted spoken word. A narrated or song cut runs
+    to its last word; in a story video, every word a speaking take says plays in a piece of
+    its clip that plays that take, after any edit, undo, redo or new pick."""
+    from app.item_checks import latest
+
+    _fits(tl)
+    if tl["mode"] != "takes":
+        return
+    groups: dict[tuple[str, int], list[tuple[float, float]]] = {}
+    for p in tl["pieces"]:
+        end = float("inf") if p["whole"] else p["from"] + p["end"] - p["start"]
+        groups.setdefault((p["id"].split(".")[0], p["take_id"]), []).append((p["from"], end))
+    for (slot, take_id), plays in groups.items():
+        take = db.get(ClipTake, take_id) if take_id else None
+        if not _speaks(db, take) or (0.0, float("inf")) in plays:
+            continue
+        check = latest(db, "words", [take.id]).get(take.id)
+        if check is None or check.status != "done":
+            raise Refused(UNHEARD)
+        for w in _heard(db, take):
+            if not any(a - 0.02 <= w["start"] and w["end"] <= b + 0.02 for a, b in plays):
+                raise Refused(f"{label(slot)} would lose the word “{w['word'].strip()}”. "
+                              "Every spoken word stays.")  # fmt: skip
+
+
 def _speaks(db: Session, take: ClipTake | None) -> bool:
     """The take was made with sound, so it may say a line (silent B-roll says nothing)."""
     job = db.get(Job, take.job_id) if take else None
     return bool(job and ((job.input or {}).get("input") or {}).get("generate_audio"))
-
-
-def _keeps_words(db: Session, take: ClipTake | None, start: float, end: float) -> None:
-    """A trim keeps every word the take says (Reed, 3 Nov: tightening never cuts a scripted
-    word); with its words not heard yet it can't tell, so it waits for them."""
-    from app.item_checks import latest
-
-    if not _speaks(db, take):
-        return
-    check = latest(db, "words", [take.id]).get(take.id)
-    if check is None or check.status != "done":
-        raise Refused(UNHEARD)
-    for w in _heard(db, take):
-        if w["start"] < start - 0.02 or w["end"] > end + 0.02:
-            raise Refused(f"That would cut the word “{w['word'].strip()}”. A trim keeps every "
-                          "spoken word.")  # fmt: skip
 
 
 def _retime(db: Session, tl: dict, i: int) -> dict:
@@ -329,6 +337,8 @@ def undo(db: Session, project: Project, edit_id: int | None = None) -> CutEdit:
     if row is None:
         raise HTTPException(409 if edit_id is None else 404, "There's nothing to undo.")
     row.undone_at = utcnow()
+    db.flush()
+    keeps_every_word(db, timeline(db, project)[0])  # an undo never cuts a word either
     return row
 
 
@@ -346,6 +356,8 @@ def redo(db: Session, project: Project) -> CutEdit:
     if row is None:
         raise HTTPException(409, "There's nothing to redo.")
     row.undone_at = None
+    db.flush()
+    keeps_every_word(db, timeline(db, project)[0])
     return row
 
 
@@ -358,6 +370,8 @@ def undo_all(db: Session, project: Project) -> None:
             e.undone_at = None
         elif e.undone_at is None:
             e.undone_at = now - timedelta(microseconds=n)  # Redo brings back the oldest last
+    db.flush()
+    keeps_every_word(db, timeline(db, project)[0])
 
 
 LIBRARY = 24  # the brand's other videos' takes offered for a swap, newest first
@@ -391,7 +405,19 @@ def swaps(db: Session, user: User, project: Project, tl: dict, p: dict) -> list[
     others = db.scalars(select(ClipTake).join(ProjectClip, picked)
                         .where(ProjectClip.project_id.in_(seen))
                         .order_by(ClipTake.id.desc()).limit(LIBRARY))  # fmt: skip
-    return out + [one(t, "Library", "library") for t in others]
+    out += [one(t, "Library", "library") for t in others]
+    return [s for s in out if s["kind"] in ("in_cut", "take")
+            or _swappable(db, user, project, p, s["take_id"], tl)]  # fmt: skip
+
+
+def _swappable(db: Session, user: User, project: Project, p: dict, take_id: int,
+               tl: dict) -> bool:  # fmt: skip
+    """What `_swap_source` would take (the same shape; in a dialogue video, its own clip)."""
+    try:
+        _swap_source(db, user, project, p, take_id, tl["mode"])
+    except Refused:
+        return False
+    return True
 
 
 def for_director(db: Session, project: Project) -> dict | None:
@@ -413,7 +439,7 @@ def for_director(db: Session, project: Project) -> dict | None:
                    for p in tl["pieces"]],
         "presenter": [{k: s[k] for k in ("start", "end", "side", "size", "hidden")}
                       for s in tl["presenter"]["spans"]] if tl["presenter"] else None,
-        "music": {k: tl["music"][k] for k in ("quieter_db", "gaps", "removed")}
+        "music": {k: tl["music"][k] for k in ("quieter_db", "gaps", "loop", "removed")}
         if tl["music"] else None,
         "edits": [{"id": e.id, "said": e.said, "at": e.at, "director": e.director,
                    "undone": e.undone_at is not None or e.id in lost}

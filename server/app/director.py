@@ -39,7 +39,9 @@ MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); meas
 OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
-REBUILD = "Refused: make the cut again first: edits aren't in it yet."
+REBUILD = "Refused: make the cut again first: it isn't up to date."
+NO_WATCH_LEFT = ("Refused: no watches are left this run to check an edit. Say in the delivery note "
+                 "what you would change.")  # fmt: skip
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -371,8 +373,9 @@ def _act(db: Session, job: Job, storage) -> None:
     if tool == "deliver":
         watch = _watch(db, project)
         watched = watch.get("current") and watch.get("state") in ("done", "failed")
-        if (cut_edits.for_director(db, project) or {}).get("changes"):  # rebuilt before shown
-            return _record(db, job, run, REBUILD)
+        state = video_state(db, project)
+        if (state.get("timeline") or {}).get("changes") or state["cut"] == "out of date":
+            return _record(db, job, run, REBUILD)  # rebuilt (and watched) before it's shown
         if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
                 and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
             return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
@@ -412,6 +415,8 @@ def _act(db: Session, job: Job, storage) -> None:
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
+    if tool == "edit_cut" and run.get("watches", 0) >= MAX_WATCHES:  # it watches what it edits
+        return _record(db, job, run, NO_WATCH_LEFT)
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
         watch = _watch(db, project)
         if run.get("watches", 0) >= MAX_WATCHES:
@@ -860,10 +865,11 @@ def choose(state: dict) -> dict:
         return go("host", "all: the host says the narration on camera over the B-roll.")
     if state["cut"] != "none" and (fix := _next_fix(found, {c["clip_id"]: c for c in clips})):
         return fix  # every fix the watch of this cut found, then one cut again
-    if (failed := state.get("cut_failed")) and "loop_music" in failed["fixes"]:
+    edited = (state.get("timeline") or {}).get("changes")  # an edit since: cut again to see
+    if (failed := state.get("cut_failed")) and not edited and "loop_music" in failed["fixes"]:
         return go("edit_cut", f"{failed['why']} Looping the music to fit.",
                   edit={"kind": "music", "loop": True})  # fmt: skip
-    if failed and failed["fixes"] != ["again"]:
+    if failed and not edited and failed["fixes"] != ["again"]:
         return go("stop", failed["why"])
     if state["cut"] != "made":
         unclean = [c["clip_id"] for c in clips

@@ -160,7 +160,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool == "edit_cut":  # free: the cut editor's own edit, marked as the director's
             try:
                 return _edit_cut(db, project, decision.get("edit") or {}, request, me, run)
-            except (HTTPException, ValueError):
+            except HTTPException:
                 raise
             except Exception:  # never leave the turn without a result (the run would hang)
                 db.rollback()

@@ -344,6 +344,10 @@ def make(project_id: int, request: Request, user: User = Depends(current_user),
     cut.ready(db, project, storage)
     clips, playing = cut.rows(db, project), cut.newest(db, project)
     tl, _ = cut.timeline(db, project)
+    try:  # a new pick under an old trim, say: never a cut that loses a spoken word
+        cut_edits.keeps_every_word(db, tl)
+    except cut.Refused as no:
+        raise HTTPException(409, f"{no} Undo or re-time that edit first.") from no
     live = [e.id for e in cut.active(db, project)]
     song = cut.song(db, project)
     data = {"step": cut.STEP, "project_id": project.id,

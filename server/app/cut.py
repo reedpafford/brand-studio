@@ -50,6 +50,7 @@ TOO_SHORT = f"A piece can't be shorter than {MIN} s."
 BEFORE_WORDS = "The cut can't end before the last word, at {}."
 NO_WORDS = "This clip's words aren't heard yet, so it can't be re-timed to them."
 MAKING = "Cut {} is being made. It's ready in a moment."
+SYNCED = "This piece lip-syncs the voice: its start can only move later, with its picture."
 NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
 SONG_CHANGED = (
     "{} of the clips were made for the video's earlier song. Press Rewrite clip prompts on "
@@ -126,11 +127,13 @@ def base(db: Session, project: Project) -> dict:
                    else float(r.seconds) for r in clips]  # fmt: skip
         lengths = ends_at(lengths, song_end(voice)) if mode == "song" else lengths
     pieces, at = [], 0.0
+    synced = talker.clips(db, project)  # a talker's clips lip-sync the narration
     for r, d in zip(clips, lengths, strict=False):
         pieces.append({"id": r.clip_id, "clip_id": r.clip_id, "take_id": r.picked_take_id,
                        "source": label(r.clip_id), "start": round(at, 2),
                        "end": round(at + d, 2), "from": 0.0, "whole": mode == "takes",
-                       "edited": False, "director": False})  # fmt: skip
+                       "edited": False, "director": False,
+                       "lipsync": r.clip_id in synced})  # fmt: skip
         at += d
     total = round(at, 2)
     tl = {
@@ -234,6 +237,10 @@ def _one(tl: dict, e: CutEdit) -> None:
             p["from"] = d["from"]
         else:  # on the voice's clock: an edge moves, the next piece's with it
             if "start" in d and i > 0:
+                moved = d["start"] - p["start"]
+                if p.get("lipsync") and (p["from"] + moved < -0.01 or "from" in d):
+                    raise Refused(SYNCED)
+                p["from"] = round(max(0.0, p["from"] + moved), 2)
                 pieces[i - 1]["end"] = p["start"] = d["start"]
             if "end" in d:
                 p["end"] = d["end"]
