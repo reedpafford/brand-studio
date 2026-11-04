@@ -43,6 +43,7 @@ export function AccountMenu({ inRail, iconOnly }: { inRail?: boolean; iconOnly?:
           <button type="button" {...p} aria-label="Account menu" className={`flex min-h-control w-full items-center gap-2 rounded-md px-2 hover:bg-surface-2 ${iconOnly ? "justify-center" : ""}`}>
             <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-3 text-xs font-semibold">{initials}</span>
             {!iconOnly && <span className="min-w-0 flex-1 truncate text-left">{me?.name}</span>}
+            {!iconOnly && me && <span className="text-xs text-muted">{me.role === "owner" ? "Owner" : "Editor"}</span>}
           </button>
         ) : (
           <button type="button" {...p} aria-label="Account menu" className="grid size-control place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent-text">

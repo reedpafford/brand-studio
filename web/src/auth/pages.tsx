@@ -102,6 +102,8 @@ export function InvitePage() {
     );
   const i = invite.data;
   const studio = studioName(i.workspace_name, i.owner_name);
+  // The studio's standing editor link carries no email: the person gives theirs (#1247).
+  const open = !i.email;
   return (
     <AuthForm
       title={`Join ${studio}`}
@@ -113,10 +115,12 @@ export function InvitePage() {
       }
       submitLabel="Join"
       fields={[
+        // v5 A_Invite: an email invite shows its email, read-only; the standing link asks for one (#1247).
+        open ? { name: "email", label: "Email", type: "email", autoComplete: "email" } : { name: "invited_email", label: "Email", type: "email", value: i.email },
         { name: "name", label: "Your name", autoComplete: "name" },
         { name: "password", label: "Choose a password (at least 10 characters)", type: "password", autoComplete: "new-password", minLength: 10 },
       ]}
-      submit={(v) => api.POST("/auth/accept-invite", { body: { token, name: v.name, password: v.password } })}
+      submit={(v) => api.POST("/auth/accept-invite", { body: { token, name: v.name, password: v.password, ...(open ? { email: v.email } : {}) } })}
       welcome={(v) => `Welcome to ${studio}, ${v.name}.`}
     />
   );

@@ -40,7 +40,7 @@ export function Field({ label, hideLabel, hint, error, counter, counterOk, trail
   return (
     <Frame {...{ label, hideLabel, hint, error, counter, counterOk, id }}>
       <span className="relative block">
-        <input id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-note` : undefined} className={`${box} ${edge(error)} ${trailing ? "pr-12" : ""}`} {...rest} disabled={rest.disabled || viewOnly} />
+        <input id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-note` : undefined} className={`${box} ${edge(error)} ${trailing ? "pr-12" : ""} read-only:border-transparent read-only:bg-surface-2 read-only:text-muted`} {...rest} disabled={rest.disabled || viewOnly} />
         {trailing && <span className="absolute inset-y-0 right-0 grid w-11 place-items-center">{trailing}</span>}
       </span>
     </Frame>
