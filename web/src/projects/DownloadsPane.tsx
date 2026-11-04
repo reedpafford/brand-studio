@@ -16,6 +16,7 @@ import { useRail } from "../useMedia";
 import { useProjectClips, useProjectVideo } from "./useProgress";
 import { serverTime } from "../time";
 import { ReviewChip } from "./Checks";
+import { Scorecard } from "./Scorecard";
 import { FinalSong, useSongChanged } from "../scripts/VideoSong";
 
 /** When a take was made, as the person's clock reads it: "10:42". */
@@ -72,7 +73,11 @@ export function DownloadsPane({
   const base = slug(projectName);
   // The server only compares picked takes; an edit upstream unapproves or dates clips without changing them.
   const left = list.filter((c) => !c.approved || c.stale).length;
-  const outOfDate = !!v && (v.out_of_date || left > 0);
+  // A take made from an older Cast & places look stays approved but is out of date too (N6), as the lists say.
+  const olderLook = list.filter((c) => c.take_stale).length;
+  const outOfDate = !!v && (v.out_of_date || left > 0 || olderLook > 0);
+  // Making it again only helps once each clip shows what it should: approved, and a take of the current look (or kept).
+  const remakeHeld = left > 0 ? `Approve every clip first (${left} left)` : olderLook > 0 ? `Make another take on Clips, or keep the older look (${olderLook} left)` : null;
   const madeFrom = list
     .map((c, i) => {
       const take = c.takes.find((t) => t.id === c.picked_take_id);
@@ -145,15 +150,20 @@ export function DownloadsPane({
             action={
               <Button
                 variant="secondary"
-                disabled={left > 0}
-                reason={left > 0 ? `Approve every clip first (${left} left)` : null}
+                disabled={!!remakeHeld}
+                reason={remakeHeld}
                 onClick={() => stitch.mutate()}
               >
                 Make it again
               </Button>
             }
           >
-            {songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
+            {left === 0 && !v?.out_of_date && olderLook > 0
+              ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.`
+              : songChanged && left === 0
+                ? `The ${songChanged} changed since this video was made.`
+                : "Clips changed since this video was made."}{" "}
+            This MP4 still downloads. Making it again is free.
           </Banner>
         )}
         {v ? (
@@ -177,6 +187,7 @@ export function DownloadsPane({
               )}
               <ReviewChip projectId={projectId} open />
               <FinalSong projectId={projectId} madeWith={v.song_take_id} narration={v.narration} />
+              <Scorecard projectId={projectId} />
             </div>
           </Card>
         ) : (

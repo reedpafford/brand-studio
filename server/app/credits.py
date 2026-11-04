@@ -9,7 +9,6 @@ import math
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -18,7 +17,6 @@ from app.db import utcnow
 from app.models.accounts import User
 from app.models.credits import (
     BUDGET_MULTIPLIER,
-    DEFAULT_PER_VIDEO_MAX_CREDITS,
     DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
     USD_PER_CREDIT,
     CreditLimits,
@@ -26,6 +24,7 @@ from app.models.credits import (
 )
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.providers import STAND_IN
 
 log = logging.getLogger(__name__)
 # Estimates only; real cost decides the final credits. Generation rates come from the
@@ -95,12 +94,12 @@ CLIP_SECONDS_GUESS = 8  # before a breakdown exists: about this many seconds per
 
 
 def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True,
-              video=None) -> Decimal:  # fmt: skip
+              video=None, look=None, kind=None) -> Decimal:  # fmt: skip
     """What making a video costs, every step, not just its seconds (QA-Live, video #17:
     "About 55" quoted, 99 charged): the breakdown (`breakdown`), the frame prompts, a still
     per clip, the clip prompts (a Claude call per few clips), a look per role (`roles`) and
     its seconds of video. `bd` is its Breakdown, if it has one; `video` its models (VS1),
-    else Auto. Redos aren't counted."""
+    else its `look` and script `kind` say which (`breakdown.video_model`). Redos aren't counted."""
     from app import clip_prompts, item_checks
     from app.breakdown import video_model
     from app.sheets import look_usual
@@ -109,7 +108,8 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
     calls = len(clip_prompts.batches(bd)) if bd else math.ceil(clips / clip_prompts.BATCH_CLIPS)
     claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + calls)
-    clip = {"model": video_model(video).id, "input": {"resolution": "480p"}}
+    m = video_model(video, look, kind)
+    clip = {"model": m.id, "input": {"resolution": m.take_resolution}}
     checks = clips * item_checks.per_take(db, ws)  # a take check a clip, while checks are on
     return (claude + clips * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
             + estimate(db, ws, "video", Decimal(seconds), clip) + checks)  # fmt: skip
@@ -138,25 +138,27 @@ def budget(db: Session, project: Project) -> Decimal:
     its takes never use up the budget (QA-2: a 12 s video's fixed steps came to 12.73 of a
     24-credit budget, and its 12-credit take was refused). A look for each role its script
     doesn't lock, made or not, so the budget never drops as Assets makes them, and never below
-    its guess before a breakdown (a plan with fewer clips than guessed). Never above the
-    per-video cap, so editors are never shown more than can be spent (QA on #679)."""
+    its guess before a breakdown (a plan with fewer clips than guessed). There is no cap above
+    it (Reed, 2026-11-03)."""
     from app import clip_prompts
     from app.cast_roles import all_slots
     from app.prompts.schemas import Breakdown
 
-    cap = Decimal(get_limits(db, project.workspace_id).per_video_max_credits)
     if project.hidden:  # a freestyle's video: the owner's OK covers the price shown, no more
         from app.models.freestyles import Freestyle
 
         fs = db.scalar(select(Freestyle).where(Freestyle.project_id == project.id))
         if fs is not None and fs.up_to is not None:
-            return min(approved(db, fs), cap)
+            return approved(db, fs)
     row = clip_prompts.newest(db, project)
     bd = Breakdown.model_validate(row.data) if row else None
     roles = sum(s.library_item_id is None for s in all_slots(db, project))
     ws, seconds = project.workspace_id, int(project.estimate_credits)
-    cost = max(plan_cost(db, ws, seconds, bd, roles), plan_cost(db, ws, seconds, None, roles))
-    return min(cost * BUDGET_MULTIPLIER, cap)
+    cost = max(
+        plan_cost(db, ws, seconds, bd, roles, video=project),
+        plan_cost(db, ws, seconds, None, roles, video=project),
+    )
+    return cost * BUDGET_MULTIPLIER
 
 
 def usd_to_credits(usd: Decimal) -> Decimal:
@@ -170,31 +172,7 @@ def get_limits(db: Session, workspace_id: int) -> CreditLimits:
     ) or CreditLimits(
         workspace_id=workspace_id,
         weekly_quick_clip_credits=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS,
-        per_video_max_credits=DEFAULT_PER_VIDEO_MAX_CREDITS,
     )
-
-
-def over_cap(user: User, cap: int) -> HTTPException:
-    """The per-video hard limit. The owner sees dollars; editors never do."""
-    if user.is_owner:
-        dollars = (cap * USD_PER_CREDIT).quantize(Decimal(1))
-        return HTTPException(409, f"This video would go over its ${dollars} limit.")
-    return HTTPException(409, "This video would go over its limit.")
-
-
-def check_clip_cap(db: Session, user: User, credits: Decimal) -> None:
-    """A single job outside a project (a quick clip) is one video too: same hard cap."""
-    cap = get_limits(db, user.workspace_id).per_video_max_credits
-    if credits > cap:
-        raise over_cap(user, cap)
-
-
-def check_video_cap(db: Session, user: User, project: Project, credits: Decimal) -> None:
-    """Refuse (for everyone) a job that would take the project past the per-video maximum.
-    Call with the project row locked."""
-    cap = get_limits(db, project.workspace_id).per_video_max_credits
-    if credits_used(db, project) + credits > cap:
-        raise over_cap(user, cap)
 
 
 def _sum_credits(db: Session, *where) -> Decimal:
@@ -282,12 +260,8 @@ def price(total: Decimal) -> int:
 
 
 def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
-    """Why `total` more credits on this video would go over, or "" when it fits: the
-    per-video limit (for everyone), else the video's budget (the owner's too: work made by
-    itself stays within it)."""
-    cap = get_limits(db, project.workspace_id).per_video_max_credits
-    if credits_used(db, project) + total > cap:
-        return "would go over this video's limit."
+    """Why `total` more credits on this video would go over, or "" when it fits its budget
+    (the owner's too: work made by itself stays within it)."""
     if budget_used(db, project) + total <= project.budget_credits:  # as the hold counts it
         return ""
     return "would go over this video's budget."
@@ -349,10 +323,12 @@ def real_capped(settings) -> bool:
 
 def real_spent(db: Session, settings) -> Decimal:
     """What real calls sent since `real_budget_since` came to, at their credits (the price we
-    charge, above the real cost: it errs safe). A job counts once sent, whatever after."""
+    charge, above the real cost: it errs safe). A job counts once sent, whatever after; a
+    stand-in's never does (the dry run counted them)."""
     query = select(func.coalesce(func.sum(Job.credits), 0)).where(
         Job.provider.not_in(FREE_LANES),
         Job.provider_ref.is_not(None),  # sent
+        Job.provider_ref.not_like(f"{STAND_IN}%"),  # to a real provider
     )
     if settings.real_budget_since:
         query = query.where(Job.started_at >= settings.real_budget_since)

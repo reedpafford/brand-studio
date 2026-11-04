@@ -212,7 +212,7 @@ test("a held Freestyle row shows credits only, even to the owner: no dollars bes
   expect(row.textContent).not.toMatch(/\$/); // the page's owner total at the top keeps its dollars
 });
 
-test("the top total counts what approving commits to: a held Freestyle's up to, not its first charge (rules 32, 34)", async () => {
+test("the top total counts what approving commits to: a held Freestyle's up to, not its first charge (rules 34, 36)", async () => {
   const job = { ...freestyle({ type: "dialogue", up_to: 203.1 }), credits: 3 };
   fakeServer({ ...base, "GET /jobs": [200, [job]], "GET /jobs/70/detail": [200, { ...job, cost_usd: 0.3 }], "GET /credits/allowances": allowances });
   open();

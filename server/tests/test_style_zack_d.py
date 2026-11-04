@@ -1,30 +1,33 @@
-"""Reed's Zack D skill (docs/next/skills/zack-d.md, #1097; Reed: "Skill, drop realistic")."""
+"""Reed’s Zack D (#1097, now its format and its style in app/guides). Reed, 3 Nov: "Follow
+the originals" (realistic game-engine 3D on real sets, one continuous following camera)."""
 
 from app import prompts
 
 
-def test_zack_d_follows_reeds_skill_a_blue_world_journey():
-    """Reed, 1 Nov: "Skill, drop realistic" (docs/next/skills/zack-d.md, #1097): a friendly 3D
-    look on an infinite blue world, one continuous camera journey under a calm narrator."""
+def test_zack_d_follows_the_originals_one_real_set_one_following_camera():
+    """Reed, 3 Nov (Z1–Z5, F2): semi-realistic game-engine 3D on one real set (cyan optional),
+    no hard cuts, glows on single parts, no podiums, 3D numerals or scale anchor, a gag
+    ending and a brisk, continuous narrator."""
     zack = prompts.style("zack-d")["sections"]
-    for part in ("place_look", "still_look", "clip_style"):
-        assert "infinite bright cyan-blue world" in zack[part], part
-        assert "semi-realistic" not in zack[part].lower() and "stage" not in zack[part], part
-    world = "This world is an infinite canvas: it continues unbroken past every edge of the frame"
-    assert world in zack["still_look"] and "no grid lines anywhere" in zack["still_look"]
+    for part in ("sheet_look", "place_look", "still_look", "clip_style", "fit_look"):
+        assert "semi-realistic 3d" in zack[part].lower(), part
+        assert "stage" not in zack[part] and "blue world" not in zack[part], part
     assert zack["clip_style"].endswith("No captions")  # "Style: ….  No captions." every clip
     assert "No captions." in prompts.system("clip_prompts", "zack-d")
+    assert (
+        "never a hard cut" in zack["clip_style"]
+        and "One continuous following camera" in zack["camera"]
+    )
     board = prompts.system("breakdown", "zack-d")
-    for part in ("podium, prop island, macro cutaway, data object", "about every 4–8 s",
-                 "two other distinct opening pictures", "rides the camera move"):  # fmt: skip
+    for part in ("Start mid-action", "two other distinct opening pictures", "rides the camera move",
+                 "a small visual gag", "a new camera beat every 2–3 s"):  # fmt: skip
         assert part in board, part
+    for gone in ("podium", "data object", "about every 4–8 s", "unhurried", "Colour is state",
+                 "never changes while the world", "Captions ("):  # fmt: skip
+        assert gone not in board, gone
     still = prompts.system("storyboard", "zack-d")
-    for part in (
-        "The best visual wins; the blue world is home",
-        "Colour is state",
-        "Graphics are objects, never overlays",
-        "never changes while the world",
-    ):
+    for part in ("The best visual wins; the video's one set is home", "Colour marks the part",
+                 "Graphics are objects, never overlays"):  # fmt: skip
         assert part in still, part
     assert ("on the stage", "in the world") in prompts.look_banned("zack-d")
     from app.prompts import check

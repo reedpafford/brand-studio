@@ -5,13 +5,13 @@ import { useViewOnly } from "./ViewOnly";
 const box =
   "w-full min-h-control rounded-md border bg-surface px-3 py-2 text-base text-text placeholder:text-muted disabled:bg-disabled disabled:text-disabled-text sm:min-h-control";
 
-type Common = { label: string; hint?: ReactNode; error?: string | null; /** "78 / 2,000" */ counter?: string; /** The counter turns green once the field is long enough. */ counterOk?: boolean };
+type Common = { label: string; /** The label is read out but not drawn (a row whose picture names it). */ hideLabel?: boolean; hint?: ReactNode; error?: string | null; /** "78 / 2,000" */ counter?: string; /** The counter turns green once the field is long enough. */ counterOk?: boolean };
 
-function Frame({ label, hint, error, counter, counterOk, id, children }: Common & { id: string; children: ReactNode }) {
+function Frame({ label, hideLabel, hint, error, counter, counterOk, id, children }: Common & { id: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium">
+        <label htmlFor={id} className={hideLabel ? "sr-only" : "text-sm font-medium"}>
           {label}
         </label>
         {counter && <span className={`shrink-0 whitespace-nowrap text-sm tabular-nums ${counterOk ? "text-success" : "text-muted"}`}>{counter}</span>}
@@ -34,11 +34,11 @@ function Frame({ label, hint, error, counter, counterOk, id, children }: Common 
 const edge = (error?: string | null) => (error ? "border-danger" : "border-border-strong");
 
 /** A labelled one-line field. The error replaces the hint and is announced with the field. */
-export function Field({ label, hint, error, counter, counterOk, trailing, ...rest }: Common & Omit<InputHTMLAttributes<HTMLInputElement>, "className"> & { /** A control inside the right end of the box (the password eye). */ trailing?: ReactNode }) {
+export function Field({ label, hideLabel, hint, error, counter, counterOk, trailing, ...rest }: Common & Omit<InputHTMLAttributes<HTMLInputElement>, "className"> & { /** A control inside the right end of the box (the password eye). */ trailing?: ReactNode }) {
   const id = useId();
   const viewOnly = useViewOnly();
   return (
-    <Frame {...{ label, hint, error, counter, counterOk, id }}>
+    <Frame {...{ label, hideLabel, hint, error, counter, counterOk, id }}>
       <span className="relative block">
         <input id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-note` : undefined} className={`${box} ${edge(error)} ${trailing ? "pr-12" : ""}`} {...rest} disabled={rest.disabled || viewOnly} />
         {trailing && <span className="absolute inset-y-0 right-0 grid w-11 place-items-center">{trailing}</span>}
@@ -47,21 +47,21 @@ export function Field({ label, hint, error, counter, counterOk, trailing, ...res
   );
 }
 
-export function TextArea({ label, hint, error, counter, rows = 4, ...rest }: Common & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className"> & { ref?: Ref<HTMLTextAreaElement> }) {
+export function TextArea({ label, hideLabel, hint, error, counter, rows = 4, ...rest }: Common & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className"> & { ref?: Ref<HTMLTextAreaElement> }) {
   const id = useId();
   const viewOnly = useViewOnly();
   return (
-    <Frame {...{ label, hint, error, counter, id }}>
+    <Frame {...{ label, hideLabel, hint, error, counter, id }}>
       <textarea id={id} rows={rows} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-note` : undefined} className={`${box} ${edge(error)}`} {...rest} readOnly={rest.readOnly || viewOnly} />
     </Frame>
   );
 }
 
-export function Select({ label, hint, error, counter, children, ...rest }: Common & Omit<SelectHTMLAttributes<HTMLSelectElement>, "className">) {
+export function Select({ label, hideLabel, hint, error, counter, children, ...rest }: Common & Omit<SelectHTMLAttributes<HTMLSelectElement>, "className">) {
   const id = useId();
   const viewOnly = useViewOnly();
   return (
-    <Frame {...{ label, hint, error, counter, id }}>
+    <Frame {...{ label, hideLabel, hint, error, counter, id }}>
       <span className="relative block">
         <select id={id} aria-invalid={!!error || undefined} aria-describedby={error || hint ? `${id}-note` : undefined} className={`${box} ${edge(error)} appearance-none pr-10`} {...rest} disabled={rest.disabled || viewOnly}>
           {children}

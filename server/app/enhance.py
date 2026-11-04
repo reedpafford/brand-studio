@@ -120,10 +120,12 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
         for c in cast
     )
     message = f"<brief>\n{escape(brief)}\n</brief>\n<cast>\n{escape(cast_lines)}\n</cast>"
-    from app.narration import video_kind
+    from app.narration import video_script
 
-    # the video's look (ST2), and a song's own guides whatever its look (Song in any look)
-    look = prompts.system(step, project.look or "house", video_kind(db, project))
+    # the video's look (ST2), and its script's format (its own pick, else its kind's)
+    script = video_script(db, project)
+    kind, picked = (script.kind, script.format or "") if script else ("story", "")
+    look = prompts.system(step, project.look or "house", kind, picked)
     return [look, prompts.brand_block(brand_dict, screens)], message
 
 

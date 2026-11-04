@@ -10,7 +10,7 @@ import { useToast } from "../toast";
 import { useRail } from "../useMedia";
 import { errorText as errorClass } from "../ui";
 import { serverTime } from "../time";
-import { typeName, type Kind } from "../freestyle/useFreestyle";
+import { useTypeName } from "../freestyle/useFreestyle";
 import { STEPS } from "./steps";
 import { stepOf } from "./HeldRequests";
 import type { Job, Project } from "./useHeld";
@@ -101,6 +101,7 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
   const [why, setWhy] = useState("");
   const project = projects.find((p) => p.id === job.project_id);
   const fs = job.freestyle;
+  const typeName = useTypeName();
   const what = fs ? "Freestyle" : job.step ? (STEPS[job.step] ?? job.step) : "Quick clip";
   const who = job.created_by_name;
   const act = useMutation({
@@ -135,7 +136,7 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
           <span aria-hidden className="text-muted">·</span>
         </>
       )}
-      <span>{fs ? `Freestyle · ${typeName(fs.type as Kind)} · ${fs.title}` : what}</span>
+      <span>{fs ? `Freestyle · ${typeName(fs.type)} · ${fs.title}` : what}</span>
     </Where>
   );
   // Open goes where the request was made: the freestyle thread, the video at its step, or the script (a song take).

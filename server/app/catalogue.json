@@ -41,8 +41,43 @@
    "first_frame": true,
    "last_frame": true,
    "audio": "switch",
-   "price": {"unit": "second", "usd": {"480p": 0.0598, "720p": 0.129, "1080p": 0.318, "4k": 0.661}},
-   "price_source": "tezu client catalogue provider cost (unverified for Replicate)"
+   "price": {"unit": "second", "usd": {"480p": 0.08, "720p": 0.18, "1080p": 0.45, "4k": 1.0}},
+   "price_source": "replicate.com/bytedance/seedance-2.0 billing table, read 2026-11-03: no video input $0.08/s 480p, $0.18 720p, $0.45 1080p, $1.00 4k (a video reference input costs $0.10/$0.22/$0.55/$1.25; audio on or off is the same price)"
+  },
+  {
+   "id": "p-video",
+   "name": "P-Video",
+   "kind": "video",
+   "lip_sync": true,
+   "provider_model": "prunaai/p-video",
+   "provider_version": "b5b01a83c4cde2c94a8fa5b68c98f2413b140a923ec910f30f1c782966788ebb",
+   "default": false,
+   "duration": {"min": 1, "max": 20},
+   "resolutions": ["720p", "1080p"],
+   "aspect_ratios": ["9:16", "1:1", "16:9", "4:3", "3:4", "3:2", "2:3"],
+   "max_reference_images": 1,
+   "first_frame": true,
+   "last_frame": true,
+   "audio": "always",
+   "price": {"unit": "second", "usd": {"720p": 0.02, "1080p": 0.04}},
+   "price_source": "replicate.com/prunaai/p-video/api pricing tiers, 2026-11-03: $0.02/s 720p, $0.04/s 1080p, draft off (draft $0.005/$0.01 isn't used)"
+  },
+  {
+   "id": "seedance-1-lite",
+   "name": "Seedance 1 Lite",
+   "kind": "video",
+   "lip_sync": false,
+   "provider_model": "bytedance/seedance-1-lite",
+   "provider_version": "6e47dd83529ee0599c68f274f225635080e4fd218360a85e2a3a78396d388b73",
+   "default": false,
+   "duration": {"min": 4, "max": 12},
+   "resolutions": ["480p", "720p", "1080p"],
+   "aspect_ratios": ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9", "9:21"],
+   "max_reference_images": 4,
+   "first_frame": true,
+   "last_frame": true,
+   "price": {"unit": "second", "usd": {"480p": 0.018, "720p": 0.036, "1080p": 0.072}},
+   "price_source": "replicate.com/bytedance/seedance-1-lite pricing tiers, 2026-11-03: $0.018/s 480p, $0.036/s 720p, $0.072/s 1080p; no sound of its own (the paid test presenter-1: best for glossy anatomy B-roll)"
   },
   {
    "id": "nano-banana-2.1",
@@ -106,6 +141,17 @@
    "duration": {"min": 1, "max": 190},
    "price": {"unit": "call", "usd": {"any": 0.20}},
    "price_source": "Replicate model page 2026-10-29: $0.20 per output audio file"
+  },
+  {
+   "id": "mmaudio",
+   "name": "MMAudio",
+   "kind": "sound",
+   "provider_model": "zsxkib/mmaudio",
+   "provider_version": "62871fb59889b2d7c13777f08deb3b36bdff88f7e1d53a50ad7694548a41b484",
+   "default": true,
+   "offered": false,
+   "price": {"unit": "call", "usd": {"any": 0.0061}, "gpu_usd_per_second": 0.000975},
+   "price_source": "Replicate model page 2026-11-03: about $0.0061 a run (163 runs per $1) on an Nvidia L40S; billed by GPU time, $0.000975 a second (replicate.com/pricing), so the real cost is the run's predict_time at that rate"
   }
  ]
 }

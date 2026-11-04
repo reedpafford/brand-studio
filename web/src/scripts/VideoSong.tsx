@@ -13,7 +13,6 @@ import type { SongTake } from "./useSongs";
 
 type Project = components["schemas"]["ProjectOut"];
 const BUSY: SongTake["status"][] = ["making", "timing"];
-const length = (t: SongTake) => t.trim_to ?? t.seconds;
 
 /** A song video's takes (its version's, then its own) and the one it is timed to (flows V2a). */
 function useVideoSongs(projectId: number, enabled = true) {
@@ -65,13 +64,6 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
   });
   const make = useMutation({ mutationFn: () => ok(api.POST("/projects/{project_id}/songs", { params: { path: { project_id: p.id } } })), onSuccess: refresh });
   const again = useMutation({ mutationFn: (id: number) => ok(api.POST("/songs/{take_id}/try-again", { params: { path: { take_id: id } } })), onSuccess: refresh });
-  const trim = useMutation({
-    mutationFn: (t: SongTake) => ok(api.POST("/songs/{take_id}/trim", { params: { path: { take_id: t.id } } })),
-    onSuccess: async (t) => {
-      await refresh();
-      toast(`Take ${t?.number} now uses its first ${t?.trim_to ? clock(t.trim_to) : "part"}. The whole take is kept.`, () => void ok(api.DELETE("/songs/{take_id}/trim", { params: { path: { take_id: t!.id } } })).then(refresh));
-    },
-  });
   const remove = useMutation({
     mutationFn: async (t: SongTake) => {
       await ok(api.DELETE("/songs/{take_id}", { params: { path: { take_id: t.id } } }));
@@ -83,7 +75,7 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
     },
   });
   // Only the latest press's refusal shows, until the next press.
-  const latest = [use, make, again, trim, remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
+  const latest = [use, make, again, remove].reduce((x, m) => (m.submittedAt > x.submittedAt ? m : x));
   const refused = latest.isError ? latest.error.message : null;
   const press = (t: SongTake) => (hasShots ? setAsking(t) : use.mutate(t));
   const current = data?.takes.find((t) => t.id === data.song_take_id);
@@ -107,17 +99,15 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
           <ul className="space-y-3">
             {data.takes.map((t) => {
               const inUse = t.id === data.song_take_id;
-              const tooLong = t.over_cap && t.trim_to == null;
-              const why = t.status === "timing" ? (W === NARRATION ? "Measuring the sentences…" : "Reading the song's timing…") : t.status !== "ready" ? null : tooLong ? "Too long for this video." : null;
+              const why = t.status === "timing" ? (W === NARRATION ? "Measuring the sentences…" : "Reading the song's timing…") : null;
               return (
                 <li key={t.id}>
                   <Card className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="type-card">{W.take} {t.number}</h3>
-                      {length(t) != null && <span className="text-sm tabular-nums text-muted">{clock(length(t)!)}{videoCost(t)}</span>}
+                      {t.seconds != null && <span className="text-sm tabular-nums text-muted">{clock(t.seconds)}{videoCost(t)}</span>}
                       {inUse && <Badge tone="accent">In this video</Badge>}
                       {t.in_video && <Badge>Made in this video</Badge>}
-                      {t.trim_to != null && <Badge>Uses the first {clock(t.trim_to)}</Badge>}
                       {t.timing_guessed && <Badge tone="warning">Timing guessed</Badge>}
                     </div>
                     {t.status === "making" ? (
@@ -136,11 +126,6 @@ function ChangeSong({ project: p, onClose, hasShots, hasClips }: { project: Proj
                           </Button>
                         )}
                       </div>
-                    )}
-                    {tooLong && t.fits_until != null && (
-                      <Button variant="secondary" busy={trim.isPending && trim.variables?.id === t.id} onClick={() => trim.mutate(t)}>
-                        Use the first {clock(t.fits_until)} · free
-                      </Button>
                     )}
                     {/* Only takes this video made can be deleted, and not the one it uses (flows V2a); Undo brings it back. */}
                     {t.in_video && !inUse && t.status !== "making" && (
@@ -189,7 +174,7 @@ export function SongStrip({ project: p, hasShots, hasClips = false }: { project:
           <Skeleton className="h-11" />
         ) : t && t.file_id !== null && t.seconds !== null ? (
           <div className="space-y-1">
-            <p className="text-sm">{W === NARRATION ? `Narration ${t.number}` : `Song: Take ${t.number}`} · {clock(length(t)!)}</p>
+            <p className="text-sm">{W === NARRATION ? `Narration ${t.number}` : `Song: Take ${t.number}`} · {clock(t.seconds)}</p>
             <TakePlayer fileId={t.file_id} seconds={t.seconds} peaks={t.peaks} label={`${W.take} ${t.number}`} />
           </div>
         ) : (
@@ -212,7 +197,7 @@ export function SongSetting({ project: p, hasShots = true, hasClips = true }: { 
   const t = songs.data?.takes.find((x) => x.id === songs.data?.song_take_id);
   const W = wordsFor(songs.data?.takes);
   const name = W === NARRATION ? "Narration" : "Song";
-  const label = t ? `${W === NARRATION ? `Narration ${t.number}` : `Song: Take ${t.number}`}${length(t) != null ? ` · ${clock(length(t)!)}` : ""}` : songs.isPending ? `${name}…` : `${name}: pick a ${W.take.toLowerCase()}`;
+  const label = t ? `${W === NARRATION ? `Narration ${t.number}` : `Song: Take ${t.number}`}${t.seconds != null ? ` · ${clock(t.seconds)}` : ""}` : songs.isPending ? `${name}…` : `${name}: pick a ${W.take.toLowerCase()}`;
   return (
     <>
       <Button variant="secondary" icon={Music} trailing={ChevronDown} onClick={() => setOpen(true)} aria-haspopup="dialog">

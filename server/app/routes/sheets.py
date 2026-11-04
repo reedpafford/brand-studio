@@ -215,7 +215,7 @@ def check_fit(
     (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
     drawn until it answers. A sheet from an uploaded photo is never checked: the photo is the
     truth. It was held at the press (prepaid); `after` (the redo and its check) stays held
-    until it's queued or the look fits. If it's refused anyway (the per-video limit), the
+    until it's queued or the look fits. If it's refused anyway, the
     check is skipped and the look shown, never held."""
     slot = slot or slot_for(db, item)  # its role's words are read against the sheet too
     data = {

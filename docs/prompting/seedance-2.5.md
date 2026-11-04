@@ -92,4 +92,4 @@ From the official FAQ ([Guide § FAQ][g]).
 [rep-api]: https://replicate.com/bytedance/seedance-2.5/api/schema
 
 ## Where the catalogue prices came from
-The Seedance 2.0 per-second prices in `server/app/catalogue.json` ($0.0598 at 480p up to $0.661 at 4K, unverified for Replicate) were read from tezu.ai's own model list on 2026-10-23. The competitor scrape (`docs/tezu/`) has been removed; the catalogue is the source of truth now.
+The Seedance 2.0 per-second prices in `server/app/catalogue.json` ($0.08 at 480p up to $1.00 at 4K, no video input) are from its Replicate billing table, read 2026-11-03 (the 23 Oct figures from tezu.ai were lower). The competitor scrape (`docs/tezu/`) has been removed; the catalogue is the source of truth now.

@@ -7,12 +7,13 @@ import { lookName, useLooks } from "../scripts/Looks";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
-import { SHAPES, TYPES, typeName, useEstimate, useFreestyleActions, type Freestyle, type Settings, type Source } from "./useFreestyle";
+import { SHAPES, useEstimate, useFreestyleActions, useTypeName, useTypes, type Freestyle, type Settings, type Source } from "./useFreestyle";
 
 /** A freestyle's settings in words, for the tags on its first message. */
 export function useSettingsWords() {
   const looks = useLooks().data;
   const brands = useBrands().data;
+  const typeName = useTypeName();
   return (s: Settings) => [typeName(s.type), lookName(looks, s.look), s.shape, brands?.find((b) => b.id === s.brand_id)?.name ?? "No brand"];
 }
 
@@ -84,6 +85,7 @@ export function SendPress({ owner, price, busy, disabled, wide, onClick }: { own
 export function Composer({ brandId, owner, onCreated, below }: { brandId: number; owner: boolean; onCreated: (fs: Freestyle) => void; below: (typed: boolean) => ReactNode }) {
   const looks = (useLooks().data ?? []).filter((l) => l.on);
   const brands = useBrands().data ?? [];
+  const types = useTypes();
   const [picked, setPicked] = useState<Partial<Settings>>({});
   const [text, setText] = useState("");
   const create = useFreestyleActions(null).create;
@@ -96,7 +98,7 @@ export function Composer({ brandId, owner, onCreated, below }: { brandId: number
   const go = () => !empty && !create.isPending && create.mutate({ text: text.trim(), settings }, { onSuccess: onCreated });
   const chips = (
     <div className="grid grid-cols-2 gap-2 lg:flex lg:gap-1.5">
-      <Pick label="Type" value={settings.type} options={TYPES.map((t) => ({ id: t.id, name: t.name, off: t.soon ? "coming next" : undefined }))} onPick={(type) => pick({ type })} />
+      <Pick label="Type" value={settings.type} options={types.map((t) => ({ id: t.id, name: t.name, off: t.soon ? "coming next" : undefined }))} onPick={(type) => pick({ type })} />
       <Pick label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name }))} onPick={(look) => pick({ look })} />
       <Pick label="Brand" value={settings.brand_id ?? 0} options={[...brands.map((b) => ({ id: b.id, name: b.name })), { id: 0, name: "None" }]} onPick={(b) => pick({ brand_id: b || null })} />
       <Pick label="Shape" value={settings.shape} options={shapeOptions} onPick={(shape) => pick({ shape })} />

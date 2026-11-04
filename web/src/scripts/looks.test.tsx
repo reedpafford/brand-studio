@@ -10,7 +10,7 @@ const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paw
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
 const version = (o: object = {}) => ({ slot: 0, status: "draft", title: "Bowl song", seconds: 0, project_id: null, text: LYRICS, words: 10, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, style_line: "pop, female lead, upbeat", singer: "", spoken_end_line: "", song_directions: [], ...o });
 const song = (o: object = {}, v: object = {}) => ({
-  id: 7, brand_id: 1, kind: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
+  id: 7, brand_id: 1, kind: "song", format: "song", title: "Bowl song", description: "", reference_id: null, published: false, status: "draft", created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-28T10:00:00Z", versions_left: 0,
   notes: "", reference_replace: "", cast: [], versions: [version(v)], ...o,
 });
 const base: Record<string, [number, unknown]> = { "GET /scripts/7/look-change": [200, { roles: [], to_finish_credits: 0, was_credits: 0, over_budget: false, reason: "" }], "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /references": [200, []], "GET /projects": [200, []], "GET /jobs": [200, []] };
@@ -30,7 +30,7 @@ const looks = [
   { id: "pixar", name: "Disney Pixar", blurb: "Soft 3D feature-film look", on: true, sample_still_id: 91 },
   { id: "clay", name: "Claymation", blurb: "Hand-made clay", on: false, sample_still_id: null },
 ];
-const story = (o: object = {}) => song({ kind: "story", look: "house", ...o }, { style_line: "" });
+const story = (o: object = {}) => song({ kind: "story", format: "dialogue", look: "house", ...o }, { style_line: "" });
 
 test("a draft's header reads its format and Style: House; the picker shows each look's sample and line, and Use this style saves with Undo", async () => {
   setViewport(1440);
@@ -82,7 +82,7 @@ test("a refused change (an Off look for an editor) says why in the server's word
 
 test("a published script shows its look read only; a song shows the Song chip", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, song({ published: true, status: "published", look: "pixar" })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, keep_lines: null, takes: [] }] });
+  fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, song({ published: true, status: "published", look: "pixar" })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes: [] }] });
   open("/b/1/scripts/7?step=script");
   expect(await screen.findByText("Style: Disney Pixar")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Look:/ })).toBeNull();

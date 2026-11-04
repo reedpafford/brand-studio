@@ -64,7 +64,7 @@ Items marked *(fomo)* are fomo's brand notes; the rest is general craft.
 
 - **Reuse the site's actions as tools**, each with its own prompt, schema and checks. The director never writes a clip, breakdown or still prompt itself.
 - **About 6–9k tokens a call** (rules and brand ~3k, the video's state ~3–5k), mostly cached.
-- **Safety is enforced by the server, not the prompt:** every paid tool goes through the same budget, hold, cap and rule 32 checks as a press; a hard limit on calls per job; no tool can change Limits or another person's work; every action is logged on the video.
+- **Safety is enforced by the server, not the prompt:** every paid tool goes through the same budget, hold, cap and rule 36 checks as a press; a hard limit on calls per job; no tool can change Limits or another person's work; every action is logged on the video.
 - **Evals:** a free set with stand-in tools first. Paid evals only with the Producer.
 
 ## 6. Build order

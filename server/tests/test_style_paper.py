@@ -1,13 +1,12 @@
-"""Reed's paper skill (docs/next/skills/paper.md, #1095): Paper and its four lanes."""
+"""Reed’s paper skill (#1095, now in app/guides/styles/paper): Paper and its four lanes."""
 
-from app import prompts
-from app.prompts import HERE
+from app import guides, prompts
 
 
 def test_paper_has_reeds_five_lanes_with_their_blocks_word_for_word():
-    """Reed's paper skill (docs/next/skills, #1095): one lane a video, each its own look, its
+    """Reed’s paper skill (#1095): one lane a video, each its own look, its
     style and physicality blocks word for word; the camera inside the paper world."""
-    skill = (HERE.parents[2] / "docs" / "next" / "skills" / "paper.md").read_text()
+    skill = (guides.ROOT / "styles" / "paper" / "guide.md").read_text()
     blocks = [b.split("`", 1)[0] for b in skill.split("- Style block: `")[1:]]
     looks = ["paper", "paper-flat", "paper-handmade", "paper-collage", "paper-origami"]
     assert len(blocks) == len(looks)
@@ -31,7 +30,7 @@ def test_paper_footage_has_no_printed_words_and_repairs_keep_a_noun():
     from app.prompts import check
 
     for look in ("paper", "paper-flat", "paper-handmade", "paper-collage", "paper-origami"):
-        text = "\n".join(v for k, v in prompts.style(look)["sections"].items() if k != "still")
+        text = "\n".join(prompts.style(look)["sections"][k] for k in (*guides.TOKENS, "Clips"))
         for printed in ("newspaper", "magazine", "stamps", "newsprint", "clippings"):
             assert printed not in text.lower(), (look, printed)
         fixed = check.look_words("Mia sits on a wooden tabletop, smiling.", look)[0]
@@ -59,4 +58,4 @@ def test_nothing_but_is_not_a_safeguard_and_collage_allows_story_text():
     assert check.look_words("Nothing but gore here.", "skeleton")[0] == "Nothing but glow here."
     collage = prompts.style("paper-collage")["sections"]
     assert "printed words on any scrap" in collage["place_look"]
-    assert "The product's own label, a 3D number or a sign the story needs" in collage["still"]
+    assert "The product's own label, a 3D number or a sign the story needs" in collage["Stills"]

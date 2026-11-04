@@ -15,15 +15,12 @@ from app.credits import (
     budget_used,
     credits_used,
     director_credits,
-    get_limits,
     lock,
-    over_cap,
     price,
 )
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import BrandScreen
-from app.models.credits import BUDGET_MULTIPLIER
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind
 from app.models.projects import Project, ProjectStatus
@@ -255,16 +252,6 @@ def _check_variants(db: Session, brand_id: int, chosen: dict[str, str]) -> dict[
 
 
 def _set_length(db: Session, user: User, project: Project, seconds: int | None) -> None:
-    limits = get_limits(db, user.workspace_id)
-    if (
-        seconds is not None and seconds * BUDGET_MULTIPLIER > limits.per_video_max_credits
-    ):  # budget = 2x 480p seconds
-        longest = limits.per_video_max_credits // BUDGET_MULTIPLIER
-        raise HTTPException(
-            422,
-            f"{over_cap(user, limits.per_video_max_credits).detail} "
-            f"Plan {longest} seconds or less.",
-        )
     project.planned_seconds = seconds
     if user.is_owner:
         project.status, project.approved_by_id = ProjectStatus.active, user.id
@@ -454,7 +441,7 @@ def _release_held_jobs(db: Session, owner: User, project: Project) -> None:
         .where(Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval)
         .order_by(Job.id)
     )
-    ceiling = project.budget_credits  # never above the per-video cap
+    ceiling = project.budget_credits
     for job in held:
         if used + job.credits <= ceiling:
             job.status, job.approved_by_id = JobStatus.queued, owner.id
