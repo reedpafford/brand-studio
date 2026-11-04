@@ -41,11 +41,19 @@ def test_a_picture_and_a_clip_are_added_to_a_brands_media_by_their_contents(owne
     assert item["key"] not in {
         i["key"] for i in owner.get(f"/brands/{brand}/media").json()["items"]
     }
+    assert editor.post(f"/brands/{brand}/media/{item['key']}/restore").status_code == 403
+    assert owner.post(f"/brands/{brand}/media/{item['key']}/restore").status_code == 204  # Undo
+    assert item["key"] in {i["key"] for i in owner.get(f"/brands/{brand}/media").json()["items"]}
+    assert owner.post(f"/brands/{brand}/media/{item['key']}/restore").status_code == 404
 
 
 def test_an_upload_too_big_is_refused(app, owner):
     app.state.settings.max_upload_mb = 0  # anything is too big
     assert _add(owner, first_brand(owner), "a.png", PNG).status_code == 413
+    huge = str(100 * 1024**3)  # refused from its length, before the body is read
+    r = owner.post(f"/brands/{first_brand(owner)}/media", content=b"x",
+                   headers={"content-length": huge})  # fmt: skip
+    assert r.status_code == 413
 
 
 def test_tabs_counts_lengths_and_order(app, db, owner):

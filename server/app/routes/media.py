@@ -222,8 +222,10 @@ def list_media(
         rows = [r for r in rows if ((r["made_at"], r["key"]) < mark) == newest
                 and (r["made_at"], r["key"]) != mark]  # fmt: skip
     page = rows[:PAGE]
+    reads = 0
     for r in page:  # a final cut made before lengths were kept: read once, then kept
-        if r["kind"] == "final" and r["duration_seconds"] is None:
+        if r["kind"] == "final" and r["duration_seconds"] is None and reads < READS:
+            reads += 1
             final_id = int(r["key"].split(":")[1])
             r["duration_seconds"] = _length(db, request.app.state.storage, final_id,
                                             files[r["file_id"]])  # fmt: skip
@@ -331,6 +333,7 @@ def _num(value) -> float:
 
 
 UNREAD = 0.0  # a final's seconds when its file couldn't be read: tried once, shown as none
+READS = 5  # older finals read for their length on one Media load; the rest wait for the next
 
 
 def _length(db: Session, storage, final_id: int, file: StoredFile) -> float | None:
@@ -408,7 +411,8 @@ def remove_media(
     brand_id: int, key: str, owner: User = Depends(owner_only), db: Session = Depends(get_db)
 ) -> None:
     """Owner only: a Quick clip or a script's own song leaves Media (Undo: the clip's or the
-    song's restore); a final cut leaves Media only, its video keeps it. A still or take a video
+    song's restore); a final cut leaves Media only, its video keeps it, and an added picture or
+    clip leaves Media (Undo for both: POST …/restore). A still or take a video
     is made of, or a Cast & places sheet, is removed where it's used, so a video never loses a
     part without its maker seeing it."""
     from app import song_takes
@@ -432,6 +436,31 @@ def remove_media(
         db.commit()
     else:
         raise HTTPException(409, SHEET)
+
+
+@router.post("/brands/{brand_id}/media/{key}/restore", status_code=204)
+def restore_media(
+    brand_id: int, key: str, owner: User = Depends(owner_only), db: Session = Depends(get_db)
+) -> None:
+    """Undo for the owner's Delete on an added picture or clip, or on a final cut taken off
+    Media. (A Quick clip or a song comes back through its own restore.)"""
+    get_brand(db, owner, brand_id)
+    what, _, rest = key.partition(":")
+    row = None
+    if what == "upload" and rest.isdigit():
+        row = db.get(MediaUpload, int(rest))
+        row = row if row and row.brand_id == brand_id and row.removed_at else None
+        if row:
+            row.removed_at = None
+    elif what == "final" and rest.isdigit():
+        row = db.get(FinalVideo, int(rest))
+        video = row and db.get(Project, row.project_id)
+        row = row if video and video.brand_id == brand_id and row.off_media_at else None
+        if row:
+            row.off_media_at = None
+    if row is None:
+        raise HTTPException(404, NOT_FOUND)
+    db.commit()
 
 
 SNIFFED = {"image/png": "image", "image/jpeg": "image", "image/webp": "image",
@@ -488,10 +517,11 @@ def add_media(
         raise HTTPException(415, NOT_MEDIA)
     seconds = None
     if SNIFFED[content_type] == "image":
-        if not _whole_picture(data):
-            raise HTTPException(415, NOT_MEDIA)
-        if problem := too_many_pixels(data):
+        problem = too_many_pixels(data)  # from its header, before it is decoded
+        if problem and "megapixels" in problem:  # too big to decode
             raise HTTPException(422, problem)
+        if problem or not _whole_picture(data):  # an unreadable header, or cut off part way
+            raise HTTPException(415, NOT_MEDIA)
     if SNIFFED[content_type] == "video":
         try:
             kinds, seconds = _probe(data, stop_after=CLIP_MAX)

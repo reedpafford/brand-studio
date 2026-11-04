@@ -5361,11 +5361,33 @@ export interface paths {
         /**
          * Remove Media
          * @description Owner only: a Quick clip or a script's own song leaves Media (Undo: the clip's or the
-         *     song's restore); a final cut leaves Media only, its video keeps it. A still or take a video
+         *     song's restore); a final cut leaves Media only, its video keeps it, and an added picture or
+         *     clip leaves Media (Undo for both: POST …/restore). A still or take a video
          *     is made of, or a Cast & places sheet, is removed where it's used, so a video never loses a
          *     part without its maker seeing it.
          */
         delete: operations["remove_media_brands__brand_id__media__key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/media/{key}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Media
+         * @description Undo for the owner's Delete on an added picture or clip, or on a final cut taken off
+         *     Media. (A Quick clip or a song comes back through its own restore.)
+         */
+        post: operations["restore_media_brands__brand_id__media__key__restore_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -22070,6 +22092,36 @@ export interface operations {
         };
     };
     remove_media_brands__brand_id__media__key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_media_brands__brand_id__media__key__restore_post: {
         parameters: {
             query?: never;
             header?: never;
