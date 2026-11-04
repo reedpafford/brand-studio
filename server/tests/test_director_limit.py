@@ -43,8 +43,10 @@ def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
     assert (charged <= limit, oks) == (True, 0)  # never past it without an OK
     assert [j["id"] for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
             ] == [held.id]  # Needs you  # fmt: skip
-    moves = editor.get(f"/projects/{pid}/director").json()["thread"]
-    assert moves[-1]["status"] == "held" and moves[-1]["text"] == held.input["held"]
+    (card,) = [m for m in editor.get(f"/projects/{pid}/director").json()["thread"] if m.get("run")]
+    assert card["status"] == "held"  # its card waits, saying why
+    assert card["text"] == ("Waiting for the owner’s OK · the director has used its own limit of "
+                            "35 credits")  # fmt: skip
 
     assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
     _run(app, db)

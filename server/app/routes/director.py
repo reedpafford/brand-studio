@@ -5,10 +5,10 @@ it; every action it takes is checked as that person's own press (app/director_to
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.orm import Session
 
-from app import director
+from app import director, run_progress
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -31,16 +31,146 @@ class TurnOut(BaseModel):
     created_at: UtcTime
 
 
+class RedidOut(BaseModel):
+    at: float  # seconds into the cut ("0:14")
+    clip: str  # "c7": the clip it names (the text says "Clip 7")
+    text: str  # "Clip 7: cartoon eyes landed on the stomach. Remade on Seedance 2.0."
+
+
+class NoteOut(BaseModel):
+    """The delivery note (S3-09, S3-10, P-08), as kept when the run delivered."""
+
+    made: str  # What I made
+    redid: list[RedidOut]  # What I watched and redid, in cut order
+    unsure: str  # What I'm unsure of ("" when nothing)
+    needs: str  # What I need from you ("Nothing. It’s ready to post." when nothing)
+    cost: str  # "$9.84 spent of up to $16.86"; an editor's "96 credits used of up to 164 (59%…)"
+    spent: float  # credits the run charged
+    up_to: float  # the video's "up to", in credits
+    spent_usd: float | None  # the owner only: what it really cost
+    cut: int  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84")
+    seconds: float  # the cut's length
+    clips: int
+
+
 class ThreadItem(BaseModel):
-    id: str  # stable: "m3" a message, "t41" a move
-    kind: Literal["message", "move"]  # what a person said, or one of the director's moves
+    id: str  # stable: "m3" a message, "r40" a run's progress card, "t41" a delivery
+    kind: Literal["message", "move"]  # what a person said, or the director's
     at: UtcTime
     who: str  # the person's name, or "Director"
-    text: str  # plain words; the deliver move's is the delivery note
+    text: str  # plain words: a run's card in a line ("Making the clips · 14 of 24 · scene 4
+    # of 6"), a delivery's note as plain lines
     status: Literal["queued", "running", "held", "done", "refused"] | None  # moves only
-    why: str = ""  # a move's reason, as the director gave it; "" for messages and deliveries
+    why: str = ""  # "" (kept for the shape: the run's card and note say it all)
     answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
     treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
+    run: str | None = None  # a run's progress card: GET …/director/progress is its record
+    note: NoteOut | None = None  # a delivery: its note
+
+
+class CellOut(BaseModel):
+    """One clip on the filmstrip and in the Clips list (S3-03, S6-01, S6-04, S6-05, P-10)."""
+
+    clip_id: str  # "c15"
+    number: int  # 15: "Clip 15"
+    scene: int  # its scene's id
+    label: str  # what it shows: "Dr. Pickle points at the clock"
+    seconds: int
+    model: str  # "Seedance 2.0"
+    state: Literal["todo", "making", "waiting", "failed", "flagged", "text", "redone", "done"]
+    frame_file_id: int | None  # its still (the take's first frame): /files/{id}
+    take_id: int | None  # the take in use, once there is one
+    note: str  # the state's line: what was found, why it waits or failed ("" when done)
+    percent: int | None  # making: how far along (never past 95 until it lands)
+    minutes_left: int | None  # making: "about 3 min"
+    credits: str | None  # waiting or failed: the price of the press that moves it on, as the
+    # viewer reads money ("$0.32" to the owner, "4 credits" to an editor)
+    changed: bool  # the director made it again: outlined…
+    seen: bool  # …until this person has watched that take (POST …/seen)
+    found: bool  # its watch found something on one of its takes (the Flagged filter)
+
+
+class SceneOut(BaseModel):
+    id: int
+    name: str  # "Hook" (the plan's part), else the scene's heading
+    total: int
+    done: int  # clips with a take in hand
+    clips: list[CellOut]
+
+
+class StepOut(BaseModel):
+    key: str  # read, plan, cast, voice, stills, prompts, takes, watching, host, cut
+    state: Literal["done", "now", "todo", "wait", "bad"]
+    text: str  # "Making takes: 14 of 24"
+    sub: str  # now or wait only: "Clip 15 · scene 4 · 6 s · about 3 min"
+
+
+class ChangedOut(BaseModel):
+    clip_id: str
+    number: int
+    take_id: int | None
+    frame_file_id: int | None
+    seen: bool
+
+
+class StoppedOut(BaseModel):
+    by: str  # "Reed stopped the director at 10:14"
+    at: str
+    made: int
+    total: int
+    carry_on: str  # "Carry on · up to $10.74 more": the rest of the video's "up to"
+
+
+class FixOut(BaseModel):
+    kind: Literal["again", "carry_on"]  # again: POST …/clips/{clip}/generate; carry_on:
+    # POST …/director
+    label: str
+    price: str | None  # as the viewer reads money; "up to" on the button (rule 36)
+
+
+class FailedOut(BaseModel):
+    title: str  # "Clip 4 couldn’t be made"
+    why: str  # "The service was busy. Nothing was charged."
+    clip: int | None  # the clip's id for "again"
+    fixes: list[FixOut]  # never empty (rule 22)
+
+
+class CountsOut(BaseModel):
+    all: int
+    needs_you: int  # flagged, waiting or failed: a person's press moves it on
+    flagged: int  # its watch found something on one of its takes
+    redone: int
+
+
+class ProgressOut(BaseModel):
+    """The newest run's live record (v6 piece C): poll it while `status` is working,
+    revising or waiting (the app polls; 3 s is plenty)."""
+
+    run: str
+    status: Literal["working", "revising", "waiting", "stopped", "delivered", "needs_fix"]
+    title: str  # "Making the clips", "Revising", "Stopped", "Made in 22 min", "Stopped at clip 4"
+    sub: str  # "14 of 24 · scene 4 of 6", "1 of 2 changes", "11 of 24 clips made"
+    tone: Literal["now", "wait", "done", "bad", "stop"]
+    started_at: UtcTime
+    ended_at: UtcTime | None
+    clips: int
+    made: int
+    redone: int  # "3 redone after watching"
+    scene_at: int  # "scene 4 of 6": the first scene not finished (1-based)
+    scenes: list[SceneOut]
+    counts: CountsOut
+    minutes_left: int | None  # "about 2 h 10 min left"
+    steps: list[StepOut]
+    spent: float  # credits charged this run
+    up_to: float  # the video's "up to", in credits
+    spent_usd: float | None  # the owner only: what it really cost
+    changed: list[ChangedOut]  # "Changed after watching" / "Watch the changes"
+    stopped: StoppedOut | None  # stopped by a person (S3-08)
+    failed: FailedOut | None  # stopped on a problem, with its fixes (S3-11)
+
+
+class SeenIn(BaseModel):
+    take_ids: list[int] = Field(min_length=1, max_length=500)
 
 
 class MessageIn(BaseModel):
@@ -79,7 +209,8 @@ def _out(db: Session, user: User, project) -> DirectorOut:
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,
-                       start_blocked=blocked, thread=director.thread(db, project),
+                       start_blocked=blocked,
+                       thread=director.thread(db, project, user.is_owner),
                        unread=len(director.leftover(db, project)),
                        run_price=0 if status == "running" else _run_price(db, project))  # fmt: skip
 
@@ -134,3 +265,19 @@ def stop(project_id: int, user: User = Depends(current_user), db: Session = Depe
     project = get_project(db, user, project_id)
     director.stop(db, project, user.id)
     return _out(db, user, project)
+
+
+@router.get("/progress", response_model=ProgressOut | None)
+def progress(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The newest run's live record: its scenes and clips, its steps, its cost; null before
+    any run. Free to read, in the same few queries however long the video."""
+    return run_progress.record(db, get_project(db, user, project_id), user)
+
+
+@router.post("/seen", status_code=204)
+def seen(
+    project_id: int, body: SeenIn, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """This person watched these takes (Watch the changes, or playing a clip): the clips the
+    director changed stop being outlined for them. Takes of other videos are ignored."""
+    run_progress.seen(db, user, get_project(db, user, project_id), body.take_ids)

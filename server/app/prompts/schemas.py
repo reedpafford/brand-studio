@@ -692,3 +692,19 @@ class DirectorTurn(BaseModel):
         "'deliver' it is the delivery note (2-4 sentences: the craft choices made and why); on "
         "'stop', what the owner needs to know."
     )
+    made: str = Field(
+        default="",
+        description="On 'deliver' only: the delivery note's 'What I made', one short paragraph: "
+        "the length, the style and who's in it, the scenes and clips, and how it opens. Else "
+        "empty.",
+    )
+    unsure: str = Field(
+        default="",
+        description="On 'deliver' only: 'What I'm unsure of': a fault kept or a choice a person "
+        "may want changed, and the words that change it ('say \"shorter end\"'), or empty.",
+    )
+    needs: str = Field(
+        default="",
+        description="On 'deliver' only: 'What I need from you', or empty when nothing (the note "
+        "then says it's ready to post).",
+    )

@@ -465,8 +465,9 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
     project = db.get(Project, fs.project_id)
     sends = [jobs[m["job"]] for m in fs.chat if m.get("job") in jobs]
     last = sends[-1] if sends else None  # the newest send: the first, or a change's new run
-    words = {f"t{j.id}": f"The owner declined: {j.error}" for j in sends if j.input.get(DECLINE)}
-    words |= {f"t{j.id}": "Withdrawn." for j in sends if j.input.get(WITHDRAWN)}
+    # a send is its run's first turn: its card ("r…") says what the owner did with it
+    words = {f"r{j.id}": f"The owner declined: {j.error}" for j in sends if j.input.get(DECLINE)}
+    words |= {f"r{j.id}": "Withdrawn." for j in sends if j.input.get(WITHDRAWN)}
     if last is None:  # Use a reel: the reel is being read; its script isn't written yet
         status = "working"
     elif last.input.get(DECLINE):
@@ -484,9 +485,9 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list) -> tuple:
         status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
     moves = [FreestyleItem(**{**m, "text": words.get(m["id"], m["text"])})
              for m in director.thread(db, project) if m["kind"] == "move"]  # fmt: skip
-    held = db.scalars(select(Job).where(  # a take or a watch past the price, waiting mid-run
+    held = db.scalars(select(Job).where(  # a turn, take or watch past the price, mid-run
         Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval,
-        Job.input["step"].as_string() != director.STEP)).all()  # fmt: skip
+        Job.id.not_in([j.id for j in sends]))).all()  # fmt: skip
     moves += [FreestyleItem(id=f"j{j.id}", kind="move", at=j.created_at, who="Director",
                             text=j.input.get("held") or PAST_APPROVED, status="held")
               for j in held]  # fmt: skip

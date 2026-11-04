@@ -5,9 +5,10 @@ it's only a note, read at the next turn."""
 
 from decimal import Decimal
 
-from app import credits
+from app import credits, director
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
+from app.models.projects import Project
 from tests.test_freestyle_dialogue import BODY, _run
 
 CHANGE = "Make clip 1 brighter."
@@ -45,9 +46,9 @@ def test_an_editors_change_waits_for_the_owner_then_a_new_run_makes_it(app, owne
     assert out["status"] == "delivered", [t["text"] for t in out["thread"]]
     texts = [t["text"] for t in out["thread"]]
     assert [t["text"] for t in out["thread"] if t["kind"] == "message"][-1] == CHANGE
-    assert any(t.startswith("Note 1:") for t in texts) or any(
-        "Note 1:" in (t["why"] or "") for t in out["thread"]
-    )  # the new run made the change
+    turns = director.turns(db, db.get(Project, out["project_id"]))
+    assert any((j.output or {}).get("why", "").startswith("Note 1:") for j in turns)  # the change
+    assert any(t.startswith("The cut is made") for t in texts)  # its delivery note, as lines
     assert out["file_id"] and out["file_id"] != first_cut  # delivered again
 
 
