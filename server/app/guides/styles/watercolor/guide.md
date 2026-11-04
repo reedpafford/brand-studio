@@ -1,6 +1,7 @@
 name: Watercolor
 order: 8
 on: no
+hidden: yes
 image_model: auto
 video_model: seedance-2.0
 blurb: An original painted watercolour world: translucent washes, soft blooms and paper texture, with gentle motion.

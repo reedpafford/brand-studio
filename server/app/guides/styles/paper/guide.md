@@ -1,6 +1,7 @@
 name: Paper
 order: 7
 on: no
+hidden: yes
 image_model: auto
 video_model: seedance-2.0
 blurb: A layered papercraft world: stacked cardstock with visible edges and deep layered shadows, in strong colour.
