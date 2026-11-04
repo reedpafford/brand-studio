@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
@@ -13,7 +13,7 @@ const project = {
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, brands],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 150, per_video_max_credits: 340 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 150 }],
   "GET /library/character": [200, [{ id: 4, name: "Mia", image_file_ids: [], sheet_status: "approved" }]],
 };
 
@@ -56,11 +56,11 @@ test("the brief is sent with the cast and shape, then you land on the project", 
   expect(screen.getByText("412 / 660 credits · 62%")).toBeInTheDocument();
 });
 
-test("the longest length comes from the server's per-video cap; there is no editor length limit", async () => {
+test("there is no length limit: the page asks for any planned length", async () => {
   fakeServer({ ...base });
   renderAt("/b/1/projects/new");
   const length = await screen.findByLabelText(/Planned length/);
-  await waitFor(() => expect(length).toHaveAttribute("max", "170")); // 340 / 2, from the server
+  expect(length).not.toHaveAttribute("max");
   expect(screen.getByText(/Budget: 60 credits/)).toBeInTheDocument();
   await userEvent.clear(length);
   await userEvent.type(length, "90");

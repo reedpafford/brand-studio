@@ -25,12 +25,19 @@ from sqlalchemy.orm import Session
 
 from app import director, hidden, music, screen_figures
 from app.clip_takes import still_wanted
-from app.credits import USD_PER_CREDIT, usd_to_credits
+from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
-from app.providers import NetworkError, NotStarted, Provider, Result, get_providers
+from app.providers import (
+    STAND_IN,
+    NetworkError,
+    NotStarted,
+    Provider,
+    Result,
+    get_providers,
+)
 from app.purge import purge_deleted, purge_uploads
 from app.references import fit_image
 from app.steps import explain, recheck, save_step_result, step_failed
@@ -328,10 +335,11 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
             data, content_type = storage.get(stored.key), stored.content_type
             if figure := (job.input.get("screen_figures") or {}).get(str(file_id)):
                 data, content_type = screen_figures.draw(data, figure), "image/png"
-            if max_side and key == "reference_images":
+            if max_side and key in ("reference_images", "image"):
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
-        payload["input"] = {**payload.get("input", {}), key: urls}
+        one = key in ("image", "audio", "video")  # P-Video's and MMAudio's single files
+        payload["input"] = {**payload.get("input", {}), key: urls[0] if one else urls}
     if take := job.input.get("take_frames"):  # the advisory check: the take's frames first
         stored = _stored(db, storage, job, take["file_id"])
         frames = [f"data:image/jpeg;base64,{base64.b64encode(f).decode()}"
@@ -472,7 +480,8 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         _fail(db, job, _plain(job, repr(exc)), repr(exc))
         db.commit()
         return True
-    db.execute(update(Job).where(Job.id == job.id).values(provider_ref="sync"))
+    ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
+    db.execute(update(Job).where(Job.id == job.id).values(provider_ref=ref))  # a stand-in's: marked
     _finish(db, job, provider, result, storage)
     return True
 

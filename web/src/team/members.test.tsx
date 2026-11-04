@@ -16,7 +16,7 @@ const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number
   "GET /brands": [200, [{ id: 1, name: "Iron Paws", colours: [] }]],
   "GET /team/members": [200, members],
   "GET /team/invites": [200, []],
-  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145, per_video_max_credits: 729 }],
+  "GET /credits/limits": [200, { weekly_quick_clip_credits: 145 }],
   "GET /credits/allowances": [200, []],
   ...o,
 });
