@@ -6,12 +6,12 @@ import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProductionPage } from "./production/ProductionPage";
 import { ProjectPage } from "./projects/ProjectPage";
 import { VideoRoute } from "./videos/VideoChat";
-import { NewVideoPage } from "./videos/NewVideoPage";
+import { NewVideoPage } from "./newvideo/NewVideoPage";
 import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { NewScriptPage } from "./scripts/NewScriptButton";
 import { ScriptsRoute } from "./videos/ScriptsRoute";
-import { VideosPage } from "./videos/VideosPage";
+import { FolderPage } from "./videos/FolderPage";
 import { MediaPage } from "./media/MediaPage";
 import { MediaItemPage } from "./media/MediaItemPage";
 import { FreestylePage, ToNewVideo } from "./freestyle/FreestylePage";
@@ -47,7 +47,7 @@ export function App() {
           <Route path="b/:brandId/projects" element={<Navigate to="../videos" relative="path" replace />} />
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />
-          <Route path="b/:brandId/videos" element={<VideosPage />} />
+          <Route path="b/:brandId/videos" element={<FolderPage />} />
           <Route path="b/:brandId/videos/new" element={<NewVideoPage />} />
           <Route path="b/:brandId/videos/:projectId" element={<VideoRoute />} />
           <Route path="b/:brandId/brand" element={<BrandPage />} />

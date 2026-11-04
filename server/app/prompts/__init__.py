@@ -139,24 +139,29 @@ def _picked(title: str, intro: str, sections: dict, step: str) -> str:
 
 
 @cache
-def system(step: str, style_id: str = "house", fmt: str = "", picked: str = "") -> str:
+def system(step: str, style_id: str = "house", fmt: str = "", picked: str = "",
+           broll: str = "") -> str:  # fmt: skip
     """`style_id` is the video's look; `fmt` its script's kind (story, song, narrated) and
     `picked` the script's own format id: guides.video_format reads both. The briefed steps get
-    craft, the format's guide and the style's; the fomo worked examples reach only dialogue."""
+    craft, the format's guide and the style's; the fomo worked examples reach only dialogue.
+    `broll`: a hosted video's B-roll look (n31): the briefed steps draw their shots in it, and
+    their brief carries both guides (guides.brief)."""
     kind = fmt or next((k for k in ("song", "narrated") if step.startswith(f"{k}_")), "")
     form = guides.format_(guides.video_format(kind, style_id, picked))
+    broll = broll if step in guides.BRIEFED and broll != style_id else ""
+    shots = broll or style_id  # the look the step's shots are drawn in
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
     for name in filter(None, [EXTENDS.get(step), step]):
-        parts.append(guides.fill((HERE / f"{name}.md").read_text(), style_id))
+        parts.append(guides.fill((HERE / f"{name}.md").read_text(), shots))
     if ex := guides.example(form["id"], step):
-        ex = _in_look(ex, style_id)
+        ex = _in_look(ex, shots)
         parts.append(
             f"## Worked example ({ex['source']})\n{ex['note']}\n\n"
             f"<example_input>\n{ex['input']}\n</example_input>\n\n"
             f"<example_output>\n{json.dumps(ex['output'], indent=1)}\n</example_output>"
         )
     if step in guides.BRIEFED:  # Reed, 2 Nov: one director, briefed by the guides
-        parts.append(guides.brief(form["id"], style_id, step))
+        parts.append(guides.brief(form["id"], style_id, step, broll))
         return "\n\n".join(parts)
     chosen = guides.style(style_id)
     parts.append(_picked(

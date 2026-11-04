@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import model_map, p_video, screen_figures, video_settings
+from app import looks, model_map, p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -47,7 +47,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
     require_cast_sheets(db, breakdown, shots, known)
     require_looks(would_show(db, project, breakdown, shots), known)
-    unsent = model_map.unsent(project.look, video_model(project).id, _shots(breakdown, shots))
+    unsent = model_map.unsent(
+        looks.drawn(project), video_model(project).id, _shots(breakdown, shots)
+    )
     drop = tuple(dict.fromkeys(drop + unsent))  # a photoreal person: said in words instead
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
@@ -456,7 +458,7 @@ def save_take(db: Session, job: Job) -> None:
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
     take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
                     prompt=job.input.get("clip_prompt"),
-                    look=db.get(Project, clip.project_id).look,
+                    look=looks.drawn(db.get(Project, clip.project_id)),
                     made_with=job.input.get("made_with") or {})  # fmt: skip
     db.add(take)
     db.flush()

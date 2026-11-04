@@ -1,6 +1,7 @@
-import type { ReactNode, Ref } from "react";
+import { useState, type ReactNode, type Ref } from "react";
 import { Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import type { Tone } from "../components";
 import { plain } from "../projects/DirectorPanel";
@@ -92,6 +93,7 @@ export function Thread({ fs, items = fs.thread, tags, owner, first, extra }: { f
                   ))}
                 </div>
                 {!first && <p className="whitespace-pre-line break-words font-script text-sm leading-[1.6] text-muted">{t.text}</p>}
+                <Attached ids={(t as { files?: number[] }).files ?? []} />
               </>
             )}
             {extra?.(t)}
@@ -104,4 +106,26 @@ export function Thread({ fs, items = fs.thread, tags, owner, first, extra }: { f
       )}
     </ol>
   );
+}
+
+/** New video's pictures or clips on the first message, for this video only (rule 12). */
+function Attached({ ids }: { ids: number[] }) {
+  if (!ids.length) return null;
+  return (
+    <ul aria-label="Attached for this video" className="flex flex-wrap gap-2">
+      {ids.map((id) => (
+        <li key={id} className="h-16 w-12 overflow-hidden rounded-md bg-surface-3">
+          <a href={fileUrl(id)} target="_blank" rel="noreferrer" aria-label="Open the attachment">
+            <Thumb src={fileUrl(id)} />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A picture, or a clip's first frame when it isn't one. */
+function Thumb({ src }: { src: string }) {
+  const [clip, setClip] = useState(false);
+  return clip ? <video src={src} muted preload="metadata" className="size-full object-cover" /> : <img src={src} alt="" onError={() => setClip(true)} className="size-full object-cover" />;
 }

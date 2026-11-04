@@ -44,6 +44,8 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n28 | No per-video cap (Reed, 2026-11-03: "Just remove the cap entirely"): drops `credit_limits.per_video_max_credits` and `song_takes.trim_to` ("Use the first 0:55", which only existed to fit a song video under the cap). A take that was trimmed is used whole. Downgrade adds both back (the cap at 729, trims empty) | No-video-cap | — |
 | n29 | Media for v5 (C_Media): new `media_uploads` {workspace_id, brand_id, created_by_id, file_id, seconds (null for a picture), removed_at}, a picture or clip added to a brand's Media, checked by its contents; `final_videos.seconds` (nullable, no default: kept when a cut is made, an older one's read once). Downgrade drops both | Next-Server | #1267 |
 | n30 | Folders inside folders (v6 S0-01): `folders.parent_id`, nullable FK to `folders` (null: at the top). Downgrade drops it | v6-folders | — |
+| n31 | A hosted video's B-roll look (v6 S-gaps-01, option 1): `projects.broll_look`, nullable text (null: the style's own). Its stills, takes, B-roll model and the briefed steps' shots use it; the host, voice and cast keep `projects.look`. Downgrade drops it | v6-newvideo | — |
+| n32 | New video's picks (v6): `projects.attachments`, JSON list of file ids not null default `[]`, pictures or clips attached for this video only, never added to the brand (rule 12; S-gaps-01, option 3), listed in the director's context; and `projects.reel_script_id`, nullable FK to `scripts`, the reel it was adapted from (Use a reel, S2-07). Downgrade drops both | v6-newvideo | — |
 
 ## Merge order (the chain on `next`)
 
@@ -78,8 +80,10 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 24 | n25 | #1258 | n24 | On `next` (a8e8b9d2) |
 | 25 | n26 | — | n25 | On its PR |
 | 26 | n28 | — | n27 | On its PR |
-| 27 | n29 | #1267 | n28 | On `next` |
+| 27 | n29 | #1267 | n28 | On `next` (19be9833) |
 | 28 | n30 | #1296 | n29 | On `next` |
+| 29 | n31 | #1298 | n30 | On its PR |
+| 30 | n32 | — | n31 | On its PR |
 
 ## 1. Song ads
 

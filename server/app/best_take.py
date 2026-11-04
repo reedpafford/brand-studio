@@ -4,7 +4,7 @@ the checks found. It only reads: picking and approving stay the caller's (rule 2
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts, item_checks, video_settings
+from app import clip_prompts, item_checks, looks, video_settings
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
@@ -35,7 +35,7 @@ def best_take(db: Session, clip: ProjectClip) -> ClipTake | None:
                     or clip_prompts.older_prompt(db, clip, take))  # fmt: skip
 
     takes = db.scalars(select(ClipTake).where(ClipTake.clip_id == clip.id)).all()
-    current = [t for t in takes if t.look == project.look
+    current = [t for t in takes if t.look == looks.take_look(project, t)
                and not video_settings.made_stale(project, clip, t) and not older(t)]  # fmt: skip
     if not current:
         return None

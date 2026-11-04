@@ -206,3 +206,12 @@ def follow_on(db: Session, job: Job, saved: bool) -> None:
         except HTTPException as exc:  # e.g. a cap reached meanwhile: stop here, say why
             log.warning("job %s: couldn't queue the reel's %s step: %s", job.id, left[0], exc)
             script.reel = {**script.reel, "failed_step": left[0]}
+    else:  # read: a video New video made from it (Use a reel) starts its director's run
+        from app.routes.reel_video import then_direct
+
+        db.commit()  # the read's last answer first: the held run freezes what it's made of
+        try:
+            then_direct(db, script)
+        except HTTPException as exc:  # its picks were checked at the press: say why, never loop
+            db.rollback()
+            log.warning("script %s: the reel's video couldn't start: %s", script.id, exc.detail)
