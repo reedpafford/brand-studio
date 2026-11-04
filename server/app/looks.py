@@ -1,6 +1,6 @@
 """Looks (flows ST1–ST3, Reed 2026-10-29): how a video's pictures are drawn, a setting apart
-from its format. Each look is a file in app/prompts/styles/ with `kind: look` (the
-Director's paragraphs); the formats there are not looks. A look is On for editors only once
+from its format. Each look is a guide in app/guides/styles/ (formats are app/guides/formats/).
+A look is On for editors only once
 the owner switches it on, and that needs its sample first (ST3); with no switch, the file's
 own `on:` applies (House alone). The owner may try an Off look on their own drafts."""
 
@@ -42,9 +42,9 @@ def get(look_id: str) -> dict:
 
 
 def lanes(look_id: str) -> list[dict]:
-    """A style's lanes, each as get() gives it ("Paper · Flat Paper")."""
-    return [get(s["id"]) for s in prompts.styles()
-            if s["kind"] == "lane" and s.get("parent") == look_id]  # fmt: skip
+    """A style's lanes, each as get() gives it ("Paper · Flat Paper"); a hidden lane isn't."""
+    return [get(s["id"]) for s in prompts.styles() if s["kind"] == "lane"
+            and s.get("parent") == look_id and not s.get("hidden")]  # fmt: skip
 
 
 def base(look_id: str) -> str:
@@ -142,7 +142,7 @@ def follow_lane(db: Session, project) -> str | None:
     if not lane or project.id is None or lane == project.look:
         return None
     try:
-        if get(lane).get("parent") != base(project.look or DEFAULT):
+        if get(lane).get("parent") != base(project.look or DEFAULT) or get(lane).get("hidden"):
             return None
     except HTTPException:
         return None

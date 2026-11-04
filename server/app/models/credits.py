@@ -15,7 +15,6 @@ USD_PER_CREDIT = Decimal("0.1028")  # Seedance 2.5 480p, per second
 BUDGET_MULTIPLIER = 2
 # Per editor, Mon-Sun (UTC): Quick clips plus everything on their own scripts ($15, Reed).
 DEFAULT_WEEKLY_QUICK_CLIP_CREDITS = Decimal(97)  # $10 a week, Quick clips only (Reed, 30 Oct)
-DEFAULT_PER_VIDEO_MAX_CREDITS = 729  # Reed: $75 per video at most (floored), owner included
 
 
 class CreditRate(Entity, Base):
@@ -31,12 +30,10 @@ class CreditLimits(Entity, Base):
 
     __tablename__ = "credit_limits"
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), unique=True)
-    # Unused since Reed's 2026-10-23 decision (editors plan any length up to the cap); the
-    # column goes in a later migration.
+    # Unused since Reed's 2026-10-23 decision (editors plan any length); the column goes in a
+    # later migration.
     max_planned_seconds: Mapped[int] = mapped_column(default=0)
     weekly_quick_clip_credits: Mapped[Decimal] = mapped_column(
         Numeric(12, 3), default=DEFAULT_WEEKLY_QUICK_CLIP_CREDITS
     )
-    # Hard ceiling for one video's credits, for everyone including the owner.
-    per_video_max_credits: Mapped[int] = mapped_column(default=DEFAULT_PER_VIDEO_MAX_CREDITS)
     editors_can_save_looks: Mapped[bool] = mapped_column(default=False)  # unused

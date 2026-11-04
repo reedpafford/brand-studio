@@ -7,6 +7,7 @@ import { Badge, Banner, Button, buttonClass, creditsLabel, EmptyState, wholeCred
 import { useHeld } from "../approvals/useHeld";
 import { useRail } from "../useMedia";
 import { useRestoreBrand } from "../brand/ArchiveBrand";
+import { ByFormat } from "./ByFormat";
 import { Charges } from "./Charges";
 import { Money, MonthPicker, Stat, money, useMonth } from "./parts";
 import { useBrandRows, useSummary, type BrandRow } from "./useUsage";
@@ -91,6 +92,7 @@ export function UsagePage() {
         )}
       </section>
       <People month={month} />
+      <ByFormat />
       <Charges />
     </main>
   );

@@ -1,0 +1,75 @@
+{
+ "model": "zsxkib/mmaudio",
+ "version": "62871fb59889b2d7c13777f08deb3b36bdff88f7e1d53a50ad7694548a41b484",
+ "fetched": "2026-11-03",
+ "Input": {
+  "type": "object",
+  "title": "Input",
+  "properties": {
+   "seed": {
+    "type": "integer",
+    "title": "Seed",
+    "minimum": -1,
+    "x-order": 6,
+    "description": "Random seed. Use -1 or leave blank to randomize the seed"
+   },
+   "image": {
+    "type": "string",
+    "title": "Image",
+    "format": "uri",
+    "x-order": 7,
+    "description": "Optional image file for image-to-audio generation (experimental)"
+   },
+   "video": {
+    "type": "string",
+    "title": "Video",
+    "format": "uri",
+    "x-order": 2,
+    "description": "Optional video file for video-to-audio generation"
+   },
+   "prompt": {
+    "type": "string",
+    "title": "Prompt",
+    "default": "",
+    "x-order": 0,
+    "description": "Text prompt for generated audio"
+   },
+   "duration": {
+    "type": "number",
+    "title": "Duration",
+    "default": 8,
+    "minimum": 1,
+    "x-order": 3,
+    "description": "Duration of output in seconds"
+   },
+   "num_steps": {
+    "type": "integer",
+    "title": "Num Steps",
+    "default": 25,
+    "x-order": 4,
+    "description": "Number of inference steps"
+   },
+   "cfg_strength": {
+    "type": "number",
+    "title": "Cfg Strength",
+    "default": 4.5,
+    "minimum": 1,
+    "x-order": 5,
+    "description": "Guidance strength (CFG)"
+   },
+   "negative_prompt": {
+    "type": "string",
+    "title": "Negative Prompt",
+    "default": "music",
+    "x-order": 1,
+    "description": "Negative prompt to avoid certain sounds"
+   }
+  }
+ },
+ "Output": {
+  "type": "string",
+  "title": "Output",
+  "format": "uri"
+ },
+ "enums": {}
+}

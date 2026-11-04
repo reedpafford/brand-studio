@@ -120,6 +120,37 @@ def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F
     assert db.query(Job).filter_by(kind="video").count() == 2
 
 
+def test_a_p_video_take_runs_at_720p_24_fps_and_costs_its_real_price(app, db, editor, setup, clip):  # noqa: F811
+    """P-Video has no 480p (its takes use its lowest), reads one `image` and no reference
+    lists, and is asked at 24 fps with its prompt left as written (no upsampling); $0.02 a
+    second is 0.19 credits, so 5 s are 0.95, which is what the take shows and what is charged."""
+    from app.models.projects import Project
+
+    db.get(Project, setup["project"]).video_model = "p-video"
+    db.commit()
+    base = f"/projects/{setup['project']}"
+    url = f"{base}/clips/{clip['id']}"
+    assert editor.get(f"{base}/clips").json()[0]["take_credits"] == 0.95
+    job = editor.post(f"{url}/generate")
+    assert job.status_code == 201, job.text
+    assert job.json()["credits"] == 0.95
+    fake = FakeSeedance([_mp4("red")])
+    _work(app, db, fake)
+    sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
+    assert (sent["resolution"], sent["fps"], sent["prompt_upsampling"]) == ("720p", 24, False)
+    assert sent["image"].startswith("data:image/") and "reference_images" not in sent
+    assert "generate_audio" not in sent and sent["duration"] == 5
+
+
+def test_p_video_prompts_never_say_subtitles_captions_or_text():
+    from app import p_video
+
+    said = "A doctor talks.\nNo subtitles or captions. Plain green behind him.\nShow the text."
+    got = p_video.clean(said)
+    assert got == "A doctor talks.\nPlain green behind him.\nThe frame is clean."
+    assert p_video.clean("A doctor talks.") == "A doctor talks."  # nothing to cut: unchanged
+
+
 def test_clip_with_problems_and_other_workspace(app, editor, outsider, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"
@@ -182,16 +213,6 @@ def test_money_rules(app, db, owner, editor, setup, clip):  # noqa: F811
     assert job["credits"] == clip["seconds"] == 5  # 1 credit per second at 480p
     assert editor.get(base).json()["credits_used"] == pytest.approx(used + 5)
     _work(app, db, FakeSeedance([_mp4("red")]))
-
-    limits = {"max_planned_seconds": 170, "weekly_quick_clip_credits": 150}
-    owner.put("/credits/limits", json={**limits, "per_video_max_credits": int(used) + 9})
-    over = editor.post(f"{url}/generate")  # 5 more would pass the per-video cap
-    assert (over.status_code, over.json()["detail"]) == (409, "This video would go over its limit.")
-    assert "$" not in over.json()["detail"]  # editors never see dollars
-    mine = owner.post(f"{url}/generate")  # the cap holds for the owner too, in dollars
-    assert mine.status_code == 409 and mine.json()["detail"].startswith(
-        "This video would go over its $"
-    )
 
 
 def test_reference_without_a_picture(app, db, editor, setup, clip):  # noqa: F811
@@ -523,3 +544,21 @@ def test_a_redo_carries_the_note_as_typed(app, db, editor, setup, clip):  # noqa
     job = editor.post(f"{url}/generate", json={"note": "Brighter, she smiles."}).json()
     assert job["note"] == "Brighter, she smiles."
     assert "Brighter, she smiles." in db.get(Job, job["id"]).input["input"]["prompt"]
+
+
+def test_a_b_roll_take_asks_for_no_sound_and_a_dialogue_take_does(app, db, editor, setup, clip):  # noqa: F811
+    """Reed, 3 Nov: B-roll won't all need sound; sound effects are added on request later."""
+    from app.models.breakdowns import BreakdownVersion
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}/generate"
+    fake = FakeSeedance([_mp4("red"), _mp4("blue")])
+    editor.post(url)
+    _work(app, db, fake)  # Mom and Nate speak on camera
+    row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
+    shots = [{**s, "speaker": None, "line": None} for s in row.data["scenes"][0]["shots"]]
+    row.data = {**row.data, "scenes": [{**row.data["scenes"][0], "shots": shots}]}
+    db.commit()
+    editor.post(url)
+    _work(app, db, fake)  # nobody speaks: B-roll
+    asked = [json.loads(q.content)["input"] for q in fake.requests if q.method == "POST"]
+    assert [a["generate_audio"] for a in asked] == [True, False]

@@ -16,7 +16,7 @@ class Freestyle(Entity, Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     title: Mapped[str] = mapped_column(String(120))
-    type: Mapped[str] = mapped_column(String(20))  # dialogue, song, narrated or one_clip
+    type: Mapped[str] = mapped_column(String(40))  # a guides format id, or one_clip
     look: Mapped[str] = mapped_column(String(40))
     shape: Mapped[str] = mapped_column(String(10))  # 9:16, 1:1 or 16:9
     brand_id: Mapped[int | None] = mapped_column(ForeignKey("brands.id"))

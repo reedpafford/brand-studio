@@ -1,7 +1,7 @@
 """The director's tools (docs/next/director-chat.md §6 item 3): each is a site action, run
 through the very function its button calls, as the director's user, on this video only. So
 every check stays the button's: price, the video's budget (past it: held for the owner,
-Hold requests), the per-video cap, rule 32, ownership. Nothing here spends another way, and no
+Hold requests), rule 36, ownership. Nothing here spends another way, and no
 tool can change Limits or another person's work. A refusal comes back as its plain words.
 The approvals a person gives on the step screens are the director's own here: it approves a
 step when it moves on from it (rule 21's self-approval)."""
@@ -19,8 +19,8 @@ from app.models.storyboards import StoryboardFrame
 
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
-         "pick_take", "mute", "splice_word", "song", "narration", "final_cut",
-         "watch_cut")  # fmt: skip
+         "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
+         "final_cut", "watch_cut")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -115,12 +115,21 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said = word_splice.splice(db, project, row, decision.get("word") or "")
             db.commit()
             return said
+        if tool == "add_sound":  # only when asked: MMAudio's sound under the picked takes
+            from app import take_sound
+
+            return take_sound.to_cut(db, user, project, storage, decision.get("clip_id"),
+                                     decision.get("note") or "")  # fmt: skip
         if tool in ("song", "narration"):  # the audio first in a song or narrated video
             from app import director_song
 
             said = director_song.run(db, user, project, decision, run if run is not None else {})
             db.commit()
             return said
+        if tool == "host":  # a presenter's host, as Make the host
+            from app import host
+
+            return host.make(db, user, project, storage)
         if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget
             return watch_cut.start(db, user, project, run)
         if tool == "review_stills":  # its own look at the stills before any take, own limit

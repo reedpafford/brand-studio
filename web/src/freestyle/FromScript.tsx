@@ -5,13 +5,14 @@ import { api } from "../api/client";
 import { Button, Skeleton } from "../components";
 import { useFolders } from "../folders/Projects";
 import { lookName, useLooks } from "../scripts/Looks";
+import { useFormatName } from "../scripts/useFormats";
 import { letterOf, useDebounced } from "../scripts/status";
 import { useScript, type Script } from "../scripts/useScript";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { Pick, SendPress, sendKey, shapeOptions } from "./Composer";
-import { SendError, useEstimate, useFreestyleActions, type Freestyle, type Shape } from "./useFreestyle";
+import { SendError, directed, useEstimate, useFreestyleActions, type Freestyle, type Shape } from "./useFreestyle";
 
 type Row = Script["versions"][number];
 /** "0:32" */
@@ -66,7 +67,7 @@ function useReadyScripts(brandId: number, owner: boolean, q: string) {
     queryKey: ["scripts", "ready-to-make", brandId, owner, q],
     queryFn: async () => {
       const { data } = await api.GET("/scripts", { params: { query: { brand_id: brandId, ...(owner ? {} : { status: "published" }), ...(q ? { q } : {}), sort: "title", limit: 50 } } });
-      return (data ?? []).filter((r) => r.kind === "story" && r.versions.some(finished)); // Dialogue is the director's kind for now
+      return (data ?? []).filter((r) => directed(r.kind) && r.versions.some(finished)); // Song comes next
     },
   });
 }
@@ -159,6 +160,7 @@ export function FromScript({ brandId, owner, onCreated }: { brandId: number; own
 /** The picked script: its versions, read-only words, the locked chips with Shape, and (desktop) the note and the press. */
 function Picked({ m, brandId, note, press }: { m: Making; brandId: number; note?: string; press?: ReactNode }) {
   const looks = useLooks().data;
+  const formatName = useFormatName();
   const brands = useBrands().data;
   const s = m.script!;
   return (
@@ -169,7 +171,7 @@ function Picked({ m, brandId, note, press }: { m: Making; brandId: number; note?
       </div>
       <p className="whitespace-pre-line break-words rounded-lg border border-border bg-surface p-4 font-script text-sm leading-[1.6] text-muted">{m.version!.text}</p>
       <div className="flex flex-wrap gap-1.5">
-        <Pick locked label="Type" value="Dialogue" />
+        <Pick locked label="Type" value={formatName(s.format)} />
         <Pick locked label="Style" value={lookName(looks, s.look)} />
         <Pick locked label="Brand" value={brands?.find((b) => b.id === s.brand_id)?.name ?? ""} />
         <Pick label="Shape" value={m.shape} options={shapeOptions} onPick={m.setShape} />
