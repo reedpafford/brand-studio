@@ -1,14 +1,14 @@
-"""Pictures and clips added to a brand's Media, and each final cut's length (n25, v5 C_Media).
+"""Pictures and clips added to a brand's Media, and each final cut's length (n29, v5 C_Media).
 
-Revision ID: n25
-Revises: n24
+Revision ID: n29
+Revises: n28
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n25"
-down_revision = "n24"
+revision = "n29"
+down_revision = "n28"
 branch_labels = None
 depends_on = None
 
