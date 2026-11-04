@@ -8,7 +8,7 @@ def cell(n, title, ask, drawn, note):
     return f'''<div class="col g3" style="width:{W}px">
       <div class="col g1"><span class="t-lg">{n}. {title}</span><span class="t-sm muted">{ask}</span></div>
       <div style="padding:16px;background:var(--surface-2);border-radius:10px;position:relative">{drawn}</div>
-      <div class="row g2 t-sm start"><span class="tag need" style="flex:none">For Reed: yes or no?</span><span class="muted">{note}</span></div></div>'''
+      <div class="row g2 t-sm start"><span class="tag ok" style="flex:none">Approved by Reed, 4 Nov</span><span class="muted">{note}</span></div></div>'''
 
 
 def rail_box(r, h=640):
@@ -58,7 +58,7 @@ g4 = f'''<div style="background:var(--surface);border:1px solid var(--border);bo
   <span class="t-sm muted">Presses waiting for the owner’s OK. Nothing is charged while they wait. Withdraw cancels one.</span>
   <div class="list">{rq}</div><span class="t-xs w6 muted">Answered this week</span><div class="list">{done}</div></div>'''
 
-sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found, part 4</span><span class="t-sm muted">Four states the boards don’t draw (the folder-tree builder, 4 Nov). Each is one option for Reed to say yes or no to. The existing boards are unchanged.</span></div>
+sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found, part 4</span><span class="t-sm muted">Four states the boards don’t draw (the folder-tree builder, 4 Nov). Reed approved all of them on 4 Nov (“yes to all”). The boards they extend are unchanged.</span></div>
   <div class="row g8 wrap start" style="row-gap:36px">
   {cell("R1", "Scripts in the rail", "S0-01’s rail has no Scripts row, but v6 keeps Scripts.", g1, "“Scripts” first under Library: Scripts, Cast & places, Media, Brand kit.")}
   {cell("R2", "The magnifier beside New video", "Builder’s proposal.", g2, "A quick search over this brand’s idea titles and folder names; results in a list under the button; picking one opens it.")}
@@ -66,4 +66,4 @@ sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">G
   {cell("R4", "My requests (an editor)", "Builder’s proposal.", g4, "A small page listing the editor’s presses waiting for the owner, each with Withdraw, and this week’s answers. Credits only.")}
   </div>'''
 
-board("S-gaps-04", "Gaps the builders found, part 4", "4 options for Reed: Scripts in the rail, quick search, phone Library and More, My requests", sheet, "s", h=1460)
+board("S-gaps-04", "Gaps the builders found, part 4", "Approved: Scripts in the rail, quick search, phone Library and More, My requests", sheet, "s", h=1460)
