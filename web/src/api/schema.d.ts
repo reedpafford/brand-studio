@@ -842,26 +842,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/library/{kind}/price": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * New Item Price
-         * @description What making a new one's sheet costs at most (S8-02 "Make one · up to $0.08", S8-07).
-         */
-        get: operations["new_item_price_library__kind__price_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/library/{kind}/{item_id}": {
         parameters: {
             query?: never;
@@ -913,9 +893,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Item Forever
-         * @description Owner only, and only from the archive: removes the item and its history for good. A
-         *     product's pictures stay for the videos that showed them, deleted and no longer its; a place
-         *     stops being anyone's usual place.
+         * @description Owner only, and only from the archive: removes the item and its history for good.
          */
         delete: operations["delete_item_forever_library__kind___item_id__permanent_delete"];
         options?: never;
@@ -4007,11 +3985,7 @@ export interface paths {
         /** Read Video */
         get: operations["read_video_projects__project_id__video_get"];
         put?: never;
-        /**
-         * Make Video
-         * @description Stitch the picked takes, in clip order, into one MP4. Free: no credits, no provider.
-         */
-        post: operations["make_video_projects__project_id__video_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4037,6 +4011,186 @@ export interface paths {
          * @description Undo: the picked take plays as it was made (silent B-roll silent again).
          */
         delete: operations["remove_projects__project_id__clips__clip_id__sound_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read
+         * @description The cut that plays, the one being made, and the timeline with its edits.
+         */
+        get: operations["read_projects__project_id__cut_get"];
+        put?: never;
+        /**
+         * Make
+         * @description Make the cut (free): the next Cut, on the worker; the one before plays until it's
+         *     ready. A director tool calls this same route.
+         */
+        post: operations["make_projects__project_id__cut_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/edits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit
+         * @description One edit (free): trim, re-time to the words, split, swap, presenter or music.
+         */
+        post: operations["edit_projects__project_id__cut_edits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/edits/{edit_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo One
+         * @description Undo this edit (the director's each have Undo).
+         */
+        post: operations["undo_one_projects__project_id__cut_edits__edit_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo */
+        post: operations["undo_projects__project_id__cut_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/redo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Redo */
+        post: operations["redo_projects__project_id__cut_redo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/undo-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo All
+         * @description Back to the cut that plays: every edit since is undone.
+         */
+        post: operations["undo_all_projects__project_id__cut_undo_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/fix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix
+         * @description A failed cut's one-click fix (free): loop the music to fit, remove it, or try again.
+         */
+        post: operations["fix_projects__project_id__cut_fix_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/swaps/{piece}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Swaps
+         * @description What a B-roll piece can swap to: as it is, its clip's other takes, the other clips'
+         *     picked takes, and the brand's other videos' takes you can see (the Library).
+         */
+        get: operations["swaps_projects__project_id__cut_swaps__piece__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Music
+         * @description Music the cut can swap to: the brand's music beds and songs.
+         */
+        get: operations["music_projects__project_id__cut_music_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4145,27 +4299,6 @@ export interface paths {
          * @description Stop the run: no more turns. What it already started goes on; nothing is undone.
          */
         post: operations["stop_projects__project_id__director_stop_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/director/progress": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Progress
-         * @description The newest run's live record: its scenes and clips, its steps, its cost; null before
-         *     any run. Free to read, in the same few queries however long the video.
-         */
-        get: operations["progress_projects__project_id__director_progress_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5808,27 +5941,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/director/seen": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Seen
-         * @description This person watched these takes (Watch the changes, or playing a clip): the clips the
-         *     director changed stop being outlined for them. Takes of other videos are ignored.
-         */
-        post: operations["seen_projects__project_id__director_seen_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/formats": {
         parameters: {
             query?: never;
@@ -6494,19 +6606,6 @@ export interface components {
             /** Note */
             note: string;
         };
-        /** ChangedClipOut */
-        ChangedClipOut: {
-            /** Clip Id */
-            clip_id: string;
-            /** Number */
-            number: number;
-            /** Take Id */
-            take_id: number | null;
-            /** Frame File Id */
-            frame_file_id: number | null;
-            /** Watched */
-            watched: boolean;
-        };
         /** CheckOut */
         CheckOut: {
             /** Id */
@@ -6538,58 +6637,6 @@ export interface components {
              * @description The hand-off: the beat the clip ends on and how the next clip's first shot answers it (a look, a sound, a matching pose, a white flash into a time jump), after the last line's reaction has landed. 'end' for the last clip.
              */
             seam: string;
-        };
-        /**
-         * ClipCellOut
-         * @description One clip on the filmstrip and in the Clips list (S3-03, S6-01, S6-04, S6-05, P-10).
-         */
-        ClipCellOut: {
-            /** Clip Id */
-            clip_id: string;
-            /** Number */
-            number: number;
-            /** Scene */
-            scene: number;
-            /** Label */
-            label: string;
-            /** Seconds */
-            seconds: number;
-            /** Model */
-            model: string;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "todo" | "making" | "waiting" | "failed" | "flagged" | "text" | "redone" | "done";
-            /** Frame File Id */
-            frame_file_id: number | null;
-            /** Take Id */
-            take_id: number | null;
-            /** Note */
-            note: string;
-            /** Percent */
-            percent: number | null;
-            /** Minutes Left */
-            minutes_left: number | null;
-            /** Credits */
-            credits: string | null;
-            /** Changed */
-            changed: boolean;
-            /** Watched */
-            watched: boolean;
-            /** Found */
-            found: boolean;
-        };
-        /** ClipCountsOut */
-        ClipCountsOut: {
-            /** All */
-            all: number;
-            /** Needs You */
-            needs_you: number;
-            /** Flagged */
-            flagged: number;
-            /** Redone */
-            redone: number;
         };
         /** ClipIn */
         ClipIn: {
@@ -6711,6 +6758,59 @@ export interface components {
             /** Default */
             default?: boolean | null;
         };
+        /** CutDirectorOut */
+        CutDirectorOut: {
+            /** Editing */
+            editing: boolean;
+            /** Doing */
+            doing: string;
+        };
+        /** CutFixIn */
+        CutFixIn: {
+            /**
+             * Fix
+             * @enum {string}
+             */
+            fix: "loop_music" | "remove_music" | "again";
+        };
+        /** CutOut */
+        CutOut: {
+            /** Number */
+            number: number | null;
+            /** File Id */
+            file_id: number | null;
+            /** Out Of Date */
+            out_of_date: boolean;
+            /** Versions */
+            versions: components["schemas"]["CutVersionOut"][];
+            making: components["schemas"]["MakingOut"] | null;
+            failed: components["schemas"]["FailedOut"] | null;
+            timeline: components["schemas"]["TimelineOut"];
+            /** Edits */
+            edits: components["schemas"]["EditOut"][];
+            /** Changes */
+            changes: number;
+            /** Can Undo */
+            can_undo: boolean;
+            /** Can Redo */
+            can_redo: boolean;
+            /** Sound Credits */
+            sound_credits: number;
+            /** Sound Usd */
+            sound_usd: number | null;
+            /** Going */
+            going: components["schemas"]["GoingOut"][];
+            director: components["schemas"]["CutDirectorOut"];
+        };
+        /** CutVersionOut */
+        CutVersionOut: {
+            /** Number */
+            number: number;
+            /** File Id */
+            file_id: number;
+            /** Made At */
+            made_at: string;
+        };
         /** DeclineIn */
         DeclineIn: {
             /**
@@ -6725,34 +6825,6 @@ export interface components {
             moved: number;
             /** Ideas */
             ideas: number;
-        };
-        /**
-         * DeliveryNoteOut
-         * @description The delivery note (S3-09, S3-10, P-08), as kept when the run delivered.
-         */
-        DeliveryNoteOut: {
-            /** Made */
-            made: string;
-            /** Redid */
-            redid: components["schemas"]["RedidRowOut"][];
-            /** Unsure */
-            unsure: string;
-            /** Needs */
-            needs: string;
-            /** Cost */
-            cost: string;
-            /** Spent */
-            spent: number;
-            /** Up To */
-            up_to: number;
-            /** Spent Usd */
-            spent_usd: number | null;
-            /** Cut */
-            cut: number;
-            /** Seconds */
-            seconds: number;
-            /** Clips */
-            clips: number;
         };
         /** DialogueLine */
         DialogueLine: {
@@ -6907,6 +6979,77 @@ export interface components {
             /** Created By Name */
             created_by_name: string;
         };
+        /** EditIn */
+        EditIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "trim" | "retime" | "split" | "swap" | "presenter" | "music";
+            /** Piece */
+            piece?: string | null;
+            /** Start */
+            start?: number | null;
+            /** End */
+            end?: number | null;
+            /** In Point */
+            in_point?: number | null;
+            /** At */
+            at?: number | null;
+            /**
+             * Snap
+             * @default false
+             */
+            snap: boolean;
+            /** Take Id */
+            take_id?: number | null;
+            /** Side */
+            side?: ("left" | "right") | null;
+            /** Size */
+            size?: ("small" | "medium" | "large") | null;
+            /** Hidden */
+            hidden?: boolean | null;
+            /** Quieter Db */
+            quieter_db?: number | null;
+            /** Gaps */
+            gaps?: ("down" | "rise") | null;
+            /** Loop */
+            loop?: boolean | null;
+            /** Removed */
+            removed?: boolean | null;
+            /** File Id */
+            file_id?: number | null;
+        };
+        /** EditOut */
+        EditOut: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Said */
+            said: string;
+            /** At */
+            at: number;
+            /** Director */
+            director: boolean;
+            /** By */
+            by: string | null;
+            /** Undone */
+            undone: boolean;
+            /** Applies */
+            applies: boolean;
+            /** In Cut */
+            in_cut: boolean;
+        };
+        /** EditRef */
+        EditRef: {
+            /** Id */
+            id: number;
+            /** At */
+            at: number;
+            /** Undone */
+            undone: boolean;
+        };
         /** EditorAllowanceOut */
         EditorAllowanceOut: {
             /** Quick Clip Credits Used */
@@ -6936,6 +7079,15 @@ export interface components {
             value: string;
             /** Inferred */
             inferred: boolean;
+        };
+        /** FailedOut */
+        FailedOut: {
+            /** Number */
+            number: number;
+            /** Why */
+            why: string;
+            /** Fixes */
+            fixes: ("loop_music" | "remove_music" | "again")[];
         };
         /**
          * FigureSpot
@@ -7272,6 +7424,7 @@ export interface components {
             treatment?: {
                 [key: string]: unknown;
             } | null;
+            edit?: components["schemas"]["EditRef"] | null;
         };
         /** FreestyleOut */
         FreestyleOut: {
@@ -7384,6 +7537,15 @@ export interface components {
             spend_usd: number;
             /** Videos */
             videos: number;
+        };
+        /** GoingOut */
+        GoingOut: {
+            /** Piece */
+            piece: string;
+            /** Label */
+            label: string;
+            /** File Id */
+            file_id: number | null;
         };
         /** GuideIn */
         GuideIn: {
@@ -7715,15 +7877,6 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -7761,34 +7914,11 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Created By Id */
-            created_by_id?: number | null;
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Pictures
-             * @default []
-             */
-            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -7818,7 +7948,6 @@ export interface components {
              * @default 0
              */
             change_credits: number;
-            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -7869,19 +7998,6 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /** Presenter */
-            presenter?: boolean | null;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
-        };
-        /** ItemUsd */
-        ItemUsd: {
-            /** Sheet */
-            sheet: number;
-            /** Change */
-            change: number;
         };
         /** Items */
         Items: {
@@ -8432,6 +8548,19 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** MakingOut */
+        MakingOut: {
+            /** Number */
+            number: number;
+            /** Percent */
+            percent: number;
+            /** Doing */
+            doing: string;
+            /** About Seconds */
+            about_seconds: number;
+            /** Changes */
+            changes: number;
+        };
         /** Me */
         Me: {
             /** Id */
@@ -8696,6 +8825,33 @@ export interface components {
             shots: string[];
             /** Lines */
             lines: components["schemas"]["Line"][];
+        };
+        /** MusicChoiceOut */
+        MusicChoiceOut: {
+            /** File Id */
+            file_id: number;
+            /** Name */
+            name: string;
+        };
+        /** MusicOut */
+        MusicOut: {
+            /** Name */
+            name: string;
+            /** File Id */
+            file_id: number | null;
+            /** Quieter Db */
+            quieter_db: number;
+            /**
+             * Gaps
+             * @enum {string}
+             */
+            gaps: "down" | "rise";
+            /** Loop */
+            loop: boolean;
+            /** Removed */
+            removed: boolean;
+            /** Director */
+            director: boolean;
         };
         /** MuteIn */
         MuteIn: {
@@ -8999,15 +9155,6 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -9112,19 +9259,32 @@ export interface components {
             /** File Id */
             file_id: number;
         };
-        /**
-         * PictureOut
-         * @description A product's picture: a brand screen linked to it (its real photo, used as it is).
-         */
-        PictureOut: {
-            /** Screen Id */
-            screen_id: number;
+        /** PieceOut */
+        PieceOut: {
+            /** Id */
+            id: string;
+            /** Clip Id */
+            clip_id: string;
+            /** Take Id */
+            take_id: number | null;
             /** File Id */
-            file_id: number;
-            /** Name */
-            name: string;
-            /** Variant */
-            variant: string;
+            file_id: number | null;
+            /** Source */
+            source: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** In Point */
+            in_point: number;
+            /** Said */
+            said: string;
+            /** Edited */
+            edited: boolean;
+            /** Director */
+            director: boolean;
+            /** Changed */
+            changed: boolean;
         };
         /** PlanIn */
         PlanIn: {
@@ -9241,34 +9401,11 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Created By Id */
-            created_by_id?: number | null;
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Pictures
-             * @default []
-             */
-            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -9298,7 +9435,6 @@ export interface components {
              * @default 0
              */
             change_credits: number;
-            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -9323,6 +9459,18 @@ export interface components {
             used_in_count: number;
             /** Was File Id */
             was_file_id: number | null;
+        };
+        /** PresenterOut */
+        PresenterOut: {
+            /** Name */
+            name: string;
+            /** Spans */
+            spans: components["schemas"]["SpanOut"][];
+        };
+        /** PriceOut */
+        PriceOut: {
+            /** Credits */
+            credits: number;
         };
         /** ProduceOut */
         ProduceOut: {
@@ -9399,61 +9547,6 @@ export interface components {
             finished_at?: string | null;
             /** Approved Up To */
             approved_up_to?: number | null;
-        };
-        /**
-         * ProgressOut
-         * @description The newest run's live record (v6 piece C): poll it while `status` is working,
-         *     revising or waiting (the app polls; 3 s is plenty).
-         */
-        ProgressOut: {
-            /** Run */
-            run: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "working" | "revising" | "waiting" | "stopped" | "delivered" | "needs_fix";
-            /** Title */
-            title: string;
-            /** Sub */
-            sub: string;
-            /**
-             * Tone
-             * @enum {string}
-             */
-            tone: "now" | "wait" | "done" | "bad" | "stop";
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /** Ended At */
-            ended_at: string | null;
-            /** Clips */
-            clips: number;
-            /** Made */
-            made: number;
-            /** Redone */
-            redone: number;
-            /** Scene At */
-            scene_at: number;
-            /** Scenes */
-            scenes: components["schemas"]["RunSceneOut"][];
-            counts: components["schemas"]["ClipCountsOut"];
-            /** Minutes Left */
-            minutes_left: number | null;
-            /** Steps */
-            steps: components["schemas"]["RunStepOut"][];
-            /** Spent */
-            spent: number;
-            /** Up To */
-            up_to: number;
-            /** Spent Usd */
-            spent_usd: number | null;
-            /** Changed */
-            changed: components["schemas"]["ChangedClipOut"][];
-            stopped: components["schemas"]["RunStoppedOut"] | null;
-            failed: components["schemas"]["RunFailedOut"] | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -9823,15 +9916,6 @@ export interface components {
             /** Since */
             since: string | null;
         };
-        /** RedidRowOut */
-        RedidRowOut: {
-            /** At */
-            at: number;
-            /** Clip */
-            clip: string;
-            /** Text */
-            text: string;
-        };
         /** ReelEstimateOut */
         ReelEstimateOut: {
             /** Credits */
@@ -10026,69 +10110,6 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
-        /** RunFailedOut */
-        RunFailedOut: {
-            /** Title */
-            title: string;
-            /** Why */
-            why: string;
-            /** Clip */
-            clip: number | null;
-            /** Fixes */
-            fixes: components["schemas"]["RunFixOut"][];
-        };
-        /** RunFixOut */
-        RunFixOut: {
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "again" | "carry_on";
-            /** Label */
-            label: string;
-            /** Price */
-            price: string | null;
-        };
-        /** RunSceneOut */
-        RunSceneOut: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Total */
-            total: number;
-            /** Done */
-            done: number;
-            /** Clips */
-            clips: components["schemas"]["ClipCellOut"][];
-        };
-        /** RunStepOut */
-        RunStepOut: {
-            /** Key */
-            key: string;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "done" | "now" | "todo" | "wait" | "bad";
-            /** Text */
-            text: string;
-            /** Sub */
-            sub: string;
-        };
-        /** RunStoppedOut */
-        RunStoppedOut: {
-            /** By */
-            by: string;
-            /** At */
-            at: string;
-            /** Made */
-            made: number;
-            /** Total */
-            total: number;
-            /** Carry On */
-            carry_on: string;
-        };
         /** SamePair */
         SamePair: {
             /** A Slot Id */
@@ -10261,8 +10282,11 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /** Product Id */
-            product_id?: number | null;
+            /**
+             * Product
+             * @default
+             */
+            product: string;
             /**
              * Variant
              * @default
@@ -10285,8 +10309,11 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /** Product Id */
-            product_id?: number | null;
+            /**
+             * Product
+             * @default
+             */
+            product: string;
             /**
              * Variant
              * @default
@@ -10296,8 +10323,6 @@ export interface components {
             id: number;
             /** Brand Id */
             brand_id: number;
-            /** Product */
-            product: string;
             /** Balance */
             balance: string;
             figure_spot: components["schemas"]["FigureSpot"] | null;
@@ -10312,8 +10337,8 @@ export interface components {
             tags?: string[] | null;
             /** Default For */
             default_for?: string[] | null;
-            /** Product Id */
-            product_id?: number | null;
+            /** Product */
+            product?: string | null;
             /** Variant */
             variant?: string | null;
             /** Balance */
@@ -10415,11 +10440,6 @@ export interface components {
              * @default false
              */
             running: boolean;
-        };
-        /** SeenIn */
-        SeenIn: {
-            /** Take Ids */
-            take_ids: number[];
         };
         /** Sentence */
         Sentence: {
@@ -10910,6 +10930,26 @@ export interface components {
             /** Songs Note */
             songs_note?: string | null;
         };
+        /** SoundFxOut */
+        SoundFxOut: {
+            /** Piece */
+            piece: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "making" | "ready" | "failed";
+            /** Asked */
+            asked: string;
+            /** How */
+            how: string;
+            /** Director */
+            director: boolean;
+        };
         /** SoundIn */
         SoundIn: {
             /**
@@ -10939,6 +10979,27 @@ export interface components {
             error: string;
             /** Credits */
             credits: number;
+        };
+        /** SpanOut */
+        SpanOut: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "left" | "right";
+            /**
+             * Size
+             * @enum {string}
+             */
+            size: "small" | "medium" | "large";
+            /** Hidden */
+            hidden: boolean;
+            /** Director */
+            director: boolean;
         };
         /** StageOut */
         StageOut: {
@@ -11124,6 +11185,20 @@ export interface components {
              */
             delivered_today: number;
         };
+        /** SwapOut */
+        SwapOut: {
+            /** Take Id */
+            take_id: number;
+            /** File Id */
+            file_id: number;
+            /** Label */
+            label: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "in_cut" | "take" | "clip" | "library";
+        };
         /** SwitchOut */
         SwitchOut: {
             settings: components["schemas"]["SettingsOut"];
@@ -11219,9 +11294,26 @@ export interface components {
             treatment?: {
                 [key: string]: unknown;
             } | null;
-            /** Run */
-            run?: string | null;
-            note?: components["schemas"]["DeliveryNoteOut"] | null;
+            edit?: components["schemas"]["EditRef"] | null;
+        };
+        /** TimelineOut */
+        TimelineOut: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "takes" | "narrated" | "song";
+            /** Length */
+            length: number;
+            /** Pieces */
+            pieces: components["schemas"]["PieceOut"][];
+            presenter: components["schemas"]["PresenterOut"] | null;
+            voice: components["schemas"]["app__routes__cut__VoiceOut"] | null;
+            music: components["schemas"]["MusicOut"] | null;
+            /** Words */
+            words: components["schemas"]["WordOut"][];
+            /** Sfx */
+            sfx: components["schemas"]["SoundFxOut"][];
         };
         /** TitleIn */
         TitleIn: {
@@ -11624,10 +11716,6 @@ export interface components {
              * @enum {string}
              */
             status: "needs_you" | "making" | "done";
-            /** Still File Id */
-            still_file_id?: number | null;
-            /** At */
-            at?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -11716,8 +11804,13 @@ export interface components {
             /** Default */
             default: boolean;
         };
-        /** VideoOut */
+        /**
+         * VideoOut
+         * @description The cut that plays (app/cut.py; the cut editor reads GET …/cut).
+         */
         VideoOut: {
+            /** Number */
+            number: number;
             /** File Id */
             file_id: number;
             /** Take Ids */
@@ -11792,56 +11885,10 @@ export interface components {
             /** Sample File Id */
             sample_file_id: number;
         };
-        /** VoiceOut */
-        VoiceOut: {
-            /** Id */
-            id: number | null;
-            /** Name */
-            name: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "stock" | "cloned" | "described";
-            /** Stock Key */
-            stock_key: string | null;
-            /** Provider */
-            provider: string;
-            /** Description */
-            description: string;
-            /** Look */
-            look: string | null;
-            /** Brand Id */
-            brand_id: number | null;
-            /** Sample File Id */
-            sample_file_id: number | null;
-            /** Sample Url */
-            sample_url: string | null;
-            /** Preview File Id */
-            preview_file_id: number | null;
-            /** Cloned At */
-            cloned_at: string | null;
-            /** Last Used At */
-            last_used_at: string | null;
-            /** Expires At */
-            expires_at: string | null;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "cloning" | "ready" | "may_expire" | "expired" | "failed";
-            /**
-             * Error
-             * @default
-             */
-            error: string;
-            /** Used By */
-            used_by: number[];
-        };
         /** VoicesOut */
         VoicesOut: {
             /** Voices */
-            voices: components["schemas"]["VoiceOut"][];
+            voices: components["schemas"]["app__routes__voices__VoiceOut"][];
             /** Clone Credits */
             clone_credits: number;
             /** Clone Usd */
@@ -11867,6 +11914,15 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+        };
+        /** WordOut */
+        WordOut: {
+            /** Word */
+            word: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
         };
         /** WorkspaceIn */
         WorkspaceIn: {
@@ -11968,6 +12024,13 @@ export interface components {
             /** Reference Audios */
             reference_audios: number;
         };
+        /** VoiceOut */
+        app__routes__cut__VoiceOut: {
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+        };
         /** EstimateOut */
         app__routes__freestyles__EstimateOut: {
             /** Credits */
@@ -11982,13 +12045,6 @@ export interface components {
             /** Usd */
             usd?: number | null;
         };
-        /** PriceOut */
-        app__routes__library__PriceOut: {
-            /** Credits */
-            credits: number;
-            /** Usd */
-            usd: number | null;
-        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -12001,8 +12057,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /** Sheet File Id */
-            sheet_file_id?: number | null;
         };
         /** UndoIn */
         app__routes__script_cast__UndoIn: {
@@ -12371,11 +12425,6 @@ export interface components {
             /** Have Colours */
             have_colours: string[];
         };
-        /** PriceOut */
-        app__routes__storyboard__PriceOut: {
-            /** Credits */
-            credits: number;
-        };
         /** InviteOut */
         app__routes__team__InviteOut: {
             /** Id */
@@ -12410,6 +12459,52 @@ export interface components {
             over_budget: boolean;
             /** Reason */
             reason: string;
+        };
+        /** VoiceOut */
+        app__routes__voices__VoiceOut: {
+            /** Id */
+            id: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stock" | "cloned" | "described";
+            /** Stock Key */
+            stock_key: string | null;
+            /** Provider */
+            provider: string;
+            /** Description */
+            description: string;
+            /** Look */
+            look: string | null;
+            /** Brand Id */
+            brand_id: number | null;
+            /** Sample File Id */
+            sample_file_id: number | null;
+            /** Sample Url */
+            sample_url: string | null;
+            /** Preview File Id */
+            preview_file_id: number | null;
+            /** Cloned At */
+            cloned_at: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "cloning" | "ready" | "may_expire" | "expired" | "failed";
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Used By */
+            used_by: number[];
         };
     };
     responses: never;
@@ -14185,39 +14280,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    new_item_price_library__kind__price_get: {
-        parameters: {
-            query?: {
-                item_id?: number | null;
-            };
-            header?: never;
-            path: {
-                kind: components["schemas"]["Kind"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["app__routes__library__PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -19268,7 +19330,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
+                    "application/json": components["schemas"]["PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -19872,7 +19934,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
+                    "application/json": components["schemas"]["PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -20356,37 +20418,6 @@ export interface operations {
             };
         };
     };
-    make_video_projects__project_id__video_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VideoOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     add_projects__project_id__clips__clip_id__sound_post: {
         parameters: {
             query?: never;
@@ -20442,6 +20473,326 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__cut_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_projects__project_id__cut_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_projects__project_id__cut_edits_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_one_projects__project_id__cut_edits__edit_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                edit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_projects__project_id__cut_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redo_projects__project_id__cut_redo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_all_projects__project_id__cut_undo_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fix_projects__project_id__cut_fix_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CutFixIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    swaps_projects__project_id__cut_swaps__piece__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                piece: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwapOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    music_projects__project_id__cut_music_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicChoiceOut"][];
                 };
             };
             /** @description Validation Error */
@@ -20664,37 +21015,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DirectorOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    progress_projects__project_id__director_progress_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgressOut"] | null;
                 };
             };
             /** @description Validation Error */
@@ -23670,7 +23990,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VoiceOut"];
+                    "application/json": components["schemas"]["app__routes__voices__VoiceOut"];
                 };
             };
             /** @description Validation Error */
@@ -23730,7 +24050,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VoiceOut"];
+                    "application/json": components["schemas"]["app__routes__voices__VoiceOut"];
                 };
             };
             /** @description Validation Error */
@@ -23797,39 +24117,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BreakdownOut"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    seen_projects__project_id__director_seen_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SeenIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
