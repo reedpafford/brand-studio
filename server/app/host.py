@@ -274,19 +274,24 @@ def piece_input(project: Project, row: HostPiece, still_file_id: int) -> dict:
             "files": {"image": [still_file_id], "audio": [row.audio_file_id]}}  # fmt: skip
 
 
-def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int, **kwargs):
-    """Queue one piece: on P-Video, or a UGC talker's one take on HeyGen."""
+def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int,
+           motion: str = "", **kwargs):  # fmt: skip
+    """Queue one piece: on P-Video, or a UGC talker's one take on HeyGen (with the director's
+    `motion` note)."""
     from app.routes.jobs import enqueue
 
     talks = talker.on(db, project)
-    data = (talker.piece_input if talks else piece_input)(project, row, still)
+    data = (talker.piece_input(project, row, still, motion) if talks
+            else piece_input(project, row, still))  # fmt: skip
     enqueue(db, user, "video", data, units=_seconds(row), project=project,
             provider=talker.PROVIDER if talks else "replicate", **kwargs)  # fmt: skip
 
 
-def make(db: Session, user: User, project: Project, storage, number: int | None = None) -> str:
+def make(db: Session, user: User, project: Project, storage, number: int | None = None,
+         motion: str = "") -> str:  # fmt: skip
     """Make the host (`number` None: every row not made yet), or Make again one row. A still
-    is drawn first and its pieces follow it (priced together: the press holds them)."""
+    is drawn first and its pieces follow it (priced together: the press holds them). `motion`:
+    a talker's motion note from the director; a remake with none keeps the last one."""
     from app.routes.jobs import enqueue
 
     if not on(db, project):
@@ -308,15 +313,25 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     if not todo:
         raise HTTPException(409, MADE)
     still = have[0]
+    motion = motion or _motion(jobs, have)
     if still in todo:  # every piece follows a new still, prepaid (`saved`)
         hold = sum((_piece_price(db, project.workspace_id, _seconds(r), talks) for r in have[1:]),
                    Decimal(0))  # fmt: skip
-        enqueue(db, user, "image", still_input(db, project, still), project=project,
-                provider="replicate", hold=hold)  # fmt: skip
+        drawn = {**still_input(db, project, still), **({"motion": motion} if motion else {})}
+        enqueue(db, user, "image", drawn, project=project, provider="replicate",
+                hold=hold)  # fmt: skip
         return "Drawing the host, then making each piece of it."
     for row in todo:
-        _piece(db, user, project, row, still.file_id)
+        _piece(db, user, project, row, still.file_id, motion)
     return f"Making {len(todo)} piece{'' if len(todo) == 1 else 's'} of the host."
+
+
+def _motion(jobs: dict[int, Job], have: list[HostPiece]) -> str:
+    """The motion note the talker's take was last made with ("" for P-Video's pieces)."""
+    made = [jobs[r.id] for r in have if r.id in jobs]
+    said = [j.input.get("motion") or (j.input.get("input") or {}).get("motion_prompt")
+            for j in made]  # fmt: skip
+    return next((m for m in said if m and m != talker.MOTION), "")
 
 
 def _keep(row: HostPiece, job: Job) -> bool:
@@ -339,7 +354,7 @@ def saved(db: Session, job: Job) -> None:
         return
     user = db.get(User, job.created_by_id)
     for piece in rows(db, project)[1:]:
-        _piece(db, user, project, piece, row.file_id, prepaid=True)
+        _piece(db, user, project, piece, row.file_id, job.input.get("motion", ""), prepaid=True)
 
 
 def labels(db: Session, project: Project) -> list[str]:

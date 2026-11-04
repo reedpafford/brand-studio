@@ -6,7 +6,11 @@ default "music"), `duration` (seconds; trained on 8 s, "a large deviation ... ma
 lower quality"), `num_steps` 25, `cfg_strength` 4.5, `seed`. Given a video it returns that video
 with the new sound (an MP4). The prompt is the person's words and what the shot shows; the
 negative prompt keeps out the music and speech-like sounds its README warns of, since the voice
-and the music bed are their own layers. "Slight" lays it lower. The sound is the take's sound
+and the music bed are their own layers. Each effect has its own loudness against the voice
+(`LEVELS`, or the decibels asked for): MMAudio's sound comes back very quiet (th-20s: -30 to
+-60 dB against a voice at -16 LUFS), so scaling it alone lost most of it under a narration;
+its loudness is measured and brought to the target, then a limiter keeps its peaks down (the
+alarm in th-20s was the one effect louder than the voice). The sound is the take's sound
 layer (its made_with "sound"): the final cut mixes it under the take's own sound, so a narrated
 video keeps it under the voice with the music ducked (clip_takes._narrated_mix), and a new or
 removed one puts the cut out of date. Priced and charged like a take (about $0.0061 a run,
@@ -23,6 +27,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import room
 from app.credits import estimate
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -35,10 +40,19 @@ from app.models.songs import SongTake
 STEP, MODEL = "take_sound", "mmaudio"
 NEGATIVE = "music, speech, voices, singing"
 STEPS, CFG = 25, 4.5  # the model's own defaults
-LEVELS = {"slight": 0.35, "normal": 0.7, "strong": 1.0}  # under the take's own sound
+# Each effect's loudness in LU against the voice (room.LUFS, our voice's level): under it,
+# "slight" well under, "over" the one moment louder than the voice (th-20s: the alarm)
+LEVELS = {"slight": -18.0, "normal": -12.0, "strong": -6.0, "over the voice": 3.0}
+LOWEST, LOUDEST = -30.0, 6.0  # a level asked for in decibels, at most this far either side
+GAIN = 30.0  # the most it's turned up or down (th-20s set them by hand: +2 to +19 dB)
+VOICE = room.LUFS
+CEILING = 10 ** (room.PEAK / 20)  # the limiter's ceiling, the voice's own true peak
 SLIGHT = re.compile(r"\b(?:slight(?:ly)?|subtle|soft|quiet|gentle|faint|light|low|a (?:little|"
                     r"touch|bit))\b", re.I)  # fmt: skip
 STRONG = re.compile(r"\b(?:loud|strong|big|punchy|heavy|bold)\b", re.I)
+OVER = re.compile(r"\b(?:louder than|over|above|on top of) the (?:voice|narrat\w*|talk\w*|"
+                  r"speaker|words)\b", re.I)  # fmt: skip
+DB = re.compile(r"([-+−]?\d{1,2}(?:\.\d)?)\s*dB\b", re.I)
 PLAIN = "Sound effects that fit what happens on screen"
 NO_TAKE = "Make a take of this clip first."
 MAKING = "Sound is being added to this take already."
@@ -49,8 +63,19 @@ SONG = "A song video's only sound is its song, so sound effects can't go under i
 
 
 def how(asked: str) -> str:
-    """How loud, from the person's words: "slight" sounds lower, "loud" louder."""
+    """How loud, from the person's words: "slight" sounds lower, "loud" louder, "louder than
+    the voice" over it."""
+    if OVER.search(asked):
+        return "over the voice"
     return "slight" if SLIGHT.search(asked) else "strong" if STRONG.search(asked) else "normal"
+
+
+def level(asked: str) -> float:
+    """The effect's loudness against the voice, in LU: the decibels asked for ("-10 dB under
+    the voice", "+3 dB"), else its `how`."""
+    if found := DB.search(asked):
+        return min(max(float(found[1].replace("−", "-")), LOWEST), LOUDEST)
+    return LEVELS[how(asked)]
 
 
 def prompt(asked: str, shown: list[str]) -> str:
@@ -113,7 +138,7 @@ def state(db: Session, take: ClipTake | None) -> dict | None:
 def job_input(db: Session, project: Project, row: ProjectClip, take: ClipTake,
               asked: str) -> dict:  # fmt: skip
     return {"step": STEP, "project_id": project.id, "take_id": take.id, "model": MODEL,
-            "asked": asked, "how": how(asked), "brand_id": project.brand_id,
+            "asked": asked, "how": how(asked), "db": level(asked), "brand_id": project.brand_id,
             "input": {"prompt": prompt(asked, _shown(db, row)), "negative_prompt": NEGATIVE,
                       "duration": row.seconds, "num_steps": STEPS, "cfg_strength": CFG},
             "files": {"video": [take.file_id]}}  # fmt: skip
@@ -176,7 +201,7 @@ def saved(db: Session, job: Job) -> None:
     if take is None or not file_ids:
         return
     sound = {"file_id": file_ids[0], "how": job.input["how"], "asked": job.input["asked"],
-             "job": job.id}  # fmt: skip
+             "db": job.input.get("db", LEVELS[job.input["how"]]), "job": job.id}  # fmt: skip
     take.made_with = {**(take.made_with or {}), "sound": sound}
 
 
@@ -190,7 +215,12 @@ def remove(take: ClipTake) -> None:
 def labels(clip: ProjectClip, take: ClipTake | None) -> list[str]:
     """How the final cut remembers the sound it was made with (so a change shows as waiting)."""
     made = added(take)
-    return [f"{clip.clip_id}/sound:{made['file_id']}@{made['how']}"] if made else []
+    return [f"{clip.clip_id}/sound:{made['file_id']}@{loudness(made)}dB"] if made else []
+
+
+def loudness(made: dict) -> float:
+    """An added sound's loudness against the voice (one added before levels: its `how`)."""
+    return float(made.get("db", LEVELS.get(made["how"], LEVELS["normal"])))
 
 
 def under(db: Session, storage, take: ClipTake | None, video: bytes) -> bytes:
@@ -199,12 +229,32 @@ def under(db: Session, storage, take: ClipTake | None, video: bytes) -> bytes:
     if not made:
         return video
     return apply(video, storage.get(db.get(StoredFile, made["file_id"]).key),
-                 LEVELS[made["how"]])  # fmt: skip
+                 loudness(made))  # fmt: skip
+
+
+def measured(folder: Path, name: str) -> float | None:
+    """A file's integrated loudness (LUFS, ffmpeg's loudnorm measurement); None when it has
+    nothing loud enough to measure."""
+    command = ["ffmpeg", "-v", "info", "-nostats", "-i", name, "-vn", "-af",
+               "loudnorm=print_format=json", "-f", "null", "-"]  # fmt: skip
+    done = subprocess.run(command, cwd=folder, capture_output=True, text=True,  # noqa: S603
+                          timeout=120).stderr  # fmt: skip
+    found = re.search(r'"input_i"\s*:\s*"(-?[\d.]+|-inf)"', done)
+    said = float(found[1]) if found and found[1] != "-inf" else None
+    return said if said is not None and said > -70 else None
+
+
+def gain(loud: float | None, level: float) -> float:
+    """Decibels that bring a sound at `loud` LUFS to `level` LU against the voice (within
+    GAIN); 0 for one that can't be measured."""
+    if loud is None:
+        return 0.0
+    return round(min(max(VOICE + level - loud, -GAIN), GAIN), 1)
 
 
 def apply(video: bytes, sound: bytes, level: float) -> bytes:
-    """`sound`'s audio at `level` under the take's own (or alone, a silent take); the picture
-    copied as it is, the length the take's."""
+    """`sound`'s audio brought to `level` LU against the voice and limited, under the take's
+    own (or alone, a silent take); the picture copied as it is, the length the take's."""
     from app.clip_takes import _probe
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -212,8 +262,10 @@ def apply(video: bytes, sound: bytes, level: float) -> bytes:
         (folder / "in.mp4").write_bytes(video)
         (folder / "sound").write_bytes(sound)
         own = _probe(folder, "in.mp4", "a:0", "index")
-        graph = (f"[1:a]volume={level}[s];[0:a][s]amix=inputs=2:normalize=0:duration=first[a]"
-                 if own else f"[1:a]volume={level},apad[a]")  # fmt: skip
+        up = gain(measured(folder, "sound"), level)
+        effect = f"[1:a]volume={up}dB,alimiter=limit={CEILING:.3f}:level=disabled"
+        graph = (f"{effect}[s];[0:a][s]amix=inputs=2:normalize=0:duration=first[a]"
+                 if own else f"{effect},apad[a]")  # fmt: skip
         command = ["ffmpeg", "-v", "error", "-y", "-i", "in.mp4", "-i", "sound",
                    "-filter_complex", graph, "-map", "0:v", "-map", "[a]", "-c:v", "copy",
                    "-c:a", "aac", "-shortest", "out.mp4"]  # fmt: skip

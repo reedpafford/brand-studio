@@ -27,13 +27,22 @@ VOICE = "Sarah"
 SLOWEST = 2.6
 ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # MiniMax Speech 2.8 HD (replicate.com/minimax/speech-2.8-hd; platform.minimax.io's system
-# voice list): two men, two women in natural English for someone talking to their phone (UGC,
-# Reed 3 Nov: "emotion inflection from minimax"). Its own controls: an emotion, pause marks
-# <#0.4#> and sounds like (breath) in the text; no free-text note. Speed 1.1 with emotion auto
-# read at 3.2-3.4 words a second in the batch-b test (the UGC references: 3.3-3.5).
+# voice list): two men, three women in natural English for someone talking to their phone
+# (UGC, Reed 3 Nov: "emotion inflection from minimax"); English_Graceful_Lady is the older
+# woman (th-20s: of 4 older-woman voices the lowest, 186 Hz, with the widest range). Its own
+# controls: an emotion, pause marks <#0.4#> and sounds like (breath) in the text; no free-text
+# note. Speed 1.1 with emotion auto read at 3.2-3.4 words a second in the batch-b test (the UGC
+# references: 3.3-3.5).
 MINIMAX, MINIMAX_SPEED = "minimax-speech-2.8-hd", 1.1
 MINIMAX_VOICES = ("English_FriendlyPerson", "English_Trustworth_Man", "English_Upbeat_Woman",
-                  "English_ConfidentWoman")  # fmt: skip
+                  "English_ConfidentWoman", "English_Graceful_Lady")  # fmt: skip
+# An emotion slows MiniMax down, so its speed rises with it to keep the style's pace. Measured
+# in th-20s (English_Graceful_Lady, the same lines): fearful read 2.4 words a second at 1.25 and
+# 3.4-3.6 at 1.5; sad 1.6 at 1.1 and 2.0 at 1.3 (with its marked pauses). The other emotions
+# aren't measured yet: they start at 1.1, and every narration's pace is measured once it's
+# timed (`pace`), so a remake corrects its speed from what was heard (`retimed`).
+SPEEDS = {"fearful": 1.5, "sad": 1.3}
+FASTEST, SLOWEST_SPEED = 2.0, 0.5  # MiniMax's speed range
 VOICES = ELEVENLABS + MINIMAX_VOICES
 EMOTIONS = ("auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm",
             "fluent", "neutral")  # Replicate's enum for speech-2.8-hd and -turbo  # fmt: skip
@@ -95,23 +104,29 @@ NO_NOTE = "A MiniMax voice takes no note: give it an emotion, or pause marks in 
 
 
 def job(script: str, voice: str = VOICE, note: str = "", emotion: str | None = None,
-        reading: str = "") -> dict:  # fmt: skip
+        reading: str = "", speed: float | None = None) -> dict:  # fmt: skip
     """The voice call. A remake's note ("Say fomo as FOH-moh.") goes in as a v3 delivery tag
     on this request only, never into the version's words; the voice is the Director's pick. A
     MiniMax voice reads `reading` when given (the words exactly, with pause marks and sounds
-    added) in `emotion` (auto: its own choice)."""
+    added) in `emotion` (auto: its own choice), at `speed` (None: the emotion's own)."""
     text = check.narration_text(script)  # the Director's: what the narrator reads
     if not text:
         raise ValueError(NO_WORDS)
     if voice not in VOICES:
         raise ValueError(f"The narrator's voice is one of {', '.join(VOICES)}.")
     if voice in MINIMAX_VOICES:
-        return _minimax(text, voice, note, emotion or "auto", (reading or "").strip())
+        return _minimax(text, voice, note, emotion or "auto", (reading or "").strip(), speed)
     tag = re.sub(r"[\[\]\s]+", " ", note).strip()
     return {"model": MODEL, "input": {"prompt": f"[{tag}] {text}" if tag else text, "voice": voice}}
 
 
-def _minimax(text: str, voice: str, note: str, emotion: str, reading: str) -> dict:
+def speed_for(emotion: str | None) -> float:
+    """The speed an emotion starts at (`SPEEDS`; else 1.1)."""
+    return SPEEDS.get(emotion or "auto", MINIMAX_SPEED)
+
+
+def _minimax(text: str, voice: str, note: str, emotion: str, reading: str,
+             speed: float | None = None) -> dict:  # fmt: skip
     """minimax/speech-2.8-hd's own inputs, at the batch-b test's settings (44.1 kHz, 256k)."""
     if note.strip():
         raise ValueError(NO_NOTE)
@@ -122,7 +137,8 @@ def _minimax(text: str, voice: str, note: str, emotion: str, reading: str) -> di
                     or any(not 0.01 <= s <= LONGEST_PAUSE for s in pauses)):  # fmt: skip
         raise ValueError(NOT_THE_WORDS)
     return {"model": MINIMAX, "input": {
-        "text": reading or text, "voice_id": voice, "emotion": emotion, "speed": MINIMAX_SPEED,
+        "text": reading or text, "voice_id": voice, "emotion": emotion,
+        "speed": round(min(max(speed or speed_for(emotion), SLOWEST_SPEED), FASTEST), 2),
         "language_boost": "English", "english_normalization": True, "sample_rate": 44100,
         "bitrate": 256000, "audio_format": "mp3"}}  # fmt: skip
 
@@ -133,11 +149,38 @@ def characters(job_input: dict) -> int:
 
 
 def delivery(job_input: dict) -> dict:
-    """A MiniMax narration's emotion and reading, to make it again the same way; else {}."""
+    """A MiniMax narration's emotion, reading and speed, to make it again the same way; else
+    {}."""
     said = job_input.get("input") or {}
     if job_input.get("model") != MINIMAX:
         return {}
-    return {"emotion": said.get("emotion"), "reading": said.get("text", "")}
+    return {"emotion": said.get("emotion"), "reading": said.get("text", ""),
+            "speed": said.get("speed")}  # fmt: skip
+
+
+def pace(heard: list[dict], gap: float = PAUSE) -> float | None:
+    """Words a second while speaking, as the guides measure it: the words over the time they
+    take, pauses longer than `gap` left out. None with too few words to say."""
+    if len(heard) < 2:
+        return None
+    talking, start, end = 0.0, heard[0]["start"], heard[0]["end"]
+    for w in heard[1:]:
+        if w["start"] - end > gap:
+            talking, start = talking + end - start, w["start"]
+        end = max(end, w["end"])
+    talking += end - start
+    return round(len(heard) / talking, 2) if talking > 0 else None
+
+
+def retimed(speed: float, heard: float, want: tuple[float, float]) -> float | None:
+    """The speed that brings a narration read at `heard` words a second (at `speed`) to the
+    middle of the style's range `want`, from the measurement, not a guess; None when it's
+    inside the range already."""
+    low, high = want
+    if low <= heard <= high:
+        return None
+    scaled = speed * (low + high) / 2 / heard
+    return round(min(max(scaled, SLOWEST_SPEED), FASTEST), 2)
 
 
 def kept_pause(job_input: dict) -> float:
@@ -185,6 +228,7 @@ def measure(path: Path, text: str, hear=song_timing.words,
         "seconds": seconds, "untrimmed_seconds": before, "trimmed": same, "bpm": None,
         "beats": [], "sections": [], "words": heard,
         "lines": song_timing.lines("\n".join(sentences(text)), heard, seconds),
+        "pace": pace(heard),  # words a second while speaking
         "peaks": song_timing.peaks(song_timing._samples(use)),
     }  # fmt: skip
     return timing, trimmed if same else None

@@ -4,9 +4,12 @@ room, then ONE HeyGen Avatar IV take of the whole narration (the MiniMax voice w
 sound, app/room.py), lip-synced from that still (app/host.py makes both, priced like takes). The
 plan's talker shots (in a narration, `sung`: the talker says that stretch to the lens) are cut
 from that take at the final cut; every other shot is B-roll cut in over the voice, so the cut
-alternates talker and B-roll. Settings from HeyGen's docs and the batch-b test
-(.context/team/research/ugc-realism.md): type image, 720p, expressiveness medium, a motion
-prompt that keeps the talker in place and the phone locked off."""
+alternates talker and B-roll. Settings from HeyGen's docs and the paid tests (batch-b,
+.context/team/research/ugc-realism.md; th-20s, .context/tests/th-20s/REPORT.md): type image,
+720p, expressiveness high (th-20s: high with a motion prompt for the moment clearly beat medium
+with a fixed one), and a motion prompt the director writes for this narration's emotion and
+lines (`motion`); the fixed line's "one easy hand gesture" made a stray hand pop in behind a
+steering wheel, so the fallback names no hands."""
 
 import hashlib
 import subprocess
@@ -36,11 +39,13 @@ STILL_PROMPT = (
     "soft window daylight from the front. A real vertical phone photo, unretouched: natural "
     "skin with pores, no studio light, no shallow-focus blur, only this one person in it."
 )  # HeyGen: a clear, front-facing, evenly lit portrait, the whole head in frame, one person
+EXPRESSIVENESS = "high"  # HeyGen: high, medium or low ("energy and range of movement")
 MOTION = (
     "They stay where they are and talk straight into the phone lens like a real selfie video: "
-    "small natural head nods and tilts, blinks, eyebrows that move with the words, and now and "
-    "then one easy hand gesture low in the frame. The phone is locked off: no camera movement."
-)
+    "small natural head nods and tilts, blinks, eyebrows and mouth that move with the feeling "
+    "of the words. The phone is locked off: no camera movement."
+)  # when the director writes none (Make the host pressed by a person)
+LONGEST_MOTION = 600  # characters: a motion note is a few sentences
 SAID = "The talker says this clip: its picture is cut from the talker's take. Make the host."
 NO_SHOTS = ("The plan has no talker shots, so the talker would never be seen. Plan again with "
             "the talker on screen for the hook, the turns and the close.")  # fmt: skip
@@ -103,15 +108,22 @@ def whole(seconds: float) -> list[tuple[float, float]]:
     return [(0.0, seconds)]
 
 
-def piece_input(project: Project, row, still_file_id: int) -> dict:
+def motion(note: str) -> str:
+    """The director's motion note for the take (its emotion and lines: what the face, head and
+    hands do, and what's in front of them), else the plain one."""
+    return " ".join((note or "").split())[:LONGEST_MOTION] or MOTION
+
+
+def piece_input(project: Project, row, still_file_id: int, note: str = "") -> dict:
     """The one HeyGen take: the still, and the whole narration as the voice it lip-syncs
-    (`duration` is for the stand-in; HeyGen's length follows the voice)."""
+    (`duration` is for the stand-in; HeyGen's length follows the voice). `note`: the
+    director's motion note (kept in the job's input, `motion`, for a remake)."""
     from app import host
 
     return {"step": host.PIECE, "project_id": project.id, "host_piece_id": row.id,
             "model": MODEL, "brand_id": project.brand_id, "fit_images_to": FIT,
             "input": {"aspect_ratio": project.aspect_ratio, "resolution": RESOLUTION,
-                      "expressiveness": "medium", "motion_prompt": MOTION,
+                      "expressiveness": EXPRESSIVENESS, "motion_prompt": motion(note),
                       "title": f"Brand Studio video {project.id}",
                       "duration": host._seconds(row)},
             "files": {"image": [still_file_id], "audio": [row.audio_file_id]}}  # fmt: skip

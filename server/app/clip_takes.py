@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import p_video, screen_figures, video_settings
+from app import model_map, p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -47,6 +47,8 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
     require_cast_sheets(db, breakdown, shots, known)
     require_looks(would_show(db, project, breakdown, shots), known)
+    unsent = model_map.unsent(project.look, video_model(project).id, _shots(breakdown, shots))
+    drop = tuple(dict.fromkeys(drop + unsent))  # a photoreal person: said in words instead
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
     images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart

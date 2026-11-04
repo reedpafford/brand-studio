@@ -562,3 +562,19 @@ def test_a_b_roll_take_asks_for_no_sound_and_a_dialogue_take_does(app, db, edito
     _work(app, db, fake)  # nobody speaks: B-roll
     asked = [json.loads(q.content)["input"] for q in fake.requests if q.method == "POST"]
     assert [a["generate_audio"] for a in asked] == [True, False]
+
+
+def test_a_photoreal_style_says_people_in_words(app, db, editor, setup, clip, monkeypatch):  # noqa: F811
+    """th-20s: Seedance refused every take sent a photoreal teenager's picture (E005, E006), and
+    the same words in every prompt kept her the same girl. In the UGC style the sheet stays
+    home and the prompt names her instead; the brand's screen is still sent."""
+    from app import model_map
+
+    monkeypatch.setattr(model_map, "PHOTOREAL", ("house",))  # this video's look, as UGC is
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    assert editor.post(f"{url}/generate").status_code == 201
+    fake = FakeSeedance([_mp4("red")])
+    _work(app, db, fake)
+    sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
+    assert len(sent["reference_images"]) == 1  # the screen only, not Mom's sheet
+    assert "Mom" in sent["prompt"] and "[Image2]" not in sent["prompt"]
