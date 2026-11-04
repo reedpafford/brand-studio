@@ -38,6 +38,9 @@ class LibraryItem(Entity, Base):
     # Characters only: [{"name": "Gym kit", "file_ids": [..]}], and a voice sample.
     outfits: Mapped[list[dict]] = mapped_column(JSON, default=list)
     voice_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
+    # S8-03, a character's voice: a saved voice, or an app voice by key ("Roger"); not both
+    voice_id: Mapped[int | None] = mapped_column(ForeignKey("voices.id"))
+    voice_stock_key: Mapped[str | None] = mapped_column(String(60))
     # Characters and places: an uploaded photo is only source material; videos use the
     # house-style sheet made from it, and only once an editor approves it (Reed).
     source_photo_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))

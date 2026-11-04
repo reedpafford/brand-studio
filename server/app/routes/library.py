@@ -65,6 +65,10 @@ class ItemIn(BaseModel):
     image_file_ids: list[int] = []
     outfits: list[Outfit] = []  # characters only
     voice_file_id: int | None = None  # characters only
+    # A character's voice (S8-03): a saved voice (`voices` row) or an app voice by its key
+    # ("Roger"); one or neither. A presenter's host narrates in it.
+    voice_id: int | None = None
+    voice_stock_key: str | None = None
     # Characters and places: a photo kept as source material only, never used in videos.
     source_photo_file_id: int | None = None
     # Products (flows BR1; owner only): what it is in a line, and the claim scripts may make
@@ -92,6 +96,8 @@ class ItemPatch(BaseModel):
     image_file_ids: list[int] | None = None
     outfits: list[Outfit] | None = None
     voice_file_id: int | None = None
+    voice_id: int | None = None  # null removes it
+    voice_stock_key: str | None = None  # null removes it
     source_photo_file_id: int | None = None
     short_description: LongText | None = None  # products, owner only
     main_claim: LongText | None = None  # products, owner only
@@ -183,8 +189,15 @@ class VersionOut(BaseModel):
 
 
 PRODUCT_WORDS = ("short_description", "main_claim")
-CHARACTER_ONLY = ("outfits", "voice_file_id", "presenter", "place_id")
-NULLABLE = ("voice_file_id", "source_photo_file_id", "place_id")  # null removes it
+CHARACTER_ONLY = (
+    "outfits",
+    "voice_file_id",
+    "voice_id",
+    "voice_stock_key",
+    "presenter",
+    "place_id",
+)
+NULLABLE = ("voice_file_id", "voice_id", "voice_stock_key", "source_photo_file_id", "place_id")
 NO_CLAIM = "Scripts won't mention a claim for this product."
 
 
@@ -196,6 +209,8 @@ def _snapshot(item: LibraryItem) -> dict:
         "image_file_ids": item.image_file_ids,
         "outfits": item.outfits,
         "voice_file_id": item.voice_file_id,
+        "voice_id": item.voice_id,
+        "voice_stock_key": item.voice_stock_key,
         "source_photo_file_id": item.source_photo_file_id,
         "short_description": item.short_description,
         "main_claim": item.main_claim,
@@ -347,6 +362,7 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
             values.pop(field, None)
     if item.kind != Kind.character and any(values.get(f) for f in CHARACTER_ONLY):
         raise HTTPException(422, "Only characters have outfits, a voice, a presenter or a place.")
+    _check_voice(db, user, item, values)
     if values.get("place_id"):
         get_item(db, user, Kind.place, values["place_id"])
     if item.kind != Kind.prop and values.get("product_type"):
@@ -375,6 +391,26 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
     for field, value in values.items():
         if value is not None or field in NULLABLE:
             setattr(item, field, value)
+
+
+ONE_VOICE = "Give a character one voice: a saved voice or an app voice, not both."
+
+
+def _check_voice(db: Session, user: User, item: LibraryItem, values: dict) -> None:
+    """A character's voice is one of the workspace's live saved voices or an app voice, and
+    never both at once (one, or neither)."""
+    from app import voices
+    from app.models.voices import Voice
+
+    if values.get("voice_id"):
+        voice = db.get(Voice, values["voice_id"])
+        if voice is None or voice.workspace_id != user.workspace_id or voice.archived_at:
+            raise HTTPException(404, voices.NO_VOICE)
+    if values.get("voice_stock_key"):
+        voices.stock(values["voice_stock_key"])  # 422 for one the app doesn't have
+    after = {f: values.get(f, getattr(item, f, None)) for f in ("voice_id", "voice_stock_key")}
+    if after["voice_id"] and after["voice_stock_key"]:
+        raise HTTPException(422, ONE_VOICE)
 
 
 def _save_version(db: Session, user: User, item: LibraryItem) -> None:
@@ -520,10 +556,11 @@ def update_item(
     values = body.model_dump(exclude_unset=True)
     # A product's words, being a presenter or a usual place don't change its picture
     words_only = set(values) <= {*PRODUCT_WORDS, "presenter", "place_id", "product_type"}
+    heard_only = set(values) <= {"voice_id", "voice_stock_key"}  # nor does its voice
     if not words_only:
         _save_version(db, user, item)
     _apply(db, user, item, values)
-    if not words_only:
+    if not (words_only or heard_only):
         item.sheet_approved = False  # any other edit needs the sheet approved again
     db.commit()
     return _out(item)

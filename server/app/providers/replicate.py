@@ -71,6 +71,10 @@ class ReplicateProvider:
             return Result("failed", error=str(p.get("error") or status))
         output = p.get("output")
         model = get_model(_model_id_from_version(p))
+        if isinstance(output, dict):  # named fields (a voice clone: voice_id, preview, model)
+            files = [v for v in output.values() if _is_url(v)]
+            return Result("succeeded", output={"fields": output}, files=files,
+                          usage=[_usage(model, p, len(files))] if model else [])  # fmt: skip
         parts = [output] if isinstance(output, str) else output if isinstance(output, list) else []
         is_files = bool(parts) and all(_is_url(o) for o in parts)
         files = parts if is_files else []

@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app import music, narration, song_takes, song_timing, take_words
+from app import music, narration, song_takes, song_timing, take_words, voices
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.jobs import Job
@@ -133,6 +133,9 @@ def state(db: Session, project: Project) -> dict | None:
     out = {"state": now, "takes": takes, "used_take_id": project.song_take_id}
     if found == "narrated":  # the note a narration with the name wrong is read with
         out["say"] = say(brand)
+        used = next((t.voice for t in made if t.id == project.song_take_id), None)
+        if own := voices.for_director(db, project.workspace_id, used or _voice(db, project)):
+            out["voice"] = own  # a cloned voice's state and when it may expire
     if found == "song":
         used = [t for t in made if t.id == project.song_take_id]
         take = (used or sorted(made, key=lambda t: t.id))[-1] if made else None
@@ -208,7 +211,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         return OFF
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
     voice = (decision.get("voice") or kept if found == "narrated" else None) or _voice(db, project)
-    if voice not in narration.VOICES:  # the Director's pick (None: the default)
+    if voice not in narration.VOICES and not voices.named(db, project.workspace_id, voice):
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
     song_takes.make(
         db, user, draft, project, kie=_real(db, found), note=note, voice=voice, delivery=delivery
@@ -220,9 +223,12 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
 
 
 def _voice(db: Session, project: Project) -> str:
-    """The narrator when none is picked: a UGC talker's is a MiniMax voice (Reed, 3 Nov)."""
+    """The narrator when none is picked: the video's own (its host's or its style's, e.g.
+    Dr. Pickle's clone), else a UGC talker's MiniMax voice (Reed, 3 Nov), else narration's."""
     from app import talker
 
+    if own := voices.default_for(db, project):
+        return own
     return talker.VOICE if talker.on(db, project) else narration.VOICE
 
 

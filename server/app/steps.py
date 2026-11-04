@@ -49,6 +49,10 @@ def step_failed(db: Session, job: Job) -> None:
             once_more(db, job)
         except Exception:  # never let a retry break the worker
             log.exception("job %s: trying it again failed", job.id)
+    if job.input.get("saved_voice"):  # a narration in a clone MiniMax no longer has
+        from app.voices import failed as voice_failed
+
+        voice_failed(db, job)
     if job.input.get("step") == "reel_watch":
         try:
             watch_failed(db, job)
@@ -146,6 +150,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.storyboard import save_frames, save_still
     from app.take_sound import saved as save_sound
     from app.take_words import save as save_words
+    from app.voices import saved as save_voice
     from app.watch_cut import heard_cut
     from app.watch_cut import save as save_watch_cut
 
@@ -171,6 +176,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
         "take_sound": save_sound,
+        "voice_clone": save_voice,
         "host_still": save_host,
         "host_piece": save_host,
         "variations": save_variations,

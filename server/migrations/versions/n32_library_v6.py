@@ -5,15 +5,15 @@ product is one record with its pictures. Each brand's product names are matched 
 by name (any case); a name with no product makes one, named as the screens named it. Screens
 with no product (app screens) go to the brand's app, "<brand> app", made when it has none.
 
-Revision ID: n31
-Revises: n30
+Revision ID: n32
+Revises: n31
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n31"
-down_revision = "n30"
+revision = "n32"
+down_revision = "n31"
 branch_labels = None
 depends_on = None
 
