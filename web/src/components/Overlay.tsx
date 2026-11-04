@@ -119,8 +119,9 @@ export function Dialog({
           {title}
         </h2>
         {children && <div className="mt-2 text-sm text-muted">{children}</div>}
-        {/* Centred, so the outlined way back keeps its own 32 px beside a 36 px action (F_BrandEdit). */}
-        <div className="mt-5 flex items-center justify-end gap-2">
+        {/* Centred, so the outlined way back keeps its own 32 px beside a 36 px action (F_BrandEdit); with a reason under
+            the action, top-aligned so the two presses stay level. */}
+        <div className={`mt-5 flex justify-end gap-2 ${holdReason ? "items-start" : "items-center"}`}>
           {/* v5 F_BrandEdit: the way back is outlined; a danger action is filled red. */}
           <Button variant="secondary" onClick={onCancel}>
             {cancelLabel}
