@@ -311,7 +311,7 @@ test("Takes (v5): the takes are rows under the header's Edit and Make 2 more, an
 test("a new song script, before it is saved, shows the same four steps as a saved one: Lyrics · Takes · Breakdown · Cast (QA-3 on #1260)", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /scripts": [200, []] });
-  open("/b/1/scripts/new?kind=song");
+  open("/b/1/scripts/new?format=song");
   const steps = await screen.findByRole("list", { name: "Steps" });
   expect(within(steps).getAllByRole("button").map((b) => b.textContent?.replace(/^\d+/, ""))).toEqual(["Lyrics", "Takes", "Breakdown", "Cast"]);
 });
@@ -319,6 +319,6 @@ test("a new song script, before it is saved, shows the same four steps as a save
 test("at 390 a new song script reads Step 1 of 4 · Lyrics", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /scripts": [200, []] });
-  open("/b/1/scripts/new?kind=song");
+  open("/b/1/scripts/new?format=song");
   expect(await screen.findByRole("button", { name: "Step 1 of 4 · Lyrics" })).toBeInTheDocument();
 });
