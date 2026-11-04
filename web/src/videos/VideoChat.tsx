@@ -10,6 +10,7 @@ import { Button, Dialog, Skeleton, buttonClass, creditsLabel, pressLabel, wholeC
 import { ChangeBox, useSettingsWords } from "../freestyle/Composer";
 import { mmss } from "../freestyle/FromScript";
 import { Thread, type Said } from "../freestyle/Thread";
+import { ReelBlock } from "../scripts/ReelImport";
 import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
 import { InTheCut, phaseOf, useDirectorRun, useMovesRefresh } from "../projects/DirectorPanel";
 import { LockChips } from "../projects/LockChips";
@@ -172,6 +173,7 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
             first={fromScript && <ScriptCard title={script.title} slot={slot?.slot ?? 0} seconds={slot?.seconds ?? 0} lines={(slot?.text ?? "").split("\n").filter((l) => l.trim()).length} to={`/b/${p.brand_id}/scripts/${script.id}`} />}
             extra={extra}
           />
+          {fs.reel_script_id && !items.length && <ReelBlock scriptId={fs.reel_script_id} published={false} /> /* Use a reel: its read, before the script is written */}
           {noted && <p className="text-sm text-muted">Saved. Press Make it again to make this change.</p>}
           {again.isError && <p role="alert" className="text-sm text-danger">{again.error.message}</p>}
           {actions.withdraw.isError && <p role="alert" className="text-sm text-danger">{actions.withdraw.error.message}</p>}

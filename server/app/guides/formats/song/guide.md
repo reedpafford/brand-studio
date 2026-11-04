@@ -3,6 +3,7 @@ order: 1
 on: yes
 engine: song
 blurb: An animated music video: the song plays over B-roll that shows each line as it's sung; the lead sings on camera only where the script asks.
+card: A song with pictures to it
 
 <!-- Song ads (Reed, 2026-10-28): a music video where the song leads. From Reed's song-ad skill (docs/next/skills/song-ad.md, #1095; first from Starpop's song-ads, docs/research/starpop-2026-10-28, rule 20). Song is a video type, drawn in whatever look the video has (Song in any look, #1031): this file holds only its still and clip guides, added after the look's own; the song flow (lyrics, takes, sung or B-roll shots timed to the track) is its own step. -->
 <!-- Moved 2 Nov from server/app/prompts/styles/song.md and prompts/skills/song-ad.md. -->

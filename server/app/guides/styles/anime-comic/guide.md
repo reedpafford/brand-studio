@@ -1,6 +1,7 @@
 name: Anime comic
 order: 6
 on: no
+hidden: yes
 image_model: auto
 video_model: seedance-2.0
 blurb: Original cel-shaded anime: clean ink lines, two-tone shading, strong key poses and impact frames.

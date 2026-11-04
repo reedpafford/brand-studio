@@ -102,6 +102,7 @@ def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dic
             "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
             "missing": _missing(take, lines) if take.timing is not None else None,
+            "pace": timing.get("pace"),  # words a second while speaking, as measured
             **({"misheard": misheard(take.timing, brand, take.lyrics)}
                if take.kind == narration.KIND else {}),
             **({"extras": _extras(take)} if take.kind == "song" else {})}  # fmt: skip
@@ -133,6 +134,7 @@ def state(db: Session, project: Project) -> dict | None:
     out = {"state": now, "takes": takes, "used_take_id": project.song_take_id}
     if found == "narrated":  # the note a narration with the name wrong is read with
         out["say"] = say(brand)
+        out["pace_wanted"] = target(db, project)  # the style's words a second
     if found == "song":
         used = [t for t in made if t.id == project.song_take_id]
         take = (used or sorted(made, key=lambda t: t.id))[-1] if made else None
@@ -166,6 +168,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     a run (counted in `run`). A MiniMax narrator's `emotion` and `reading` ask like a note."""
     tool, note = decision["tool"], (decision.get("note") or "").strip()
     delivery = {k: decision[k] for k in ("emotion", "reading") if decision.get(k)}
+    if delivery and (speed := _speed(db, project, delivery.get("emotion"))):
+        delivery["speed"] = speed  # set from the last read's measured pace
     asked = note or delivery
     found = kind(db, project)
     if found is None or (tool == "song") != (found == "song"):
@@ -217,6 +221,28 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if takes:  # a remake; the first song's note is its style line, not a remake
         run[REMADE] = run.get(REMADE, 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
+
+
+def target(db: Session, project: Project) -> tuple[float, float] | None:
+    """The words a second the video's style (else its format) keeps, from its guide."""
+    from app import guides
+    from app.script_library import format_id
+
+    script = narration.video_script(db, project)
+    return guides.pace(project.look or "house", format_id(script)) if script else None
+
+
+def _speed(db: Session, project: Project, emotion: str | None) -> float | None:
+    """A MiniMax remake's speed: the last read in the same emotion, measured, brought to the
+    style's pace (narration.retimed: "measure, don't guess"); None leaves the emotion's own."""
+    want = target(db, project)
+    done = [t for t in song_takes.for_video(db, project)
+            if t.timing and t.timing.get("pace") and t.job_id]  # fmt: skip
+    for take in sorted(done, key=lambda t: (t.id != project.song_take_id, -t.id)):
+        made = narration.delivery(db.get(Job, take.job_id).input)
+        if made and want and made["speed"] and (made["emotion"] or "auto") == (emotion or "auto"):
+            return narration.retimed(made["speed"], take.timing["pace"], want) or made["speed"]
+    return None
 
 
 def _voice(db: Session, project: Project) -> str:

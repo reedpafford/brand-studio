@@ -4,6 +4,8 @@ on: no
 image_model: auto
 video_model: seedance-2.0
 blurb: One continuous camera follows the thing being explained through one real set, in realistic game-engine 3D: cutaways and glowing marks show what happens inside.
+card: One moving camera
+broll: Game-engine 3D
 
 <!-- Reed's Zack D skill (docs/next/skills/zack-d.md, #1097). Reed, 1 Nov: "Skill, drop realistic": the skill's format replaces the semi-realistic cutscene look of 29 Oct. A format worn as a look: a friendly, rounded 3D world on an infinite blue ground, one calm narrator, one continuous camera journey. Not wired (Reed decides later): the skill's background plates, narrator voices and music track, so the world is described in words. The word "stage" never goes in a picture prompt (it draws a stage set): the banned list repairs it. -->
 <!-- Reed, 3 Nov (REED-ANSWERS-2, Z1): "Follow the originals." Realistic game-engine 3D on real sets, as in his three Zack D. Films reference videos (examples/); this replaces the 1 Nov blue-world look. Z2–Z4: one real set per video, the cyan world optional; no hard cuts; glows on single parts; no podiums, 3D numerals, scale anchor or podium outro. F2: this file is the look and the camera; the voice, structure, information and sound are formats/zack-d/guide.md. Captions come in post (Reed: "dont worry about captions"). -->
