@@ -1,5 +1,5 @@
-"""Voices (v6 S8-04): a brand's voices with free samples, an app voice saved to a brand, a
-voice cloned from a sample (priced first, held for the owner when an editor asks), remove with
+"""Voices (v6 S8-04): every app voice and a brand's own voices with free samples, a voice
+cloned from a sample (priced first, held for the owner when an editor asks), remove with
 Undo, and Dr. Pickle's clone as that style's narrator, with its 7-day expiry said plainly.
 Stand-ins and a mocked Replicate only: no paid calls."""
 
@@ -11,10 +11,11 @@ import httpx2 as httpx
 import pytest
 from fastapi import HTTPException
 
-from app import director_song, narration, voices
+from app import director_song, narration, usage, voices
 from app.catalogue import get_model
 from app.db import utcnow
 from app.models.accounts import Workspace
+from app.models.files import StoredFile
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus
 from app.models.library import Kind, LibraryItem
@@ -62,7 +63,7 @@ def test_the_brands_voices_list_dr_pickles_clone_with_its_sample_and_expiry(db, 
     (pickle,) = _saved(owner, brand)
     assert (pickle["name"], pickle["kind"], pickle["look"], pickle["brand_id"]) == (
         "Dr. Pickle", "cloned", "dr-pickle", None)  # fmt: skip
-    assert pickle["sample_url"].endswith("/voices/samples/dr-pickle.mp3")
+    assert pickle["sample_url"] == "/voices/samples/dr-pickle.mp3"  # the web adds /api
     assert owner.get(pickle["sample_url"]).headers["content-type"] == "audio/mpeg"
     row = db.get(Voice, pickle["id"])
     assert (row.provider_voice_id, row.speech_model) == ("R8_CJRWYITM", "minimax-speech-02-hd")
@@ -77,7 +78,8 @@ def test_every_app_voice_is_listed_with_a_free_sample_where_a_test_made_one(owne
     listed = {v["stock_key"]: v for v in _list(editor, brand)["voices"] if v["id"] is None}
     assert list(listed) == voices.stock_keys() and "Roger" in listed
     assert {v["kind"] for v in listed.values()} == {"stock"}
-    assert listed["Roger"]["provider"] == "elevenlabs" and listed["Roger"]["sample_url"]
+    assert listed["Roger"]["provider"] == "elevenlabs"
+    assert listed["Roger"]["sample_url"] == "/voices/samples/Roger.mp3"
     assert listed["English_FriendlyPerson"]["provider"] == "minimax"
     assert listed["Sarah"]["sample_url"] is None  # no paid test made one yet
     assert _list(editor, brand, all=True)["voices"] == _list(editor, brand)["voices"]
@@ -156,6 +158,7 @@ def test_an_editors_clone_waits_for_the_owner_and_a_failed_one_says_so(app, db, 
     job = db.query(Job).filter_by(kind="voice").one()
     assert job.status == JobStatus.needs_owner_approval
     assert (made["state"], made["error"]) == ("cloning", voices.HELD)
+    assert usage.what(db, job) == "Voice clone · Ed"  # Usage and My requests, not "Quick clip"
     job.status, job.error = JobStatus.failed, "The voice service failed."
     db.commit()
     ed = next(v for v in _saved(editor, brand) if v["name"] == "Ed")
@@ -173,7 +176,7 @@ def test_a_clone_unused_for_7_days_is_shown_and_refused_plainly_never_swapped(db
     status, why = voices.state(db, pickle)
     assert status == "expired" and why == voices.GONE.format(name="Dr. Pickle", credits="29.18")
     with pytest.raises(HTTPException) as no:
-        voices.narration_job(db, pickle.workspace_id, WORDS, f"voice:{pickle.id}")
+        voices.narration_job(db, pickle.workspace_id, None, WORDS, f"voice:{pickle.id}")
     assert no.value.status_code == 409 and "Clone it again" in no.value.detail
     listed = next(v for v in _saved(owner, brand) if v["id"] == pickle.id)
     assert listed["state"] == "expired" and "7 days" in listed["error"]
@@ -187,6 +190,7 @@ def test_dr_pickles_narration_is_read_by_its_clone_on_speech_02_hd(db, owner):
     made = voices.narration_job(
         db,
         ws,
+        None,
         WORDS,
         f"voice:{pickle.id}",
         emotion="angry",
@@ -201,12 +205,13 @@ def test_dr_pickles_narration_is_read_by_its_clone_on_speech_02_hd(db, owner):
         voices.narration_job(
             db,
             ws,
+            None,
             WORDS,
             f"voice:{pickle.id}",
             reading="(breath) Your gut is a mess. Resilia fixes it.",
         )
     with pytest.raises(HTTPException):
-        voices.narration_job(db, ws + 99, WORDS, f"voice:{pickle.id}")  # another workspace's
+        voices.narration_job(db, ws + 99, None, WORDS, f"voice:{pickle.id}")  # another workspace's
 
 
 def test_minimax_saying_the_clone_is_gone_marks_it_lost(db, owner):
@@ -283,3 +288,112 @@ def test_a_character_has_one_voice_saved_or_from_the_app_and_its_host_speaks_in_
     assert voices.default_for(db, video) == "Roger"
     item.voice_stock_key, item.voice_id = None, pickle.id
     assert voices.default_for(db, video) == f"voice:{pickle.id}"
+
+
+def _wav(seconds: float) -> bytes:
+    command = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"sine=f=200:d={seconds}",
+               "-ar", "8000", "-ac", "1", "-f", "wav", "-"]  # fmt: skip
+    return subprocess.run(command, capture_output=True, check=True).stdout  # noqa: S603
+
+
+def _m4a(seconds: float) -> bytes:
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "s.m4a"
+        command = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"sine=f=200:d={seconds}",
+                   "-c:a", "aac", "-b:a", "32k", str(out)]  # fmt: skip
+        subprocess.run(command, check=True)  # noqa: S603
+        return out.read_bytes()
+
+
+def test_the_sample_limits_and_its_three_kinds(app, db, owner, monkeypatch):
+    """MiniMax's docs: MP3, M4A or WAV, 10 s to 5 min, under 20 MB; checked before any spend."""
+    brand = first_brand(owner)
+    url = f"/brands/{brand}/voices/clone"
+    for name, data, kind in (("w.wav", _wav(12), "audio/wav"), ("m.m4a", _m4a(12), "audio/mp4")):
+        sample = upload(owner, name, data, kind)
+        assert owner.post(url, json={"name": name, "sample_file_id": sample}).status_code == 201
+    long = upload(owner, "long.mp3", _audio(301), "audio/mpeg")
+    r = owner.post(url, json={"name": "Long", "sample_file_id": long})
+    assert r.status_code == 422 and "5 minutes at most" in r.json()["detail"]
+    big = db.get(StoredFile, _sample(owner))
+    big.size = 20 * 1024 * 1024  # the file's recorded size, as uploaded
+    db.commit()
+    r = owner.post(url, json={"name": "Big", "sample_file_id": big.id})
+    assert r.status_code == 422 and "under 20 MB" in r.json()["detail"]
+
+    hung = _sample(owner)
+
+    def hangs(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], 60)
+
+    monkeypatch.setattr("app.voices.subprocess.run", hangs)
+    r = owner.post(url, json={"name": "Hung", "sample_file_id": hung})
+    assert (r.status_code, r.json()["detail"]) == (422, voices.SAMPLE_UNREADABLE)
+    assert db.query(Job).filter_by(kind="voice").count() == 2  # only the WAV and the M4A
+
+
+def test_a_brands_voice_is_that_brands_own_and_a_styles_voice_is_everyones(db, owner):
+    a = first_brand(owner)
+    b = owner.post("/brands", json={"name": "Other Brand"}).json()["id"]
+    ws = _ws(db)
+    pickle = _pickle(db, ws)
+    mark = Voice(workspace_id=ws, brand_id=a, name="Mark", kind="cloned", provider="minimax",
+                 provider_voice_id="R8_MARK", speech_model=voices.SPEAKS, cloned_at=utcnow(),
+                 last_used_at=utcnow())  # fmt: skip
+    db.add(mark)
+    db.commit()
+    assert voices.named(db, ws, f"voice:{mark.id}", a) is mark
+    assert voices.named(db, ws, f"voice:{mark.id}", b) is None
+    assert voices.named(db, ws, f"voice:{pickle.id}", b) is pickle
+    with pytest.raises(HTTPException):
+        voices.narration_job(db, ws, b, WORDS, f"voice:{mark.id}")
+    assert voices.narration_job(db, ws, a, WORDS, f"voice:{mark.id}")["input"]["voice_id"] == (
+        "R8_MARK")  # fmt: skip
+    other = owner.post("/library/character",
+                       json={"name": "Bo", "brand_ids": [b], "voice_id": mark.id})  # fmt: skip
+    assert other.status_code == 422 and "another brand" in other.json()["detail"]
+    own = owner.post("/library/character",
+                     json={"name": "Mo", "brand_ids": [a], "voice_id": mark.id})  # fmt: skip
+    assert own.status_code == 201, own.text
+    styled = owner.post("/library/character",
+                        json={"name": "Jo", "brand_ids": [b], "voice_id": pickle.id})  # fmt: skip
+    assert styled.status_code == 201, styled.text
+
+
+def test_a_removed_voice_never_stops_its_presenter_and_says_what_to_do(db, owner, monkeypatch):
+    brand = first_brand(owner)
+    ws = _ws(db)
+    pickle = _pickle(db, ws)
+    pickle.last_used_at = utcnow()
+    mark = Voice(workspace_id=ws, brand_id=brand, name="Mark's clone", kind="cloned",
+                 provider="minimax", provider_voice_id="R8_MARK", speech_model=voices.SPEAKS,
+                 cloned_at=utcnow(), last_used_at=utcnow(), archived_at=utcnow())  # fmt: skip
+    db.add(mark)
+    db.flush()
+    item = LibraryItem(workspace_id=ws, kind=Kind.character, name="Mark", voice_id=mark.id)
+    db.add(item)
+    db.commit()
+    monkeypatch.setattr("app.host.on", lambda db, project: True)
+    monkeypatch.setattr("app.host.host_look", lambda db, project: item)
+    video = Project(workspace_id=ws, brand_id=brand, look="dr-pickle")
+    assert voices.default_for(db, video) == f"voice:{pickle.id}"  # the style's voice instead
+    note = voices.host_note(db, video)
+    assert "Mark's voice, Mark's clone" in note and "Pick another voice for Mark in Cast" in note
+    with pytest.raises(HTTPException) as no:
+        voices.narration_job(db, ws, brand, WORDS, f"voice:{mark.id}")
+    assert no.value.status_code == 422 and "was removed" in no.value.detail
+    mark.archived_at = None
+    assert voices.default_for(db, video) == f"voice:{mark.id}" and voices.host_note(db, video) == ""
+
+
+def test_a_clone_on_02_hd_refuses_sounds_in_the_scripts_own_words_too(db, owner):
+    ws = _ws(db)
+    pickle = _pickle(db, ws)
+    pickle.last_used_at = utcnow()
+    db.commit()
+    with pytest.raises(HTTPException, match="sounds"):
+        voices.narration_job(db, ws, None, "Your gut is a mess. (breath) Resilia fixes it.",
+                             f"voice:{pickle.id}")  # fmt: skip

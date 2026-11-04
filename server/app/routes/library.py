@@ -310,6 +310,8 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
 
 NULL_REMOVES = ("voice_file_id", "voice_id", "voice_stock_key", "source_photo_file_id")
 ONE_VOICE = "Give a character one voice: a saved voice or an app voice, not both."
+OTHER_BRANDS_VOICE = ("That voice belongs to another brand. Pick one of this character's "
+                      "brands' voices.")  # fmt: skip
 
 
 def _check_voice(db: Session, user: User, item: LibraryItem, values: dict) -> None:
@@ -318,10 +320,14 @@ def _check_voice(db: Session, user: User, item: LibraryItem, values: dict) -> No
     from app import voices
     from app.models.voices import Voice
 
-    if values.get("voice_id"):
+    if values.get("voice_id"):  # a style's voice, or one of the character's own brands'
         voice = db.get(Voice, values["voice_id"])
         if voice is None or voice.workspace_id != user.workspace_id or voice.archived_at:
             raise HTTPException(404, voices.NO_VOICE)
+        brands = values.get("brand_ids")
+        brands = set(brands if brands is not None else (b.id for b in item.brands))
+        if voice.brand_id is not None and voice.brand_id not in brands:
+            raise HTTPException(422, OTHER_BRANDS_VOICE)
     if values.get("voice_stock_key"):
         voices.stock(values["voice_stock_key"])  # 422 for one the app doesn't have
     after = {f: values.get(f, getattr(item, f, None)) for f in ("voice_id", "voice_stock_key")}

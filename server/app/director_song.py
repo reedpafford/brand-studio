@@ -134,8 +134,11 @@ def state(db: Session, project: Project) -> dict | None:
     if found == "narrated":  # the note a narration with the name wrong is read with
         out["say"] = say(brand)
         used = next((t.voice for t in made if t.id == project.song_take_id), None)
-        if own := voices.for_director(db, project.workspace_id, used or _voice(db, project)):
+        said = used or _voice(db, project)
+        if own := voices.for_director(db, project.workspace_id, project.brand_id, said):
             out["voice"] = own  # a cloned voice's state and when it may expire
+        if note := voices.host_note(db, project):
+            out["voice_note"] = note  # the host's own voice was removed: say what to do
     if found == "song":
         used = [t for t in made if t.id == project.song_take_id]
         take = (used or sorted(made, key=lambda t: t.id))[-1] if made else None
@@ -210,8 +213,10 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if not _on(db, draft):
         return OFF
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
+    if kept and not voices.usable(db, project.workspace_id, project.brand_id, kept):
+        kept = None  # its voice was removed since: the video's own voice now
     voice = (decision.get("voice") or kept if found == "narrated" else None) or _voice(db, project)
-    if voice not in narration.VOICES and not voices.named(db, project.workspace_id, voice):
+    if not voices.usable(db, project.workspace_id, project.brand_id, voice):
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
     song_takes.make(
         db, user, draft, project, kie=_real(db, found), note=note, voice=voice, delivery=delivery

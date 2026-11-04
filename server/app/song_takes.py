@@ -87,8 +87,9 @@ def _request(
 
     if narrated(db, draft):  # one voice call (flows N1)
         try:  # a remake's note: this one only; a saved voice ("voice:<id>") through its model
-            job_input = (voices.narration_job(db, user.workspace_id, draft.text, voice, note,
-                                              **(delivery or {}))
+            brand = project.brand_id if project else db.get(Script, draft.script_id).brand_id
+            job_input = (voices.narration_job(db, user.workspace_id, brand, draft.text, voice,
+                                              note, **(delivery or {}))
                          if voice.startswith(voices.PREFIX) else
                          narration.job(draft.text, voice, note, **(delivery or {})))  # fmt: skip
         except ValueError as no:
