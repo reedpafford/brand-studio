@@ -201,6 +201,18 @@ def test_dr_pickles_narration_is_read_by_its_clone_on_speech_02_hd(db, owner):
     assert (sent["voice_id"], sent["emotion"]) == ("R8_CJRWYITM", "angry")
     assert sent["text"] == "Your gut is a mess. <#0.3#> Resilia fixes it."
     assert narration.characters(made) == len(sent["text"])  # priced on what's read
+    again = narration.delivery(made)  # a remake or retry keeps its delivery (QA on #1314)
+    assert again == {"emotion": "angry", "reading": sent["text"], "speed": sent["speed"]}
+    faster = voices.narration_job(
+        db,
+        ws,
+        None,
+        WORDS,
+        f"voice:{pickle.id}",
+        speed=1.4,
+        **{k: v for k, v in again.items() if k != "speed"},
+    )  # the measured pace's speed
+    assert faster["input"]["speed"] == 1.4
     with pytest.raises(HTTPException, match="sounds"):  # 02 reads no (breath)
         voices.narration_job(
             db,
