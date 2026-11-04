@@ -1,12 +1,12 @@
 """The Presenter format (Reed's F1): a host says the narration on camera over the B-roll. The
-director makes the narration, then the host (a still on green, then a P-Video piece per
-sentence run, each priced like a take), then lays it over the cut. Stand-ins only."""
+director makes the narration, then the host (a still on green, then one HeyGen take of the
+whole narration, priced like a take: Reed, 4 Nov), then keys it over the cut. Stand-ins only."""
 
 from decimal import Decimal
 
 import pytest
 
-from app import guides, host, p_video, song_breakdown
+from app import guides, host, p_video, song_breakdown, talker
 from app.catalogue import get_model
 from app.models.clips import FinalVideo
 from app.models.freestyles import Freestyle
@@ -52,26 +52,26 @@ def test_the_director_makes_the_host_after_the_narration_and_lays_it_over_the_cu
     video = _video(db, fs)
     (still,) = _jobs(db, video, host.STILL)
     assert "chroma-key green" in still.input["input"]["prompt"] and still.kind == "image"
-    pieces = _jobs(db, video, host.PIECE)
-    rows = host.rows(db, video)
-    assert len(pieces) == len(rows) - 1 >= 1 and all(r.file_id for r in rows)
-    for job, row in zip(pieces, rows[1:], strict=True):  # each lip-syncs its own piece
-        sent = job.input["input"]
-        assert (job.input["model"], sent["resolution"], sent["fps"]) == ("p-video", "720p", 24)
-        assert sent["prompt_upsampling"] is False and not p_video.ASKS_FOR_WORDS.search(
-            sent["prompt"])  # fmt: skip
-        assert job.input["files"] == {"image": [rows[0].file_id], "audio": [row.audio_file_id]}
-        assert job.credits == Decimal(sent["duration"]) * get_model("p-video").credits_per_unit(
-            "720p")  # real cost, as a take  # fmt: skip
-        assert row.end - row.start <= 12.5
+    (job,) = _jobs(db, video, host.PIECE)  # one HeyGen take of the whole narration
+    still, row = host.rows(db, video)
+    assert row.file_id and row.start == 0 and _jobs(db, video, "song_take")
+    sent = job.input["input"]
+    assert (job.provider, job.input["model"], sent["resolution"]) == ("heygen", talker.MODEL,
+                                                                      "720p")  # fmt: skip
+    assert sent["motion_prompt"] == host.TALK and "green" in host.TALK  # stays on the green
+    assert job.input["files"] == {"image": [still.file_id], "audio": [row.audio_file_id]}
+    assert job.credits == Decimal(sent["duration"]) * get_model(talker.MODEL).credits_per_unit(
+        "720p")  # its "up to", as a take  # fmt: skip
+    assert not [j for j in db.query(Job).all() if j.input.get("model") == p_video.ID]
     final = db.query(FinalVideo).filter(FinalVideo.project_id == video.id).all()[-1]
     assert [x for x in final.cut_ins if x.startswith("host:")]  # a new piece: out of date
 
 
-def test_a_failed_piece_is_tried_again_once_then_make_again_makes_it(app, db, owner):
+def test_a_failed_piece_is_tried_again_once_then_make_again_makes_it(app, db, owner, monkeypatch):
     fs = _sent(owner, "presenter", NARRATION)
     _run(app, db, ticks=160)
     video = _video(db, fs)
+    monkeypatch.setattr("app.clip_takes.fits", lambda *a: "")  # the whole take, made again
     piece = host.rows(db, video)[1]
     first = owner.post(f"/projects/{video.id}/host/{piece.number}")
     assert first.status_code == 201, first.text
@@ -93,7 +93,7 @@ def test_a_failed_piece_is_tried_again_once_then_make_again_makes_it(app, db, ow
     assert owner.post(f"/projects/{video.id}/host/{piece.number}").status_code == 201
 
 
-def test_a_presenter_runs_up_to_holds_the_host_on_p_video(app, db, owner):
+def test_a_presenter_runs_up_to_holds_the_host_on_heygen(app, db, owner):
     fs = _sent(owner, "narrated", NARRATION)
     draft = db.get(ScriptDraft, _video(db, fs).script_draft_id)
     plain = run_price(db, draft)
@@ -102,7 +102,7 @@ def test_a_presenter_runs_up_to_holds_the_host_on_p_video(app, db, owner):
 
     db.get(Script, draft_script).format = "presenter"
     db.flush()
-    rate = get_model("p-video").credits_per_unit("720p")
+    rate = get_model(talker.MODEL).credits_per_unit("720p")
     assert run_price(db, draft) - plain >= rate * 4  # every second of the narration, at least
 
 

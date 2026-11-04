@@ -25,7 +25,7 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.files import StoredFile
 from app.models.projects import Project
 
-LOOKS = ("ugc",)  # the styles whose host is a talker on HeyGen
+LOOKS = ("ugc",)  # styles whose host talks in their own room, not keyed in a corner
 MODEL, RESOLUTION, PROVIDER = "heygen-avatar-iv", "720p", "heygen"
 VOICE = narration.MINIMAX_VOICES[0]  # a talker's voice when the director names none
 LONGEST = 600.0  # HeyGen: an avatar's audio input runs 10 minutes at most

@@ -1,13 +1,12 @@
 """The presenter's host (a format whose guide says `host: yes`: Presenter). Once the narration
 is made, the host says it on camera: one still of the cast host's look, waist-up on flat
-chroma green (the video's picture model, as a storyboard still is drawn), then one P-Video
-take per piece of the narration (cut at sentence ends, 12 s at most: host_layer.pieces), each
-from that still with its piece of the narration as the sound it lip-syncs. Each is a priced
+chroma green (the video's picture model, as a storyboard still is drawn), then one HeyGen
+Avatar IV take of the whole narration from that still, lip-synced to it (Reed, 4 Nov: the
+corner presenter is HeyGen, not P-Video; app/talker.py has HeyGen's settings). Each is a priced
 job like a take; a failed one is tried again once on its own, then Make again makes it (rule
-22). The final cut lays the pieces over the narrated B-roll (host_layer.lay_over), bottom
-right unless a shot's action is on the right. From the paid test (.context/tests/presenter-1):
-720p at 24 fps, prompt upsampling off, never the words subtitles, captions or text. In the UGC
-style the host is a talker instead: one still in their room and one HeyGen take (app/talker.py)."""
+22). The final cut keys the take over the narrated B-roll (host_layer.lay_over), bottom right
+unless a shot's action is on the right. In the UGC style the host is a talker instead: the
+still is in their own room and the talker's shots are cut from the take (app/talker.py)."""
 
 import hashlib
 import math
@@ -22,7 +21,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import guides, host_layer, narration, p_video, talker
+from app import guides, host_layer, narration, talker
 from app.credits import estimate
 from app.models.accounts import User
 from app.models.clips import HostPiece, ProjectClip
@@ -31,10 +30,8 @@ from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
-from app.references import LONG_SIDE
 
 STILL, PIECE = "host_still", "host_piece"
-MODEL, RESOLUTION = p_video.ID, "720p"
 NOT_PRESENTER = "This video has no host: its format isn't Presenter."
 NO_NARRATION = "Make the narration first: the host says it."
 MAKING = "The host is being made. It's ready in a moment."
@@ -50,12 +47,11 @@ STILL_PROMPT = (
     "crisp edges around the hair, ears and shoulders."
 )  # the paid test's host still, waist-up as its report advises
 TALK = (
-    "The host talks straight into the camera, lips synced to the voice: the mouth opens wide on "
-    "the stressed words, the eyebrows move, they blink, and their hands come up at chest height "
-    "in open-palm and pointing gestures. They stay in place, waist-up. The background stays one "
-    "flat, solid chroma-key green with no shadows or objects. Locked-off static camera. Audio: "
-    "only their voice. The frame is clean: only the host and the plain green."
-)
+    "The host talks straight into the camera: the mouth moves with the stressed words, the "
+    "eyebrows move, they blink, and their hands come up at chest height in open-palm and "
+    "pointing gestures. They stay in place, waist-up. The background stays one flat, solid "
+    "chroma-key green with no shadows or objects. Locked-off static camera."
+)  # HeyGen's motion prompt for the host on green when the director writes none
 RIGHT = re.compile(r"\b(?:on|to|at) the right\b|\bright(?:-hand)? (?:side|corner|edge)\b|"
                    r"\b(?:frame|bottom|lower)[- ]right\b", re.I)  # fmt: skip
 LEFT = re.compile(RIGHT.pattern.replace("right", "left"), re.I)
@@ -104,16 +100,16 @@ def _state(row: HostPiece, job: Job | None) -> str:
 
 
 def _length(start: float, end: float) -> int:
-    return max(1, math.ceil(end - start - 0.01))  # P-Video bills whole seconds
+    return max(1, math.ceil(end - start - 0.01))  # priced in whole seconds, up to
 
 
 def _seconds(row: HostPiece) -> int:
     return _length(row.start, row.end)
 
 
-def _piece_price(db: Session, ws: int, seconds: int, talks: bool = False) -> Decimal:
-    """A piece on P-Video, or a UGC talker's one take on HeyGen (`talks`), both at 720p."""
-    shape = {"model": talker.MODEL if talks else MODEL, "input": {"resolution": RESOLUTION}}
+def _piece_price(db: Session, ws: int, seconds: int) -> Decimal:
+    """The host's one HeyGen take, at 720p."""
+    shape = {"model": talker.MODEL, "input": {"resolution": talker.RESOLUTION}}
     return estimate(db, ws, "video", Decimal(seconds), shape)
 
 
@@ -126,39 +122,35 @@ def _still_price(db: Session, project: Project) -> Decimal:
 def price(db: Session, project: Project, number: int | None = None) -> Decimal:
     """Make the host (`number` None: every row not made yet) or Make again one row; a new
     still makes every piece again from it."""
-    have, talks, ws = rows(db, project), talker.on(db, project), project.workspace_id
-    if not have:  # none planned yet: the still and every piece of the narration in use
+    have, ws = rows(db, project), project.workspace_id
+    if not have:  # none planned yet: the still and the take of the narration in use
         take = _narration(db, project)
         try:
-            spans = _spans(take, talks) if take else []
-        except ValueError:  # a sentence past P-Video's 20 s: Make the host says so
+            spans = _spans(take) if take else []
+        except ValueError:  # past HeyGen's 10 minutes: Make the host says so
             spans = []
         return (_still_price(db, project) if spans else Decimal(0)) + sum(
-            (_piece_price(db, ws, _length(a, b), talks) for a, b in spans), Decimal(0)
+            (_piece_price(db, ws, _length(a, b)) for a, b in spans), Decimal(0)
         )
     todo = [r for r in have if not r.file_id] if number is None else [
         r for r in have if r.number == number]  # fmt: skip
     if any(r.number == 0 for r in todo):
         todo = have
     return sum((_still_price(db, project) if r.number == 0 else
-                _piece_price(db, ws, _seconds(r), talks) for r in todo), Decimal(0))  # fmt: skip
+                _piece_price(db, ws, _seconds(r)) for r in todo), Decimal(0))  # fmt: skip
 
 
 def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None) -> Decimal:
     """A director run's "up to" for the host (rule 36): the still and every second of the
-    narration on P-Video, each piece rounded up a second (one per sentence at most); a UGC
-    talker's in one HeyGen take."""
+    narration in one HeyGen take, rounded up a second."""
     from app.models.script_library import Script
-    from app.prompts import check
     from app.storyboard import image_model, still_credits
 
     script = db.get(Script, draft.script_id)
     if not hosted(script):
         return Decimal(0)
-    talks = (video.look if video else script.look) in talker.LOOKS
-    sentences = 1 if talks else len(narration.sentences(check.narration_text(draft.text or "")))
     still = still_credits(db, script.workspace_id, image_model(video))
-    return still + _piece_price(db, script.workspace_id, seconds + max(sentences, 1), talks)
+    return still + _piece_price(db, script.workspace_id, seconds + 1)
 
 
 def state(db: Session, project: Project) -> dict:
@@ -177,14 +169,9 @@ def state(db: Session, project: Project) -> dict:
     return {"state": whole, "pieces": pieces, "credits": float(price(db, project)), **talks}
 
 
-def _spans(take: SongTake, whole: bool = False) -> list[tuple[float, float]]:
-    """The narration's pieces, cut at its sentence ends (`host_layer.pieces`); a UGC
-    talker's (`whole`) is one piece, the whole narration."""
-    end = float(take.seconds)
-    if whole:
-        return talker.whole(end)
-    ends = [ln["end"] for ln in (take.timing or {}).get("lines") or [] if ln.get("end")]
-    return host_layer.pieces(sorted({round(e, 2) for e in ends if 0 < e < end}) + [end])
+def _spans(take: SongTake) -> list[tuple[float, float]]:
+    """The host's one piece: the whole narration (HeyGen: one continuous take)."""
+    return talker.whole(float(take.seconds))
 
 
 def _store(db: Session, storage, project: Project, data: bytes, name: str) -> StoredFile:
@@ -215,7 +202,7 @@ def _plan(db: Session, storage, project: Project, take: SongTake) -> list[HostPi
     """The still's row and each piece's, with its piece of the narration stored (free)."""
     sound = storage.get(db.get(StoredFile, take.file_id).key)
     try:
-        spans = _spans(take, talker.on(db, project))
+        spans = _spans(take)
     except ValueError as too_long:
         raise HTTPException(409, str(too_long)) from too_long
     made = [HostPiece(project_id=project.id, take_id=take.id, number=0)]
@@ -263,28 +250,16 @@ def still_input(db: Session, project: Project, row: HostPiece) -> dict:
     return {**job, "step": STILL, "project_id": project.id, "host_piece_id": row.id}
 
 
-def piece_input(project: Project, row: HostPiece, still_file_id: int) -> dict:
-    """One P-Video take: the still as its opening frame, its piece of the narration as the sound
-    it lip-syncs (it ignores `duration` then; the stand-ins read it)."""
-    return {"step": PIECE, "project_id": project.id, "host_piece_id": row.id, "model": MODEL,
-            "brand_id": project.brand_id, "fit_images_to": LONG_SIDE[RESOLUTION],
-            "input": {"prompt": p_video.clean(TALK), "duration": _seconds(row),
-                      "resolution": RESOLUTION, "aspect_ratio": project.aspect_ratio,
-                      "fps": p_video.FPS, "prompt_upsampling": False, "save_audio": True},
-            "files": {"image": [still_file_id], "audio": [row.audio_file_id]}}  # fmt: skip
-
-
 def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int,
            motion: str = "", **kwargs):  # fmt: skip
-    """Queue one piece: on P-Video, or a UGC talker's one take on HeyGen (with the director's
-    `motion` note)."""
+    """Queue the host's HeyGen take, with the director's `motion` note (on green: TALK when
+    it gives none)."""
     from app.routes.jobs import enqueue
 
-    talks = talker.on(db, project)
-    data = (talker.piece_input(project, row, still, motion) if talks
-            else piece_input(project, row, still))  # fmt: skip
+    plain = talker.MOTION if talker.on(db, project) else TALK
+    data = talker.piece_input(project, row, still, motion or plain)
     enqueue(db, user, "video", data, units=_seconds(row), project=project,
-            provider=talker.PROVIDER if talks else "replicate", **kwargs)  # fmt: skip
+            provider=talker.PROVIDER, **kwargs)  # fmt: skip
 
 
 def make(db: Session, user: User, project: Project, storage, number: int | None = None,
@@ -299,8 +274,7 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     take = _narration(db, project)
     if take is None:
         raise HTTPException(409, NO_NARRATION)
-    talks = talker.on(db, project)
-    if talks and not talker.clips(db, project):  # it would never be seen: nothing is spent
+    if talker.on(db, project) and not talker.clips(db, project):  # never seen: nothing spent
         raise HTTPException(409, talker.NO_SHOTS)
     have = rows(db, project) or _plan(db, storage, project, take)
     jobs = _jobs(db, project)
@@ -315,7 +289,7 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     still = have[0]
     motion = motion or _motion(jobs, have)
     if still in todo:  # every piece follows a new still, prepaid (`saved`)
-        hold = sum((_piece_price(db, project.workspace_id, _seconds(r), talks) for r in have[1:]),
+        hold = sum((_piece_price(db, project.workspace_id, _seconds(r)) for r in have[1:]),
                    Decimal(0))  # fmt: skip
         drawn = {**still_input(db, project, still), **({"motion": motion} if motion else {})}
         enqueue(db, user, "image", drawn, project=project, provider="replicate",
@@ -327,11 +301,11 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
 
 
 def _motion(jobs: dict[int, Job], have: list[HostPiece]) -> str:
-    """The motion note the talker's take was last made with ("" for P-Video's pieces)."""
+    """The motion note the host's take was last made with ("" when none was written)."""
     made = [jobs[r.id] for r in have if r.id in jobs]
     said = [j.input.get("motion") or (j.input.get("input") or {}).get("motion_prompt")
             for j in made]  # fmt: skip
-    return next((m for m in said if m and m != talker.MOTION), "")
+    return next((m for m in said if m and m not in (talker.MOTION, TALK)), "")
 
 
 def _keep(row: HostPiece, job: Job) -> bool:

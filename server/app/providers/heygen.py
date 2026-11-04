@@ -6,8 +6,9 @@ and download `video_url` (a presigned link on HeyGen's file hosts).
 
 Credentials: HEYGEN_API_KEY, sent only to the API in the x-api-key header, never to download
 hosts, never logged; with none, nothing is sent (NoKey). HeyGen doesn't report a price: the
-cost is the video's `duration` at the catalogue's measured rate (batch-b: about $0.039 a
-second at 720p). A 429 (rate limit or concurrency) never started: tried again later."""
+cost is the video's `duration` at the measured rate (batch-b and th-20s: $0.037-0.039 a second
+at 720p), marked as an estimate; credits and quotes use the catalogue's rounded-up $0.05. A 429
+(rate limit or concurrency) never started: tried again later."""
 
 import base64
 import re
@@ -15,13 +16,13 @@ from decimal import Decimal
 
 import httpx2 as httpx
 
-from app.catalogue import get_model
 from app.providers import NetworkError, NoKey, NotStarted, Result, UsageItem
 
 TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 DATA = re.compile(r"data:([\w/+.-]+);base64,(.*)", re.S)
 SENT = ("aspect_ratio", "resolution", "expressiveness", "motion_prompt", "title")
 WAITING = ("pending", "processing", "waiting")
+MEASURED = Decimal("0.039")  # dollars a second at 720p, from the wallet (batch-b, th-20s)
 
 
 class HeyGenProvider:
@@ -80,8 +81,7 @@ class HeyGenProvider:
             said = f"{video.get('failure_code') or status}: {video.get('failure_message') or ''}"
             return Result("failed", error=said.strip(": "))
         seconds = Decimal(str(video.get("duration") or 0))
-        model = get_model("heygen-avatar-iv")
-        usage = [UsageItem(seconds, "second", seconds * model.usd_per_unit("720p"))]
+        usage = [UsageItem(seconds, "second", seconds * MEASURED)]
         return Result("succeeded", output={}, files=[video["video_url"]], usage=usage)
 
     def _allowed(self, url: str) -> bool:
