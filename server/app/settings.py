@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # take their spend past this budget; after that a sample is a stand-in again.
     real_look_samples: bool = False
     look_samples_budget_usd: float = 0.0
+    # Planning before Make it (Reed, 4 Nov): one plan and up to 2 changes, at most 10 credits a
+    # video, whichever comes first; past it a further plan change waits for the owner's OK
+    plans_before_ok: int = 3
+    plan_credits_before_ok: float = 10.0
     # Real language tests on the test site (Reed, 2026-10-29): with the stand-ins on, a
     # language's sample script alone is written by Claude, until the next one would take
     # their spend past this budget; after that a test is a stand-in again.

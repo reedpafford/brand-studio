@@ -3,9 +3,9 @@ brand, changed by chatting. It replaces Quick clip. An editor's every send (the 
 change) waits for the owner before anything is spent; the owner's own run straight away. Not
 charged to any video's budget, never gated by the Quick clip week; each job carries its
 freestyle (`FREESTYLE`) for Usage. One clip is a single take, no plan or cut. Dialogue is run
-by the director on the freestyle's own hidden script and video (app/hidden.py): an editor's
-send waits for the owner as the run's first turn, and the owner's OK covers the price shown
-(`up_to`, the video's budget), no more. Song and Narrated come next."""
+by the director on the freestyle's own hidden script and video (app/hidden.py): its treatment
+first, then its start card (an editor's waits for the owner), and the owner's OK covers the
+price shown (`up_to`, the video's budget), no more. Song and Narrated come next."""
 
 import math
 from datetime import datetime, timedelta
@@ -17,7 +17,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import brand_setup, director, folders, guides, hidden, looks, prompts, scorecard
+from app import asks, brand_setup, director, folders, guides, hidden, looks, prompts, scorecard
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -68,6 +68,8 @@ OTHER_BRAND = "That folder is in another brand."
 NOT_ATTACHABLE = "Attach pictures or clips only."
 MAX_FILES = 10
 TOO_MANY_FILES = f"Attach up to {MAX_FILES} pictures or clips."
+WAITING = "Waiting for the owner's OK."  # a send's start card, held (`_move`'s words)
+READY = "Ready to start. No generation started: it waits for Make it."  # the owner's own
 BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
 MAX_PROMPT = 6000  # what Quick clip sends at most
@@ -131,6 +133,9 @@ class FreestyleOut(FreestyleRow):
     file_id: int | None  # the delivered take or cut, for the player and Download MP4
     up_to: float | None = None  # a director-run freestyle: the price the owner's OK covers
     project_id: int | None = None  # its video (a director-run one): in Videos when it has a brand
+    make_it: int | None = None  # its start card for its maker to press (POST /asks/{id}/answer)
+    make_it_up_to: float | None = None  # that card's own "up to" (credits; a change's alone)
+    waiting: list[dict] = []  # the director's open questions [{id, topic, question}] (S4-03)
     script_id: int | None = None  # and its script: in Scripts when it has a brand
     reel_script_id: int | None = None  # Use a reel: the reel's script, its read's progress
     thread: list[FreestyleItem]
@@ -315,7 +320,8 @@ def release(db: Session, what: dict) -> None:
 def _start(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn,
            made=None, script: Script | None = None) -> None:  # fmt: skip
     """A director send: its video (`made`: from a script) with New video's picks, then the
-    director's first turn, held for the owner when `hold` says so."""
+    director's run: its plan first, then its start card, held for the owner when `hold` says
+    so (an editor's pasted words, or a script past what's left of its budget)."""
     at = utcnow().isoformat()  # the message comes before the moves it starts
     project, draft = made or _video(db, user, fs, text)
     _setup(db, user, project, body, pasted=made is None)
@@ -327,7 +333,7 @@ def _start(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn,
     db.flush()
     if not wait:
         freeze(db, what, user)
-    turn = director.start(db, user, project, wait=wait, frozen=False,
+    turn = director.start(db, user, project, hold=wait, frozen=False,  # its start card
                           extra={FREESTYLE: fs.id, SAID: text, CHANGE: False,
                                  PRICE: str(fs.up_to),
                                  **({FREEZE: what} if wait else {})})  # fmt: skip
@@ -340,7 +346,7 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """A change to a Dialogue freestyle (the Producer, 3b). While a run goes on it's a note,
     read at the director's next turn, inside the price already approved. Otherwise the send
     is the press: quoted "up to" the whole video's price again; a new run reads every unread
-    note, an editor's after the owner's OK, the owner's at once."""
+    note, after its start card's OK (an editor's from the owner)."""
     project = db.get(Project, fs.project_id)
     at = utcnow().isoformat()
     if director.active(db, project):
@@ -352,7 +358,10 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
     price = run_price(db, draft, project)
     total = approved(db, fs) + price
     director.say(db, user, project, text)  # unread: the new run reads it
-    turn = director.start(db, user, project, wait="" if user.is_owner else HELD,
+    script = db.get(Script, draft.script_id)
+    pasted = script.created_at >= fs.created_at  # made with this freestyle: rule 5's send
+    wait = HELD if pasted and not user.is_owner else hold(db, user, script, draft, project)
+    turn = director.start(db, user, project, hold=wait,
                           extra={FREESTYLE: fs.id, SAID: text, CHANGE: True,
                                  PRICE: str(price)})  # fmt: skip
     fs.chat = [*fs.chat, {"by": user.id, "text": text, "at": at, "job": turn.id,
@@ -407,7 +416,7 @@ def _move(fs: Freestyle, job: Job) -> tuple[str, str, str]:
     """(freestyle status, move status, plain words) for one send's job."""
     s = job.status
     if s == JobStatus.needs_owner_approval:
-        return "waiting", "held", "Waiting for the owner's OK."
+        return "waiting", "held", WAITING
     if s == JobStatus.queued:
         return "working", "queued", "Starting the clip."
     if s == JobStatus.running:
@@ -452,12 +461,33 @@ def _out(db: Session, fs: Freestyle, owner: bool = False) -> FreestyleOut:
         if project and project.script_draft_id
         else None
     )
-    return FreestyleOut(**_row(fs, names, status).model_dump(), look=fs.look, shape=fs.shape,
-                        brand_id=fs.brand_id, credits=credits, file_id=file_id,
-                        up_to=fs.up_to, project_id=fs.project_id,
-                        script_id=draft.script_id if draft else None,
-                        reel_script_id=project.reel_script_id if project else None,
-                        thread=thread)  # fmt: skip
+    card = _make_it(db, fs, project) if project else None
+    return FreestyleOut(
+        **_row(fs, names, status).model_dump(),
+        look=fs.look,
+        shape=fs.shape,
+        brand_id=fs.brand_id,
+        credits=credits,
+        file_id=file_id,
+        up_to=fs.up_to,
+        project_id=fs.project_id,
+        script_id=draft.script_id if draft else None,
+        reel_script_id=project.reel_script_id if project else None,
+        thread=thread,
+        make_it=card,
+        make_it_up_to=asks.card_price(db, card) if card else None,
+        waiting=[
+            {"id": a.id, "topic": a.topic, "question": a.question}
+            for a in (asks.waiting(db, project) if project else [])
+        ],
+    )
+
+
+def _make_it(db: Session, fs: Freestyle, project: Project) -> int | None:
+    """Its start card, when its maker presses Make it (the owner's own send; an editor's
+    waits for the owner, S4-02)."""
+    card = asks.start_card(db, project)
+    return card if card and asks.may_start(db, db.get(User, fs.created_by_id), project) else None
 
 
 def _directed(db: Session, fs: Freestyle, jobs: dict, said: list, owner: bool = False) -> tuple:
@@ -475,11 +505,13 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list, owner: bool = 
     elif last is not None and last.input.get(WITHDRAWN):
         status = "withdrawn"
     elif last is not None and last.status == JobStatus.needs_owner_approval:
-        status = "waiting"
-    elif director.active(db, project):  # paused for a new OK, past the price approved
+        status = "working" if _make_it(db, fs, project) else "waiting"  # its start card
+    elif going := director.active(db, project):  # paused for a new OK, past the price approved
         held = select(Job.id).where(Job.project_id == project.id,
                                     Job.status == JobStatus.needs_owner_approval)  # fmt: skip
-        status = "waiting" if db.scalar(held.limit(1)) else "working"
+        run = going.input[director.RUN]
+        before = not run.get("ok", True) and run.get("hold")  # its plan, then the owner's OK
+        status = "waiting" if before or db.scalar(held.limit(1)) else "working"
     else:
         rows = director.turns(db, project)
         status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"

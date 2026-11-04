@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app import advice
 from app.db import make_sessionmaker
 from app.routes import (
+    asks,
     auth,
     brands,
     breakdown,
@@ -30,6 +31,7 @@ from app.routes import (
     looks,
     media,
     models,
+    needs_you,
     plan,
     production,
     project_assets,
@@ -110,6 +112,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         locks,
         sheets,
         jobs,
+        asks,
+        needs_you,
         usage,
         scorecard,
         production,

@@ -285,7 +285,8 @@ def enqueue(
     The check and the reservation are one locked transaction. `prepaid`: a later step of work
     the editor already pressed for at its full price (a run's next step, the reel read chain),
     so it's never held again; brand, credits and Usage stay as for any job. `hold`: a
-    later step this press already pays for (e.g. Change it's still or take), checked together."""
+    later step this press already pays for (e.g. Change it's still or take), checked together.
+    A held job on a video gets its card (`asks.held`)."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if no := real_budget_refusal(db, get_settings(), provider, credits + hold):
         raise HTTPException(409, no)  # the Producer's cap, before anything is reserved
@@ -301,6 +302,10 @@ def enqueue(
         raise HTTPException(409, NOT_APPROVED)
     # Only a Quick clip counts toward the week (Reed, 30 Oct); free work never goes past it.
     whole = credits + hold
+    if not (wait or prepaid) and whole and project is not None and DIRECTOR_TOOL.get():
+        from app.credits import past_approved  # a run's step past its Make it's price
+
+        wait = past_approved(db, project, user, whole)
     if not (wait or prepaid or user.is_owner) and whole:
         if is_quick_clip(kind, input, project):
             wait = over_allowance(db, user, whole)
@@ -325,6 +330,11 @@ def enqueue(
     if wait:
         job.input = {**input, HELD: wait}  # why it waits, as the editor and the owner see it
     db.add(job)
+    if wait:
+        from app import asks
+
+        db.flush()
+        asks.held(db, job)
     db.commit()
     return job
 

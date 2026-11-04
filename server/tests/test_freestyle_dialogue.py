@@ -1,6 +1,7 @@
 """Freestyle 3a (the Producer's six conditions): a Dialogue freestyle is made by the director
-on its own hidden script and video. An editor's send waits for the owner as the run's first
-turn; the OK covers the price shown, no more; nothing hidden shows in any list or count."""
+on its own hidden script and video. An editor's send writes its treatment, then its start
+card waits for the owner; the OK covers the price shown, no more; nothing hidden shows in any
+list or count."""
 
 from app import credits, director
 from app.models.brands import Brand
@@ -9,17 +10,20 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.providers import get_providers
 from app.worker import run_once
+from tests.helpers import make_it
 
 SCRIPT = "MIA: The market opened at nine.\nLEO: And we were ready."
 BODY = {"type": "dialogue", "look": "house", "shape": "9:16", "text": SCRIPT}
 
 
-def _run(app, db, ticks=60):
+def _run(app, db, ticks=60, start=True):
     app.state.settings.fake_providers = True
     providers = get_providers(app.state.settings, app.state.storage)
     for _ in range(ticks):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        if start:  # Make it on each start card, as the owner (S3-02)
+            make_it(db)
 
 
 def _hidden_nowhere(owner, editor):
@@ -41,9 +45,12 @@ def test_an_editors_dialogue_waits_then_the_director_delivers_it_hidden(app, own
     est = editor.get("/freestyles/estimate", params=BODY).json()["credits"]
     r = editor.post("/freestyles", json=BODY)
     assert r.status_code == 201, r.text
-    fs = r.json()
-    assert fs["status"] == "waiting" and fs["up_to"] == est > 0
-    assert [(t["kind"], t["status"]) for t in fs["thread"]] == [("message", None), ("move", "held")]
+    assert r.json()["up_to"] == est > 0
+    _run(app, db, ticks=4, start=False)  # its treatment first, charged nothing (S3-02)
+    fs = editor.get(f"/freestyles/{r.json()['id']}").json()
+    assert fs["status"] == "waiting"
+    assert [(t["kind"], t["status"]) for t in fs["thread"]][0] == ("message", None)
+    assert fs["thread"][-1]["status"] == "held"  # its start card, for the owner
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     assert held["freestyle"]["id"] == fs["id"] and held["freestyle"]["up_to"] == est
     assert held["freestyle"]["said"] == SCRIPT and held["freestyle"]["change"] is False
@@ -74,16 +81,19 @@ def test_the_owners_dialogue_starts_at_once_and_stop_stops_it(app, owner, editor
     assert r.status_code == 201 and r.json()["status"] == "working"  # the owner's: at once
 
 
-def test_a_declined_or_withdrawn_dialogue_says_so_and_spends_nothing(app, owner, editor, db):
+def test_a_declined_or_withdrawn_dialogue_says_so_and_generates_nothing(app, owner, editor, db):
     one = editor.post("/freestyles", json=BODY).json()
-    turn = db.query(Job).filter(Job.input["freestyle_id"].as_integer() == one["id"]).one()
+    _run(app, db, ticks=4, start=False)  # its plan (Reed, 4 Nov: allowed), then its start card
+    (turn,) = db.query(Job).filter(Job.status == "needs_owner_approval").all()
     owner.post(f"/jobs/{turn.id}/decline", json={"reason": "Not this week."})
     out = editor.get(f"/freestyles/{one['id']}").json()
-    assert out["status"] == "declined" and out["credits"] == 0
-    assert out["thread"][-1]["text"] == "The owner declined: Not this week."
+    made = {j.input.get("step") for j in db.query(Job).filter(Job.status.in_(credits.COUNTED))}
+    assert out["status"] == "declined" and made == {"director", "treatment"}  # its plan only
+    assert "The owner declined: Not this week." in [t["text"] for t in out["thread"]]
     two = editor.post("/freestyles", json={**BODY, "text": "BO: Again?"}).json()
+    _run(app, db, ticks=4, start=False)
     out = editor.post(f"/freestyles/{two['id']}/withdraw").json()
-    assert out["status"] == "withdrawn" and out["thread"][-1]["text"] == "Withdrawn."
+    assert out["status"] == "withdrawn" and "Withdrawn." in [t["text"] for t in out["thread"]]
     assert director.STEP  # the run is the director's: nothing else was queued
     assert db.query(Job).filter(Job.status == "queued").count() == 0
 
@@ -99,6 +109,7 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     est = Decimal(str(editor.get("/freestyles/estimate", params=BODY).json()["credits"]))
     fs = editor.post("/freestyles", json=BODY).json()
     assert Decimal(str(fs["up_to"])) == est >= director.OWN_CREDITS  # its turns too
+    _run(app, db, ticks=4, start=False)  # the treatment, then its start card
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     row = db.get(Freestyle, fs["id"])
     row.up_to = Decimal(3)  # a small approved price, so the run reaches it
@@ -107,7 +118,8 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     owner.post(f"/jobs/{held['id']}/approve")
     _run(app, db)
     jobs = db.query(Job).filter(Job.project_id == row.project_id).all()
-    spent = sum((j.credits for j in jobs if j.status in COUNTED), Decimal(0))
+    spent = sum((j.credits for j in jobs if j.status in COUNTED and not j.input.get("before_ok")),
+                Decimal(0))  # its plan before Make it is on its own allowance  # fmt: skip
     waiting = [j for j in jobs if j.status == "needs_owner_approval"]
     assert waiting and waiting[0].input["held"] == PAST_APPROVED  # it paused, and says why
     assert spent <= Decimal(3), spent  # never past the price approved without a new OK
@@ -125,6 +137,7 @@ def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
     from app.credits import COUNTED, PAST_APPROVED
 
     fs = editor.post("/freestyles", json=BODY).json()
+    _run(app, db, ticks=4, start=False)  # the treatment, then its start card
     up_to, released = Decimal(40), Decimal(0)  # about the video's own price: its turns pass it
     row = db.get(Freestyle, fs["id"])
     row.up_to, row.chat = up_to, [{**row.chat[0], "price": str(up_to)}]
@@ -149,7 +162,8 @@ def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
         _run(app, db, ticks=40)
         db.expire_all()
         spent = sum((j.credits for j in db.query(Job).filter(Job.project_id == pid)
-                     if j.status in COUNTED), Decimal(0))  # fmt: skip
+                     if j.status in COUNTED and not j.input.get("before_ok")),
+                    Decimal(0))  # its plan is on its own allowance  # fmt: skip
         assert spent <= up_to + released, (spent, up_to, released)
     assert holds > 1  # the price ran out mid-run, and it waited
 
@@ -167,6 +181,7 @@ def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
     monkeypatch.setattr("app.item_checks.on", lambda: True)  # as on the test site's stand-ins
     monkeypatch.setattr("app.item_checks.verdict", lambda checks: "flagged")  # every redo used
     fs = editor.post("/freestyles", json=BODY).json()
+    _run(app, db, ticks=4, start=False)  # the treatment, then its start card
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     owner.post(f"/jobs/{held['id']}/approve")
     _run(app, db)

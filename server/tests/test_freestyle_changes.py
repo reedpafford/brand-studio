@@ -1,7 +1,7 @@
 """Freestyle 3b (the Producer's rules): a change to a Dialogue freestyle. With no run going
-the send is the press, quoted "up to" the whole video again: an editor's waits for the owner
-every time, the owner's runs at once, and the new run reads every unread note. During a run
-it's only a note, read at the next turn."""
+the send is the press, quoted "up to" the whole video again: its treatment, then its start
+card (an editor's waits for the owner every time), and the new run reads every unread note.
+During a run it's only a note, read at the next turn."""
 
 from decimal import Decimal
 
@@ -20,6 +20,7 @@ def _held(owner):
 
 def _delivered(app, owner, editor, db) -> dict:
     fs = editor.post("/freestyles", json=BODY).json()
+    _run(app, db, ticks=4, start=False)  # the treatment, then its start card (S3-02)
     (first,) = _held(owner)
     owner.post(f"/jobs/{first['id']}/approve")
     _run(app, db)
@@ -33,13 +34,15 @@ def test_an_editors_change_waits_for_the_owner_then_a_new_run_makes_it(app, owne
     first_cut, first_price = fs["file_id"], Decimal(str(fs["up_to"]))
     r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": CHANGE})
     assert r.status_code == 201, r.text
-    out = r.json()
+    _run(app, db, ticks=4, start=False)  # the change's treatment, then its start card
+    out = editor.get(f"/freestyles/{fs['id']}").json()
     assert out["status"] == "waiting" and out["file_id"] == first_cut  # the delivered cut stays
     (held,) = _held(owner)
     price = Decimal(str(held["freestyle"]["up_to"]))
     assert held["freestyle"]["change"] and held["freestyle"]["said"] == CHANGE
     assert Decimal(str(held["freestyle"]["total"])) == first_price + price  # running total
-    assert Decimal(str(held["freestyle"]["spent"])) == Decimal(str(fs["credits"])) > 0  # so far
+    spent = Decimal(str(held["freestyle"]["spent"]))  # so far: the cut, and the change's plan
+    assert spent > Decimal(str(fs["credits"])) > 0
     owner.post(f"/jobs/{held['id']}/approve")
     _run(app, db)
     out = editor.get(f"/freestyles/{fs['id']}").json()
@@ -78,6 +81,7 @@ def test_a_declined_change_frees_its_price(app, owner, editor, db):
     row = db.get(Freestyle, fs["id"])
     before = credits.approved(db, row)
     editor.post(f"/freestyles/{fs['id']}/messages", json={"text": CHANGE})
+    _run(app, db, ticks=4, start=False)
     (held,) = _held(owner)
     owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not now."})
     db.expire_all()
@@ -112,6 +116,7 @@ def test_a_model_switch_before_the_run_moves_its_price_and_past_the_ok_only_the_
     from tests.conftest import first_brand
 
     sent = editor.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)}).json()
+    _run(app, db, ticks=4, start=False)
     (held,) = _held(owner)
     owner.post(f"/jobs/{held['id']}/approve")  # the run hasn't asked for a take yet
     fs = db.get(Freestyle, sent["id"])

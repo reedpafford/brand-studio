@@ -446,8 +446,9 @@ class FakeWriter:
         allowed = json.loads(_tag(prompt, "allowed") or "{}")
         asked = json.loads(_tag(prompt, "chat") or "[]")
         done = [a["tool"] for a in json.loads(_tag(prompt, "last_actions") or "[]")]
+        questions = json.loads(_tag(prompt, "asks") or "[]")
         return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked,
-                       "done": done})  # fmt: skip
+                       "done": done, "asks": questions})  # fmt: skip
 
     def _review_stills(self, prompt):
         """The stand-in look at the stills: they tell the treatment (a test that walks a

@@ -8,10 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.orm import Session
 
-from app import director, run_progress
+from app import asks, director, run_progress
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
+from app.models.jobs import JobStatus
 from app.routes.clips import generation_on
 from app.routes.projects import _mine, get_project, video_writer
 from app.schemas import UtcTime
@@ -54,8 +55,8 @@ class DeliveryNoteOut(BaseModel):
 
 
 class ThreadItem(BaseModel):
-    id: str  # stable: "m3" a message, "r40" a run's progress card, "t41" a delivery
-    kind: Literal["message", "move"]  # what a person said, or the director's
+    id: str  # stable: "m3" a message, "r40" a run's progress card, "t41" a delivery, "a7" a card
+    kind: Literal["message", "move", "ask"]  # a person's words, the director's, a card (ask_id)
     at: UtcTime
     who: str  # the person's name, or "Director"
     text: str  # plain words: a run's card in a line ("Making the clips · 14 of 24 · scene 4
@@ -64,6 +65,8 @@ class ThreadItem(BaseModel):
     why: str = ""  # "" (kept for the shape: the run's card and note say it all)
     answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
     treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
+    ask_id: int | None = None  # a card: GET /projects/{id}/asks has it whole
+    files: list[int] | None = None  # a message's pictures or clips, this video's only (rule 12)
     run: str | None = None  # a run's progress card: GET …/director/progress is its record
     note: DeliveryNoteOut | None = None  # a delivery: its note
 
@@ -173,8 +176,15 @@ class SeenIn(BaseModel):
     take_ids: list[int] = Field(min_length=1, max_length=500)
 
 
-class MessageIn(BaseModel):
+class DirectorNoteIn(BaseModel):
     text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    files: list[int] | None = Field(default=None, max_length=6)  # pictures or clips with it
+
+
+class WaitingQuestion(BaseModel):
+    id: int  # the card's ask id
+    topic: str  # "The husband"
+    question: str
 
 
 class DirectorOut(BaseModel):
@@ -187,6 +197,11 @@ class DirectorOut(BaseModel):
     thread: list[ThreadItem] = []  # the whole chat on the video, every run, oldest first
     unread: int = 0  # notes waiting for the next Make it ("Start again with this note")
     run_price: float = 0  # before Make it (again): the most one run may charge, "up to" (rule 34)
+    spent: float = 0  # what the newest run has charged (held and waiting jobs not counted)
+    started: bool = False  # Make it was pressed on the newest run ("No generation started" before)
+    waiting: list[WaitingQuestion] = []  # open questions, oldest first: the pinned bar (S4-03)
+    make_it: int | None = None  # its start card, when this person may press Make it (S3-02):
+    # POST /asks/{id}/answer {"how": "make_it"}; null otherwise (an editor's held send waits)
 
 
 def _out(db: Session, user: User, project) -> DirectorOut:
@@ -206,24 +221,28 @@ def _out(db: Session, user: User, project) -> DirectorOut:
         blocked = director.blocked(db, project)
     except HTTPException as no:
         blocked = no.detail
+    started = (
+        bool(last)
+        and last.input[director.RUN].get("ok", True)
+        and not (last.input.get(director.START) and last.status == JobStatus.needs_owner_approval)
+    )
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,
                        start_blocked=blocked,
                        thread=director.thread(db, project, user.is_owner),
                        unread=len(director.leftover(db, project)),
-                       run_price=0 if status == "running" else _run_price(db, project))  # fmt: skip
+                       run_price=0 if status == "running" and started
+                       else float(asks.run_price(db, project)),
+                       spent=float(director.charged(db, project)), started=started,
+                       waiting=[WaitingQuestion(id=a.id, topic=a.topic, question=a.question)
+                                for a in asks.waiting(db, project)],
+                       make_it=_make_it(db, user, project))  # fmt: skip
 
 
-def _run_price(db: Session, project) -> float:
-    """A run's "up to" as a freestyle's (rule 34, the Producer): the video's planned cost,
-    every clip made again MAX_REDOS times with its check, and the director's own limit
-    (`estimate.run_price`). A person's own presses keep their own prices."""
-    from app.models.script_library import ScriptDraft
-    from app.routes.estimate import run_price
-
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    return float(run_price(db, draft, project)) if draft else 0
+def _make_it(db: Session, user: User, project) -> int | None:
+    card = asks.start_card(db, project)
+    return card if card and asks.may_start(db, user, project) else None
 
 
 @router.get("", response_model=DirectorOut)
@@ -234,10 +253,11 @@ def read(project_id: int, user: User = Depends(current_user), db: Session = Depe
 
 @router.post("", response_model=DirectorOut, status_code=201, dependencies=[Depends(generation_on)])
 def start(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Build the video from its published script (409 if it isn't, or a run is going). Its
-    first turn is paid from the video's budget, held for the owner past it."""
+    """Build the video from its published script (409 if it isn't, or a run is going). The
+    treatment comes first, charged nothing; then its start card waits for Make it (S3-02,
+    POST /asks/{id}/answer)."""
     project = get_project(db, user, project_id)
-    director.start(db, user, project)
+    director.start(db, user, project, hold=asks.start_hold(db, user, project))
     return _out(db, user, project)
 
 
@@ -245,7 +265,7 @@ def start(project_id: int, user: User = Depends(current_user), db: Session = Dep
              dependencies=[Depends(generation_on)])  # fmt: skip
 def message(
     project_id: int,
-    body: MessageIn,
+    body: DirectorNoteIn,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -255,7 +275,7 @@ def message(
     note a person every 3 s and 30 a run (429). Nothing is charged for a note."""
     project = get_project(db, user, project_id)
     _mine(db, user, project.id)  # as Make it: the video's maker or the owner
-    director.say(db, user, project, body.text)
+    director.say(db, user, project, body.text, [_seeable(db, user, f) for f in body.files or []])
     return _out(db, user, project)
 
 
@@ -286,3 +306,12 @@ def seen(
     """This person watched these takes (Watch the changes, or playing a clip): the clips the
     director changed stop being outlined for them. Takes of other videos are ignored."""
     run_progress.seen(db, user, get_project(db, user, project_id), body.take_ids)
+
+
+def _seeable(db: Session, user: User, file_id: int) -> int:
+    from app.routes.files import get_file
+
+    stored = get_file(db, user, file_id)
+    if stored.content_type.split("/")[0] not in ("image", "video"):
+        raise HTTPException(422, "Send pictures or clips only.")
+    return stored.id

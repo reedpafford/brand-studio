@@ -802,7 +802,7 @@ def stand_in_treatment(script: str) -> dict:
     """A canned treatment for the stand-ins (no paid call): one beat per line but the scene
     headings, the first
     the hook, the last the payoff; it validates as schemas.Treatment."""
-    heading = re.compile(r"^\s*(SCENE\b|INT\.|EXT\.)", re.I)
+    heading = re.compile(r"^\s*(?:\d+\|\s?)?(SCENE\b|INT\.|EXT\.)", re.I)  # numbered or not
     lines = [n for n, line in enumerate(script.splitlines(), 1)
              if line.strip() and not heading.match(line)] or [1]  # fmt: skip
     last = len(lines)

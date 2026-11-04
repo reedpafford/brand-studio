@@ -842,26 +842,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/library/{kind}/price": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * New Item Price
-         * @description What making a new one's sheet costs at most (S8-02 "Make one · up to $0.08", S8-07).
-         */
-        get: operations["new_item_price_library__kind__price_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/library/{kind}/{item_id}": {
         parameters: {
             query?: never;
@@ -913,9 +893,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Item Forever
-         * @description Owner only, and only from the archive: removes the item and its history for good. A
-         *     product's pictures stay for the videos that showed them, deleted and no longer its; a place
-         *     stops being anyone's usual place.
+         * @description Owner only, and only from the archive: removes the item and its history for good.
          */
         delete: operations["delete_item_forever_library__kind___item_id__permanent_delete"];
         options?: never;
@@ -1199,6 +1177,133 @@ export interface paths {
          *     the job, or the owner (as every change to a video). A Quick clip: its maker or the owner.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/asks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Asks
+         * @description Every card on the video, oldest first: open ones, and answered ones folded. A send's
+         *     video before the OK (hidden) shows to its maker and the owner, as its answer route does.
+         */
+        get: operations["list_asks_projects__project_id__asks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer
+         * @description Answer a card (the chat's and Needs you's are the same answer). Questions: the video's
+         *     maker or the owner. MoneyCard: the owner approves or keeps it as it is; an editor's own video
+         *     inside its budget starts with Make it; whoever asked may withdraw.
+         */
+        post: operations["answer_asks__ask_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate
+         * @description Generate options (paid, at the card's "up to" price): 3 made for this video only, never
+         *     saved to the brand. `like`: more like that option; `change`: Change something…
+         */
+        post: operations["generate_asks__ask_id__generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel
+         * @description Cancel the options being made (or held for the owner): nothing more is charged.
+         */
+        post: operations["cancel_asks__ask_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/uploading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uploading
+         * @description The card shows the upload going up (`on`), or open again if it's cancelled. The file
+         *     itself goes up through POST /files, then POST …/answer with how=upload.
+         */
+        post: operations["uploading_asks__ask_id__uploading_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/needs-you": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Needs You
+         * @description One read across brands: questions from the director, money OKs (the start of a run, past
+         *     a budget, the director's own limit) and stuck videos with their one-click fix (rule 22).
+         *     The owner sees every video; an editor their own. `brand_id` filters; the counts don't.
+         */
+        get: operations["needs_you_needs_you_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4098,8 +4203,9 @@ export interface paths {
         put?: never;
         /**
          * Start
-         * @description Build the video from its published script (409 if it isn't, or a run is going). Its
-         *     first turn is paid from the video's budget, held for the owner past it.
+         * @description Build the video from its published script (409 if it isn't, or a run is going). The
+         *     treatment comes first, charged nothing; then its start card waits for Make it (S3-02,
+         *     POST /asks/{id}/answer).
          */
         post: operations["start_projects__project_id__director_post"];
         delete?: never;
@@ -4145,27 +4251,6 @@ export interface paths {
          * @description Stop the run: no more turns. What it already started goes on; nothing is undone.
          */
         post: operations["stop_projects__project_id__director_stop_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/director/progress": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Progress
-         * @description The newest run's live record: its scenes and clips, its steps, its cost; null before
-         *     any run. Free to read, in the same few queries however long the video.
-         */
-        get: operations["progress_projects__project_id__director_progress_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5808,27 +5893,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/director/seen": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Seen
-         * @description This person watched these takes (Watch the changes, or playing a clip): the clips the
-         *     director changed stop being outlined for them. Takes of other videos are ignored.
-         */
-        post: operations["seen_projects__project_id__director_seen_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/formats": {
         parameters: {
             query?: never;
@@ -5893,6 +5957,19 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** AnswerIn */
+        AnswerIn: {
+            /** How */
+            how: string;
+            /** Option */
+            option?: string | number | null;
+            /** File Id */
+            file_id?: number | null;
+            /** Text */
+            text?: string | null;
+            /** Choice */
+            choice?: string | null;
+        };
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
@@ -5927,6 +6004,89 @@ export interface components {
         ApproveOut: {
             plan: components["schemas"]["PlanOut"];
             job: components["schemas"]["JobOut"] | null;
+        };
+        /** AskOut */
+        AskOut: {
+            /** Id */
+            id: number;
+            /** Project Id */
+            project_id: number;
+            /** Kind */
+            kind: string;
+            /** Topic */
+            topic: string;
+            /** Question */
+            question: string;
+            /** Why */
+            why: string;
+            /** State */
+            state: string;
+            /**
+             * By Owner
+             * @default false
+             */
+            by_owner: boolean;
+            /**
+             * Saved In
+             * @default
+             */
+            saved_in: string;
+            /**
+             * Saved
+             * @default []
+             */
+            saved: components["schemas"]["SavedOption"][];
+            /** Pick */
+            pick?: string | null;
+            /**
+             * Choices
+             * @default []
+             */
+            choices: components["schemas"]["StoryChoice"][];
+            /** Decide At */
+            decide_at?: string | null;
+            generate?: components["schemas"]["AskPrice"] | null;
+            clone?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: components["schemas"]["MadeOption"][];
+            options_spent?: components["schemas"]["AskPrice"] | null;
+            /** Answer */
+            answer?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Answered By
+             * @default
+             */
+            answered_by: string;
+            /** Answered At */
+            answered_at?: string | null;
+            /**
+             * Closed
+             * @default
+             */
+            closed: string;
+            money?: components["schemas"]["MoneyCard"] | null;
+            /**
+             * Can
+             * @default []
+             */
+            can: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AskPrice */
+        AskPrice: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd?: number | null;
         };
         /** AssetOut */
         AssetOut: {
@@ -6072,6 +6232,15 @@ export interface components {
              * @default []
              */
             folders: components["schemas"]["Branch"][];
+        };
+        /** BrandCount */
+        BrandCount: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
         };
         /** BrandIn */
         BrandIn: {
@@ -6494,19 +6663,6 @@ export interface components {
             /** Note */
             note: string;
         };
-        /** ChangedClipOut */
-        ChangedClipOut: {
-            /** Clip Id */
-            clip_id: string;
-            /** Number */
-            number: number;
-            /** Take Id */
-            take_id: number | null;
-            /** Frame File Id */
-            frame_file_id: number | null;
-            /** Watched */
-            watched: boolean;
-        };
         /** CheckOut */
         CheckOut: {
             /** Id */
@@ -6538,58 +6694,6 @@ export interface components {
              * @description The hand-off: the beat the clip ends on and how the next clip's first shot answers it (a look, a sound, a matching pose, a white flash into a time jump), after the last line's reaction has landed. 'end' for the last clip.
              */
             seam: string;
-        };
-        /**
-         * ClipCellOut
-         * @description One clip on the filmstrip and in the Clips list (S3-03, S6-01, S6-04, S6-05, P-10).
-         */
-        ClipCellOut: {
-            /** Clip Id */
-            clip_id: string;
-            /** Number */
-            number: number;
-            /** Scene */
-            scene: number;
-            /** Label */
-            label: string;
-            /** Seconds */
-            seconds: number;
-            /** Model */
-            model: string;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "todo" | "making" | "waiting" | "failed" | "flagged" | "text" | "redone" | "done";
-            /** Frame File Id */
-            frame_file_id: number | null;
-            /** Take Id */
-            take_id: number | null;
-            /** Note */
-            note: string;
-            /** Percent */
-            percent: number | null;
-            /** Minutes Left */
-            minutes_left: number | null;
-            /** Credits */
-            credits: string | null;
-            /** Changed */
-            changed: boolean;
-            /** Watched */
-            watched: boolean;
-            /** Found */
-            found: boolean;
-        };
-        /** ClipCountsOut */
-        ClipCountsOut: {
-            /** All */
-            all: number;
-            /** Needs You */
-            needs_you: number;
-            /** Flagged */
-            flagged: number;
-            /** Redone */
-            redone: number;
         };
         /** ClipIn */
         ClipIn: {
@@ -6726,34 +6830,6 @@ export interface components {
             /** Ideas */
             ideas: number;
         };
-        /**
-         * DeliveryNoteOut
-         * @description The delivery note (S3-09, S3-10, P-08), as kept when the run delivered.
-         */
-        DeliveryNoteOut: {
-            /** Made */
-            made: string;
-            /** Redid */
-            redid: components["schemas"]["RedidRowOut"][];
-            /** Unsure */
-            unsure: string;
-            /** Needs */
-            needs: string;
-            /** Cost */
-            cost: string;
-            /** Spent */
-            spent: number;
-            /** Up To */
-            up_to: number;
-            /** Spent Usd */
-            spent_usd: number | null;
-            /** Cut */
-            cut: number;
-            /** Seconds */
-            seconds: number;
-            /** Clips */
-            clips: number;
-        };
         /** DialogueLine */
         DialogueLine: {
             /** Line */
@@ -6797,6 +6873,13 @@ export interface components {
             /** Started At */
             started_at: string | null;
         };
+        /** DirectorNoteIn */
+        DirectorNoteIn: {
+            /** Text */
+            text: string;
+            /** Files */
+            files?: number[] | null;
+        };
         /** DirectorOut */
         DirectorOut: {
             /** Status */
@@ -6826,6 +6909,23 @@ export interface components {
              * @default 0
              */
             run_price: number;
+            /**
+             * Spent
+             * @default 0
+             */
+            spent: number;
+            /**
+             * Started
+             * @default false
+             */
+            started: boolean;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: components["schemas"]["WaitingQuestion"][];
+            /** Make It */
+            make_it?: number | null;
         };
         /** Dot */
         Dot: {
@@ -7310,6 +7410,17 @@ export interface components {
             up_to?: number | null;
             /** Project Id */
             project_id?: number | null;
+            /** Make It */
+            make_it?: number | null;
+            /** Make It Up To */
+            make_it_up_to?: number | null;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: {
+                [key: string]: unknown;
+            }[];
             /** Script Id */
             script_id?: number | null;
             /** Reel Script Id */
@@ -7385,6 +7496,13 @@ export interface components {
             /** Videos */
             videos: number;
         };
+        /** GenerateIn */
+        GenerateIn: {
+            /** Like */
+            like?: number | null;
+            /** Change */
+            change?: string | null;
+        };
         /** GuideIn */
         GuideIn: {
             /** Use As Guide */
@@ -7394,6 +7512,13 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HeldClip */
+        HeldClip: {
+            /** Clip */
+            clip: string;
+            /** Still File Id */
+            still_file_id: number | null;
         };
         /** HostOut */
         HostOut: {
@@ -7715,15 +7840,6 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -7761,34 +7877,11 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Created By Id */
-            created_by_id?: number | null;
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Pictures
-             * @default []
-             */
-            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -7818,7 +7911,6 @@ export interface components {
              * @default 0
              */
             change_credits: number;
-            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -7869,19 +7961,6 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /** Presenter */
-            presenter?: boolean | null;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
-        };
-        /** ItemUsd */
-        ItemUsd: {
-            /** Sheet */
-            sheet: number;
-            /** Change */
-            change: number;
         };
         /** Items */
         Items: {
@@ -8411,6 +8490,15 @@ export interface components {
             /** On */
             on: boolean;
         };
+        /** MadeOption */
+        MadeOption: {
+            /** Index */
+            index: number;
+            /** State */
+            state: string;
+            /** File Id */
+            file_id: number | null;
+        };
         /** MadeOut */
         MadeOut: {
             /** Looks */
@@ -8681,6 +8769,30 @@ export interface components {
             /** Price Source */
             price_source: string;
         };
+        /**
+         * MoneyCard
+         * @description A money card's figures: what the OK lets it charge ("up to"), what's spent and the
+         *     budget (past the budget), the run's usual cost (start), the held items and when sent.
+         */
+        MoneyCard: {
+            up_to: components["schemas"]["AskPrice"];
+            spent?: components["schemas"]["AskPrice"] | null;
+            budget?: components["schemas"]["AskPrice"] | null;
+            past?: components["schemas"]["AskPrice"] | null;
+            usual?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Clips
+             * @default []
+             */
+            clips: components["schemas"]["HeldClip"][];
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Held */
+            held: string;
+        };
         /** Montage */
         Montage: {
             /** First */
@@ -8829,6 +8941,13 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** NamedBrand */
+        NamedBrand: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** NarrationOut */
         NarrationOut: {
             /** Voice */
@@ -8845,6 +8964,36 @@ export interface components {
              * @enum {string}
              */
             action: "cast" | "plan" | "approvals";
+        };
+        /** NeedsYouOut */
+        NeedsYouOut: {
+            /** Total */
+            total: number;
+            /** Brands */
+            brands: components["schemas"]["BrandCount"][];
+            /** Questions */
+            questions: components["schemas"]["NeedsYouRow"][];
+            /** Money */
+            money: components["schemas"]["NeedsYouRow"][];
+            /** Stuck */
+            stuck: components["schemas"]["StuckVideo"][];
+        };
+        /** NeedsYouRow */
+        NeedsYouRow: {
+            video: components["schemas"]["NeedsYouVideo"];
+            brand: components["schemas"]["NamedBrand"];
+            ask: components["schemas"]["AskOut"];
+        };
+        /** NeedsYouVideo */
+        NeedsYouVideo: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Still File Id */
+            still_file_id: number | null;
+            /** Made By */
+            made_by: string;
         };
         /** NewBrandOut */
         NewBrandOut: {
@@ -8999,15 +9148,6 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
             /** Owner Project Id */
             owner_project_id?: number | null;
             /** Owner Script Id */
@@ -9111,20 +9251,6 @@ export interface components {
         PickIn: {
             /** File Id */
             file_id: number;
-        };
-        /**
-         * PictureOut
-         * @description A product's picture: a brand screen linked to it (its real photo, used as it is).
-         */
-        PictureOut: {
-            /** Screen Id */
-            screen_id: number;
-            /** File Id */
-            file_id: number;
-            /** Name */
-            name: string;
-            /** Variant */
-            variant: string;
         };
         /** PlanIn */
         PlanIn: {
@@ -9241,34 +9367,11 @@ export interface components {
             short_description?: string | null;
             /** Main Claim */
             main_claim?: string | null;
-            /**
-             * Presenter
-             * @default false
-             */
-            presenter: boolean;
-            /** Place Id */
-            place_id?: number | null;
-            /** Product Type */
-            product_type?: ("app" | "physical") | null;
             /** Id */
             id: number;
             kind: components["schemas"]["Kind"];
             /** Version */
             version: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Created By Id */
-            created_by_id?: number | null;
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Pictures
-             * @default []
-             */
-            pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
             /**
@@ -9298,7 +9401,6 @@ export interface components {
              * @default 0
              */
             change_credits: number;
-            usd?: components["schemas"]["ItemUsd"] | null;
             /**
              * Advice
              * @default []
@@ -9323,6 +9425,11 @@ export interface components {
             used_in_count: number;
             /** Was File Id */
             was_file_id: number | null;
+        };
+        /** PriceOut */
+        PriceOut: {
+            /** Credits */
+            credits: number;
         };
         /** ProduceOut */
         ProduceOut: {
@@ -9399,61 +9506,6 @@ export interface components {
             finished_at?: string | null;
             /** Approved Up To */
             approved_up_to?: number | null;
-        };
-        /**
-         * ProgressOut
-         * @description The newest run's live record (v6 piece C): poll it while `status` is working,
-         *     revising or waiting (the app polls; 3 s is plenty).
-         */
-        ProgressOut: {
-            /** Run */
-            run: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "working" | "revising" | "waiting" | "stopped" | "delivered" | "needs_fix";
-            /** Title */
-            title: string;
-            /** Sub */
-            sub: string;
-            /**
-             * Tone
-             * @enum {string}
-             */
-            tone: "now" | "wait" | "done" | "bad" | "stop";
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /** Ended At */
-            ended_at: string | null;
-            /** Clips */
-            clips: number;
-            /** Made */
-            made: number;
-            /** Redone */
-            redone: number;
-            /** Scene At */
-            scene_at: number;
-            /** Scenes */
-            scenes: components["schemas"]["RunSceneOut"][];
-            counts: components["schemas"]["ClipCountsOut"];
-            /** Minutes Left */
-            minutes_left: number | null;
-            /** Steps */
-            steps: components["schemas"]["RunStepOut"][];
-            /** Spent */
-            spent: number;
-            /** Up To */
-            up_to: number;
-            /** Spent Usd */
-            spent_usd: number | null;
-            /** Changed */
-            changed: components["schemas"]["ChangedClipOut"][];
-            stopped: components["schemas"]["RunStoppedOut"] | null;
-            failed: components["schemas"]["RunFailedOut"] | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
@@ -9823,15 +9875,6 @@ export interface components {
             /** Since */
             since: string | null;
         };
-        /** RedidRowOut */
-        RedidRowOut: {
-            /** At */
-            at: number;
-            /** Clip */
-            clip: string;
-            /** Text */
-            text: string;
-        };
         /** ReelEstimateOut */
         ReelEstimateOut: {
             /** Credits */
@@ -10026,69 +10069,6 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
-        /** RunFailedOut */
-        RunFailedOut: {
-            /** Title */
-            title: string;
-            /** Why */
-            why: string;
-            /** Clip */
-            clip: number | null;
-            /** Fixes */
-            fixes: components["schemas"]["RunFixOut"][];
-        };
-        /** RunFixOut */
-        RunFixOut: {
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "again" | "carry_on";
-            /** Label */
-            label: string;
-            /** Price */
-            price: string | null;
-        };
-        /** RunSceneOut */
-        RunSceneOut: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Total */
-            total: number;
-            /** Done */
-            done: number;
-            /** Clips */
-            clips: components["schemas"]["ClipCellOut"][];
-        };
-        /** RunStepOut */
-        RunStepOut: {
-            /** Key */
-            key: string;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "done" | "now" | "todo" | "wait" | "bad";
-            /** Text */
-            text: string;
-            /** Sub */
-            sub: string;
-        };
-        /** RunStoppedOut */
-        RunStoppedOut: {
-            /** By */
-            by: string;
-            /** At */
-            at: string;
-            /** Made */
-            made: number;
-            /** Total */
-            total: number;
-            /** Carry On */
-            carry_on: string;
-        };
         /** SamePair */
         SamePair: {
             /** A Slot Id */
@@ -10164,6 +10144,29 @@ export interface components {
             products_filled: number;
             /** Problems */
             problems: string[];
+        };
+        /** SavedOption */
+        SavedOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** File Id */
+            file_id?: number | null;
+            /**
+             * Used In
+             * @default 0
+             */
+            used_in: number;
+            /** Sample File Id */
+            sample_file_id?: number | null;
+            /** Sample Url */
+            sample_url?: string | null;
         };
         /** Scene */
         Scene: {
@@ -10261,8 +10264,11 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /** Product Id */
-            product_id?: number | null;
+            /**
+             * Product
+             * @default
+             */
+            product: string;
             /**
              * Variant
              * @default
@@ -10285,8 +10291,11 @@ export interface components {
              * @default []
              */
             default_for: string[];
-            /** Product Id */
-            product_id?: number | null;
+            /**
+             * Product
+             * @default
+             */
+            product: string;
             /**
              * Variant
              * @default
@@ -10296,8 +10305,6 @@ export interface components {
             id: number;
             /** Brand Id */
             brand_id: number;
-            /** Product */
-            product: string;
             /** Balance */
             balance: string;
             figure_spot: components["schemas"]["FigureSpot"] | null;
@@ -10312,8 +10319,8 @@ export interface components {
             tags?: string[] | null;
             /** Default For */
             default_for?: string[] | null;
-            /** Product Id */
-            product_id?: number | null;
+            /** Product */
+            product?: string | null;
             /** Variant */
             variant?: string | null;
             /** Balance */
@@ -10415,11 +10422,6 @@ export interface components {
              * @default false
              */
             running: boolean;
-        };
-        /** SeenIn */
-        SeenIn: {
-            /** Take Ids */
-            take_ids: number[];
         };
         /** Sentence */
         Sentence: {
@@ -10975,6 +10977,15 @@ export interface components {
              */
             total: number;
         };
+        /** StoryChoice */
+        StoryChoice: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
+        };
         /** StoryboardIn */
         StoryboardIn: {
             /**
@@ -11000,6 +11011,30 @@ export interface components {
             still_file_ids: number[];
             /** Current */
             current: boolean;
+        };
+        /** StuckFix */
+        StuckFix: {
+            /** Label */
+            label: string;
+            /** Method */
+            method: string | null;
+            /** Path */
+            path: string;
+        };
+        /** StuckVideo */
+        StuckVideo: {
+            video: components["schemas"]["NeedsYouVideo"];
+            brand: components["schemas"]["NamedBrand"];
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** What */
+            what: string;
+            /** Why */
+            why: string;
+            fix: components["schemas"]["StuckFix"];
         };
         /**
          * StudyAttempt
@@ -11196,7 +11231,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "message" | "move";
+            kind: "message" | "move" | "ask";
             /**
              * At
              * Format: date-time
@@ -11219,9 +11254,10 @@ export interface components {
             treatment?: {
                 [key: string]: unknown;
             } | null;
-            /** Run */
-            run?: string | null;
-            note?: components["schemas"]["DeliveryNoteOut"] | null;
+            /** Ask Id */
+            ask_id?: number | null;
+            /** Files */
+            files?: number[] | null;
         };
         /** TitleIn */
         TitleIn: {
@@ -11296,6 +11332,11 @@ export interface components {
             problem: string;
             /** Problem Code */
             problem_code?: string | null;
+        };
+        /** UploadingIn */
+        UploadingIn: {
+            /** On */
+            on: boolean;
         };
         /** UsageBrandOut */
         UsageBrandOut: {
@@ -11624,10 +11665,6 @@ export interface components {
              * @enum {string}
              */
             status: "needs_you" | "making" | "done";
-            /** Still File Id */
-            still_file_id?: number | null;
-            /** At */
-            at?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -11847,6 +11884,15 @@ export interface components {
             /** Clone Usd */
             clone_usd: number | null;
         };
+        /** WaitingQuestion */
+        WaitingQuestion: {
+            /** Id */
+            id: number;
+            /** Topic */
+            topic: string;
+            /** Question */
+            question: string;
+        };
         /** Was */
         Was: {
             /** Id */
@@ -11982,13 +12028,6 @@ export interface components {
             /** Usd */
             usd?: number | null;
         };
-        /** PriceOut */
-        app__routes__library__PriceOut: {
-            /** Credits */
-            credits: number;
-            /** Usd */
-            usd: number | null;
-        };
         /** VersionOut */
         app__routes__library__VersionOut: {
             /** Version */
@@ -12001,8 +12040,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /** Sheet File Id */
-            sheet_file_id?: number | null;
         };
         /** UndoIn */
         app__routes__script_cast__UndoIn: {
@@ -12370,11 +12407,6 @@ export interface components {
             found: components["schemas"]["Found"];
             /** Have Colours */
             have_colours: string[];
-        };
-        /** PriceOut */
-        app__routes__storyboard__PriceOut: {
-            /** Credits */
-            credits: number;
         };
         /** InviteOut */
         app__routes__team__InviteOut: {
@@ -14198,39 +14230,6 @@ export interface operations {
             };
         };
     };
-    new_item_price_library__kind__price_get: {
-        parameters: {
-            query?: {
-                item_id?: number | null;
-            };
-            header?: never;
-            path: {
-                kind: components["schemas"]["Kind"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["app__routes__library__PriceOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     read_item_library__kind___item_id__get: {
         parameters: {
             query?: never;
@@ -14936,6 +14935,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_asks_projects__project_id__asks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_asks__ask_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_asks__ask_id__generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_asks__ask_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    uploading_asks__ask_id__uploading_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    needs_you_needs_you_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeedsYouOut"];
                 };
             };
             /** @description Validation Error */
@@ -19268,7 +19465,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
+                    "application/json": components["schemas"]["PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -19872,7 +20069,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__routes__storyboard__PriceOut"];
+                    "application/json": components["schemas"]["PriceOut"];
                 };
             };
             /** @description Validation Error */
@@ -20622,7 +20819,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MessageIn"];
+                "application/json": components["schemas"]["DirectorNoteIn"];
             };
         };
         responses: {
@@ -20664,37 +20861,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DirectorOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    progress_projects__project_id__director_progress_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgressOut"] | null;
                 };
             };
             /** @description Validation Error */
@@ -23797,39 +23963,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BreakdownOut"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    seen_projects__project_id__director_seen_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SeenIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {

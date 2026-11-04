@@ -14,6 +14,7 @@ from app.models.songs import SongTake
 from app.routes.estimate import run_price
 from tests import helpers
 from tests.conftest import first_brand
+from tests.helpers import make_it
 from tests.test_freestyle_dialogue import _run
 from tests.test_music import LYRICS
 
@@ -89,6 +90,7 @@ def test_the_narrations_timing_counts_as_being_made_for_its_video(app, db, owner
             break
         run_once(db, providers, app.state.storage, only={"replicate", "claude"})  # not timed yet
         db.expire_all()
+        make_it(db)  # its start card, after the treatment
     assert timing is not None and timing.project_id is None
     video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
                    execution_options={"see_hidden": True})  # fmt: skip

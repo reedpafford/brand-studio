@@ -487,10 +487,8 @@ def _failed(video: _Video, cells: list[dict], why: str, owner: bool, again: Deci
 
 def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
     """The director's part of the chat: one item a run (its progress card in a line, `run`
-    naming the record), the owner's OKs at the director's limit, and each delivery's note."""
+    naming the record) and each delivery's note; its cards are app/asks'."""
     from app import delivery
-    from app.credits import COUNTED, price
-    from app.director import GRANT, GRANTED, own_limit
 
     out, every = [], runs(db, project)
     for run_id, turns in every.items():
@@ -506,11 +504,7 @@ def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"
         out.append({"id": f"r{turns[0].id}", "kind": "move", "at": turns[0].created_at.isoformat(),
                     "who": "Director", "text": text, "status": status, "run": run_id})  # fmt: skip
-        for j in turns:
-            if j.input.get(GRANT) and j.status in COUNTED:  # the owner's OK at its own limit
-                out.append({"id": f"g{j.id}", "kind": "move", "at": j.created_at.isoformat(),
-                            "who": "Director", "text": GRANTED.format(n=price(own_limit())),
-                            "status": "done"})  # fmt: skip
+        for j in turns:  # the owner's OK at its own limit is its card's answer (app/asks)
             if j.input.get("result") == "Delivered.":
                 note = delivery.shown(db, project, (j.output or {}).get("note"), owner)
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
