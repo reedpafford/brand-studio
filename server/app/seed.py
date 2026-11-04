@@ -140,19 +140,22 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
     return added
 
 
-def product_of(db: Session, brand: Brand, name: str) -> int | None:
+def product_of(db: Session, brand: Brand, name: str) -> int:
     """The brand's library product a manifest's product word names (any case), made when it
-    has none yet; None for an app screen."""
-    from app import site_read
-    from app.models.library import Kind, LibraryItem
+    has none yet; a screen with no product word is one of the brand's app's screens
+    ("<brand> app", S-gaps-05 L1)."""
+    from app.models.library import Kind, LibraryItem, item_brands
 
-    name = " ".join(name.split())
-    if not name:
-        return None
-    item = site_read.products(db, brand).get(site_read.key(name))
+    app = not name.strip()
+    name = " ".join((f"{brand.name} app" if app else name).split())[:120]
+    item = next((i for i in db.scalars(
+        select(LibraryItem).join(item_brands, item_brands.c.item_id == LibraryItem.id)
+        .where(item_brands.c.brand_id == brand.id, LibraryItem.kind == Kind.prop,
+               LibraryItem.archived.is_(False)).order_by(LibraryItem.id))
+        if i.name.strip().lower() == name.lower()), None)  # fmt: skip
     if item is None:
         item = LibraryItem(workspace_id=brand.workspace_id, kind=Kind.prop, name=name,
-                           brands=[brand])  # fmt: skip
+                           brands=[brand], product_type="app" if app else "physical")  # fmt: skip
         db.add(item)
         db.flush()
     return item.id

@@ -69,5 +69,7 @@ class BrandScreen(Entity, Base):
 
     @property
     def product(self) -> str:
-        """The product it pictures, by name ("" for an app screen)."""
-        return self.product_item.name if self.product_item is not None else ""
+        """The physical product it pictures, by name; "" for an app's screen (S-gaps-05 L1: an
+        app is a product too, but its screens are drawn on and never checked as a pack)."""
+        item = self.product_item
+        return item.name if item is not None and item.product_type != "app" else ""

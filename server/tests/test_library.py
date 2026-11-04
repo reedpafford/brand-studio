@@ -159,25 +159,26 @@ def test_an_item_says_who_made_it_and_when_it_was_archived(owner, editor):
 
 
 def test_a_presenter_and_a_usual_place_are_a_characters_and_keep_its_sheet(owner, db):
-    """S8-04, S-gaps-05 L3: how a presenter appears; S8-03: the usual place. Neither makes a
-    new version or needs the sheet approved again."""
+    """S8-04, S-gaps-05 L3: a presenter is a face and a voice (how they appear is each video's
+    pick); S8-03: the usual place. Neither makes a new version or needs the sheet approved."""
     from app.models.library import LibraryItem
 
     kitchen = owner.post("/library/place", json={"name": "Mark's kitchen"}).json()["id"]
-    mark = owner.post("/library/character", json={"name": "Mark", "presenter": "still"}).json()
+    mark = owner.post("/library/character", json={"name": "Mark", "presenter": True}).json()
+    assert mark["presenter"] is True and mark["product_type"] is None
     db.get(LibraryItem, mark["id"]).sheet_approved = True
     db.commit()
     url = f"/library/character/{mark['id']}"
-    r = owner.patch(url, json={"presenter": "acts", "place_id": kitchen}).json()
-    assert (r["presenter"], r["place_id"], r["version"]) == ("acts", kitchen, mark["version"])
+    r = owner.patch(url, json={"presenter": False, "place_id": kitchen}).json()
+    assert (r["presenter"], r["place_id"], r["version"]) == (False, kitchen, mark["version"])
     db.expire_all()
     assert db.get(LibraryItem, mark["id"]).sheet_approved
-    assert owner.patch(url, json={"presenter": None}).json()["presenter"] is None
-    assert owner.patch(url, json={"presenter": "corner"}).json()["presenter"] == "corner"
-    assert owner.patch(url, json={"presenter": "waves"}).status_code == 422
+    assert owner.patch(url, json={"place_id": None}).json()["place_id"] is None
     assert owner.patch(url, json={"place_id": mark["id"]}).status_code == 404  # not a place
-    prop = owner.post("/library/prop", json={"name": "Bag"}).json()["id"]
-    assert owner.patch(f"/library/prop/{prop}", json={"presenter": "still"}).status_code == 422
+    prop = owner.post("/library/prop", json={"name": "Bag"}).json()
+    assert prop["product_type"] == "physical"  # unless it's an app
+    assert owner.patch(f"/library/prop/{prop['id']}", json={"presenter": True}).status_code == 422
+    assert owner.patch(url, json={"product_type": "app"}).status_code == 422
 
 
 def test_a_products_pictures_are_its_brand_screens(owner, editor):
@@ -197,8 +198,8 @@ def test_a_products_pictures_are_its_brand_screens(owner, editor):
     other = f"/brands/{b['fomo']}/screens"
     r = owner.post(other, json={"name": "X", "file_id": upload(owner), "product_id": bag["id"]})
     assert r.status_code == 404
-    unlinked = owner.patch(f"{screens}/{pic['id']}", json={"product_id": 0}).json()
-    assert unlinked["product"] == "" and unlinked["product_id"] is None
+    kept = owner.patch(f"{screens}/{pic['id']}", json={"product_id": 0}).json()
+    assert kept["product_id"] == bag["id"]  # a picture always stays a product's
     owner.delete(f"{screens}/{pic['id']}")
     assert owner.get(f"/library/prop/{bag['id']}").json()["pictures"] == []
 
@@ -217,3 +218,30 @@ def test_prices_say_up_to_in_dollars_for_the_owner_and_credits_for_an_editor(own
     assert owner.get("/library/character").json()[0]["usd"]["sheet"] >= 0.01
     assert_no_dollars(editor, [f"/library/character/{item['id']}", "/library/character"])
     assert editor.get(f"/library/character/{item['id']}").json()["usd"] is None
+
+
+def test_an_app_is_a_product_whose_pictures_are_its_screens(owner):
+    """S-gaps-05 L1: a screen added with no product is one of the brand's app's screens (made
+    once, "<brand> app"); an app's screen isn't a pack, so it names no physical product."""
+    b = _brands(owner)
+    screens = f"/brands/{b['fomo']}/screens"
+    one = owner.post(screens, json={"name": "Home", "file_id": upload(owner)}).json()
+    two = owner.post(screens, json={"name": "Chart", "file_id": upload(owner)}).json()
+    assert one["product_id"] == two["product_id"] and one["product"] == ""
+    app = owner.get(f"/library/prop/{one['product_id']}").json()
+    assert (app["name"], app["product_type"]) == ("fomo app", "app")
+    assert [p["name"] for p in app["pictures"]] == ["Home", "Chart"]
+
+
+def test_an_archived_products_pictures_are_not_offered_to_new_work(owner, db):
+    from app.enhance import screens_of
+    from app.models.brands import Brand
+
+    b = _brands(owner)["iron-paws"]
+    bag = owner.post("/library/prop", json={"name": "Bag", "brand_ids": [b]}).json()["id"]
+    pic = owner.post(f"/brands/{b}/screens", json={"name": "Bag", "file_id": upload(owner),
+                                                   "product_id": bag}).json()["id"]  # fmt: skip
+    assert pic in [s.id for s in screens_of(db, db.get(Brand, b))]
+    owner.delete(f"/library/prop/{bag}")
+    db.expire_all()
+    assert pic not in [s.id for s in screens_of(db, db.get(Brand, b))]

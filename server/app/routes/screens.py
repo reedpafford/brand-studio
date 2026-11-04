@@ -27,7 +27,7 @@ class ScreenIn(BaseModel):
     file_id: int
     tags: list[Slug] = []
     default_for: list[Slug] = []
-    product_id: int | None = None  # a picture of this library product (v6 S8-06)
+    product_id: int | None = None  # the library product it pictures; none: the brand's app
     variant: ShortText = ""  # e.g. "Chicken"; each project picks one variant per product
 
 
@@ -48,7 +48,7 @@ class ScreenPatch(BaseModel):
     file_id: int | None = None
     tags: list[Slug] | None = None
     default_for: list[Slug] | None = None
-    product_id: int | None = None  # 0: no longer a product's picture
+    product_id: int | None = None  # move the picture to another of the brand's products
     variant: ShortText | None = None
     balance: str | None = Field(None, max_length=40)
     figure_spot: FigureSpot | None = None  # no spot: shots get the plain screen
@@ -84,7 +84,7 @@ def _apply(db: Session, user: User, screen: BrandScreen, values: dict) -> None:
         if not any(b.id == screen.brand_id for b in item.brands):
             raise HTTPException(404, "No such product in this brand.")
     elif "product_id" in values:
-        values["product_id"] = None
+        values.pop("product_id")  # a picture always stays a product's
     if "name" in values:
         clash = db.scalar(
             select(BrandScreen).where(
@@ -129,9 +129,13 @@ def list_screens(
 def add_screen(
     brand_id: int, body: ScreenIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    get_brand(db, user, brand_id)
+    from app.seed import product_of
+
+    brand = get_brand(db, user, brand_id)
     screen = BrandScreen(brand_id=brand_id)
     _apply(db, user, screen, body.model_dump())
+    if screen.product_id is None:  # every screen is a product's: with none named, the brand's app
+        screen.product_id = product_of(db, brand, "")
     db.add(screen)
     db.commit()
     return screen

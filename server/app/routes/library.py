@@ -50,7 +50,7 @@ router = APIRouter(prefix="/library/{kind}", tags=["library"],
                    dependencies=[Depends(look_writer)])  # fmt: skip
 
 
-Presenter = Literal["still", "corner", "acts"]  # a still talking head, in a corner, acts in it
+ProductType = Literal["app", "physical"]
 
 
 class Outfit(BaseModel):
@@ -70,9 +70,10 @@ class ItemIn(BaseModel):
     # Products (flows BR1; owner only): what it is in a line, and the claim scripts may make
     short_description: LongText | None = None  # left out: as it is
     main_claim: LongText | None = None
-    # Characters (v6 S8-04, S-gaps-05 L3): how it appears as a presenter, or null; its usual place
-    presenter: Presenter | None = None
+    # Characters (v6 S8-04, S-gaps-05 L3): a presenter (a face and a voice), and the usual place
+    presenter: bool = False
     place_id: int | None = None
+    product_type: ProductType | None = None  # products: an app or a physical thing (L1)
 
 
 class NewItemIn(ItemIn):
@@ -94,8 +95,9 @@ class ItemPatch(BaseModel):
     source_photo_file_id: int | None = None
     short_description: LongText | None = None  # products, owner only
     main_claim: LongText | None = None  # products, owner only
-    presenter: Presenter | None = None  # characters; null: not a presenter
+    presenter: bool | None = None  # characters
     place_id: int | None = None  # characters; null: none
+    product_type: ProductType | None = None  # products
 
 
 class LookFitOut(BaseModel):
@@ -182,7 +184,7 @@ class VersionOut(BaseModel):
 
 PRODUCT_WORDS = ("short_description", "main_claim")
 CHARACTER_ONLY = ("outfits", "voice_file_id", "presenter", "place_id")
-NULLABLE = ("voice_file_id", "source_photo_file_id", "presenter", "place_id")  # null removes it
+NULLABLE = ("voice_file_id", "source_photo_file_id", "place_id")  # null removes it
 NO_CLAIM = "Scripts won't mention a claim for this product."
 
 
@@ -198,6 +200,7 @@ def _snapshot(item: LibraryItem) -> dict:
         "short_description": item.short_description,
         "main_claim": item.main_claim,
         "presenter": item.presenter,
+        "product_type": item.product_type,
         "place_id": item.place_id,
         "sheet_file_id": item.sheet_file_id,
         "sheet_approved": item.sheet_approved,
@@ -346,6 +349,10 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
         raise HTTPException(422, "Only characters have outfits, a voice, a presenter or a place.")
     if values.get("place_id"):
         get_item(db, user, Kind.place, values["place_id"])
+    if item.kind != Kind.prop and values.get("product_type"):
+        raise HTTPException(422, "Only products are an app or a physical thing.")
+    if item.kind == Kind.prop and not item.product_type and not values.get("product_type"):
+        values["product_type"] = "physical"  # a product is a physical thing unless it's an app
     words = {k for k in PRODUCT_WORDS  # changed, not just sent again (a version, a create)
              if values.get(k) is not None and values[k] != (getattr(item, k) or "")}  # fmt: skip
     if words and item.kind != Kind.prop:
@@ -511,8 +518,8 @@ def update_item(
 ):
     item = get_item(db, user, kind, item_id)
     values = body.model_dump(exclude_unset=True)
-    # A product's words, a presenter's way of appearing or a usual place don't change its picture
-    words_only = set(values) <= {*PRODUCT_WORDS, "presenter", "place_id"}
+    # A product's words, being a presenter or a usual place don't change its picture
+    words_only = set(values) <= {*PRODUCT_WORDS, "presenter", "place_id", "product_type"}
     if not words_only:
         _save_version(db, user, item)
     _apply(db, user, item, values)

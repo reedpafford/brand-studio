@@ -58,10 +58,12 @@ class LibraryItem(Entity, Base):
     archived: Mapped[bool] = mapped_column(default=False)
     archived_at: Mapped[datetime | None]  # "Archived 20 Oct" (v6 S8-08)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))  # "Came from"
-    # A character who presents (v6 S8-04, S-gaps-05 L3), by how it appears: "still" (a still
-    # talking head), "corner" (in a corner over the B-roll) or "acts" (moves and acts in the
-    # story); null: not a presenter.
-    presenter: Mapped[str | None] = mapped_column(String(20))
+    # A character who presents (v6 S8-04, S-gaps-05 L3): a face and a voice; how they appear is
+    # each video's choice (its Cast tab).
+    presenter: Mapped[bool] = mapped_column(default=False)
+    # A product (S-gaps-05 L1) is an app (its pictures are its screens) or a physical thing (its
+    # photos); null for characters and places.
+    product_type: Mapped[str | None] = mapped_column(String(10))
     # A character's usual place (S8-03 "Place: Mark's kitchen"), a library place.
     place_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
     # A look made for one video (on Assets) or one script (its Cast step): it stays there, is
