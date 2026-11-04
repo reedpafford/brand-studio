@@ -11512,6 +11512,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Sheet File Id */
+            sheet_file_id?: number | null;
         };
         /** UndoIn */
         app__routes__script_cast__UndoIn: {

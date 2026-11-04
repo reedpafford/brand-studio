@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { ChevronRight, Plus, Search } from "lucide-react";
 import { Link, NavLink, useSearchParams } from "react-router-dom";
 import { useBrands } from "../shell/useBrands";
@@ -32,6 +32,11 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
   const rail = useRail();
   const [q, setQ] = useSearch();
   const name = brand?.name ?? "";
+  const strip = useRef<HTMLElement>(null);
+  // On a phone the tabs scroll sideways: the open one is brought into view (Brand kit sits past the edge).
+  useEffect(() => {
+    void strip.current?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView?.({ block: "nearest", inline: "nearest" }); // it may return a promise
+  }, [tab, rail]);
   const count = (slug: TabSlug) =>
     slug === "kit" ? undefined : slug === "presenters" ? (counts.presenters === undefined ? undefined : counts.presenters + voices) : counts[slug];
   if (!rail) {
@@ -51,10 +56,10 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
             action
           )}
         </header>
-        <nav aria-label="Library" className="overflow-x-auto px-3.5 py-2">
+        <nav ref={strip} aria-label="Library" className="overflow-x-auto px-3.5 py-2">
           <div className="inline-flex gap-0.5 rounded-md bg-surface-2 p-0.5 whitespace-nowrap">
             {TABS.map((t) => (
-              <NavLink key={t.slug} to={tabPath(brandId, t.slug)} className={({ isActive }) => `inline-flex min-h-control items-center rounded-[5px] px-3 text-base ${isActive || t.slug === tab ? "bg-surface font-medium text-text shadow-sm" : "text-muted"}`}>
+              <NavLink key={t.slug} to={tabPath(brandId, t.slug)} aria-current={t.slug === tab ? "page" : undefined} className={`inline-flex min-h-control items-center rounded-[5px] px-3 text-base ${t.slug === tab ? "bg-surface font-medium text-text shadow-sm" : "text-muted"}`}>
                 {t.phone ?? t.title}
               </NavLink>
             ))}

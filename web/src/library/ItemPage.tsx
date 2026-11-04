@@ -359,7 +359,7 @@ function useVersions(item: Item) {
   const seen = new Set<number>();
   const out: { file_id: number; label: string; version: number }[] = [];
   for (const v of versions.data ?? []) {
-    const file = (v.snapshot as { sheet_file_id?: number | null }).sheet_file_id ?? v.snapshot.source_photo_file_id;
+    const file = v.sheet_file_id ?? v.snapshot.source_photo_file_id;
     if (!file || seen.has(file)) continue;
     seen.add(file);
     out.push({ file_id: file, label: `v${v.version}`, version: v.version });

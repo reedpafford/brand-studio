@@ -144,6 +144,8 @@ const screenName = (file: string) => {
 /** A picked photo as a picture to show before it's uploaded. */
 export function usePreview(file: File | null) {
   const url = useMemo(() => (file && URL.createObjectURL ? URL.createObjectURL(file) : null), [file]);
-  useEffect(() => () => void (url && URL.revokeObjectURL(url)), [url]);
+  useEffect(() => () => {
+    if (url) URL.revokeObjectURL(url);
+  }, [url]);
   return url;
 }

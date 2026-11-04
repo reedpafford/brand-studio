@@ -186,6 +186,7 @@ class VersionOut(BaseModel):
     snapshot: ItemIn
     saved_by_id: int | None
     created_at: UtcTime
+    sheet_file_id: int | None = None  # the sheet that version had (S8-03's v3 · v2 · v1)
 
 
 PRODUCT_WORDS = ("short_description", "main_claim")
@@ -631,11 +632,14 @@ def list_versions(
     kind: Kind, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     item = get_item(db, user, kind, item_id)
-    return db.scalars(
+    rows = db.scalars(
         select(LibraryItemVersion)
         .where(LibraryItemVersion.item_id == item.id)
         .order_by(LibraryItemVersion.version.desc())
     ).all()
+    return [VersionOut(version=v.version, snapshot=v.snapshot, saved_by_id=v.saved_by_id,
+                       created_at=v.created_at, sheet_file_id=v.snapshot.get("sheet_file_id"))
+            for v in rows]  # fmt: skip
 
 
 @router.post("/{item_id}/versions/{version}/restore", response_model=ItemOut)

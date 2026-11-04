@@ -245,3 +245,16 @@ def test_an_archived_products_pictures_are_not_offered_to_new_work(owner, db):
     owner.delete(f"/library/prop/{bag}")
     db.expire_all()
     assert pic not in [s.id for s in screens_of(db, db.get(Brand, b))]
+
+
+def test_each_version_says_which_sheet_it_had(owner, db):
+    """S8-03's v3 · v2 · v1: the versions list carries each one's sheet."""
+    from app.models.library import LibraryItem
+
+    item = owner.post("/library/character", json={"name": "Mia"}).json()
+    db.get(LibraryItem, item["id"]).sheet_file_id = upload(owner)
+    db.commit()
+    sheet = db.get(LibraryItem, item["id"]).sheet_file_id
+    owner.patch(f"/library/character/{item['id']}", json={"notes": "older"})
+    (v1,) = owner.get(f"/library/character/{item['id']}/versions").json()
+    assert (v1["version"], v1["sheet_file_id"]) == (1, sheet)
