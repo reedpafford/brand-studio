@@ -62,7 +62,7 @@ function KindTab({ brandId, slug }: { brandId: number; slug: KindSlug }) {
     setAdding(true);
   };
   return (
-    <LibraryFrame brandId={brandId} tab={slug} action={adding ? undefined : action} onAdd={() => setAdding(true)} addLabel={New}>
+    <LibraryFrame brandId={brandId} tab={slug} action={action} onAdd={() => setAdding(true)} addLabel={New}>
       <input ref={picker} type="file" accept="image/*" className="sr-only" aria-label={`${one} photo`} tabIndex={-1} onChange={(e) => e.target.files?.[0] && start(e.target.files[0])} />
       {items.isError && <Banner title="Couldn't load the library." action={<Button variant="secondary" onClick={() => void items.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {adding ? (

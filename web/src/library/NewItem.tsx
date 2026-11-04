@@ -91,7 +91,9 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
           <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="motion-safe:animate-spin" />
           Drawing a front, side and back sheet from your {photo ? "photo" : "description"}{cost && ` · ${cost}`} · about 30 s
         </p>
-      ) : (
+      ) : null}
+      {drawing && !product && words.trim() && <input className={field} readOnly aria-label="Description" value={words} />}
+      {drawing && !product ? null : (
         <>
           <label className="block text-sm">
             <span className="sr-only">Name</span>
