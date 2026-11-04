@@ -799,7 +799,7 @@ def stand_in_treatment(script: str) -> dict:
     return {"hook": "The first line, on the conflict, with something happening at once.",
             "logline": "The story as the script tells it.",
             "why_it_holds": "Each beat escalates to the payoff.",
-            "beats": beats, "ending": "The payoff, then the end line."}  # fmt: skip
+            "beats": beats, "ending": "The payoff, then the script's ending."}  # fmt: skip
 
 
 def review_stills_input(plan: str, frames: list[tuple[int, str, str, str]]) -> str:

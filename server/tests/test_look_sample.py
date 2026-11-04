@@ -215,3 +215,15 @@ def test_a_look_with_its_own_sample_person_never_draws_the_hero(app, db, owner):
     said = job.input["input"]["prompt"]
     assert not job.input.get("files") and "[Image1]" not in said and "Mia" not in said
     assert prompts.look_sample("skeleton").rstrip(".") in said
+
+
+def test_the_samples_person_is_the_first_presenter_else_the_first_character(owner, db):
+    from app.models.brands import Brand
+
+    brand = _brand(owner)
+    first = owner.post("/library/character", json={"name": "Ann", "brand_ids": [brand]}).json()
+    second = owner.post("/library/character", json={"name": "Bo", "brand_ids": [brand]}).json()
+    assert look_samples.hero(db, db.get(Brand, brand)).id == first["id"]
+    owner.patch(f"/library/character/{second['id']}", json={"presenter": True})
+    db.expire_all()
+    assert look_samples.hero(db, db.get(Brand, brand)).id == second["id"]

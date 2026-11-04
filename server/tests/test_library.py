@@ -307,3 +307,46 @@ def test_renaming_a_product_keeps_each_videos_flavour_pick(owner, db):
     owner.patch(f"/library/prop/{bag}", json={"name": "Dog bag"})
     db.expire_all()
     assert db.get(Project, pid).product_variants == {"Dog bag": "Chicken"}
+
+
+def test_a_products_description_and_claim(owner, editor):
+    from app.routes.library import NO_CLAIM
+
+    bag = owner.post("/library/prop", json={"name": "Iron Paws bag"}).json()
+    assert bag["advice"] == [NO_CLAIM]
+    url = f"/library/prop/{bag['id']}"
+    mine = editor.patch(url, json={"main_claim": "Gut health in 14 days"})  # editors too
+    assert mine.status_code == 200 and mine.json()["main_claim"] == "Gut health in 14 days"
+    assert editor.patch(url, json={"notes": "chicken"}).status_code == 200
+    got = owner.patch(url, json={"short_description": "Daily gut scoop",
+                                 "main_claim": "Gut health in 14 days"}).json()  # fmt: skip
+    assert got["main_claim"] == "Gut health in 14 days" and got["advice"] == []
+    dog = owner.post("/library/character", json={"name": "Rex"}).json()["id"]
+    assert owner.patch(f"/library/character/{dog}", json={"main_claim": "x"}).status_code == 422
+    same = editor.patch(url, json={"main_claim": "Gut health in 14 days"})
+    assert same.status_code == 200
+
+
+def test_a_picked_cast_is_live_characters_of_this_workspace_each_once(owner, outsider, db):
+    """A video's cast (New video, a reel): never a place, an archived character, another
+    workspace's, or a look made for one video."""
+    import pytest
+    from fastapi import HTTPException
+
+    from app.models.library import LibraryItem
+    from app.routes.library import cast_picks
+
+    mia = owner.post("/library/character", json={"name": "Mia"}).json()["id"]
+    ws = db.get(LibraryItem, mia).workspace_id
+    assert cast_picks(db, ws, [mia, mia]) == [mia]
+    place = owner.post("/library/place", json={"name": "Kitchen"}).json()["id"]
+    gone = owner.post("/library/character", json={"name": "Old"}).json()["id"]
+    owner.delete(f"/library/character/{gone}")
+    theirs = outsider.post("/library/character", json={"name": "Theirs"}).json()["id"]
+    video = owner.post("/projects", json={"brand_id": _brands(owner)["fomo"], "name": "V"}).json()
+    look = {"name": "Look", "owner_project_id": video["id"]}
+    own = owner.post("/library/character", json=look).json()["id"]
+    for bad in (place, gone, theirs, own, 99999):
+        with pytest.raises(HTTPException) as no:
+            cast_picks(db, ws, [mia, bad])
+        assert no.value.status_code == 422

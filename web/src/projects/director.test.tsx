@@ -239,7 +239,7 @@ test("move lines are plain words: no tool names, codes, ids or JSON on screen; s
 
 test("the locks it builds around: a press locks or unlocks one and keeps the outfits; Screens only shows", async () => {
   setViewport(1440);
-  const locks = { cast: true, look: false, length: false, song: false, end_line: false, screens: [] };
+  const locks = { cast: true, look: false, length: false, song: false, screens: [] };
   const outfits = { "char:1": "red coat" };
   const calls = fakeServer(routes({ "GET /projects/9/director": [200, run({ status: "none", turns: [] })], "GET /projects/9/locks": [200, { locks, outfits }], "PUT /projects/9/locks": [200, { locks: { ...locks, look: true }, outfits }] }));
   show();
