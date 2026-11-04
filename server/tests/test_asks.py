@@ -16,7 +16,7 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.script_library import ScriptCastSlot
 from tests.conftest import first_brand, upload
-from tests.helpers import with_sheet
+from tests.helpers import product, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_director import _run
 from tests.test_script_library import SCRIPT, _make
@@ -518,8 +518,10 @@ def test_a_product_shot_answer_picks_that_product_for_the_video(app, db, owner, 
 
     pid, _ = _video(app, owner, editor, db)
     project = db.get(Project, pid)
+    bag = product(db, project.brand_id, "bag")  # #1326: a picture's product is a library item
+    db.commit()
     for variant in ("Chicken", "Peanut butter"):
-        db.add(BrandScreen(brand_id=project.brand_id, name=f"Bag {variant}", product="bag",
+        db.add(BrandScreen(brand_id=project.brand_id, name=f"Bag {variant}", product_id=bag,
                            variant=variant, file_id=upload(owner)))  # fmt: skip
     db.commit()
     ask = _ask(db, pid, {"kind": "product", "question": "Is this the bag to show at the end?"})

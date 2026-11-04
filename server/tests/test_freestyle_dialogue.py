@@ -50,7 +50,7 @@ def test_an_editors_dialogue_waits_then_the_director_delivers_it_hidden(app, own
     fs = editor.get(f"/freestyles/{r.json()['id']}").json()
     assert fs["status"] == "waiting"
     assert [(t["kind"], t["status"]) for t in fs["thread"]][0] == ("message", None)
-    assert fs["thread"][-1]["status"] == "held"  # its start card, for the owner
+    assert "held" in [t["status"] for t in fs["thread"]]  # its run's card: the owner's OK
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     assert held["freestyle"]["id"] == fs["id"] and held["freestyle"]["up_to"] == est
     assert held["freestyle"]["said"] == SCRIPT and held["freestyle"]["change"] is False

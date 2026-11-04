@@ -69,7 +69,6 @@ NOT_ATTACHABLE = "Attach pictures or clips only."
 MAX_FILES = 10
 TOO_MANY_FILES = f"Attach up to {MAX_FILES} pictures or clips."
 WAITING = "Waiting for the owner's OK."  # a send's start card, held (`_move`'s words)
-READY = "Ready to start. No generation started: it waits for Make it."  # the owner's own
 BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
 MAX_PROMPT = 6000  # what Quick clip sends at most
