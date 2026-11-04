@@ -8,7 +8,7 @@ import { owner } from "../../test/people";
 
 const v = (slot: number, status: string, o: object = {}) => ({ slot, status, title: "Bo tries salmon", seconds: 0, project_id: null, flavours: {}, flavours_gone: [], ...o });
 const script = (o: object = {}) => ({
-  id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", description: "", reference_id: null, published: true, status: "published", folder_id: null,
+  id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", format: "dialogue", description: "", reference_id: null, published: true, status: "published", folder_id: null,
   created_by_id: 1, created_by_name: "Reed", created_at: "2026-10-24T10:00:00Z", versions_left: 1, versions: [v(0, "approved")], running: false, reel_imported: false, ...o,
 });
 const folder = (id: number, name: string) => ({ id, brand_id: 1, name, created_by_id: 1, items: { scripts: 1, videos: 0, clips: 0 }, can_manage: true });

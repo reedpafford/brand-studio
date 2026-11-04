@@ -16,7 +16,7 @@ const fs = (o: object = {}) => ({
   thread: [said("Reed", SCRIPT), move("Making the clip.", "running")], ...o,
 });
 const version = (slot: number, o: object = {}) => ({ slot, status: "approved", title: "", seconds: 32 + slot * 3, project_id: null, text: `BO: version ${slot}.`, estimate_credits: 170 + slot, ...o });
-const scriptRow = { id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", look: "house", folder_id: null, versions: [version(0), version(1)], created_at: at };
+const scriptRow = { id: 7, brand_id: 1, title: "Bo tries salmon", kind: "story", format: "dialogue", look: "house", folder_id: null, versions: [version(0), version(1)], created_at: at };
 function server(me: object, routes: Record<string, [number, unknown]> = {}) {
   return fakeServer({
     "GET /auth/me": [200, me],
@@ -63,24 +63,33 @@ test("an editor's press reads Send for approval, and it opens on its waiting vie
   expect(document.body.textContent).not.toMatch(/\$|Reed/);
 });
 
-test("Song and Narrated are offered but off; Dialogue and One clip work, with the line that says so", async () => {
+test("Song is offered but off; Dialogue, Narrated, Presenter and One clip work, with the line that says so, and Presenter is sent", async () => {
   setViewport(1440);
-  server(editor);
+  const presenter = { id: "presenter", name: "Presenter", engine: "narrated", on: true, blurb: "A host talks to camera over B-roll." };
+  const formats = [{ id: "dialogue", name: "Dialogue", engine: "story", on: true, blurb: "" }, { id: "song", name: "Song", engine: "song", on: true, blurb: "" }, { id: "narrated", name: "Narrated", engine: "narrated", on: true, blurb: "" }, presenter];
+  const calls = server(owner, { "GET /formats": [200, formats], "POST /freestyles": [201, fs({ type: "presenter", project_id: 50 })], "GET /projects/50": [200, { id: 50, brand_id: 1, name: SCRIPT, freestyle_id: 9 }], "GET /freestyles/9": [200, fs({ type: "presenter", project_id: 50 })] });
   renderApp("/b/1/videos/new");
+  expect(await screen.findByText("One clip, Dialogue, Narrated and Presenter work now. Song is coming next.")).toBeInTheDocument();
   await userEvent.click(await screen.findByRole("button", { name: "Type: Dialogue" }));
-  for (const name of ["Song", "Narrated"]) expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${name}`) })).toHaveAttribute("aria-disabled", "true");
-  for (const name of ["Dialogue", "One clip"]) expect(screen.getByRole("menuitemradio", { name })).not.toHaveAttribute("aria-disabled");
-  expect(screen.getByText("One clip and Dialogue work now. Song and Narrated are coming next.")).toBeInTheDocument();
+  expect(screen.getByRole("menuitemradio", { name: /^Song/ })).toHaveAttribute("aria-disabled", "true");
+  for (const name of ["Dialogue", "Narrated", "Presenter", "One clip"]) expect(screen.getByRole("menuitemradio", { name })).not.toHaveAttribute("aria-disabled");
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "Presenter" }));
+  await userEvent.type(await words(), SCRIPT);
+  await userEvent.click(await screen.findByRole("button", { name: "Make it · up to 34 credits" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles")?.body).toMatchObject({ type: "presenter", text: SCRIPT }));
 });
 
 test("From a script: find it, pick a version; its words are read-only, type, style and brand locked, and the send names the version", async () => {
   setViewport(1440);
-  const calls = server(editor, { "GET /scripts": [200, [scriptRow, { ...scriptRow, id: 8, title: "Drafty", versions: [version(0, { status: "draft" })] }]], "GET /scripts/7": [200, scriptRow], "POST /freestyles": [201, fs({ type: "dialogue", status: "waiting" })], "GET /freestyles/9": [200, fs()] });
+  const others = [{ ...scriptRow, id: 8, title: "Drafty", versions: [version(0, { status: "draft" })] }, { ...scriptRow, id: 10, title: "Dr. Pickle reads", kind: "narrated", format: "presenter" }, { ...scriptRow, id: 11, title: "Bo sings", kind: "song", format: "song" }];
+  const calls = server(editor, { "GET /scripts": [200, [scriptRow, ...others]], "GET /scripts/7": [200, scriptRow], "POST /freestyles": [201, fs({ type: "dialogue", status: "waiting" })], "GET /freestyles/9": [200, fs()] });
   renderApp("/b/1/videos/new");
   await userEvent.click(await screen.findByRole("radio", { name: "From a script" }));
   expect(screen.getByRole("button", { name: "Pick a script" })).toBeDisabled();
   const list = await screen.findByRole("listbox", { name: "Scripts" });
   expect(within(list).queryByText("Drafty")).toBeNull(); // still being written
+  expect(within(list).getByText("Dr. Pickle reads")).toBeInTheDocument(); // a narrated or presenter script is made too
+  expect(within(list).queryByText("Bo sings")).toBeNull(); // Song comes next
   await userEvent.click(within(list).getByRole("option", { name: /Bo tries salmon/ }));
   await userEvent.click(await screen.findByRole("radio", { name: "B · 0:35" }));
   expect(screen.getByText("BO: version 1.")).toBeInTheDocument();

@@ -13,11 +13,10 @@ const project = {
 const settings = {
   look: "house", video_model: null, image_model: null, aspect_ratio: "9:16", product_variants: {}, language: "es",
   video_models: [
-    { id: "seedance-2.5", name: "Seedance 2.5", credits_per_second: 1, lip_sync: true, default: true, over_cap: false },
-    { id: "seedance-2.0", name: "Seedance 2.0", credits_per_second: 0.6, lip_sync: false, default: false, over_cap: false },
-    { id: "veo-4", name: "Veo 4", credits_per_second: 4, lip_sync: true, default: false, over_cap: true },
+    { id: "seedance-2.5", name: "Seedance 2.5", credits_per_second: 1, lip_sync: true, default: true },
+    { id: "seedance-2.0", name: "Seedance 2.0", credits_per_second: 0.6, lip_sync: false, default: false },
   ],
-  image_models: [{ id: "nano-banana-pro", name: "Nano Banana Pro", credits_per_still: 1.2, default: true, over_cap: false }],
+  image_models: [{ id: "nano-banana-pro", name: "Nano Banana Pro", credits_per_still: 1.2, default: true }],
   shapes: ["9:16", "1:1"],
   flavours: { bag: ["Chicken", "Peanut butter"] },
 };
@@ -26,7 +25,7 @@ const looks = [
   { id: "disney-pixar", name: "Disney Pixar", blurb: "", on: true, sample_still_id: null },
   { id: "noir", name: "Noir", blurb: "", on: false, sample_still_id: null },
 ];
-const preview = { to_finish_credits: 30, was_credits: 24, stills_out_of_date: 0, clips_out_of_date: 2, sung_to_broll: 3, over_budget: false, over_cap: false, reason: null };
+const preview = { to_finish_credits: 30, was_credits: 24, stills_out_of_date: 0, clips_out_of_date: 2, sung_to_broll: 3, over_budget: false, reason: null };
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, [{ id: 1, name: "Iron Paws", colours: [] }]],
@@ -78,7 +77,7 @@ test("a video made from a script shows its style locked, as Style: House · set 
   }
 });
 
-test("a picker lists choices with prices, says No lip-sync, and greys one over the video limit", async () => {
+test("a picker lists choices with prices, says No lip-sync", async () => {
   setViewport(1440);
   fakeServer(base);
   open();
@@ -86,9 +85,6 @@ test("a picker lists choices with prices, says No lip-sync, and greys one over t
   const seedance = await screen.findByRole("button", { name: /Seedance 2.0/ });
   expect(seedance).toHaveTextContent("0.6 credits a second");
   expect(within(seedance).getByText("No lip-sync")).toBeInTheDocument();
-  const veo = screen.getByRole("button", { name: /Veo 4/ });
-  expect(veo).toBeDisabled();
-  expect(veo).toHaveTextContent("Over the video limit");
   expect(screen.getByRole("button", { name: /Auto \(Seedance 2.5\)/ })).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -140,21 +136,6 @@ test("past the budget a switch still goes through (later presses wait for the ow
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Seedance 2.0?" });
   const go = await within(ask).findByRole("button", { name: "Switch" });
   await vi.waitFor(() => expect(go).toBeEnabled());
-  expect(calls.some((c) => c.key === "POST /projects/9/settings")).toBe(false);
-});
-
-test("over the video limit, Switch is disabled with the reason and the picker stays open", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, over_cap: true, reason: "This video would go over its limit." }] });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
-  await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
-  const ask = await screen.findByRole("alertdialog", { name: "Switch to Seedance 2.0?" });
-  const go = await within(ask).findByRole("button", { name: "Switch" });
-  await vi.waitFor(() => expect(go).toBeDisabled());
-  expect(within(ask).getByText("This video would go over its limit.")).toBeInTheDocument();
-  await userEvent.click(within(ask).getByRole("button", { name: "Not yet" }));
-  expect(screen.getByRole("button", { name: /Seedance 2.0/ })).toBeInTheDocument(); // the picker is still open
   expect(calls.some((c) => c.key === "POST /projects/9/settings")).toBe(false);
 });
 

@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import screen_figures, video_settings
+from app import p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
@@ -29,7 +29,7 @@ from app.references import LONG_SIDE
 from app.sheets import require_cast_sheets, require_looks, require_sheet
 
 log = logging.getLogger(__name__)
-RESOLUTION = "480p"  # project clips are planned and budgeted at 480p
+RESOLUTION = "480p"  # clips are planned at 480p; a model without it uses its own lowest
 KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "reference_audios"}
 
 
@@ -69,6 +69,14 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
     model = video_model(project)
+    resolution = model.take_resolution
+    take, sent = p_video.fit(model.id, {
+        "prompt": _with_note(in_english(prompt), note),
+        "duration": clip.seconds,
+        "resolution": resolution,
+        "aspect_ratio": project.aspect_ratio,
+        "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
+    }, {k: v for k, v in files.items() if v})  # fmt: skip
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -83,16 +91,10 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
         },
         "brand_id": project.brand_id,
-        "fit_images_to": LONG_SIDE[RESOLUTION],
+        "fit_images_to": LONG_SIDE[resolution],
         "exact_file_ids": exact,
-        "input": {
-            "prompt": _with_note(in_english(prompt), note),
-            "duration": clip.seconds,
-            "resolution": RESOLUTION,
-            "aspect_ratio": project.aspect_ratio,
-            "generate_audio": True,
-        },
-        "files": {k: v for k, v in files.items() if v},
+        "input": take,
+        "files": sent,
         "screen_figures": screen_figures.for_job(
             db, [r["id"] for r in clip.references], _shots(breakdown, shots)
         ),
@@ -132,6 +134,25 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
 def _shots(breakdown: dict, ids: list[str]) -> list[dict]:
     by_id = {s["id"]: s for scene in breakdown["scenes"] for s in scene["shots"]}
     return [by_id[i] for i in ids if i in by_id]
+
+
+VOICE_OVER = re.compile(r"v\.?o\b|narrator|voice-?over|off.?screen", re.I)  # a speaker nobody sees
+
+
+def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: list[dict]) -> bool:
+    """Whether someone speaks or sings on camera in this clip, so its take keeps sound (Reed,
+    3 Nov: B-roll won't all need sound; sound effects are added on request afterwards). A
+    narrated video's clips and a song's B-roll shots are silent; a song's sung shots and a
+    story's spoken lines are not."""
+    from app.narration import video_kind
+
+    kind = video_kind(db, project)
+    if kind == "narrated":
+        return False
+    if kind == "song" or clip.song_slice:
+        return bool((clip.song_slice or {}).get("sung_shots"))
+    return any(s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
+               for s in shots)  # fmt: skip
 
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
@@ -330,6 +351,14 @@ def after_fix(db: Session, row: ProjectClip, failed_id: int) -> None:
     _again(db, failed, again, wait=False)
 
 
+def once_more(db: Session, job: Job) -> None:
+    """A failed host still or piece, or a take's added sound: tried again once on its own
+    (never charged twice); after that Make again makes it (rule 22)."""
+    if job.auto or db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
+        return
+    _again(db, job, job.input, wait=bool(BUSY_SAID.search(job.error_detail or "")))
+
+
 def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
     project = db.get(Project, job.project_id)
     user = db.get(User, job.created_by_id)
@@ -358,6 +387,8 @@ def still_wanted(db: Session, job: Job) -> bool:
     prompt is the one it was made from (Flow-QA: an edit during a busy wait)."""
     row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
     project = db.get(Project, job.project_id) if job.project_id else None
+    if row is None and job.input.get("step") in ("host_still", "host_piece", "take_sound"):
+        return bool(project and project.archived_at is None)  # not a take: only its video
     return bool(row and project and project.archived_at is None
                 and row.prompt == job.input.get("clip_prompt"))  # fmt: skip
 
@@ -403,7 +434,8 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     along while checks are on (`item_checks.rides`)."""
     from app import item_checks
 
-    job = {"model": video_model(project).id, "input": {"resolution": RESOLUTION}}
+    m = video_model(project)
+    job = {"model": m.id, "input": {"resolution": m.take_resolution}}
     take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
     return take + item_checks.rides(db, project, clip)
 

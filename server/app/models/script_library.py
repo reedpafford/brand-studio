@@ -17,7 +17,8 @@ class Script(Filed, Entity, Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
-    kind: Mapped[str] = mapped_column(String(20), default="story")  # story | song (song ads)
+    kind: Mapped[str] = mapped_column(String(20), default="story")  # the format's engine
+    format: Mapped[str | None] = mapped_column(String(40))  # a guides format id; null: kind's own
     look: Mapped[str] = mapped_column(String(40), default="house")  # how pictures are drawn (ST1)
     language: Mapped[str] = mapped_column(String(10), default="en")  # its videos read it (VS1)
     description: Mapped[str] = mapped_column(Text, default="")

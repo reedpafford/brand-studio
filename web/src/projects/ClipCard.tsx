@@ -16,11 +16,11 @@ import { checkedMark, CheckNotes, type ItemCheck } from "./Checks";
 import { Dot, OtherTakes, Tag, takeReason } from "./OtherTakes";
 import { LookTip } from "./LookFix";
 import { ClipVersions } from "./VersionLists";
+import { TakeSound } from "./TakeSound";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 const ratio = (a: string) => a.replace(":", " / ");
 const editLink = "text-accent-text hover:underline disabled:cursor-not-allowed disabled:text-disabled-text disabled:no-underline";
-
 /** The prompt as the editor reads it: script font, five lines (Show all when there's more), and each [ImageN] as the name of what it points at. */
 function PromptText({ clip }: { clip: Clip }) {
   const [all, setAll] = useState(false);
@@ -179,6 +179,8 @@ export function ClipCard(props: {
                 {!status && <JobClock queued={props.job?.status === "queued"} making="Making…" since={props.job?.status === "queued" ? props.job.created_at : (props.job?.started_at ?? props.job?.created_at)} />}
               </span>
             )}
+            {/* Its take shows an older Cast & places look (N6): still approved, and the Advice below says what to do. */}
+            {c.take_stale && !props.busy && status !== "Out of date" && <Badge tone="warning">Out of date</Badge>}
           </h3>
           {props.line && <p className={`break-words font-script ${props.review ? "text-xs text-text/80" : ""}`}>{props.line}</p>}
         </div>
@@ -227,7 +229,7 @@ export function ClipCard(props: {
             {picked && !live && <Tag>Take {picked.number}</Tag>}
           </div>
           {picked ? (
-            <Dot tone={byCheck || picked.verdict === "clean" ? "ok" : picked.verdict === "flagged" ? "need" : "none"}>{byCheck ? "Approved by the check" : c.approved ? `Approved · ${takeReason(picked)}` : takeReason(picked)}</Dot>
+            <><Dot tone={byCheck || picked.verdict === "clean" ? "ok" : picked.verdict === "flagged" ? "need" : "none"}>{byCheck ? "Approved by the check" : c.approved ? `Approved · ${takeReason(picked)}` : takeReason(picked)}</Dot><TakeSound projectId={props.projectId} clip={c} /></>
           ) : (
             <span className="text-xs text-muted">No take yet</span>
           )}

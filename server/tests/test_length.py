@@ -24,13 +24,13 @@ def test_a_project_can_start_without_a_length(editor):
     assert made.json()["planned_seconds"] is None and made.json()["budget_credits"] > 30
 
 
-def test_the_budget_never_drops_for_a_plan_with_fewer_clips_and_stops_at_the_cap(editor, setup):  # noqa: F811
+def test_the_budget_never_drops_for_a_plan_with_fewer_clips_and_is_not_capped(editor, setup):  # noqa: F811
     """QA on #679: a breakdown with fewer clips than guessed lowered the budget a little, and a
-    360 s video showed 851.7 though the per-video cap stops it at 729."""
+    360 s video showed 851.7. There is no per-video cap now (Reed, 2026-11-03), so it stays."""
     url = f"/projects/{setup['project']}"
     editor.patch(url, json={"planned_seconds": 40})  # guessed at 5 clips
     guessed = editor.get(url).json()["budget_credits"]
     editor.put(f"{url}/breakdown", json=BREAKDOWN)  # the plan has 1 clip
     assert editor.get(url).json()["budget_credits"] == guessed
     editor.patch(url, json={"planned_seconds": 360})
-    assert editor.get(url).json()["budget_credits"] == 729  # the $75 cap
+    assert editor.get(url).json()["budget_credits"] > 729  # past the old $75 cap

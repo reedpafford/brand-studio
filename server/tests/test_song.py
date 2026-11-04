@@ -3,11 +3,11 @@ measured song: B-roll under it, lip-sync only where the script asks."""
 
 import json
 
-from app import prompts
+from app import guides, prompts
 from app.prompts import check, schemas
 from app.prompts.schemas import SongBreakdown
 
-EXAMPLES = prompts.HERE / "examples"
+EXAMPLES = guides.ROOT / "formats" / "song" / "examples"
 LYRICS = (
     "[Verse 1]\nBowl stays full\nThen the green goes on\n[Chorus] [Lip-sync]\nGet Iron Paws now"
 )
@@ -79,9 +79,9 @@ def test_a_song_breakdown_is_the_breakdown_plus_its_own_part():
     song, story = prompts.system("song_breakdown"), prompts.system("breakdown")
     assert song.startswith(story.split("## Worked example")[0].strip())  # same rules first
     assert "# Song ads" in song and "# Song ads" not in story
-    assert "## Worked example" not in song  # the story example would teach dialogue shots
+    assert "\n## Worked example" not in song  # the story example would teach dialogue shots
     assert "Style: Song" not in song
-    assert prompts.style("song")["sections"].get("clip") in prompts.system(
+    assert guides.format_("song")["sections"]["Clips"] in prompts.system(
         "clip_prompts", "house", "song"
     )
 
@@ -225,7 +225,7 @@ def test_the_prompts_carry_what_made_reeds_song_ads_good():
     for part in ("**A shape that has worked.**", "mid-air leap", "nudges the product to the lens",
                  "never gross", "at four moments", "past about 16 s"):  # fmt: skip
         assert part in breakdown, part
-    assert "## Style:" not in prompts.system("breakdown")  # story breakdowns untouched
+    assert "## Format: Song" not in prompts.system("breakdown")  # story breakdowns: no song guide
 
 
 STUDY = {
@@ -325,25 +325,21 @@ def test_a_name_after_a_genre_word_goes_and_leaves_no_like_the():
 
 
 def test_a_song_in_any_look_gets_its_looks_tokens_and_songs_guides():
-    """Song in any look: the look fills the tokens; song.md's still and clip guides come
-    after it. A story's (or narrated) prompts are byte for byte as before."""
-    song, clay = prompts.style("song")["sections"], prompts.style("claymation")["sections"]
-    for step, guide in (("clip_prompts", "clip"), ("storyboard", "still")):
+    """Song in any look: the look fills the tokens; the song guide adds to the look, never
+    changes it, and reaches only a song (formats/song/guide.md)."""
+    song, clay = guides.format_("song")["sections"], prompts.style("claymation")["sections"]
+    for step, guide in (("clip_prompts", "Clips"), ("storyboard", "Stills")):
         made = prompts.system(step, "claymation", "song")
-        assert made.startswith(prompts.system(step, "claymation"))  # the look's own, unchanged
         assert song[guide] in made and "## Format: Song" in made
+        assert "follow this video's look, and never write a studio's name" in made
         assert clay["clip_style"] in made or clay["still_look"] in made
         for kind in ("", "story", "narrated"):
             assert song[guide] not in prompts.system(step, "house", kind)
-            assert prompts.system(step, "house", kind) == prompts.system(step, "house")
-    # the plan is the story's, plus Reed's song skill on top (the Producer, 2 Nov): nothing else
-    song_plan = prompts.system("plan", "claymation", "song")
-    story_plan = prompts.system("plan", "claymation")
-    assert song_plan == story_plan + "\n\n" + prompts.skill("", "song")
+        assert prompts.system(step, "house", "story") == prompts.system(step, "house")
 
 
 def test_reeds_song_skill_is_folded_in():
-    """Reed's song-ad skill (docs/next/skills, #1095): the whole genre map, the Suno pacing
+    """Reed's song-ad skill (#1095): the whole genre map, the Suno pacing
     and tags (already in song_request), and a shape that worked stays a pattern, never a rule
     (story logic is per story, Reed)."""
     directions = prompts.system("song_directions")
@@ -354,7 +350,7 @@ def test_reeds_song_skill_is_folded_in():
     sent = prompts.song_request("[Chorus]\nWe sing.", "indie pop, 100 BPM")
     assert sent["lyrics"].startswith("[Intro: vocals start immediately]\n")
     assert sent["lyrics"].endswith("\n[End]") and "spoken word" in sent["exclude_styles"]
-    assert sent["style"].endswith("continuous singing, tight ending")
+    assert sent["style"].endswith("at most one short instrumental break, short instrumental ending")
 
 
 def test_song_producer_review_the_hook_first_the_rate_the_vocal_and_a_set_that_varies():

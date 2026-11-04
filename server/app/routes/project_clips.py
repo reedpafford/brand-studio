@@ -20,6 +20,7 @@ from app import (
     clip_takes,
     credits,
     cut_in,
+    host,
     item_checks,
     looks,
     narration,
@@ -28,10 +29,11 @@ from app import (
     screen_figures,
     take_approval,
     take_mute,
+    take_sound,
     video_settings,
     word_splice,
 )
-from app.advice import Said
+from app.advice import Said, SaidText
 from app.auth import current_user
 from app.db import get_db, utcnow
 from app.item_checks import CheckOut
@@ -81,6 +83,16 @@ class TakeOut(BaseModel):
     verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
     approved_by: str | None = None  # "check": it approved itself, clean (rule 21)
     mutes: list[list[float]] = []  # stretches muted, as added: Undo takes back one (take_mute)
+
+
+class SoundOut(BaseModel):
+    """Sound effects added to the picked take on request (app/take_sound.py)."""
+
+    state: Literal["none", "making", "ready", "failed"]
+    how: str  # slight, normal or strong: how loud under the take's own sound
+    asked: str  # what the person asked for, in their words
+    error: SaidText = ""  # its last run failed: why, in plain words (Make again)
+    credits: float  # Add sound effects: one run, at its real cost
 
 
 class NarrationOut(BaseModel):
@@ -155,6 +167,7 @@ class ProjectClipOut(BaseModel):
     auto_fix: AutoFixOut | None = None  # P3: wording fixed for you, with Undo
     look_fix: str | None = None  # the look's fix to offer when its takes are refused (ST2)
     versions: list[PromptVersionOut] = []  # OR3: this prompt's versions, the one in hand first
+    sound: SoundOut | None = None  # the picked take's added sound effects; null with no take
 
 
 def _versions(db: Session, row: ProjectClip) -> list[PromptVersionOut]:
@@ -178,7 +191,7 @@ _stale = clip_prompts.is_stale
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
-                "look_fix", "versions")  # fmt: skip
+                "look_fix", "versions", "sound")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -225,6 +238,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         auto_fix=AutoFixOut(**row.auto_fix) if row.auto_fix else None,
         change=asked or None,
         versions=_versions(db, row),
+        sound=take_sound.state(db, next((t for t in takes if t.id == row.picked_take_id), None)),
     )
 
 
@@ -399,6 +413,7 @@ def edit_clip(
     row.same_fix = fix and body.prompt == row.change.get("before")  # its Undo: still counted
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, **body.model_dump())
+    clip = clip.model_copy(update={"prompt": clip_prompts.words_kept(clip.prompt)})
     clip = clip_prompts.with_cast(db, project, clip, bd, trim=False)
     refused = clip_prompts.refusal(row.problems, row.prompt, clip.prompt)
     if clip.prompt != row.prompt:  # new words: fixed as written, with an Undo for these words
@@ -473,8 +488,8 @@ def generate(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Make a new take of this clip (a paid video job, counted against the project budget and
-    its per-video cap). A clip with problems must be fixed first."""
+    """Make a new take of this clip (a paid video job, counted against the project budget).
+    A clip with problems must be fixed first."""
     project, row = _clip(db, user, project_id, clip_id)
     if advice.stops(row):  # advice and problems kept anyway never block
         raise HTTPException(409, "Fix this clip's problems first.")
@@ -635,14 +650,14 @@ def set_insert(
 
 
 def _cut_ins(db: Session, project: Project, clips: list[ProjectClip]) -> list[str]:
-    """What the final cut puts over its takes: each insert switched on, and each muted stretch
-    (so a new one shows as changes waiting)."""
+    """What the final cut puts over its takes: each insert switched on, each muted stretch, each
+    added sound and a presenter's host pieces (so a new one shows as changes waiting)."""
     cuts = [f"{c.clip_id}/{i.shot_id}" for c in clips for i in cut_in.inserts(db, project, c)
             if i.on]  # fmt: skip
     for c in clips:
         take = db.get(ClipTake, c.picked_take_id) if c.picked_take_id else None
-        cuts += take_mute.labels(c, take) + word_splice.labels(c, take)
-    return cuts
+        cuts += take_mute.labels(c, take) + word_splice.labels(c, take) + take_sound.labels(c, take)
+    return cuts + host.labels(db, project)
 
 
 @router.post("/clips/{clip_id}/prompt-ok", response_model=ProjectClipOut)
@@ -853,6 +868,9 @@ def make_video(
     narrated = bool(song and song.kind == narration.KIND)
     if narrated and narration_music.state(db, song)[0] == "making":
         raise HTTPException(409, narration_music.MAKING)
+    hosted = host.on(db, project)  # a presenter: the host over the narrated B-roll
+    if hosted and not (narrated and host.ready(db, project)):
+        raise HTTPException(409, host.NOT_READY)
     try:
         videos = [_with_cut_ins(db, storage, project, c) for c in clips]
         if song:  # the song is the only sound (V6); a narration keeps the takes' (V6n)
@@ -862,6 +880,7 @@ def make_video(
             sound = storage.get(db.get(StoredFile, song.file_id).key)
             bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
             data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
+            data = host.lay(db, storage, project, data) if hosted else data
         else:
             data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
     except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly
@@ -903,9 +922,8 @@ AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end
 
 def song_end(take: SongTake) -> float | None:
     """Where a song video ends: its last line heard, and a breath."""
-    from app import song_breakdown
 
-    sung = [x for x in song_breakdown.timing_used(take).get("lines") or []
+    sung = [x for x in (take.timing or {}).get("lines") or []
             if (x.get("heard") or 0) >= 0.5 and x.get("end") is not None]  # fmt: skip
     return round(sung[-1]["end"] + AFTER_LAST_LINE, 2) if sung else None
 
@@ -929,7 +947,8 @@ def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> 
         return storage.get(db.get(StoredFile, db.get(ClipTake, take_id).file_id).key)
 
     video = word_splice.apply(video, word_splice.spliced(take), source)  # the brand said right
-    return take_mute.apply(video, take_mute.spans(take))  # stretches muted by hand
+    video = take_mute.apply(video, take_mute.spans(take))  # stretches muted by hand
+    return take_sound.under(db, storage, take, video)  # sound effects added on request
 
 
 @router.get("/video", response_model=VideoOut)
