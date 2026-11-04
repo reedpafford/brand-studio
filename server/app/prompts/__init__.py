@@ -35,7 +35,6 @@ SCHEMAS = {
     "plan_scene": schemas.PlanScene,  # P1's "Change this scene…"
     "item_check": schemas.ItemCheck,  # flows P4: the advisory check on a still or a take
     "narration_music": schemas.NarrationMusic,  # flows N1: the bed under the narrator
-    "site_read": schemas.SiteRead,  # flows BR2: Import from website
     "language_sample": schemas.ScriptDrafts,  # flows VS1: a language's sample test
     "director": schemas.DirectorTurn,  # director-chat.md §5: one decision a turn
     "watch_cut": schemas.CutWatch,  # the director's eyes on the finished cut
@@ -55,7 +54,6 @@ NO_RULES = {
     "look_fit",
     "narration_music",
     "item_check",
-    "site_read",
     "watch_cut",
     "review_stills",
 }  # not script writers: the rules would only add tokens
@@ -192,22 +190,13 @@ def required(screens: list[dict], product: dict | None = None) -> dict[str, list
 
 
 def brand_block(brand: dict, screens: list[dict], product: dict | None = None) -> str:
-    """`brand`: name, tone_notes, never_say, legal_line, end_line. `screens`: id, name, tags,
+    """`brand`: name, tone_notes ("Tone and rules"). `screens`: id, name, tags,
     default_for (the moments a screen is required at) and, when its picture prints one,
     balance (e.g. "$348,920.15": the got-rich payoff uses it). `product`: the one product
     this project picked (id, name), e.g. the Iron Paws peanut butter bag."""
     lines = [f"<brand>\nBrand: {brand['name']}"]
     if brand.get("tone_notes"):
         lines.append(f"Tone: {brand['tone_notes']}")
-    if brand.get("never_say"):
-        lines.append("Never say: " + "; ".join(brand["never_say"]))
-    if brand.get("end_line"):
-        lines.append(  # Current rules 18: the default wording, adapted to the story if needed
-            "End line (the default call to action every video ends on; it may be adapted to "
-            f"the story if it still names the brand and where to find it): {brand['end_line']}"
-        )
-    if brand.get("legal_line"):
-        lines.append(f"Legal line (added in post, don't write it): {brand['legal_line']}")
     needed = [s for s in screens if s.get("default_for")]
     if needed:
         lines.append(
@@ -263,7 +252,7 @@ def reference_block(ref: dict, replace: str = "") -> str:
     for b in ref["beats"]:
         what = f"{b['summary']} ({b['emotion']})"
         if b["start"] >= live_from:
-            what = "Live-action tag: removed; the brand's end line goes here."
+            what = "Live-action tag: removed; the script's own ending goes here."
         lines.append(f"- {b['start']:.1f}–{b['end']:.1f} s {what}")
     if m := ref.get("montage"):
         lines.append(
@@ -282,7 +271,7 @@ def reference_block(ref: dict, replace: str = "") -> str:
     if live:
         lines.append(
             f"Shots {live[0]['n']}–{live[-1]['n']} ({live[0]['start']:.2f}–{live[-1]['end']:.2f} s)"
-            " are live action: always removed; that slot becomes the brand's end line."
+            " are live action: always removed; that slot becomes the script's own ending."
         )
     if replace:
         lines.append(f"Replace: {replace}")
@@ -412,7 +401,6 @@ SUNG_RATE = (2.0, 2.65)
 def song_directions_input(
     brief: str,
     cast: list[str],
-    music_style: str = "",
     seconds: int | None = None,
     note: str = "",
     source: str = "",
@@ -421,14 +409,12 @@ def song_directions_input(
     recent_styles: list[str] | None = None,
 ) -> str:
     """The user message for the song_directions step (with brand_block in the system prompt).
-    `music_style` is the brand's genre line; `seconds` only when the editor asked for a length;
+    `seconds` only when the editor asked for a length;
     `source` a script or voice-over to adapt into lyrics; `sounds_like` a song or artist the
     editor wants it to feel like (the style line describes it, never names it); `reference` a
     winning song ad's study (its transcript, tempo and sections) whose shape to follow;
     `recent_styles` the style lines of the brand's latest songs, so a set doesn't sound alike."""
     parts = [f"<brief>\n{brief}\n</brief>", "<cast>\n" + "\n".join(cast) + "\n</cast>"]
-    if music_style:
-        parts.append(f"<music_style>{music_style}</music_style>")
     if sounds_like:
         parts.append(f"<sounds_like>{sounds_like}</sounds_like>")
     if recent_styles:

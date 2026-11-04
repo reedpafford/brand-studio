@@ -49,6 +49,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n33 | Voices (v6 S8-04): new `voices` {workspace_id, brand_id (null: a style's voice), look, name, kind cloned/described, provider, provider_voice_id, speech_model, description, sample_file_id, preview_file_id, job_id, cloned_at, last_used_at, lost_at, created_by_id, archived_at}; `library_items.voice_id` (nullable FK to `voices`) and `library_items.voice_stock_key` (String(60), an app voice's key), one or neither (S8-03). No data step: a style's voice (Dr. Pickle's clone) is added to a workspace the first time its voices are read (app/voices.py). Downgrade drops both | v6-models | — |
 | n34 | Who has watched which take (v6 piece C, S3-09): new table `take_seen` {take_id (FK clip_takes, indexed), user_id (FK users), created_at}, unique per take and person. A clip the director changed stays outlined for a person until they've watched its new take. Downgrade drops the table. **Renumber at merge** if another n34 lands first | v6-progress | — |
 | n35 | The v6 library (S8, S-gaps-05): `library_items.archived_at` (set on archive, cleared on Undo; items archived before it have none), `created_by_id` FK users, `presenter` bool false (a face and a voice; how they appear is each video's pick), `place_id` FK `library_items` (a character's usual place), `product_type` String(10) null ("app" or "physical"; existing products are physical); `brand_screens.product_id` FK `library_items` replaces the free-text `brand_screens.product`: each brand's product word is matched to its library product by name (any case), a word with no product makes one in that brand, and a screen with no product word goes to the brand's app product ("<brand> app", made once). Downgrade writes physical products' names back | v6-library | — |
+| n36 | A short Brand kit (S-gaps-05 L1, Reed 4 Nov): drops `brands.end_line`, `cta_lines`, `never_say`, `do_list`, `dont_list`, `legal_line`, `audience`, `fonts`, `style_board_file_id`, `end_card_file_id`, `music_style`, `default_language`, `default_look`, `default_cast`; a brand keeps name, logo, colours and `tone_notes` ("Tone and rules"). Videos' `end_line` lock is taken out of `projects.locks` (rule 18: the ending comes from the script). Downgrade adds the columns back empty | v6-library | — |
 
 ## Merge order (the chain on `next`)
 
@@ -90,6 +91,7 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 31 | n33 | #1314 | n32 | On its PR |
 | 32 | n34 | — | n33 | On its PR (v6-progress) |
 | 33 | n35 | — | n34 | On its PR |
+| 34 | n36 | — | n35 | On its PR |
 
 ## 1. Song ads
 

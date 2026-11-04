@@ -51,9 +51,9 @@ def characters(db: Session, brand: Brand) -> list[LibraryItem]:
 
 
 def hero(db: Session, brand: Brand) -> LibraryItem | None:
-    """The brand's default cast's first character, if it's still there."""
-    mine = {c.id: c for c in characters(db, brand)}
-    return next((mine[i] for i in brand.default_cast or [] if i in mine), None)
+    """The brand's first presenter, else its first character (brands keep no default cast)."""
+    mine = characters(db, brand)
+    return next((c for c in mine if c.presenter), None) or next(iter(mine), None)
 
 
 def _who(db: Session, brand: Brand, look_id: str, character_id: int | None):

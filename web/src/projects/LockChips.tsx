@@ -5,13 +5,12 @@ import type { components } from "../api/schema";
 import { useToast } from "../toast";
 
 type LocksIO = components["schemas"]["LocksIO"];
-type Flag = "cast" | "look" | "length" | "song" | "end_line";
+type Flag = "cast" | "look" | "length" | "song";
 const FLAGS: { id: Flag; label: string }[] = [
   { id: "cast", label: "Cast" },
   { id: "look", label: "Style" },
   { id: "length", label: "Length" },
   { id: "song", label: "Song" },
-  { id: "end_line", label: "End line" },
 ];
 const chip = "inline-flex min-h-control items-center gap-1.5 rounded-md border px-2.5 text-sm sm:min-h-control-dense";
 

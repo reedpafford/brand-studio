@@ -13,18 +13,16 @@ def test_create_and_edit_kit(owner, editor):
     assert r.status_code == 201
     brand = r.json()
     assert brand["slug"] == "night-owl"
-    r = editor.patch(  # what editors edited before BR1 they still may
-        f"/brands/{brand['id']}",
-        json={
-            "logo_file_id": logo,
-            "never_say": ["guaranteed returns"],
-            "legal_line": "Not advice.",
-        },
+    r = editor.patch(  # editors edit the kit too (Reed, 30 Oct)
+        f"/brands/{brand['id']}", json={"logo_file_id": logo, "tone_notes": "Calm. No hype."}
     )
     kit = r.json()
-    assert kit["logo_file_id"] == logo
-    assert kit["never_say"] == ["guaranteed returns"]
+    assert (kit["logo_file_id"], kit["tone_notes"]) == (logo, "Calm. No hype.")
     assert kit["colours"] == ["#112233"]  # untouched fields stay
+    # S-gaps-05 L1: the kit is the name, logo, colours, and tone and rules; nothing else
+    assert set(kit) == {"id", "name", "slug", "logo_file_id", "colours", "tone_notes"}
+    removed = owner.patch(f"/brands/{brand['id']}", json={"logo_file_id": None}).json()
+    assert removed["logo_file_id"] is None
 
 
 def test_bad_colour_and_unknown_file_rejected(owner):

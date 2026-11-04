@@ -62,8 +62,7 @@ def _off_by_one(a: str, b: str) -> bool:
 
 def say(brand: Brand) -> str:
     """How the brand's name is said, from its notes ("Say fomo FOH-moh"), else as written."""
-    notes = [brand.tone_notes or "", *(brand.do_list or [])]
-    for note in notes:
+    for note in (brand.tone_notes or "").splitlines():
         if brand.name.lower() in note.lower() and (m := re.search(r"\b[A-Z]+-[A-Za-z-]+\b", note)):
             return m.group(0)
     return brand.name

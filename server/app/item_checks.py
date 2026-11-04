@@ -172,9 +172,7 @@ def _screen_rules(db: Session, project: Project) -> list[str]:
     from app.models.brands import Brand
 
     brand = db.get(Brand, project.brand_id)
-    notes = [*(brand.tone_notes or "").splitlines(), *(brand.do_list or []),
-             *(brand.dont_list or [])]  # fmt: skip
-    return [n.strip() for n in notes if "screen" in n.lower()]
+    return [n.strip() for n in (brand.tone_notes or "").splitlines() if "screen" in n.lower()]
 
 
 def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs: list[str],

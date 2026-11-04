@@ -12,7 +12,6 @@ from app import prompts
 from app import script_library as lib
 from app.breakdown import payoffs_block, recent_payoffs
 from app.enhance import escape, escape_block, project_context, project_screens
-from app.models.brands import Brand
 from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft
@@ -76,7 +75,6 @@ def save_variations(db: Session, job: Job) -> None:
     original = db.scalar(
         select(ScriptDraft).where(ScriptDraft.script_id == script.id, ScriptDraft.slot == 0)
     )
-    brand = db.get(Brand, script.brand_id)
     screens = {
         f"screen:{s.id}": s.default_for
         for s in project_screens(db, stand_in_project(db, script, original))
@@ -84,9 +82,8 @@ def save_variations(db: Session, job: Job) -> None:
     names = [item.name for item, _ in _locked(db, script)]
     slots = job.input["slots"]
     found = check.variations(
-        original.text, result, screens, brand.end_line, brand.dont_list, len(slots), cast=names,
-        brand=brand.name, note=job.input.get("note", ""), sung=script.kind == "song",
-    )  # fmt: skip
+        original.text, result, screens, len(slots), cast=names, note=job.input.get("note", "")
+    )
     for n, (slot, made) in enumerate(zip(slots, result.variations, strict=False), 1):
         draft = db.scalar(
             select(ScriptDraft).where(ScriptDraft.script_id == script.id, ScriptDraft.slot == slot)

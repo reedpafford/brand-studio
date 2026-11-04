@@ -72,7 +72,6 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             hear_study,
             hear_take,
             hear_voice,
-            read_site,
             study_link,
             transcript,
         )
@@ -80,7 +79,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
         local = LocalProvider(storage, transcribe=transcript, fetch_link=study_link,
                               hear_song=hear_song, hear_voice=hear_voice,
                               hear_study=hear_study, fetch_study=study_link,
-                              read_site=read_site, hear_take=hear_take,
+                              hear_take=hear_take,
                               hear_cut=hear_cut)  # fmt: skip
         return {
             "fake": FakeProvider(),
@@ -106,10 +105,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
                 else {}
             ),  # fmt: skip
         }
-    from app import site_fetch
-
-    local = LocalProvider(storage, read_site=site_fetch.read_site if settings.site_read_real
-                          else site_fetch.switched_off)  # fmt: skip
+    local = LocalProvider(storage)
     providers = {"fake": FakeProvider(), "replicate": _replicate(settings),
                  "claude": _claude(settings), "local": local}  # fmt: skip
     if settings.heygen_api_key.get_secret_value():  # the UGC talker: once its key is set
