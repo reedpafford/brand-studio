@@ -306,7 +306,7 @@ def ready(db: Session, voice: Voice) -> None:
 
 def narration_job(db: Session, workspace_id: int, brand_id: int | None, script: str,
                   said: str, note: str = "", emotion: str | None = None,
-                  reading: str = "") -> dict:  # fmt: skip
+                  reading: str = "", speed: float | None = None) -> dict:  # fmt: skip
     """The voice call in a saved voice: MiniMax's own inputs (narration's), its voice id, on
     the model it was cloned for. A voice that may be gone is refused (409), never swapped."""
     voice = named(db, workspace_id, said, brand_id)
@@ -316,7 +316,7 @@ def narration_job(db: Session, workspace_id: int, brand_id: int | None, script: 
         raise HTTPException(422, REMOVED.format(name=voice.name))
     ready(db, voice)
     try:
-        built = narration.job(script, narration.MINIMAX_VOICES[0], note, emotion, reading)
+        built = narration.job(script, narration.MINIMAX_VOICES[0], note, emotion, reading, speed)
     except ValueError as no:
         raise HTTPException(422, str(no)) from None
     sent = built["input"]["text"]  # the words as read: the reading, else the script's own

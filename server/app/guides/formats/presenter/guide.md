@@ -4,6 +4,7 @@ on: yes
 engine: narrated
 host: yes
 blurb: A host talks to camera the whole video from a bottom corner, over full-frame B-roll that shows each line as it's said.
+card: A host over B-roll
 
 <!-- 3 Nov: Reed's F1 (four formats: Presenter is a host talking over B-roll, as in UGC and Dr. Pickle) and F9 (Dr. Pickle is a style in Presenter). The guidance below is only what the Dr. Pickle and UGC studies measured for the host-over-B-roll treatment (.context/team/specs/dr-pickle/spec.md, specs/ugc/spec.md: d7c6e8). `host: yes` tells the site to make the host: one still on green, lip-synced in pieces to the narration, keyed over the B-roll in the final cut. -->
 

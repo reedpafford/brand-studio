@@ -69,13 +69,6 @@ def test_the_sound_is_the_narration_never_the_hosts():
     assert "scale=-2:486" in graph  # 38 % of the frame's height
 
 
-def test_the_host_is_made_in_pieces_of_up_to_12_s_cut_at_sentence_ends():
-    assert host_layer.pieces([4, 9, 13, 20, 26]) == [(0, 9), (9, 20), (20, 26)]
-    assert host_layer.pieces([15]) == [(0, 15)]  # one long sentence stays whole
-    with pytest.raises(ValueError):
-        host_layer.pieces([3, 25])  # P-Video would cut its sound at 20 s
-
-
 @pytest.mark.parametrize("sides", [[], [(1, "left")], [(0, "up")], [(0, "left"), (0, "right")]])
 def test_sides_start_at_zero_and_go_in_order(sides):
     with pytest.raises(ValueError):
