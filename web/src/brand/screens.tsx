@@ -127,7 +127,7 @@ export function ScreenEditor({ brandId, screen: sc, onClose }: { brandId: number
           )}
         </div>
         <ChipList label="Tags" items={tags} onChange={setTags} normalise={slug} placeholder="e.g. trading, chart-up" hint="What the screen shows. Spaces become dashes." />
-        {sc.product_id && <Field label="Flavour" placeholder="e.g. Chicken" value={variant} onChange={(e) => setVariant(e.target.value)} hint={`A photo of ${sc.product}. Each video shows one flavour of it.`} />}
+        {sc.product && <Field label="Flavour" placeholder="e.g. Chicken" value={variant} onChange={(e) => setVariant(e.target.value)} hint={`A photo of ${sc.product}. Each video shows one flavour of it.`} />}
         <ChipList label="Always use this screen for" items={moments} onChange={setMoments} normalise={slug} placeholder="e.g. buy-moment" hint="Videos add it when the prompt or a shot mentions the moment." />
         {save.isError && !taken && <p role="alert" className={errorClass}>{save.error.message}</p>}
         {remove.isError && <p role="alert" className={errorClass}>{remove.error.message}</p>}

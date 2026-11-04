@@ -146,7 +146,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
                 v.file_id ? (
                   <button key={`${v.file_id}-${n}`} type="button" aria-label={`${item.name}, ${v.label}`} aria-pressed={(shown ?? cover(item)) === v.file_id} onClick={() => setShown(n === 0 && !product ? null : v.file_id!)} className="flex flex-col gap-1 text-left">
                     <img src={fileUrl(v.file_id)} alt="" className={`h-[94px] w-[70px] rounded-md object-cover ${(shown ?? cover(item)) === v.file_id ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
-                    <span className={`text-xs ${n === 0 ? "font-semibold" : "text-muted"}`}>{v.label}</span>
+                    <span className={`w-[70px] truncate text-xs ${n === 0 && !product ? "font-semibold" : "text-muted"}`}>{v.label}</span>
                   </button>
                 ) : null,
               )}
@@ -238,7 +238,8 @@ function Facts({ item, brandId }: { item: Item; brandId: number }) {
   const places = useItems("place", brandId);
   const queryClient = useQueryClient();
   const who = members.data?.find((m) => m.id === item.created_by_id)?.name;
-  const from = item.kind === "prop" ? (item.pictures?.length ? "A real photo" : "No photo yet") : item.source_photo_file_id ? "Uploaded" : "Made from a description";
+  const pics = item.pictures?.length ?? 0;
+  const from = item.kind === "prop" ? (item.product_type === "app" ? `${pics} real screen${pics === 1 ? "" : "s"}` : pics ? "A real photo" : "No photo yet") : item.source_photo_file_id ? "Uploaded" : "Made from a description";
   const came = [from, who && `by ${who}`].filter(Boolean).join(" ") + (item.created_at ? `, ${day(item.created_at)}` : "");
   const place = places.data?.find((p) => p.id === item.place_id);
   const setPlace = useMutation({
