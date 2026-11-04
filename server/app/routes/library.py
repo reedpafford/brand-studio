@@ -60,6 +60,10 @@ class ItemIn(BaseModel):
     image_file_ids: list[int] = []
     outfits: list[Outfit] = []  # characters only
     voice_file_id: int | None = None  # characters only
+    # A character's voice (S8-03): a saved voice (`voices` row) or an app voice by its key
+    # ("Roger"); one or neither. A presenter's host narrates in it.
+    voice_id: int | None = None
+    voice_stock_key: str | None = None
     # Characters and places: a photo kept as source material only, never used in videos.
     source_photo_file_id: int | None = None
     # Products (flows BR1; owner only): what it is in a line, and the claim scripts may make
@@ -83,6 +87,8 @@ class ItemPatch(BaseModel):
     image_file_ids: list[int] | None = None
     outfits: list[Outfit] | None = None
     voice_file_id: int | None = None
+    voice_id: int | None = None  # null removes it
+    voice_stock_key: str | None = None  # null removes it
     source_photo_file_id: int | None = None
     short_description: LongText | None = None  # products, owner only
     main_claim: LongText | None = None  # products, owner only
@@ -142,6 +148,8 @@ def _snapshot(item: LibraryItem) -> dict:
         "image_file_ids": item.image_file_ids,
         "outfits": item.outfits,
         "voice_file_id": item.voice_file_id,
+        "voice_id": item.voice_id,
+        "voice_stock_key": item.voice_stock_key,
         "source_photo_file_id": item.source_photo_file_id,
         "short_description": item.short_description,
         "main_claim": item.main_claim,
@@ -267,12 +275,15 @@ def pick_item(
 
 
 def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
-    """Null means "leave as is" for every field except `voice_file_id` (null removes it)."""
+    """Null means "leave as is" for every field except the voice fields and the source photo
+    (null removes them)."""
     for field in ("name", "brand_ids"):
         if values.get(field) is None:
             values.pop(field, None)
-    if item.kind != Kind.character and (values.get("outfits") or values.get("voice_file_id")):
+    voiced = values.get("voice_file_id") or values.get("voice_id") or values.get("voice_stock_key")
+    if item.kind != Kind.character and (values.get("outfits") or voiced):
         raise HTTPException(422, "Only characters have outfits and a voice.")
+    _check_voice(db, user, item, values)
     words = {k for k in PRODUCT_WORDS  # changed, not just sent again (a version, a create)
              if values.get(k) is not None and values[k] != (getattr(item, k) or "")}  # fmt: skip
     if words and item.kind != Kind.prop:
@@ -293,8 +304,35 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
     if "brand_ids" in values:
         item.brands = [get_brand(db, user, b) for b in sorted(set(values.pop("brand_ids")))]
     for field, value in values.items():
-        if value is not None or field in ("voice_file_id", "source_photo_file_id"):
+        if value is not None or field in NULL_REMOVES:
             setattr(item, field, value)
+
+
+NULL_REMOVES = ("voice_file_id", "voice_id", "voice_stock_key", "source_photo_file_id")
+ONE_VOICE = "Give a character one voice: a saved voice or an app voice, not both."
+OTHER_BRANDS_VOICE = ("That voice belongs to another brand. Pick one of this character's "
+                      "brands' voices.")  # fmt: skip
+
+
+def _check_voice(db: Session, user: User, item: LibraryItem, values: dict) -> None:
+    """A character's voice is one of the workspace's live saved voices or an app voice, and
+    never both at once (one, or neither)."""
+    from app import voices
+    from app.models.voices import Voice
+
+    if values.get("voice_id"):  # a style's voice, or one of the character's own brands'
+        voice = db.get(Voice, values["voice_id"])
+        if voice is None or voice.workspace_id != user.workspace_id or voice.archived_at:
+            raise HTTPException(404, voices.NO_VOICE)
+        brands = values.get("brand_ids")
+        brands = set(brands if brands is not None else (b.id for b in item.brands))
+        if voice.brand_id is not None and voice.brand_id not in brands:
+            raise HTTPException(422, OTHER_BRANDS_VOICE)
+    if values.get("voice_stock_key"):
+        voices.stock(values["voice_stock_key"])  # 422 for one the app doesn't have
+    after = {f: values.get(f, getattr(item, f, None)) for f in ("voice_id", "voice_stock_key")}
+    if after["voice_id"] and after["voice_stock_key"]:
+        raise HTTPException(422, ONE_VOICE)
 
 
 def _save_version(db: Session, user: User, item: LibraryItem) -> None:
@@ -420,10 +458,11 @@ def update_item(
     item = get_item(db, user, kind, item_id)
     values = body.model_dump(exclude_unset=True)
     words_only = set(values) <= set(PRODUCT_WORDS)  # a product's words don't change its picture
+    heard_only = set(values) <= {"voice_id", "voice_stock_key"}  # nor does its voice
     if not words_only:
         _save_version(db, user, item)
     _apply(db, user, item, values)
-    if not words_only:
+    if not (words_only or heard_only):
         item.sheet_approved = False  # any other edit needs the sheet approved again
     db.commit()
     return _out(item)

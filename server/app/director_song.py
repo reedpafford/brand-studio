@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app import music, narration, song_takes, song_timing, take_words
+from app import music, narration, song_takes, song_timing, take_words, voices
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.jobs import Job
@@ -134,6 +134,12 @@ def state(db: Session, project: Project) -> dict | None:
     out = {"state": now, "takes": takes, "used_take_id": project.song_take_id}
     if found == "narrated":  # the note a narration with the name wrong is read with
         out["say"] = say(brand)
+        used = next((t.voice for t in made if t.id == project.song_take_id), None)
+        said = used or _voice(db, project)
+        if own := voices.for_director(db, project.workspace_id, project.brand_id, said):
+            out["voice"] = own  # a cloned voice's state and when it may expire
+        if note := voices.host_note(db, project):
+            out["voice_note"] = note  # the host's own voice was removed: say what to do
         out["pace_wanted"] = target(db, project)  # the style's words a second
     if found == "song":
         used = [t for t in made if t.id == project.song_take_id]
@@ -211,8 +217,10 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if not _on(db, draft):
         return OFF
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
+    if kept and not voices.usable(db, project.workspace_id, project.brand_id, kept):
+        kept = None  # its voice was removed since: the video's own voice now
     voice = (decision.get("voice") or kept if found == "narrated" else None) or _voice(db, project)
-    if voice not in narration.VOICES:  # the Director's pick (None: the default)
+    if not voices.usable(db, project.workspace_id, project.brand_id, voice):
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
     song_takes.make(
         db, user, draft, project, kie=_real(db, found), note=note, voice=voice, delivery=delivery
@@ -246,9 +254,12 @@ def _speed(db: Session, project: Project, emotion: str | None) -> float | None:
 
 
 def _voice(db: Session, project: Project) -> str:
-    """The narrator when none is picked: a UGC talker's is a MiniMax voice (Reed, 3 Nov)."""
+    """The narrator when none is picked: the video's own (its host's or its style's, e.g.
+    Dr. Pickle's clone), else a UGC talker's MiniMax voice (Reed, 3 Nov), else narration's."""
     from app import talker
 
+    if own := voices.default_for(db, project):
+        return own
     return talker.VOICE if talker.on(db, project) else narration.VOICE
 
 

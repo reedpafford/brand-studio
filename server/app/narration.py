@@ -168,10 +168,10 @@ def characters(job_input: dict) -> int:
 
 
 def delivery(job_input: dict) -> dict:
-    """A MiniMax narration's emotion, reading and speed, to make it again the same way; else
-    {}."""
+    """A MiniMax narration's emotion, reading and speed (a system voice on 2.8, or a clone on
+    the model it was cloned for), to make it again the same way; else {}."""
     said = job_input.get("input") or {}
-    if job_input.get("model") != MINIMAX:
+    if not str(job_input.get("model") or "").startswith("minimax-speech"):
         return {}
     return {"emotion": said.get("emotion"), "reading": said.get("text", ""),
             "speed": said.get("speed")}  # fmt: skip
