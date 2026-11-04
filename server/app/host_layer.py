@@ -3,14 +3,12 @@ filmed on a green screen, stands in a bottom corner over the full-frame B-roll c
 never cut. His clips are joined end to end into one continuous layer that runs straight
 across the B-roll's cuts; he switches side at the times given so he never covers the action.
 The sound is the cut's own (the narration) or a narration track given; the host clips' own
-sound is never used. Free: ffmpeg only. Nothing calls it yet: the presenter format wires it
-in after the narrated cut (routes/project_clips.make_video).
+sound is never used. Free: ffmpeg only. The host is one HeyGen take of the whole narration
+(app/host.py); a list of clips still joins end to end.
 
-From the paid P-Video test (.context/tests/presenter-1, 2026-11-03): the host is made in
-pieces of about 10-12 s, cut at sentence ends (P-Video takes 20 s of sound at most and cuts
-the rest without saying so, and its lip-sync weakens after about 10 s), each piece from the
-same still; each piece's video runs about 0.5 s past its sound, so it's trimmed to it; the
-key below took its generated green (measured #07A548) cleanly."""
+From the paid P-Video test (.context/tests/presenter-1, 2026-11-03): each clip's video can run
+past its sound, so it's trimmed to it; the key below took a generated green (measured #07A548)
+cleanly."""
 
 import re
 import subprocess
@@ -21,23 +19,6 @@ KEY = "#00B140"  # chroma-key green
 HEIGHT = 0.38  # of the frame's height (spec: 35-45 %, at the bottom edge; the test's pick)
 SIMILARITY, BLEND = 0.13, 0.06  # how near the key a colour is keyed, and how soft its edge
 SIDES = ("left", "right")
-PIECE, MOST = 12.0, 20.0  # seconds of narration a host piece aims under, and P-Video's cap
-
-
-def pieces(breaks: list[float], longest: float = PIECE) -> list[tuple[float, float]]:
-    """The narration split into host pieces: `breaks` are where a piece may end (its
-    sentence ends, in order; the last is the narration's end). Each piece runs up to
-    `longest` seconds where the sentences allow; one past P-Video's 20 s can't be made."""
-    spans, start, last = [], 0.0, 0.0
-    for end in breaks:
-        if end - start > longest and last > start:
-            spans.append((start, last))
-            start = last
-        last = end
-    spans.append((start, last))
-    if any(b - a > MOST for a, b in spans):
-        raise ValueError(f"A sentence runs past {MOST:.0f} s: split it to make the host.")
-    return spans
 
 
 def _x(sides: list[tuple[float, str]]) -> str:

@@ -134,7 +134,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool == "host":  # a presenter's host, as Make the host
             from app import host
 
-            return host.make(db, user, project, storage)
+            return host.make(db, user, project, storage, motion=decision.get("note") or "")
         if tool == "watch_cut":  # its own limit, like a turn (watch_cut.start), never the budget
             return watch_cut.start(db, user, project, run)
         if tool == "review_stills":  # its own look at the stills before any take, own limit

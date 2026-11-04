@@ -131,6 +131,19 @@ def fill(text: str, style_id: str) -> str:
     return TOKEN.sub(lambda m: looks[m.group(1)], text)
 
 
+PACE = re.compile(r"(\d\.\d+)\s*[–-]\s*(\d\.\d+) words a second")
+
+
+def pace(style_id: str, format_id: str) -> tuple[float, float] | None:
+    """The words a second a narrator keeps, as the guide measured it ("3.3–3.5 words a second
+    while talking"): the style's own, else its format's; None when neither says."""
+    for sections in (style(style_id)["sections"], format_(format_id)["sections"]):
+        for _, text in guidance(sections):
+            if found := PACE.search(text):
+                return float(found[1]), float(found[2])
+    return None
+
+
 def tokens(style_id: str) -> dict[str, str]:
     return {k: v for k, v in style(style_id)["sections"].items() if k in TOKENS}
 

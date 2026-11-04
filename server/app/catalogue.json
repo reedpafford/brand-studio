@@ -154,8 +154,8 @@
    "aspect_ratios": ["9:16", "16:9", "1:1", "4:5"],
    "max_reference_images": 1,
    "first_frame": true,
-   "price": {"unit": "second", "usd": {"720p": 0.039}},
-   "price_source": "HeyGen API wallet, measured 2026-11-03 (.context/tests/batch-b): Avatar IV type image at 720p 9:16 cost $1.16 for 30.67 s and $0.97 for 25.07 s, about $0.038-0.039 a second; HeyGen's pricing page isn't in its API docs"
+   "price": {"unit": "second", "usd": {"720p": 0.05}},
+   "price_source": "HeyGen API wallet, measured (.context/tests/batch-b, th-20s): Avatar IV type image at 720p 9:16 cost $1.16 for 30.67 s, $0.97 for 25.07 s and $0.66-0.67 for 17.86 s, $0.037-0.039 a second. HeyGen reports no price and its pricing page isn't in its API docs, so quotes and credits use $0.05 a second (never below what it can charge); Usage records the measured $0.039 (providers/heygen.MEASURED)"
   },
   {
    "id": "stable-audio-2.5",
