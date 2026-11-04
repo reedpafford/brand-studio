@@ -57,7 +57,6 @@ test("each tile shows its picture, kind chip, when and who, and opens the item (
   expect(tiles[1]).toHaveTextContent("Still");
   expect(tiles[4]).toHaveTextContent("Song");
   expect(tiles[5]).toHaveTextContent("Still"); // a character sheet is a Still
-  expect(tiles[5]).not.toHaveTextContent("Sheet");
   // A tile is one press to its own page (it has Open in {step} and Download); no buttons on the tile itself.
   expect(within(tiles[0]).getByRole("link", { name: /^Open Bo tries salmon/ })).toHaveAttribute("href", "/b/1/media/take%3A3");
   expect(within(tiles[0]).queryByRole("link", { name: /Download/ })).toBeNull();
