@@ -33,7 +33,10 @@ const TABS: { id: Group; label: string; count: "clips" | "stills" | "songs" }[] 
 /** What Upload offers: the types the server accepts (it checks the file's first bytes, never this list). */
 const UPLOADABLE = "image/png,image/jpeg,image/webp,video/mp4,video/webm";
 /** The length on a tile, as the board draws it: 00:08. */
-export const clock = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+const clock = (seconds: number) => {
+  const s = Math.round(seconds); // whole seconds first, so 59.6 reads 01:00 and not 00:60
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+};
 /** 130 px tiles, as many to a row as fit (the board shows eight at 1440); three across on a phone. */
 const GRID = "grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-4";
 const CHIP: Record<Exclude<Kind, "upload">, string> = { take: "Clip", final: "Final", still: "Still", sheet: "Sheet", song: "Song" };
@@ -87,7 +90,7 @@ function Tile({ m, brandId, meId, owner }: { m: Item; brandId: number; meId: num
           </span>
         )}
         <span className="absolute left-1.5 top-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium text-on-media">{chip(m)}</span>
-        {m.duration_seconds != null && m.duration_seconds > 0 && (
+        {m.duration_seconds != null && Math.round(m.duration_seconds) > 0 && (
           <span className="absolute bottom-1.5 left-1.5 rounded-sm bg-scrim px-1.5 text-xs font-medium tabular-nums text-on-media">
             <span className="sr-only">Length </span>
             {clock(m.duration_seconds)}

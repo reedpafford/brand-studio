@@ -318,6 +318,8 @@ test("a tile shows its length bottom-left as 00:08, and none when the server has
     item({ key: "song:6", kind: "song", group: "song", content_type: "audio/mpeg", poster_file_id: null, project_id: null, video_name: null, open_step: "song", duration_seconds: 31.4 }),
     item({ key: "still:4", kind: "still", group: "still", content_type: "image/png", poster_file_id: null, open_step: "storyboard" }),
     item({ key: "take:5", duration_seconds: 125 }),
+    item({ key: "take:6", duration_seconds: 59.6 }),
+    item({ key: "take:7", duration_seconds: 0.4 }),
   ])));
   open();
   const tiles = within(await screen.findByRole("list", { name: "Media" })).getAllByRole("listitem");
@@ -325,6 +327,8 @@ test("a tile shows its length bottom-left as 00:08, and none when the server has
   expect(tiles[1]).toHaveTextContent("00:31");
   expect(tiles[2]).not.toHaveTextContent(/\d\d:\d\d/);
   expect(tiles[3]).toHaveTextContent("02:05");
+  expect(tiles[4]).toHaveTextContent("01:00"); // never 00:60
+  expect(tiles[5]).not.toHaveTextContent(/\d\d:\d\d/); // under half a second: no length
 });
 
 test("Upload adds a picture or clip to the brand's Media for anyone with the brand, then shows it and refreshes the counts", async () => {
