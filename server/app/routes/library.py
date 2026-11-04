@@ -583,7 +583,7 @@ def _rename_picks(db: Session, item: LibraryItem, was: str) -> None:
     brands = [b.id for b in item.brands]
     for p in db.scalars(select(Project).where(Project.brand_id.in_(brands))):
         picks = dict(p.product_variants or {})
-        if was in picks:
+        if was in picks and item.name not in picks:  # never over another product's pick
             picks[item.name] = picks.pop(was)
             p.product_variants = picks
 

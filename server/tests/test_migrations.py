@@ -296,7 +296,7 @@ def test_n34_links_each_product_picture_to_its_library_product(tmp_path):
                                  "library_item_brands ib ON ib.item_id = i.id WHERE i.id = :i"),
                             {"i": linked[3]}).one()  # fmt: skip
         gone = conn.execute(text("SELECT archived_at FROM library_items WHERE id = 6")).scalar()
-        # an item archived before n32 has no date: the card says "Archived" (no made-up date)
+        # an item archived before n34 has no date: the card says "Archived" (no made-up date)
         app = conn.execute(text("SELECT name, product_type FROM library_items WHERE id = :i"),
                            {"i": linked[4]}).one()  # fmt: skip
         bag = conn.execute(text("SELECT product_type FROM library_items WHERE id = 5")).scalar()

@@ -33,6 +33,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
   const product = kind === "prop";
   // A retry after a later step failed (a held sheet, an upload) goes on from there: never a second item (QA).
   const done = useRef<{ item: Item | null; pictures: number }>({ item: null, pictures: 0 });
+  const [locked, setLocked] = useState(false); // made already: its words can't change here any more (QA)
   const create = useMutation({
     mutationFn: async () => {
       let data = done.current.item;
@@ -44,6 +45,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
         });
         if (!made.data) throw new Error(errorText(made.error));
         data = done.current.item = made.data;
+        setLocked(true);
       }
       if (product) {
         const files = [photo, ...more].filter((f): f is File => !!f);
@@ -105,11 +107,11 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
         <>
           <label className="block text-sm">
             <span className="sr-only">Name</span>
-            <input className={field} required placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} data-autofocus />
+            <input className={field} required disabled={locked} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} data-autofocus />
           </label>
           <label className="block text-sm">
             <span className="sr-only">{product ? "What must read right" : "Description"}</span>
-            <input className={field} value={words} onChange={(e) => setWords(e.target.value)} placeholder={product ? (type === "app" ? "Always the real UI; numbers can be made up" : "The label must read right: the brand, the claim, the flavour") : kind === "place" ? "“A small kitchen at night, one warm lamp”" : "“Woman, late 30s, glasses, cardigan, tired but kind”"} />
+            <input className={field} disabled={locked} value={words} onChange={(e) => setWords(e.target.value)} placeholder={product ? (type === "app" ? "Always the real UI; numbers can be made up" : "The label must read right: the brand, the claim, the flavour") : kind === "place" ? "“A small kitchen at night, one warm lamp”" : "“Woman, late 30s, glasses, cardigan, tired but kind”"} />
           </label>
           {product && (
             <div role="radiogroup" aria-label="It's" className="inline-flex gap-0.5 self-start rounded-md bg-surface-2 p-0.5">

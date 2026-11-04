@@ -252,7 +252,7 @@ test("S8-04 / L4: the brand's own voices, then every app voice with its free sam
   expect(within(list).getByRole("button", { name: "Play Roger" })).toBeEnabled();
   expect(within(list).queryByRole("button", { name: "Play Sarah" })).toBeNull(); // no free sample yet: no Play
   expect(list.querySelector("audio[src='/api/voices/samples/Roger.mp3']")).not.toBeNull();
-  expect(await screen.findByRole("link", { name: /^Presenters & voices\s*2$/ })).toBeInTheDocument(); // Mark and the brand's one voice
+  expect(await screen.findByRole("link", { name: /^Presenters & voices\s*1$/ })).toBeInTheDocument(); // Mark: a style's voice isn't the brand's
   await userEvent.click(within(list).getByRole("button", { name: "Clone a voice · up to $3.00" }));
   await userEvent.upload(within(list).getByLabelText("Pick a sample"), new File(["a"], "kim.mp3", { type: "audio/mpeg" }));
   await userEvent.type(within(list).getByLabelText("Name"), "Kim");

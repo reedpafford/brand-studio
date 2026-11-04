@@ -23,9 +23,10 @@ export function useVoiceList(brandId: number) {
   return useQuery({ queryKey: ["voices", brandId], queryFn: () => readVoices(brandId), enabled: brandId > 0 });
 }
 
-/** The brand's own voices (uploaded or cloned on purpose, and the styles' own) for the tab's count. */
+/** The brand's own voices, uploaded or cloned for it on purpose (L4): the tab's count and the set-up list's tick. A
+ *  style's own voice (Dr. Pickle's clone) is listed for every brand but isn't this brand's. */
 export function useVoices(brandId: number) {
-  return (useVoiceList(brandId).data?.voices ?? []).filter((v) => v.kind !== "stock");
+  return (useVoiceList(brandId).data?.voices ?? []).filter((v) => v.kind !== "stock" && v.brand_id === brandId);
 }
 
 /** A character's voice in the item routes (#1314): a saved or cloned voice's row, or an app voice's key; one at most. */
