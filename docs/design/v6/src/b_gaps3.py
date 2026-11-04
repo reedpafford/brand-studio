@@ -8,7 +8,7 @@ def cell(n, title, ask, drawn, note):
     return f'''<div class="col g3" style="width:{W}px">
       <div class="col g1"><span class="t-lg">{n}. {title}</span><span class="t-sm muted">{ask}</span></div>
       <div style="padding:16px;background:var(--surface-2);border-radius:10px;position:relative">{drawn}</div>
-      <div class="row g2 t-sm start"><span class="tag need" style="flex:none">For Reed: yes or no?</span><span class="muted">{note}</span></div></div>'''
+      <div class="row g2 t-sm start"><span class="tag ok" style="flex:none">Approved by Reed, 4 Nov</span><span class="muted">{note}</span></div></div>'''
 
 
 def switch(on, dis=False):
@@ -53,11 +53,11 @@ tabrow = '<div style="padding:6px 8px;overflow:hidden"><div class="seg" style="w
 g3 = f'''<div class="row g5 start"><div class="col g2"><span class="t-xs w6 muted">On P-05 now <span class="tag bad">slip</span></span>{ptopmini("")}</div>
   <div class="col g2"><span class="t-xs w6 muted">Fixed: the row always shows</span>{ptopmini(tabrow)}</div></div>'''
 
-sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found, part 3</span><span class="t-sm muted">Two states the boards don’t draw and one slip on P-05 (the video-page builder, 4 Nov). Each is one option for Reed to say yes or no to. The existing boards are unchanged.</span></div>
+sheet = f'''<div class="col g2" style="margin-bottom:28px"><span class="t-2xl">Gaps the builders found, part 3</span><span class="t-sm muted">Two states the boards don’t draw and one slip on P-05 (the video-page builder, 4 Nov). Reed approved all of them on 4 Nov (“yes to all”). The boards they extend are unchanged.</span></div>
   <div class="row g8 wrap start" style="row-gap:36px">
   {cell(1, "“Locks +N” opened (S3-01, S3-09)", "Builder’s proposal.", g1, "A small menu under the chip with a toggle per lock (Cast, Style, Length, Song, End line); Screens is read-only, picked in the plan. The other chips are labels.")}
   {cell(2, "The video’s ⋯ menu (S3 header, P-04, P-05)", "Builder’s proposal.", g2, "Move to folder…, Download MP4 once a cut exists, then Release this version while it’s being made, or Archive once it’s done.")}
   {cell(3, "The phone Preview’s tabs: a slip on P-05", "P-05 has no Cut/Clips/Cast/Plan/Script row, so Cast and Clips can’t be reached.", g3, "The row always shows on the phone Preview, as on P-09 and P-10.")}
   </div>'''
 
-board("S-gaps-03", "Gaps the builders found, part 3", "3 options for Reed: Locks menu, the video’s ⋯ menu, phone Preview tabs", sheet, "s", h=1160)
+board("S-gaps-03", "Gaps the builders found, part 3", "Approved: Locks menu, the video’s ⋯ menu, phone Preview tabs", sheet, "s", h=1160)
