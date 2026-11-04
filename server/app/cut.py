@@ -279,7 +279,7 @@ def _edge(pieces: list[dict], i: int, t: float) -> None:
     have to start before its take's beginning can't move that way."""
     q = pieces[i]
     moved = t - q["start"]
-    if q.get("lipsync") and q["from"] + moved < -0.01:
+    if q.get("lipsync") and q["from"] + moved < -0.005:
         raise Refused(SYNCED)
     q["from"] = round(max(0.0, q["from"] + moved), 2)
     pieces[i - 1]["end"] = q["start"] = t

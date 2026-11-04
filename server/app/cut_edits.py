@@ -208,7 +208,8 @@ def _retime(db: Session, tl: dict, i: int) -> dict:
     if i + 1 < len(tl["pieces"]):
         data["end"] = onto(p["end"])
     else:
-        data["end"] = round(max(w["end"] for w in tl["words"]) + TAIL, 2)
+        last = tl.get("last_word") or max(w["end"] for w in tl["words"])  # a song's last good line
+        data["end"] = round(last + TAIL, 2)
     return data
 
 
@@ -237,6 +238,9 @@ def _swap_source(db: Session, user: User, project: Project, p: dict, take_id,
     talks = p.get("lipsync") or (take.made_with or {}).get("talker")
     if mode == "narrated" and talks and elsewhere:  # its lips say this stretch of the voice
         raise Refused("A talker piece swaps only for another take of its own clip.")
+    voiced = ((current.made_with or {}) if current else {}).get("talker")
+    if mode == "narrated" and p.get("lipsync") and (take.made_with or {}).get("talker") != voiced:
+        raise Refused("That take was cut from an older talker take: its lips say an older voice.")
     if other.aspect_ratio != project.aspect_ratio:
         raise Refused(f"That take is {other.aspect_ratio}; this video is {project.aspect_ratio}.")
     if other.id != project.id:
@@ -441,6 +445,7 @@ def for_director(db: Session, project: Project) -> dict | None:
         "cut": playing.number, "length": tl["length"], "changes": len(live ^ kept),
         "pieces": [{"piece": p["id"], "clip_id": p["clip_id"], "start": p["start"],
                     "end": p["end"], "take_id": p["take_id"], "source": p["source"],
+                    "lipsync": bool(p.get("lipsync")),  # a talker's: its edges barely move
                     "said": " ".join(w["word"] for w in words
                                      if p["start"] <= (w["start"] + w["end"]) / 2 < p["end"])}
                    for p in tl["pieces"]],

@@ -368,6 +368,10 @@ def test_a_song_cut_must_reach_its_last_good_line_not_every_word_heard():
     cut_edits._fits(tl)  # the song's own end, a breath after its last line: fine
     with pytest.raises(cut.Refused):
         cut_edits._fits({**tl, "length": 18.5})
+    pieces = [_piece(1, 0, 10.0), _piece(2, 10.0, 20.0)]  # a shorter end: its last good line
+    words = [{"word": "go", "start": 18.5, "end": 19.0}, *tl["words"]]
+    ended = cut_edits._retime(None, {**tl, "pieces": pieces, "words": words}, 1)
+    assert ended["end"] == round(19.0 + cut.TAIL, 2)  # never on to the ad-lib at 24 s
 
 
 def test_the_end_fades_only_after_the_last_word():
