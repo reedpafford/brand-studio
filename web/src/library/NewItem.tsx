@@ -116,7 +116,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
           {product && (
             <div role="radiogroup" aria-label="It's" className="inline-flex gap-0.5 self-start rounded-md bg-surface-2 p-0.5">
               {(["physical", "app"] as const).map((t) => (
-                <button key={t} type="button" role="radio" aria-checked={type === t} onClick={() => setType(t)} className={`min-h-control rounded-[5px] px-3 text-sm lg:min-h-8 ${type === t ? "bg-surface font-medium shadow-sm" : "text-muted"}`}>
+                <button key={t} type="button" role="radio" disabled={locked} aria-checked={type === t} onClick={() => setType(t)} className={`min-h-control rounded-[5px] px-3 text-sm lg:min-h-8 ${type === t ? "bg-surface font-medium shadow-sm" : "text-muted"}`}>
                   {t === "app" ? "An app" : "A physical thing"}
                 </button>
               ))}
@@ -136,7 +136,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
             <label className="inline-flex min-h-control cursor-pointer items-center gap-1.5 rounded-md border border-border-button px-3 text-sm font-medium lg:min-h-control-dense">
               <Upload size={16} strokeWidth={1.75} aria-hidden />
               {product && type === "app" ? "Upload screens" : photo ? "Another photo" : "Upload a photo"}
-              <input type="file" accept="image/*" multiple={product && type === "app"} className="sr-only" onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) { setPhoto(fs[0]); setMore(fs.slice(1)); } }} />
+              <input type="file" accept="image/*" disabled={locked} multiple={product && type === "app"} className="sr-only" onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) { setPhoto(fs[0]); setMore(fs.slice(1)); } }} />
             </label>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
           </div>
