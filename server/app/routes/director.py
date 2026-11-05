@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.orm import Session
 
 from app import director, run_progress
+from app.advice import SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -129,7 +130,7 @@ class RunFixOut(BaseModel):
     # model: open Video settings to pick a model that makes longer clips
     label: str  # "Split it into 10 clips"
     price: str | None  # as the viewer reads money ("free" for a split); "up to" on the button
-    problem: str | None = None  # split: the breakdown's problem it fixes
+    problem: SaidText = ""  # split: the breakdown's problem it fixes, as Fix sends it
     then: str | None = None  # split: what its new clips then need, "up to" (stills, prompts,
     # takes), as the viewer reads money
 
