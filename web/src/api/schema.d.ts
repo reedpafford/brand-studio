@@ -9501,8 +9501,11 @@ export interface components {
             label: string;
             /** Price */
             price: string | null;
-            /** Problem */
-            problem?: string | null;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
             /** Then */
             then?: string | null;
         };
