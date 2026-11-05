@@ -25,7 +25,6 @@ class Locks(BaseModel):
     look: bool = False
     length: bool = False
     song: bool = False
-    end_line: bool = False
     screens: list[int] = []  # the brand screens it must use
 
 

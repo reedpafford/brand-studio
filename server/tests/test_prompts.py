@@ -84,12 +84,13 @@ def test_checks_catch_added_words_a_missing_screen_and_a_long_clip():
 
 def test_brand_block_lists_required_screens_and_their_moments():
     block = prompts.brand_block(
-        {"name": "fomo", "never_say": ["guaranteed"]},
+        {"name": "fomo", "tone_notes": "fomo only wins"},
         [{"id": 2, "name": "Token chart up", "tags": ["trading"], "default_for": ["win"]},
          {"id": 9, "name": "Settings", "tags": [], "default_for": []}],
     )  # fmt: skip
     assert '- screen:2 "Token chart up" (trading) — required at: win' in block
-    assert "Moments: win" in block and "Never say: guaranteed" in block
+    assert "Moments: win" in block and "Tone: fomo only wins" in block
+    assert "Never say" not in block and "End line" not in block  # S-gaps-05 L1, rule 18
     assert block.index("Other screens") < block.index("screen:9")
 
 
@@ -293,52 +294,34 @@ def test_breakdown_check_keeps_a_clip_to_three_screens():
 
 def _variation_case():
     ex, result = example("variations")
-    original = script_of(ex)
-    fomo = {"end_line": "Want to trade like me? Download fomo through the link in my bio."}
-    return original, result, fomo["end_line"]
+    return script_of(ex), result, "Want to trade like me? Download fomo through the link in my bio."
 
 
 def test_variations_example_passes_and_every_check_says_what_to_do():
-    original, result, end = _variation_case()
+    original, result, _ = _variation_case()
     cast = ["Malik", "Tasha"]
-    assert check.variations(original, result, {}, end, ["can't lose"], 1, cast, "fomo") == []
+    assert check.variations(original, result, {}, 1, cast) == []
     v = result.variations[0]
     v.script = v.script.replace("★ fomo screen: Token chart down — on Malik's phone\n", "")
     v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: You can't lose. Live-action tag here."
-    assert check.variations(original, result, {}, end, ["can't lose"], 2, cast, "fomo") == [
+    assert check.variations(original, result, {}, 2, cast) == [
         "1 variations, 2 asked for; regenerate",
-        "Advice: variation 1: the last line doesn't mention the brand or where to find it",
         "variation 1 drops the ★ line for Token chart down; put it back where it fits",
-        "variation 1 says “can't lose”, which the brand never says",
-        "variation 1 brings back live action; that slot is the end line",
+        "variation 1 brings back live action; that slot is the script's ending",
     ]
-
-
-def test_a_song_variation_gets_no_last_line_advice_and_a_spoken_one_still_does():
-    """Reed, 3 Nov: a song follows its script, never forced to end on the brand (QA-10, #1236)."""
-    original, result, end = _variation_case()
-    v = result.variations[0]
-    v.script = v.script.rsplit("\n", 1)[0] + "\nMALIK: And the night was ours."
-    spoken = check.variations(original, result, {}, end, [], 1, [], "fomo")
-    assert f"Advice: variation 1: {check.NO_CTA}" in spoken  # rule 18 for a spoken script
-    sung = check.variations(original, result, {}, end, [], 1, [], "fomo", sung=True)
-    assert not any(check.NO_CTA in p for p in sung)
-    assert "A song's variations follow its lyrics" in prompts.system("variations")
 
 
 def test_variations_advice_covers_length_closeness_and_format():
     original, result, end = _variation_case()
     v = result.variations[0]
     v.script = original.replace("TASHA", "ROSE").replace("Tasha", "Rose")  # Tasha is gone
-    problems = check.variations(
-        original, result, {}, end, [], 1, ["Malik", "Tasha", "Bruno"], "fomo"
-    )
+    problems = check.variations(original, result, {}, 1, ["Malik", "Tasha", "Bruno"])
     assert problems == [
         "variation 1 drops Tasha, a locked character",  # Bruno isn't in the original: no flag
         "Advice: variation 1 is very close to the original; regenerate with a note",
     ]
     v.script = "# The sneakers\n" + "MALIK: Hi.\n" + end.join(["MALIK: ", ""])
-    assert check.variations(original, result, {}, end, [], 1, [], "fomo") == [
+    assert check.variations(original, result, {}, 1, []) == [
         "variation 1 drops the ★ line for Home (rich); put it back where it fits",
         "variation 1 drops the ★ line for Token chart down; put it back where it fits",
         "variation 1 drops the ★ line for Token chart up; put it back where it fits",
@@ -454,7 +437,6 @@ def test_eval_scoring_runs_the_variations_check(tmp_path):
         json.dumps({"slots": slots})
     )
     assert score(tmp_path, case) == [
-        "variation 1 says “chicken”, which the brand never says",
         "Advice: variation 1 is very close to the original; regenerate with a note",
         "Advice: The crowd at the dog park: sounds like background people, who are never cast",
         "no slot matching any of ['owner']",
@@ -865,7 +847,7 @@ def test_a_tagged_brand_screen_line_still_needs_a_screen_in_the_breakdown():
     assert "[Camera] " in apply_all(script_of(example("enhance")[0]), result.suggestions)
 
 
-def test_reference_block_drops_live_action_and_brand_block_carries_the_end_line():
+def test_reference_block_drops_live_action():
     ref = json.loads(
         (
             Path(prompts.__file__).parents[3] / "docs/references/fomo-DehudnaAmce/BREAKDOWN.json"
@@ -874,10 +856,7 @@ def test_reference_block_drops_live_action_and_brand_block_carries_the_end_line(
     block = prompts.reference_block(ref)
     assert "Shots 44–50 (42.67–45.02 s) are live action: always removed" in block
     assert "real creator" not in block.lower()
-    end = "Want to trade like me? Download fomo through the link in my bio."
-    assert f"names the brand and where to find it): {end}" in prompts.brand_block(
-        {"name": "fomo", "end_line": end}, []
-    )
+    assert "that slot becomes the script's own ending" in block
 
 
 def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
@@ -1003,10 +982,10 @@ def test_an_imported_reels_draft_brings_in_no_new_speakers():
     reel = ["groom", "bride", "groom"]
     end = "Want to trade like me? Download fomo through the link in my bio."
     draft = f"NATE: I do.\nBRIDE: HELL NO!\nBRIDE (V.O.): Forever with you.\nNATE: {end}"
-    assert check.reel_speakers(draft, reel, ["Nate"], end, "fomo") == []
-    assert check.reel_speakers(draft + f"\nCREATOR: {end}", reel, ["Nate"], end, "fomo") == []
+    assert check.reel_speakers(draft, reel, ["Nate"], "fomo") == []
+    assert check.reel_speakers(draft + f"\nCREATOR: {end}", reel, ["Nate"], "fomo") == []
     extra = draft + "\nPRIEST: You may kiss the bride."
-    assert check.reel_speakers(extra, reel, ["Nate"], end, "fomo") == [
+    assert check.reel_speakers(extra, reel, ["Nate"], "fomo") == [
         "Advice: 3 people speak, the reel has 2; give Priest's lines back to who says them "
         "in the reel"
     ]
@@ -1191,33 +1170,21 @@ def test_the_app_bridge_is_only_for_an_app_brand():
             assert "app brand" in text[max(at - 160, 0) : at], step
 
 
-def test_the_closing_call_to_action_only_has_to_name_the_brand():
-    """Current rules 18 (Reed, 2026-10-28): the saved end line is the default wording; any
-    closing line that names the brand passes, and a miss is Advice, never a block."""
+def test_the_ending_is_the_scripts_and_its_shot_naming_the_brand_shows_the_screen():
+    """Rule 18 (Reed, 2026-11-04): the ending comes from the script, so no line is asked to end
+    on the brand; when the closing line names it, its shot shows the brand's real screen."""
     ex, bd = example("breakdown")
     script = script_of(ex)
     end = "Want to trade like me? Download fomo through the link in my bio."
-    note = "Advice: the last line doesn't mention the brand or where to find it"
-
-    def ending(last, brand="fomo"):
-        found = script.replace(f"MALIK: {end}", last)
-        return [p for p in check.breakdown(found, bd, FOMO, 4, 30, end, brand) if "last line" in p]
-
-    assert ending(f"MALIK: {end}") == []
-    assert ending("MALIK: Want to glow up like me? Get FOMO, link in my bio!") == []  # adapted
-    assert ending("MALIK: Download Robinhood, link in bio.") == [note]  # another app: advice
-    assert ending("MALIK: Get the app, link in bio.") == [note]
-    assert ending("MALIK: Sorry, I'm fully booked.", brand="") == [note]
+    other = script.replace(f"MALIK: {end}", "MALIK: Bye.")
+    assert not [p for p in check.breakdown(other, bd, FOMO, 4, 30, "fomo") if "last line" in p]
     assert not check.says_brand("NATE: My fomofriend.", "fomo")  # whole words only
-    assert ending("MALIK: Bye.") == [note]
-    other = script.replace(f"MALIK: {end}", "MALIK: Bye.")  # a brand with no end line: no note
-    assert not [p for p in check.breakdown(other, bd, FOMO, 4, 30) if "last line" in p]
     cta = next(s for s in bd.scenes[2].shots if s.line == end)  # Reed, 2026-10-27
     cta.screen_ids = []
     assert (
-        "Advice: shot 3.5: the end line's shot shows no screen; show the brand's real screen "
-        "on the phone he holds up to the camera"
-    ) in check.breakdown(script, bd, FOMO, 4, 30, end, "fomo")
+        "Advice: shot 3.5: the closing shot naming the brand shows no screen; show the brand's "
+        "real screen on the phone he holds up"
+    ) in check.breakdown(script, bd, FOMO, 4, 30, "fomo")
     assert "approved" not in inspect.signature(check.breakdown).parameters
 
 
@@ -1293,9 +1260,9 @@ def test_a_requested_length_is_what_the_variations_length_advice_checks():
     assert check.asked_seconds("keep the 10 s montage but make it 30 seconds") == 30
     assert check.asked_seconds("make it 45s") == 45
     fits = round(words / 2)  # seconds this variation's words fit
-    ok = check.variations(original, result, {}, end, [], 1, [], "fomo", note=f"about {fits} s")
+    ok = check.variations(original, result, {}, 1, [], note=f"about {fits} s")
     assert not [p for p in ok if "spoken words" in p or "words in all" in p]
-    short = check.variations(original, result, {}, end, [], 1, [], "fomo", note="about 10 s")
+    short = check.variations(original, result, {}, 1, [], note="about 10 s")
     assert f"Advice: variation 1 has {words} spoken words; about 17–25 fit the 10 s asked for" in (
         short
     )

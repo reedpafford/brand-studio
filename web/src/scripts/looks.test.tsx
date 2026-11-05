@@ -6,7 +6,7 @@ import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 import { owner } from "../test/people";
 
-const brands = [{ id: 1, name: "Iron Paws", colours: [], end_line: "Get Iron Paws through the link in my bio." }];
+const brands = [{ id: 1, name: "Iron Paws", colours: [] }];
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean";
 const version = (o: object = {}) => ({ slot: 0, status: "draft", title: "Bowl song", seconds: 0, project_id: null, text: LYRICS, words: 10, target_seconds: null, premise: "", changes: [], problems: [], has_breakdown: false, approved_at: null, style_line: "pop, female lead, upbeat", singer: "", spoken_end_line: "", song_directions: [], ...o });
 const song = (o: object = {}, v: object = {}) => ({

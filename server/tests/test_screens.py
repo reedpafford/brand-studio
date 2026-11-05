@@ -135,7 +135,7 @@ def test_real_fomo_assets_import_with_names_moments_and_logo(app, owner, db):
     # the got-rich payoff, not $0.00; and the CTA's fomo mention (Reed, 2026-10-27)
     assert screens["Home (rich)"]["default_for"] == ["fomo-mention", "win"]
     kit = owner.get(f"/brands/{fomo.id}").json()
-    assert kit["logo_file_id"] and kit["style_board_file_id"] is None
+    assert kit["logo_file_id"]
     assert owner.get(f"/files/{kit['logo_file_id']}").headers["content-type"] == "image/png"
 
 
@@ -165,11 +165,6 @@ def test_setup_seeds_both_launch_brands_from_repo_assets(app, client):
         ("bag", "Chicken"),
         ("bag", "Peanut butter"),
     ]
-    end = {b["slug"]: b["end_line"] for b in client.get("/brands").json()}
-    assert end == {
-        "fomo": "Want to trade like me? Download fomo through the link in my bio.",
-        "iron-paws": "",
-    }
     assert "feeding" in bag[0]["default_for"]
     file = client.get(f"/files/{bag[0]['file_id']}")
     assert file.headers["content-type"] == "image/webp"

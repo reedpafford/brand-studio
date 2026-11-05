@@ -24,7 +24,7 @@ def test_a_sample_of_the_brands_hero_is_made_then_the_look_switched_on(app, db, 
     app.state.settings.fake_providers = True
     brand = _brand(owner)
     mia = _mia(owner, db, brand)
-    owner.patch(f"/brands/{brand}", json={"default_cast": [mia]})
+    owner.patch(f"/library/character/{mia}", json={"presenter": True})  # the hero (no default cast)
     url = f"/looks/zack-d/sample?brand_id={brand}"
     shown = owner.get(url).json()
     assert shown["status"] == "none" and shown["hero"]["name"] == "Mia" and shown["credits"] > 0
@@ -205,7 +205,7 @@ def test_a_look_with_its_own_sample_person_never_draws_the_hero(app, db, owner):
 
     app.state.settings.fake_providers = True
     brand = _brand(owner)
-    owner.patch(f"/brands/{brand}", json={"default_cast": [_mia(owner, db, brand)]})
+    owner.patch(f"/library/character/{_mia(owner, db, brand)}", json={"presenter": True})
     card = owner.get(f"/looks/skeleton/sample?brand_id={brand}").json()
     assert (card["hero"], card["characters"]) == (None, [])  # never "of Mia", no pick (Flow-QA)
     assert card["look"]["own_sample"]  # the card shows no "Who's in the sample?"
@@ -215,3 +215,15 @@ def test_a_look_with_its_own_sample_person_never_draws_the_hero(app, db, owner):
     said = job.input["input"]["prompt"]
     assert not job.input.get("files") and "[Image1]" not in said and "Mia" not in said
     assert prompts.look_sample("skeleton").rstrip(".") in said
+
+
+def test_the_samples_person_is_the_first_presenter_else_the_first_character(owner, db):
+    from app.models.brands import Brand
+
+    brand = _brand(owner)
+    first = owner.post("/library/character", json={"name": "Ann", "brand_ids": [brand]}).json()
+    second = owner.post("/library/character", json={"name": "Bo", "brand_ids": [brand]}).json()
+    assert look_samples.hero(db, db.get(Brand, brand)).id == first["id"]
+    owner.patch(f"/library/character/{second['id']}", json={"presenter": True})
+    db.expire_all()
+    assert look_samples.hero(db, db.get(Brand, brand)).id == second["id"]

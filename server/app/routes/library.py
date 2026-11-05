@@ -338,6 +338,17 @@ def owned(item: LibraryItem) -> bool:
     return item.owner_project_id is not None or item.owner_script_id is not None
 
 
+def cast_picks(db: Session, workspace_id: int, ids: list[int]) -> list[int]:
+    """A video's picked cast: live characters from this workspace's library (never a look made
+    for one video or script), each once."""
+    for item_id in ids:
+        item = db.get(LibraryItem, item_id)
+        if (item is None or item.workspace_id != workspace_id or item.archived
+                or item.kind != Kind.character or owned(item)):  # fmt: skip
+            raise HTTPException(422, "Pick characters from the library.")
+    return list(dict.fromkeys(ids))
+
+
 def pick_item(
     db: Session, user: User, kind: Kind, item_id: int, project=None, script_id: int | None = None
 ) -> LibraryItem:

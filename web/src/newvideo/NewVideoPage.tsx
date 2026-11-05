@@ -104,9 +104,9 @@ export function NewVideoPage() {
   const files = useAttachments();
   const firstOn = <T extends { on: boolean; off?: string | null }>(xs: T[]) => xs.find((x) => x.on && !x.off);
   const format = formats.find((f) => f.id === (fixed?.type ?? picked.type)) ?? firstOn(formats);
-  const look = looks.find((l) => l.id === (fixed?.look ?? picked.look)) ?? looks.find((l) => l.on && l.id === brand?.default_look) ?? firstOn(looks);
+  const look = looks.find((l) => l.id === (fixed?.look ?? picked.look)) ?? firstOn(looks); // brands keep no default style (S-gaps-05 L1)
   const folder = picked.folder !== undefined ? picked.folder : folders.some((f) => f.id === opened) ? opened : null;
-  const cast = picked.cast ?? (brand?.cast ?? []).filter((c) => !c.deleted).map((c) => c.id);
+  const cast = picked.cast ?? []; // nobody until picked: brands keep no default cast
   const broll = format?.host ? (picked.broll_look ?? null) : null;
   const settings = { type: format?.id ?? "dialogue", look: look?.id ?? "", shape: picked.shape ?? "9:16", brand_id: brandId, folder_id: folder, broll_look: broll };
   const send: Send = { ...settings, text: text.trim(), cast_ids: cast, attachments: files.ids };

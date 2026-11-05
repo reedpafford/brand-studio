@@ -17,7 +17,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import brand_setup, director, folders, guides, hidden, looks, prompts, scorecard
+from app import director, folders, guides, hidden, looks, prompts, scorecard
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -254,10 +254,11 @@ def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted:
         db.get(Script, draft.script_id).folder_id = body.folder_id
     brand = db.get(Brand, body.brand_id) if pasted and body.brand_id else None
     if body.cast_ids is not None and (brand or not pasted):
-        project.cast_ids = brand_setup.check_cast(db, brand or db.get(Brand, project.brand_id),
-                                                  body.cast_ids)  # fmt: skip
+        from app.routes.library import cast_picks
+
+        project.cast_ids = cast_picks(db, project.workspace_id, body.cast_ids)
     elif brand:
-        project.cast_ids = brand_setup.live_cast(db, brand)
+        project.cast_ids = []  # brands keep no default cast (S-gaps-05 L1)
     project.broll_look = looks.pick_broll(db, user, project, body.broll_look)
     project.attachments = attachments(db, user, body.attachments)
     project.reel_script_id = getattr(body, "reel_script_id", None) or project.reel_script_id

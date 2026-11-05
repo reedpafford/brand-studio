@@ -189,9 +189,8 @@ def problems(
     screens = {f"screen:{s.id}": s.default_for for s in shown}
     m = video_model(project)
     brand = db.get(Brand, project.brand_id)
-    # The Director's check takes the brand's end line (#107); older checks don't yet.
     params = signature(check.breakdown).parameters
-    extra = {"end_line": brand.end_line} if "end_line" in params else {}
+    extra = {}
     if "brand" in params:
         extra["brand"] = brand.name
     if "kinds" in params:  # a moment takes any screen of the same kind (home)
@@ -206,8 +205,7 @@ def problems(
     if take:
         timed, timing = song_breakdown.joined(bd, song), take.timing or {}
         found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
-                                     m.duration.max, written=written,
-                                     sung=take.kind != "narration", **extra)  # fmt: skip
+                                     m.duration.max, written=written, **extra)  # fmt: skip
     else:
         found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     from app.advice import names, plain
@@ -240,8 +238,8 @@ def cast_problems(db: Session, project: Project, script: str, bd: Breakdown) -> 
 
 
 def cta_screen(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdown, list[str]]:
-    """The end line's shot (the call to action) shows the brand's real screen, on the phone the
-    hero holds up (Reed, 2026-10-27; the Director, #556): with no screen, it gets the brand's
+    """The ending's shot that names the brand shows its real screen, on the phone the hero holds
+    up (rule 18; Reed, 2026-10-27; the Director, #556): with no screen, it gets the brand's
     balance screen (else its home screen) and the hero, the person in the most shots. Free,
     in code; said as advice. Doing it again changes nothing."""
     from app.advice import names
@@ -250,7 +248,7 @@ def cta_screen(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdown,
 
     brand = db.get(Brand, project.brand_id)
     shots = [s for scene in bd.scenes for s in scene.shots]
-    if check.cta_screen(shots, brand.end_line, brand.name) == []:
+    if check.cta_screen(shots, brand.name) == []:
         return bd, []
     shot = [s for s in shots if s.line and check.says_brand(s.line, brand.name)][-1]
     screens = project_screens(db, project)

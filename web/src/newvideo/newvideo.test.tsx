@@ -15,7 +15,7 @@ const FORMATS = [format("dialogue", "Dialogue", { card: "People talk on camera" 
 const fs = (o: object = {}) => ({ id: 9, title: "Beer gut", type: "dialogue", look: "house", shape: "9:16", brand_id: 1, status: "working", created_by_name: "Reed", created_at: at, credits: 0, file_id: null, project_id: 50, thread: [], ...o });
 const version = (slot: number, o: object = {}) => ({ slot, status: "approved", title: "", seconds: 58, project_id: null, lines: 13, ...o });
 const scriptRow = (id: number, title: string, o: object = {}) => ({ id, brand_id: 1, title, kind: "story", format: "dialogue", look: "dr-pickle", folder_id: null, published: true, versions: [version(0), version(1)], created_at: at, ...o });
-const brand = { id: 1, name: "Resilia", colours: [], default_look: "dr-pickle", cast: [{ id: 3, name: "Dr. Pickle", deleted: false }] };
+const brand = { id: 1, name: "Resilia", colours: [], tone_notes: "" };
 
 function server(me: object, routes: Record<string, [number, unknown]> = {}) {
   return fakeServer({
@@ -52,16 +52,17 @@ test("S2-01/02: the owner's cards come from the guides; the press says the most 
   const formats = screen.getByRole("radiogroup", { name: "Format" });
   expect(within(formats).getByRole("radio", { name: /Dialogue.*People talk on camera/ })).toHaveAttribute("aria-checked", "true");
   const styles = screen.getByRole("radiogroup", { name: "Style" });
-  expect(within(styles).getByRole("radio", { name: /^Dr\. Pickle/ })).toHaveAttribute("aria-checked", "true"); // the brand's default style
+  expect(within(styles).getByRole("radio", { name: /^House/ })).toHaveAttribute("aria-checked", "true"); // the first style: brands keep no default
+  await userEvent.click(within(styles).getByRole("radio", { name: /^Dr\. Pickle/ }));
   expect(within(styles).getByText("B-roll: near-real inserts")).toBeInTheDocument();
   expect(within(styles).getByText("Our caricatured 3D")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Cast: Dr. Pickle" })).toBeInTheDocument(); // the brand's saved cast
+  expect(screen.getByRole("button", { name: "Cast: Nobody" })).toBeInTheDocument(); // nobody until picked: no default cast
   expect(screen.getByRole("button", { name: "Folder: Week of 3 Nov" })).toBeInTheDocument();
   await userEvent.type(await words(), SCRIPT);
   expect(await screen.findByRole("button", { name: "Make it · up to $16.86" }, { timeout: 3000 })).toBeInTheDocument();
   expect(screen.getByText("Most it can charge, including redos and the director’s time. Usually less.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it · up to $16.86" }));
-  await vi.waitFor(() => expect(posted(calls)).toEqual({ type: "dialogue", look: "dr-pickle", shape: "9:16", brand_id: 1, folder_id: 4, broll_look: null, text: SCRIPT, cast_ids: [3], attachments: [] }));
+  await vi.waitFor(() => expect(posted(calls)).toEqual({ type: "dialogue", look: "dr-pickle", shape: "9:16", brand_id: 1, folder_id: 4, broll_look: null, text: SCRIPT, cast_ids: [], attachments: [] }));
   expect(await screen.findByRole("list", { name: "Thread" })).toBeInTheDocument(); // the video's chat
 });
 
@@ -99,7 +100,7 @@ test("S-gaps-01 (1): a format with a host offers Change B-roll look…; the pick
   setViewport(1440);
   const calls = server(owner, { "GET /freestyles/estimate": [200, { credits: 170, usd: 17.48, held: "", budget: null }], "POST /freestyles": [201, fs()] });
   renderApp("/b/1/videos/new");
-  await screen.findByRole("radio", { name: /^Dr\. Pickle/ });
+  await userEvent.click(await screen.findByRole("radio", { name: /^Dr\. Pickle/ }));
   await loaded();
   expect(screen.queryByRole("button", { name: "Change B-roll look…" })).toBeNull(); // Dialogue has no host
   await userEvent.click(screen.getByRole("radio", { name: /Presenter/ }));
@@ -176,7 +177,7 @@ test("S2-07: Use a reel uploads it, Copy it shot by shot reads it at its price; 
   });
   renderApp("/b/1/videos/new?from=reel");
   await loaded();
-  await screen.findByRole("radio", { name: /^Dr\. Pickle/ });
+  await userEvent.click(await screen.findByRole("radio", { name: /^Dr\. Pickle/ }));
   await userEvent.upload(await screen.findByLabelText("Choose a reel"), new File(["x"], "doctor-rant-reference.mp4", { type: "video/mp4" }));
   expect(await screen.findByText("doctor-rant-reference.mp4")).toBeInTheDocument();
   expect(screen.getByRole("radio", { name: "Copy it shot by shot" })).toHaveAttribute("aria-checked", "true");
