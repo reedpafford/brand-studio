@@ -69,7 +69,7 @@ def test_directions_advise_on_length_style_and_the_brand_line():
     result.directions[1].lyrics = "[Chorus]\nShort and sweet"
     problems = check.song_directions(result, "Iron Paws", 30)
     assert "Advice: direction 1: the music style is over 25 words" in problems
-    assert not any(check.NO_CTA in p for p in problems)  # a song isn't forced to end on the brand
+    assert not any("last line" in p for p in problems)  # a song isn't forced to end on the brand
     assert any(p.startswith("Advice: direction 2: 3 sung words") for p in problems)
     result.directions.pop()
     assert "1 directions; write exactly 2" in check.song_directions(result, "Iron Paws")
@@ -96,7 +96,7 @@ def test_song_block_lists_sections_beats_and_timed_lines():
     assert "   words: 0.10 Bowl\n2|" in block  # a picture can land on its word
     assert "peaks" not in block and "0.40" not in block  # peaks and word ends stay out
     assert "<length>30 s (about 70 sung words)</length>" in prompts.song_directions_input(
-        "Goal: x", ["char:1 Biscuit"], "folk", 30
+        "Goal: x", ["char:1 Biscuit"], 30
     )
 
 
@@ -389,8 +389,5 @@ def test_a_song_follows_its_script_and_is_never_forced_to_end_on_the_brand():
     lyrics = "[Verse 1]\nBowl stays full\nThen the green goes on\n[Chorus]\nNow the bowl is clean"
     shots = [_shot("1.1", [1, 2], 0.0, 2.0), _shot("1.2", [3], 2.0, 4.0),
              _shot("1.3", [4, 5], 4.0, 6.0)]  # fmt: skip
-    end = {"end_line": "Get Iron Paws now", "brand": "Iron Paws"}
-    sung = check.song_breakdown(lyrics, _breakdown(shots), SONG, {}, 4, 15, **end)
-    assert not any(check.NO_CTA in p for p in sung)
-    narrated = check.song_breakdown(lyrics, _breakdown(shots), SONG, {}, 4, 15, sung=False, **end)
-    assert f"Advice: {check.NO_CTA}" in narrated  # a narration is a spoken script (rule 18)
+    sung = check.song_breakdown(lyrics, _breakdown(shots), SONG, {}, 4, 15, brand="Iron Paws")
+    assert not any("last line" in p for p in sung)  # rule 18: the ending is the script's

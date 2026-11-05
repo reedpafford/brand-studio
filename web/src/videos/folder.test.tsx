@@ -20,7 +20,7 @@ const page = (ideas: object[], o: object = {}) => ({ total: ideas.length, counts
 const two = [idea({}), idea({ id: 10, title: "Bloated after pizza", status: status("needs_you", "Needs you", { reason: "Check the scene plan" }), cost: { kind: "so_far", credits: 4.09, usd: 0.42 }, made_by: { id: 2, name: "Kel" }, can_manage: false })];
 const base = (me: object, ideas: object = page(two), extra: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
   "GET /auth/me": [200, me],
-  "GET /brands": [200, [{ id: 1, name: "Resilia", colours: ["#1f7a4f"], dont_list: [], do_list: [], cta_lines: [], audience: "" }, { id: 2, name: "fomo", colours: [] }]],
+  "GET /brands": [200, [{ id: 1, name: "Resilia", colours: ["#1f7a4f"], tone_notes: "" }, { id: 2, name: "fomo", colours: [] }]],
   "GET /brands/1/tree": [200, tree],
   "GET /brands/1/ideas": [200, ideas],
   "GET /jobs": [200, []],

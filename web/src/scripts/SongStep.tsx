@@ -4,7 +4,6 @@ import { useSearchParams } from "react-router-dom";
 import { Lock, Pencil, X } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { Badge, Button, Card, Dialog, Field, TextArea } from "../components";
-import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import type { Script } from "./useScript";
@@ -49,11 +48,9 @@ export function useSaveSong(id: number) {
 }
 
 /** Advice under saved lyrics (flows S2): never blocks; each has its free fix, with Undo. */
-function Advice({ song, brand, save }: { song: Song; brand?: { name: string; end_line: string }; save: (next: Song, said: string) => void }) {
+function Advice({ song, save }: { song: Song; save: (next: Song, said: string) => void }) {
   const styleWords = words(song.style_line);
   const sung = sungWords(song.text);
-  const endLine = brand?.end_line.trim() ?? "";
-  const named = !!brand && song.text.toLowerCase().includes(brand.name.toLowerCase());
   const items: { text: string; fix?: ReactNode }[] = [];
   if (!song.style_line.trim()) items.push({ text: "No music style yet: the song will be upbeat pop by default." });
   if (styleWords.length > 25)
@@ -62,18 +59,6 @@ function Advice({ song, brand, save }: { song: Song; brand?: { name: string; end
       fix: <Button variant="secondary" onClick={() => save({ ...song, style_line: styleWords.slice(0, 25).join(" ") }, "Style cut to 25 words.")}>Shorten it · free</Button>,
     });
   if (sung > 150) items.push({ text: `${lengthNote(song.text)}. That's a long ad: the video will be about that long too.` });
-  if (brand && !named && !song.spoken_end_line)
-    items.push({
-      text: `The song doesn't say ${brand.name} or where to find it.`,
-      fix: endLine ? (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => save({ ...song, text: `${song.text.trimEnd()}\n\n[Outro]\n${endLine}` }, "The end line is sung at the end.")}>Sing the end line · free</Button>
-          <Button variant="secondary" onClick={() => save({ ...song, spoken_end_line: endLine }, "The end line is spoken over the end.")}>Speak it over the end · free</Button>
-        </div>
-      ) : (
-        <p className="text-sm text-muted">Add a line to the lyrics that names {brand.name} and where to find it.</p>
-      ),
-    });
   if (items.length === 0) return null;
   return (
     <details className="max-w-[680px] rounded-lg border border-border bg-surface px-4">
@@ -128,7 +113,6 @@ function SpokenLine({ song, readOnly, save }: { song: Song; readOnly: boolean; s
 export function SongStep({ script: s, brandId, onDirty }: { script: Script; brandId: number; onDirty: (dirty: boolean) => void }) {
   const v = s.versions.find((x) => x.slot === 0);
   const saved: Song = { text: v?.text ?? "", style_line: v?.style_line ?? "", spoken_end_line: v?.spoken_end_line ?? "" };
-  const brand = useBrands().data?.find((b) => b.id === brandId);
   const takes = useSongs(s.id).data?.takes.length ?? 0;
   const put = useSaveSong(s.id);
   const toast = useToast();
@@ -209,7 +193,7 @@ export function SongStep({ script: s, brandId, onDirty }: { script: Script; bran
         {put.isError && <p role="alert" className={errorClass}>{put.error.message}</p>}
         <ClaimsNote script={s} claims={directionsOf(v).claims_to_check} onEdit={() => (takes > 0 ? setAsking(true) : setDraft({ text: saved.text, style: saved.style_line }))} />
         <SpokenLine song={saved} readOnly={s.published} save={fix} />
-        {!s.published && <Advice song={saved} brand={brand} save={fix} />}
+        {!s.published && <Advice song={saved} save={fix} />}
         {directions(!!saved.text.trim())}
         {asking && (
           <Dialog title="Edit the lyrics?" cancelLabel="Cancel" actionLabel="Edit lyrics" onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); setDraft({ text: saved.text, style: saved.style_line }); }}>

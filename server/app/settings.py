@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # take their spend past this budget; after that a sample is a stand-in again.
     real_look_samples: bool = False
     look_samples_budget_usd: float = 0.0
+    # Planning before Make it (Reed, 4 Nov): one plan and up to 2 changes, at most 10 credits a
+    # video, whichever comes first; past it a further plan change waits for the owner's OK
+    plans_before_ok: int = 3
+    plan_credits_before_ok: float = 10.0
     # Real language tests on the test site (Reed, 2026-10-29): with the stand-ins on, a
     # language's sample script alone is written by Claude, until the next one would take
     # their spend past this budget; after that a test is a stand-in again.
@@ -83,9 +87,6 @@ class Settings(BaseSettings):
     # The advisory check on stills and takes (flows 1b, P4) costs real calls: off until the
     # Producer approves a real test; with the stand-ins on, it always runs (free).
     item_checks_paid: bool = False
-    # Import from website (BR2): reading a real site. Off until the Producer approves a real
-    # test; the stand-ins give a practice page, and with it off a read says so.
-    site_read_real: bool = False
     # The music bed under a narration (N1) is a Claude call and a Stable Audio file: off until
     # the Producer approves a real test; with the stand-ins on, it always runs (free). Real
     # runs stop before their spend would pass the budget, each counted at its rough price.

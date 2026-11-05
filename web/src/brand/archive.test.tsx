@@ -7,7 +7,7 @@ import { renderApp } from "../test/render";
 import { owner } from "../test/people";
 
 const brands = [{ id: 1, name: "fomo", colours: [] }, { id: 2, name: "Iron Paws", colours: [] }];
-const kit = { id: 1, name: "fomo", colours: [], fonts: [], tone_notes: "", never_say: [], legal_line: "", end_line: "" };
+const kit = { id: 1, name: "fomo", colours: [], tone_notes: "" };
 const base = (o: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
   "GET /auth/me": [200, owner],
   "GET /brands": [200, brands],

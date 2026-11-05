@@ -4,26 +4,6 @@
  */
 
 export interface paths {
-    "/brands/site-read/estimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * New Brand Estimate
-         * @description New brand's "Make the brand · about 3 credits" once a website is typed (F_BrandNew).
-         */
-        get: operations["new_brand_estimate_brands_site_read_estimate_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/health": {
         parameters: {
             query?: never;
@@ -643,9 +623,7 @@ export interface paths {
         put?: never;
         /**
          * Create Brand
-         * @description Add a brand (owner only, like archiving one). With a Website, its site is read too
-         *     (flows BR2): the brand is made whatever the read does; the read's job is returned so the
-         *     page opens on its review, or the reason it couldn't start.
+         * @description Add a brand (owner only, like archiving one).
          */
         post: operations["create_brand_brands_post"];
         delete?: never;
@@ -671,9 +649,8 @@ export interface paths {
         head?: never;
         /**
          * Update Brand
-         * @description Change the brand, setup included (Reed, 30 Oct: editors fill in the Brand page too;
-         *     creating, archiving and the paid site read stay the owner's). Nothing already made or
-         *     published changes (BR1).
+         * @description Change the kit (Reed, 30 Oct: editors fill in the brand too). Nothing already made
+         *     changes.
          */
         patch: operations["update_brand_brands__brand_id__patch"];
         trace?: never;
@@ -692,67 +669,6 @@ export interface paths {
          * @description Undo an archive: the brand and everything in it come back.
          */
         post: operations["restore_brand_brands__brand_id__restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/cta-lines": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add Cta Line
-         * @description Add a call to action line (the first one is the Default).
-         */
-        post: operations["add_cta_line_brands__brand_id__cta_lines_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/cta-lines/{line_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Cta Line
-         * @description Delete a line; deleting the Default makes the next line the Default (Undo: restore).
-         */
-        delete: operations["delete_cta_line_brands__brand_id__cta_lines__line_id__delete"];
-        options?: never;
-        head?: never;
-        /** Edit Cta Line */
-        patch: operations["edit_cta_line_brands__brand_id__cta_lines__line_id__patch"];
-        trace?: never;
-    };
-    "/brands/{brand_id}/cta-lines/{line_id}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restore Cta Line
-         * @description Undo a delete: the line comes back, and the Default again if it was.
-         */
-        post: operations["restore_cta_line_brands__brand_id__cta_lines__line_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1199,6 +1115,133 @@ export interface paths {
          *     the job, or the owner (as every change to a video). A Quick clip: its maker or the owner.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/asks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Asks
+         * @description Every card on the video, oldest first: open ones, and answered ones folded. A send's
+         *     video before the OK (hidden) shows to its maker and the owner, as its answer route does.
+         */
+        get: operations["list_asks_projects__project_id__asks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer
+         * @description Answer a card (the chat's and Needs you's are the same answer). Questions: the video's
+         *     maker or the owner. MoneyCard: the owner approves or keeps it as it is; an editor's own video
+         *     inside its budget starts with Make it; whoever asked may withdraw.
+         */
+        post: operations["answer_asks__ask_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate
+         * @description Generate options (paid, at the card's "up to" price): 3 made for this video only, never
+         *     saved to the brand. `like`: more like that option; `change`: Change something…
+         */
+        post: operations["generate_asks__ask_id__generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel
+         * @description Cancel the options being made (or held for the owner): nothing more is charged.
+         */
+        post: operations["cancel_asks__ask_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/uploading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uploading
+         * @description The card shows the upload going up (`on`), or open again if it's cancelled. The file
+         *     itself goes up through POST /files, then POST …/answer with how=upload.
+         */
+        post: operations["uploading_asks__ask_id__uploading_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/needs-you": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Needs You
+         * @description One read across brands: questions from the director, money OKs (the start of a run, past
+         *     a budget, the director's own limit) and stuck videos with their one-click fix (rule 22).
+         *     The owner sees every video; an editor their own. `brand_id` filters; the counts don't.
+         */
+        get: operations["needs_you_needs_you_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4274,8 +4317,9 @@ export interface paths {
         put?: never;
         /**
          * Start
-         * @description Build the video from its published script (409 if it isn't, or a run is going). Its
-         *     first turn is paid from the video's budget, held for the owner past it.
+         * @description Build the video from its published script (409 if it isn't, or a run is going). The
+         *     treatment comes first, charged nothing; then its start card waits for Make it (S3-02,
+         *     POST /asks/{id}/answer).
          */
         post: operations["start_projects__project_id__director_post"];
         delete?: never;
@@ -5724,145 +5768,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/brands/{brand_id}/site-read/estimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read Estimate */
-        get: operations["read_estimate_brands__brand_id__site_read_estimate_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/site-read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start Read
-         * @description Read the site: a free fetch, then the paid read only if the page had something.
-         */
-        post: operations["start_read_brands__brand_id__site_read_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/site-read/latest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Latest Read
-         * @description The brand's newest read, so Import from website reopens on it (F_BrandImport).
-         */
-        get: operations["latest_read_brands__brand_id__site_read_latest_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/site-read/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read State */
-        get: operations["read_state_brands__brand_id__site_read__job_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/site-read/{job_id}/logo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Found Logo
-         * @description The logo the read found, as a picture for the review's logo row. Nothing is saved to
-         *     the brand; a logo that can't be fetched is a 404 with the words to show.
-         */
-        get: operations["found_logo_brands__brand_id__site_read__job_id__logo_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/site-read/{job_id}/save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Save Ticked
-         * @description Save the ticked ones, through the brand's own writes (BR1's rules). Colours join the
-         *     brand's, never replace them; a product new to the brand is made, an existing one only
-         *     gets an empty description filled. Undo: POST …/undo.
-         */
-        post: operations["save_ticked_brands__brand_id__site_read__job_id__save_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/brands/{brand_id}/site-read/{job_id}/undo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Undo Save
-         * @description Undo Save: the colours it added taken out and its logo replaced by the one before
-         *     (unless changed since), the products it made removed and the descriptions it filled
-         *     cleared (unless edited since). The read can be saved again.
-         */
-        post: operations["undo_save_brands__brand_id__site_read__job_id__undo_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/brands/{brand_id}/voices": {
         parameters: {
             query?: never;
@@ -6069,6 +5974,19 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** AnswerIn */
+        AnswerIn: {
+            /** How */
+            how: string;
+            /** Option */
+            option?: string | number | null;
+            /** File Id */
+            file_id?: number | null;
+            /** Text */
+            text?: string | null;
+            /** Choice */
+            choice?: string | null;
+        };
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
@@ -6103,6 +6021,89 @@ export interface components {
         ApproveOut: {
             plan: components["schemas"]["PlanOut"];
             job: components["schemas"]["JobOut"] | null;
+        };
+        /** AskOut */
+        AskOut: {
+            /** Id */
+            id: number;
+            /** Project Id */
+            project_id: number;
+            /** Kind */
+            kind: string;
+            /** Topic */
+            topic: string;
+            /** Question */
+            question: string;
+            /** Why */
+            why: string;
+            /** State */
+            state: string;
+            /**
+             * By Owner
+             * @default false
+             */
+            by_owner: boolean;
+            /**
+             * Saved In
+             * @default
+             */
+            saved_in: string;
+            /**
+             * Saved
+             * @default []
+             */
+            saved: components["schemas"]["SavedOption"][];
+            /** Pick */
+            pick?: string | null;
+            /**
+             * Choices
+             * @default []
+             */
+            choices: components["schemas"]["StoryChoice"][];
+            /** Decide At */
+            decide_at?: string | null;
+            generate?: components["schemas"]["AskPrice"] | null;
+            clone?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: components["schemas"]["MadeOption"][];
+            options_spent?: components["schemas"]["AskPrice"] | null;
+            /** Answer */
+            answer?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Answered By
+             * @default
+             */
+            answered_by: string;
+            /** Answered At */
+            answered_at?: string | null;
+            /**
+             * Closed
+             * @default
+             */
+            closed: string;
+            money?: components["schemas"]["MoneyCard"] | null;
+            /**
+             * Can
+             * @default []
+             */
+            can: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AskPrice */
+        AskPrice: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd?: number | null;
         };
         /** AssetOut */
         AssetOut: {
@@ -6249,215 +6250,66 @@ export interface components {
              */
             folders: components["schemas"]["Branch"][];
         };
+        /** BrandCount */
+        BrandCount: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
+        };
         /** BrandIn */
         BrandIn: {
-            /** Audience */
-            audience?: string | null;
-            /** Do List */
-            do_list?: string[] | null;
-            /** Dont List */
-            dont_list?: string[] | null;
-            /** Music Style */
-            music_style?: string | null;
-            /** Default Language */
-            default_language?: string | null;
-            /** Default Look */
-            default_look?: string | null;
-            /** Default Cast */
-            default_cast?: number[] | null;
             /** Logo File Id */
             logo_file_id?: number | null;
-            /** Style Board File Id */
-            style_board_file_id?: number | null;
-            /** End Card File Id */
-            end_card_file_id?: number | null;
             /**
              * Colours
              * @default []
              */
             colours: string[];
             /**
-             * Fonts
-             * @default []
-             */
-            fonts: string[];
-            /**
              * Tone Notes
              * @default
              */
             tone_notes: string;
-            /**
-             * Never Say
-             * @default []
-             */
-            never_say: string[];
-            /**
-             * Legal Line
-             * @default
-             */
-            legal_line: string;
-            /**
-             * End Line
-             * @default
-             */
-            end_line: string;
             /** Name */
             name: string;
-            /** Website */
-            website?: string | null;
         };
         /** BrandOut */
         BrandOut: {
             /** Logo File Id */
             logo_file_id?: number | null;
-            /** Style Board File Id */
-            style_board_file_id?: number | null;
-            /** End Card File Id */
-            end_card_file_id?: number | null;
             /**
              * Colours
              * @default []
              */
             colours: string[];
             /**
-             * Fonts
-             * @default []
-             */
-            fonts: string[];
-            /**
              * Tone Notes
              * @default
              */
             tone_notes: string;
-            /**
-             * Never Say
-             * @default []
-             */
-            never_say: string[];
-            /**
-             * Legal Line
-             * @default
-             */
-            legal_line: string;
-            /**
-             * End Line
-             * @default
-             */
-            end_line: string;
             /** Id */
             id: number;
             /** Name */
             name: string;
             /** Slug */
             slug: string;
-            /**
-             * Audience
-             * @default
-             */
-            audience: string;
-            /**
-             * Do List
-             * @default []
-             */
-            do_list: string[];
-            /**
-             * Dont List
-             * @default []
-             */
-            dont_list: string[];
-            /**
-             * Music Style
-             * @default
-             */
-            music_style: string;
-            /**
-             * Default Language
-             * @default en
-             */
-            default_language: string;
-            /**
-             * Default Look
-             * @default house
-             */
-            default_look: string;
-            /**
-             * Default Cast
-             * @default []
-             */
-            default_cast: number[];
-            /**
-             * Cta Lines
-             * @default []
-             */
-            cta_lines: components["schemas"]["CtaLine"][];
-            /**
-             * Cast
-             * @default []
-             */
-            cast: components["schemas"]["CastPick"][];
-            /**
-             * Advice
-             * @default []
-             */
-            advice: string[];
         };
         /**
          * BrandPatch
          * @description Send only the fields you want to change.
          */
         BrandPatch: {
-            /** Audience */
-            audience?: string | null;
-            /** Do List */
-            do_list?: string[] | null;
-            /** Dont List */
-            dont_list?: string[] | null;
-            /** Music Style */
-            music_style?: string | null;
-            /** Default Language */
-            default_language?: string | null;
-            /** Default Look */
-            default_look?: string | null;
-            /** Default Cast */
-            default_cast?: number[] | null;
-            /** Logo File Id */
-            logo_file_id?: number | null;
-            /** Style Board File Id */
-            style_board_file_id?: number | null;
-            /** End Card File Id */
-            end_card_file_id?: number | null;
-            /**
-             * Colours
-             * @default []
-             */
-            colours: string[];
-            /**
-             * Fonts
-             * @default []
-             */
-            fonts: string[];
-            /**
-             * Tone Notes
-             * @default
-             */
-            tone_notes: string;
-            /**
-             * Never Say
-             * @default []
-             */
-            never_say: string[];
-            /**
-             * Legal Line
-             * @default
-             */
-            legal_line: string;
-            /**
-             * End Line
-             * @default
-             */
-            end_line: string;
             /** Name */
             name?: string | null;
+            /** Logo File Id */
+            logo_file_id?: number | null;
+            /** Colours */
+            colours?: string[] | null;
+            /** Tone Notes */
+            tone_notes?: string | null;
         };
         /** Breakdown */
         Breakdown: {
@@ -6656,15 +6508,6 @@ export interface components {
             /** Name */
             name: string;
         };
-        /** CastPick */
-        CastPick: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Deleted */
-            deleted: boolean;
-        };
         /** ChangeIn */
         ChangeIn: {
             /** Note */
@@ -6855,38 +6698,6 @@ export interface components {
             /** Delivered */
             delivered: number;
         };
-        /** CtaDeleted */
-        CtaDeleted: {
-            /** Promoted Id */
-            promoted_id: string | null;
-            brand: components["schemas"]["BrandOut"];
-        };
-        /** CtaIn */
-        CtaIn: {
-            /** Text */
-            text: string;
-            /**
-             * Default
-             * @default false
-             */
-            default: boolean;
-        };
-        /** CtaLine */
-        CtaLine: {
-            /** Id */
-            id: string;
-            /** Text */
-            text: string;
-            /** Default */
-            default: boolean;
-        };
-        /** CtaPatch */
-        CtaPatch: {
-            /** Text */
-            text?: string | null;
-            /** Default */
-            default?: boolean | null;
-        };
         /** CutDirectorOut */
         CutDirectorOut: {
             /** Editing */
@@ -7033,6 +6844,13 @@ export interface components {
             /** Started At */
             started_at: string | null;
         };
+        /** DirectorNoteIn */
+        DirectorNoteIn: {
+            /** Text */
+            text: string;
+            /** Files */
+            files?: number[] | null;
+        };
         /** DirectorOut */
         DirectorOut: {
             /** Status */
@@ -7062,6 +6880,23 @@ export interface components {
              * @default 0
              */
             run_price: number;
+            /**
+             * Spent
+             * @default 0
+             */
+            spent: number;
+            /**
+             * Started
+             * @default false
+             */
+            started: boolean;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: components["schemas"]["WaitingQuestion"][];
+            /** Make It */
+            make_it?: number | null;
         };
         /** Dot */
         Dot: {
@@ -7431,15 +7266,6 @@ export interface components {
              */
             test_still: boolean;
         };
-        /** Found */
-        Found: {
-            /** Logo Url */
-            logo_url: string;
-            /** Colours */
-            colours: string[];
-            /** Products */
-            products: components["schemas"]["Product"][];
-        };
         /** FrameIn */
         FrameIn: {
             /** Prompt */
@@ -7627,6 +7453,17 @@ export interface components {
             up_to?: number | null;
             /** Project Id */
             project_id?: number | null;
+            /** Make It */
+            make_it?: number | null;
+            /** Make It Up To */
+            make_it_up_to?: number | null;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: {
+                [key: string]: unknown;
+            }[];
             /** Script Id */
             script_id?: number | null;
             /** Reel Script Id */
@@ -7702,6 +7539,13 @@ export interface components {
             /** Videos */
             videos: number;
         };
+        /** GenerateIn */
+        GenerateIn: {
+            /** Like */
+            like?: number | null;
+            /** Change */
+            change?: string | null;
+        };
         /** GoingOut */
         GoingOut: {
             /** Piece */
@@ -7720,6 +7564,13 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HeldClip */
+        HeldClip: {
+            /** Clip */
+            clip: string;
+            /** Still File Id */
+            still_file_id: number | null;
         };
         /** HostOut */
         HostOut: {
@@ -8603,11 +8454,6 @@ export interface components {
              */
             song: boolean;
             /**
-             * End Line
-             * @default false
-             */
-            end_line: boolean;
-            /**
              * Screens
              * @default []
              */
@@ -8621,7 +8467,6 @@ export interface components {
              *       "look": false,
              *       "length": false,
              *       "song": false,
-             *       "end_line": false,
              *       "screens": []
              *     }
              */
@@ -8736,6 +8581,15 @@ export interface components {
         LookSwitchIn: {
             /** On */
             on: boolean;
+        };
+        /** MadeOption */
+        MadeOption: {
+            /** Index */
+            index: number;
+            /** State */
+            state: string;
+            /** File Id */
+            file_id: number | null;
         };
         /** MadeOut */
         MadeOut: {
@@ -9020,6 +8874,30 @@ export interface components {
             /** Price Source */
             price_source: string;
         };
+        /**
+         * MoneyCard
+         * @description A money card's figures: what the OK lets it charge ("up to"), what's spent and the
+         *     budget (past the budget), the run's usual cost (start), the held items and when sent.
+         */
+        MoneyCard: {
+            up_to: components["schemas"]["AskPrice"];
+            spent?: components["schemas"]["AskPrice"] | null;
+            budget?: components["schemas"]["AskPrice"] | null;
+            past?: components["schemas"]["AskPrice"] | null;
+            usual?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Clips
+             * @default []
+             */
+            clips: components["schemas"]["HeldClip"][];
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Held */
+            held: string;
+        };
         /** Montage */
         Montage: {
             /** First */
@@ -9195,6 +9073,13 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** NamedBrand */
+        NamedBrand: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** NarrationOut */
         NarrationOut: {
             /** Voice */
@@ -9212,107 +9097,35 @@ export interface components {
              */
             action: "cast" | "plan" | "approvals";
         };
-        /** NewBrandOut */
-        NewBrandOut: {
-            /** Logo File Id */
-            logo_file_id?: number | null;
-            /** Style Board File Id */
-            style_board_file_id?: number | null;
-            /** End Card File Id */
-            end_card_file_id?: number | null;
-            /**
-             * Colours
-             * @default []
-             */
-            colours: string[];
-            /**
-             * Fonts
-             * @default []
-             */
-            fonts: string[];
-            /**
-             * Tone Notes
-             * @default
-             */
-            tone_notes: string;
-            /**
-             * Never Say
-             * @default []
-             */
-            never_say: string[];
-            /**
-             * Legal Line
-             * @default
-             */
-            legal_line: string;
-            /**
-             * End Line
-             * @default
-             */
-            end_line: string;
+        /** NeedsYouOut */
+        NeedsYouOut: {
+            /** Total */
+            total: number;
+            /** Brands */
+            brands: components["schemas"]["BrandCount"][];
+            /** Questions */
+            questions: components["schemas"]["NeedsYouRow"][];
+            /** Money */
+            money: components["schemas"]["NeedsYouRow"][];
+            /** Stuck */
+            stuck: components["schemas"]["StuckVideo"][];
+        };
+        /** NeedsYouRow */
+        NeedsYouRow: {
+            video: components["schemas"]["NeedsYouVideo"];
+            brand: components["schemas"]["NamedBrand"];
+            ask: components["schemas"]["AskOut"];
+        };
+        /** NeedsYouVideo */
+        NeedsYouVideo: {
             /** Id */
             id: number;
-            /** Name */
-            name: string;
-            /** Slug */
-            slug: string;
-            /**
-             * Audience
-             * @default
-             */
-            audience: string;
-            /**
-             * Do List
-             * @default []
-             */
-            do_list: string[];
-            /**
-             * Dont List
-             * @default []
-             */
-            dont_list: string[];
-            /**
-             * Music Style
-             * @default
-             */
-            music_style: string;
-            /**
-             * Default Language
-             * @default en
-             */
-            default_language: string;
-            /**
-             * Default Look
-             * @default house
-             */
-            default_look: string;
-            /**
-             * Default Cast
-             * @default []
-             */
-            default_cast: number[];
-            /**
-             * Cta Lines
-             * @default []
-             */
-            cta_lines: components["schemas"]["CtaLine"][];
-            /**
-             * Cast
-             * @default []
-             */
-            cast: components["schemas"]["CastPick"][];
-            /**
-             * Advice
-             * @default []
-             */
-            advice: string[];
-            /** Site Read Job Id */
-            site_read_job_id?: number | null;
-            /**
-             * Site Read Problem
-             * @default
-             */
-            site_read_problem: string;
+            /** Title */
+            title: string;
+            /** Still File Id */
+            still_file_id: number | null;
+            /** Made By */
+            made_by: string;
         };
         /** NewInviteOut */
         NewInviteOut: {
@@ -9732,18 +9545,6 @@ export interface components {
             breakdown_job_id: number | null;
             /** Plan Job Id */
             plan_job_id?: number | null;
-        };
-        /** Product */
-        Product: {
-            /** Name */
-            name: string;
-            /** Short Description */
-            short_description: string;
-            /**
-             * Mark
-             * @default new
-             */
-            mark: string;
         };
         /** ProductionRow */
         ProductionRow: {
@@ -10204,13 +10005,12 @@ export interface components {
              */
             note: string;
         };
-        /** ReadIn */
-        ReadIn: {
-            /**
-             * Url
-             * Format: uri
-             */
-            url: string;
+        /** ReadOut */
+        ReadOut: {
+            /** Running */
+            running: boolean;
+            /** Problems */
+            problems: string[];
         };
         /** RealBudgetOut */
         RealBudgetOut: {
@@ -10534,36 +10334,28 @@ export interface components {
             /** Test Site */
             test_site?: string | null;
         };
-        /** SaveIn */
-        SaveIn: {
+        /** SavedOption */
+        SavedOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
             /**
-             * Logo
-             * @default false
+             * Note
+             * @default
              */
-            logo: boolean;
+            note: string;
+            /** File Id */
+            file_id?: number | null;
             /**
-             * Colours
-             * @default []
+             * Used In
+             * @default 0
              */
-            colours: string[];
-            /**
-             * Products
-             * @default []
-             */
-            products: number[];
-        };
-        /** SaveOut */
-        SaveOut: {
-            /** Colours Added */
-            colours_added: number;
-            /** Logo */
-            logo: boolean;
-            /** Products Made */
-            products_made: number;
-            /** Products Filled */
-            products_filled: number;
-            /** Problems */
-            problems: string[];
+            used_in: number;
+            /** Sample File Id */
+            sample_file_id?: number | null;
+            /** Sample Url */
+            sample_url?: string | null;
         };
         /** Scene */
         Scene: {
@@ -11416,6 +11208,15 @@ export interface components {
              */
             total: number;
         };
+        /** StoryChoice */
+        StoryChoice: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
+        };
         /** StoryboardIn */
         StoryboardIn: {
             /**
@@ -11441,6 +11242,30 @@ export interface components {
             still_file_ids: number[];
             /** Current */
             current: boolean;
+        };
+        /** StuckFix */
+        StuckFix: {
+            /** Label */
+            label: string;
+            /** Method */
+            method: string | null;
+            /** Path */
+            path: string;
+        };
+        /** StuckVideo */
+        StuckVideo: {
+            video: components["schemas"]["NeedsYouVideo"];
+            brand: components["schemas"]["NamedBrand"];
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** What */
+            what: string;
+            /** Why */
+            why: string;
+            fix: components["schemas"]["StuckFix"];
         };
         /**
          * StudyAttempt
@@ -11651,7 +11476,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "message" | "move";
+            kind: "message" | "move" | "ask";
             /**
              * At
              * Format: date-time
@@ -11674,6 +11499,10 @@ export interface components {
             treatment?: {
                 [key: string]: unknown;
             } | null;
+            /** Ask Id */
+            ask_id?: number | null;
+            /** Files */
+            files?: number[] | null;
             /** Run */
             run?: string | null;
             note?: components["schemas"]["DeliveryNoteOut"] | null;
@@ -11771,6 +11600,11 @@ export interface components {
             problem: string;
             /** Problem Code */
             problem_code?: string | null;
+        };
+        /** UploadingIn */
+        UploadingIn: {
+            /** On */
+            on: boolean;
         };
         /** UsageBrandOut */
         UsageBrandOut: {
@@ -12327,6 +12161,15 @@ export interface components {
             /** Clone Usd */
             clone_usd: number | null;
         };
+        /** WaitingQuestion */
+        WaitingQuestion: {
+            /** Id */
+            id: number;
+            /** Topic */
+            topic: string;
+            /** Question */
+            question: string;
+        };
         /** Was */
         Was: {
             /** Id */
@@ -12497,13 +12340,6 @@ export interface components {
         app__routes__script_cast__UndoIn: {
             /** Token */
             token: number;
-        };
-        /** ReadOut */
-        app__routes__script_cast_read__ReadOut: {
-            /** Running */
-            running: boolean;
-            /** Problems */
-            problems: string[];
         };
         /** ScriptIn */
         app__routes__script_library__ScriptIn: {
@@ -12841,25 +12677,6 @@ export interface components {
              */
             created_at: string;
         };
-        /** EstimateOut */
-        app__routes__site_read__EstimateOut: {
-            /** Credits */
-            credits: number;
-        };
-        /** ReadOut */
-        app__routes__site_read__ReadOut: {
-            /** Id */
-            id: number;
-            /** Url */
-            url: string;
-            /** Status */
-            status: string;
-            /** Reason */
-            reason: string;
-            found: components["schemas"]["Found"];
-            /** Have Colours */
-            have_colours: string[];
-        };
         /** PriceOut */
         app__routes__storyboard__PriceOut: {
             /** Credits */
@@ -12909,26 +12726,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    new_brand_estimate_brands_site_read_estimate_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["app__routes__site_read__EstimateOut"];
-                };
-            };
-        };
-    };
     health_health_get: {
         parameters: {
             query?: never;
@@ -14172,7 +13969,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NewBrandOut"];
+                    "application/json": components["schemas"]["BrandOut"];
                 };
             };
             /** @description Validation Error */
@@ -14287,141 +14084,6 @@ export interface operations {
             header?: never;
             path: {
                 brand_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BrandOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_cta_line_brands__brand_id__cta_lines_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CtaIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BrandOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_cta_line_brands__brand_id__cta_lines__line_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-                line_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CtaDeleted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    edit_cta_line_brands__brand_id__cta_lines__line_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-                line_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CtaPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BrandOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    restore_cta_line_brands__brand_id__cta_lines__line_id__restore_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-                line_id: string;
             };
             cookie?: never;
         };
@@ -15425,6 +15087,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_asks_projects__project_id__asks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_asks__ask_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_asks__ask_id__generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_asks__ask_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    uploading_asks__ask_id__uploading_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    needs_you_needs_you_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeedsYouOut"];
                 };
             };
             /** @description Validation Error */
@@ -17810,7 +17670,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__routes__script_cast_read__ReadOut"];
+                    "application/json": components["schemas"]["ReadOut"];
                 };
             };
             /** @description Validation Error */
@@ -21400,7 +21260,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MessageIn"];
+                "application/json": components["schemas"]["DirectorNoteIn"];
             };
         };
         responses: {
@@ -24146,233 +24006,6 @@ export interface operations {
             path: {
                 brand_id: number;
                 key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_estimate_brands__brand_id__site_read_estimate_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["app__routes__site_read__EstimateOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    start_read_brands__brand_id__site_read_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReadIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    latest_read_brands__brand_id__site_read_latest_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["app__routes__site_read__ReadOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_state_brands__brand_id__site_read__job_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-                job_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["app__routes__site_read__ReadOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    found_logo_brands__brand_id__site_read__job_id__logo_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-                job_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    save_ticked_brands__brand_id__site_read__job_id__save_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-                job_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SaveOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    undo_save_brands__brand_id__site_read__job_id__undo_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                brand_id: number;
-                job_id: number;
             };
             cookie?: never;
         };

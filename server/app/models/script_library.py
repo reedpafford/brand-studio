@@ -4,7 +4,7 @@ Producing a version makes a project (`Project.script_draft_id`, one per version)
 
 from datetime import datetime
 
-from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint, event, select
+from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
@@ -42,18 +42,10 @@ class Script(Filed, Entity, Base):
 
 @event.listens_for(Script, "before_insert")
 def _language(mapper, connection, script: Script) -> None:
-    """A new script is written in its brand's language unless one was given (VS1, BR1); an
-    editor's starts in English while the brand's is off (app/languages.py)."""
+    """A new script is written in English unless a language was given (VS1; brands keep no
+    default language since S-gaps-05 L1)."""
     if script.language is None:
-        from app.languages import starting
-        from app.models.accounts import Role, User
-        from app.models.brands import Brand
-
-        found = connection.scalar(select(Brand.default_language)
-                                  .where(Brand.id == script.brand_id))  # fmt: skip
-        role = connection.scalar(select(User.role).where(User.id == script.created_by_id))
-        script.language = starting(connection, script.workspace_id, found,
-                                   role in (None, Role.owner))  # fmt: skip
+        script.language = "en"
 
 
 class ScriptDraft(Entity, Base):

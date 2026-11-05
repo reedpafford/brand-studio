@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
-         "edit_cut", "final_cut", "watch_cut")  # fmt: skip
+         "edit_cut", "final_cut", "watch_cut", "ask")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -153,6 +153,11 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             note = (decision.get("note") or "").strip()[:500]
             storyboard.change_frame(frame_id=frame.id, body=storyboard.ChangeIn(note=note), **me)
             return f"Drawing shot {sid} again: {note}"
+        if tool == "ask":  # a question for a person: it waits on that point only (asks.py)
+            from app import asks
+
+            move = {**(decision.get("ask") or {}), "closed": decision.get("why") or ""}
+            return asks.asked(db, project, (run or {}).get("id"), move)
         if tool == "treatment":  # the story first (the Director's step), on its own limit
             from app.director import write_treatment
 

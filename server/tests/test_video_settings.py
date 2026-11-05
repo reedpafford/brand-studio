@@ -169,26 +169,16 @@ def test_a_no_lip_sync_model_turns_sung_shots_to_b_roll_and_undo_turns_them_back
     assert db.get(Project, pid).sung_flipped == []
 
 
-def test_a_new_script_is_in_its_brands_language_and_a_new_video_has_its_cast(owner):
+def test_a_new_script_is_in_english_unless_given_and_a_new_video_starts_with_no_cast(owner):
+    """S-gaps-05 L1: brands keep no default language or cast."""
     brand = owner.get("/brands").json()[0]
-    owner.patch(f"/brands/{brand['id']}", json={"default_language": "es"})
-    made = owner.post("/scripts", json={"brand_id": brand["id"], "title": "Hola"}).json()
-    assert made["language"] == "es"
-    own = owner.post("/scripts", json={"brand_id": brand["id"], "title": "Hi",
-                                       "language": "en"}).json()  # fmt: skip
-    assert own["language"] == "en"
-    copy = owner.post(f"/scripts/{made['id']}/duplicate").json()
-    assert copy["language"] == "es"
-
-    dog = owner.post("/library/character", json={"name": "Biscuit"}).json()["id"]
-    gone = owner.post("/library/character", json={"name": "Rex"}).json()["id"]
-    owner.patch(f"/brands/{brand['id']}", json={"default_cast": [dog, gone]})
-    owner.delete(f"/library/character/{gone}")
+    made = owner.post("/scripts", json={"brand_id": brand["id"], "title": "Hi"}).json()
+    assert made["language"] == "en"
+    hola = owner.post("/scripts", json={"brand_id": brand["id"], "title": "Hola",
+                                        "language": "es"}).json()  # fmt: skip
+    assert owner.post(f"/scripts/{hola['id']}/duplicate").json()["language"] == "es"
     video = owner.post("/projects", json={"brand_id": brand["id"], "name": "V"}).json()
-    assert video["cast_ids"] == [dog]  # the brand's live default cast
-    picked = owner.post("/projects", json={"brand_id": brand["id"], "name": "W",
-                                           "cast_ids": []}).json()  # fmt: skip
-    assert picked["cast_ids"] == [dog]  # an empty pick is the brand's too
+    assert video["cast_ids"] == []
 
 
 def test_a_take_made_through_its_job_records_what_it_was_made_with(

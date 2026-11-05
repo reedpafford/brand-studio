@@ -328,7 +328,7 @@ test("My credits counts every send waiting for the owner, from the server, and l
   fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /usage/summary": [404, { detail: "Not found" }], "GET /usage/mine": [200, { ...mine, sends, waiting_credits: 152.66 }] });
   open("/usage/mine");
   expect(await screen.findByText("up to 153 credits")).toBeInTheDocument(); // QA-3's case: 143.06 + 4 + 5.6, in whole credits as Needs you shows
-  expect(screen.getByText("3 sends. Nothing is spent until it's approved.")).toBeInTheDocument();
+  expect(screen.getByText("3 sends. No generation starts until it's approved.")).toBeInTheDocument();
   const list = screen.getByRole("list", { name: "My sends" });
   expect(within(list).getAllByText("Waiting for the owner's OK")).toHaveLength(3);
   expect(within(list).getByText("Declined")).toBeInTheDocument();

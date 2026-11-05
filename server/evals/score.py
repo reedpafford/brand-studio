@@ -18,6 +18,9 @@ CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
 
 ROOT = Path(__file__).parents[2]
 
+# A case that expects the script to end on the brand (its `end_line`): what to say when not.
+NO_CTA = "the last line doesn't mention the brand or where to find it"
+
 
 def reel_inputs(case: dict) -> tuple[list[dict], list[dict] | None]:
     """An import case's transcript and cut list, as prep gives them: from a gold BREAKDOWN.json
@@ -136,10 +139,10 @@ def score(out: Path, case: dict) -> list[str]:
             if speakers is not None:
                 names = [c.split(" ", 1)[1].split(",")[0] for c in case["cast"]]
                 problems += [f"draft {i}: {p}" for p in check.reel_speakers(
-                    draft.script, speakers, names, exp.get("end_line", ""), name)]  # fmt: skip
+                    draft.script, speakers, names, name)]  # fmt: skip
             spoken = [x for x in draft.script.splitlines() if check.SPEAKER.match(x)]
             if exp.get("end_line") and not check.says_brand(spoken[-1] if spoken else "", name):
-                problems.append(f"draft {i}: {check.ADVICE}{check.NO_CTA}")
+                problems.append(f"draft {i}: {check.ADVICE}{NO_CTA}")
 
     if bd := answers.get("breakdown"):
         working = out / f"{case['id']}.script.txt"
@@ -150,8 +153,7 @@ def score(out: Path, case: dict) -> list[str]:
         if "clips" in exp and not exp["clips"][0] <= len(bd.clips) <= exp["clips"][1]:
             problems.append(f"{len(bd.clips)} clips, expected {exp['clips']}")
         shots = [shot for scene in bd.scenes for shot in scene.shots]
-        end = brand["brand"].get("end_line", "")
-        problems += check.cta_screen(shots, end, name)
+        problems += check.cta_screen(shots, name)
         lines = script.splitlines()
         in_montage = {n for n, x in enumerate(lines, 1) if "montage" in x.lower()}
         montage = " ".join(s.action for s in shots if in_montage & set(s.script_lines))
@@ -183,10 +185,8 @@ def score(out: Path, case: dict) -> list[str]:
             problems += [f"clip prompts never say '{w}'"
                          for w in exp.get("clip_present", []) if w not in shown]  # fmt: skip
     if v := answers.get("variations"):
-        never = brand["brand"].get("never_say", []) + case.get("never_say", [])
         names = [c.split(" ", 1)[1].split(",")[0].split(" (")[0] for c in case["cast"]]
-        end = brand["brand"].get("end_line", "")
-        problems += check.variations(script, v, screens, end, never, case["count"], names, name)
+        problems += check.variations(script, v, screens, case["count"], names)
         for i, x in enumerate(v.variations, 1):
             problems += [f"variation {i}: {p}" for p in checks.echo_lines(x.script)]
             again = checks.repeated_payoffs(

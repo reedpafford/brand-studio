@@ -16,7 +16,7 @@ from app.providers.local import LocalProvider
 from app.routes.cut import SAME_AGAIN
 from app.worker import run_once
 from tests.conftest import make_cut
-from tests.helpers import assert_hidden
+from tests.helpers import assert_hidden, make_it
 from tests.test_cut_in import _seconds, approved  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 from tests.test_freestyle_dialogue import _run
@@ -63,6 +63,7 @@ def _until_delivered(app, db, owner, fs, ticks=160):
     for n in range(ticks):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        make_it(db)  # Make it on each start card, as the owner (S3-02)
         if n % 10 == 9 and owner.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered":
             return
     assert owner.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered"

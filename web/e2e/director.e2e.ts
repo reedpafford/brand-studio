@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { onBrand, signIn } from "./helpers";
+import { makeIt, onBrand, signIn } from "./helpers";
 
 // The director (first slice, #1087), on the stand-ins: an editor on a video from a published script presses Make it, sees
 // its run's progress (it watches its cut, fixes what it found and cuts again, #1145), and gets the finished cut with
@@ -25,6 +25,9 @@ test("at 390, an editor presses Make it and the director delivers the finished c
 
   await ed.goto(`/b/${fomo}/videos/${pid}`);
   await ed.getByRole("button", { name: "Make it" }).click();
+  // Its plan first, then its start card (S3-02): no generation until Make it (its whole "up to" is past what's left of this
+  // video's budget, so the owner presses it).
+  await makeIt(page, pid);
   await expect(ed.getByRole("button", { name: "Step 1 of 5 · Director" })).toBeVisible(); // at 390 the tabs are one step button
   await expect(ed.getByText(/ · \d+ credits? spent so far · you can leave this page$/)).toBeVisible();
   await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
@@ -51,6 +54,7 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   const again = ed.getByRole("button", { name: "Make it again" });
   await expect(ed.getByText("Saved. Press Make it again to make this change.").or(ed.getByRole("button", { name: "Stop" }))).toBeVisible();
   if (await again.isVisible()) await again.click();
+  await makeIt(page, pid); // its start card again
   await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
   await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));

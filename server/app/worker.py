@@ -347,6 +347,12 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
                                         take.get("take_id"))]  # fmt: skip
         given = payload.get("input", {})
         payload["input"] = {**given, "reference_images": frames + given.get("reference_images", [])}
+    for file_id in job.input.get("clip_frames") or []:  # the director's eyes on a clip, after
+        stored = _stored(db, storage, job, file_id)  # its pictures (director._eyes)
+        frames = [f"data:image/jpeg;base64,{base64.b64encode(f).decode()}"
+                  for f in video_frames(storage.get(stored.key), director.FRAMES)]  # fmt: skip
+        given = payload.get("input", {})
+        payload["input"] = {**given, "reference_images": given.get("reference_images", []) + frames}
     return payload
 
 

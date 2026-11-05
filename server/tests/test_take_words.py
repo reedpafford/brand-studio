@@ -67,10 +67,10 @@ def test_words_near_the_brand_that_arent_it_are_left_alone():
 
 
 def test_how_the_brand_is_said_comes_from_its_notes():
-    brand = Brand(name="fomo", tone_notes="Playful. Always say fomo as FOH-moh.", do_list=[])
+    brand = Brand(name="fomo", tone_notes="Playful. Always say fomo as FOH-moh.")
     assert say(brand) == "FOH-moh"
-    assert say(Brand(name="Acme", tone_notes="Calm.", do_list=["Say Acme ACK-mee"])) == "ACK-mee"
-    assert say(Brand(name="Acme", tone_notes="", do_list=[])) == "Acme"  # as written
+    assert say(Brand(name="Acme", tone_notes="Calm.\nSay Acme ACK-mee")) == "ACK-mee"
+    assert say(Brand(name="Acme", tone_notes="")) == "Acme"  # as written
 
 
 def test_a_new_take_is_heard_and_its_advice_shows(app, db, editor, setup, clip, monkeypatch):  # noqa: F811, E501

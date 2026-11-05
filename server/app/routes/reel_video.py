@@ -68,11 +68,11 @@ def _picks_hold(db: Session, user: User, body: ReelVideoIn, script: Script) -> N
     """Copy and Structure set the video's picks once the script is written: the cast, the
     attachments and a B-roll look are checked at the press instead, so nothing is refused
     after the read is paid."""
-    from app import brand_setup, guides
-    from app.models.brands import Brand
+    from app import guides
+    from app.routes.library import cast_picks
 
     if body.cast_ids:
-        brand_setup.check_cast(db, db.get(Brand, script.brand_id), body.cast_ids)
+        cast_picks(db, script.workspace_id, body.cast_ids)
     fs_routes.attachments(db, user, body.attachments)
     if body.broll_look and looks.base(body.broll_look) != looks.base(body.look or looks.DEFAULT):
         if not guides.format_(body.type).get("host"):
@@ -148,8 +148,8 @@ def make_from_reel(body: ReelVideoIn, request: Request, user: User = Depends(cur
 
 
 def then_direct(db: Session, script: Script) -> None:
-    """The reel's script is written: its video's director run, the first turn waiting for the
-    owner's OK at the run's "up to" (the owner's own press too: nothing more is spent unasked)."""
+    """The reel's script is written: its video's director run, its plan first, then its start
+    card at the run's "up to" (the owner's own Make it; an editor's waits for the owner)."""
     then = (script.reel or {}).get(THEN)
     fs = db.get(Freestyle, then["freestyle"]) if then else None
     if fs is None or fs.chat or then.get("started"):
@@ -169,7 +169,7 @@ def then_direct(db: Session, script: Script) -> None:
     what = {"project": project.id, "draft": draft.id, "show": True}
     script.reel = {**script.reel, THEN: {**then, "started": True}}  # before the run holds it
     db.flush()
-    turn = director.start(db, user, project, wait=WRITTEN, frozen=False,
+    turn = director.start(db, user, project, hold="" if user.is_owner else WRITTEN, frozen=False,
                           extra={fs_routes.FREESTYLE: fs.id, SAID: said, CHANGE: False,
                                  PRICE: str(fs.up_to), fs_routes.FREEZE: what})  # fmt: skip
     fs.chat = [{"by": user.id, "text": said, "at": at, "job": turn.id,

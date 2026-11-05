@@ -20,7 +20,6 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import brand_setup
 from app.filetypes import matches
 from app.models.accounts import Workspace
 from app.models.brands import Brand, BrandScreen
@@ -32,8 +31,6 @@ from app.storage import Storage
 log = logging.getLogger(__name__)
 # Launch brands and their folder under assets/brands/ (screens in <folder>/screens).
 LAUNCH_BRANDS = {"fomo": "fomo", "Iron Paws": "ironpaws"}
-# Reed, 2026-10-23: every fomo video ends on this (Iron Paws' closing line comes from the brief).
-END_LINES = {"fomo": "Want to trade like me? Download fomo through the link in my bio."}
 IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -43,7 +40,7 @@ IMAGE_TYPES = {
 
 
 def seed_brands(db: Session, workspace_id: int, storage: Storage, assets_dir: str = "") -> None:
-    """Create the launch brands, then import each one's screens, logo and style board from
+    """Create the launch brands, then import each one's screens and logo from
     `assets_dir/<folder>/screens` when that folder exists."""
     for name in LAUNCH_BRANDS:
         slug = slugify(name)
@@ -51,10 +48,7 @@ def seed_brands(db: Session, workspace_id: int, storage: Storage, assets_dir: st
             select(Brand).where(Brand.workspace_id == workspace_id, Brand.slug == slug)
         )
         if not brand:
-            brand = Brand(workspace_id=workspace_id, name=name, slug=slug, cta_lines=[])
-            db.add(brand)
-        if not brand.cta_lines and END_LINES.get(name):  # never had one (a deleted one stays gone)
-            brand_setup.add_line(brand, END_LINES[name])
+            db.add(Brand(workspace_id=workspace_id, name=name, slug=slug))
     db.commit()
     for name, folder in LAUNCH_BRANDS.items():
         screens = Path(assets_dir) / folder / "screens" if assets_dir else None
@@ -125,17 +119,13 @@ def import_screens(db: Session, storage: Storage, brand: Brand, folder: Path) ->
         )
         existing.add(name)
         added += 1
-    for field, filename in (
-        ("logo_file_id", "logo.png"),
-        ("style_board_file_id", "style-board.png"),
-    ):
-        path = folder.parent / filename
-        if getattr(brand, field) is None and path.exists():
-            stored = _store(storage, brand.workspace_id, path)
-            if stored:
-                db.add(stored)
-                db.flush()
-                setattr(brand, field, stored.id)
+    logo = folder.parent / "logo.png"
+    if brand.logo_file_id is None and logo.exists():
+        stored = _store(storage, brand.workspace_id, logo)
+        if stored:
+            db.add(stored)
+            db.flush()
+            brand.logo_file_id = stored.id
     db.commit()
     return added
 
