@@ -52,12 +52,11 @@ test("a role no shot uses says so quietly: no Needs a look, no Make a look, no p
   expect(screen.queryByText(/Make a look/)).toBeNull();
 });
 
-test("it stays out of every count: the steps are not blocked and the header counts only the used assets", async () => {
+test("it stays out of every count: the Cast tab counts only the used assets (v6 S3)", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/assets": [200, [bo, noah]], "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [] }] });
   open();
   await screen.findByLabelText("Noah");
-  expect(screen.getByText("1 in the cast · 1 approved")).toBeInTheDocument();
-  const steps = screen.getByRole("tablist", { name: "Steps" });
-  expect(within(steps).getByRole("tab", { name: "Clips" })).not.toHaveAccessibleDescription(/Approve the cast first/);
+  const tabs = screen.getByRole("tablist", { name: "Preview" });
+  expect(within(tabs).getByRole("tab", { name: "Cast 1" })).toBeInTheDocument();
 });

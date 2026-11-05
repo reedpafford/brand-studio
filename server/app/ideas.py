@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app import asks, director, looks, needs_you
+from app import asks, director, guides, looks, needs_you
 from app.credits import COUNTED
 from app.models.accounts import User
 from app.models.clips import ProjectClip
@@ -216,24 +216,30 @@ def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> 
     from app.models.script_library import ScriptDraft
     from app.routes.estimate import run_price
 
-    used, own = known.used.get(p.id, Decimal(0)), known.own.get(p.id, Decimal(0))
+    used = known.used.get(p.id, Decimal(0))
     kind, credits = "so_far", used
     if status.kind == "delivered":
         kind = "total"
     elif status.kind == "working":
-        top = max(p.budget_credits, used if p.hidden else used - own)  # as budget_used reads
-        if not p.hidden:  # the director's own limit sits beside the budget (rule 34)
-            top += max(own, director.OWN_CREDITS)
-        kind, credits = "up_to", max(used, top)
+        kind, credits = "up_to", _most(p, known)
     elif status.kind == "waiting":  # S1-04, S9-01: what it has spent
         kind = "total"
     elif status.reason == START and not used:
         if not p.script_draft_id:
             return None
         kind, credits = "up_to", run_price(db, db.get(ScriptDraft, p.script_draft_id), p)
-    up = math.ceil if kind == "up_to" else round
-    usd = up(credits * USD_PER_CREDIT * 100) / 100 if user.is_owner else None
-    return Cost(kind=kind, credits=up(credits * 1000) / 1000, usd=usd)
+    money = _money(user, credits, math.ceil if kind == "up_to" else round)
+    return Cost(kind=kind, credits=money.credits, usd=money.usd)
+
+
+def _most(p: Project, known: Facts) -> Decimal:
+    """The most a working run may charge before another OK: its budget with the director's own
+    limit beside it (rule 34), as budget_used reads it; never below what it has used."""
+    used, own = known.used.get(p.id, Decimal(0)), known.own.get(p.id, Decimal(0))
+    top = max(p.budget_credits, used if p.hidden else used - own)
+    if not p.hidden:
+        top += max(own, director.OWN_CREDITS)
+    return max(used, top)
 
 
 def _style(look: str) -> str:
@@ -273,3 +279,68 @@ def cards(db: Session, user: User, projects: list[Project], known: Facts,
             can_manage=user.is_owner or p.created_by_id == user.id,
             from_script=p.script_draft_id is not None))  # fmt: skip
     return out
+
+
+class Money(BaseModel):
+    credits: float
+    usd: float | None = None  # the owner only: editors see credits (rule 4)
+
+
+class Head(BaseModel):
+    """One idea's header on its video page (S3, P-04, P-05): its status with the reason, what
+    it has used, the most its run may charge, its budget, where it's filed and what it is."""
+
+    title: str
+    status: Status
+    spent: Money  # every charge on the video so far, the director's own included
+    up_to: Money | None  # the most the run the owner approved may charge; None: not known yet
+    budget: Money  # the video's budget (a step past it waits for the owner's OK)
+    folder: Named | None  # None: Unsorted
+    format: str  # "Presenter"; "" for a video with no script
+    style: str  # "Dr. Pickle"
+    seconds: int | None  # null before a plan sets it
+    song: bool  # the video has a song (the Song lock means something)
+
+
+def _money(user: User, credits: Decimal, up=round) -> Money:
+    usd = up(credits * USD_PER_CREDIT * 100) / 100 if user.is_owner else None
+    return Money(credits=up(credits * 1000) / 1000, usd=usd)
+
+
+def head(db: Session, user: User, p: Project) -> Head:
+    """The header's facts for one video. The "up to" is a director video's approved price (its
+    freestyle's OK); else the budget with the director's own limit beside it, as a working
+    card reads it (rule 34); before any run, its run's price. Never below what it has used,
+    and rounded up (rule 36)."""
+    from app import narration
+    from app.models.folders import Folder
+    from app.models.script_library import ScriptDraft
+    from app.routes.estimate import run_price
+    from app.script_library import format_id
+
+    known = facts(db, [p])
+    status = statuses(db, user, [p], known)[p.id]
+    used = known.used.get(p.id, Decimal(0))
+    fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
+    top: Decimal | None
+    if fs is not None and fs.up_to:
+        top = Decimal(fs.up_to)
+    elif status.reason == START and not used:
+        draft = db.get(ScriptDraft, p.script_draft_id) if p.script_draft_id else None
+        top = Decimal(str(run_price(db, draft, p))) if draft else None
+    else:
+        top = _most(p, known)
+    script = narration.video_script(db, p)
+    try:
+        kind = guides.format_(format_id(script))["name"] if script else ""
+    except ValueError:  # a format since taken out of the guides
+        kind = ""
+    folder = db.get(Folder, p.live_folder_id) if p.live_folder_id else None
+    return Head(
+        title=fs.title if fs is not None else p.name, status=status,
+        spent=_money(user, used), budget=_money(user, Decimal(p.budget_credits)),
+        up_to=None if top is None else _money(user, max(top, used), math.ceil),
+        folder=Named(id=folder.id, name=folder.name) if folder else None,
+        format=kind, style=_style(p.look), seconds=p.planned_seconds or p.breakdown_seconds,
+        song=narration.video_kind(db, p) == "song",
+    )  # fmt: skip

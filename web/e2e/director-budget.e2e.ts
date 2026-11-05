@@ -25,8 +25,7 @@ test("at 390, after one director run the cost bar leaves the director's time out
   expect(p.credits_used - p.director_credits).toBeLessThanOrEqual(p.budget_credits);
 
   await ed.goto(`/b/${fomo}/videos/${pid}?step=clips`);
-  const bar = ed.getByRole("region", { name: "Cost" });
-  await expect(bar).toContainText(/the director's time, \d+(\.\d)? credits?\./);
-  await expect(bar).not.toContainText("Over budget");
+  // v6 S3-10: the header says what it used of the most it could (the budget, with the director's own limit beside it).
+  await expect(ed.getByRole("banner")).toContainText(/\d+ of up to \d+ credits/);
   expect(await ed.locator("main").textContent()).not.toMatch(/\$\d/); // credits only for an editor
 });

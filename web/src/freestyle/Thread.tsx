@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import type { Tone } from "../components";
-import { plain } from "../projects/DirectorPanel";
+import { plain } from "../videos/director";
 import { serverTime } from "../time";
 import { STATUS, type Freestyle } from "./useFreestyle";
 import { TreatmentCard, treatmentOf } from "../videos/Treatment";
@@ -33,82 +33,135 @@ const clock = (iso: string) => {
 const OK = "Waiting for the owner's OK"; // what a held send says to an editor (the server's WAIT_OK)
 export type Said = components["schemas"]["ThreadItem"]; // a FreestyleItem, with `answered` on a note
 
-/** One line of a conversation with the director (B_VideoRunning): an avatar, who and when, then the words. A person's
- *  note says whether a move has answered it; a move gives its reason under it in muted words, and a held move links the
- *  owner to Needs you (an editor reads that it waits) unless `children` (the cut, a price card) under it say so. */
-export function Item({ t, words, why, owner, children, ref }: { t: Said; words: ReactNode; why?: string; owner?: boolean; children?: ReactNode; ref?: Ref<HTMLLIElement> }) {
+// A script line: a speaker's ("DR. PICKLE: …") or a scene heading.
+const SCRIPTY = /^([A-Z0-9][A-Z0-9 .'’-]{0,40}:|SCENE\b|INT\.|EXT\.)/;
+
+/** A pasted script in the first message (S3-01): the words before it as they are, then its first two lines in a box with
+ *  how many more. */
+function Excerpt({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const all = text.split("\n").filter((l) => l.trim());
+  const at = Math.max(0, all.findIndex((l) => SCRIPTY.test(l.trim())));
+  const lines = all.slice(at);
+  return (
+    <>
+      {at > 0 && <p className="whitespace-pre-line break-words">{all.slice(0, at).join("\n")}</p>}
+      <div className="mt-1.5 rounded-md border border-border bg-surface px-2.5 py-2 font-script text-[13px] leading-[1.55]">
+      {(open ? lines : lines.slice(0, 2)).map((l, i) => (
+        <p key={i} className="break-words">{l}</p>
+      ))}
+      {lines.length > 2 && (
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="text-muted hover:text-text max-lg:min-h-control">
+          {open ? "Show less" : `+ ${lines.length - 2} more line${lines.length === 3 ? "" : "s"}`}
+        </button>
+      )}
+      </div>
+    </>
+  );
+}
+
+/** One line of a conversation with the director (S3): an avatar, who and when, then the words; a person's in a bubble. A
+ *  person's note says whether a move has answered it; a move gives its reason under it in muted words, one under way
+ *  shows the typing dots, and a held move links the owner to Needs you (an editor reads that it waits) unless `children`
+ *  (a price card) under it say so. `first`: what the first message carries in place of its words (a saved script);
+ *  `excerpt`: it's the first message, so a pasted script shows as its first lines. */
+export function Item({ t, words, why, owner, children, first, excerpt, ref }: { t: Said; words: ReactNode; why?: string; owner?: boolean; children?: ReactNode; first?: ReactNode; excerpt?: boolean; ref?: Ref<HTMLLIElement> }) {
   const director = t.kind === "move";
   const story = director ? treatmentOf(t) : null; // the treatment: a card in place of its plain lines (#1192)
+  const going = director && (t.status === "running" || t.status === "queued");
+  // A long paste (a script) shows its first lines; a short ask reads as it is.
+  // The first message, when it carries a script: its first lines in a box, the rest a press away (S3-01).
+  const lines = typeof words === "string" ? words.split("\n").filter((l) => l.trim()) : [];
+  const script = !director && !!excerpt && lines.length > 2 && lines.some((l) => SCRIPTY.test(l.trim()));
   return (
-    <li ref={ref} className="flex min-w-0 gap-3">
-      <span aria-hidden className={`grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${director ? "bg-accent-soft text-accent-text" : "bg-surface-3 text-text"}`}>
+    <li ref={ref} className="flex min-w-0 gap-2.5">
+      <span aria-hidden className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${director ? "bg-ink text-white" : "bg-accent-soft text-accent-text"}`}>
         {director ? <Sparkles size={12} strokeWidth={1.75} /> : t.who.slice(0, 1).toUpperCase()}
       </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <p className="text-sm">
-          <span className="font-medium">{t.who}</span>{" "}
-          <span className="text-muted tabular-nums">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <p className="flex items-baseline gap-1.5 text-sm font-semibold">
+          {t.who}
+          <span className="text-xs font-normal text-muted tabular-nums">
             {clock(t.at)}
-            {t.status === "running" && " · working"}
             {t.status === "refused" && " · couldn't do it"}
             {t.answered === true && " · Answered"}
             {t.answered === false && " · Open"}
           </span>
         </p>
-        <div className="min-w-0 space-y-1 empty:hidden">
-          {story ? <TreatmentCard t={story} changed={t.text.startsWith("Changed the treatment")} /> : words != null && <div className="whitespace-pre-line break-words">{words}</div>}
-          {why && <p className="break-words text-muted">{why}</p>}
-          {t.status === "held" && !children &&
-            (owner ? (
-              <Link to="/approvals" className="inline-block text-accent-text underline-offset-2 hover:underline">
-                See it in Needs you
-              </Link>
+        {director ? (
+          <div className="min-w-0 space-y-1 empty:hidden">
+            {story ? (
+              <TreatmentCard t={story} changed={t.text.startsWith("Changed the treatment")} />
+            ) : going ? (
+              <p className="flex items-center gap-2 text-sm text-muted">
+                <span aria-hidden className="inline-flex h-5 items-center gap-1">
+                  <i className="size-1.5 rounded-full bg-faint" />
+                  <i className="size-1.5 rounded-full bg-faint opacity-70" />
+                  <i className="size-1.5 rounded-full bg-faint opacity-40" />
+                </span>
+                <span className="break-words">{words}</span>
+                <span className="sr-only"> (working)</span>
+              </p>
             ) : (
-              !t.text.startsWith(OK) && <p className="text-muted">{OK}.</p> // an editor: always the owner, never a name
-            ))}
-        </div>
+              words != null && <div className="whitespace-pre-line break-words leading-[21px]">{words}</div>
+            )}
+            {why && <p className="break-words text-muted">{why}</p>}
+            {t.status === "held" && !children &&
+              (owner ? (
+                <Link to="/approvals" className="inline-block text-accent-text underline-offset-2 hover:underline">
+                  See it in Needs you
+                </Link>
+              ) : (
+                !t.text.startsWith(OK) && <p className="text-muted">{OK}.</p> // an editor: always the owner, never a name
+              ))}
+          </div>
+        ) : (
+          <>
+            {(words != null || first) && (
+              <div className="min-w-0 rounded-[10px] bg-surface-2 px-3 py-2 leading-[21px]">
+                {script ? <Excerpt text={words as string} /> : words != null && <p className="whitespace-pre-line break-words">{words}</p>}
+                {first}
+              </div>
+            )}
+            <Attached ids={(t as { files?: number[] | null }).files ?? []} />
+          </>
+        )}
         {children}
       </div>
     </li>
   );
 }
 
-/** The freestyle's thread, oldest first, newest at the bottom. The first message carries the settings as tags and the
- *  words in the script font (`first` replaces those words: a script it came from). A director-run freestyle's moves are
- *  made plain the way a video's are: no tool names, codes or JSON on screen. `extra` adds what sits under an item. */
-export function Thread({ fs, items = fs.thread, tags, owner, first, extra }: { fs: Freestyle; items?: Said[]; tags: string[]; owner?: boolean; first?: ReactNode; extra?: (t: Said) => ReactNode }) {
-  const opening = items.find((t) => t.kind === "message")?.id;
+/** An older freestyle's thread (/freestyle/:id), oldest first: the first message carries the settings as tags and the
+ *  words in the script font. A director-run freestyle's moves are made plain the way a video's are. */
+export function Thread({ fs, tags }: { fs: Freestyle; tags: string[] }) {
+  const opening = fs.thread.find((t) => t.kind === "message")?.id;
   const say = (text: string) => (fs.type === "one_clip" ? text : plain(text, []));
   return (
     <ol aria-label="Thread" className="flex flex-col gap-6">
-      {items.map((t) =>
+      {fs.thread.map((t) =>
         t.kind === "message" ? (
           <Item key={t.id} t={t} words={t.id === opening ? null : t.text}>
             {t.id === opening && (
               <>
-                {first}
                 <div className="flex flex-wrap gap-1.5" aria-label="Settings">
                   {tags.map((x) => (
                     <Tag key={x}>{x}</Tag>
                   ))}
                 </div>
-                {!first && <p className="whitespace-pre-line break-words font-script text-sm leading-[1.6] text-muted">{t.text}</p>}
-                <Attached ids={(t as { files?: number[] }).files ?? []} />
+                <p className="whitespace-pre-line break-words font-script text-sm leading-[1.6] text-muted">{t.text}</p>
               </>
             )}
-            {extra?.(t)}
           </Item>
         ) : (
-          <Item key={t.id} t={t} owner={owner} words={say(t.text) || "Deciding what to do next."} why={say(t.why ?? "")}>
-            {extra?.(t)}
-          </Item>
+          <Item key={t.id} t={t} words={say(t.text) || "Deciding what to do next."} why={say(t.why ?? "")} />
         ),
       )}
     </ol>
   );
 }
 
-/** New video's pictures or clips on the first message, for this video only (rule 12). */
+/** The pictures or clips sent with a message (New video's, or with a note in the chat), for this video only (rule 12). */
 function Attached({ ids }: { ids: number[] }) {
   if (!ids.length) return null;
   return (

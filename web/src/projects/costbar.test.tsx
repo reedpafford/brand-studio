@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
-import { ActionBarProvider, useActionBarSlot } from "../shell/ActionBar";
+import { editor } from "../test/people";
 import { CostBarProvider, useCostBarAction, type CostAction } from "./CostBar";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -13,68 +13,49 @@ function Step({ action }: { action: CostAction | null }) {
   useCostBarAction(action);
   return <p>The step</p>;
 }
-function Slot() {
-  const { setNode } = useActionBarSlot();
-  return <div data-testid="phone-bar" ref={setNode} />;
-}
 function show(action: CostAction | null, fallback: CostAction | null = null) {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ActionBarProvider>
-        <CostBarProvider projectId={9} used={412} budget={660} pct={62} fallback={fallback}>
-          <Step action={action} />
-        </CostBarProvider>
-        <Slot />
-      </ActionBarProvider>
+      <CostBarProvider used={412} budget={660} fallback={fallback}>
+        <Step action={action} />
+      </CostBarProvider>
     </QueryClientProvider>,
   );
 }
-const estimate = { "GET /projects/9/estimate": [200, { remaining_credits: 140, stages: [] }] as [number, unknown] };
 
-test("the bar says the budget, what finishing costs, the step's one amber and what the press leaves", async () => {
+test("a step's one press sits at the foot of its tab, priced; the money is in the header, so no meter here", async () => {
   setViewport(1440);
-  fakeServer(estimate);
+  fakeServer({});
   const press = vi.fn();
   show({ label: "Make the takes", price: 54, onPress: press });
-  const bar = screen.getByRole("region", { name: "Cost" });
-  expect(within(bar).getByText(/412 \/ 660 credits · 62%/)).toBeInTheDocument();
-  expect(await within(bar).findByText("To finish: about 140 credits (planned) · 248 credits left")).toBeInTheDocument();
-  expect(within(bar).getByText("This press leaves 194")).toBeInTheDocument();
+  const bar = screen.getByRole("region", { name: "Step press" });
   await userEvent.click(within(bar).getByRole("button", { name: "Make the takes · 54 credits" }));
   expect(press).toHaveBeenCalledOnce();
+  expect(bar.textContent).not.toMatch(/\/ 660|credits left|To finish/);
   expect(document.body.textContent).not.toMatch(/\$/); // credits only (rule 4)
 });
 
-test("a press that can't go says why where the amber is, and the step's own press wins over Next", async () => {
+test("a press that can't go says why, and the step's own press wins over the fallback", () => {
   setViewport(1440);
-  fakeServer(estimate);
-  show({ label: "Make the takes", price: 900, reason: "That's more than this video's budget.", onPress: () => {} }, { label: "Next: Final cut", onPress: () => {} });
+  fakeServer({});
+  show({ label: "Make the takes", price: 900, reason: "That's more than this video's budget.", onPress: () => {} }, { label: "Update everything after this", onPress: () => {} });
   const make = screen.getByRole("button", { name: "Make the takes · 900 credits" });
   expect(make).toBeDisabled();
   expect(make).toHaveAccessibleDescription("That's more than this video's budget.");
-  expect(screen.queryByText(/This press leaves/)).toBeNull();
-  expect(screen.queryByRole("button", { name: /Next/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Update everything/ })).toBeNull();
 });
 
-test("on a phone the bar sits in the action bar above the tabs, with the video's budget", async () => {
+test("an editor's press past the budget is sent to the owner, never refused, and nothing is charged until they say yes", async () => {
   setViewport(390);
-  fakeServer(estimate);
-  show(null, { label: "Next: Assets", onPress: () => {} });
-  const phone = screen.getByTestId("phone-bar");
-  expect(await within(phone).findByRole("button", { name: "Next: Assets" })).toBeInTheDocument();
-  expect(within(phone).queryByText(/This week/)).toBeNull();
+  fakeServer({ "GET /auth/me": [200, editor] });
+  show({ label: "Make the takes", price: 300, onPress: () => {} });
+  expect(await screen.findByRole("button", { name: "Send for approval · 300 credits" })).toBeEnabled();
+  expect(screen.getByText("Goes past the video's budget. Nothing is charged until the owner says yes.")).toBeInTheDocument();
 });
 
-test("one credit left to finish says credit", async () => {
+test("with no press there's no bar", () => {
   setViewport(1440);
-  fakeServer({ "GET /projects/9/estimate": [200, { remaining_credits: 1, stages: [] }] });
+  fakeServer({});
   show(null);
-  expect(await screen.findByText("To finish: about 1 credit (planned) · 248 credits left")).toBeInTheDocument();
-});
-
-test("To finish reads whole credits, rounded up, as Make this version reads the same figure (Flow-QA on #1008)", async () => {
-  setViewport(1440);
-  fakeServer({ "GET /projects/9/estimate": [200, { remaining_credits: 28.06, stages: [] }] });
-  show({ label: "Make the takes", price: 54, onPress: vi.fn() });
-  expect(await within(screen.getByRole("region", { name: "Cost" })).findByText(/^To finish: about 29 credits \(planned\)/)).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Step press" })).toBeNull();
 });

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { emptyBrand, signIn } from "./helpers";
 
-// The new video page (Breakdown · Assets · Storyboard · Clips · Final cut) on the free stand-ins.
+// A video made by hand on the video page (v6 S3: the preview panel's Plan, Cast, Clips and Cut tabs) on the free stand-ins.
 const SCRIPT = [
   "SCENE 1 - KITCHEN",
   "Max stares at the empty bowl.",
@@ -10,7 +10,7 @@ const SCRIPT = [
 ].join("\n");
 
 for (const width of [1440, 390]) {
-  test(`at ${width}: shots are made, Assets lets you go on, and nothing scrolls sideways`, async ({
+  test(`at ${width}: shots are made, Cast opens from its tab, and nothing scrolls sideways`, async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -30,50 +30,24 @@ for (const width of [1440, 390]) {
       ).ok(),
     ).toBeTruthy();
 
-    await page.goto(`/b/${brandId}/videos/${id}`);
-    await expect(
-      page.getByRole("heading", { name: "Plan", level: 2, exact: true }),
-    ).toBeVisible();
+    await page.goto(`/b/${brandId}/videos/${id}?tab=plan`);
+    await expect(page.getByRole("tab", { name: "Plan", selected: true })).toBeVisible();
     // The plan first (item 1b): made on the stand-in, then Approve makes the shots.
     await page.getByRole("button", { name: /Make the plan/ }).click();
     await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 30_000 });
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
-    if (width === 390) {
-      // A slow Assets list (Reed's Pit Bull 1): it says it's loading, never "0 assets" or "Not in this video's shots" from the list read before the shots.
-      await page.route(`**/api/projects/${id}/assets`, async (route) => {
-        await new Promise((r) => setTimeout(r, 1500));
-        await route.fallback();
-      });
-    }
-    await page.getByRole("button", { name: "Next: Cast" }).click();
-    await expect(
-      page.getByRole("heading", { name: "Cast", level: 2 }),
-    ).toBeVisible();
-    if (width === 390) {
-      await expect(page.getByText("Loading assets…")).toHaveCount(1); // said once
-      await expect(page.getByText(/^0 assets/)).toHaveCount(0);
-      await expect(page.getByText("Not in this video's shots")).toHaveCount(0);
-      await expect(page.getByText("Loading assets…")).toHaveCount(0, { timeout: 10_000 });
-      await page.unrouteAll({ behavior: "ignoreErrors" });
-    }
+    await page.getByRole("tab", { name: /^Cast/ }).click();
+    await expect(page.getByRole("tab", { name: /^Cast/, selected: true })).toBeVisible();
+    await expect(page.getByText("Not in this video's shots")).toHaveCount(0);
     const sizes = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
       window: document.documentElement.clientWidth,
     }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
-    await expect(
-      page.getByRole("button", { name: "Next: Clips" }),
-    ).toBeEnabled();
+    await expect(page.getByRole("tab", { name: /^Clips/ })).toBeEnabled();
     if (width === 390) {
-      // The cost bar is taller than one button: the space kept for it (and toasts above it) is its real height.
-      const bar = await page.evaluate(() => {
-        const region = document.querySelector('[aria-label="Cost"]')?.parentElement?.parentElement as HTMLElement | null;
-        return { kept: getComputedStyle(document.documentElement).getPropertyValue("--actionbar-h").trim(), real: region?.offsetHeight ?? 0 };
-      });
-      expect(bar.real).toBeGreaterThan(0);
-      expect(bar.kept).toBe(`${bar.real}px`);
       // An approved look the role's words contradict (Reed's Biscuit): the words to update fit a phone.
       await page.route(`**/api/projects/${id}/assets`, (route) =>
         route.fulfill({
@@ -120,15 +94,14 @@ for (const width of [1440, 390]) {
       ).ok(),
     ).toBeTruthy();
 
-    await page.goto(`/b/${brandId}/videos/${id}`);
+    await page.goto(`/b/${brandId}/videos/${id}?tab=plan`);
     // The plan first (item 1b): made on the stand-in, then Approve makes the shots.
     await page.getByRole("button", { name: /Make the plan/ }).click();
     await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 30_000 });
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByRole("button", { name: "Next: Cast" }).click();
-    await page.getByRole("button", { name: "Next: Clips" }).click();
+    await page.getByRole("tab", { name: /^Clips/ }).click();
 
     // One press writes the frames and draws every still.
     await page.getByRole("button", { name: /Make the stills/ }).click();
@@ -179,9 +152,9 @@ for (const width of [1440, 390]) {
     await expect(page.getByText(/^Approved by the check/).first()).toBeVisible({
       timeout: 90_000,
     });
-    await page.getByRole("button", { name: /Next: Final cut/ }).click();
+    await page.getByRole("tab", { name: "Cut" }).click();
     // The whole video is put together by itself.
-    await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({
+    await expect(page.getByRole("tabpanel", { name: "Cut" }).getByRole("link", { name: "Download MP4" })).toBeVisible({
       timeout: 60_000,
     });
     const zip = await page.request.get(`/api/projects/${id}/clips.zip`);

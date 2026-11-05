@@ -43,7 +43,7 @@ const base: Record<string, [number, unknown]> = {
   "POST /projects/9/settings": [200, { settings, was: { video_model: null } }],
 };
 
-function open(query = "?step=cast") {
+function open(query = "?step=plan") {
   renderApp(`/b/1/videos/9${query}`);
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -53,26 +53,26 @@ test("the Video settings row shows each choice and its price, and the language r
   fakeServer(base);
   open();
   const row = await screen.findByRole("region", { name: "Video settings" });
-  expect(within(row).getByRole("button", { name: /Shape: 9:16/ })).toBeInTheDocument();
-  expect(within(row).getByRole("button", { name: /Video model: Auto.*· 1 credit a second/ })).toBeInTheDocument();
-  expect(within(row).getByRole("button", { name: /Picture model: Auto.*· 1.2 credits a still/ })).toBeInTheDocument();
-  expect(within(row).getByRole("button", { name: /Flavour: Chicken/ })).toBeInTheDocument(); // the bag is on its default
-  expect(within(row).getByRole("button", { name: /Style: House/ })).toBeInTheDocument();
-  expect(within(row).getByText("Language: Spanish (from the script)")).toBeInTheDocument();
+  expect(within(row).getByRole("button", { name: /Shape 9:16/ })).toBeInTheDocument();
+  expect(within(row).getByRole("button", { name: /Video model Auto/ })).toHaveAttribute("title", "1 credit a second"); // S-gaps-05 V1: the price in the picker
+  expect(within(row).getByRole("button", { name: /Pictures Auto/ })).toHaveAttribute("title", "1.2 credits a still");
+  expect(within(row).getByRole("button", { name: /Flavour Chicken/ })).toBeInTheDocument(); // the bag is on its default
+  expect(within(row).getByRole("button", { name: /Style House/ })).toBeInTheDocument();
+  expect(within(row).getByTitle("From the script")).toHaveTextContent("Language Spanish");
   expect(within(row).queryByRole("button", { name: /Language/ })).toBeNull(); // read only
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
-test("a video made from a script shows its style locked, as Style: House · set on the script, with no picker, at 390 and desktop (Reed's walk item 7)", async () => {
+test("a video made from a script shows its style locked (a lock, no picker), with no picker, at 390 and desktop (Reed's walk item 7)", async () => {
   for (const width of [1440, 390]) {
     setViewport(width);
     fakeServer({ ...base, "GET /projects/9": [200, { ...project, look_locked: true }] });
-    const { unmount } = renderApp("/b/1/videos/9?step=cast");
+    const { unmount } = renderApp("/b/1/videos/9?step=plan");
     if (width === 390) await userEvent.click(await screen.findByRole("button", { name: /^Settings: / }));
     const where = width === 390 ? await screen.findByRole("dialog", { name: "Video settings" }) : await screen.findByRole("region", { name: "Video settings" });
-    expect(within(where).getByText((_, el) => el?.firstElementChild?.textContent === "Style:" && el.textContent === "Style: House · set on the script")).toBeInTheDocument();
+    expect(within(where).getByTitle("Style is set on the script")).toHaveTextContent("Style House");
     expect(within(where).queryByRole("button", { name: /Look:/ })).toBeNull();
-    expect(within(where).getByRole("button", { name: /Shape: 9:16/ })).toBeInTheDocument(); // the others still switch
+    expect(within(where).getByRole("button", { name: /Shape 9:16/ })).toBeInTheDocument(); // the others still switch
     unmount();
   }
 });
@@ -81,7 +81,7 @@ test("a picker lists choices with prices, says No lip-sync", async () => {
   setViewport(1440);
   fakeServer(base);
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Video model Auto/ }));
   const seedance = await screen.findByRole("button", { name: /Seedance 2.0/ });
   expect(seedance).toHaveTextContent("0.6 credits a second");
   expect(within(seedance).getByText("No lip-sync")).toBeInTheDocument();
@@ -92,7 +92,7 @@ test("the look picks from the existing look picker, where an off look is greyed 
   setViewport(1440);
   const calls = fakeServer(base);
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Style House/ }));
   expect(await screen.findByRole("heading", { name: "Noir" })).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Use this style" }).filter((b) => b.hasAttribute("disabled"))).toHaveLength(1);
   await userEvent.click(screen.getAllByRole("button", { name: "Use this style" })[0]);
@@ -104,7 +104,7 @@ test("a flavour switch sends just that product's pick", async () => {
   setViewport(1440);
   const calls = fakeServer(base);
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Flavour: Chicken/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Flavour Chicken/ }));
   await userEvent.click(await screen.findByRole("button", { name: /Peanut butter/ }));
   await screen.findByRole("alertdialog", { name: "Switch to Peanut butter?" });
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings/preview")?.body).toEqual({ product_variants: { bag: "Peanut butter" } }));
@@ -114,7 +114,7 @@ test("picking previews the switch: Sung to B-roll, what goes out of date and the
   setViewport(1440);
   const calls = fakeServer(base);
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Video model Auto/ }));
   await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Seedance 2.0?" });
   expect(await within(ask).findByText("Seedance 2.0 can't lip-sync. Your 3 Sung shots become B-roll (picture only).")).toBeInTheDocument();
@@ -131,7 +131,7 @@ test("past the budget a switch still goes through (later presses wait for the ow
   setViewport(1440);
   const calls = fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, over_budget: true, reason: "Waiting for the owner's OK: this goes past the video's budget." }] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Video model Auto/ }));
   await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Seedance 2.0?" });
   const go = await within(ask).findByRole("button", { name: "Switch" });
@@ -142,8 +142,8 @@ test("past the budget a switch still goes through (later presses wait for the ow
 test("on a finished video the warning that the final cut stays downloadable comes first", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }], "GET /projects/9/clips": [200, [{ id: 3, clip_id: "c1", seconds: 8, prompt: "p", references: [], problems: [], kept: [], file_id: 61, takes: [{ id: 2 }], picked_take_id: 2, approved: true, stale: false, take_credits: 24, inserts: [] }]] });
-  open("?step=downloads");
-  await userEvent.click(await screen.findByRole("button", { name: /Shape: 9:16/ }));
+  open("?step=plan");
+  await userEvent.click(await screen.findByRole("button", { name: /Shape 9:16/ }));
   await userEvent.click(await screen.findByRole("button", { name: "1:1" }));
   const ask = await screen.findByRole("alertdialog", { name: "Change to 1:1?" });
   const first = (await within(ask).findAllByText(/./, { selector: "p" }))[0];
@@ -156,15 +156,15 @@ test("on a phone the row is one line that opens a sheet with the settings", asyn
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Settings: 9:16 · Chicken · House · Auto · Auto" }));
   const sheet = await screen.findByRole("dialog", { name: "Video settings" });
-  expect(within(sheet).getByRole("button", { name: /Video model: Auto/ })).toBeInTheDocument();
-  expect(within(sheet).getByText("Language: Spanish (from the script)")).toBeInTheDocument();
+  expect(within(sheet).getByRole("button", { name: /Video model Auto/ })).toBeInTheDocument();
+  expect(within(sheet).getByTitle("From the script")).toHaveTextContent("Language Spanish");
 });
 
 test("one credit to finish says credit", async () => {
   setViewport(1440);
   fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, to_finish_credits: 1, sung_to_broll: 0, clips_out_of_date: 0 }] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Video model: Auto/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Video model Auto/ }));
   await userEvent.click(await screen.findByRole("button", { name: /Seedance 2.0/ }));
   expect(await screen.findByText("To finish: about 1 credit (planned; was 24).")).toBeInTheDocument();
 });
@@ -173,7 +173,7 @@ test("a look switch names the roles that need a new look in it (ST1)", async () 
   setViewport(1440);
   fakeServer({ ...base, "POST /projects/9/settings/preview": [200, { ...preview, roles_needing_look: ["Nate", "Mia"], sung_to_broll: 0 }] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: /Style: House/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Style House/ }));
   await userEvent.click((await screen.findAllByRole("button", { name: "Use this style" }))[0]);
   const ask = await screen.findByRole("alertdialog", { name: "Switch to Disney Pixar?" });
   expect(await within(ask).findByText("Nate and Mia need a new look, made in Cast.")).toBeInTheDocument();
@@ -187,7 +187,7 @@ test("at 390, a video on a lane shows the lane's own name; the picker lists styl
   fakeServer({ ...base, "GET /looks": [200, [...looks, { ...paper, lanes: [{ id: "paper-flat", name: "Paper · Flat Paper" }, { id: "paper-origami", name: "Paper · Origami" }] }]], "GET /projects/9/settings": [200, { ...settings, look: "paper-flat" }] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Settings: 9:16 · Chicken · Paper · Flat Paper · Auto · Auto" })); // the phone's one row
-  await userEvent.click(within(await screen.findByRole("dialog", { name: "Video settings" })).getByRole("button", { name: /Style: Paper · Flat Paper/ }));
+  await userEvent.click(within(await screen.findByRole("dialog", { name: "Video settings" })).getByRole("button", { name: /Style Paper · Flat Paper/ }));
   expect(await screen.findByRole("heading", { name: "Paper" })).toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: /Paper · / })).toBeNull(); // lanes aren't offered
   const card = screen.getByRole("heading", { name: "Paper" }).closest("li")!;
@@ -199,6 +199,6 @@ test("a lane the looks list doesn't carry yet reads as its style and its words, 
   setViewport(1440);
   fakeServer({ ...base, "GET /looks": [200, [...looks, paper]], "GET /projects/9/settings": [200, { ...settings, look: "paper-flat" }] });
   open();
-  expect(await screen.findByRole("button", { name: /Style: Paper · Flat/ })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Style Paper · Flat/ })).toBeInTheDocument();
   expect(document.body.textContent).not.toContain("paper-flat");
 });

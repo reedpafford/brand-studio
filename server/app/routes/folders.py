@@ -242,6 +242,15 @@ def folder_ideas(
     )  # fmt: skip
 
 
+@router.get("/projects/{project_id}/idea", response_model=ideas.Head)
+def idea_head(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """One idea's header on its video page (S3, P-04): status with its reason, used, up to,
+    budget, its folder, format, style and length. Read-only and free."""
+    from app.routes.projects import get_project
+
+    return ideas.head(db, user, get_project(db, user, project_id))
+
+
 @router.post("/brands/{brand_id}/folders", response_model=FolderOut, status_code=201)
 def make_folder(
     brand_id: int, body: FolderIn, user: User = Depends(current_user), db: Session = Depends(get_db)

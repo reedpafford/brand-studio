@@ -40,7 +40,7 @@ test("the old addresses: /freestyle and Quick clip open New video; a director-ma
   expect(await screen.findByRole("heading", { name: "What should the director make?" })).toBeInTheDocument();
   second.unmount();
   renderApp("/freestyle/9");
-  expect(await screen.findByRole("link", { name: "Videos ›" })).toHaveAttribute("href", "/b/1/videos");
+  expect(await screen.findByRole("list", { name: "Conversation with the director" })).toBeInTheDocument(); // its video's chat (S3)
 });
 
 test("an older One clip freestyle keeps its page: Enter sends a change, and the server's refusal shows in its words", async () => {
