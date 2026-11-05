@@ -429,7 +429,8 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
     note = delivery.note(db, project, deliver, {"made": "A short clip."})
     assert note["open"] == [
         "The cut wasn't watched.", "Clip 1's take wasn't checked.",
-        "Waiting for the owner's OK: remaking clip 1 goes past the video's budget."]  # fmt: skip
+        "Clip 1's take is waiting for the owner's OK: remaking clip 1 goes past the video's "
+        "budget."]  # fmt: skip
     shown = delivery.shown(db, project, note, False)
     assert shown["needs"] == delivery.LOOK_FIRST and "ready to post" not in shown["needs"]
     assert "Clip 1's take wasn't checked." in delivery.plain(shown).splitlines()
@@ -455,3 +456,47 @@ def test_the_director_md_delivery_lines_are_reeds():
                  "never write or repeat changes, timecodes or money yourself"):  # fmt: skip
         assert said in text, said
     assert "two to four short plain sentences" not in text
+
+
+def test_what_is_open_never_lists_what_was_fixed_and_names_each_step(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1340: a finding already muted or spliced (free) isn't "kept"; a check still
+    checking is not checked; the watch of this cut's kept findings are open; an unsure line
+    alone keeps it from "ready to post"; each held step is named once."""
+    from app import watch_cut
+    from app.watch_cut import _cut
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    deliver = director.turns(db, project)[-1]
+    take = db.get(ClipTake, _cut(db, project).take_ids[0])
+    monkeypatch.setattr("app.item_checks.on", lambda: True)
+    found: list[dict] = []
+    monkeypatch.setattr(watch_cut, "state", lambda db_, p: {"state": "done", "current": True,
+                                                            "findings": found})  # fmt: skip
+    take.made_with = {**(take.made_with or {}), "mutes": [[1.0, 1.5]],
+                      "splices": [{"word": "fomo", "at": [2.0, 2.4], "from_take": 1}]}  # fmt: skip
+    db.add(ItemCheck(project_id=pid, target="take", target_id=take.id, status="done"))
+    db.add(ItemCheck(project_id=pid, target="words", target_id=take.id, status="done", findings=[
+        {"kind": "extra", "role": "", "text": "“uh” isn't in the script", "at": 1.0,
+         "span": [1.0, 1.5], "change_note": ""},
+        {"kind": "name", "role": "", "text": "“foma”: fomo may be said wrong", "at": 2.1,
+         "change_note": ""}]))  # fmt: skip
+    db.commit()
+    assert delivery.open_items(db, project, delivery._spans(db, _cut(db, project))) == []
+
+    db.query(ItemCheck).filter_by(target="take", target_id=take.id).update({"status": "checking"})
+    found.append({"clip_id": "c1", "says": "The hold at the end runs long", "fix": "keep"})
+    held = "Waiting for the owner's OK: remaking clip 1 goes past the video's budget."
+    _job(db, _clip(db, pid), JobStatus.needs_owner_approval, held=held)
+    _job(db, _clip(db, pid), JobStatus.needs_owner_approval, held=held)  # the same, twice
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "x"})
+    assert note["open"] == [
+        "Clip 1: The hold at the end runs long. Kept as it is.", "Clip 1's take wasn't checked.",
+        "Clip 1's take is waiting for the owner's OK: remaking clip 1 goes past the video's "
+        "budget."]  # fmt: skip
+
+    note = {**note, "open": [], "unsure": "The ending may feel long."}
+    assert delivery.shown(db, project, note, True)["needs"] == delivery.LOOK_FIRST

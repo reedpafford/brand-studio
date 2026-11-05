@@ -50,38 +50,58 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
 
 def open_items(db: Session, project: Project, spans: list[dict]) -> list[str]:
     """What the server knows is still open when the director delivers, said plainly (Reed, 4
-    Nov: a cut that exists isn't ready to post): a cut not watched, a take in the cut that
-    wasn't checked or still has what its check found, and anything waiting for the owner."""
-    from app import item_checks
+    Nov: a cut that exists isn't ready to post): a cut not watched, what the watch of this cut
+    kept, a take in the cut that wasn't checked or still has what its check found (not one
+    already muted or spliced, free), and each step waiting for the owner."""
+    from app import item_checks, take_mute, word_splice
     from app.credits import WAIT_OK
+    from app.director import _item
     from app.models.jobs import JobStatus
     from app.watch_cut import state
 
     out = []
     watch = state(db, project)
     if not (watch.get("state") == "done" and watch.get("current")):
-        out.append("The cut wasn't watched." if watch.get("state") != "failed"
-                   else "The watch of the cut failed, so the cut wasn't watched.")  # fmt: skip
+        failed = watch.get("state") == "failed" and watch.get("current")
+        out.append("The watch of the cut failed, so the cut wasn't watched." if failed
+                   else "The cut wasn't watched.")  # fmt: skip
+    where = {s["row"].clip_id: _clip(s["row"]) for s in spans}
+    for f in watch.get("findings") or [] if watch.get("current") else []:
+        if f.get("fix") == "keep" and f.get("says"):
+            head = f"{where[f['clip_id']]}: " if f.get("clip_id") in where else ""
+            out.append(f"{head}{said(f['says']).rstrip('.')}. Kept as it is.")
     if spans and not item_checks.on():  # checks are off on this site: said once
         out.append("The takes weren't checked one by one.")
     ids = [s["take"].id for s in spans]
     checks = {k: item_checks.latest(db, k, ids) for k in ("take", "words")}
     for s in spans:
-        n, tid = _clip(s["row"]), s["take"].id
-        found = [f for k in checks for f in _found(checks[k].get(tid))]
+        take, n = s["take"], _clip(s["row"])
+        muted = [list(x) for x in take_mute.spans(take)]
+        splice = [x.get("at") for x in word_splice.spliced(take)]
+        found = [f for k in checks for f in _found(checks[k].get(take.id))
+                 if not _fixed_free(f, muted, splice)]  # fmt: skip
         if found:
             out.append(f"{n}: {said(found[0]['text']).rstrip('.')}. Kept as it is.")
-        check = checks["take"].get(tid)
-        if (
-            not found
-            and item_checks.on()
-            and (check is None or check.status in ("failed", "skipped"))
-        ):
-            out.append(f"{n}'s take wasn't checked.")
+        check = checks["take"].get(take.id)
+        if not found and item_checks.on() and (check is None or check.status != "done"):
+            out.append(f"{n}'s take wasn't checked.")  # none, failed, skipped or never finished
     held = db.scalars(select(Job).where(Job.project_id == project.id,
                                         Job.status == JobStatus.needs_owner_approval))  # fmt: skip
-    out += [(j.input.get("held") or f"{WAIT_OK}a step.").rstrip(".") + "." for j in held]
+    for j in held:
+        why = (j.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
+        line = f"{_item(db, j)} is waiting for the owner's OK" + (f": {why}." if why else ".")
+        if line not in out:
+            out.append(line)
     return out
+
+
+def _fixed_free(f: dict, muted: list, splice: list) -> bool:
+    """A check's finding already fixed for free: its stretch muted, or its brand word spliced."""
+    if f.get("span") and list(f["span"]) in muted:
+        return True
+    at = f.get("at")
+    starts = [a[0] if isinstance(a, list | tuple) else a for a in splice if a is not None]
+    return f.get("kind") == "name" and at is not None and any(abs(a - at) < 0.5 for a in starts)
 
 
 def _spans(db: Session, cut: FinalVideo | None) -> list[dict]:
@@ -179,7 +199,8 @@ def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict
         cost = (f"{round(note['spent'])} credits used of up to {price(up_to)} "
                 f"({pct}% of the budget)")  # fmt: skip
     still = note.get("open", [])
-    return {**note, "open": still, "needs": note["needs"] or (LOOK_FIRST if still else NOTHING),
+    unsettled = still or note["unsure"]  # "ready to post" only when nothing is open (Reed)
+    return {**note, "open": still, "needs": note["needs"] or (LOOK_FIRST if unsettled else NOTHING),
             "cost": cost,
             "spent_usd": float(usd) if owner else None}  # fmt: skip
 
