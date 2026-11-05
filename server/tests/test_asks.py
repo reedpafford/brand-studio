@@ -16,7 +16,7 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.script_library import ScriptCastSlot
 from tests.conftest import first_brand, upload
-from tests.helpers import product, with_sheet
+from tests.helpers import make_it, product, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_director import _run
 from tests.test_script_library import SCRIPT, _make
@@ -723,3 +723,37 @@ def test_keep_on_a_plan_card_brings_back_make_it_for_the_plan_it_has(
     cards = owner.get(f"/projects/{pid}/asks").json()
     assert [c["kind"] for c in cards if c["state"] == "open"] == ["start"]  # Make it is back
     assert editor.get(url).json()["status"] == "running"
+
+
+def test_a_whole_cast_lock_also_keeps_cast_answers_out(app, db, owner, editor):
+    pid, kid = _video(app, owner, editor, db)
+    editor.put(f"/projects/{pid}/locks", json={"locks": {"cast": True}})
+    db.expire_all()
+    said = asks.asked(db, db.get(Project, pid), None,
+                      {"kind": "cast", "subject": "Nate", "question": "Who plays Nate?"},
+                      )  # fmt: skip
+    assert said == "Refused: Nate is locked in this video; use that look."
+
+
+def test_the_progress_card_reads_ready_for_its_editor_and_ignores_an_options_hold(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on f4ac1a6a: the start card is the editor's own press ("Ready to make"); a question
+    card's options waiting for the owner don't make the whole run read as waiting."""
+    from decimal import Decimal
+
+    monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(500)))
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db, ticks=4, start=False)
+    mine = editor.get(f"{url}/progress").json()
+    assert (mine["title"], mine["sub"]) == ("Ready to make", "No generation started: press Make it")
+    assert owner.get(f"{url}/progress").json()["title"] == "Ready to make"  # the owner's too
+    make_it(db)
+    project = db.get(Project, pid)
+    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", project_id=pid,
+               input={"ask_id": 1, "held": "Waiting for the owner's OK."}, credits=1,
+               status="needs_owner_approval"))  # fmt: skip
+    db.commit()
+    assert editor.get(f"{url}/progress").json()["status"] != "waiting"

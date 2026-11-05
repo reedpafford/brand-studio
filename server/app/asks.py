@@ -277,10 +277,12 @@ def _slot(db: Session, project: Project, subject: str):
 
 
 def locked(project: Project, slot) -> bool:
-    """That role's look is fixed: on the script, or in this video (the Cast tab's Lock,
-    `locks["roles"]` as "slot:N", locks.role_locked in #1324)."""
+    """That role's look is fixed: on the script, the video's whole cast locked, or the role
+    alone (the Cast tab's Lock, `locks["roles"]` as "slot:N", #1324's locks.role_locked)."""
+    from app import locks
+
     roles = (project.locks or {}).get("roles") or []
-    return bool(slot.library_item_id) or f"slot:{slot.id}" in roles
+    return bool(slot.library_item_id) or locks.locked(project, "cast") or f"slot:{slot.id}" in roles
 
 
 def _picture(db: Session, file_id) -> bool:

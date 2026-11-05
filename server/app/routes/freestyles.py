@@ -507,7 +507,8 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list, owner: bool = 
         status = "working" if _make_it(db, fs, project) else "waiting"  # its start card
     elif going := director.active(db, project):  # paused for a new OK, past the price approved
         held = select(Job.id).where(Job.project_id == project.id,
-                                    Job.status == JobStatus.needs_owner_approval)  # fmt: skip
+                                    Job.status == JobStatus.needs_owner_approval,
+                                    Job.input["ask_id"].as_integer().is_(None))  # fmt: skip
         run = going.input[director.RUN]
         before = not run.get("ok", True) and run.get("hold")  # its plan, then the owner's OK
         status = "waiting" if before or db.scalar(held.limit(1)) else "working"

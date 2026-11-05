@@ -15,6 +15,7 @@ from statistics import median
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import asks
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.checks import ItemCheck
@@ -380,7 +381,10 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     now, start = utcnow(), turns[0].created_at
     video = _Video(db, project, viewer, turns)
     cells = [cell(video, r, now, owner) for r in video.clips]
-    held = select(Job).where(Job.project_id == project.id, Job.status == HELD).order_by(Job.id)
+    held = select(Job).where(
+        Job.project_id == project.id, Job.status == HELD, Job.input["ask_id"].as_integer().is_(None)
+    )  # an option: its card
+    held = held.order_by(Job.id)
     holds = None if how else db.scalar(held.limit(1))
     revising = any(r != run_id and ending(t)[0] == "delivered" for r, t in every.items())
     scenes = [{"id": sid, "name": name, "clips": [c for c in cells if c["scene"] == sid]}
@@ -403,6 +407,13 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
                 f"{made} of {total} clips made" if plain else said(why),
                 "bad" if how == "needs_fix" else "stop")  # fmt: skip
+    elif (
+        holds is not None
+        and holds.input.get(asks.START)
+        and viewer
+        and asks.may_start(db, viewer, project)
+    ):  # its start card, theirs to press (S3-02)
+        head = ("waiting", "Ready to make", "No generation started: press Make it", "wait")
     elif holds is not None:
         why = (holds.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
         head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
