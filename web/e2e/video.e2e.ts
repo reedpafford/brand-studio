@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { emptyBrand, signIn } from "./helpers";
+import { emptyBrand, makeIt, signIn } from "./helpers";
 
 // A video made by hand on the video page (v6 S3: the preview panel's Plan, Cast, Clips and Cut tabs) on the free stand-ins.
 const SCRIPT = [
@@ -90,7 +90,8 @@ for (const width of [1440, 390]) {
 
     await page.goto(`/b/${brandId}/videos/${id}`);
     await page.getByRole("button", { name: /^Make it/ }).click();
-    const live = page.getByRole("region", { name: /^Making|^Writing|^Starting|^Revising|^Made in/ }).first();
+    await makeIt(page, id); // its treatment, then its start card (S3-02): no generation before this press
+    const live = page.getByRole("region", { name: /^Making|^Writing|^Drawing|^Revising|^Made in/ }).first();
     await expect(live).toBeVisible({ timeout: 60_000 }); // the run's one card
     await expect(page.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 200_000 });
     await expect(page.getByRole("region", { name: "Delivery note" })).toBeVisible({ timeout: 30_000 });
