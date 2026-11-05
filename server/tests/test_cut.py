@@ -40,8 +40,7 @@ def presenter(app, db, owner):
     """A presenter video the director delivered (narration, host, its cuts), with a music bed
     under the narration."""
     fs = _sent(owner, "presenter", NARRATION)
-    _run(app, db, ticks=160)
-    assert owner.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered"
+    _until_delivered(app, db, owner, fs)
     video = _video(db, fs)
     voice = db.get(SongTake, video.song_take_id)
     key = f"{video.workspace_id}/bed"
@@ -55,6 +54,20 @@ def presenter(app, db, owner):
     return f"/projects/{video.id}"
 
 
+def _until_delivered(app, db, owner, fs, ticks=160):
+    """The stand-in director's run, ticked only until it delivers (each idle tick costs)."""
+    from app.providers import get_providers
+
+    app.state.settings.fake_providers = True
+    providers = get_providers(app.state.settings, app.state.storage)
+    for n in range(ticks):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        if n % 10 == 9 and owner.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered":
+            return
+    assert owner.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered"
+
+
 def _local(app, db):
     run_once(db, {"local": LocalProvider(app.state.storage)}, app.state.storage, only={"local"})
     db.expire_all()
@@ -64,7 +77,7 @@ def _edit(client, base, **body):
     return client.post(f"{base}/cut/edits", json=body)
 
 
-def test_the_cut_reads_as_its_timeline(owner, presenter):
+def _reads_as_its_timeline(owner, presenter):
     got = owner.get(f"{presenter}/cut").json()
     tl = got["timeline"]
     n = got["number"]  # the director cut, watched and cut again
@@ -150,7 +163,7 @@ def test_split_retime_swap_and_trim_move_the_pieces(owner, presenter):
         assert undone["detail"].startswith("The cut can't end before the last word")
 
 
-def test_the_next_cut_is_made_while_the_one_before_plays(app, db, owner, presenter):
+def _next_cut_while_the_one_before_plays(app, db, owner, presenter):
     n = owner.get(f"{presenter}/cut").json()["number"]
     _edit(owner, presenter, kind="music", gaps="down")
     asked = owner.post(f"{presenter}/cut")
@@ -171,7 +184,7 @@ def test_the_next_cut_is_made_while_the_one_before_plays(app, db, owner, present
     assert owner.get(f"{presenter}/video").json()["number"] == n + 1
 
 
-def test_music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter):
+def _music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter):
     project = db.get(Project, int(presenter.rsplit("/", 1)[1]))
     bed = db.get(StoredFile, db.get(SongTake, project.song_take_id).music_file_id)
     app.state.storage.put(bed.key, _tone(1))  # a 1 s bed
@@ -386,15 +399,16 @@ def test_the_end_fades_only_after_the_last_word():
     assert cut_render.fade_out(7.0, 7.0) == "st=7.00:d=0.05"
 
 
-def test_redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter):
+def _redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter):
     first = _edit(owner, presenter, kind="music", quieter_db=6).json()["edits"][-1]["id"]
-    _edit(owner, presenter, kind="music", gaps="down")
+    second = _edit(owner, presenter, kind="music", gaps="rise").json()["edits"][-1]["id"]
     owner.post(f"{presenter}/cut/undo-all")
     back = owner.post(f"{presenter}/cut/redo").json()
-    assert [e["id"] for e in back["edits"] if not e["undone"]] == [first]
+    live = {e["id"] for e in back["edits"] if not e["undone"]}
+    assert first in live and second not in live
 
 
-def test_a_talker_piece_is_only_offered_takes_of_the_talker_in_use(db, owner, presenter):
+def _a_talker_piece_is_only_offered_takes_of_the_talker_in_use(db, owner, presenter):
     """Rule 22: no swap on offer that a press would refuse."""
     from app.models.accounts import User
     from app.models.clips import ProjectClip
@@ -415,3 +429,17 @@ def test_a_talker_piece_is_only_offered_takes_of_the_talker_in_use(db, owner, pr
     older.made_with = {**older.made_with, "talker": 5}  # the same talker take: on offer
     db.flush()
     assert older.id in {s["take_id"] for s in cut_edits.swaps(db, user, project, tl, piece)}
+
+
+# One delivered presenter video each (the director's whole run is the slow part):
+def test_a_presenter_cut_reads_as_its_timeline_and_offers_only_swaps_that_work(
+    db, owner, presenter
+):
+    _reads_as_its_timeline(owner, presenter)
+    _a_talker_piece_is_only_offered_takes_of_the_talker_in_use(db, owner, presenter)
+
+
+def test_the_next_cut_redo_after_undo_all_and_a_cut_that_fails(app, db, owner, presenter):
+    _next_cut_while_the_one_before_plays(app, db, owner, presenter)
+    _redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter)
+    _music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter)
