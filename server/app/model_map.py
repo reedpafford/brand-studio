@@ -127,6 +127,33 @@ def shows_talker(db, project, clip) -> bool:
                               for s in _shots(db, clip))  # fmt: skip
 
 
+def on_omni(db, project, data: dict) -> set[str]:
+    """The plan's clips a presenter who acts in the story makes on Omni (their shots), before
+    any clip row exists: the quotes price them at Omni's fixed length (rule 36)."""
+    from app import host
+
+    if host.how(project) != "acts" or not host.presents(db, project):
+        return set()
+    item = host.host_look(db, project)
+    if item is None:
+        return set()
+    shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
+    return {c["id"] for c in data.get("clips", [])
+            if any(f"char:{item.id}" in (shots.get(i, {}).get("character_ids") or [])
+                   for i in c["shot_ids"])}  # fmt: skip
+
+
+def omni_take(db, project, clip_seconds: int):
+    """One Omni take of a talker's shot, as `take_credits` prices it (its fixed length)."""
+    from decimal import Decimal
+
+    from app.credits import estimate
+
+    omni = _model(OMNI)
+    job = {"model": omni.id, "input": {"resolution": resolution(omni)}}
+    return estimate(db, project.workspace_id, "video", Decimal(seconds(omni, clip_seconds)), job)
+
+
 def why(db, project, clip) -> dict:
     """{id, name, why, by} for the Clips tab: the model the clip is made with, in one line."""
     from app import guides, talker

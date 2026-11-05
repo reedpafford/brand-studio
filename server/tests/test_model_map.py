@@ -355,3 +355,38 @@ def test_undo_puts_back_how_the_presenter_appears_and_the_old_host(app, db, owne
     assert (undo["presenter"], undo["presenter_now"]) == (None, "talks")
     db.refresh(ugc)
     assert len(host.rows(db, ugc)) == made
+
+
+def test_switching_to_acts_quotes_the_talkers_shots_on_omni_before_their_clips_exist(
+    app, db, owner, ugc, monkeypatch
+):
+    """QA's final pass on #1327: with the plan approved but no clip rows yet, the switch's
+    "up to" prices each planned shot of the talker as an Omni take (rule 36)."""
+    from app.models.clips import ProjectClip
+    from app.routes.estimate import _stages
+
+    db.query(ProjectClip).filter_by(project_id=ugc.id).delete()
+    db.flush()
+    monkeypatch.setattr("app.host.host_look", lambda db, p: type("I", (), {"id": 1})())
+    import copy
+
+    from app.clip_prompts import newest
+
+    row = newest(db, ugc)
+    data = copy.deepcopy(row.data)
+    first = data["clips"][0]
+    shot = next(s for sc in data["scenes"] for s in sc["shots"] if s["id"] == first["shot_ids"][0])
+    shot["character_ids"] = [*(shot.get("character_ids") or []), "char:1"]  # the talker's
+    row.data = data
+    db.flush()
+
+    def left() -> float:
+        return next(s.credits for s in _stages(db, ugc) if s.stage == "clips")
+
+    talks = left()
+    ugc.presenter = "acts"
+    db.flush()
+    omni = float(model_map.omni_take(db, ugc, first["seconds"]))
+    assert model_map.on_omni(db, ugc, data) == {first["id"]}
+    lite = float(model_map._model("seedance-2.0").credits_per_unit("480p")) * first["seconds"]
+    assert abs(left() - (talks - lite + omni)) < 0.02  # that shot on Omni, the rest as before
