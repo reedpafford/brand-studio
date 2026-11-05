@@ -6520,6 +6520,23 @@ export interface components {
              */
             skip_screen_ids: number[];
         };
+        /**
+         * ClipModelOut
+         * @description The model a clip is made with and why (v6 S6-02's "Model" and "Why").
+         */
+        ClipModelOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Why */
+            why: string;
+            /**
+             * By
+             * @enum {string}
+             */
+            by: "director" | "person" | "map";
+        };
         /** Cost */
         Cost: {
             /**
@@ -9374,6 +9391,7 @@ export interface components {
              */
             versions: components["schemas"]["PromptVersionOut"][];
             sound?: components["schemas"]["SoundOut"] | null;
+            model?: components["schemas"]["ClipModelOut"] | null;
         };
         /** ProjectCost */
         ProjectCost: {
@@ -10273,6 +10291,32 @@ export interface components {
             end: number;
         };
         /**
+         * SettingChangeOut
+         * @description One switch of a setting (S-gaps-05 V1): a director's has Undo (switch `field` to `was`
+         *     with `undo: true`); a person's own choice is kept from the director.
+         */
+        SettingChangeOut: {
+            /** Field */
+            field: string;
+            /** Was */
+            was: string | boolean | {
+                [key: string]: unknown;
+            } | null;
+            /** Now */
+            now: string | boolean | {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * By
+             * @enum {string}
+             */
+            by: "person" | "director";
+            /** Why */
+            why: string;
+            /** At */
+            at: string;
+        };
+        /**
          * SettingIn
          * @description Exactly one setting.
          */
@@ -10291,6 +10335,12 @@ export interface components {
             product_variants?: {
                 [key: string]: string;
             } | null;
+            /** Presenter */
+            presenter?: ("talks" | "corner" | "acts") | null;
+            /** Narration Only */
+            narration_only?: boolean | null;
+            /** Voice */
+            voice?: string | null;
             /** Undo */
             undo?: boolean | null;
         };
@@ -10322,6 +10372,22 @@ export interface components {
             flavours: {
                 [key: string]: string[];
             };
+            /**
+             * Changes
+             * @default []
+             */
+            changes: components["schemas"]["SettingChangeOut"][];
+            /** Presenter */
+            presenter?: string | null;
+            /** Presenter Now */
+            presenter_now?: ("talks" | "corner" | "acts") | null;
+            /**
+             * Narration Only
+             * @default false
+             */
+            narration_only: boolean;
+            /** Voice */
+            voice?: string | null;
         };
         /** SetupIn */
         SetupIn: {
@@ -11631,6 +11697,12 @@ export interface components {
             product_variants?: {
                 [key: string]: string;
             } | null;
+            /** Presenter */
+            presenter?: ("talks" | "corner" | "acts") | null;
+            /** Narration Only */
+            narration_only?: boolean | null;
+            /** Voice */
+            voice?: string | null;
         };
         /** VideoSongIn */
         VideoSongIn: {

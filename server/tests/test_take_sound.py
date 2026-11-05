@@ -146,6 +146,7 @@ def test_each_effect_is_set_to_its_loudness_against_the_voice_and_limited(tmp_pa
     assert take_sound.level("10 dB under the voice") == -10  # unsigned: under (QA on #1316)
     assert take_sound.level("3 dB over the voice") == 3 and take_sound.level("-10 dB") == -10
     assert take_sound.level("over the voice by 3 dB") == 3
+    assert take_sound.level("footsteps over gravel, 10 dB") == -10  # over the gravel: under
     out = take_sound.apply(silent, _quiet(tmp_path, -1), take_sound.LOUDEST)  # pushed hard
     assert _loud(out, tmp_path)[1] <= -1.5  # limited at -4 dBFS: under the voice's own peak
     assert take_sound.gain(None, -12) == 0.0  # nothing to measure: left as it is
