@@ -140,18 +140,13 @@ def breakdown(
     screens: dict[str, list[str]],
     min_s: int,
     max_s: int,
-    end_line: str = "",
-    brand: str = "",  # the brand's name: the closing call to action says it
+    brand: str = "",  # the brand's name: the script's ending may say it
     kinds: dict[str, set[str]] | None = None,  # each screen's type tags ("home"): moment_screen
     recent: list[str] = (),  # recent videos' payoff actions (montage variety, Reed 2026-10-27)
 ) -> list[str]:
     lines = script.splitlines()
     shots = [shot for scene in bd.scenes for shot in scene.shots]
     problems = []
-    said = [TAG.sub("", text) for text in lines if text.strip()]
-    said = [text for text in said if not text.startswith(("SCENE", SCREEN_LINE, "["))]
-    if end_line.strip() and not says_brand(said[-1] if said else "", brand):
-        problems.append(f"{ADVICE}{NO_CTA}")
     covered = {n for shot in shots for n in shot.script_lines}
     shown = {n for shot in shots if shot.screen_ids for n in shot.script_lines}
     for n, text in enumerate(lines, 1):
@@ -172,7 +167,7 @@ def breakdown(
     seen = {_words(a) for a in recent}
     problems += [f"{ADVICE}shot {s.id}: this payoff repeats one of a recent video; show a new one"
                  for s in payoff(shots) if _words(s.action) in seen]  # fmt: skip
-    problems += cta_screen(shots, end_line, brand)
+    problems += cta_screen(shots, brand)
     for k in montage(shots):
         shot = shots[k]
         his = shot.character_ids or shot.screen_ids or HIS.search(shot.action)  # hands, phone…
@@ -512,23 +507,19 @@ def _exact(text: str) -> str:
     return " ".join(text.split())
 
 
-NO_CTA = "the last line doesn't mention the brand or where to find it"
-
-
-def cta_screen(shots: list, end_line: str, brand: str = "") -> list[str]:
-    """The end line's shot (the call to action) shows the brand's real screen, on the phone the
-    hero holds up to the camera (Reed, 2026-10-27): its clip then attaches it (`clip_prompts`)."""
-    said = [s for s in shots if end_line.strip() and s.line and says_brand(s.line, brand)]
+def cta_screen(shots: list, brand: str = "") -> list[str]:
+    """The ending's shot that names the brand shows its real screen, on the phone the hero holds
+    up to the camera (rule 18; Reed, 2026-10-27): its clip then attaches it (`clip_prompts`)."""
+    said = [s for s in shots if brand and s.line and says_brand(s.line, brand)]
     if said and not said[-1].screen_ids:
-        return [f"{ADVICE}shot {said[-1].id}: the end line's shot shows no screen; show the "
-                "brand's real screen on the phone he holds up to the camera"]  # fmt: skip
+        return [f"{ADVICE}shot {said[-1].id}: the closing shot naming the brand shows no "
+                "screen; show the brand's real screen on the phone he holds up"]  # fmt: skip
     return []
 
 
 def says_brand(line: str, brand: str) -> bool:
-    """Does a spoken line name the brand (whole words, any case: "Download FOMO…")? A video
-    ends on a call to action that names it; the saved end line is only the default wording,
-    so this is all the end check asks (Current rules 18, Reed 2026-10-28). Advice."""
+    """Does a spoken line name the brand (whole words, any case: "Download FOMO…")? The ending
+    comes from the script (rule 18, Reed 2026-11-04)."""
     return bool(_words(brand)) and f" {_words(brand)} " in f" {_spoken(line)} "
 
 
@@ -599,16 +590,12 @@ def variations(
     original: str,
     result: Variations,
     screens: dict[str, list[str]],
-    end_line: str,
-    never_say: list[str],
     count: int,
     cast: list[str] = (),
-    brand: str = "",  # the brand's name: the closing call to action says it
     note: str = "",  # the author's note: a length it asks for ("about 45 s") is the target
-    sung: bool = False,  # a song: it follows its lyrics, never asked to end on the brand
 ) -> list[str]:
-    """Alternates of an approved script (workflow v2): the brand, the end line and the locked
-    cast are kept (fix); length, closeness and format are advice. `cast` holds the locked
+    """Alternates of an approved script (workflow v2): the brand and the locked cast are kept
+    (fix); length, closeness and format are advice. `cast` holds the locked
     characters' names. `screens` is accepted for the server's call; ★ lines are matched by name."""
     asked = asked_seconds(note)
     problems = []
@@ -620,16 +607,10 @@ def variations(
     for i, script in enumerate(scripts, 1):
         name = f"variation {i}"
         lines = [line.strip() for line in script.splitlines() if line.strip()]
-        said = [TAG.sub("", x) for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
-        if not sung and end_line.strip() and not says_brand(said[-1] if said else "", brand):
-            problems.append(f"{ADVICE}{name}: {NO_CTA}")
         for star in sorted(stars - _stars(script)):
             problems.append(f"{name} drops the ★ line for {star}; put it back where it fits")
-        for phrase in never_say:
-            if phrase.lower() in script.lower():
-                problems.append(f"{name} says “{phrase}”, which the brand never says")
         if re.search(r"\blive[- ]action\b", script, re.I):
-            problems.append(f"{name} brings back live action; that slot is the end line")
+            problems.append(f"{name} brings back live action; that slot is the script's ending")
         for who in cast:  # only names the original uses (a narrator may be "I")
             named = rf"\b{re.escape(who)}\b"
             if re.search(named, original, re.I) and not re.search(named, script, re.I):
@@ -792,7 +773,7 @@ def role_key(name: str) -> str:
 
 
 def reel_speakers(
-    script: str, speakers: list[str], cast: list[str] = (), end_line: str = "", brand: str = ""
+    script: str, speakers: list[str], cast: list[str] = (), brand: str = ""
 ) -> list[str]:
     """No invented speakers in a draft that adapts an imported reel: it has no more speaking
     characters than the reel (`speakers`, its kept shots' roles), not counting one who only
@@ -800,7 +781,7 @@ def reel_speakers(
     said = {}
     for m in re.finditer(r"^([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:\s*(.*)$", script, re.M):
         said.setdefault(role_key(m.group(1)), []).append(m.group(2))
-    if end_line:
+    if brand:  # one who only says the closing line naming the brand isn't counted
         said = {k: v for k, v in said.items() if any(not says_brand(x, brand) for x in v)}
     reel = {role_key(x) for x in speakers if x.strip()}
     if len(said) <= len(reel):
@@ -1098,7 +1079,6 @@ def song_breakdown(
     song: dict,
     *args,
     written: bool = False,
-    sung: bool = True,
     **kwargs,
 ) -> list[str]:
     """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
@@ -1106,14 +1086,10 @@ def song_breakdown(
     beats, inside a section (advice). Only on a breakdown the AI `written` (off unless said, so
     an edit stays quiet): a Sung shot the
     script didn't ask for (advice); an editor's own Sung flips are theirs (rule 31), and the
-    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's.
-    A `sung` song follows its script and is never asked to end on the brand (Reed, 3 Nov); a
-    narration (`sung` False) is a spoken script and keeps rule 18's closing-line advice."""
+    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's."""
     clean = "\n".join("" if SECTION.match(x) else LIP_SYNC.sub("", x).strip()
                       for x in lyrics.splitlines())  # fmt: skip
     problems = breakdown(clean, bd, *args, **kwargs)
-    if sung:
-        problems = [p for p in problems if p != f"{ADVICE}{NO_CTA}"]
     shots = [shot for scene in bd.scenes for shot in scene.shots]
     if not shots:
         return problems

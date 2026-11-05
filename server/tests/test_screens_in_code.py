@@ -26,7 +26,6 @@ def _cast(editor, db, setup) -> tuple[Project, int]:  # noqa: F811
     with_sheet(db, mom.json()["id"])
     editor.patch(f"/projects/{setup['project']}", json={"cast_ids": [mom.json()["id"]]})
     project = db.get(Project, setup["project"])
-    db.get(Brand, project.brand_id).end_line = "I bought the dip."  # shot 1.2's line
     db.get(BrandScreen, setup["screen"]).balance = "$348,920"  # the balance screen
     db.commit()
     return project, mom.json()["id"]
@@ -38,7 +37,7 @@ def _bd(mom: int) -> dict:
     return bd
 
 
-def test_the_end_lines_shot_shows_the_balance_screen_on_the_heros_phone(app, db, editor, setup):  # noqa: F811
+def test_the_closing_shot_naming_the_brand_shows_the_balance_screen(app, db, editor, setup):  # noqa: F811
     project, mom = _cast(editor, db, setup)
     db.get(Brand, project.brand_id).name = "Dip"  # the closing line names the brand (rules 18)
     db.commit()

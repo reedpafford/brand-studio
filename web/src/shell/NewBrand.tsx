@@ -24,7 +24,7 @@ export function NewBrandPage() {
   const make = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/brands", {
-        body: { name: name.trim(), logo_file_id: logo, colours: [colour.trim().toUpperCase()], fonts: [], tone_notes: "", never_say: [], legal_line: "", end_line: "" },
+        body: { name: name.trim(), logo_file_id: logo, colours: [colour.trim().toUpperCase()], tone_notes: "" },
       });
       if (!data) throw new Error(errorText(error));
       return data;

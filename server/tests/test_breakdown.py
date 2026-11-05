@@ -57,11 +57,9 @@ def test_breakdown_made_checked_and_edited(app, db, editor, setup):  # noqa: F81
     assert "3| MOM: Nate, where is all your money?" in message
 
     got = editor.get(url).json()
-    # fomo's videos end on a line naming fomo (rules 18); this short script doesn't: Advice.
+    # rule 18: the ending is the script's own, so a script not naming fomo last is fine
     assert (got["source"], got["stale"]) == ("claude", False)
-    assert got["problems"] == [
-        "Advice: the last line doesn't mention the brand or where to find it"
-    ]
+    assert got["problems"] == []
     assert got["breakdown"]["clips"][0]["shot_ids"] == ["1.1", "1.2"]
 
     edited = copy.deepcopy(BREAKDOWN)

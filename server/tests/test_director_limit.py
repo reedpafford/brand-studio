@@ -73,21 +73,22 @@ def test_an_ok_grants_a_limits_worth_then_it_waits_again(app, db, owner, editor,
     assert len(_held(db, pid)) == 1  # and once that's spent, it waits again
 
 
-def test_a_freestyles_director_waits_at_its_limit_as_past_its_price(
-    app, owner, editor, db, monkeypatch
-):
+def test_a_sends_director_waits_at_its_own_limit(app, owner, editor, db, monkeypatch):
+    """A New video send's run, shown from the owner's OK: past the director's own limit it waits
+    for the owner (rule 34), and never charges past that limit while it waits."""
     monkeypatch.setattr(director, "own_limit", lambda: Decimal(30))  # its run's own is about 58
     from app.models.freestyles import Freestyle
+    from tests.conftest import first_brand
     from tests.test_freestyle_dialogue import BODY
 
-    fs = editor.post("/freestyles", json=BODY).json()
-    _run_fakes(app, db, ticks=4, start=False)  # the treatment, then its start card
+    fs = editor.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)}).json()
+    _run_fakes(app, db, ticks=4, start=False)  # its plan, then its start card
     (first,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     owner.post(f"/jobs/{first['id']}/approve")
     pid = db.get(Freestyle, fs["id"]).project_id
     _run_fakes(app, db)
     (held,) = _held(db, pid)
-    assert held.input["held"] == PAST_APPROVED  # a freestyle's own words for a step past its price
+    assert held.input["held"] in (director.OWN_LIMIT.format(n=30), PAST_APPROVED)
     charged, _ = _own(db, pid)
     assert charged <= director.own_limit()
-    assert db.get(Project, pid, execution_options={"see_hidden": True}).hidden
+    assert not db.get(Project, pid).hidden  # shown from the OK

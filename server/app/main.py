@@ -53,7 +53,6 @@ from app.routes import (
     script_write,
     scripts,
     sheets,
-    site_read,
     song_study,
     songs,
     storyboard,
@@ -96,7 +95,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = make_sessionmaker(settings.database_url)
     advice.LOOKUP = app.state.sessionmaker  # names an id left in a shown message
     app.state.storage = LocalStorage(settings.storage_dir)
-    app.include_router(site_read.new_brand)  # /brands/site-read/…, ahead of /brands/{id}/…
     for module in (
         health,
         auth,
@@ -156,7 +154,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         video_settings,
         languages,
         media,
-        site_read,
         voices,
     ):
         app.include_router(module.router)

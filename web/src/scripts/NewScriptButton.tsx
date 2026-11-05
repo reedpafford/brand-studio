@@ -4,7 +4,6 @@ import { ChevronDown, FileText, Mic, Music, Plus } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Button, Menu, MenuItem, StepPicker, TextArea, buttonClass } from "../components";
-import { useBrands } from "../shell/useBrands";
 import { useLanguages } from "../languages/useLanguages";
 import { PickLabel, ScriptBox, ScriptTop, SettingsRow, ShapeChip, pickClass } from "./ScriptFrame";
 import { useMe } from "../auth/useMe";
@@ -104,7 +103,6 @@ export function NewScriptPage() {
   };
   const me = useMe().data;
   const looks = useLooks();
-  const brand = useBrands().data?.find((b) => b.id === brandId);
   const languages = useLanguages();
   const folders = useFolders(brandId);
   const [picking, setPicking] = useState(false);
@@ -141,7 +139,7 @@ export function NewScriptPage() {
     make.mutate({ text, ...with_ });
   };
   // The script page's own header, before the script exists: the format, Look and Project, and the steps (later ones locked).
-  const look = brand?.default_look ?? looks.data?.[0]?.id ?? "house";
+  const look = "house"; // a new script starts on House (brands keep no default style, S-gaps-05 L1)
   // The same steps and reasons the script's own page shows for an empty script.
   const empty = { kind, published: false, versions: [{ slot: 0, text: "", status: "draft" }] } as unknown as Script;
   // Every step after the first is locked with its reason: none can be opened before the script exists (QA-3 on #1191).
@@ -154,7 +152,7 @@ export function NewScriptPage() {
     if (saved.current !== null) hand(saved.current, text);
     if (text.trim()) start(text);
   };
-  const lang = brand?.default_language ?? "en";
+  const lang = "en"; // and in English unless another is picked
   const langName = (id: string) => languages.data?.find((l) => l.id === id)?.name ?? (id === "en" ? "English" : id);
   const picks = (languages.data ?? []).filter((l) => l.on || me?.role === "owner");
   return (

@@ -1,14 +1,14 @@
 """The director's questions and money OKs (v6 piece B): new `asks`, one row per card.
 
-Revision ID: n36
-Revises: n35
+Revision ID: n37
+Revises: n36
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n36"
-down_revision = "n35"
+revision = "n37"
+down_revision = "n36"
 branch_labels = None
 depends_on = None
 

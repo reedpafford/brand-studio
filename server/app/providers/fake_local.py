@@ -246,24 +246,6 @@ def refuse_link(url: str, folder: Path) -> Path:
     raise Refused("blocked", BLOCKED)
 
 
-def read_site(url: str) -> dict:
-    """Import from website on the stand-ins: a practice page, never fetched. An address with
-    "fail" in it can't be read; one with "empty" has nothing useful on it."""
-    from app.site_fetch import Refused, read_page
-
-    if "fail" in url:
-        raise Refused("Couldn't reach that site.")
-    if "empty" in url:
-        return read_page("<html><body></body></html>", url)
-    return read_page(
-        '<html><head><meta name="theme-color" content="#e4572e"><meta property="og:image" '
-        'content="/logo.png"><style>.b{background:#2299cc}</style></head><body><h1>Iron Paws'
-        "</h1><p>Chicken bites: crunchy chicken treats for dogs.</p><p>Peanut butter chews: "
-        "soft chews with real peanut butter.</p></body></html>",
-        url,
-    )
-
-
 def study_link(url: str, folder: Path) -> Path:
     """A reel's link on the stand-ins (Import a reel, or a song-ad study): the 6 s test clip,
     never fetched, so a walk reaches the read reel or the finished study; a reel id with
@@ -827,13 +809,6 @@ class FakeWriter:
                               "fix": "pick", "take_id": c["other_takes"][0]["take_id"],
                               "note": "The other take keeps the line."})  # fmt: skip
         return {"lands": True, "summary": "It plays; two small fixes.", "findings": found}
-
-    def _site_read(self, prompt):  # the practice page's two products and both its colours
-        return {"products": [
-            {"name": "Chicken bites", "short_description": "Crunchy chicken treats for dogs."},
-            {"name": "Peanut butter chews",
-             "short_description": "Soft chews with real peanut butter."}],
-            "colours": _tag(prompt, "colours").split(), "logo": True}  # fmt: skip
 
     def _look_fit(self, prompt):  # every look fits
         return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}

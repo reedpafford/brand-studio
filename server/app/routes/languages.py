@@ -19,7 +19,7 @@ ENGLISH_STAYS = "English is always on."
 
 
 class LanguageOut(BaseModel):
-    id: str  # "es": what scripts.language and brands.default_language hold
+    id: str  # "es": what scripts.language holds
     name: str  # "Spanish"
     on: bool  # editors can pick it (off until its sample test is approved)
 

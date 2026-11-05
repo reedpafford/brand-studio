@@ -115,7 +115,7 @@ def problems(db: Session, script: Script, draft: ScriptDraft, bd: Breakdown) -> 
     m = breakdown.video_model(look=script.look, kind=script.kind)
     brand = db.get(Brand, script.brand_id)
     found = check.breakdown(
-        draft.text, bd, screens, m.duration.min, m.duration.max, brand.end_line, brand.name,
+        draft.text, bd, screens, m.duration.min, m.duration.max, brand.name,
         kinds=check.kinds_of(shown),
     )  # fmt: skip
     slots = db.scalars(select(ScriptCastSlot).where(ScriptCastSlot.script_id == script.id))

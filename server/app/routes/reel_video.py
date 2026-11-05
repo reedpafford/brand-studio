@@ -68,11 +68,11 @@ def _picks_hold(db: Session, user: User, body: ReelVideoIn, script: Script) -> N
     """Copy and Structure set the video's picks once the script is written: the cast, the
     attachments and a B-roll look are checked at the press instead, so nothing is refused
     after the read is paid."""
-    from app import brand_setup, guides
-    from app.models.brands import Brand
+    from app import guides
+    from app.routes.library import cast_picks
 
     if body.cast_ids:
-        brand_setup.check_cast(db, db.get(Brand, script.brand_id), body.cast_ids)
+        cast_picks(db, script.workspace_id, body.cast_ids)
     fs_routes.attachments(db, user, body.attachments)
     if body.broll_look and looks.base(body.broll_look) != looks.base(body.look or looks.DEFAULT):
         if not guides.format_(body.type).get("host"):
