@@ -1,7 +1,8 @@
 """P1 (Reed's first walk, the Producer): "Make a video" is a freestyle, the director-first
 video. From pasted words with a brand, or from any version of a script, it makes a visible
 script and video; the version is frozen (rule 31), its saved shots reused free (item 8),
-and the director runs at once (an editor's waits for the owner)."""
+and the director writes its treatment, then its start card waits for Make it (an editor's
+for the owner)."""
 
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
@@ -51,13 +52,14 @@ def test_make_a_video_from_a_scripts_version_freezes_it_and_reuses_its_shots(
 
 
 def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothing(
-    owner, editor, db
+    app, owner, editor, db
 ):
     """Next-Lead: an editor's held send freezes nothing and shows nothing; the owner's OK makes
     the script and video real; a decline (or a withdraw) leaves the version as it was."""
     r = editor.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)})
     assert r.status_code == 201, r.text
-    fs = r.json()
+    _run(app, db, ticks=4, start=False)  # its treatment, free, then its start card (S3-02)
+    fs = editor.get(f"/freestyles/{r.json()['id']}").json()
     assert fs["status"] == "waiting" and fs["project_id"] and fs["script_id"]
     assert fs["script_id"] not in [s["id"] for s in owner.get("/scripts").json()]  # not yet
     assert fs["project_id"] not in [p["id"] for p in owner.get("/projects").json()]
@@ -81,7 +83,8 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
     pick = {"shape": "9:16", "script_id": made["id"]}
     sent = editor.post("/freestyles", json=pick)
     assert sent.status_code == 201, sent.text
-    mine = sent.json()
+    _run(app, db, ticks=4, start=False)
+    mine = editor.get(f"/freestyles/{sent.json()['id']}").json()
     assert mine["status"] == "waiting", mine["thread"]
     db.expire_all()
     script, draft = (
@@ -117,7 +120,8 @@ def test_an_editors_video_is_real_only_from_the_owners_ok_and_a_no_leaves_nothin
                                       "project_id": again.json()["project_id"]}  # fmt: skip
     another = editor.post("/freestyles", json={**pick, "make_another": True})  # the Producer
     assert another.status_code == 201, another.text
-    second = another.json()
+    _run(app, db, ticks=4, start=False)
+    second = editor.get(f"/freestyles/{another.json()['id']}").json()
     assert second["status"] == "waiting" and second["up_to"] == up_to  # an editor's waits
     assert second["project_id"] != again.json()["project_id"]  # a new video, same version
     video = db.get(Project, second["project_id"], execution_options={"see_hidden": True})

@@ -43,10 +43,9 @@ def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
     assert (charged <= limit, oks) == (True, 0)  # never past it without an OK
     assert [j["id"] for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
             ] == [held.id]  # Needs you  # fmt: skip
-    (card,) = [m for m in editor.get(f"/projects/{pid}/director").json()["thread"] if m.get("run")]
-    assert card["status"] == "held"  # its card waits, saying why
-    assert card["text"] == ("Waiting for the owner's OK · the director has used its own limit of "
-                            "35 credits")  # fmt: skip
+    (card,) = [a for a in owner.get(f"/projects/{pid}/asks").json() if a["kind"] == "own"]
+    assert card["state"] == "open"  # its card (rule 34)
+    assert card["can"] == ["approve", "keep"] and card["money"]["held"] == held.input["held"]
 
     assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
     _run(app, db)
@@ -54,8 +53,8 @@ def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
     assert out["status"] == "delivered", out["ended"]
     charged, oks = _own(db, pid)
     assert oks == 1 and limit < charged <= 2 * limit  # several turns on the one OK
-    texts = [m["text"] for m in out["thread"]]
-    assert "OK'd: up to 35 more credits of the director's time." in texts
+    (card,) = [a for a in owner.get(f"/projects/{pid}/asks").json() if a["kind"] == "own"]
+    assert (card["state"], card["can"]) == ("answered", [])  # the OK folds its card
 
 
 def test_an_ok_grants_a_limits_worth_then_it_waits_again(app, db, owner, editor, monkeypatch):
@@ -74,20 +73,22 @@ def test_an_ok_grants_a_limits_worth_then_it_waits_again(app, db, owner, editor,
     assert len(_held(db, pid)) == 1  # and once that's spent, it waits again
 
 
-def test_a_freestyles_director_waits_at_its_limit_as_past_its_price(
-    app, owner, editor, db, monkeypatch
-):
+def test_a_sends_director_waits_at_its_own_limit(app, owner, editor, db, monkeypatch):
+    """A New video send's run, shown from the owner's OK: past the director's own limit it waits
+    for the owner (rule 34), and never charges past that limit while it waits."""
     monkeypatch.setattr(director, "own_limit", lambda: Decimal(30))  # its run's own is about 58
     from app.models.freestyles import Freestyle
+    from tests.conftest import first_brand
     from tests.test_freestyle_dialogue import BODY
 
-    fs = editor.post("/freestyles", json=BODY).json()
+    fs = editor.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)}).json()
+    _run_fakes(app, db, ticks=4, start=False)  # its plan, then its start card
     (first,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
     owner.post(f"/jobs/{first['id']}/approve")
     pid = db.get(Freestyle, fs["id"]).project_id
     _run_fakes(app, db)
     (held,) = _held(db, pid)
-    assert held.input["held"] == PAST_APPROVED  # a freestyle's own words for a step past its price
+    assert held.input["held"] in (director.OWN_LIMIT.format(n=30), PAST_APPROVED)
     charged, _ = _own(db, pid)
     assert charged <= director.own_limit()
-    assert db.get(Project, pid, execution_options={"see_hidden": True}).hidden
+    assert not db.get(Project, pid).hidden  # shown from the OK

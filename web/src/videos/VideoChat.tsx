@@ -16,6 +16,7 @@ import { InTheCut, phaseOf, useDirectorRun, useMovesRefresh } from "../projects/
 import { LockChips } from "../projects/LockChips";
 import { VideoPage } from "../projects/VideoPage";
 import { useProjectClips } from "../projects/useProgress";
+import { useMakeIt } from "../projects/useMakeIt";
 import { letterOf } from "../scripts/status";
 import { useScript } from "../scripts/useScript";
 import { refreshJobs } from "../jobs/refresh";
@@ -65,6 +66,7 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
   const words = useSettingsWords();
   const changePrice = useChangePrice(freestyleId, q.data?.status === "waiting" && !!q.data.file_id);
   const actions = useFreestyleActions(freestyleId);
+  const makeIt = useMakeIt(p.id, freestyleId);
   const script = useScript(fs?.script_id ?? 0).data;
   const [stopping, setStopping] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -113,6 +115,11 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
   const quiet = rail ? "text-muted! hover:text-text!" : "";
   const presses = (
     <>
+      {fs.make_it != null && ( // its start card (S3-02): its plan is in the thread; no generation has started
+        <Button dense busy={makeIt.isPending} price={fs.make_it_up_to ?? fs.up_to ?? undefined} charge="estimate" onClick={() => makeIt.mutate(fs.make_it!)}>
+          Make it
+        </Button>
+      )}
       {(state === "waiting" || state === "change") && maker && (
         <Button variant={rail ? "ghost" : "secondary"} dense className={quiet} busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate()}>
           {withdrawn}
@@ -141,7 +148,7 @@ export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_i
     : state === "working" ? "The director will read this on its next move."
     : state === "change" ? "Another change waits for the owner too."
     : owner ? "Notes are saved. Make it again makes them."
-    : "Each change goes to the owner first. Nothing is spent until they say yes.";
+    : "Each change goes to the owner first. No generation starts until they say yes.";
   const extra = (t: Said) =>
     t.id === delivered ? (
       <Cut fs={fs} p={p} note={items.find((i) => i.id === t.id)?.text ?? ""} seconds={seconds} spent={run?.credits ?? fs.credits} hasClips={clips.length > 0} />

@@ -18,10 +18,11 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import director_song, director_tools, take_mute, take_sound, word_splice
-from app.credits import COUNTED, lock
+from app import asks, director_song, director_tools, take_mute, take_sound, word_splice
+from app.credits import COUNTED, FREESTYLE, lock
 from app.db import utcnow
 from app.models.accounts import User
+from app.models.asks import Ask
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import WAITING, Job, JobStatus, Usage
 from app.models.projects import Project
@@ -48,31 +49,47 @@ TOO_MANY = "Too many messages; wait a moment."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
+START = asks.START  # in its held first paid turn: the start card (S3-02)
+START_HELD = "Ready to start: it waits for Make it."  # the start card's hold
+START_FIRST = "Waiting for Make it: nothing more runs before it."  # a move before the OK
+TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
+PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
+PRE_OK = ("treatment", "ask", "wait", "stop")  # what runs before Make it: planning only
+ON_YOU = "Waiting on your answer; everything else is made."  # parked on open questions
 
 
-def start(db: Session, user: User, project: Project, *, wait: str = "", extra: dict | None = None,
-          frozen: bool = True) -> Job:  # fmt: skip
+def start(db: Session, user: User, project: Project, *, hold: str = "",
+          extra: dict | None = None, frozen: bool = True) -> Job:  # fmt: skip
     """A run on a video made from a published script (its words are locked): its first turn.
-    `wait`: the turn waits for the owner with that reason (a freestyle's editor send);
-    `extra`: more of its input (the freestyle it's for). `frozen=False`: a freestyle's, whose
-    version is frozen and published when its run starts (`freestyles.freeze`)."""
+    Every way in starts the same (S3-02): its plan (the treatment) first, charged at its real
+    cost on the video's planning allowance (`asks.past_planning`), then the run waits on its
+    start card, "Make it · up to $X", before any generation (`ok` in the run). `hold`: why
+    that card waits for the owner (an editor's pasted words or New video send, or a script
+    past what's left of its budget); "" lets the video's own editor press it (S2-06).
+    `extra`: more of its input (the freestyle it's for), carried to the start card.
+    `frozen=False`: a freestyle's, whose version is frozen and published when its run starts
+    (`freestyles.freeze`)."""
     if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
-    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id}
+    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
+           "hold": hold}  # fmt: skip
     lock(db, Project, project.id)  # the notes it takes can't change under it
     db.refresh(project)
     left = set(leftover(db, project))  # every note no run has read: this run reads them
     if left:
         project.director_chat = [{**m, "run": run["id"]} if n in left else m
                                  for n, m in enumerate(project.director_chat)]  # fmt: skip
-    return _turn(db, user, project, run, wait=wait, extra=extra)
+    return _turn(db, user, project, run, extra=extra)
 
 
-def say(db: Session, user: User, project: Project, text: str) -> None:
-    """A person's note to the director (director-chat.md §1 item 4), kept in the thread. While
-    a run goes on, its next turn reads it (a turn already in flight, the one after). It never
-    starts a run: after Stop or a delivery it waits, unread, for the next Make it, which reads
-    every unread note. Nothing is charged for it."""
+def say(db: Session, user: User, project: Project, text: str, files: list[int] = ()) -> None:
+    """A person's note to the director (director-chat.md §1 item 4), kept in the thread with
+    any pictures or clips sent with it (for this video only, rule 12; the director looks at
+    them). While a run goes on, its next turn reads it (a turn already in flight, the one
+    after); a run waiting on an answer wakes to read it, and one waiting on its start card
+    reads it before Make it ("Change the plan first", S3-02). It never starts a run: after
+    Stop or a delivery it waits, unread, for the next Make it, which reads every unread note.
+    Nothing is charged for it."""
     lock(db, Project, project.id)  # never lost to a run starting or ending as it lands
     db.refresh(project)
     going = active(db, project)
@@ -85,9 +102,32 @@ def say(db: Session, user: User, project: Project, text: str) -> None:
     if last > (now - GAP).isoformat() or len(waiting) >= PER_RUN:
         db.rollback()
         raise HTTPException(429, TOO_MANY)
-    said = {"by": user.id, "text": text, "at": now.isoformat(), "run": run_id}
+    said = {"by": user.id, "text": text, "at": now.isoformat(), "run": run_id,
+            **({"files": list(files)} if files else {})}  # fmt: skip
     project.director_chat = [*every, said]
     db.commit()
+    if going and going.status == JobStatus.needs_owner_approval and going.input.get(START):
+        _plan_first(db, project, going)
+    elif going:
+        wake(db, project)
+
+
+def _plan_first(db: Session, project: Project, held: Job) -> None:
+    """A note while the start card waits: the card goes (nothing was charged) and a turn
+    before Make it reads the note and changes the treatment; then the card comes back with
+    the new price."""
+    from app.db import utcnow
+
+    done = db.execute(update(Job).where(Job.id == held.id,
+                                        Job.status == JobStatus.needs_owner_approval)
+                      .values(status=JobStatus.cancelled, finished_at=utcnow()))  # fmt: skip
+    if done.rowcount != 1:
+        return
+    db.refresh(held)
+    run = {**held.input[RUN], "ok": False}
+    held.input = {**held.input, "result": PLAN_FIRST}
+    db.commit()
+    _turn(db, db.get(User, run["by"]), project, run)
 
 
 def chat(project: Project, run_id: str) -> list[dict]:
@@ -127,7 +167,7 @@ def leftover(db: Session, project: Project) -> list[int]:
     return out
 
 
-def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
+def thread(db: Session, project: Project, viewer: User | None = None) -> list[dict]:
     """The whole conversation on the video, oldest first: what people said, the treatment,
     and for each run its progress card and its delivery note (app/run_progress)."""
     from app import run_progress
@@ -140,7 +180,8 @@ def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
         place[m.get("run")] = place.get(m.get("run"), 0) + 1
         out.append({"id": f"m{n}", "kind": "message", "at": m["at"],
                     "who": user_name(db, m["by"]), "text": m["text"], "status": None, "why": "",
-                    "answered": place[m.get("run")] in done.get(m.get("run"), set())})  # fmt: skip
+                    "answered": place[m.get("run")] in done.get(m.get("run"), set()),
+                    "files": m.get("files", [])})  # fmt: skip
     written = db.scalars(select(Job).where(Job.project_id == project.id,
                                            Job.input["step"].as_string() == "treatment",
                                            Job.status == JobStatus.succeeded)
@@ -151,7 +192,12 @@ def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
                     ).isoformat(), "who": "Director", "text": named(told(j.output or {}, n > 0)),
                     "status": "done", "why": "", "answered": None,
                     "treatment": j.output})  # fmt: skip
-    out += run_progress.thread_items(db, project, owner)
+    out += run_progress.thread_items(db, project, viewer)
+    for a in db.scalars(select(Ask).where(Ask.project_id == project.id)):
+        if a.kind != "start" or asks.state(db, a) != "not_needed":  # a card in the chat
+            out.append({"id": f"a{a.id}", "kind": "ask", "at": a.created_at.isoformat(),
+                        "who": "Director", "text": a.question, "status": None, "why": "",
+                        "answered": None, "ask_id": a.id})  # fmt: skip
     return sorted(out, key=lambda m: m["at"])
 
 
@@ -180,6 +226,17 @@ def credits(db: Session, project: Project) -> Decimal:
     counted = (*COUNTED, JobStatus.needs_owner_approval)
     return Decimal(db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(
         Job.project_id == project.id, Job.id >= rows[0].id, Job.status.in_(counted))))  # fmt: skip
+
+
+def charged(db: Session, project: Project) -> Decimal:
+    """What the newest run has charged so far (made or being made): `credits` less what's
+    held for an OK."""
+    rows = turns(db, project)
+    if not rows:
+        return Decimal(0)
+    return Decimal(db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(
+        Job.project_id == project.id, Job.id >= rows[0].id,
+        Job.status.in_(COUNTED))))  # fmt: skip
 
 
 def turns(db: Session, project: Project) -> list[Job]:
@@ -219,14 +276,21 @@ STOPPED = "Stopped."  # a person pressed Stop: the run's `ended`, with who and w
 def stop(db: Session, project: Project, by: int) -> None:
     """A person's Stop (`by`): no more turns. A turn not yet asked is cancelled (only if the
     worker hasn't taken it); one being asked finishes, and what its call cost is recorded and
-    charged as ever (a paid call is always logged), but nothing more is done."""
+    charged as ever (a paid call is always logged), but nothing more is done. Its own work
+    held for an OK (its plan past the allowance, a watch past its limit) goes with it."""
     if last := active(db, project):
         db.execute(update(Job).where(Job.id == last.id, Job.status.in_(
             (JobStatus.queued, JobStatus.needs_owner_approval))).values(
             status=JobStatus.cancelled))  # fmt: skip
+        db.execute(update(Job).where(
+            Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval,
+            Job.input[RUN]["id"].as_string() == last.input[RUN]["id"])
+            .values(status=JobStatus.cancelled, finished_at=utcnow())
+            .execution_options(synchronize_session=False))  # fmt: skip
         db.refresh(last)
         _end(last, STOPPED)
         last.input = {**last.input, "stopped_by": by, "stopped_at": utcnow().isoformat()}
+        asks.close_run(db, last.input[RUN]["id"], "The run was stopped.")
         db.commit()
 
 
@@ -238,7 +302,6 @@ def spent(db: Session, run_id: str) -> Decimal:
 
 
 OWN_LIMIT = "Waiting for the owner's OK: the director has used its own limit of {n} credits."
-GRANTED = "OK'd: up to {n} more credits of the director's time."
 GRANT = "own_grant"  # in a run's job's input: held at the director's own limit (`past_own`)
 
 
@@ -252,7 +315,11 @@ def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
     """What the run's own jobs (its turns and its watches of the cut) were charged, at the
     flat price each was charged (not their real cost, `spent`), and how many OKs the owner
     gave at its limit."""
-    mine = (Job.input[RUN]["id"].as_string() == run_id, Job.status.in_(COUNTED))
+    mine = (
+        Job.input[RUN]["id"].as_string() == run_id,
+        Job.status.in_(COUNTED),
+        Job.input[asks.BEFORE].as_boolean().is_not(True),
+    )  # its plan: its own allowance
     charged = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(*mine))
     oks = db.scalar(select(func.count()).where(*mine, Job.input[GRANT].as_boolean()))
     return Decimal(charged), oks
@@ -321,9 +388,20 @@ def wake(db: Session, project: Project) -> None:
     last = active(db, project)
     if last is None or last.status != JobStatus.succeeded or "result" not in last.input:
         return
-    if _waiting(db, project):
+    if _waiting(db, project) or _parked(db, project, last):
         return
     _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+
+
+def _parked(db: Session, project: Project, last: Job) -> bool:
+    """A run that waits only on open questions (`ON_YOU`) sleeps until one is answered, a story
+    choice's time passes or someone sends a note: then it reads them."""
+    if last.input.get("result") != ON_YOU or not asks.waiting(db, project):
+        return False
+    at = (last.started_at or last.created_at).isoformat()  # what it read was as of its start
+    noted = any(m.get("run") == last.input[RUN]["id"] and m["at"] > at
+                for m in project.director_chat or [])  # fmt: skip
+    return not noted and not asks.answered_since(db, project, at)
 
 
 def sweep(db: Session) -> None:
@@ -342,12 +420,16 @@ def sweep(db: Session) -> None:
     for job in db.scalars(failed).all():  # failed before its finish (a bad answer): it ends
         _end(job, TURN_FAILED)
     db.commit()
+    for project_id in asks.overdue(db):  # a story choice's time passed: its pick (rule 37)
+        wake(db, db.get(Project, project_id))
 
 
 def _act(db: Session, job: Job, storage) -> None:
     project, decision = db.get(Project, job.project_id), dict(job.output or {})
     run = dict(job.input[RUN])
     tool = decision.get("tool")
+    if not run.get("ok", True) and tool not in PRE_OK:  # nothing is spent before Make it
+        return _record(db, job, run, START_FIRST if _written(db, run) else TREATMENT_FIRST)
     if tool == "deliver":
         watch = _watch(db, project)
         watched = watch.get("current") and watch.get("state") in ("done", "failed")
@@ -364,6 +446,7 @@ def _act(db: Session, job: Job, storage) -> None:
 
         why = decision.get("why") or "Delivered."
         job.output = {**decision, "note": delivery.note(db, project, job, decision)}
+        asks.close_run(db, run["id"], "Delivered without it.")
         return _end(job, why, result="Delivered.")  # a note it didn't read waits for Make it
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
@@ -375,6 +458,8 @@ def _act(db: Session, job: Job, storage) -> None:
             run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
     if tool == "wait":  # with nothing being made (it read the video before a step saved), the
         idle = not _waiting(db, project)  # next turn reads it again now (`wake`), once
+        if idle and asks.waiting(db, project):  # only questions left: it sleeps until answered
+            return _record(db, job, run, ON_YOU)
         rows = [j for j in turns(db, project) if j.id < job.id]
         if idle and rows and rows[-1].input.get("result") == IDLE:
             return _end(job, "It stopped: it waited twice with nothing being made.", result=IDLE)
@@ -500,7 +585,7 @@ def _end(job: Job, why: str, result: str = "") -> None:
     job.input = {**job.input, "ended": why, **({"result": result} if result else {})}
 
 
-def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "",
+def _turn(db: Session, user: User, project: Project, run: dict, *,
           extra: dict | None = None) -> Job:  # fmt: skip
     from app.routes.jobs import enqueue
 
@@ -519,11 +604,25 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
             _end(last, why)
             db.commit()
         return last
-    run = {**run, "turn": run["turn"] + 1}
+    before = not run.get("ok", True)  # before Make it: planning, on its allowance
+    card = before and last is not None and _ready(db, project, run, last)
+    run = {**run, "turn": run["turn"] + 1, **({"ok": True} if card else {})}
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
-    if not wait:  # past its own limit, or a freestyle's price, the run pauses for an OK
+    wait = ""
+    if card:  # the start card: its first generating turn, held for Make it (S3-02)
+        hold = run.get("hold") or ""
+        data = {**data, **_carried(db, project, run), START: True, asks.HOLD: hold}
+        wait = hold or START_HELD
+    elif before:  # its plan: charged as it costs; past the allowance, the owner's OK first
+        from app.credits import estimate
+
+        turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
+        data = {**data, asks.BEFORE: True}
+        if asks.past_planning(db, project, turn, plan=False):
+            data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
+    else:  # past its own limit, or a freestyle's price, the run pauses for an OK
         from app.credits import estimate, past_approved
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
@@ -531,8 +630,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, turn)
     try:
-        return enqueue(db, user, "write-claude", data, project=project, provider="claude",
-                       prepaid=not wait, wait=wait)  # fmt: skip
+        job = enqueue(db, user, "write-claude", data, project=project, provider="claude",
+                      prepaid=not wait, wait=wait)  # fmt: skip
         # its own limit (MAX_USD), never the video's budget (director-chat.md §2, DECISIONS #1066)
     except HTTPException as no:  # e.g. the video was archived: the run ends, saying why
         if last is None or run["turn"] == 1:  # its first turn: the start itself is refused
@@ -541,6 +640,67 @@ def _turn(db: Session, user: User, project: Project, run: dict, *, wait: str = "
         _end(last, f"It stopped: {no.detail}")
         db.commit()
         return last
+    if card and FREESTYLE in data:  # the freestyle's send is this card from now on
+        from app.models.freestyles import Freestyle
+
+        fs = db.get(Freestyle, data[FREESTYLE])
+        mine = {t.id for t in turns(db, project) if t.input[RUN]["id"] == run["id"]}
+        fs.chat = [{**m, "job": job.id} if m.get("job") in mine - {job.id} else m
+                   for m in fs.chat]  # fmt: skip
+        db.commit()
+    return job
+
+
+def _written(db: Session, run: dict) -> bool:
+    """Whether the run's treatment is written (the start card waits for it)."""
+    return bool(_treatment_at(db, run))
+
+
+def _treatment_at(db: Session, run: dict):
+    """When the run's newest written treatment was asked (what it read was as of then)."""
+    return db.scalar(select(func.max(Job.created_at)).where(
+        Job.input["step"].as_string() == "treatment", Job.input[RUN]["id"].as_string() == run["id"],
+        Job.status == JobStatus.succeeded))  # fmt: skip
+
+
+def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
+    """Before Make it, the start card comes once the treatment is written and every note
+    sent before Make it was read into it, or the director moved past it, or the owner kept
+    the plan as it is on a planning card past its allowance."""
+    from app.routes.jobs import DECLINE
+
+    at = _treatment_at(db, run)
+    if at is None:
+        return False
+    if last.input.get("result") == START_FIRST:
+        return True
+    kept = db.scalar(select(func.max(Job.finished_at)).where(
+        Job.input[RUN]["id"].as_string() == run["id"], Job.input[asks.PLAN_OK].as_boolean(),
+        Job.input[DECLINE].as_boolean()))  # fmt: skip
+    seen = max(at, kept) if kept else at
+    notes = [m["at"] for m in project.director_chat or [] if m.get("run") == run["id"]]
+    return not notes or max(notes) <= seen.isoformat()
+
+
+def keep_plan(db: Session, project: Project, job: Job) -> None:
+    """The owner kept the plan as it is on a planning card: its start card comes back for
+    the plan it has (a held planning turn was the run's last: the run goes on from it)."""
+    if active(db, project) is None and job.input.get("step") == STEP:
+        run = dict(job.input[RUN])
+        _turn(db, db.get(User, run["by"]), project, run)
+    else:
+        wake(db, project)
+
+
+def _carried(db: Session, project: Project, run: dict) -> dict:
+    """What the run's first turn carried (a freestyle's send, its price, what its OK makes
+    real) goes on its start card, with the price the card shows ("up to", rule 36)."""
+    from app.routes.jobs import CHANGE, PRICE, SAID
+
+    first = next(t for t in turns(db, project) if t.input[RUN]["id"] == run["id"])
+    keys = (FREESTYLE, SAID, CHANGE, PRICE, "freeze")
+    out = {k: first.input[k] for k in keys if k in first.input}
+    return {PRICE: str(asks.run_price(db, project)), **out}
 
 
 def refresh(db: Session, job: Job) -> bool:
@@ -585,27 +745,42 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
     own = db.scalar(select(Job.id).where(Job.input["step"].as_string() == "treatment",
                                          Job.input[RUN]["id"].as_string() == run["id"],
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
-    video = {**video_state(db, project), "treatment": "written" if own else "none"}  # this run's
+    video = {
+        **video_state(db, project),
+        "treatment": "written" if own else "none",
+        "started": run.get("ok", True),
+    }  # this run's; started: Make it was pressed
     from app.routes.reel_video import look_reference
 
-    files, reel = attached(db, project), look_reference(db, project)  # New video's picks
+    questions, reel = asks.for_director(db, project), look_reference(db, project)
+    looked, eyes = _eyes(db, project)  # its answers', the chat's and New video's pictures
     parts = (("video", video), ("last_actions", done), ("allowed", allowed),
-             *((("chat", asked),) if asked else ()),
-             *((("attachments", files),) if files else ()),
+             *((("chat", asked),) if asked else ()), *((("asks", questions),) if questions else ()),
+             *((("seen", looked),) if looked else ()),
              *((("look_reference", reel),) if reel else ()))  # fmt: skip
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
     return {"system": system, "prompt": f"{brief}\n{story(db, project)}{tagged}",
-            READ: len(asked)}  # fmt: skip
+            READ: len(asked), **eyes}  # fmt: skip
 
 
-def attached(db: Session, project: Project) -> list[dict]:
-    """The pictures or clips attached for this video only (New video, rule 12), by file id,
-    name and kind. Words only for now: seeing them comes with the ask move (piece B)."""
-    from app.models.files import StoredFile
+FRAMES = 3  # a clip it's given is seen as this many frames (app/worker.video_frames)
 
-    rows = [db.get(StoredFile, i) for i in project.attachments or []]
-    return [{"file_id": f.id, "name": f.filename, "kind": f.content_type.split("/")[0]}
-            for f in rows if f is not None]  # fmt: skip
+
+def _eyes(db: Session, project: Project) -> tuple[list[str], dict]:
+    """The pictures and clips given for this video (answers, the chat's uploads, New video's
+    attachments) as images in its turn, pictures first, then each clip's frames: <seen> says
+    which image is which, so it can judge them (the director brief: it gets eyes)."""
+    given = asks.seen(db, project)
+    stills = [(label, f) for label, f, clip in given if not clip]
+    clips = [(label, f) for label, f, clip in given if clip]
+    said = [f"Image {n}: {label}" for n, (label, _) in enumerate(stills, 1)]
+    for n, (label, _) in enumerate(clips):
+        first = len(stills) + n * FRAMES + 1
+        said.append(f"Images {first}-{first + FRAMES - 1}: frames of a clip, {label}")
+    if not given:  # none now (an answer changed): none given, not the last turn's
+        return [], {"files": {}, "clip_frames": []}
+    return said, {"files": {"reference_images": [f for _, f in stills]}, "fit_images_to": 1024,
+                  "clip_frames": [f for _, f in clips]}  # fmt: skip
 
 
 def story(db: Session, project: Project) -> str:
@@ -648,10 +823,16 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
             "prompt": text, "max_tokens": 6000, **({"redo": True} if redo else {})}  # fmt: skip
     again = treatment(db, project) is not None
+    before = not (run or {}).get("ok", True)  # before Make it: on the planning allowance
     price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
-    wait = past_own(db, project, (run or {}).get("id"), price)
-    data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
-    wait = wait or past_approved(db, project, user, price)
+    if before:  # a check's own fix of the plan always runs: it's the same plan, counted
+        data, wait = {**data, asks.BEFORE: True}, ""
+        if not redo and asks.past_planning(db, project, price, plan=True):
+            data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
+    else:
+        wait = past_own(db, project, (run or {}).get("id"), price)
+        data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
+        wait = wait or past_approved(db, project, user, price)
     enqueue(db, user, "write-claude", data, project=project, provider="claude",
             prepaid=not wait, wait=wait)  # fmt: skip
     return "Changing the treatment." if again else "Writing the treatment."
@@ -776,6 +957,11 @@ def choose(state: dict) -> dict:
         return go("wait", "Something is still being made or waits for the owner.")
     if state.get("treatment") == "none":  # the story first, on every run (the Director)
         return go("treatment", "The story first: what holds a viewer, beat by beat.")
+    if state.get("started") is False:  # before Make it: a note changes the treatment only
+        m = next((m for m in notes if not m.get("answered")), None)
+        if m is None:
+            return go("wait", "The treatment is ready: it waits for Make it.")
+        return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"][:500])
     if audio := _audio_move(state, go):  # a song or narrated video: its audio is the clock
         return audio
     if state["shots"] == "none":
