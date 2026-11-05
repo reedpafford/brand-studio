@@ -170,7 +170,7 @@ export function JobRow({ job, projects, usd }: { job: Job; projects: Project[]; 
           {fs.said && <p className="line-clamp-6 whitespace-pre-line font-mono text-xs leading-relaxed">"{fs.said}"</p>}
           {fs.up_to != null && <p className="tabular-nums">Up to {creditsLabel(fs.up_to)}{fs.change ? " for this change" : " · your OK covers the whole run"}</p>}
           {/* Only what's spent so far: "in all" read as a second price (QA-3 on #1213, as on the video page). */}
-          {fs.change && <p className="tabular-nums text-muted">{fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "Nothing spent yet"}</p>}
+          {fs.change && <p className="tabular-nums text-muted">{fs.spent > 0 ? `${creditsLabel(fs.spent)} spent so far` : "No generation started"}</p>}
         </>
       ) : (
         // The editor's own words: a redo or change note as typed (#1232), or a Quick clip's prompt. A step's prompt is model

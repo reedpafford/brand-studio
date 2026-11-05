@@ -4,11 +4,11 @@ written the director's run waits for the owner's OK, nothing past the read spent
 look makes your words with the reel as the director's look reference. Stand-ins only."""
 
 from app import director
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import Script
 from app.routes import reel_video
-from tests.test_freestyle_dialogue import SCRIPT
+from tests.test_freestyle_dialogue import SCRIPT, _run
 from tests.test_reel_read import _drain, _ready, clip  # noqa: F401  (the module's reel)
 
 
@@ -34,13 +34,15 @@ def test_copy_reads_the_reel_then_the_run_waits_for_the_owners_ok(app, owner, db
     again = owner.post("/freestyles/reel", json=body)
     assert again.status_code == 409 and again.json()["detail"] == reel_video.READ_ALREADY
     _drain(app, db)
+    _run(app, db, ticks=4, start=False)  # its plan first, then its start card (S3-02)
     db.expire_all()
     done = owner.get(f"/freestyles/{out['id']}").json()
-    assert done["status"] == "waiting", done["thread"]  # the run waits for the owner's OK
-    (turn,) = [j for j in db.query(Job).filter(Job.project_id == video.id)]
-    assert turn.status == JobStatus.needs_owner_approval and turn.credits >= 0
+    assert done["status"] == "working" and done["make_it"], done["thread"]  # Make it waits
+    made = {j.input.get("step") for j in db.query(Job).filter(Job.project_id == video.id)}
+    assert made == {"director", "treatment"}  # no generation before Make it
     assert done["thread"][0]["text"].endswith("copy it shot by shot.") and done["up_to"] > 0
-    assert owner.post(f"/jobs/{turn.id}/approve").status_code == 200  # Make it: it starts
+    r = owner.post(f"/asks/{done['make_it']}/answer", json={"how": "make_it"})
+    assert r.status_code == 200, r.text  # Make it: it starts
 
 
 def test_structure_writes_new_lines_and_look_keeps_your_words(app, owner, db, clip):  # noqa: F811

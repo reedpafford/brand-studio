@@ -160,3 +160,19 @@ def moves(db, project_id: int) -> list[str]:
     every = run_progress.runs(db, db.get(Project, project_id)).values()
     return [(j.output or {}).get("why", "") if (j.output or {}).get("tool") == "deliver"
             else j.input.get("result", "") for turns in every for j in turns]  # fmt: skip
+
+
+def make_it(db) -> int:
+    """Press Make it, as the owner, on every start card waiting (S3-02): the run goes on past
+    its treatment. How many were pressed."""
+    from app import asks
+    from app.models.accounts import Role, User
+    from app.models.asks import Ask
+
+    pressed = 0
+    for ask in db.query(Ask).filter_by(kind="start", state="open").all():
+        if asks.state(db, ask) == "open":
+            owner = db.query(User).filter_by(workspace_id=ask.workspace_id, role=Role.owner)
+            asks.answer(db, owner.first(), ask, {"how": "make_it"})
+            pressed += 1
+    return pressed

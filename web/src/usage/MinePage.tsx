@@ -57,7 +57,7 @@ export function MinePage() {
               {whole(m.credits)}
             </Stat>
             {/* My sends waiting for the owner's OK, every one counted by the server across brands (#1232). */}
-            <Stat label="Waiting for the owner's OK" link={<span className="text-muted">{waiting.length === 0 ? "Nothing is spent until it's approved." : `${waiting.length} send${waiting.length === 1 ? "" : "s"}. Nothing is spent until it's approved.`}</span>}>
+            <Stat label="Waiting for the owner's OK" link={<span className="text-muted">{waiting.length === 0 ? "No generation starts until it's approved." : `${waiting.length} send${waiting.length === 1 ? "" : "s"}. No generation starts until it's approved.`}</span>}>
               {waiting.length === 0 ? "Nothing" : `up to ${creditsLabel(m.waiting_credits)}`}
             </Stat>
           </>

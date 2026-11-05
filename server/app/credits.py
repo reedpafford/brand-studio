@@ -199,8 +199,10 @@ def budget_used(db: Session, project: Project) -> Decimal:
     """What counts against the video's budget: all of it but the director's own turns. The
     hold and the owner's release both read this, so they always agree. A freestyle's video
     counts everything, its director's turns too: the owner's OK covers its whole price."""
-    if project.hidden:
-        return credits_used(db, project)
+    if project.hidden:  # its plan before Make it is on its own allowance (asks.planned)
+        return credits_used(db, project) - _sum_credits(
+            db, Job.project_id == project.id, Job.input["before_ok"].as_boolean()
+        )
     return credits_used(db, project) - director_credits(db, project)
 
 
@@ -272,12 +274,18 @@ PAST_APPROVED = f"{WAIT_OK}this goes past the price approved."  # a freestyle's 
 
 
 def past_approved(db: Session, project: Project, user: User, credits: Decimal) -> str:
-    """A freestyle's step the owner's OK doesn't cover (its turns and watches too, not only
-    its takes): PAST_APPROVED, and it waits for the owner; else "". A video page's turns stay
-    on the director's own limit (DECISIONS #1066)."""
-    if not project.hidden or user.is_owner:
-        return ""
-    return PAST_APPROVED if budget_used(db, project) + credits > budget(db, project) else ""
+    """A run's step its Make it doesn't cover: PAST_APPROVED, and it waits for the owner on a
+    card, the owner's own run too (rule 34; Reed, 4 Nov: anything beyond the authorized budget
+    needs the owner's OK); a freestyle's past the prices its sends were approved at; else ""."""
+    from app import asks
+
+    if (
+        project.hidden
+        and not user.is_owner
+        and budget_used(db, project) + credits > budget(db, project)
+    ):
+        return PAST_APPROVED
+    return PAST_APPROVED if asks.past_run(db, project, credits) else ""
 
 
 def over_allowance(db: Session, user: User, credits: Decimal) -> str:

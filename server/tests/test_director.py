@@ -11,16 +11,27 @@ from app.models.projects import Project
 from app.providers import get_providers
 from app.providers.fake_local import _tag
 from app.worker import run_once
-from tests.helpers import with_sheet
+from tests.helpers import make_it, with_sheet
 from tests.test_cast_roles import _video
 
 
-def _run(app, db, ticks=60):
-    """Run the worker until the director's run ends (or `ticks` passes)."""
+def _run(app, db, ticks=60, start=True):
+    """Run the worker until the director's run ends (or `ticks` passes); `start`: press
+    Make it on its start card."""
     providers = get_providers(app.state.settings, app.state.storage)
     for _ in range(ticks):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        if start:  # Make it on each start card, as the owner (S3-02)
+            make_it(db)
+
+
+def started(fake):
+    """A stand-in that answers as `fake` once the run has its Make it (the stand-in's own
+    treatment and start card first)."""
+    real = director.choose
+    return lambda state: real(state) if state.get("started") is False or state.get(
+        "treatment") == "none" else fake(state)  # fmt: skip
 
 
 def _made_again(app, owner, editor, db) -> int:
@@ -127,7 +138,8 @@ def test_past_the_budget_it_waits_for_the_owner_then_goes_on(app, db, owner, edi
     assert out["status"] == "delivered", out["ended"]
     assert approved >= 4  # its presses each waited for the owner's OK
     held = db.query(Job).filter(Job.approved_by_id.is_not(None), Job.project_id == pid).all()
-    assert all(j.input.get("step") != director.STEP for j in held)  # never its own turns
+    mine = [j for j in held if j.input.get("step") == director.STEP]  # never its own turns,
+    assert [j.input.get(director.START) for j in mine] == [True]  # only its start card
 
 
 def test_only_a_published_script_and_stop_ends_the_run(app, db, owner, editor):
@@ -211,12 +223,12 @@ def test_a_video_with_no_shots_gets_its_plan_made_and_approved_first(app, db, ow
 
 def test_the_same_refused_tool_again_stops_the_run_with_why(app, db, owner, editor, monkeypatch):
     stuck = {"tool": "pick_take", "clip_id": "c9", "take_id": 1, "note": "", "why": "Pick it."}
-    monkeypatch.setattr(director, "choose", lambda state: stuck)
+    monkeypatch.setattr(director, "choose", started(lambda state: stuck))
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4)
+    _run(app, db, ticks=8)
     out = editor.get(f"/projects/{pid}/director").json()
-    assert [t["result"] for t in out["turns"]] == [
+    assert [t["result"] for t in out["turns"]][-2:] == [
         "Refused: name one clip.", "Refused again: name one clip."]  # fmt: skip
     assert (out["status"], out["ended"]) == ("ended", "It stopped: name one clip.")
 
@@ -289,6 +301,7 @@ def test_a_job_of_its_own_that_fails_never_leaves_the_run_hanging(app, db, owner
     for _ in range(60):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        make_it(db)
     out = owner.get(f"/projects/{pid}/director").json()
     assert failed and out["status"] == "delivered", (out["ended"], out["turns"])
     assert [t["tool"] for t in out["turns"]].count("stills") == 2  # drawn again after it failed
@@ -314,6 +327,7 @@ def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
     for _ in range(40):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        make_it(db)
     out = owner.get(f"/projects/{pid}/director").json()
     assert (out["status"], out["ended"]) == ("ended", "It stopped: Clip 1's still failed 3 times.")
     assert len(tries) == 3 and len(out["turns"]) < 8  # three tries, no turns spent past them
@@ -358,12 +372,12 @@ def test_a_locked_cast_with_a_look_missing_stops_saying_what_to_do(
     real = director.choose
     monkeypatch.setattr(
         "app.director.choose",
-        lambda state: {**real(state), "tool": "make_looks", "why": "A look is missing."},
-    )  # every turn
+        started(lambda state: {**real(state), "tool": "make_looks", "why": "A look is missing."}),
+    )  # every turn after Make it
     editor.post(f"/projects/{pid}/director")
     _run(app, db)
     out = editor.get(f"/projects/{pid}/director").json()
-    assert out["status"] == "ended" and len(out["turns"]) == 2  # refused twice, then stops
+    assert out["status"] == "ended" and len(out["turns"]) == 3  # the treatment; refused twice
     assert out["ended"] == (
         "It stopped: the cast is locked for this video. Approve the missing "
         "looks in Cast, or unlock the cast, then start it again."
@@ -622,6 +636,7 @@ def _second_turn(app, db, owner, editor, monkeypatch, when: str):
     for _ in range(30):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        make_it(db)
     return pid, calls
 
 
@@ -677,6 +692,7 @@ def test_a_stop_while_the_next_turn_is_made_holds(app, db, owner, editor, monkey
     for _ in range(30):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        make_it(db)
     out = editor.get(f"/projects/{pid}/director").json()
     assert made == ["ended"] and calls == [1]  # no call after the stop
     assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
@@ -849,6 +865,7 @@ def test_each_note_is_new_to_exactly_one_turn_and_one_paid_redo(app, db, owner, 
     for _ in range(60):  # the note lands mid-run, once clip 1 has its prompt
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        make_it(db)
         if not sent and any(t["tool"] == "make_take" for t in editor.get(url).json()["turns"]):
             r = editor.post(f"{url}/messages", json={"text": "Make clip 1 brighter."})
             assert r.status_code == 201
@@ -984,7 +1001,13 @@ def test_make_it_shows_the_most_one_run_may_charge(app, db, owner, editor):
     shown = editor.get(url).json()["run_price"]
     assert shown == float(run_price(db, draft, project)) > float(version_cost(db, draft, project))
     editor.post(url)
-    assert editor.get(url).json()["run_price"] == 0  # running: its "so far" is what it shows
+    _run(app, db, ticks=3, start=False)  # the treatment, then its start card
+    out = editor.get(url).json()
+    assert (out["run_price"], out["started"]) == (shown, False)  # S3-02: no generation yet
+    assert out["spent"] > 0  # its plan, charged as it costs
+    make_it(db)
+    out = editor.get(url).json()
+    assert (out["run_price"], out["started"]) == (0, True)  # going: its "so far" is shown
 
 
 def test_a_turn_kept_before_its_tool_runs_reads_as_going_never_stopped(app, db, owner, editor):

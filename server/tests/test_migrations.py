@@ -332,13 +332,13 @@ def test_n36_keeps_a_short_brand_kit_and_drops_the_end_line_lock(tmp_path):
     command.downgrade(cfg, "n35")
 
 
-def test_n37_marks_each_host_made_so_far_and_every_video_starts_with_no_switches(tmp_path):
-    """A host made before n37 is a UGC talker's or a corner host's: its video's way of
+def test_n38_marks_each_host_made_so_far_and_every_video_starts_with_no_switches(tmp_path):
+    """A host made before n38 is a UGC talker's or a corner host's: its video's way of
     appearing, so a switch makes a fresh one (QA on #1327)."""
     url = f"sqlite:///{tmp_path}/m.db"
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "n36")
+    command.upgrade(cfg, "n37")
     engine = create_engine(url)
     with engine.begin() as conn:
         _row(conn, "workspaces", id=1, name="S")
@@ -346,13 +346,13 @@ def test_n37_marks_each_host_made_so_far_and_every_video_starts_with_no_switches
         for pid, look in ((1, "ugc"), (2, "dr-pickle")):
             _row(conn, "projects", id=pid, workspace_id=1, brand_id=1, name=f"V{pid}", look=look)
             _row(conn, "host_pieces", id=pid, project_id=pid, take_id=1, number=0)
-    command.upgrade(cfg, "n37")
+    command.upgrade(cfg, "n38")
     with engine.connect() as conn:
         how = dict(conn.execute(text("SELECT project_id, how FROM host_pieces")).all())
         log = conn.execute(text("SELECT settings_log, presenter, voice FROM projects")).all()
     assert how == {1: "talks", 2: "corner"}
     assert [tuple(r) for r in log] == [("[]", None, None)] * 2
-    command.downgrade(cfg, "n36")
+    command.downgrade(cfg, "n37")
     with engine.connect() as conn:
         cols = [c[1] for c in conn.execute(text("PRAGMA table_info(host_pieces)")).all()]
     assert "how" not in cols

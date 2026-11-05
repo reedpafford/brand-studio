@@ -510,11 +510,26 @@ def _missing(db: Session, project: Project) -> list[ScriptCastSlot]:
     return [
         s
         for s in _slots(db, project)
-        if cast_roles.pick(db, project, s) is None  # a deleted look counts as none
-        and s.id not in flagged
-        and str(s.id) not in project.slot_looks
+        if (
+            cast_roles.pick(db, project, s) is None  # a deleted look counts as none
+            and s.id not in flagged
+            and str(s.id) not in project.slot_looks
+            or _undrawn(db, project, s)
+        )
         and {f"slot:{s.id}", f"char:{cast_roles.picked(project, s)}"} & shown
     ]
+
+
+def _undrawn(db: Session, project: Project, slot) -> LibraryItem | None:
+    """The role's look made here from a picture someone gave in the chat (an ask's upload,
+    rule 12) whose sheet isn't drawn or being drawn: make-missing draws it from that photo."""
+    item = db.get(LibraryItem, project.slot_looks.get(str(slot.id)) or 0)
+    if not (item and item.owner_project_id == project.id and item.source_photo_file_id):
+        return None
+    drawing = db.scalar(select(Job.id).where(
+        Job.input["library_item_id"].as_integer() == item.id,
+        Job.status.in_((*COUNTED, JobStatus.needs_owner_approval))).limit(1))  # fmt: skip
+    return None if item.sheet_file_id or drawing else item
 
 
 def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
@@ -580,7 +595,10 @@ def make_missing_looks(
     if out.reason:
         raise HTTPException(409, out.reason)
     for slot in _missing(db, project):
-        _make_look(db, user, project, slot, auto=True)
+        if own := _undrawn(db, project, slot):  # from the photo given for it
+            queue_sheet(db, user, own, SheetIn(), auto=True)
+        else:
+            _make_look(db, user, project, slot, auto=True)
     return list_assets(project_id, user, db)
 
 

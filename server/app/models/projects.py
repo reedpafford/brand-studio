@@ -102,17 +102,17 @@ class Project(Filed, Entity, Base):
     # Choices fixed for the director (director-chat.md §1; app/locks.py): {"cast": true, …,
     # "screens": [ids]}. Unlocking hands the choice back. People's own presses aren't blocked.
     locks: Mapped[dict] = mapped_column(JSON, default=dict)
-    # S-gaps-05 V1 (n37): each settings switch, newest last, {field, was, now, by: "person" |
+    # S-gaps-05 V1 (n38): each settings switch, newest last, {field, was, now, by: "person" |
     # "director", by_id, why, at}: a person's own choice wins over the director's
     settings_log: Mapped[list[dict]] = mapped_column(JSON, default=list)
-    # Reed's L3 (n37): how a Presenter video's presenter appears, "talks" | "corner" | "acts";
+    # Reed's L3 (n38): how a Presenter video's presenter appears, "talks" | "corner" | "acts";
     # null: its style's starting choice (app/host.how)
     presenter: Mapped[str | None] = mapped_column(String(20))
-    # n37 (Reed, 4 Nov): the talker's voice described to Omni, the same in every clip where they
+    # n38 (Reed, 4 Nov): the talker's voice described to Omni, the same in every clip where they
     # speak on it; and a person's "narration only" (no talker speaks on Omni)
     omni_voice: Mapped[str | None] = mapped_column(String(300))
     narration_only: Mapped[bool | None]
-    # n37: the narrator a person chose for this video (settings, or a voice card's answer):
+    # n38: the narrator a person chose for this video (settings, or a voice card's answer):
     # "stock:<app voice>" or "voice:<id>"; null: its own (host's, style's or the default)
     voice: Mapped[str | None] = mapped_column(String(60))
     # This video's outfit per character ({"char:12": "mustard trench coat"}): its stills and

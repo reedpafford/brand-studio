@@ -20,6 +20,7 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   await page.getByLabel("Paste a script, or describe the video").fill(script);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
+  await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click({ timeout: 60_000 }); // its start card, after the treatment (S3-02)
   const thread = page.getByRole("list", { name: "Thread" });
   await expect(thread.getByText("Delivered.", { exact: true })).toBeVisible({ timeout: 240_000 });
   await expect(thread.getByLabel("The cut", { exact: true })).toBeVisible();
@@ -56,7 +57,7 @@ test("an editor sends a script for approval from New video, the owner approves i
   await ed.getByRole("radio", { name: new RegExp(title) }).click();
   await expect(ed.getByText(/is past this video’s budget of \d+, so it goes to the owner first/)).toBeVisible(); // S2-05
   await ed.getByRole("button", { name: /^Send to the owner · up to \d+ credits?$/ }).click();
-  await expect(ed.getByText("Sent to the owner for approval")).toBeVisible();
+  await expect(ed.getByText("Sent to the owner for approval")).toBeVisible({ timeout: 60_000 }); // after its plan
   await expect(ed.getByText(`From script ${title} · version A`)).toBeVisible();
   await expect(ed.getByText(/\$/)).toHaveCount(0);
 
@@ -74,7 +75,7 @@ test("an editor sends a script for approval from New video, the owner approves i
   await ed.setViewportSize({ width: 390, height: 844 });
   await ed.getByLabel("Tell the director what to change").fill("Punchier ending.");
   await ed.getByLabel("Tell the director what to change").press("Enter");
-  await expect(ed.getByText("Change asked · waiting for the owner")).toBeVisible();
+  await expect(ed.getByText("Change asked · waiting for the owner")).toBeVisible({ timeout: 60_000 });
   const withdraw = ed.getByRole("button", { name: "Withdraw change" });
   expect((await withdraw.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await withdraw.click();
@@ -93,6 +94,7 @@ test("at 390, the owner's saved change after a delivery has Make it again in the
   await page.getByLabel("Paste a script, or describe the video").fill(script);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
+  await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click({ timeout: 60_000 }); // its start card
   const again = page.getByRole("button", { name: /^Make it again · up to \d+ credits?$/ });
   await expect(again).toBeVisible({ timeout: 240_000 }); // delivered: its press is in the phone's bar
   await page.getByLabel("Tell the director what to change").fill("Make it slower.");
