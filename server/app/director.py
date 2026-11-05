@@ -746,7 +746,7 @@ def video_state(db: Session, project: Project) -> dict:
         "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
         "shots": "ready" if bd else "none",
-        "too_long": breakdown_fix.too_long(bd.problems or []) if bd else [],  # split_clip
+        "too_long": _splittable(db, project, bd),  # split_clip
         "missing_looks": [s.role for s in _missing(db, project)] if bd else [],
         "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id)},
         "clips": clips,
@@ -759,6 +759,23 @@ def video_state(db: Session, project: Project) -> dict:
         "watch": _watch(db, project),  # its last watch of the cut, and its findings
         "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
+
+
+def _splittable(db: Session, project: Project, bd) -> list[str]:
+    """The clips longer than the video model makes that split_clip can cut; one that can't
+    (a sentence longer than the model makes) is refused at its take with what to do."""
+    from app import plans
+    from app.breakdown import video_model
+
+    if bd is None:
+        return []
+    m, version = video_model(project), plans.script(db, project)
+    text = version.text if version else ""
+    return [
+        c
+        for c in breakdown_fix.too_long(bd.problems or [])
+        if breakdown_fix.split_into(bd.data, text, c, m.duration.min, m.duration.max) > 1
+    ]
 
 
 def choose(state: dict) -> dict:

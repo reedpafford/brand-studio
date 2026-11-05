@@ -523,7 +523,7 @@ def _too_long(db: Session, video: _Video, c: dict, owner: bool, carry: dict) -> 
     longer = {"kind": "model", "label": "Use a model that makes longer clips…", "price": None}
     if not into:
         return {**head, "fixes": [longer, carry],
-                "offer": "It’s one sentence, so it can’t be split. Make its shot shorter, or "
+                "offer": "One of its sentences is too long to split. Make its shot shorter, or "
                          "use a model that makes longer clips."}  # fmt: skip
     said = next(p for p in video.problems if too_long([p]) == [c["clip_id"]])
     split = {"kind": "split", "label": f"Split it into {len(into)} clips", "price": "free",

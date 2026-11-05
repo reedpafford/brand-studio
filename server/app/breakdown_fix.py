@@ -50,9 +50,11 @@ def fixes(problems: list[str], data: dict | None = None, script: str = "") -> li
             return False
         m = KINDS[k].match(p)
         clip = next((c for c in data.get("clips", []) if c["id"] == m[1]), None)
-        if clip is None or len(clip["shot_ids"]) > 1:
-            return False  # shots to split between
-        return not script or split_into(data, script, m[1], 1, int(m[3])) < 2
+        if clip is None:
+            return False
+        if not script:  # no words to cut at: only between shots
+            return len(clip["shot_ids"]) < 2
+        return split_into(data, script, m[1], 1, int(m[3])) < 2  # offered only when it works
 
     return [{"problem": p, "kind": k, "label": LABELS[k]}
             for p in problems if (k := kind(p)) and not split_one(p, k)]  # fmt: skip
@@ -173,23 +175,45 @@ def _cut(shot, lines, max_s: int) -> list:
     if len(parts) < 2:
         return [shot]
     per = shot.seconds / sum(max(1, len(p.split())) for p in parts)
-    groups, run = [[]], 0.0
-    for p in parts:
+    groups, run = [[]], 0.0  # sentence places, grouped into pieces of at most max_s
+    for j, p in enumerate(parts):
         long = max(1, len(p.split())) * per
         if groups[-1] and run + long > max_s:
             groups, run = [*groups, []], 0.0
-        groups[-1].append(p)
+        groups[-1].append(j)
         run += long
+    of = _lines_of(parts, sorted(said), said)
     out = []
-    for k, g in enumerate(groups):
+    for k, idx in enumerate(groups):
+        g = [parts[j] for j in idx]
         words = " ".join(g)
-        mine = [n for n, w in said.items() if any(_words(x) in w for x in g)] or shot.script_lines
+        mine = sorted({of[j] for j in idx if j in of}) or shot.script_lines
         out.append(shot.model_copy(update={
             "id": f"{shot.id}.{k + 1}", "script_lines": mine,
             "line": words if shot.line else None,
             "seconds": round(sum(max(1, len(x.split())) for x in g) * per, 1)}))  # fmt: skip
     left = [n for n in shot.script_lines if not any(n in x.script_lines for x in out)]
     out[0].script_lines = sorted({*out[0].script_lines, *left})  # a camera or ★ line: kept
+    return out
+
+
+def _lines_of(parts: list[str], order: list[int], said: dict[int, str]) -> dict[int, int]:
+    """Each sentence's script line (by its place): by where its first word falls when the
+    shot says its lines' words in order, else the first line from the last one that holds it."""
+    sizes = [len(said[n].split()) for n in order]
+    if sum(len(_words(p).split()) for p in parts) == sum(sizes):  # the lines, word for word
+        out, word = {}, 0
+        for j, p in enumerate(parts):
+            at, k = 0, 0
+            while k < len(order) - 1 and at + sizes[k] <= word:
+                at, k = at + sizes[k], k + 1
+            out[j], word = order[k], word + len(_words(p).split())
+        return out
+    out, at = {}, 0
+    for j, p in enumerate(parts):
+        hit = next((i for i in range(at, len(order)) if _words(p) in said[order[i]]), None)
+        if hit is not None:
+            at, out[j] = hit, order[hit]
     return out
 
 

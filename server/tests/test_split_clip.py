@@ -212,3 +212,30 @@ def test_a_run_stopped_for_something_else_isnt_blamed_on_a_long_clip(app, db, ow
     p = _progress(owner, pid)
     assert (p["title"], p["failed"]["title"]) == ("Stopped", "The director stopped")
     assert p["failed"]["why"] == "It stopped: the looks kept being refused."
+
+
+def test_a_clip_of_several_shots_with_one_sentence_too_long_isnt_offered_split():
+    """QA on #1332: Split is offered only when it works (rule 22: never a button that fails)."""
+    words = " ".join(["word"] * 70)
+    script = NIGHT.replace(SAID + "So does the capsule.", f"{words}.")
+    data = {**LONG, "scenes": [{**LONG["scenes"][0], "shots": [
+        _shot("1.1", [2], "NARRATOR", f"{words}.", 20),
+        _shot("1.2", [3], "NARRATOR", "Link in my bio.", 2)]}],
+        "clips": [{"id": "c1", "shot_ids": ["1.1", "1.2"], "seconds": 22,
+                   "seam": "end"}]}  # fmt: skip
+    said = "clip c1: 22 s is outside 4–12 s"
+    assert breakdown_fix.split_into(data, script, "c1", 4, 12) == 1
+    assert breakdown_fix.fixes([said], data, script) == []
+
+
+def test_each_piece_names_its_own_line_in_order():
+    script = ("SCENE 1 — INT. BEDROOM — NIGHT\n[Camera] Water helps. Slow push in. "
+              + " ".join(["more"] * 10) + ".\nNARRATOR: Water helps.")  # fmt: skip
+    shot = _shot("1.1", [2, 3], None, None, 20)
+    data = {**LONG, "scenes": [{**LONG["scenes"][0], "shots": [shot]}],
+            "clips": [{"id": "c1", "shot_ids": ["1.1"], "seconds": 20, "seam": "end"}]}  # fmt: skip
+    asked = ["clip c1: 20 s is outside 4–12 s"]
+    fixed, done = breakdown_fix.repair(script, Breakdown.model_validate(data), asked, 4, 12)
+    pieces = fixed.scenes[0].shots
+    assert done and len(pieces) == 3
+    assert [p.script_lines for p in pieces] == [[2], [2], [3]]  # the 2nd "Water helps." is 3's
