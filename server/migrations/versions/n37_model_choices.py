@@ -14,17 +14,17 @@ talker's voice is described to Omni, the same words in every clip where they spe
 speaks on Omni. `projects.voice` (String(60), nullable): the narrator a person chose for this
 video, "stock:<app voice>" or "voice:<id>"; null: its own. `host_pieces.how` (String(20),
 nullable): the way the presenter appears that a host take was made for, so a switch makes a
-fresh one; the hosts made before n36 are filled in (a UGC talker talks, the rest a corner).
+fresh one; the hosts made before n37 are filled in (a UGC talker talks, the rest a corner).
 
-Revision ID: n36
-Revises: n35
+Revision ID: n37
+Revises: n36
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n36"
-down_revision = "n35"
+revision = "n37"
+down_revision = "n36"
 branch_labels = None
 depends_on = None
 

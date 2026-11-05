@@ -306,7 +306,7 @@ test("Reed's New brand is its own page: a name, a colour, and it opens the Brand
     "GET /brands": [200, brands],
     "GET /scripts": [200, []],
     "GET /projects": [200, []],
-    "POST /brands": [201, { id: 9, name: "Night Owl", colours: ["#2F6B4F"], site_read_job_id: null, site_read_problem: "" }],
+    "POST /brands": [201, { id: 9, name: "Night Owl", colours: ["#2F6B4F"] }],
     "GET /brands/9/screens": [200, []],
   });
   renderAt("/");

@@ -52,7 +52,7 @@ function Kit({ brand }: { brand: Brand }) {
     return () => window.removeEventListener("beforeunload", ask);
   }, [changed]);
   const write = async (all: Form) => {
-    const { error, response } = await api.PATCH("/brands/{brand_id}", { params: { path: { brand_id: brand.id } }, body: all as unknown as components["schemas"]["BrandPatch"] });
+    const { error, response } = await api.PATCH("/brands/{brand_id}", { params: { path: { brand_id: brand.id } }, body: all });
     if (!response.ok) throw new Error(errorText(error));
     await queryClient.invalidateQueries({ queryKey: ["brands"] });
   };

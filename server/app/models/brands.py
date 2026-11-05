@@ -18,31 +18,10 @@ class Brand(Entity, Base):
     archived: Mapped[bool] = mapped_column(default=False)
     hidden: Mapped[bool] = mapped_column(default=False)  # a freestyle's own (app/hidden.py)
 
-    # Brand kit
+    # Brand kit (v6 S8-05, S-gaps-05 L1): the rest is the script's and the director's
     logo_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
-    style_board_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
-    end_card_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
     colours: Mapped[list[str]] = mapped_column(JSON, default=list)
-    fonts: Mapped[list[str]] = mapped_column(JSON, default=list)
-    tone_notes: Mapped[str] = mapped_column(Text, default="")
-    never_say: Mapped[list[str]] = mapped_column(JSON, default=list)
-    legal_line: Mapped[str] = mapped_column(Text, default="")
-    end_line: Mapped[str] = mapped_column(
-        Text, default=""
-    )  # the default call to action every video ends on (Current rules 18)
-    # Brand setup (flows BR1, n08). `never_say` and `end_line` stay until the move to main
-    # and are written through (app/brand_setup.sync): never_say = dont_list, end_line = the
-    # default CTA line's text. Next reads the new fields.
-    audience: Mapped[str] = mapped_column(Text, default="")
-    do_list: Mapped[list[str]] = mapped_column(JSON, default=list)
-    dont_list: Mapped[list[str]] = mapped_column(JSON, default=list)
-    cta_lines: Mapped[list[dict]] = mapped_column(
-        JSON, default=list
-    )  # {id, text, default, deleted_at}
-    default_cast: Mapped[list[int]] = mapped_column(JSON, default=list)  # library character ids
-    music_style: Mapped[str] = mapped_column(Text, default="")  # prefills new song versions
-    default_language: Mapped[str] = mapped_column(String(10), default="en")
-    default_look: Mapped[str] = mapped_column(String(40), default="house")  # new scripts' look
+    tone_notes: Mapped[str] = mapped_column(Text, default="")  # "Tone and rules"
 
 
 class BrandScreen(Entity, Base):

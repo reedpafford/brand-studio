@@ -4,9 +4,9 @@ blocked by them (a later option). Its outfit per character: `outfit`."""
 
 from app.models.projects import Project
 
-LOCKABLE = ("cast", "look", "length", "song", "end_line")  # and "screens": a list of ids
+LOCKABLE = ("cast", "look", "length", "song")  # and "screens": a list of ids
 LOCKED = {"cast": "the cast", "look": "the style", "length": "the length", "song": "the song",
-          "end_line": "the end line", "screens": "its screens"}  # fmt: skip
+          "screens": "its screens"}  # fmt: skip
 
 
 def locked(project: Project, choice: str) -> bool:

@@ -68,7 +68,7 @@ class ScriptIn(BaseModel):
     kind: Literal["story", "song", "narrated"] = "story"  # song: lyrics; narrated: one voice
     format: str | None = None  # a format on GET /formats; its engine becomes the kind
     look: str | None = None  # how the pictures are drawn (ST1); None: House
-    # VS1: the language it's written in; None: the brand's default language
+    # VS1: the language it's written in; None: English
     language: Annotated[str, StringConstraints(min_length=2, max_length=10)] | None = None
 
 
@@ -498,7 +498,7 @@ def create_script(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    brand = get_brand(db, user, body.brand_id)
+    get_brand(db, user, body.brand_id)
     _check_reference(request, body.reference_id)
     if body.look:
         looks.pick(db, user, body.look)
@@ -509,13 +509,11 @@ def create_script(
         created_by_id=user.id,
         **_fields(body, {"text"}),
     )
-    if not body.look:  # the brand's default look; an Off one starts editors on House (BR1)
-        on = user.is_owner or looks.is_on(db, user.workspace_id, brand.default_look)
-        script.look = brand.default_look if on else looks.DEFAULT
+    if not body.look:  # House unless one was picked (the brand keeps no default, Reed 4 Nov)
+        script.look = looks.DEFAULT
     db.add(script)
     db.flush()
-    style = brand.music_style.strip() if script.kind == "song" else ""  # S2: prefilled
-    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip(), style_line=style))
+    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip()))
     db.commit()
     return _out(db, script)
 

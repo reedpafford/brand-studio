@@ -92,6 +92,4 @@ def save_written(db: Session, job: Job) -> None:
         brand = db.get(Brand, script.brand_id)
         draft.problems = check.reference_lines(
             draft.text, job.input["reel_lines"], script.new_lines
-        ) + check.reel_speakers(
-            draft.text, job.input["reel_speakers"], end_line=brand.end_line, brand=brand.name
-        )
+        ) + check.reel_speakers(draft.text, job.input["reel_speakers"], brand=brand.name)

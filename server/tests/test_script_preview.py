@@ -119,12 +119,9 @@ def test_a_plan_goes_stale_when_the_words_change_and_its_advice_can_be_kept(owne
     assert (removed["kept"], removed["stale"]) == ([], False)
 
 
-def test_the_end_line_is_advice_approved_or_not(owner):
-    """Current rules 18 (Reed, 2026-10-28): the closing line only has to name the brand, and a
-    miss is Advice for a draft and an approved script alike."""
+def test_no_end_line_advice_the_ending_is_the_scripts(owner):
+    """Rule 18 (Reed, 4 Nov): the ending comes from the script; a closing line that doesn't
+    name the brand is no longer flagged."""
     made = _make(owner, text=SCRIPT)  # doesn't end on a line naming fomo
     url = f"/scripts/{made['id']}/drafts/0/breakdown"
-    note = "Advice: the last line doesn't mention the brand or where to find it"
-    assert note in owner.put(url, json=BREAKDOWN).json()["problems"]
-    owner.post(f"/scripts/{made['id']}/drafts/0/approve")
-    assert note in owner.put(url, json=BREAKDOWN).json()["problems"]
+    assert not any("last line" in p for p in owner.put(url, json=BREAKDOWN).json()["problems"])

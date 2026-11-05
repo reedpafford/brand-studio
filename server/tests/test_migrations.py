@@ -5,6 +5,7 @@ from datetime import datetime
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import JSON, MetaData, Table, create_engine, text
+from sqlalchemy import inspect as sa_inspect
 
 from app.db import Base
 
@@ -310,9 +311,7 @@ def test_n35_links_each_product_picture_to_its_library_product(tmp_path):
     assert back == {1: "Bag ", 2: "Bag ", 3: "bag", 4: ""}
 
 
-def test_n36_marks_each_host_made_so_far_and_every_video_starts_with_no_switches(tmp_path):
-    """A host made before n36 is a UGC talker's or a corner host's: its video's way of
-    appearing, so a switch makes a fresh one (QA on #1327)."""
+def test_n36_keeps_a_short_brand_kit_and_drops_the_end_line_lock(tmp_path):
     url = f"sqlite:///{tmp_path}/m.db"
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
@@ -320,17 +319,40 @@ def test_n36_marks_each_host_made_so_far_and_every_video_starts_with_no_switches
     engine = create_engine(url)
     with engine.begin() as conn:
         _row(conn, "workspaces", id=1, name="S")
+        _row(conn, "brands", id=1, workspace_id=1, name="B", slug="b", tone_notes="Calm",
+             end_line="Link in bio", colours=["#000000"])  # fmt: skip
+        _row(conn, "projects", id=1, locks={"cast": True, "end_line": True})
+    command.upgrade(cfg, "n36")
+    with engine.connect() as conn:
+        cols = {c["name"] for c in sa_inspect(conn).get_columns("brands")}
+        locks = json.loads(conn.execute(text("SELECT locks FROM projects")).scalar())
+        kit = conn.execute(text("SELECT tone_notes, colours FROM brands")).one()
+    assert "end_line" not in cols and "cta_lines" not in cols and "logo_file_id" in cols
+    assert locks == {"cast": True} and kit[0] == "Calm" and json.loads(kit[1]) == ["#000000"]
+    command.downgrade(cfg, "n35")
+
+
+def test_n37_marks_each_host_made_so_far_and_every_video_starts_with_no_switches(tmp_path):
+    """A host made before n37 is a UGC talker's or a corner host's: its video's way of
+    appearing, so a switch makes a fresh one (QA on #1327)."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n36")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        _row(conn, "workspaces", id=1, name="S")
         _row(conn, "brands", id=1, workspace_id=1, name="B", slug="b")
         for pid, look in ((1, "ugc"), (2, "dr-pickle")):
             _row(conn, "projects", id=pid, workspace_id=1, brand_id=1, name=f"V{pid}", look=look)
             _row(conn, "host_pieces", id=pid, project_id=pid, take_id=1, number=0)
-    command.upgrade(cfg, "n36")
+    command.upgrade(cfg, "n37")
     with engine.connect() as conn:
         how = dict(conn.execute(text("SELECT project_id, how FROM host_pieces")).all())
         log = conn.execute(text("SELECT settings_log, presenter, voice FROM projects")).all()
     assert how == {1: "talks", 2: "corner"}
     assert [tuple(r) for r in log] == [("[]", None, None)] * 2
-    command.downgrade(cfg, "n35")
+    command.downgrade(cfg, "n36")
     with engine.connect() as conn:
         cols = [c[1] for c in conn.execute(text("PRAGMA table_info(host_pieces)")).all()]
     assert "how" not in cols

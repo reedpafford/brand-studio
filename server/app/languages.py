@@ -56,11 +56,3 @@ def pick(db: Session, user: User, language: str) -> str:
     if not user.is_owner and not is_on(db, user.workspace_id, language):
         raise HTTPException(409, OFF.format(name(language)))
     return language
-
-
-def starting(db, workspace_id: int, language: str | None, owner: bool) -> str:
-    """A new script's language from its brand's default: an Off (or unknown) one starts an
-    editor's script in English, as an Off default look starts it on House."""
-    if language not in LANGUAGES:
-        return DEFAULT
-    return language if owner or is_on(db, workspace_id, language) else DEFAULT

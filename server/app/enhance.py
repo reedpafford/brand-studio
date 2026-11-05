@@ -93,9 +93,6 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     brand_dict = {
         "name": brand.name,
         "tone_notes": brand.tone_notes,
-        "never_say": brand.dont_list,
-        "legal_line": brand.legal_line,
-        "end_line": brand.end_line,
     }
     from app.storyboard import cast_looks
 
