@@ -109,7 +109,10 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
     assert note["made"] == "The cut is made with each clip's best take."
     cuts = db.query(FinalVideo).filter_by(project_id=pid).count()  # it cut, watched and cut again
     assert (note["cut"], note["clips"], note["seconds"]) == (cuts, 1, 5) and cuts > 1
-    assert note["needs"] == delivery.NOTHING and note["cost"].startswith("$0.00 spent of up to $")
+    assert note["open"] == ["The takes weren't checked one by one."]  # checks are off here
+    assert note["needs"] == delivery.LOOK_FIRST and note["cost"].startswith(
+        "$0.00 spent of up to $"
+    )
     texts = [r["text"] for r in note["redid"]]  # what it watched and redid, with when
     muted = "Clip 1: a stray sound nobody asked for. Muted a stretch of clip 1 instead of " \
             "remaking it."  # fmt: skip
@@ -392,3 +395,63 @@ def test_a_held_turn_taken_back_reads_as_stopped_not_a_fault(app, db, owner, edi
     db.commit()
     p = _progress(owner, pid)
     assert (p["status"], p["sub"], p["failed"]) == ("stopped", "Withdrawn.", None)
+
+
+def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeypatch):
+    """Reed, 4 Nov: a cut that exists isn't ready to post. The note says what's still open:
+    a cut not watched, a take not checked or with a finding kept, a step waiting for the
+    owner; then it never says "ready to post"."""
+    from app.watch_cut import _cut
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    deliver = director.turns(db, project)[-1]
+    cut = _cut(db, project)
+    take = db.get(ClipTake, cut.take_ids[0])  # the take in the cut
+    note = delivery.note(db, project, deliver, {"made": "A short clip."})
+    assert note["open"] == ["The takes weren't checked one by one."]  # checks off: said
+    monkeypatch.setattr("app.item_checks.on", lambda: True)
+    db.add(ItemCheck(project_id=pid, target="take", target_id=take.id, status="done"))
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "A short clip."})
+    assert note["open"] == [] and delivery.shown(db, project, note, True)["needs"] == (
+        delivery.NOTHING)  # fmt: skip
+
+    db.query(ItemCheck).filter_by(target="take", target_id=take.id).update({"status": "failed"})
+    db.add(FinalVideo(project_id=pid, file_id=cut.file_id, take_ids=cut.take_ids))  # not watched
+    _job(
+        db,
+        _clip(db, pid),
+        JobStatus.needs_owner_approval,
+        held="Waiting for the owner's OK: remaking clip 1 goes past the video's budget.",
+    )
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "A short clip."})
+    assert note["open"] == [
+        "The cut wasn't watched.", "Clip 1's take wasn't checked.",
+        "Waiting for the owner's OK: remaking clip 1 goes past the video's budget."]  # fmt: skip
+    shown = delivery.shown(db, project, note, False)
+    assert shown["needs"] == delivery.LOOK_FIRST and "ready to post" not in shown["needs"]
+    assert "Clip 1's take wasn't checked." in delivery.plain(shown).splitlines()
+
+    db.query(ItemCheck).filter_by(target="take", target_id=take.id).update(
+        {"status": "done", "findings": [{"kind": "face", "role": "", "text": "c1: Mia's face "
+                                         "drifts", "change_note": ""}]})  # fmt: skip
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "x", "needs": "Your OK on clip 1."})
+    assert "Clip 1: Mia's face drifts. Kept as it is." in note["open"]
+    assert delivery.shown(db, project, note, True)["needs"] == "Your OK on clip 1."
+
+
+def test_the_director_md_delivery_lines_are_reeds():
+    """Reed's clarifications (4 Nov), as the director reads them."""
+    from app import prompts
+
+    text = prompts.system("director")
+    for said in ("three separate parts you write", "What remains uncertain",
+                 "a cut that exists isn't the same as one that's ready to post",
+                 "keeps the script's words and the approved cast, voices included",
+                 "trimming or re-rendering the cut is free",
+                 "never write or repeat changes, timecodes or money yourself"):  # fmt: skip
+        assert said in text, said
+    assert "two to four short plain sentences" not in text

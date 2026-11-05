@@ -1,8 +1,10 @@
 """The delivery note (v6 piece D: boards S3-09, S3-10, S3-12, P-08), built when the director
 delivers and kept on its deliver turn, so a later run never rewrites it. The director writes
-what it made, what it's unsure of and what it needs (its last turn: DirectorTurn's `made`,
-`unsure` and `needs`); the server adds what it watched and redid, each at its time in the
-cut (the takes it made again and its free fixes), the run's real cost and the cut's number."""
+what it made, what remains uncertain and what it needs from you (its last turn:
+DirectorTurn's `made`, `unsure` and `needs`); the server adds what it watched and redid, each
+at its time in the cut (the takes it made again and its free fixes), what it knows is still
+open (`open_items`), the run's real cost and the cut's number. "Ready to post" is said only
+when nothing is open."""
 
 import math
 from decimal import Decimal
@@ -17,7 +19,8 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.run_progress import RUN, _found, _model, price_of, runs, said, spent, watched
 
-NOTHING = "Nothing. It’s ready to post."
+NOTHING = "Nothing. It’s ready to post."  # only when nothing is open (`open_items`)
+LOOK_FIRST = "Nothing yet, but look at what remains uncertain before you post it."
 FIXES = ("mute", "splice_word", "pick_take")  # the free fixes its rows name
 
 
@@ -35,6 +38,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     credits, _ = spent(db, project, turns[0].created_at)
     rows = _remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
     return {"made": said(decision.get("made") or decision.get("why") or ""),
+            "open": open_items(db, project, spans),
             "redid": sorted(rows, key=lambda r: r["at"]),
             "unsure": said(decision.get("unsure") or ""),
             "needs": said(decision.get("needs") or ""),
@@ -42,6 +46,42 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),
             "cut": number, "clips": len(spans),
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
+
+
+def open_items(db: Session, project: Project, spans: list[dict]) -> list[str]:
+    """What the server knows is still open when the director delivers, said plainly (Reed, 4
+    Nov: a cut that exists isn't ready to post): a cut not watched, a take in the cut that
+    wasn't checked or still has what its check found, and anything waiting for the owner."""
+    from app import item_checks
+    from app.credits import WAIT_OK
+    from app.models.jobs import JobStatus
+    from app.watch_cut import state
+
+    out = []
+    watch = state(db, project)
+    if not (watch.get("state") == "done" and watch.get("current")):
+        out.append("The cut wasn't watched." if watch.get("state") != "failed"
+                   else "The watch of the cut failed, so the cut wasn't watched.")  # fmt: skip
+    if spans and not item_checks.on():  # checks are off on this site: said once
+        out.append("The takes weren't checked one by one.")
+    ids = [s["take"].id for s in spans]
+    checks = {k: item_checks.latest(db, k, ids) for k in ("take", "words")}
+    for s in spans:
+        n, tid = _clip(s["row"]), s["take"].id
+        found = [f for k in checks for f in _found(checks[k].get(tid))]
+        if found:
+            out.append(f"{n}: {said(found[0]['text']).rstrip('.')}. Kept as it is.")
+        check = checks["take"].get(tid)
+        if (
+            not found
+            and item_checks.on()
+            and (check is None or check.status in ("failed", "skipped"))
+        ):
+            out.append(f"{n}'s take wasn't checked.")
+    held = db.scalars(select(Job).where(Job.project_id == project.id,
+                                        Job.status == JobStatus.needs_owner_approval))  # fmt: skip
+    out += [(j.input.get("held") or f"{WAIT_OK}a step.").rstrip(".") + "." for j in held]
+    return out
 
 
 def _spans(db: Session, cut: FinalVideo | None) -> list[dict]:
@@ -138,12 +178,14 @@ def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict
         pct = round(100 * note["spent"] / note["up_to"]) if note["up_to"] else 0
         cost = (f"{round(note['spent'])} credits used of up to {price(up_to)} "
                 f"({pct}% of the budget)")  # fmt: skip
-    return {**note, "needs": note["needs"] or NOTHING, "cost": cost,
+    still = note.get("open", [])
+    return {**note, "open": still, "needs": note["needs"] or (LOOK_FIRST if still else NOTHING),
+            "cost": cost,
             "spent_usd": float(usd) if owner else None}  # fmt: skip
 
 
 def plain(note: dict) -> str:
     """The note as plain lines: the chat's text for a screen that doesn't draw the card."""
     rows = [f"{int(r['at']) // 60}:{int(r['at']) % 60:02d} {r['text']}" for r in note["redid"]]
-    return "\n".join(p for p in (note["made"], *rows, note["unsure"], note["needs"],
-                                 note["cost"]) if p)  # fmt: skip
+    return "\n".join(p for p in (note["made"], *rows, note["unsure"], *note.get("open", []),
+                                 note["needs"], note["cost"]) if p)  # fmt: skip

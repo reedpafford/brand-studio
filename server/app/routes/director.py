@@ -43,8 +43,11 @@ class DeliveryNoteOut(BaseModel):
 
     made: str  # What I made
     redid: list[RedidRowOut]  # What I watched and redid, in cut order
-    unsure: str  # What I'm unsure of ("" when nothing)
-    needs: str  # What I need from you ("Nothing. It’s ready to post." when nothing)
+    unsure: str  # What remains uncertain, in the director's words ("" when nothing)
+    open: list[str] = []  # …and what the server knows is still open: "The cut wasn't
+    # watched.", "Clip 3's take wasn't checked.", a finding kept, a step waiting for the owner
+    needs: str  # What I need from you; "Nothing. It’s ready to post." only when nothing is
+    # open, else "Nothing yet, but look at what remains uncertain before you post it."
     cost: str  # "$9.84 spent of up to $16.86"; an editor's "96 credits used of up to 164 (59%…)"
     spent: float  # credits the run charged
     up_to: float  # the video's "up to", in credits
