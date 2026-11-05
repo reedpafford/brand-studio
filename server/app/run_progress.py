@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import asks
 from app.breakdown_fix import too_long
 from app.models.accounts import User
 from app.models.brands import Brand
@@ -395,7 +396,10 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     now, start = utcnow(), turns[0].created_at
     video = _Video(db, project, viewer, turns)
     cells = [cell(video, r, now, owner) for r in video.clips]
-    held = select(Job).where(Job.project_id == project.id, Job.status == HELD).order_by(Job.id)
+    held = select(Job).where(
+        Job.project_id == project.id, Job.status == HELD, Job.input["ask_id"].as_integer().is_(None)
+    )  # an option: its card
+    held = held.order_by(Job.id)
     holds = None if how else db.scalar(held.limit(1))
     revising = any(r != run_id and ending(t)[0] == "delivered" for r, t in every.items())
     scenes = [{"id": sid, "name": name, "clips": [c for c in cells if c["scene"] == sid]}
@@ -420,6 +424,13 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
                 f"{made} of {total} clips made" if plain else said(why),
                 "bad" if how == "needs_fix" else "stop")  # fmt: skip
+    elif (
+        holds is not None
+        and holds.input.get(asks.START)
+        and viewer
+        and asks.may_start(db, viewer, project)
+    ):  # its start card, theirs to press (S3-02)
+        head = ("waiting", "Ready to make", "No generation started: press Make it", "wait")
     elif holds is not None:
         why = (holds.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
         head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
@@ -548,19 +559,15 @@ def _then(db: Session, project: Project, clips: list) -> Decimal:
             + item_checks.per_take(db, ws) * len(clips))  # fmt: skip
 
 
-def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
+def thread_items(db: Session, project: Project, viewer: User | None) -> list[dict]:
     """The director's part of the chat: one item a run (its progress card in a line, `run`
-    naming the record), the owner's OKs at the director's limit, and each delivery's note."""
+    naming the record) and each delivery's note; its cards are app/asks'."""
     from app import delivery
-    from app.credits import COUNTED, price
-    from app.director import GRANT, GRANTED, own_limit
 
-    out, every = [], runs(db, project)
+    out, every, owner = [], runs(db, project), bool(viewer and viewer.is_owner)
     for run_id, turns in every.items():
         how, why = ending(turns)
-        head = {} if how else record(db, project, None) or {}  # the newest run, going
-        if owner and head.get("status") == "waiting":
-            head["title"] = "Waiting for your OK"
+        head = {} if how else record(db, project, viewer) or {}  # the newest run, as they see it
         if how:
             text = (_took(turns) if how == "delivered" else "Stopped" if why == "Stopped."
                     else said(why))  # fmt: skip
@@ -569,11 +576,7 @@ def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"
         out.append({"id": f"r{turns[0].id}", "kind": "move", "at": turns[0].created_at.isoformat(),
                     "who": "Director", "text": text, "status": status, "run": run_id})  # fmt: skip
-        for j in turns:
-            if j.input.get(GRANT) and j.status in COUNTED:  # the owner's OK at its own limit
-                out.append({"id": f"g{j.id}", "kind": "move", "at": j.created_at.isoformat(),
-                            "who": "Director", "text": GRANTED.format(n=price(own_limit())),
-                            "status": "done"})  # fmt: skip
+        for j in turns:  # the owner's OK at its own limit is its card's answer (app/asks)
             if j.input.get("result") == "Delivered.":
                 note = delivery.shown(db, project, (j.output or {}).get("note"), owner)
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),

@@ -601,12 +601,45 @@ class StillsReview(BaseModel):
 
 
 # --- The director (director-chat.md §5): one decision a turn, run by the server ---
+class AskChoice(BaseModel):
+    title: str = Field(description="The choice in a few words: 'He bins the pint'.")
+    why: str = Field(description="One plain line: what it does for the story.")
+
+
+class AskMove(BaseModel):
+    """The `ask` tool's question (v6 S4-01, S4-02): one card in the chat."""
+
+    kind: Literal["cast", "presenter", "voice", "place", "product", "brand_item", "story",
+                  "question"] = Field(description="What it asks for.")  # fmt: skip
+    topic: str = Field(default="", description="Two or three words for the bar: 'The husband'.")
+    subject: str = Field(
+        default="",
+        description="The role, place, product or screen as the script names it ('husband'); a "
+        "saved item of that name is used without asking.",
+    )
+    question: str = Field(default="", description="The question, plainly: 'Who plays the husband?'")
+    why: str = Field(default="", description="One or two plain sentences: why it matters here.")
+    describe: str = Field(
+        default="", description="cast, presenter or place: what Generate options should draw."
+    )
+    choices: list[AskChoice] = Field(
+        default=[], description="story: two to four choices, in order (A, B, …)."
+    )
+    pick: str | None = Field(
+        default=None,
+        description="Your pick: a story choice's letter, or the saved item's name you'd use.",
+    )
+    ask_id: int | None = Field(
+        default=None, description="Only to close an open question no longer needed; else null."
+    )
+
+
 class DirectorTurn(BaseModel):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
-        "mute", "splice_word", "add_sound", "song", "narration", "host", "split_clip", "wait",
-        "deliver", "stop",
+        "mute", "splice_word", "add_sound", "song", "narration", "host", "ask", "split_clip",
+        "wait", "deliver", "stop",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -674,10 +707,11 @@ class DirectorTurn(BaseModel):
         "back; both hands stay on the steering wheel'); for add_sound, the sounds "
         "asked for and how much, in the person's words ('slight sound effects'); else empty.",
     )
+    ask: AskMove | None = Field(default=None, description="For ask: the question; else null.")
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "
         "'deliver' it is the delivery note (2-4 sentences: the craft choices made and why); on "
-        "'stop', what the owner needs to know."
+        "'stop', what the owner needs to know; on 'ask' with ask_id, why it's no longer needed."
     )
     made: str = Field(
         default="",

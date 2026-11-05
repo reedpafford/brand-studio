@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app import director, looks, needs_you
+from app import asks, director, looks, needs_you
 from app.credits import COUNTED
 from app.models.accounts import User
 from app.models.clips import ProjectClip
@@ -154,7 +154,8 @@ def _where(db: Session, job: Job | None, step: str, made: int, total: int) -> st
 def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> dict[int, Status]:
     """Each video's status, first match wins: archived; a step held for an OK; a failed step;
     working; something waiting on a person; stopped by a person; a run that stopped on its own;
-    delivered; else not started. The asks (piece B) go above working when they land."""
+    delivered; else not started. An editor's own start card reads "Needs you · Start it" and
+    a question from the director "Needs you" with the question (piece B), above working."""
     from app.auth import user_name
     from app.routes.production import progress
     from app.routes.project_clips import out_of_date
@@ -164,12 +165,15 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
     waits = needs_you.waiting_on(db, projects, out_of_date(db, projects))
     runs = _runs(db, ids)
     _, steps = progress(db, ids)
+    asked, starts = asks.needing(db, ids), asks.starting(db, ids)
     out = {}
     for p in projects:
         made, total = known.clips.get(p.id, (0, 0))
         run = runs.get(p.id, {})
         if p.archived_at:
             s = Status(kind="archived", words=WORDS["archived"], at=p.archived_at)
+        elif p.id in starts and not user.is_owner and asks.may_start(db, user, p):
+            s = Status(kind="needs_you", words=WORDS["needs_you"], reason=START)
         elif p.id in known.held:
             s = Status(kind="waiting", words=YOUR_OK if user.is_owner else WORDS["waiting"])
         elif p.id in failed:
@@ -178,6 +182,8 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
                 words=WORDS["needs_fix"],
                 reason=AT.format(_where(db, failed[p.id], steps[p.id], made, total)),
             )
+        elif p.id in asked:  # the director's question waits (S-gaps-01 option 4)
+            s = Status(kind="needs_you", words=WORDS["needs_you"], reason=asked[p.id])
         elif p.id in known.busy:
             s = Status(kind="working", words=WORDS["working"], made=made, total=total,
                        reason=f"{made} of {total}" if total else None)  # fmt: skip

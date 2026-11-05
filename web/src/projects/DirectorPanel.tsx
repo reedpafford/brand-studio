@@ -14,6 +14,7 @@ import { useFrames } from "./StoryboardPane";
 import { LockChips } from "./LockChips";
 import { DirectorChat } from "./DirectorChat";
 import { refreshJobs } from "../jobs/refresh";
+import { useMakeIt } from "./useMakeIt";
 
 type Run = components["schemas"]["DirectorOut"];
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -85,6 +86,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const video = useProjectVideo(projectId);
   const r = run.data;
   const status = r?.status ?? "none";
+  const makeIt = useMakeIt(projectId);
   useMovesRefresh(projectId, r?.turns.length ?? 0, status);
   const after = (data: Run) => {
     queryClient.setQueryData(["director", projectId], data);
@@ -138,6 +140,7 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
   const seconds = Math.round(list.reduce((n, c) => n + c.seconds, 0));
   const line =
     status === "none" ? (blocked ?? "It makes every step from the script, checks each take, and delivers the finished cut. You can stop it any time.")
+    : r?.make_it ? "The plan is ready. No generation started: it waits for Make it."
     : running ? [phase, credits && `${credits} spent so far`, dollars, "you can leave this page"].filter(Boolean).join(" · ")
     : [status === "ended" && (plain(r!.ended, list) || "It stopped."), cut && seconds > 0 && `${seconds} s`, credits && `spent ${credits} on this run`, dollars].filter(Boolean).join(" · ");
   const badge = running ? <Badge tone={held ? "warning" : "neutral"}>{held ? "Waiting for approval" : "Working…"}</Badge> : status === "delivered" ? <Badge tone="success">Delivered</Badge> : status === "ended" ? <Badge tone="warning">Stopped</Badge> : null;
@@ -177,6 +180,11 @@ export function DirectorPanel({ projectId, aspect, name, onOpenClips }: { projec
             )}
             {status === "delivered" && <ReviewChip projectId={projectId} />}
             <div className="flex flex-wrap items-center gap-2">
+              {r?.make_it != null && (
+                <Button icon={Wand2} busy={makeIt.isPending} onClick={() => makeIt.mutate(r.make_it!)}>
+                  {`Make it · up to ${creditsLabel(r.run_price)}`}
+                </Button>
+              )}
               {running ? (
                 <Button variant="secondary" icon={Square} onClick={() => setStopping(true)}>
                   Stop

@@ -73,3 +73,16 @@ export async function switchBrand(page: Page, name: string) {
   await page.getByRole("button", { name: /^Brand: / }).click();
   await page.getByRole("menuitemradio", { name }).click();
 }
+
+/** Make it on a video's start card (S3-02), as `page`'s person (the owner can always): its plan is written first. */
+export async function makeIt(page: Page, projectId: number) {
+  let card: number | undefined;
+  await expect
+    .poll(async () => {
+      const cards = (await (await page.request.get(`/api/projects/${projectId}/asks`)).json()) as { id: number; kind: string; state: string }[];
+      card = cards.find((c) => c.kind === "start" && c.state === "open")?.id;
+      return card;
+    }, { timeout: 60_000 })
+    .toBeTruthy();
+  expect((await page.request.post(`/api/asks/${card}/answer`, { data: { how: "make_it" } })).ok()).toBe(true);
+}

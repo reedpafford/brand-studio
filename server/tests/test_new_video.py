@@ -12,7 +12,7 @@ from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.routes import freestyles
 from tests.conftest import first_brand, upload
-from tests.test_freestyle_dialogue import BODY, SCRIPT
+from tests.test_freestyle_dialogue import BODY, SCRIPT, _run
 from tests.test_script_library import _make
 
 
@@ -105,7 +105,7 @@ def test_an_editors_published_script_starts_at_once_inside_its_budget(
 
 
 def test_an_editors_published_script_past_its_budget_waits_and_says_by_how_much(
-    owner, editor, db, monkeypatch
+    app, owner, editor, db, monkeypatch
 ):
     pick = {"shape": "9:16", "script_id": _published(owner, SCRIPT)}
     monkeypatch.setattr(freestyles, "budget", lambda db, project: Decimal("1.2"))
@@ -114,9 +114,12 @@ def test_an_editors_published_script_past_its_budget_waits_and_says_by_how_much(
     assert words.startswith("Waiting for the owner's OK: up to ") and est["budget"] == 1.2
     assert words.endswith(" credits is past this video's budget of 2.")
     fs = editor.post("/freestyles", json=pick).json()
-    assert fs["status"] == "waiting"  # S2-05: nothing is spent while it waits
-    turn = _first_turn(db, fs["project_id"])
-    assert turn.status == JobStatus.needs_owner_approval
+    _run(app, db, ticks=4, start=False)  # its plan first (Reed, 4 Nov), then its start card
+    fs = editor.get(f"/freestyles/{fs['id']}").json()
+    assert fs["status"] == "waiting" and fs["make_it"] is None  # S2-05: no generation starts
+    (card,) = db.query(Job).filter_by(project_id=fs["project_id"],
+                                      status=JobStatus.needs_owner_approval).all()  # fmt: skip
+    assert card.input["held"] == words  # its start card, waiting for the owner, says why
     pasted = editor.get("/freestyles/estimate", params={**BODY, "shape": "9:16"}).json()
     assert pasted["held"] == freestyles.HELD and pasted["budget"] is None  # S2-04
     assert owner.get("/freestyles/estimate", params=pick).json()["held"] == ""  # the owner's
@@ -133,8 +136,9 @@ def test_pictures_attached_stay_with_the_video_and_the_director_is_told(owner, d
     video = db.get(Project, fs["project_id"])
     assert video.attachments == [pic]  # with the video, never the brand's (rule 12)
     assert fs["thread"][0]["files"] == [pic]  # thumbnails on the first message
-    prompt = director.turn_input(db, video, {"id": "r", "turn": 0, "redos": {}})["prompt"]
-    assert '<attachments>\n[\n {\n  "file_id": ' in prompt and '"kind": "image"' in prompt
+    said = director.turn_input(db, video, {"id": "r", "turn": 0, "redos": {}})
+    assert said["files"] == {"reference_images": [pic]}  # it sees them (piece B)
+    assert '"Image 1: attached in New video"' in said["prompt"].split("<seen>")[1]
 
 
 def test_a_presenters_b_roll_look_is_set_from_new_video_and_only_with_a_host(owner, db):

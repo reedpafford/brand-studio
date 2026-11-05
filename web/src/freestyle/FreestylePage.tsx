@@ -67,7 +67,7 @@ export function FreestylePage() {
           )}
         </div>
         <div className="mx-auto w-full max-w-[760px] px-4 pb-6 lg:px-8">
-          {fs && (maker ? <ChangeBox fs={fs} status={owner ? "Your change runs at once." : "Each change goes to the owner first. Nothing is spent until they say yes."} /> : <p className="text-sm text-muted">Only whoever made this freestyle can change it.</p>)}
+          {fs && (maker ? <ChangeBox fs={fs} status={owner ? "Your change runs at once." : "Each change goes to the owner first. No generation starts until they say yes."} /> : <p className="text-sm text-muted">Only whoever made this freestyle can change it.</p>)}
         </div>
       </main>
     </div>

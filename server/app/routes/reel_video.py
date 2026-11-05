@@ -148,8 +148,8 @@ def make_from_reel(body: ReelVideoIn, request: Request, user: User = Depends(cur
 
 
 def then_direct(db: Session, script: Script) -> None:
-    """The reel's script is written: its video's director run, the first turn waiting for the
-    owner's OK at the run's "up to" (the owner's own press too: nothing more is spent unasked)."""
+    """The reel's script is written: its video's director run, its plan first, then its start
+    card at the run's "up to" (the owner's own Make it; an editor's waits for the owner)."""
     then = (script.reel or {}).get(THEN)
     fs = db.get(Freestyle, then["freestyle"]) if then else None
     if fs is None or fs.chat or then.get("started"):
@@ -169,7 +169,7 @@ def then_direct(db: Session, script: Script) -> None:
     what = {"project": project.id, "draft": draft.id, "show": True}
     script.reel = {**script.reel, THEN: {**then, "started": True}}  # before the run holds it
     db.flush()
-    turn = director.start(db, user, project, wait=WRITTEN, frozen=False,
+    turn = director.start(db, user, project, hold="" if user.is_owner else WRITTEN, frozen=False,
                           extra={fs_routes.FREESTYLE: fs.id, SAID: said, CHANGE: False,
                                  PRICE: str(fs.up_to), fs_routes.FREEZE: what})  # fmt: skip
     fs.chat = [{"by": user.id, "text": said, "at": at, "job": turn.id,

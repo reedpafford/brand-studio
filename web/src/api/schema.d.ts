@@ -1121,6 +1121,133 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/asks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Asks
+         * @description Every card on the video, oldest first: open ones, and answered ones folded. A send's
+         *     video before the OK (hidden) shows to its maker and the owner, as its answer route does.
+         */
+        get: operations["list_asks_projects__project_id__asks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer
+         * @description Answer a card (the chat's and Needs you's are the same answer). Questions: the video's
+         *     maker or the owner. MoneyCard: the owner approves or keeps it as it is; an editor's own video
+         *     inside its budget starts with Make it; whoever asked may withdraw.
+         */
+        post: operations["answer_asks__ask_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate
+         * @description Generate options (paid, at the card's "up to" price): 3 made for this video only, never
+         *     saved to the brand. `like`: more like that option; `change`: Change something…
+         */
+        post: operations["generate_asks__ask_id__generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel
+         * @description Cancel the options being made (or held for the owner): nothing more is charged.
+         */
+        post: operations["cancel_asks__ask_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asks/{ask_id}/uploading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uploading
+         * @description The card shows the upload going up (`on`), or open again if it's cancelled. The file
+         *     itself goes up through POST /files, then POST …/answer with how=upload.
+         */
+        post: operations["uploading_asks__ask_id__uploading_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/needs-you": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Needs You
+         * @description One read across brands: questions from the director, money OKs (the start of a run, past
+         *     a budget, the director's own limit) and stuck videos with their one-click fix (rule 22).
+         *     The owner sees every video; an editor their own. `brand_id` filters; the counts don't.
+         */
+        get: operations["needs_you_needs_you_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage/summary": {
         parameters: {
             query?: never;
@@ -4014,8 +4141,9 @@ export interface paths {
         put?: never;
         /**
          * Start
-         * @description Build the video from its published script (409 if it isn't, or a run is going). Its
-         *     first turn is paid from the video's budget, held for the owner past it.
+         * @description Build the video from its published script (409 if it isn't, or a run is going). The
+         *     treatment comes first, charged nothing; then its start card waits for Make it (S3-02,
+         *     POST /asks/{id}/answer).
          */
         post: operations["start_projects__project_id__director_post"];
         delete?: never;
@@ -5670,6 +5798,19 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** AnswerIn */
+        AnswerIn: {
+            /** How */
+            how: string;
+            /** Option */
+            option?: string | number | null;
+            /** File Id */
+            file_id?: number | null;
+            /** Text */
+            text?: string | null;
+            /** Choice */
+            choice?: string | null;
+        };
         /** ApplyOut */
         ApplyOut: {
             script: components["schemas"]["app__routes__scripts__ScriptOut"];
@@ -5704,6 +5845,89 @@ export interface components {
         ApproveOut: {
             plan: components["schemas"]["PlanOut"];
             job: components["schemas"]["JobOut"] | null;
+        };
+        /** AskOut */
+        AskOut: {
+            /** Id */
+            id: number;
+            /** Project Id */
+            project_id: number;
+            /** Kind */
+            kind: string;
+            /** Topic */
+            topic: string;
+            /** Question */
+            question: string;
+            /** Why */
+            why: string;
+            /** State */
+            state: string;
+            /**
+             * By Owner
+             * @default false
+             */
+            by_owner: boolean;
+            /**
+             * Saved In
+             * @default
+             */
+            saved_in: string;
+            /**
+             * Saved
+             * @default []
+             */
+            saved: components["schemas"]["SavedOption"][];
+            /** Pick */
+            pick?: string | null;
+            /**
+             * Choices
+             * @default []
+             */
+            choices: components["schemas"]["StoryChoice"][];
+            /** Decide At */
+            decide_at?: string | null;
+            generate?: components["schemas"]["AskPrice"] | null;
+            clone?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: components["schemas"]["MadeOption"][];
+            options_spent?: components["schemas"]["AskPrice"] | null;
+            /** Answer */
+            answer?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Answered By
+             * @default
+             */
+            answered_by: string;
+            /** Answered At */
+            answered_at?: string | null;
+            /**
+             * Closed
+             * @default
+             */
+            closed: string;
+            money?: components["schemas"]["MoneyCard"] | null;
+            /**
+             * Can
+             * @default []
+             */
+            can: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AskPrice */
+        AskPrice: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd?: number | null;
         };
         /** AssetOut */
         AssetOut: {
@@ -5849,6 +6073,15 @@ export interface components {
              * @default []
              */
             folders: components["schemas"]["Branch"][];
+        };
+        /** BrandCount */
+        BrandCount: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
         };
         /** BrandIn */
         BrandIn: {
@@ -6375,6 +6608,13 @@ export interface components {
             /** Started At */
             started_at: string | null;
         };
+        /** DirectorNoteIn */
+        DirectorNoteIn: {
+            /** Text */
+            text: string;
+            /** Files */
+            files?: number[] | null;
+        };
         /** DirectorOut */
         DirectorOut: {
             /** Status */
@@ -6404,6 +6644,23 @@ export interface components {
              * @default 0
              */
             run_price: number;
+            /**
+             * Spent
+             * @default 0
+             */
+            spent: number;
+            /**
+             * Started
+             * @default false
+             */
+            started: boolean;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: components["schemas"]["WaitingQuestion"][];
+            /** Make It */
+            make_it?: number | null;
         };
         /** Dot */
         Dot: {
@@ -6879,6 +7136,17 @@ export interface components {
             up_to?: number | null;
             /** Project Id */
             project_id?: number | null;
+            /** Make It */
+            make_it?: number | null;
+            /** Make It Up To */
+            make_it_up_to?: number | null;
+            /**
+             * Waiting
+             * @default []
+             */
+            waiting: {
+                [key: string]: unknown;
+            }[];
             /** Script Id */
             script_id?: number | null;
             /** Reel Script Id */
@@ -6954,6 +7222,13 @@ export interface components {
             /** Videos */
             videos: number;
         };
+        /** GenerateIn */
+        GenerateIn: {
+            /** Like */
+            like?: number | null;
+            /** Change */
+            change?: string | null;
+        };
         /** GuideIn */
         GuideIn: {
             /** Use As Guide */
@@ -6963,6 +7238,13 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HeldClip */
+        HeldClip: {
+            /** Clip */
+            clip: string;
+            /** Still File Id */
+            still_file_id: number | null;
         };
         /** HostOut */
         HostOut: {
@@ -7974,6 +8256,15 @@ export interface components {
             /** On */
             on: boolean;
         };
+        /** MadeOption */
+        MadeOption: {
+            /** Index */
+            index: number;
+            /** State */
+            state: string;
+            /** File Id */
+            file_id: number | null;
+        };
         /** MadeOut */
         MadeOut: {
             /** Looks */
@@ -8244,6 +8535,30 @@ export interface components {
             /** Price Source */
             price_source: string;
         };
+        /**
+         * MoneyCard
+         * @description A money card's figures: what the OK lets it charge ("up to"), what's spent and the
+         *     budget (past the budget), the run's usual cost (start), the held items and when sent.
+         */
+        MoneyCard: {
+            up_to: components["schemas"]["AskPrice"];
+            spent?: components["schemas"]["AskPrice"] | null;
+            budget?: components["schemas"]["AskPrice"] | null;
+            past?: components["schemas"]["AskPrice"] | null;
+            usual?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Clips
+             * @default []
+             */
+            clips: components["schemas"]["HeldClip"][];
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Held */
+            held: string;
+        };
         /** Montage */
         Montage: {
             /** First */
@@ -8392,6 +8707,13 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** NamedBrand */
+        NamedBrand: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** NarrationOut */
         NarrationOut: {
             /** Voice */
@@ -8408,6 +8730,36 @@ export interface components {
              * @enum {string}
              */
             action: "cast" | "plan" | "approvals";
+        };
+        /** NeedsYouOut */
+        NeedsYouOut: {
+            /** Total */
+            total: number;
+            /** Brands */
+            brands: components["schemas"]["BrandCount"][];
+            /** Questions */
+            questions: components["schemas"]["NeedsYouRow"][];
+            /** Money */
+            money: components["schemas"]["NeedsYouRow"][];
+            /** Stuck */
+            stuck: components["schemas"]["StuckVideo"][];
+        };
+        /** NeedsYouRow */
+        NeedsYouRow: {
+            video: components["schemas"]["NeedsYouVideo"];
+            brand: components["schemas"]["NamedBrand"];
+            ask: components["schemas"]["AskOut"];
+        };
+        /** NeedsYouVideo */
+        NeedsYouVideo: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Still File Id */
+            still_file_id: number | null;
+            /** Made By */
+            made_by: string;
         };
         /** NewInviteOut */
         NewInviteOut: {
@@ -9594,6 +9946,29 @@ export interface components {
             /** Test Site */
             test_site?: string | null;
         };
+        /** SavedOption */
+        SavedOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** File Id */
+            file_id?: number | null;
+            /**
+             * Used In
+             * @default 0
+             */
+            used_in: number;
+            /** Sample File Id */
+            sample_file_id?: number | null;
+            /** Sample Url */
+            sample_url?: string | null;
+        };
         /** Scene */
         Scene: {
             /**
@@ -10404,6 +10779,15 @@ export interface components {
              */
             total: number;
         };
+        /** StoryChoice */
+        StoryChoice: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
+        };
         /** StoryboardIn */
         StoryboardIn: {
             /**
@@ -10429,6 +10813,30 @@ export interface components {
             still_file_ids: number[];
             /** Current */
             current: boolean;
+        };
+        /** StuckFix */
+        StuckFix: {
+            /** Label */
+            label: string;
+            /** Method */
+            method: string | null;
+            /** Path */
+            path: string;
+        };
+        /** StuckVideo */
+        StuckVideo: {
+            video: components["schemas"]["NeedsYouVideo"];
+            brand: components["schemas"]["NamedBrand"];
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** What */
+            what: string;
+            /** Why */
+            why: string;
+            fix: components["schemas"]["StuckFix"];
         };
         /**
          * StudyAttempt
@@ -10625,7 +11033,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "message" | "move";
+            kind: "message" | "move" | "ask";
             /**
              * At
              * Format: date-time
@@ -10648,6 +11056,10 @@ export interface components {
             treatment?: {
                 [key: string]: unknown;
             } | null;
+            /** Ask Id */
+            ask_id?: number | null;
+            /** Files */
+            files?: number[] | null;
             /** Run */
             run?: string | null;
             note?: components["schemas"]["DeliveryNoteOut"] | null;
@@ -10725,6 +11137,11 @@ export interface components {
             problem: string;
             /** Problem Code */
             problem_code?: string | null;
+        };
+        /** UploadingIn */
+        UploadingIn: {
+            /** On */
+            on: boolean;
         };
         /** UsageBrandOut */
         UsageBrandOut: {
@@ -11275,6 +11692,15 @@ export interface components {
             clone_credits: number;
             /** Clone Usd */
             clone_usd: number | null;
+        };
+        /** WaitingQuestion */
+        WaitingQuestion: {
+            /** Id */
+            id: number;
+            /** Topic */
+            topic: string;
+            /** Question */
+            question: string;
         };
         /** Was */
         Was: {
@@ -14184,6 +14610,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_asks_projects__project_id__asks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_asks__ask_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_asks__ask_id__generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_asks__ask_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    uploading_asks__ask_id__uploading_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ask_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    needs_you_needs_you_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeedsYouOut"];
                 };
             };
             /** @description Validation Error */
@@ -19870,7 +20494,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MessageIn"];
+                "application/json": components["schemas"]["DirectorNoteIn"];
             };
         };
         responses: {
