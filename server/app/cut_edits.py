@@ -87,6 +87,7 @@ def _fits(tl: dict) -> None:
         raise Refused(f"The cut can't run past the song's end, at {tc(tl['seconds'])}.")
 
 
+TALKER_MAKING = "The talker is being made again: swap this piece once it's ready."
 UNHEARD = ("This clip's words aren't heard yet, so a trim could cut one. Try again once its "
            "words check is done.")  # fmt: skip
 SAY = {"split": "Say where to split: a time in the cut.",
@@ -240,6 +241,8 @@ def _swap_source(db: Session, user: User, project: Project, p: dict, take_id,
     talks = p.get("lipsync") or (take.made_with or {}).get("talker")
     if mode == "narrated" and talks and elsewhere:  # its lips say this stretch of the voice
         raise Refused("A talker piece swaps only for another take of its own clip.")
+    if p.get("lipsync") and not p.get("voiced"):  # the talker is being made again
+        raise Refused(TALKER_MAKING)
     if p.get("lipsync") and (take.made_with or {}).get("talker") != p.get("voiced"):
         raise Refused(OLD_TALKER)
     if other.aspect_ratio != project.aspect_ratio:

@@ -36,8 +36,8 @@ PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "song": "vo
           "narration": "voice", "storyboard": "stills", "stills": "stills",
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
           "make_take": "takes", "pick_take": "takes", "splice_word": "takes", "mute": "takes",
-          "add_sound": "takes", "host": "host", "final_cut": "cut", "watch_cut": "cut",
-          "deliver": "cut"}  # fmt: skip  # the step each of the director's tools works on
+          "add_sound": "takes", "host": "host", "final_cut": "cut", "edit_cut": "cut",
+          "watch_cut": "cut", "deliver": "cut"}  # fmt: skip  # each tool's step
 
 
 def money(credits: Decimal | float, owner: bool) -> str:

@@ -256,6 +256,7 @@ def test_a_story_cut_trims_and_ripples_and_never_cuts_a_word(
     monkeypatch.setattr(cut_edits, "_heard", lambda db, take: words)
     lost = editor.post(f"{base}/cut")
     assert lost.status_code == 409 and "would lose the word “now”" in lost.json()["detail"]
+    assert lost.json()["detail"].endswith("Undo that edit, or trim the clip out to the word.")
     undo = editor.post(f"{base}/cut/undo")  # back to the trim, which loses it too: refused
     assert undo.status_code == 422 and "would lose the word “now”" in undo.json()["detail"]
     assert editor.post(f"{base}/cut/undo-all").status_code == 422  # the cut's own trim loses it
@@ -430,6 +431,8 @@ def _a_talker_piece_is_only_offered_takes_of_the_talker_in_use(db, owner, presen
     older.made_with = {**older.made_with, "talker": 5}  # the same talker take: on offer
     db.flush()
     assert older.id in {s["take_id"] for s in cut_edits.swaps(db, user, project, tl, piece)}
+    making = {**piece, "voiced": None}  # the talker being made again: nothing to swap to yet
+    assert [s["kind"] for s in cut_edits.swaps(db, user, project, tl, making)] == ["in_cut"]
 
 
 # One delivered presenter video each (the director's whole run is the slow part):
