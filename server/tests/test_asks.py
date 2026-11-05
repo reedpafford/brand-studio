@@ -749,6 +749,9 @@ def test_the_progress_card_reads_ready_for_its_editor_and_ignores_an_options_hol
     _run(app, db, ticks=4, start=False)
     mine = editor.get(f"{url}/progress").json()
     assert (mine["title"], mine["sub"]) == ("Ready to make", "No generation started: press Make it")
+    for who in (editor, owner):  # the chat's line for the run says the same to each of them
+        (line,) = [m for m in who.get(url).json()["thread"] if m.get("run")]
+        assert line["text"] == "Ready to make · No generation started: press Make it"
     assert owner.get(f"{url}/progress").json()["title"] == "Ready to make"  # the owner's too
     make_it(db)
     project = db.get(Project, pid)

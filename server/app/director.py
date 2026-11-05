@@ -167,7 +167,7 @@ def leftover(db: Session, project: Project) -> list[int]:
     return out
 
 
-def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
+def thread(db: Session, project: Project, viewer: User | None = None) -> list[dict]:
     """The whole conversation on the video, oldest first: what people said, the treatment,
     and for each run its progress card and its delivery note (app/run_progress)."""
     from app import run_progress
@@ -192,7 +192,7 @@ def thread(db: Session, project: Project, owner: bool = False) -> list[dict]:
                     ).isoformat(), "who": "Director", "text": named(told(j.output or {}, n > 0)),
                     "status": "done", "why": "", "answered": None,
                     "treatment": j.output})  # fmt: skip
-    out += run_progress.thread_items(db, project, owner)
+    out += run_progress.thread_items(db, project, viewer)
     for a in db.scalars(select(Ask).where(Ask.project_id == project.id)):
         if a.kind != "start" or asks.state(db, a) != "not_needed":  # a card in the chat
             out.append({"id": f"a{a.id}", "kind": "ask", "at": a.created_at.isoformat(),

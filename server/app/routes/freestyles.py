@@ -431,8 +431,8 @@ def _move(fs: Freestyle, job: Job) -> tuple[str, str, str]:
     return "stopped", "refused", "Stopped."
 
 
-def _out(db: Session, fs: Freestyle, owner: bool = False) -> FreestyleOut:
-    """`owner`: the viewer is the owner (its director run's words and money are theirs)."""
+def _out(db: Session, fs: Freestyle, viewer: User | None = None) -> FreestyleOut:
+    """`viewer`: who reads it (its director run's words and money are as they see them)."""
     jobs = _jobs(db, fs)
     names = dict(db.execute(select(User.id, User.name).where(
         User.id.in_({fs.created_by_id, *(m["by"] for m in fs.chat)}))).all())  # fmt: skip
@@ -453,7 +453,7 @@ def _out(db: Session, fs: Freestyle, owner: bool = False) -> FreestyleOut:
         if job.status in (*COUNTED, JobStatus.needs_owner_approval):
             credits += job.credits  # never a failed, declined, withdrawn or stopped one
     if fs.project_id:  # the director's run: its moves, cut and cost
-        status, thread, file_id, credits = _directed(db, fs, jobs, thread, owner)
+        status, thread, file_id, credits = _directed(db, fs, jobs, thread, viewer)
     project = db.get(Project, fs.project_id) if fs.project_id else None
     draft = (
         db.get(ScriptDraft, project.script_draft_id)
@@ -489,7 +489,8 @@ def _make_it(db: Session, fs: Freestyle, project: Project) -> int | None:
     return card if card and asks.may_start(db, db.get(User, fs.created_by_id), project) else None
 
 
-def _directed(db: Session, fs: Freestyle, jobs: dict, said: list, owner: bool = False) -> tuple:
+def _directed(db: Session, fs: Freestyle, jobs: dict, said: list,
+              viewer: User | None = None) -> tuple:  # fmt: skip
     """(status, thread, file id, credits) of a director-run freestyle, from its video's run."""
     project = db.get(Project, fs.project_id)
     sends = [jobs[m["job"]] for m in fs.chat if m.get("job") in jobs]
@@ -516,7 +517,7 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list, owner: bool = 
         rows = director.turns(db, project)
         status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
     moves = [FreestyleItem(**{**m, "text": words.get(m["id"], m["text"])})
-             for m in director.thread(db, project, owner) if m["kind"] == "move"]  # fmt: skip
+             for m in director.thread(db, project, viewer) if m["kind"] == "move"]  # fmt: skip
     # a turn, take or watch held past the price mid-run: its run's card is held and says why
     delivered = db.scalar(select(func.max(Job.created_at)).where(  # the last delivery
         Job.project_id == project.id, Job.input["step"].as_string() == director.STEP,
@@ -615,7 +616,7 @@ def create_freestyle(
         if same and waiting and fs.chat[0]["text"] == text:  # a repeat sent on purpose
             # (the first done or gone) is a new freestyle
             db.rollback()
-            return _out(db, fs, user.is_owner)  # the same send twice: one freestyle, one held take
+            return _out(db, fs, user)  # the same send twice: one freestyle, one held take
     title = (script.title if script else
              next(line.strip() for line in text.splitlines() if line.strip()))[:60]  # fmt: skip
     fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title=title,
@@ -630,7 +631,7 @@ def create_freestyle(
         _send(db, user, fs, text)
     else:
         _start(db, user, fs, text, body)
-    return _out(db, fs, user.is_owner)
+    return _out(db, fs, user)
 
 
 @router.get("", response_model=list[FreestyleRow])
@@ -653,7 +654,7 @@ def list_freestyles(
 def get_freestyle(
     freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(_db)
 ):
-    return _out(db, _get(db, user, freestyle_id), user.is_owner)
+    return _out(db, _get(db, user, freestyle_id), user)
 
 
 @router.post("/{freestyle_id}/messages", response_model=FreestyleOut, status_code=201,
@@ -671,12 +672,12 @@ def send_message(
         raise HTTPException(403, "Only whoever made this freestyle can change it.")
     if fs.type != ONE_CLIP:
         _change(db, user, fs, body.text)
-        return _out(db, fs, user.is_owner)
+        return _out(db, fs, user)
     if any(j.status in (JobStatus.needs_owner_approval, JobStatus.queued, JobStatus.running)
            for j in _jobs(db, fs).values()):  # fmt: skip
         raise HTTPException(409, BUSY)
     _send(db, user, fs, body.text)
-    return _out(db, fs, user.is_owner)
+    return _out(db, fs, user)
 
 
 @router.post("/{freestyle_id}/withdraw", response_model=FreestyleOut)
@@ -698,7 +699,7 @@ def withdraw_freestyle(
         if job.input.get(FREEZE):
             release(db, job.input[FREEZE])
     db.commit()
-    return _out(db, fs, user.is_owner)
+    return _out(db, fs, user)
 
 
 @router.post("/{freestyle_id}/stop", response_model=FreestyleOut)
@@ -713,7 +714,7 @@ def stop_freestyle(
         director.stop(db, db.get(Project, fs.project_id), user.id)
     stop_jobs(db, Job.id.in_(list(_jobs(db, fs))))
     db.commit()
-    return _out(db, fs, user.is_owner)
+    return _out(db, fs, user)
 
 
 @router.patch("/{freestyle_id}", response_model=FreestyleOut)
@@ -728,4 +729,4 @@ def rename_freestyle(
         raise HTTPException(403, "Only whoever made this freestyle can rename it.")
     fs.title = body.title
     db.commit()
-    return _out(db, fs, user.is_owner)
+    return _out(db, fs, user)

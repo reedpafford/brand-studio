@@ -230,7 +230,7 @@ def _out(db: Session, user: User, project) -> DirectorOut:
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,
                        start_blocked=blocked,
-                       thread=director.thread(db, project, user.is_owner),
+                       thread=director.thread(db, project, user),
                        unread=len(director.leftover(db, project)),
                        run_price=0 if status == "running" and started
                        else float(asks.run_price(db, project)),

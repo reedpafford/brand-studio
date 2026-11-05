@@ -496,17 +496,15 @@ def _failed(video: _Video, cells: list[dict], why: str, owner: bool, again: Deci
             "clip": video.pk(bad["clip_id"]), "fixes": [again, carry]}  # fmt: skip
 
 
-def thread_items(db: Session, project: Project, owner: bool) -> list[dict]:
+def thread_items(db: Session, project: Project, viewer: User | None) -> list[dict]:
     """The director's part of the chat: one item a run (its progress card in a line, `run`
     naming the record) and each delivery's note; its cards are app/asks'."""
     from app import delivery
 
-    out, every = [], runs(db, project)
+    out, every, owner = [], runs(db, project), bool(viewer and viewer.is_owner)
     for run_id, turns in every.items():
         how, why = ending(turns)
-        head = {} if how else record(db, project, None) or {}  # the newest run, going
-        if owner and head.get("status") == "waiting":
-            head["title"] = "Waiting for your OK"
+        head = {} if how else record(db, project, viewer) or {}  # the newest run, as they see it
         if how:
             text = (_took(turns) if how == "delivered" else "Stopped" if why == "Stopped."
                     else said(why))  # fmt: skip
