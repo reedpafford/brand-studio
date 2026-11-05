@@ -1,50 +1,290 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, Square } from "lucide-react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ArrowUp, ChevronLeft, FileText, Paperclip, Upload, WifiOff, X } from "lucide-react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
-import { fileUrl } from "../api/upload";
+import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Button, Dialog, Skeleton, buttonClass, creditsLabel, pressLabel, wholeCredits } from "../components";
-import { ChangeBox, useSettingsWords } from "../freestyle/Composer";
+import { Banner, Button, Dialog, Skeleton, pressLabel } from "../components";
 import { mmss } from "../freestyle/FromScript";
-import { Thread, type Said } from "../freestyle/Thread";
+import { Item, type Said } from "../freestyle/Thread";
 import { ReelBlock } from "../scripts/ReelImport";
 import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
-import { InTheCut, phaseOf, useDirectorRun, useMovesRefresh } from "../projects/DirectorPanel";
-import { LockChips } from "../projects/LockChips";
-import { VideoPage } from "../projects/VideoPage";
-import { useProjectClips } from "../projects/useProgress";
+import { refreshJobs } from "../jobs/refresh";
+import { useMayManageVideo, useVideoActions } from "../projects/ReleaseVideo";
+import { useFreshProject } from "../projects/useFreshProject";
+import { useProjectClips, useProjectVideo } from "../projects/useProgress";
 import { useMakeIt } from "../projects/useMakeIt";
 import { letterOf } from "../scripts/status";
 import { useScript } from "../scripts/useScript";
-import { refreshJobs } from "../jobs/refresh";
-import { useRail } from "../useMedia";
 import { serverTime } from "../time";
-import { VideoTop, mp4, useVideoProject } from "./VideoTop";
+import { useBrands } from "../shell/useBrands";
+import { useOnline, useRail } from "../useMedia";
+import { plain, useDirectorRun, useMovesRefresh } from "./director";
+import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
+import { MoveDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
 type Project = components["schemas"]["ProjectOut"];
+type Run = components["schemas"]["DirectorOut"];
+type Status = Head["status"];
 
-/** /b/:brandId/videos/:id: a video the director makes from a freestyle (P3, freestyle_id) opens on its chat; ?step=
- *  opens its steps (B_VideoSteps). Every other video opens on its steps as before. */
-export function VideoRoute() {
-  const project = useVideoProject(Number(useParams().projectId));
-  const [params] = useSearchParams();
-  if (project.isPending) return <Skeleton className="m-8 h-64" />;
-  if (project.data?.freestyle_id && !params.get("step")) return <VideoChat p={project.data} freestyleId={project.data.freestyle_id} />;
-  return <VideoPage />;
+/** One video, as the video page reads it. */
+export function useVideoProject(id: number) {
+  return useQuery({
+    queryKey: ["project", id],
+    enabled: id > 0,
+    queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
+  });
 }
 
-/** Where the run is, in the header's and the box's words. A held move mid-run still reads as Working. */
+/** /b/:brandId/videos/:id: the video, one chat with the director and its preview panel (v6 S3). */
+export function VideoRoute() {
+  const { brandId, projectId } = useParams();
+  return <VideoPage projectId={Number(projectId)} brandId={Number(brandId)} />;
+}
+
+/** A freestyle's run, in the words the page uses: an editor's send waiting for the owner, a change waiting, or its status. */
 function stateOf(fs: Freestyle, running: boolean) {
   if (running) return "working" as const;
   if (fs.status === "waiting") return fs.file_id ? ("change" as const) : ("waiting" as const);
   return fs.status;
 }
 
-/** Which thread item is the delivery the player belongs to: the newest run's deliver turn, or (a change's run since)
- *  the last finished move before the newest person's note. */
+/** The chat with the director and the preview panel beside it (S3-01, S3-09; P-04, P-05 on a phone). `freestyleId`: an
+ *  editor's send before the owner's OK, when its video isn't theirs to read yet (the chat shows; the panel waits). */
+export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: number; brandId: number; freestyleId?: number }) {
+  const me = useMe().data;
+  const owner = me?.role === "owner";
+  const rail = useRail();
+  const online = useOnline();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const [side, setSide] = useState<"chat" | "preview">(params.get("tab") || params.get("step") ? "preview" : "chat"); // the phone's switch
+  const [stopping, setStopping] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [opened, setOpened] = useState<TabId | null>(null);
+  const [cutSeen, setCutSeen] = useState(false);
+  const previewSide = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (side === "chat") previewSide.current?.querySelectorAll("video").forEach((v) => v.pause()); // P-04: the cut stops when you go back to the chat
+  }, [side]);
+  useFreshProject(id);
+  const project = useVideoProject(id);
+  const p = project.data ?? null;
+  const fsId = p?.freestyle_id ?? freestyleId ?? null;
+  const fsQuery = useFreestyle(fsId);
+  const fs = fsQuery.data;
+  const runQuery = useDirectorRun(id);
+  const run = runQuery.data;
+  const clips = useProjectClips(id).data ?? [];
+  const cut = useProjectVideo(id).data;
+  const head = useHead(id, !!p);
+  const facts = usePanelFacts(p);
+  const mayManage = useMayManageVideo();
+  const brands = useBrands().data;
+  const actions = useFreestyleActions(fsId);
+  const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`));
+  useMovesRefresh(id, (fs?.thread.length ?? 0) + (run?.turns.length ?? 0), `${fs?.status}:${run?.status}`);
+  const stop = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/director/stop", { params: { path: { project_id: id } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["director", id], data);
+      if (fsId) void queryClient.invalidateQueries({ queryKey: ["freestyle", fsId] });
+      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
+      setStopping(false);
+      return refreshJobs(queryClient);
+    },
+  });
+
+  if (project.isPending || (fsId && fsQuery.isPending) || runQuery.isPending || (p && head.isPending)) return <Loading phone={!rail} />;
+  if (!p && !fs)
+    return (
+      <p className="p-6">
+        That video doesn't exist.{" "}
+        <Link to={`/b/${brandId}/videos`} className="text-accent-text underline-offset-2 hover:underline">
+          Back to the videos
+        </Link>
+      </p>
+    );
+
+  const turns = run?.turns ?? [];
+  const running = run?.status === "running" && !turns.every((t) => t.status === "needs_owner_approval");
+  const state = fs ? stateOf(fs, running) : running ? "working" : (run?.status ?? "none");
+  const archived = !!p?.archived_at;
+  const maker = p ? mayManage(p) : fs?.created_by_name === me?.name;
+  const lookOnly = p && !mayManage(p) && !archived ? `Only ${p.created_by_name || "someone else"} or the owner can change this video.` : null;
+  const cutFile = cut?.file_id ?? fs?.file_id ?? null;
+  // The header's status: the server's for a readable video; before the owner's OK, the send's own.
+  const fallback: Status = { kind: "waiting", words: owner ? "Waiting for your OK" : "Waiting for the owner", made: 0, total: 0 };
+  const where = running ? (turns.some((t) => t.tool) ? (cutFile ? "revising" : null) : "starting") : null;
+  // A run that's going is Working, even between two of its moves (when no job is queued the server reads the last state).
+  const read = head.data?.status ?? fallback;
+  // "Needs you · Start it" while the first move still runs (no start card open yet) is the server's read lagging: Working.
+  const lagging = read.kind === "needs_you" && read.reason === "Start it" && (fs?.make_it ?? run?.make_it) == null;
+  const status = headStatus(running && ((read.kind !== "waiting" && read.kind !== "needs_you") || lagging) ? { ...read, kind: "working", words: "Working" } : read, where);
+  const title = head.data?.title ?? fs?.title ?? p?.name ?? "";
+  // With no tab picked, it opens where the work is and stays there while it fills in (no jumping under the reader).
+  if (!opened && !facts.loading && p) setOpened(firstTab(facts.progress));
+  // …except when the cut first lands: that's the moment to see it (S3-09), once.
+  if (opened && facts.made && !cutSeen) {
+    setCutSeen(true);
+    if (opened !== "cut" && !tabFrom(params)) setOpened("cut");
+  }
+  const tab: TabId = tabFrom(params) ?? opened ?? firstTab(facts.progress);
+  const pick = (t: TabId) => {
+    const next = new URLSearchParams(params);
+    next.delete("step");
+    next.set("tab", t);
+    setParams(next, { replace: true });
+    setSide("preview");
+  };
+  const finished = !!p?.finished_at || facts.made || state === "delivered";
+  const target = p && { id, name: title, creditsUsed: p.credits_used, released: p.released };
+  const menu = (
+    <VideoMenu
+      title={title}
+      cut={cutFile ? { file: cutFile, name: mp4(title) } : null}
+      onStop={!rail && running && maker ? () => setStopping(true) : undefined}
+      onMove={p && maker && !archived ? () => setMoving(true) : undefined}
+      onRelease={target && maker && !archived && !finished && p.script_draft_id && !fs ? () => video.release(target) : undefined}
+      onArchive={target && maker && !archived && finished ? () => video.archive(target) : undefined}
+    />
+  );
+  const header = head.data ? (
+    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={head.data} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} />
+  ) : (
+    <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
+  );
+  const chat = (
+    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} />
+  );
+  const preview = <Preview p={p} head={head.data ?? undefined} tab={tab} onTab={pick} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
+  return (
+    <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
+      {rail ? (
+        <>
+          <section aria-label="Chat" className="flex min-h-0 w-[min(600px,50%)] shrink-0 flex-col border-r border-border bg-surface">
+            {header}
+            {chat}
+          </section>
+          {preview}
+        </>
+      ) : (
+        <>
+          {header}
+          <div className="border-b border-border bg-surface px-3 py-2">
+            <div role="tablist" aria-label="Chat or preview" className="flex gap-0.5 rounded-md bg-surface-2 p-0.5">
+              {(["chat", "preview"] as const).map((s) => (
+                <button key={s} type="button" role="tab" aria-selected={side === s} onClick={() => setSide(s)} className={`flex h-control flex-1 items-center justify-center rounded-[5px] text-sm font-medium ${side === s ? "bg-surface text-text shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]" : "text-muted"}`}>
+                  {s === "chat" ? "Chat" : "Preview"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Both stay mounted: a typed note, its files and anything waiting to send survive the switch. */}
+          <div className={`min-h-0 flex-1 flex-col ${side === "chat" ? "flex" : "hidden"}`}>{chat}</div>
+          <div ref={previewSide} className={`min-h-0 flex-1 flex-col ${side === "preview" ? "flex" : "hidden"}`}>{preview}</div>
+        </>
+      )}
+      {video.dialog}
+      {moving && p && <MoveDialog brandId={brandId} projectId={id} title={title} now={head.data?.folder?.id ?? p.folder_id ?? null} onClose={() => setMoving(false)} />}
+      {stopping && (
+        <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending || actions.stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => (fs ? actions.stop.mutate(undefined, { onSettled: () => setStopping(false) }) : stop.mutate())}>
+          <p>It makes no more moves. What it already started still finishes, and nothing is undone.</p>
+        </Dialog>
+      )}
+    </main>
+  );
+}
+
+/** Before the owner's OK an editor can't read the video yet: the title and status only (the title alone if the header
+ *  can't be read). */
+function WaitingHead({ title, status, phone, brandId, menu }: { title: string; status: Status | null; phone: boolean; brandId: number; menu?: ReactNode }) {
+  return (
+    <header role="banner" className={`flex items-center gap-3 border-b border-border px-5 ${phone ? "min-h-[52px] px-3" : "py-3"}`}>
+      {phone && (
+        <Link to={`/b/${brandId}/videos`} aria-label="Back" className="grid size-control place-items-center text-muted">
+          <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
+        </Link>
+      )}
+      <h1 className="min-w-0 truncate text-lg font-semibold">{title}</h1>
+      {status && <span className="text-xs font-medium text-muted">{status.words}</span>}
+      {menu && <span className="ml-auto">{menu}</span>}
+    </header>
+  );
+}
+
+/** The page while it loads (S3-15): the header, three messages and the panel as grey shapes; the box is already there. */
+function Loading({ phone }: { phone: boolean }) {
+  const thread = (
+    <div className="flex flex-1 flex-col gap-4 px-5 py-4" role="status" aria-label="Loading">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex gap-2.5">
+          <Skeleton className="size-6 shrink-0 !rounded-full" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-3 w-[120px]" />
+            <Skeleton className="h-3 w-[380px] max-w-[60vw]" />
+            <Skeleton className="h-3 w-[300px] max-w-[50vw]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  const head = (
+    <div className="flex flex-col gap-2 border-b border-border px-5 py-2.5">
+      <Skeleton className="h-3 w-40" />
+      <Skeleton className="h-[18px] w-60" />
+      <div className="flex gap-2">
+        <Skeleton className="h-[26px] w-[110px]" />
+        <Skeleton className="h-[26px] w-[90px]" />
+        <Skeleton className="h-[26px] w-20" />
+      </div>
+    </div>
+  );
+  const box = <Composer placeholder="Tell the director what to change" disabled upload onSend={() => {}} />;
+  if (phone)
+    return (
+      <div className="flex h-dvh flex-col bg-surface">
+        {head}
+        {thread}
+        {box}
+      </div>
+    );
+  return (
+    <div className="flex h-screen">
+      <section className="flex w-[min(600px,50%)] shrink-0 flex-col border-r border-border bg-surface">
+        {head}
+        {thread}
+        {box}
+      </section>
+      <section className="flex flex-1 flex-col bg-bg">
+        <div className="flex h-10 items-stretch gap-0.5 border-b border-border bg-surface px-4" aria-hidden>
+          {["Cut", "Clips", "Cast", "Plan", "Script"].map((t, i) => (
+            <span key={t} className={`-mb-px inline-flex items-center border-b-2 px-2.5 text-sm font-medium ${i === 0 ? "border-text text-text" : "border-transparent text-muted"}`}>{t}</span>
+          ))}
+        </div>
+        <div className="flex gap-5 p-5">
+          <Skeleton className="h-[533px] w-[300px] rounded-[10px]" />
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-[18px] w-40" />
+            <Skeleton className="h-3 w-[200px]" />
+            <Skeleton className="h-9 w-[220px]" />
+            <Skeleton className="h-9 w-[220px]" />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/** Which thread item is the delivery: the newest run's deliver turn, or (a change's run since) the last finished move
+ *  before the newest person's note. */
 function deliveryOf(items: Said[], turns: { tool: string | null; created_at: string }[]) {
   const at = turns.filter((t) => t.tool === "deliver").map((t) => t.created_at).at(-1);
   if (at) return items.find((t) => t.kind === "move" && serverTime(t.at).getTime() === serverTime(at).getTime())?.id;
@@ -52,220 +292,313 @@ function deliveryOf(items: Said[], turns: { tool: string | null; created_at: str
   return [...items.slice(0, lastNote)].reverse().find((t) => t.kind === "move" && t.status === "done")?.id;
 }
 
-/** The chat view (B_VideoWaiting … B_ChangeHeld). `p`: the video, or before the owner's OK to an editor's send (when its
- *  video isn't theirs to read yet) just its id and brand, from the freestyle. */
-export function VideoChat({ p, freestyleId }: { p: Pick<Project, "id" | "brand_id">; freestyleId: number }) {
-  const me = useMe().data;
-  const owner = me?.role === "owner";
-  const rail = useRail();
+/** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,
+ *  moves and held sends, with the notes saved on its video; a video made from a script reads its director's thread. */
+function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void }) {
   const queryClient = useQueryClient();
-  const q = useFreestyle(freestyleId);
-  const fs = q.data;
-  const run = useDirectorRun(p.id).data;
-  const clips = useProjectClips(p.id).data ?? [];
-  const words = useSettingsWords();
-  const changePrice = useChangePrice(freestyleId, q.data?.status === "waiting" && !!q.data.file_id);
-  const actions = useFreestyleActions(freestyleId);
-  const makeIt = useMakeIt(p.id, freestyleId);
+  const id = p?.id ?? fs?.project_id ?? 0;
+  const actions = useFreestyleActions(fs?.id ?? null);
   const script = useScript(fs?.script_id ?? 0).data;
-  const [stopping, setStopping] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
-  // Newest at the bottom: keep the latest move (and the cut under it) in view as they arrive.
-  const newest = `${fs?.thread.length}:${run?.thread?.length}:${fs?.file_id}`;
+  const said = run?.thread ?? [];
+  const turns = run?.turns ?? [];
+  const known = (t: Said) => said.find((x) => x.kind === "message" && x.who === t.who && x.text === t.text);
+  const items: Said[] = fs
+    ? [...fs.thread.map((t) => (t.kind === "message" ? { ...t, answered: known(t)?.answered } : t)), ...said.filter((x) => x.kind === "message" && !fs.thread.some((t) => t.kind === "message" && t.who === x.who && t.text === x.text)).map((x) => ({ ...x, id: `note-${x.id}` }))].sort((a, b) => serverTime(a.at).getTime() - serverTime(b.at).getTime())
+    : said.length
+      ? said
+      : turns.map((t) => ({ id: `t${t.turn}`, kind: "move" as const, at: t.created_at, who: "Director", text: t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : plain(t.result, clips), status: t.status === "needs_owner_approval" ? ("held" as const) : null, why: t.why }));
+  const delivered = fs?.file_id || run?.status === "delivered" ? deliveryOf(items, turns) : undefined;
+  const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
+  const newest = `${items.length}:${items.at(-1)?.id}`;
   useEffect(() => {
     scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
   }, [newest]);
-  useMovesRefresh(p.id, fs?.thread.length ?? 0, fs?.status ?? "");
+
+  // Saved notes and the presses that make them (today's; the start card and the progress card replace them, screens 4–5).
+  const noted = !running && (run?.unread ?? 0) > 0 && run?.status !== "none";
   const again = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/director", { params: { path: { project_id: p.id } } });
+      const { data, error } = await api.POST("/projects/{project_id}/director", { params: { path: { project_id: id } } });
       if (!data) throw new Error(errorText(error));
       return data;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["director", p.id], data);
-      void queryClient.invalidateQueries({ queryKey: ["freestyle", freestyleId] });
+      queryClient.setQueryData(["director", id], data);
+      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
+      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
       return refreshJobs(queryClient);
     },
   });
-  if (!fs) return q.isError ? <p role="alert" className="p-6 text-danger">{q.error.message}</p> : <Skeleton className="m-8 h-64" />;
-
-  // A run whose only turn waits for the owner (a change's send) hasn't started; one held mid-run is still working.
-  const running = run?.status === "running" && !run.turns.every((t) => t.status === "needs_owner_approval");
-  const state = stateOf(fs, running);
-  const maker = fs.created_by_name === me?.name;
-  // The thread is the freestyle's (its first words, moves and held sends), with the owner's saved notes from the video's
-  // own chat, each note marked Answered or Open from there.
-  const said = run?.thread ?? [];
-  const known = (t: Said) => said.find((x) => x.kind === "message" && x.who === t.who && x.text === t.text);
-  const items: Said[] = [...fs.thread.map((t) => (t.kind === "message" ? { ...t, answered: known(t)?.answered } : t)), ...said.filter((x) => x.kind === "message" && !fs.thread.some((t) => t.kind === "message" && t.who === x.who && t.text === x.text)).map((x) => ({ ...x, id: `note-${x.id}` }))].sort((a, b) => serverTime(a.at).getTime() - serverTime(b.at).getTime());
-  const delivered = fs.file_id ? deliveryOf(items, run?.turns ?? []) : undefined;
-  const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
-  const noted = owner && !running && (run?.unread ?? 0) > 0;
-  // Made from a script that was there before it (a pasted script is made with its freestyle).
-  const fromScript = !!script && serverTime(script.created_at) < serverTime(fs.created_at);
-  const opening = fs.thread.find((t) => t.kind === "message")?.text;
-  const slot = script?.versions.find((v) => v.project_id === p.id) ?? script?.versions.find((v) => v.text === opening); // before the OK it has no video
-  const seconds = Math.round(clips.reduce((n, c) => n + c.seconds, 0));
-  const title = fromScript && slot && slot.slot > 0 ? `${fs.title} · ${letterOf(slot.slot)}` : fs.title;
-  const stepsTo = state === "waiting" || (state === "working" && rail) ? null : clips.length ? "clips" : "plan";
-  // The presses for where it is: in the top bar on desktop, in the bar above the tabs on a phone (B_PhoneVideo), by the
-  // same rules. A saved note makes Make it again the primary one ("Start again with this note" after a stop).
-  const withdrawn = state === "change" ? "Withdraw change" : "Withdraw";
-  const quiet = rail ? "text-muted! hover:text-text!" : "";
-  const presses = (
+  // A start card waiting for Make it is the press: the general one stands aside.
+  const card = fs?.make_it ?? run?.make_it ?? null;
+  const makeIt = useMakeIt(id, fs?.id);
+  const ended = ["delivered", "stopped", "failed", "declined", "withdrawn", "ended", "none"].includes(state) && card == null;
+  const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
+  const blocked = run?.start_blocked || null;
+  const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
+  const presses = !archived && !lookOnly && (
     <>
-      {fs.make_it != null && ( // its start card (S3-02): its plan is in the thread; no generation has started
-        <Button dense busy={makeIt.isPending} price={fs.make_it_up_to ?? fs.up_to ?? undefined} charge="estimate" onClick={() => makeIt.mutate(fs.make_it!)}>
+      {card != null && ( // its start card (S3-02): its plan is in the thread; no generation has started (screen 5 draws the card)
+        <Button dense busy={makeIt.isPending} price={(fs ? (fs.make_it_up_to ?? fs.up_to) : run?.run_price) || undefined} charge="estimate" onClick={() => makeIt.mutate(card)}>
           Make it
         </Button>
       )}
       {(state === "waiting" || state === "change") && maker && (
-        <Button variant={rail ? "ghost" : "secondary"} dense className={quiet} busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate()}>
-          {withdrawn}
+        <Button variant="secondary" dense busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate()}>
+          {state === "change" ? "Withdraw change" : "Withdraw"}
         </Button>
       )}
-      {state === "working" && (
-        <Button variant="secondary" dense icon={Square} onClick={() => setStopping(true)}>
-          Stop
+      {ended && mayStart && p && (
+        <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
+          {startLabel}
         </Button>
-      )}
-      {owner && ["delivered", "stopped", "failed", "declined", "withdrawn"].includes(state) && (
-        <Button variant={noted || !fs.file_id ? "primary" : "secondary"} dense busy={again.isPending} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
-          {state === "stopped" && noted ? "Start again with this note" : "Make it again"}
-        </Button>
-      )}
-      {state !== "working" && fs.file_id && (
-        <a className={buttonClass(noted ? "secondary" : "primary")} href={fileUrl(fs.file_id)} download={mp4(fs.title)}>
-          <Download size={16} strokeWidth={1.75} aria-hidden />
-          Download MP4
-        </a>
       )}
     </>
   );
-  const box =
-    state === "waiting" ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.")
-    : state === "working" ? "The director will read this on its next move."
-    : state === "change" ? "Another change waits for the owner too."
-    : owner ? "Notes are saved. Make it again makes them."
-    : "Each change goes to the owner first. No generation starts until they say yes.";
-  const extra = (t: Said) =>
-    t.id === delivered ? (
-      <Cut fs={fs} p={p} note={items.find((i) => i.id === t.id)?.text ?? ""} seconds={seconds} spent={run?.credits ?? fs.credits} hasClips={clips.length > 0} />
-    ) : t.id === heldMove && state === "waiting" ? (
-      <Card title="Sent to the owner for approval" price={fs.up_to ?? 0} frames={clips.length || 6} foot={fromScript ? undefined : "Nothing is made until the owner says yes."} />
-    ) : t.id === heldMove && state === "change" ? (
-      <Card title="Change asked · waiting for the owner" price={changePrice} foot="The cut above stays until the owner says yes." />
-    ) : null;
+
+  // The box: a note while it works is read on its next move; after a stop or a delivery the owner's is saved for Make it
+  // again (a note never starts a run by itself, the Producer); an editor's change on a freestyle goes to the owner first.
+  const [queued, setQueued] = useState<{ text: string; files: number[] }[]>([]);
+  const saveNote = useMutation({
+    mutationFn: async ({ text, files }: { text: string; files: number[] }) => {
+      const { data, error } = await api.POST("/projects/{project_id}/director/messages", { params: { path: { project_id: id } }, body: { text, ...(files.length ? { files } : {}) } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["director", id], data);
+      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
+      return refreshJobs(queryClient);
+    },
+  });
+  // An editor's change with nothing running is a new run, held for the owner: it goes through the freestyle. Every other
+  // note (any while it runs, the owner's after it) is the director's own, with pictures or clips if any.
+  const viaFreestyle = !!fs && !running && !owner;
+  const send = viaFreestyle ? actions.change : saveNote;
+  const go = (text: string, files: number[], done: () => void) => {
+    if (!online) return (setQueued((q) => [...q, { text, files }]), done());
+    const after = { onSuccess: done };
+    return viaFreestyle ? actions.change.mutate(text, after) : saveNote.mutate({ text, files }, after);
+  };
+  // Typed while offline: it sends once the page is back (S3-16).
+  // Each note leaves the queue only once it's sent: one that fails stays, and says why.
+  const sendingQueue = useRef(false); // one pass at a time: a second "online" while it sends doesn't send twice
+  useEffect(() => {
+    if (!queued.length) return;
+    const back = async () => {
+      if (sendingQueue.current) return;
+      sendingQueue.current = true;
+      for (const n of queued) {
+        try {
+          await (viaFreestyle ? actions.change.mutateAsync(n.text) : saveNote.mutateAsync(n));
+          setQueued((q) => q.filter((x) => x !== n));
+        } catch {
+          break; // its error shows under the box; it stays queued for the next try
+        }
+      }
+      sendingQueue.current = false;
+    };
+    window.addEventListener("online", back);
+    return () => window.removeEventListener("online", back);
+  }, [queued, viaFreestyle]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const waiting = state === "waiting";
+  const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
+  const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “shorter end”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
+  const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : viaFreestyle && !owner && !running ? "Each change goes to the owner first. Nothing is spent until they say yes." : null;
+  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
+  const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
+  const opening = items.find((t) => t.kind === "message")?.id;
   return (
-    <div className="flex h-[calc(100dvh-var(--tabbar-h))] flex-col lg:h-screen">
-      <VideoTop brandId={p.brand_id} fs={fs} title={title} stepsTo={stepsTo} actions={rail ? presses : null} />
-      {state === "working" && rail && ( // pinned under the header while the thread scrolls (B_VideoRunning)
-        <div className="px-8 pt-3">
-          <div className="mx-auto w-full max-w-[736px] space-y-2">
-            <p className="text-sm text-muted tabular-nums">{[phaseOf(run?.turns ?? [], clips, false), `${creditsLabel(wholeCredits(fs.credits))} spent so far`, "you can leave this page"].join(" · ")}</p>
-            <div className="flex items-center gap-2 text-sm text-muted">
-              Locked <LockChips projectId={p.id} />
-            </div>
-          </div>
+    <>
+      {!online && (
+        <div role="status" className="flex items-center gap-2 border-b border-border bg-surface-2 px-5 py-2 text-sm text-muted">
+          <WifiOff size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+          <span>You’re offline. The director keeps working on the server; this page catches up when you’re back.</span>
+          <button type="button" className="ml-auto min-h-control shrink-0 px-2 font-medium hover:text-text lg:min-h-0 lg:px-0" onClick={() => void queryClient.refetchQueries({ type: "active" })}>
+            Retry
+          </button>
         </div>
       )}
-      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-8">
-        <div className="mx-auto w-full max-w-[736px] space-y-6">
-          <Thread
-            fs={fs}
-            items={items.map((t) => (t.id === delivered ? { ...t, text: "Delivered." } : t))}
-            tags={words(fs)}
-            owner={owner}
-            first={fromScript && <ScriptCard title={script.title} slot={slot?.slot ?? 0} seconds={slot?.seconds ?? 0} lines={(slot?.text ?? "").split("\n").filter((l) => l.trim()).length} to={`/b/${p.brand_id}/scripts/${script.id}`} />}
-            extra={extra}
-          />
-          {fs.reel_script_id && !items.length && <ReelBlock scriptId={fs.reel_script_id} published={false} /> /* Use a reel: its read, before the script is written */}
-          {noted && <p className="text-sm text-muted">Saved. Press Make it again to make this change.</p>}
-          {again.isError && <p role="alert" className="text-sm text-danger">{again.error.message}</p>}
-          {actions.withdraw.isError && <p role="alert" className="text-sm text-danger">{actions.withdraw.error.message}</p>}
+      {lookOnly && p && (
+        <div className="border-b border-border px-5 py-2">
+          <Banner tone="info" title={`This is ${p.created_by_name ? `${p.created_by_name}'s` : "someone else's"} video. You can look, but only ${p.created_by_name || "someone else"} or the owner can change it.`} />
         </div>
-      </div>
-      <div className="border-t border-border bg-bg px-4 py-3 lg:border-0 lg:px-8 lg:pb-6 lg:pt-0">
-        <div className="mx-auto w-full max-w-[736px] space-y-3">
-          <ChangeBox fs={fs} status={box} closed={state === "waiting" ? (fromScript ? box : null) : null} disabled={state === "waiting"} saveTo={owner && !running ? p.id : undefined} />
-          {!rail && <div className="grid gap-2 empty:hidden [&>*]:w-full">{presses}</div>}
-        </div>
-      </div>
-      {stopping && (
-        <Dialog title="Stop the director?" actionLabel="Stop" danger busy={actions.stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => actions.stop.mutate(undefined, { onSettled: () => setStopping(false) })}>
-          <p>It makes no more moves. What it already started still finishes, and nothing is undone. You can carry on in the steps.</p>
-        </Dialog>
       )}
-    </div>
+      {archived && (
+        <div className="border-b border-border px-5 py-2">
+          <Banner tone="info" title="Archived" action={onRestore && maker ? <Button variant="secondary" dense onClick={onRestore}>Restore</Button> : undefined}>
+            It's out of the lists. Its clips and downloads are kept. Restore it to keep working.
+          </Banner>
+        </div>
+      )}
+      <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-2 pt-4 [mask-image:linear-gradient(to_bottom,transparent_0,#000_36px)]">
+        <ol aria-label="Conversation with the director" className="mt-auto flex flex-col gap-4">
+          {items.map((t) =>
+            t.kind === "message" ? (
+              <Item key={t.id} t={t} words={t.id === opening && first ? null : t.text} first={t.id === opening ? first : undefined} excerpt={t.id === opening} />
+            ) : (
+              <Item key={t.id} t={t} owner={owner} words={plain(t.text, clips) || "Deciding what to do next."} why={plain(t.why ?? "", clips)}>
+                {t.id === heldMove && waiting && fs && <Held title="Sent to the owner for approval" price={fs.up_to} foot={fromScript ? undefined : "Nothing is made until the owner says yes."} />}
+                {t.id === heldMove && state === "change" && fs && <ChangeHeld fs={fs} />}
+                {t.id === delivered && p && (
+                  <button type="button" className="self-start text-sm font-medium text-accent-text hover:underline max-lg:min-h-control" onClick={onWatch}>
+                    Watch the cut
+                  </button>
+                )}
+              </Item>
+            ),
+          )}
+        </ol>
+        {fs?.reel_script_id && !items.length && <ReelBlock scriptId={fs.reel_script_id} published={false} /> /* Use a reel: its read, before the script is written */}
+        {again.isError && <p role="alert" className="mt-2 text-sm text-danger">{again.error.message}</p>}
+        {actions.withdraw.isError && <p role="alert" className="mt-2 text-sm text-danger">{actions.withdraw.error.message}</p>}
+      </div>
+      {presses && <div className="flex flex-wrap items-center justify-end gap-2 px-5 pb-1 empty:hidden">{presses}</div>}
+      <Composer placeholder={placeholder} closed={closed} note={note} error={send.isError ? send.error.message : null} busy={send.isPending} onSend={go} upload={!viaFreestyle} />
+    </>
   );
 }
 
-/** The cut where it was delivered (B_VideoDelivered): the player, the delivery note, the clips in it and what it cost. */
-function Cut({ fs, p, note, seconds, spent, hasClips }: { fs: Freestyle; p: { id: number }; note: string; seconds: number; spent: number; hasClips: boolean }) {
-  const clips = useProjectClips(p.id).data ?? [];
+/** What waits on the owner (today's card until the start card, screen 5): its "up to" price once known, never "up to free". */
+function Held({ title, price, foot }: { title: string; price: number | null | undefined; foot?: string }) {
   return (
-    <div className="flex flex-col gap-5 sm:flex-row">
-      <video controls src={fileUrl(fs.file_id!)} aria-label="The cut" className="w-full shrink-0 rounded-md bg-surface-2 object-contain sm:w-[180px]" style={{ aspectRatio: fs.shape.replace(":", " / ") }} />
-      <div className="min-w-0 flex-1 space-y-3">
-        {note !== "Delivered." && <p className="break-words">{note}</p>}
-        {hasClips && <InTheCut clips={clips} projectId={p.id} />}
-        <p className="text-sm text-muted tabular-nums">{[seconds > 0 && `${seconds} s`, `spent ${creditsLabel(wholeCredits(spent))} on this run`].filter(Boolean).join(" · ")}</p>
-      </div>
+    <div className="space-y-2 rounded-lg border border-border bg-surface px-3 py-2.5 shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]">
+      <p className="flex items-center justify-between gap-3 text-sm">
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden className="size-2 rounded-full bg-need-dot" />
+          {title}
+        </span>
+        {!!price && <span className="text-muted tabular-nums">{pressLabel(price, "estimate")}</span>}
+      </p>
+      {foot && <p className="text-sm text-muted">{foot}</p>}
     </div>
   );
 }
 
 /** A held change's own price, "up to", from its held job (JobOut.freestyle.up_to, the figure its Needs you row shows). The
  *  director's `run_price` is no use here: the server gives 0 while a run is going, and a change's held first turn counts
- *  as going, which read as "up to free" (QA on #1194). The held jobs: the owner's are everyone's, an editor's their own
- *  (`mine=true` leaves a director turn out). */
-function useChangePrice(freestyleId: number, enabled: boolean) {
+ *  as going (QA on #1194). */
+function ChangeHeld({ fs }: { fs: Freestyle }) {
   const held = useQuery({
     queryKey: ["held-jobs"],
-    enabled,
     refetchInterval: 15_000,
     queryFn: async () => (await api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } })).data ?? [],
   });
-  return held.data?.find((j) => j.status === "needs_owner_approval" && j.freestyle?.id === freestyleId && j.freestyle.change)?.freestyle?.up_to;
+  const price = held.data?.find((j) => j.status === "needs_owner_approval" && j.freestyle?.id === fs.id && j.freestyle.change)?.freestyle?.up_to;
+  return <Held title="Change asked · waiting for the owner" price={price} foot="The cut stays until the owner says yes." />;
 }
 
-/** The director's card for what waits on the owner: its "up to" price (once known; never "up to free") and, before
- *  anything is made, the clips to come. */
-function Card({ title, price, frames, foot }: { title: string; price: number | null | undefined; frames?: number; foot?: string }) {
+/** The script a video was made from (E_EditorSent), in place of pasted words. */
+function ScriptCard({ fs, script, pid, brandId }: { fs: Freestyle; script: NonNullable<ReturnType<typeof useScript>["data"]>; pid: number; brandId: number }) {
+  const opening = fs.thread.find((t) => t.kind === "message")?.text;
+  const slot = script.versions.find((v) => v.project_id === pid) ?? script.versions.find((v) => v.text === opening);
+  const lines = (slot?.text ?? "").split("\n").filter((l) => l.trim()).length;
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface px-4 py-3.5">
-      <p className="flex items-center justify-between gap-3 text-sm">
-        <span className="inline-flex items-center gap-2">
-          <span aria-hidden className="size-2 rounded-full bg-warning" />
-          {title}
-        </span>
-        {!!price && <span className="text-muted tabular-nums">{pressLabel(price, "estimate")}</span>}
-      </p>
-      {frames && (
-        <ol aria-hidden className="grid grid-cols-6 gap-1.5">
-          {Array.from({ length: frames }, (_, i) => (
-            <li key={i} className="relative h-20 rounded-md bg-gradient-to-br from-surface-3 to-surface">
-              {!foot ? null : <span className="absolute bottom-1 left-1 rounded-sm bg-black/50 px-1 text-xs text-muted">{i + 1}</span>}
-            </li>
-          ))}
-        </ol>
-      )}
-      {foot && <p className="text-sm text-muted">{foot}</p>}
+    <div className="flex items-center gap-3 rounded-md border border-border bg-surface px-3 py-2.5">
+      <FileText size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{`From script ${script.title} · version ${letterOf(slot?.slot ?? 0)}`}</p>
+        <p className="text-sm text-muted">{[slot?.seconds && mmss(slot.seconds), `${lines} line${lines === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+      </div>
+      <Link to={`/b/${brandId}/scripts/${script.id}`} className="inline-flex min-h-control shrink-0 items-center text-sm text-muted hover:text-text lg:min-h-0">
+        Open script
+      </Link>
     </div>
   );
 }
 
-/** The script a video was made from (E_EditorSent), in place of pasted words. */
-function ScriptCard({ title, slot, seconds, lines, to }: { title: string; slot: number; seconds: number; lines: number; to: string }) {
+/** The message box (S3): "Tell the director what to change", the upload and the send. Enter sends, Shift+Enter is a new
+ *  line. Pictures or clips sent with a note are for this video only (rule 12). `closed`: why it can't be used now. */
+function Composer({ placeholder, closed, note, error, busy, upload, disabled, onSend }: { placeholder: string; closed?: string | null; note?: string | null; error?: string | null; busy?: boolean; upload?: boolean; disabled?: boolean; onSend: (text: string, files: number[], done: () => void) => void }) {
+  const [text, setText] = useState("");
+  const [files, setFiles] = useState<{ id: number; name: string }[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const sending = useRef(false); // one press, one note: a second click before the first returns does nothing
+  useEffect(() => {
+    if (!busy) sending.current = false;
+  }, [busy]);
+  const off = disabled || !!closed;
+  const ready = !!text.trim() && !busy && !adding && !off;
+  const go = () => {
+    if (!ready || sending.current) return;
+    sending.current = true;
+    onSend(text.trim(), files.map((f) => f.id), () => ((sending.current = false), setText(""), setFiles([])));
+  };
+  const add = async (list: FileList | null) => {
+    setProblem(null);
+    setAdding(true);
+    try {
+      for (const f of Array.from(list ?? []).slice(0, 6 - files.length)) {
+        const stored = await uploadFile(f);
+        setFiles((now) => [...now, { id: stored.id, name: f.name }]);
+      }
+    } catch (e) {
+      setProblem((e as Error).message);
+    } finally {
+      setAdding(false);
+    }
+  };
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
-      <FileText size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">{`From script ${title} · version ${letterOf(slot)}`}</p>
-        <p className="text-sm text-muted">{[seconds > 0 && mmss(seconds), `${lines} line${lines === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+    <form
+      aria-label="Your message"
+      className="mx-5 mb-4 mt-1 flex flex-col gap-2 rounded-xl border border-border-strong bg-surface py-2 pl-3 pr-2.5 focus-within:border-focus max-lg:mx-3 max-lg:mb-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        go();
+      }}
+    >
+      <label htmlFor="director-box" className="sr-only">
+        Tell the director what to change
+      </label>
+      <textarea
+        id="director-box"
+        rows={1}
+        maxLength={2000}
+        value={text}
+        disabled={off}
+        placeholder={closed ?? placeholder}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            go();
+          }
+        }}
+        className="mt-0.5 min-h-5 resize-none bg-transparent text-base leading-5 outline-none! placeholder:text-[#6f727a] disabled:cursor-not-allowed lg:text-sm"
+      />
+      {files.length > 0 && (
+        <ul aria-label="Sent with it, for this video only" className="flex flex-wrap gap-1.5">
+          {files.map((f) => (
+            <li key={f.id} className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-xs">
+              <Paperclip size={12} strokeWidth={1.75} aria-hidden className="text-muted" />
+              <a href={fileUrl(f.id)} target="_blank" rel="noreferrer" className="max-w-40 truncate">{f.name}</a>
+              <button type="button" aria-label={`Take off ${f.name}`} onClick={() => setFiles((now) => now.filter((x) => x.id !== f.id))} className="-mr-1 grid size-control place-items-center text-muted hover:text-text lg:size-5">
+                <X size={12} strokeWidth={1.75} aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center gap-1.5">
+        {upload && (
+          <>
+            <input ref={picker} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => (void add(e.target.files), (e.target.value = ""))} />
+            <button type="button" aria-label="Add pictures or clips for this video" title="Pictures or clips, for this video only" disabled={off || adding || files.length >= 6} onClick={() => picker.current?.click()} className="grid size-8 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-text disabled:opacity-50 max-lg:size-control">
+              <Upload size={14} strokeWidth={1.75} aria-hidden />
+            </button>
+          </>
+        )}
+        <span className={`min-w-0 flex-1 text-xs ${error || problem ? "text-danger" : "text-muted"}`} role="status">
+          {error ?? problem ?? (adding ? "Adding…" : note)}
+        </span>
+        <button type="submit" aria-label="Send to the director" disabled={!ready} className={`grid size-8 shrink-0 place-items-center rounded-lg max-lg:size-control ${ready ? "bg-ink text-white" : "bg-surface-3 text-faint"}`}>
+          <ArrowUp size={14} strokeWidth={1.75} aria-hidden />
+        </button>
       </div>
-      <Link to={to} className="inline-flex min-h-control shrink-0 items-center text-sm text-muted hover:text-text lg:min-h-0">Open script</Link>
-    </div>
+    </form>
   );
 }
