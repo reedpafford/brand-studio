@@ -110,6 +110,12 @@ def _text(db: Session, row: BreakdownVersion) -> str:
     )) or ""  # fmt: skip
 
 
+def _working_text(db: Session, project) -> str:
+    """The script as Fix reads it (its newest version): Split is offered by the same words."""
+    version = latest(db, project)
+    return version.text if version else ""
+
+
 def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
     db = object_session(row)
     project = db.get(Project, row.project_id)
@@ -123,7 +129,7 @@ def _out(row: BreakdownVersion, working: int) -> BreakdownOut:
         kept=row.kept or [],
         stale=row.script_version != working,
         song=_song(db, row),
-        fixes=breakdown_fix.fixes(row.problems or [], row.data, _text(db, row)),
+        fixes=breakdown_fix.fixes(row.problems or [], row.data, _working_text(db, project)),
         older_plan=plans.older(db, project, row),
         **_director_run(db, project),
     )

@@ -239,3 +239,38 @@ def test_each_piece_names_its_own_line_in_order():
     pieces = fixed.scenes[0].shots
     assert done and len(pieces) == 3
     assert [p.script_lines for p in pieces] == [[2], [2], [3]]  # the 2nd "Water helps." is 3's
+
+
+def test_a_sentence_over_a_line_break_keeps_both_lines():
+    """QA on #1332: a line that doesn't end a sentence ("…said “stop.”") runs on into the
+    next; its piece names both lines, so the check stays clean."""
+    more, less = " ".join(["more"] * 10), " ".join(["less"] * 10)
+    script = (f"SCENE 1 — INT. BEDROOM — NIGHT\nNARRATOR: {more}. She said \"stop.\"\n"
+              f"NARRATOR: So I did. {less}.")  # fmt: skip
+    shot = _shot("1.1", [2, 3], "NARRATOR", None, 20)
+    data = {**LONG, "scenes": [{**LONG["scenes"][0], "shots": [shot]}],
+            "clips": [{"id": "c1", "shot_ids": ["1.1"], "seconds": 20, "seam": "end"}]}  # fmt: skip
+    fixed, done = breakdown_fix.repair(script, Breakdown.model_validate(data),
+                                       ["clip c1: 20 s is outside 4–12 s"], 4, 12)  # fmt: skip
+    assert done
+    left = check.breakdown(script, fixed, {}, 4, 12)
+    assert not [p for p in left if "differs" in p or "no shot" in p or "outside" in p], left
+
+
+def test_a_repeated_sentence_with_a_camera_line_takes_the_next_copy():
+    script = ("SCENE 1 — INT. BEDROOM — NIGHT\n[Camera] Slow push in.\nNARRATOR: Water helps. "
+              + " ".join(["more"] * 10) + ".\nNARRATOR: Water helps. "
+              + " ".join(["less"] * 10) + ".")  # fmt: skip
+    text = ("Water helps. " + " ".join(["more"] * 10) + ". Water helps. "
+            + " ".join(["less"] * 10) + ".")  # fmt: skip
+    shot = _shot("1.1", [2, 3, 4], "NARRATOR", text, 20)
+    data = {**LONG, "scenes": [{**LONG["scenes"][0], "shots": [shot]}],
+            "clips": [{"id": "c1", "shot_ids": ["1.1"], "seconds": 20, "seam": "end"}]}  # fmt: skip
+    fixed, done = breakdown_fix.repair(script, Breakdown.model_validate(data),
+                                       ["clip c1: 20 s is outside 4–12 s"], 4, 12)  # fmt: skip
+    assert done
+    first, second = fixed.scenes[0].shots
+    assert first.script_lines == [2, 3, 4] and second.script_lines == [4]  # the next copy
+    count = lambda bd: sum("differs" in p or "no shot" in p  # noqa: E731
+                           for p in check.breakdown(script, bd, {}, 4, 12))  # fmt: skip
+    assert count(fixed) <= count(Breakdown.model_validate(data))  # nothing new to fix

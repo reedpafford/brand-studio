@@ -187,7 +187,7 @@ def _cut(shot, lines, max_s: int) -> list:
     for k, idx in enumerate(groups):
         g = [parts[j] for j in idx]
         words = " ".join(g)
-        mine = sorted({of[j] for j in idx if j in of}) or shot.script_lines
+        mine = sorted({n for j in idx for n in of.get(j, [])}) or shot.script_lines
         out.append(shot.model_copy(update={
             "id": f"{shot.id}.{k + 1}", "script_lines": mine,
             "line": words if shot.line else None,
@@ -197,23 +197,18 @@ def _cut(shot, lines, max_s: int) -> list:
     return out
 
 
-def _lines_of(parts: list[str], order: list[int], said: dict[int, str]) -> dict[int, int]:
-    """Each sentence's script line (by its place): by where its first word falls when the
-    shot says its lines' words in order, else the first line from the last one that holds it."""
-    sizes = [len(said[n].split()) for n in order]
-    if sum(len(_words(p).split()) for p in parts) == sum(sizes):  # the lines, word for word
-        out, word = {}, 0
-        for j, p in enumerate(parts):
-            at, k = 0, 0
-            while k < len(order) - 1 and at + sizes[k] <= word:
-                at, k = at + sizes[k], k + 1
-            out[j], word = order[k], word + len(_words(p).split())
-        return out
+def _lines_of(parts: list[str], order: list[int], said: dict[int, str]) -> dict[int, list[int]]:
+    """Each sentence's script lines (by its place): every line its words fall on, found as
+    whole words, in order, never before where the last sentence ended (a repeated sentence
+    takes the next copy; one running over a line break gets both lines)."""
+    words = [(w, n) for n in order for w in said[n].split()]
     out, at = {}, 0
     for j, p in enumerate(parts):
-        hit = next((i for i in range(at, len(order)) if _words(p) in said[order[i]]), None)
+        want = _words(p).split()
+        ends = range(at, len(words) - len(want) + 1) if want else range(0)
+        hit = next((i for i in ends if [w for w, _ in words[i : i + len(want)]] == want), None)
         if hit is not None:
-            at, out[j] = hit, order[hit]
+            out[j], at = sorted({n for _, n in words[hit : hit + len(want)]}), hit + len(want)
     return out
 
 
