@@ -1043,7 +1043,13 @@ def choose(state: dict) -> dict:
     made = f"The cut is made with each clip's best take. {done}".strip()
     unsure = " ".join(x for x in (keep, _still_wrong(state)) if x)
     return go(
-        "deliver", "The cut is made and watched.", made=made, unsure=unsure, needs=noticed
+        "deliver",
+        "The cut is made and watched."
+        if watch.get("state") == "done" and watch.get("current")
+        else "The cut is made.",
+        made=made,
+        unsure=unsure,
+        needs=noticed,
     )  # its questions are for the owner
 
 
@@ -1250,7 +1256,14 @@ def _item(db: Session, job: Job) -> str:
 
         row = db.get(HostPiece, piece)
         return f"The host's piece {row.number}" if row and row.number else "The host's still"
-    return f"The {str(job.input.get('step') or job.kind).replace('_', ' ')}"
+    step = str(job.input.get("step") or job.kind)
+    return NAMED.get(step) or f"The {step.replace('_', ' ')}"
+
+
+NAMED = {"watch_cut": "The watch of the cut", "cut_listen": "The watch of the cut",
+         STEP: "The director's next step", "treatment": "The treatment",
+         "take_watch": "The watch of a take", "review_stills": "The look at the stills",
+         "write-claude": "The director's next step"}  # fmt: skip  # plain names, never a step's
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:

@@ -38,7 +38,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     credits, _ = spent(db, project, turns[0].created_at)
     rows = _remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
     return {"made": said(decision.get("made") or decision.get("why") or ""),
-            "open": open_items(db, project, spans),
+            "open": open_items(db, project, spans, decision.get("needs") or ""),
             "redid": sorted(rows, key=lambda r: r["at"]),
             "unsure": said(decision.get("unsure") or ""),
             "needs": said(decision.get("needs") or ""),
@@ -48,12 +48,13 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
 
 
-def open_items(db: Session, project: Project, spans: list[dict]) -> list[str]:
+def open_items(db: Session, project: Project, spans: list[dict], asked: str = "") -> list[str]:
     """What the server knows is still open when the director delivers, said plainly (Reed, 4
-    Nov: a cut that exists isn't ready to post): a cut not watched, what the watch of this cut
-    kept, a take in the cut that wasn't checked or still has what its check found (not one
-    already muted or spliced, free), and each step waiting for the owner."""
-    from app import item_checks, take_mute, word_splice
+    Nov: a cut that exists isn't ready to post): a cut not watched; each finding of the watch
+    of this cut (kept, or not fixed), but those the note already asks about (`asked`); each
+    take in the cut not checked, or with what its checks found (not what was muted or spliced
+    free); and each step waiting for the owner."""
+    from app import item_checks
     from app.credits import WAIT_OK
     from app.director import _item
     from app.models.jobs import JobStatus
@@ -66,24 +67,26 @@ def open_items(db: Session, project: Project, spans: list[dict]) -> list[str]:
         out.append("The watch of the cut failed, so the cut wasn't watched." if failed
                    else "The cut wasn't watched.")  # fmt: skip
     where = {s["row"].clip_id: _clip(s["row"]) for s in spans}
+    takes = {s["row"].clip_id: s["take"] for s in spans}
     for f in watch.get("findings") or [] if watch.get("current") else []:
-        if f.get("fix") == "keep" and f.get("says"):
-            head = f"{where[f['clip_id']]}: " if f.get("clip_id") in where else ""
-            out.append(f"{head}{said(f['says']).rstrip('.')}. Kept as it is.")
+        says = said(f.get("says") or "").rstrip(".")
+        if not says or says.lower() in asked.lower() or _watch_fixed(f, takes):
+            continue  # asked of the owner in the note, or fixed for free since (a mute, a pick)
+        head = f"{where[f['clip_id']]}: " if f.get("clip_id") in where else ""
+        done = "Kept as it is." if f.get("fix") == "keep" else "Not fixed."
+        out.append(f"{head}{says}. {done}")
     if spans and not item_checks.on():  # checks are off on this site: said once
         out.append("The takes weren't checked one by one.")
     ids = [s["take"].id for s in spans]
     checks = {k: item_checks.latest(db, k, ids) for k in ("take", "words")}
     for s in spans:
         take, n = s["take"], _clip(s["row"])
-        muted = [list(x) for x in take_mute.spans(take)]
-        splice = [x.get("at") for x in word_splice.spliced(take)]
-        found = [f for k in checks for f in _found(checks[k].get(take.id))
-                 if not _fixed_free(f, muted, splice)]  # fmt: skip
-        if found:
-            out.append(f"{n}: {said(found[0]['text']).rstrip('.')}. Kept as it is.")
-        check = checks["take"].get(take.id)
-        if not found and item_checks.on() and (check is None or check.status != "done"):
+        for k in ("take", "words"):
+            for f in _found(checks[k].get(take.id)):
+                if not _fixed_free(db, take, f):
+                    out.append(f"{n}: {said(f['text']).rstrip('.')}. Kept as it is.")
+        mine = [checks[k].get(take.id) for k in ("take", "words")]
+        if item_checks.on() and (mine[0] is None or any(c and c.status != "done" for c in mine)):
             out.append(f"{n}'s take wasn't checked.")  # none, failed, skipped or never finished
     held = db.scalars(select(Job).where(Job.project_id == project.id,
                                         Job.status == JobStatus.needs_owner_approval))  # fmt: skip
@@ -95,13 +98,31 @@ def open_items(db: Session, project: Project, spans: list[dict]) -> list[str]:
     return out
 
 
-def _fixed_free(f: dict, muted: list, splice: list) -> bool:
-    """A check's finding already fixed for free: its stretch muted, or its brand word spliced."""
-    if f.get("span") and list(f["span"]) in muted:
+def _watch_fixed(f: dict, takes: dict) -> bool:
+    """A watch finding fixed without a new cut being needed: its stretch muted, or the take
+    it pointed to is the one in the cut."""
+    from app import take_mute
+
+    take = takes.get(f.get("clip_id"))
+    if take is None:
+        return False
+    if f.get("fix") == "mute" and f.get("mute"):
+        span = [round(float(x), 2) for x in f["mute"]]
+        return span in [[round(x, 2) for x in m] for m in take_mute.spans(take)]
+    return f.get("fix") == "pick" and f.get("take_id") == take.id
+
+
+def _fixed_free(db: Session, take: ClipTake, f: dict) -> bool:
+    """A check's finding already fixed for free: its stretch muted, or a brand name heard
+    wrong when every wrong copy of it in the take has a clean one spliced in."""
+    from app import take_mute, word_splice
+
+    if f.get("span") and list(f["span"]) in [list(x) for x in take_mute.spans(take)]:
         return True
-    at = f.get("at")
-    starts = [a[0] if isinstance(a, list | tuple) else a for a in splice if a is not None]
-    return f.get("kind") == "name" and at is not None and any(abs(a - at) < 0.5 for a in starts)
+    done = word_splice.spliced(take)
+    if f.get("kind") != "name" or not done:
+        return False
+    return all(any(x.get("at") == w["at"] for x in done) for w in word_splice.wrong(db, take))
 
 
 def _spans(db: Session, cut: FinalVideo | None) -> list[dict]:
