@@ -419,3 +419,15 @@ test("QA rule 22: Another take says why it can't start yet, instead of failing o
   expect(within(c).getByRole("button", { name: /^Another take/ })).toBeDisabled();
   expect(within(c).getByText("Fix this clip’s prompt first (above, free).")).toBeInTheDocument();
 });
+
+test("a stopped video's data never breaks Clips: a clip too long for its model (S3-11), a plan scene with no shots, a clip with no takes", async () => {
+  setViewport(1440);
+  const v = video(3);
+  const cell = { clip_id: "c1", number: 1, scene: 1, label: "Shot 1", seconds: 115, model: "Seedance 2.0", state: "too_long", frame_file_id: null, take_id: null, note: "It's 115 s; the model makes 12 s.", percent: null, minutes_left: null, credits: null, changed: false, watched: true, found: false };
+  const run = { status: "needs_fix", clips: 1, made: 0, scenes: [{ id: 1, name: "Hook", total: 1, done: 0, clips: [cell] }], counts: { all: 1, needs_you: 1, flagged: 0, redone: 0 } };
+  const older = { ...v.breakdown, breakdown: { ...v.breakdown.breakdown, scenes: [{ id: 1, heading: "Hook", look: "" }], clips: [{ id: "c1", seconds: 115, seam: "" }] } };
+  server(owner, 3, { "GET /projects/50/director/progress": [200, run], "GET /projects/50/breakdown": [200, older], "GET /projects/50/clips": [200, [{ ...v.clips[0], picked_take_id: null, takes: [] }]], "GET /projects/50/storyboard": [200, []] });
+  open();
+  expect(await screen.findByText("Too long for its model")).toBeInTheDocument(); // it said "undefined is not iterable" and took the page down
+  expect(screen.queryByRole("alert", { name: /couldn’t show/ })).toBeNull();
+});

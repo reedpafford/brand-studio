@@ -66,7 +66,7 @@ test("S9-01: the owner's inbox across brands, Questions, Money and Stuck, with t
   // An editor's send: whose, what, and nothing spent until the owner approves.
   expect(screen.getByText("Gut check (Kel’s send)")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Kel’s new video · up to $16.40" })).toBeInTheDocument();
-  expect(screen.getByText("Pasted script, Skeleton style, 45 s. Nothing is spent until you approve.")).toBeInTheDocument();
+  expect(screen.getByText("Pasted script, Skeleton style, 45 s. No generation starts until you approve.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Approve and start" }).className).not.toContain("bg-accent"); // one indigo press
   expect(screen.getByRole("link", { name: "Read the script: Gut check" })).toHaveAttribute("href", "/b/1/videos/13?tab=script");
   expect(screen.getByRole("button", { name: "Split it · free" })).toBeInTheDocument();

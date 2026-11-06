@@ -12,6 +12,7 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
+from tests.conftest import make_cut
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
@@ -194,3 +195,32 @@ def test_editing_a_prompt_never_buys_a_take(app, db, editor, setup, clip):  # no
     assert videos() == before and [t["id"] for t in after["takes"]] == [take["id"]]
     assert after["picked_take_id"] == take["id"] and after["approved"] is True
     assert after["take_stale"] is True and after["take_credits"] > 0  # "Another take · up to"
+
+
+def test_another_take_then_make_the_cut_with_no_approve_anywhere(app, db, editor, setup, clip):  # noqa: F811
+    """Flow-QA M2 (V6 has no per-clip Approve, Reed on #1329): a person's Another take goes into
+    the cut by itself, unapproved, and their Make the cut makes the cut at once: the press is
+    their OK on the takes in it."""
+    base = f"/projects/{setup['project']}"
+    _two_takes(app, db, editor, base, clip)
+    db.expire_all()
+    row = db.get(ProjectClip, clip["id"])
+    assert row.picked_take_id and not row.approved  # the newest take, in the cut, unapproved
+    made = make_cut(app, db, editor, base)
+    assert made.status_code == 200, made.text  # never "Approve every clip to make the video"
+    status = editor.get(f"{base}/idea").json()["status"]
+    assert "ready to check" not in (status.get("reason") or "")  # nothing waits on a person
+    # …and the cut it made is current (QA on #1379): never "Out of date… Make it again" for good,
+    # for the person (the video and the Cut tab) and for the director's watch of the cut.
+    from app import director, watch_cut
+
+    project = db.get(Project, setup["project"])
+    assert made.json()["out_of_date"] is False
+    assert editor.get(f"{base}/cut").json()["out_of_date"] is False
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=project.created_by_id,
+               kind=watch_cut.KIND, provider="fake", project_id=project.id, status="succeeded",
+               input={"step": watch_cut.STEP, "final_video_id": watch_cut._cut(db, project).id},
+               output={}))  # fmt: skip
+    db.commit()
+    assert watch_cut.state(db, project)["current"] is True
+    assert director.video_state(db, project)["cut"] == "made"

@@ -71,7 +71,8 @@ def waiting_on(
         for pid, bd, approved in rows:
             if bd != plan.get(pid):
                 behind.add(pid)
-            elif not approved:
+            elif not approved and model is StoryboardFrame:  # a clip's take in the cut is never
+                # "to check": V6 has no per-clip Approve (Reed on #1329; Flow-QA M2)
                 ready.setdefault(pid, {}).setdefault(model, 0)
                 ready[pid][model] += 1
     from app import plans

@@ -964,11 +964,15 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
     for p in (p for p in projects if p.id in ids):
         bd, rows = bds.get(p.id), clips.get(p.id, [])
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
-        if any(not c.approved or moved or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
+        # Every clip's take, as cut.ready asks (a person's cut has no Approve, M2); a cut compares
+        # its takes below, but a video finished by its zip has only each clip's approval to go on.
+        video = videos.get(p.id)
+        if any(not c.picked_take_id or (video is None and not c.approved) or moved
+               or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
                or looks.take_other(db, p, c) or video_settings.take_stale(db, p, c)
                for c in rows):  # fmt: skip
             old.add(p.id)
-        elif (video := videos.get(p.id)) and (
+        elif video and (
             video.take_ids != [c.picked_take_id for c in rows]
             or (video.edit_ids or []) != edits.get(p.id, [])
             or (video.cut_ins or []) != _cut_ins(db, p, rows)

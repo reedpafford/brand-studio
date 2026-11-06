@@ -34,6 +34,7 @@ WORDS = {"working": "Working", "needs_you": "Needs you", "waiting": "Waiting for
          "archived": "Archived"}  # fmt: skip
 YOUR_OK = "Waiting for your OK"
 START = "Start it"  # nothing has run, or the treatment waits for Make it
+CAST_OK = "Approve the cast and places"  # its run waits on that OK only (S7: never "Working")
 AT = "Stopped at {}"  # a run that stopped on its own: an error or a limit
 STEPS = {"breakdown": "the plan", "assets": "the cast", "storyboard": "the stills",
          "clips": "the clips", "downloads": "the cut"}  # fmt: skip
@@ -135,6 +136,7 @@ def _runs(db: Session, ids: list[int]) -> dict[int, dict]:
         for key in ("ended", "result", "stopped_by", "stopped_at"):
             if data.get(key):
                 out[pid][key] = data[key]
+        out[pid]["last"] = data.get("result")  # its newest turn's (None while it's asked)
     return out
 
 
@@ -177,12 +179,18 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=START)
         elif p.id in known.held:
             s = Status(kind="waiting", words=YOUR_OK if user.is_owner else WORDS["waiting"])
+        elif run.get("ended") == director.STOPPED:
+            who = user_name(db, run.get("stopped_by"))
+            s = Status(kind="stopped", words=WORDS["stopped"], reason=who and f"by {who}",
+                       at=run.get("stopped_at"))  # fmt: skip
         elif p.id in failed:
             s = Status(
                 kind="needs_fix",
                 words=WORDS["needs_fix"],
                 reason=AT.format(_where(db, failed[p.id], steps[p.id], made, total)),
             )
+        elif run.get("last") == director.CAST_WAIT and not run.get("ended"):  # its run waits
+            s = Status(kind="needs_you", words=WORDS["needs_you"], reason=CAST_OK)  # on the OK
         elif p.id in asked:  # the director's question waits (S-gaps-01 option 4)
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=asked[p.id])
         elif p.id in known.busy:
@@ -190,11 +198,8 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
                        reason=f"{made} of {total}" if total else None)  # fmt: skip
         elif p.id in waits:
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=waits[p.id])
-        elif run.get("ended") == director.STOPPED:
-            who = user_name(db, run.get("stopped_by"))
-            s = Status(kind="stopped", words=WORDS["stopped"], reason=who and f"by {who}",
-                       at=run.get("stopped_at"))  # fmt: skip
-        elif run.get("ended") and run.get("result") != "Delivered." and not p.finished_at:
+        elif run.get("ended") and run.get("result") != "Delivered.":  # its newest run, even
+            # after an earlier one delivered (S7: never "Delivered" while the chat says stopped)
             s = Status(
                 kind="needs_fix",
                 words=WORDS["needs_fix"],
