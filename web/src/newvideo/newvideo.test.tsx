@@ -261,3 +261,13 @@ test("From a saved script: the cards show the script's own format and style, loc
   expect(screen.getByText("From the script")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Change B-roll look…" })).toBeInTheDocument(); // still the video's own pick
 });
+
+test("uncapped (Reed, 6 Nov): the owner's press says about what it will cost, an estimate, never up to", async () => {
+  setViewport(1440);
+  server(owner, { "GET /freestyles/estimate": [200, { credits: 91, usd: 9.1, held: "", budget: null, expected: true }] });
+  renderApp("/b/1/videos/new");
+  await userEvent.type(await words(), SCRIPT);
+  expect(await screen.findByRole("button", { name: "Make it · about $9.10" }, { timeout: 3000 })).toBeInTheDocument();
+  expect(screen.getByText(/^An estimate of what it will probably cost\. Nothing stops it at a limit here/)).toBeInTheDocument();
+  expect(screen.queryByText(/up to|Most it can charge/)).toBeNull();
+});

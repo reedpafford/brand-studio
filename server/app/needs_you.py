@@ -69,18 +69,13 @@ def waiting_on(
         rows = db.execute(select(model.project_id, model.breakdown_id)
                           .where(model.project_id.in_(ids), made.is_not(None))).all()  # fmt: skip
         behind |= {pid for pid, bd in rows if bd != plan.get(pid)}
-    from app import plans
-
-    ready_plan = {p.id for p in projects if p.id in ids and plans.status(db, p) == "ready"}
-    out = {}
+    out = {}  # a ready plan waits on no one: the director approves its own (S8)
     for pid in ids:
         job = failed.get(pid)
         if pid in held:
             out[pid] = HELD
         elif job and (name := KINDS.get(job.kind) or NAMES.get(job.input.get("step", ""))):
             out[pid] = f"{name} didn't finish"
-        elif pid in ready_plan:  # made, not approved yet: the one press that moves it on
-            out[pid] = "Check the scene plan"
         elif looks.get(pid):
             out[pid] = f"Approve {_count(looks[pid], 'look', 'looks')}"
         elif pid in behind or pid in old:

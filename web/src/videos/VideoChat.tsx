@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ChevronLeft, CircleStop, FileText, Paperclip, Upload, WifiOff, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
@@ -27,6 +27,7 @@ import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from ".
 import { InsteadCard } from "./InsteadCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stopLines, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
+import { upTo } from "./money";
 
 type Project = components["schemas"]["ProjectOut"];
 type Run = components["schemas"]["DirectorOut"];
@@ -37,7 +38,7 @@ export function useVideoProject(id: number) {
   return useQuery({
     queryKey: ["project", id],
     enabled: id > 0,
-    queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}", { params: { path: { project_id: id } } }), null),
   });
 }
 
@@ -170,7 +171,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
   const chat = (
-    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
+    <Chat head={head.data ?? undefined} p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
   );
   const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
@@ -306,8 +307,9 @@ function useRunEnd(id: number, card: string | undefined, director: string | unde
 
 /** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,
  *  moves and held sends, with the notes saved on its video; a video made from a script reads its director's thread. */
-function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, onSettings, phone, progress }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; onSettings: () => void; phone: boolean; progress: Progress | null }) {
+function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, onSettings, phone, progress, head }: { head?: Head; p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; onSettings: () => void; phone: boolean; progress: Progress | null }) {
   const queryClient = useQueryClient();
+  const me = useMe().data; // who's reading: never the held-send words before it's known (an owner is never told to wait)
   const id = p?.id ?? fs?.project_id ?? 0;
   const actions = useFreestyleActions(fs?.id ?? null);
   const script = useScript(fs?.script_id ?? 0).data;
@@ -409,8 +411,9 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const presses = !archived && !lookOnly && (
     <>
       {ended && mayStart && p && (
-        <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
-          {startLabel}
+        // The owner's price in dollars, an editor's in credits (rule 4), as every press says it.
+        <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={owner ? undefined : run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
+          {run?.run_expected_usd != null ? `${startLabel} · about $${run.run_expected_usd.toFixed(2)}` : owner && run?.run_price ? `${startLabel} · ${upTo(head, run.run_price)}` : startLabel}
         </Button>
       )}
     </>
@@ -467,7 +470,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
   const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “warmer light in scene 2”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
   const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : null) : viaFreestyle && !owner && !running ? "Each change goes to the owner first. No generation starts until they say yes." : null;
-  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
+  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !!me && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
   const opening = items.find((t) => t.kind === "message")?.id;
   // A freestyle's send held before its video has a card for it: the same held card, with Withdraw the request (S3-07).
@@ -481,7 +484,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const heldSend = (t: Said) =>
     !fs || t.id !== heldMove ? null : orphan ? ( // the owner answers on the cards themselves: never "the owner has been asked" to him
       <AskCard ask={orphan} owner={owner} onWithdraw={withdrawFor(orphan)} />
-    ) : !owner && (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && a.can.includes("withdraw")) ? (
+    ) : !!me && !owner && (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && a.can.includes("withdraw")) ? (
       <HeldSend projectId={id} change={state === "change"} upTo={state === "change" ? changeUpTo : (fs.make_it_up_to ?? fs.up_to)} sentAt={t.at} owner={owner} onWithdraw={withdraw ?? (() => actions.withdraw.mutate())} />
     ) : null;
   // "Change the plan first" (S3-02): the message box, ready for the change.
@@ -594,7 +597,7 @@ function useHeldChange(fs: Freestyle | null | undefined, on: boolean) {
     queryKey: ["held-jobs"],
     enabled: !!fs && on,
     refetchInterval: 15_000,
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } })).data ?? [],
+    queryFn: () => polled(api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } }), []),
   });
   return held.data?.find((j) => j.status === "needs_owner_approval" && j.freestyle?.id === fs?.id && j.freestyle?.change)?.freestyle?.up_to;
 }

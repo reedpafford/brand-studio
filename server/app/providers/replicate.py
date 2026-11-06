@@ -156,8 +156,10 @@ def _usage(model: CatalogueModel, prediction: dict, file_count: int) -> UsageIte
         units, estimated = Decimal(len(said)) / 1000, False
     elif unit == "second":
         seconds = int(request.get("duration", 0))
-        # "-1" lets the model choose; without a reported length assume the longest.
-        units = Decimal(seconds if seconds > 0 else model.duration.max)
+        # "-1" lets the model choose; without a reported length assume the longest, or the
+        # length a model with no duration input always makes (Omni: fixed_seconds).
+        longest = model.duration.max if model.duration else model.fixed_seconds
+        units = Decimal(seconds if seconds > 0 else longest)
     else:
         units = Decimal(1)
     try:

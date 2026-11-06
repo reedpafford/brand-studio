@@ -60,7 +60,7 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
   // A silent reel has nothing to read, but Just its look only needs its picture (S-gaps-01).
   const silent = reel?.problem_code === "no_sound";
   const ready = reel?.status === "ready" || (mode === "look" && (reel?.status === "done" || silent));
-  const readEst: Estimate | undefined = readPrice ? { credits: readPrice.credits, usd: readPrice.usd, held: "", budget: null } : undefined;
+  const readEst: Estimate | undefined = readPrice ? { credits: readPrice.credits, usd: readPrice.usd, held: "", budget: null, expected: false } : undefined;
   const est = mode === "look" ? lookEst : readEst;
   const disabled = !ready || (mode === "look" && !words.trim());
   const press = <Press owner={owner} est={est} busy={go.isPending} disabled={disabled} onClick={() => go.mutate()} go={mode === "look" ? "Make it" : "Watch it and write the script"} wide={!rail} />;
