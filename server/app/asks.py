@@ -13,7 +13,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import ask_options as opts
@@ -194,6 +194,7 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
             "option": f"voice:{made.id}",
             "name": made.name,
             "file_id": stored.id,
+            "before": project.voice,  # the video's voice before: back if the clone is withdrawn
             **({"reused": True} if made.provider_voice_id else {}),
         }  # the brand's, no charge
     elif how == "choice" and ask.kind == "story":
@@ -343,30 +344,57 @@ STARTED = "This clone has started or ended already, so it can't be withdrawn now
 
 def withdraw_clone(db: Session, user: User, ask: Ask) -> bool:
     """Withdraw a voice card's clone that hasn't started (an editor's, waiting for the owner's
-    OK): its job is cancelled (nothing charged), the voice it would have made is removed, and
-    the card is open again (rule 22: the editor always has a way on). False: not a clone."""
+    OK): its job is cancelled (nothing charged), a voice row it made is removed (`voices.
+    withdrawn`), the video's voice is put back, and the card is open again (rule 22: the
+    editor always has a way on). Another card that reused the clone says it was withdrawn, can
+    be answered again, and its video's voice is put back too. False: not a clone."""
+    from app import director, voices
     from app.models.voices import Voice
-    from app.routes.jobs import cancel_job
 
     if ask.state != "answered" or (ask.answer or {}).get("how") != "clone":
         return False
-    voice = db.get(Voice, int(str(ask.answer["option"]).split(":")[1]))
+    option = str(ask.answer["option"])
+    voice = db.get(Voice, int(option.split(":")[1]))
     job = db.get(Job, voice.job_id) if voice and voice.job_id else None
     if job is None or job.status not in (JobStatus.queued, JobStatus.needs_owner_approval):
         raise HTTPException(409, STARTED)
+    others: list[Ask] = []
     if user.is_owner or user.id == job.created_by_id:
-        cancel_job(job.id, user, db)
-        voice.archived_at = _now()  # never made: not one of the brand's voices
+        done = db.execute(update(Job).where(  # conditional: it can't race the worker
+            Job.id == job.id, Job.status.in_((JobStatus.queued, JobStatus.needs_owner_approval))
+        ).values(status=JobStatus.cancelled, finished_at=_now()))  # fmt: skip
+        if done.rowcount != 1:
+            raise HTTPException(409, STARTED)
+        voices.withdrawn(voice, job)
+        answered = select(Ask).where(Ask.id != ask.id, Ask.kind == "voice", Ask.state == "answered")
+        same = {"how": "clone", "option": option}
+        others = [a for a in db.scalars(answered) if same.items() <= (a.answer or {}).items()]
     elif user.id != ask.answered_by_id:
         raise HTTPException(403, NOT_YOURS)
     # else: a clone someone else asked for (reused by this card): the card opens again and
     # their clone goes on
+    for other in others:  # it reused the withdrawn clone: says so, answerable again
+        _unvoice(db, other)
+        other.answer = {**other.answer, "withdrawn": True}
+    _unvoice(db, ask)
     ask.state, ask.answer, ask.answered_by_id, ask.answered_at = "open", None, None, None
     db.commit()
-    from app import director
-
-    director.wake(db, db.get(Project, ask.project_id))  # the card is the director's question
+    for project in {a.project_id for a in [ask, *others]}:  # each card is its director's question
+        director.wake(db, db.get(Project, project))
     return True
+
+
+def _unvoice(db: Session, ask: Ask) -> None:
+    """The video's voice back to what it was before this card's clone answer set it (QA on
+    #1353), with the answer's line taken out of the settings log so the earlier choice stands."""
+    project, option = db.get(Project, ask.project_id), ask.answer["option"]
+    if project.voice != option or ask.answer.get("before") == option:  # not this answer's doing
+        return
+    project.voice = ask.answer.get("before")
+    log = list(project.settings_log or [])
+    last = next((n for n in range(len(log) - 1, -1, -1) if log[n]["field"] == "voice"), None)
+    if last is not None and log[last]["now"] == option:
+        project.settings_log = log[:last] + log[last + 1 :]
 
 
 def _cloned(db: Session, ask: Ask) -> str:
