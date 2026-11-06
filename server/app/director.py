@@ -146,11 +146,16 @@ def chat(project: Project, run_id: str) -> list[dict]:
 
 def answered(db: Session, run_id: str) -> set[int]:
     """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
-    move that wasn't refused, or of the delivery. An ask stays open until then."""
+    move that wasn't refused, or in the delivery's note. An ask stays open until then."""
     mine = Job.input[RUN]["id"].as_string() == run_id
     rows = db.scalars(select(Job).where(Job.input["step"].as_string() == STEP, mine)).all()
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
-            for n in NOTE.findall((j.output or {}).get("why") or "")}  # fmt: skip
+            for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
+
+
+def move_words(decision: dict) -> str:
+    """A move's words that can name a note: its why, and on a delivery its note's parts."""
+    return " ".join(decision.get(k) or "" for k in ("why", "made", "unsure", "needs"))
 
 
 def leftover(db: Session, project: Project) -> list[int]:
@@ -503,7 +508,7 @@ def _act(db: Session, job: Job, storage) -> None:
         if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
                 and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
             return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
-        named = {int(n) for n in NOTE.findall(decision.get("why") or "")}
+        named = {int(n) for n in NOTE.findall(move_words(decision))}  # its note answers "Note N"
         given = max((t.input.get(READ, 0) for t in turns(db, project)
                      if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
         # a note no turn was given yet isn't its to answer: it waits for the next Make it
@@ -1138,8 +1143,16 @@ def choose(state: dict) -> dict:
         f"I also noticed: {f['says'].rstrip('.')}. Want me to fix it?" for f in older
     )
     made = f"The cut is made with each clip's best take. {done}".strip()
-    unsure = " ".join(x for x in (keep, _still_wrong(state), noticed) if x)
-    return go("deliver", f"{made} {unsure}".strip(), made=made, unsure=unsure)
+    unsure = " ".join(x for x in (keep, _still_wrong(state)) if x)
+    return go(
+        "deliver",
+        "The cut is made and watched."
+        if watch.get("state") == "done" and watch.get("current")
+        else "The cut is made.",
+        made=made,
+        unsure=unsure,
+        needs=noticed,
+    )  # its questions are for the owner
 
 
 def _still_wrong(state: dict) -> str:
@@ -1345,7 +1358,15 @@ def _item(db: Session, job: Job) -> str:
 
         row = db.get(HostPiece, piece)
         return f"The host's piece {row.number}" if row and row.number else "The host's still"
-    return f"The {str(job.input.get('step') or job.kind).replace('_', ' ')}"
+    step = str(job.input.get("step") or job.kind)
+    return NAMED.get(step) or f"The {step.replace('_', ' ')}"
+
+
+NAMED = {"watch_cut": "The watch of the cut", "cut_listen": "The watch of the cut",
+         STEP: "The director's next step", "treatment": "The treatment",
+         "take_watch": "The watch of a take", "review_stills": "The look at the stills",
+         "write-claude": "The director's next step", "item_check": "A take's check",
+         "ask_option": "The options for a question"}  # fmt: skip  # plain names, never a step's
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:

@@ -158,7 +158,8 @@ def moves(db, project_id: int) -> list[str]:
     from app.models.projects import Project
 
     every = run_progress.runs(db, db.get(Project, project_id)).values()
-    return [(j.output or {}).get("why", "") if (j.output or {}).get("tool") == "deliver"
+    note = lambda o: " ".join(o.get(k) or "" for k in ("made", "unsure", "needs")).strip()  # noqa: E731
+    return [(note(j.output) or j.output.get("why", "")) if (j.output or {}).get("tool") == "deliver"
             else j.input.get("result", "") for turns in every for j in turns]  # fmt: skip
 
 

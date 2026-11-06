@@ -6612,6 +6612,11 @@ export interface components {
             redid: components["schemas"]["RedidRowOut"][];
             /** Unsure */
             unsure: string;
+            /**
+             * Open
+             * @default []
+             */
+            open: string[];
             /** Needs */
             needs: string;
             /** Cost */

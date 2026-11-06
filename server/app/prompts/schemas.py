@@ -776,22 +776,22 @@ class DirectorTurn(BaseModel):
     ask: AskMove | None = Field(default=None, description="For ask: the question; else null.")
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "
-        "'deliver' it is the delivery note (2-4 sentences: the craft choices made and why); on "
-        "'stop', what the owner needs to know; on 'ask' with ask_id, why it's no longer needed."
+        "'deliver', one short sentence; the note is `made`, `unsure` and `needs`. On 'stop', "
+        "what the owner needs to know; on 'ask' with ask_id, why it's no longer needed."
     )
     made: str = Field(
         default="",
         description="On 'deliver' only: the delivery note's 'What I made', one short paragraph: "
-        "the length, the style and who's in it, the scenes and clips, and how it opens. Else "
-        "empty.",
+        "its length, who's in it, the scenes and clips, and how it opens; never "
+        "the changes, timecodes or cost (the server adds those). Else empty.",
     )
     unsure: str = Field(
         default="",
-        description="On 'deliver' only: 'What I'm unsure of': a fault kept or a choice a person "
-        "may want changed, and the words that change it ('say \"shorter end\"'), or empty.",
+        description="On 'deliver' only: 'What remains uncertain': every problem not resolved "
+        "and every check that didn't run or failed, plainly; empty only when there's none.",
     )
     needs: str = Field(
         default="",
-        description="On 'deliver' only: 'What I need from you', or empty when nothing (the note "
-        "then says it's ready to post).",
+        description="On 'deliver' only: 'What I need from you': what the owner must decide or "
+        "approve; empty only when nothing is open.",
     )

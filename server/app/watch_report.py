@@ -120,8 +120,9 @@ def watched(db: Session, project: Project) -> list[dict]:
     out = [{"clip_id": c.clip_id, "number": t.number, "item": t, "watch": shown(db, t)}
            for c, takes in clip_takes_of(db, project) for t in takes
            if t.watch and not (t.made_with or {}).get("talker")]  # fmt: skip
-    pieces = db.scalars(select(HostPiece).where(HostPiece.project_id == project.id,
-                                                HostPiece.watch.is_not(None)))  # fmt: skip
+    from app import host
+
+    pieces = [r for r in host.rows(db, project) if r.watch is not None]  # in use, not earlier
     return out + [{"clip_id": "host", "number": r.number, "item": r,
                    "watch": shown(db, r, "piece")} for r in pieces]  # fmt: skip
 
