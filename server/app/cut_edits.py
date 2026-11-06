@@ -467,3 +467,20 @@ def for_director(db: Session, project: Project) -> dict | None:
                    "undone": e.undone_at is not None or e.id in lost}
                   for e in every(db, project)][-12:],
     }  # fmt: skip
+
+
+def follow_clips(db: Session, project: Project, names: dict[str, str], before: set[str]) -> None:
+    """The plan's clips were renumbered (a split: c5 is now c6): each cut edit follows its clip
+    to its new id, and one on a clip that was regrouped (the split clip itself, written
+    again) is undone, never left to land on whichever clip now has its old id."""
+    gone, now = before - set(names), utcnow()
+    for e in active(db, project):
+        piece = (e.data or {}).get("piece")
+        if not piece:
+            continue  # a span of the cut or the music: on the voice's clock, not a clip's
+        old, _, tail = piece.partition(".")
+        if old in names and names[old] != old:
+            e.data = {**e.data, "piece": names[old] + (f".{tail}" if tail else "")}
+            e.said = e.said.replace(label(old), label(names[old]), 1)
+        elif old in gone:
+            e.undone_at = now
