@@ -21,7 +21,8 @@ def _held(owner):
 
 
 def _delivered(app, owner, editor, db, brand_id=None) -> dict:
-    fs = editor.post("/freestyles", json={**BODY, "brand_id": brand_id}).json()
+    body = {**BODY, "brand_id": brand_id} if brand_id else BODY
+    fs = editor.post("/freestyles", json=body).json()
     _run(app, db, ticks=4, start=False)  # the treatment, then its start card (S3-02)
     (first,) = _held(owner)
     owner.post(f"/jobs/{first['id']}/approve")
