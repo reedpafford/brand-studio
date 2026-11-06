@@ -113,9 +113,7 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
         "Clip 1: the opening face changes between shots. Not fixed.",
         "The takes weren't checked one by one.",
     ]  # checks are off here
-    assert note["needs"] == delivery.LOOK_FIRST and note["cost"].startswith(
-        "$0.00 spent of up to $"
-    )
+    assert note["needs"] == delivery.LOOK_FIRST
     texts = [r["text"] for r in note["redid"]]  # what it watched and redid, with when
     muted = "Clip 1: a stray sound nobody asked for. Muted a stretch of clip 1 instead of " \
             "remaking it."  # fmt: skip
@@ -147,7 +145,7 @@ def test_the_director_writes_the_notes_words_and_the_server_the_rest(app, db, ow
     assert note["unsure"] == "The end holds long; say “shorter end”."
     texts = [r["text"] for r in note["redid"]]
     assert "Clip 1: garbled words burned in. Remade without them." in texts  # no "c1: " left
-    seen = delivery.shown(db, project, note, owner=False)
+    seen = delivery.shown(note, owner=False)
     assert seen["needs"].startswith("Your OK on clip 1. Look at") and seen["spent_usd"] is None
 
 
@@ -364,17 +362,20 @@ def test_another_editor_marks_what_they_watched(app, db, owner, editor):
     assert _progress(editor, pid)["changed"][0]["watched"] is False
 
 
-def test_the_real_cost_is_never_kept_where_an_editor_can_read_it(app, db, owner, editor):
-    """Any teammate can read a job's output (GET /jobs): the note keeps credits and the run's
-    times, and the owner's dollars are read from Usage when the owner reads it."""
+def test_the_note_says_the_headers_spent_and_keeps_no_dollars(app, db, owner, editor):
+    """One spent figure: the owner's note says what the run charged, in dollars at the header's
+    rate (not the stand-ins' real $0.00). Any teammate can read a job's output (GET /jobs), so
+    the note keeps credits only; the dollars are worked out when the owner reads it."""
     pid = _done(app, db, owner, editor)
     deliver = director.turns(db, db.get(Project, pid))[-1]
-    assert "spent_usd" not in deliver.output["note"] and deliver.output["note"]["since"]
-    listed = editor.get(f"/jobs/{deliver.id}").json()
-    assert "spent_usd" not in str(listed)
+    assert "spent_usd" not in str(editor.get(f"/jobs/{deliver.id}").json())
     note = next(m for m in owner.get(f"/projects/{pid}/director").json()["thread"]
                 if m.get("note"))["note"]  # fmt: skip
-    assert note["spent_usd"] == 0 and note["cost"].startswith("$0.00 spent of up to $")
+    head = owner.get(f"/projects/{pid}/idea").json()
+    assert note["spent"] == head["spent"]["credits"] > 0
+    assert note["spent_usd"] == head["spent"]["usd"] > 0
+    usd, most = head["spent"]["usd"], head["up_to"]["usd"]
+    assert note["cost"] == f"${usd:.2f} spent of up to ${most:.2f}"
 
 
 def test_a_held_turn_the_owner_declined_reads_as_stopped_with_the_reason(app, db, owner, editor):
@@ -423,7 +424,7 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
     db.add(ItemCheck(project_id=pid, target="take", target_id=take.id, status="done"))
     db.commit()
     note = delivery.note(db, project, deliver, {"made": "A short clip."})
-    assert note["open"] == [] and delivery.shown(db, project, note, True)["needs"] == (
+    assert note["open"] == [] and delivery.shown(note, True)["needs"] == (
         delivery.NOTHING)  # fmt: skip
     w.clear()
     w["state"] = "none"  # then: a cut no one watched
@@ -442,7 +443,7 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
         "The cut wasn't watched.", "Clip 1's take wasn't checked.",
         "Clip 1's take is waiting for the owner's OK: remaking clip 1 goes past the video's "
         "budget."]  # fmt: skip
-    shown = delivery.shown(db, project, note, False)
+    shown = delivery.shown(note, False)
     assert shown["needs"] == delivery.LOOK_FIRST and "ready to post" not in shown["needs"]
     assert "Clip 1's take wasn't checked." in delivery.plain(shown).splitlines()
 
@@ -452,7 +453,7 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
     db.commit()
     note = delivery.note(db, project, deliver, {"made": "x", "needs": "Your OK on clip 1."})
     assert "Clip 1: Mia's face drifts. Kept as it is." in note["open"]
-    assert delivery.shown(db, project, note, True)["needs"] == (
+    assert delivery.shown(note, True)["needs"] == (
         "Your OK on clip 1. Look at what remains uncertain before you post it."
     )  # still open
 
@@ -514,7 +515,7 @@ def test_what_is_open_never_lists_what_was_fixed_and_names_each_step(
         "budget."]  # fmt: skip
 
     note = {**note, "open": [], "unsure": "The ending may feel long."}
-    assert delivery.shown(db, project, note, True)["needs"] == delivery.LOOK_FIRST
+    assert delivery.shown(note, True)["needs"] == delivery.LOOK_FIRST
 
 
 def test_every_open_problem_is_listed_and_every_check_that_didnt_finish(
@@ -576,7 +577,7 @@ def test_the_director_never_says_ready_to_post_while_something_is_open():
     (QA on #1355: deleting sentences lost asks)."""
     base = {"made": "x", "redid": [], "unsure": "", "needs": "", "open": [], "spent": 1,
             "up_to": 10, "cut": 1, "seconds": 5, "clips": 1}  # fmt: skip
-    shown = lambda **o: delivery.shown(None, None, {**base, **o}, False)["needs"]  # noqa: E731
+    shown = lambda **o: delivery.shown({**base, **o}, False)["needs"]  # noqa: E731
     assert shown() == delivery.NOTHING
     assert shown(needs="Nothing. It’s ready to post.") == "Nothing. It’s ready to post."
     for o in ({"open": ["The cut wasn't watched."]}, {"unsure": "The end may feel long."}):

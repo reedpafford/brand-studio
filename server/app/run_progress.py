@@ -593,7 +593,7 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
                     "who": "Director", "text": text, "status": status, "run": run_id})  # fmt: skip
         for j in turns:  # the owner's OK at its own limit is its card's answer (app/asks)
             if j.input.get("result") == "Delivered.":
-                note = delivery.shown(db, project, (j.output or {}).get("note"), owner)
+                note = delivery.shown((j.output or {}).get("note"), owner)
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                             "who": "Director", "status": "done", "note": note,
                             "text": delivery.plain(note) if note
