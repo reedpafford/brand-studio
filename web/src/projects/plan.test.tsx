@@ -54,17 +54,18 @@ test("before the server sends a plan status, Plan is the Shots view alone, as Br
   expect(screen.queryByRole("tablist", { name: "Plan views" })).toBeNull();
 });
 
-test("no plan yet: Make the plan shows its price; Shots is greyed until approved", async () => {
+// S8: the director makes and approves a video's plan, so none of the old Plan step's presses show on a video.
+const NO_PLANNING = /Make the plan|Write it myself|Approve the plan|Make a new plan|Try again/;
+
+test("no plan yet: the director makes it after Make it, with no press of its own; Shots is greyed until approved", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [404, { detail: "none" }], "POST /projects/9/plan": [201, { id: 30 }] });
+  fakeServer({ ...withPlan("none"), "GET /projects/9": [200, { ...project, plan_status: "none", plan_credits: 9 }], "GET /projects/9/plan": [404, { detail: "none" }] });
   open();
-  expect(await screen.findByText("Turn the script into scenes: where each line happens and what we see.")).toBeInTheDocument();
+  expect(await screen.findByText("The director makes the plan after Make it: where each line happens and what we see.")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: /Shots/ })).toHaveAttribute("aria-disabled", "true");
-  expect(screen.getByRole("tab", { name: /Shots/ })).toHaveAccessibleDescription("Approve the plan first");
-  expect(screen.getByRole("button", { name: "Write it myself · free" })).toBeInTheDocument();
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: /Make the plan · up to 6 credits/ })).toBeEnabled());
-  await userEvent.click(screen.getByRole("button", { name: /Make the plan/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan")).toBe(true));
+  expect(screen.getByRole("tab", { name: /Shots/ })).toHaveAccessibleDescription("The director makes them once the plan is approved");
+  expect(screen.getByText("Shots: once the plan is approved")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: NO_PLANNING })).toBeNull();
 });
 
 test('waiting: "Waiting to start · m:ss" from when it was asked, and Cancel (only before it starts, never charged)', async () => {
@@ -77,9 +78,9 @@ test('waiting: "Waiting to start · m:ss" from when it was asked, and Cancel (on
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/stop")).toBe(true));
 });
 
-test("ready to check: structure, cast, scene cards with place, lines, actions and the ★; Approve the plan · makes the shots opens Shots", async () => {
+test("ready to check: structure, cast, scene cards with place, lines, actions and the ★; the director approves it, no press", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan()], "POST /projects/9/plan/approve": [200, { plan: plan({ status: "approved" }), job: { id: 31 } }] });
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan()] });
   open();
   expect(await screen.findByText("Pattern: Problem → Payoff (finance app)")).toBeInTheDocument();
   expect(screen.getByText("2 scenes · every line used once · the product in 1")).toBeInTheDocument();
@@ -88,8 +89,9 @@ test("ready to check: structure, cast, scene cards with place, lines, actions an
   expect(within(second).getByText("Kitchen · Morning")).toBeInTheDocument();
   expect(within(second).getByText("She grins at fomo on the screen.")).toBeInTheDocument();
   expect(within(second).getByLabelText("Product")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Approve the plan · makes the shots · up to 6 credits/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/approve")).toBe(true));
+  expect(screen.getByText("The director approves the plan and makes the shots from it.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: NO_PLANNING })).toBeNull();
+  expect(screen.queryByText(/^Make a new plan/)).toBeNull();
 });
 
 test("approved: says by whom, and Plan opens on Shots", async () => {
@@ -110,20 +112,20 @@ test("an old video's plan reads Approved · made from this video's breakdown", a
   expect(screen.queryByRole("button", { name: /Approve the plan/ })).toBeNull();
 });
 
-test("failed: Claude's reason, nothing charged, Try again; Write it myself stays free", async () => {
+test("failed: Claude's reason, nothing charged, and the way on is the director", async () => {
   setViewport(1440);
   fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [200, plan({ scenes: [], job: { id: 30, status: "failed", reason: "Claude won't plan this: the script promises a cure.", started_at: null } })] });
   open();
   expect(await screen.findByText("Claude won't plan this: the script promises a cure.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Try again · up to 6 credits/ })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Write it myself · free" })).toBeInTheDocument();
+  expect(screen.getByText("Nothing was charged. Tell the director in the chat to try again.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: NO_PLANNING })).toBeNull();
 });
 
-test("over budget: the paid presses say why; Write it myself stays", async () => {
+test("over budget: the paid scene changes say why", async () => {
   setViewport(1440);
-  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ stop: "That's more than this video's budget." })] });
+  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, change_scene_credits: 2, stop: "That's more than this video's budget." })] });
   open();
-  expect(await screen.findByRole("button", { name: /Approve the plan/ })).toBeDisabled();
+  expect(await screen.findByRole("button", { name: /^Update the plan/ })).toBeDisabled();
   expect(screen.getAllByText("That's more than this video's budget.").length).toBeGreaterThan(0); // every paid press says why
 });
 
@@ -229,29 +231,16 @@ test("a refused edit says why in the server's words", async () => {
   expect(await screen.findByText("Line 2 is missing from the plan.")).toBeInTheDocument();
 });
 
-test("out of date: Made for older words with Make a new plan; earlier plans come back free; a new plan takes a note", async () => {
+test("out of date: Made for older words, the director plans again; earlier plans come back free", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()], "POST /projects/9/plan": [201, { id: 40 }] });
+  const calls = fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan({ scenes: two, out_of_date: true, earlier: [{ id: 3, version: 1, source: "claude", made_at: new Date().toISOString() }] })], "POST /projects/9/plan/earlier/0/use": [200, plan()] });
   open();
   expect(await screen.findByText("Made for older words.")).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: /Make a new plan · up to 6 credits/ })[0]).toBeInTheDocument();
-  expect(screen.getByText(/this one is kept under Earlier plans/)).toBeInTheDocument();
+  expect(screen.getByText("The script's words changed since this plan was made. Tell the director in the chat to plan again.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: NO_PLANNING })).toBeNull();
   await userEvent.click(screen.getByText("Earlier plans · 1"));
   await userEvent.click(screen.getByRole("button", { name: "Use this one · free" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/plan/earlier/0/use")).toBe(true));
-  // Closed, the header already says the price (rule 36: "up to", as the press inside does).
-  expect(screen.getByText(/^Make a new plan/, { selector: "summary" })).toHaveTextContent("Make a new plan · up to 6 credits");
-  await userEvent.click(screen.getByText(/^Make a new plan/, { selector: "summary" }));
-  await userEvent.type(screen.getByLabelText("What to change (optional)"), "funnier");
-  await userEvent.click(screen.getAllByRole("button", { name: /Make a new plan · up to 6 credits/ }).at(-1)!);
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/plan")?.body).toEqual({ note: "funnier" }));
-});
-
-test("with no plan yet, Make the plan is priced from the video's plan_credits", async () => {
-  setViewport(1440);
-  fakeServer({ ...withPlan("none"), "GET /projects/9": [200, { ...project, plan_status: "none", plan_credits: 9 }], "GET /projects/9/plan": [404, { detail: "none" }] });
-  open();
-  expect(await screen.findByRole("button", { name: /Make the plan · up to 9 credits/ })).toBeInTheDocument();
 });
 
 test("Change this scene… sends its note at its price; it needs a note first (#928)", async () => {
@@ -308,16 +297,4 @@ test("while a scene is being changed the plan shows Making the plan… with its 
   open();
   expect(await screen.findByText((_, el) => el?.tagName === "P" && /^Making the plan… 0:0\d\./.test(el.textContent ?? ""))).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Cancel|Stop/ })).toBeNull();
-});
-
-test("a plan whose job ended before it reads back (a 404 in between) still shows, the page keeps reading after the press", async () => {
-  setViewport(1440);
-  fakeServer({ ...withPlan("none"), "GET /projects/9/plan": [404, { detail: "none" }], "POST /projects/9/plan": [201, { id: 30 }] });
-  open();
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: /Make the plan · up to 6 credits/ })).toBeEnabled());
-  await userEvent.click(screen.getByRole("button", { name: /Make the plan · up to 6 credits/ }));
-  // The job has ended and the GET answered 404 once; then the plan is there.
-  vi.unstubAllGlobals();
-  fakeServer({ ...withPlan("ready"), "GET /projects/9/plan": [200, plan()] });
-  expect(await screen.findByRole("button", { name: /Approve the plan · makes the shots/ }, { timeout: 4000 })).toBeInTheDocument();
 });

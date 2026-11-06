@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { emptyBrand, signIn } from "./helpers";
+import { emptyBrand, planAndApprove, signIn } from "./helpers";
 
 const LYRICS = "[Verse]\nBo would never touch his bowl\n[Chorus]\nNow he licks it clean, Iron Paws";
 
@@ -51,8 +51,10 @@ test("a published song script: Make this version opens a video whose plan, once 
   await page.getByRole("alertdialog").getByRole("button", { name: "Publish" }).click();
   await page.getByLabel(/Version A, ready to make/).click();
   await page.getByRole("button", { name: /Make this version/ }).click();
-  // Its plan comes first (item 1b), made on the stand-in; Approve makes the shots.
-  await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 60_000 });
+  // Its plan comes first (item 1b), made on the stand-in; the director approves it (S8), stood in for here.
+  await page.waitForURL(/\/videos\/\d+/);
+  await planAndApprove(page, Number(/\/videos\/(\d+)/.exec(page.url())![1]), false);
+  await page.reload();
   await expect(page.getByRole("button", { name: "Change song" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Song: Take \d · \d:\d\d/)).toBeVisible();
   // Each shot shows its stretch of the song and Sung or B-roll (flows V2).

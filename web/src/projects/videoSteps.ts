@@ -23,8 +23,8 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
   // (Out-of-date frames read as unapproved, so clips already made don't wait on them either.)
   const frames = step === "clips" ? { ...now.frames, stale: false, approved: now.frames.total } : { ...now.frames, stale: false };
   const p = kept ? { ...now, shots: { ...now.shots, stale: false }, frames } : now;
-  // The shots are made, current and clear of problems. They live in Plan, on its Shots view.
-  const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Plan first").replace("Make the shots first", "Make the shots in Plan first").replace("Make new shots first", "Make new shots in Plan first") ?? null;
+  // The shots are made, current and clear of problems. They live in Plan, on its Shots view; the director makes them (S8).
+  const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Plan first").replace("Make the shots first", "The director makes the plan and its shots first").replace("Make new shots first", "The director makes new shots in Plan first") ?? null;
   if (shots || step === "cast") return shots;
   const left = p.assets.total - p.assets.ready;
   if (left > 0 && !kept) return `Approve the cast first (${left} left)`; // made work stays open: its presses wait instead (videoHold)
@@ -42,7 +42,7 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
 export function videoHold(step: VideoStepId, now: VideoProgress): { why: string; at: VideoStepId } | null {
   const made = (step === "storyboard" && now.frames.total > 0) || (step === "clips" && now.clips.total > 0);
   if (!made) return null;
-  if (now.shots.stale) return { why: "The plan changed after these were made. Make new shots in Plan first.", at: "plan" };
+  if (now.shots.stale) return { why: "The plan changed after these were made. The director makes new shots from it first.", at: "plan" };
   if (step === "clips" && now.frames.stale) return { why: "The plan changed after these were made. Redo the stills first.", at: "storyboard" };
   // A look the cast needs isn't ready (one added, or the video's look changed and a sheet isn't made in it yet).
   const left = now.assets.total - now.assets.ready;

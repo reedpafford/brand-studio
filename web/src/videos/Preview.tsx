@@ -275,7 +275,7 @@ function ClipsTab(props: PaneProps) {
   if (waits)
     return (
       <Empty title="The clips fill in here" action={<Button variant="secondary" onClick={() => go(/cast/i.test(waits) ? "cast" : "plan")}>Open {/cast/i.test(waits) ? "Cast" : "Plan"}</Button>}>
-        {waits}
+        {`${waits}.`}
       </Empty>
     );
   const held = videoHold("clips", progress) ?? videoHold("storyboard", progress);
@@ -317,7 +317,7 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
       <ShapeRow shape={!settings.data} projectId={p.id} aspect={p.aspect_ratio} platform={p.platform} />
     </>
   );
-  // While the director starts, before any plan: what fills in here (S3-01). With no run, today's Make the plan.
+  // While the director starts, before any plan: what fills in here (S3-01). With no run, the plan or what makes it.
   if (head?.status.kind === "working" && !progress.shots.made && ((p as { plan_status?: string | null }).plan_status ?? "none") === "none")
     return (
       <>

@@ -66,8 +66,8 @@ test("the breakdown shows scenes, clips and shots with names, the spoken line an
   open();
   expect(await screen.findByText(/Hook: “Mia's coffee freezes mid-air as the chart drops\.”/)).toBeInTheDocument();
   expect(screen.getByText(/1 scene · 2 shots · 1 clip · 5 s of 30 s planned/)).toBeInTheDocument();
-  const clip = screen.getByLabelText("Clip c1");
-  expect(within(clip).getByText("Clip c1 · 5 s")).toBeInTheDocument();
+  const clip = screen.getByLabelText("Clip 1");
+  expect(within(clip).getByText("Clip 1 · 5 s")).toBeInTheDocument();
   expect(within(clip).getByText("End")).toBeInTheDocument();
   expect(within(clip).getByText("End line")).toBeInTheDocument();
   const second = within(clip).getByLabelText("Shot 1.2");
@@ -137,7 +137,7 @@ test("editing a shot changes only the draft; Save sends the whole breakdown and 
   await userEvent.type(action, "Mia sips her coffee");
   await userEvent.clear(screen.getByLabelText("Shot 1.1 seconds"));
   await userEvent.type(screen.getByLabelText("Shot 1.1 seconds"), "5");
-  expect(screen.getByText("Clip c1 · 8 s")).toBeInTheDocument(); // 5 + 2.5 rounded up
+  expect(screen.getByText("Clip 1 · 8 s")).toBeInTheDocument(); // 5 + 2.5 rounded up
   // On a phone Save and Discard take the action bar's place, so Next steps aside until the edits are saved.
   expect(screen.queryByRole("button", { name: "Next: Storyboard" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Discard" }).closest("div.border-t")).toHaveClass("[&_button]:w-full");
@@ -169,13 +169,13 @@ test("Split cuts a clip after a shot and Join puts it back together; ids and sec
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for shot 1.1" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Split clip c1 after shot 1.1" }));
-  expect(screen.getByText("Clip c1 · 3 s")).toBeInTheDocument();
-  expect(screen.getByText("Clip c2 · 3 s")).toBeInTheDocument(); // 2.5 rounded up
+  await userEvent.click(screen.getByRole("menuitem", { name: "Split clip 1 after shot 1.1" }));
+  expect(screen.getByText("Clip 1 · 3 s")).toBeInTheDocument();
+  expect(screen.getByText("Clip 2 · 3 s")).toBeInTheDocument(); // 2.5 rounded up
   await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Join clip c1 with the next clip" }));
-  expect(screen.getByText("Clip c1 · 6 s")).toBeInTheDocument();
-  expect(screen.queryByText(/Clip c2/)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("menuitem", { name: "Join clip 1 with the next clip" }));
+  expect(screen.getByText("Clip 1 · 6 s")).toBeInTheDocument();
+  expect(screen.queryByText(/Clip 2 ·/)).not.toBeInTheDocument();
 });
 
 test("Go to scrolls to the shot or clip a problem names and outlines it", async () => {
@@ -235,7 +235,7 @@ describe("on a phone", () => {
     open();
     await userEvent.click(await screen.findByRole("button", { name: "Problems" }));
     const sheet = await screen.findByRole("dialog", { name: "Problems (2)" });
-    expect(within(sheet).getByText("Clip c1 is 17 s; the model allows 4–15 s.")).toBeInTheDocument();
+    expect(within(sheet).getByText("Clip 1 is 17 s; the model allows 4–15 s.")).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: "Go to: Shot 1.2 is a loss moment but shows no fomo screen." }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -249,12 +249,12 @@ describe("on a phone", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Done" }));
     expect(screen.getByText(/EXTRA/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Split clip c1 after shot 1.1" }));
-    expect(screen.getByText("Clip c2 · 3 s")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Join clip c1 with the next clip" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Split clip 1 after shot 1.1" }));
+    expect(screen.getByText("Clip 2 · 3 s")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join clip 1 with the next clip" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Join clip c1 with the next clip" }));
-    expect(screen.queryByText(/Clip c2/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Join clip 1 with the next clip" }));
+    expect(screen.queryByText(/Clip 2 ·/)).not.toBeInTheDocument();
   });
 });
 
