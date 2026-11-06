@@ -624,3 +624,31 @@ def test_words_mid_line_say_it_trims_after_the_clips_last_spoken_word(app, db, o
     text = "Can we change “all your money” to “your cash”?"
     _, _, pause = _pause_card(app, db, owner, editor, text)
     assert pause["why"].endswith("s after the clip’s last spoken word")
+
+
+def test_a_cut_that_cant_be_read_never_breaks_the_cards(app, db, owner, editor, monkeypatch):
+    """Whatever goes wrong trying an edit on the cut, the card says it can't be made now and
+    every card on the video still reads (the lead, on a11d71c1)."""
+    from app import cut_edits
+
+    pid, card, pause = _pause_card(app, db, owner, editor)
+
+    def broken(*a, **k):
+        raise RuntimeError("a bad cut")
+
+    monkeypatch.setattr(cut_edits, "add", broken)
+    listed = editor.get(f"/projects/{pid}/asks")
+    assert listed.status_code == 200
+    now = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert now["cannot"] == "The cut can't take that edit now. Change it in the Cut tab instead."
+    monkeypatch.setattr(locked_line, "_pause_edit", broken)
+    now = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert now["cannot"] == locked_line.UNSURE
+    no = editor.post(f"/asks/{card['id']}/answer",
+                     json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert (no.status_code, no.json()["detail"]) == (409, locked_line.UNSURE)
+    db.expire_all()
+    db.get(Project, pid).director_chat = []
+    db.commit()
+    out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    assert out.status_code == 201  # a new reply still comes, without that choice

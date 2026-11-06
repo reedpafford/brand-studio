@@ -12,6 +12,7 @@ comes back clean that clip is approved and the cut is made again (free, rule 35:
 from a take nobody watched). Each choice keeps what happened to it on the card
 (`answer.chosen`); the other choices stay pressable."""
 
+import logging
 import re
 from decimal import Decimal
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 
+log = logging.getLogger(__name__)
 KIND = "instead"
 OFFERED = "offered"  # its state: answered by the server; never a question that waits
 FOR = "instead_for"  # in a take job's input: [the card, the choice] whose press made it
@@ -106,8 +108,8 @@ def offer(db: Session, user: User, project: Project, text: str) -> tuple[Ask, bo
         return None
     words, only = found
     shot = _said_in(db, project, words)
-    choices = [c for c in (_softer(db, project, shot), _cut_away(db, user, project, words),
-                           _pause(db, user, project, words)) if c]  # fmt: skip
+    choices = [c for c in (_softer(db, project, shot), _safely(_cut_away, db, user, project, words),
+                           _safely(_pause, db, user, project, words)) if c]  # fmt: skip
     if not choices:
         return None
     ask = Ask(workspace_id=project.workspace_id, project_id=project.id, kind=KIND,
@@ -169,6 +171,18 @@ def _goes(db: Session, user: User, project: Project, kind: str, asked: dict) -> 
         return True
     except cut.Refused:
         return False
+    except Exception:  # one bad cut never breaks the cards: it just can't be offered now
+        log.exception("project %s: trying a %s edit for a locked line failed", project.id, kind)
+        return False
+
+
+def _safely(offer_it, db: Session, user: User, project: Project, words: str) -> dict | None:
+    """A cut choice to offer, or None: a cut that can't be read never stops the reply."""
+    try:
+        return offer_it(db, user, project, words)
+    except Exception:
+        log.exception("project %s: offering a locked line's cut choice failed", project.id)
+        return None
 
 
 def _spoken(tl: dict, words: str) -> tuple[float, float, int] | None:
@@ -308,10 +322,22 @@ def director_going(db: Session, project: Project) -> bool:
     return director.active(db, project) is not None
 
 
+UNSURE = "The cut can't be read for this right now. Change it in the Cut tab instead."
+
+
 def now(db: Session, project: Project, choice: dict, words: str) -> tuple[str, str]:
     """A cut choice as it stands now, worked out again whenever it's shown or pressed: its
     detail line ("Tighten 0.4 s") and why it can't be made ("" when it can; tried and taken
-    back, as the cut editor would take it)."""
+    back, as the cut editor would take it). A cut that can't be read never breaks the card."""
+    try:
+        return _now(db, project, choice, words)
+    except Exception:
+        log.exception("project %s: working out a locked line's %s failed", project.id,
+                      choice.get("do"))  # fmt: skip
+        return choice.get("why", ""), UNSURE
+
+
+def _now(db: Session, project: Project, choice: dict, words: str) -> tuple[str, str]:
     from app import cut
 
     why = choice.get("why", "")
