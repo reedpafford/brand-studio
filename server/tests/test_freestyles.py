@@ -9,6 +9,7 @@ from app.providers.fake_local import FakeMedia
 from app.routes.freestyles import MAX_PROMPT
 from app.worker import run_once
 from tests.conftest import first_brand
+from tests.helpers import ok_when_asked
 
 SCRIPT = "MIA: The market opened at nine.\nLEO: And we were ready."
 HOUSE = {"type": "one_clip", "look": "house", "shape": "9:16"}
@@ -18,6 +19,7 @@ def _run(app, db):
     media = FakeMedia()
     for _ in range(3):
         run_once(db, {"replicate": media}, app.state.storage)
+        ok_when_asked(db)  # the person approves the cast and places when asked
 
 
 def _moves(fs):

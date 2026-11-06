@@ -38,9 +38,9 @@ function open(path = "/production", client = new QueryClient()) {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("In production: a row per video links to it, flagged rows say why, and the rail's Needs you counts what needs attention", async () => {
+test("In production: a row per video links to it, flagged rows say why, and the rail's Needs you counts what Needs you lists", async () => {
   setViewport(1440);
-  fakeServer(base());
+  fakeServer({ ...base(), "GET /needs-you": [200, { total: 3, brands: [], questions: [], money: [], sends: [], stuck: [] }] });
   open();
   expect(await screen.findByText("Every brand · 4 videos making · 3 need attention")).toBeInTheDocument();
   const link = await screen.findByRole("link", { name: "Bo tries salmon, version B, Sam, at Clips, didn't finish" });
@@ -52,7 +52,7 @@ test("In production: a row per video links to it, flagged rows say why, and the 
   expect(within(link).getByText("spent 380")).toBeInTheDocument(); // the Producer, 3 Nov: one line, whole credits
   expect(within(link).queryByText(/\$|of director time/)).toBeNull();
   const rail = screen.getByRole("navigation", { name: "Main" });
-  expect(await within(rail).findByRole("link", { name: /^Needs you/ })).toHaveTextContent("3 waiting"); // no held requests here, so only the videos
+  expect(await within(rail).findByRole("link", { name: /^Needs you/ })).toHaveTextContent("3 waiting"); // GET /needs-you's total
   expect(within(rail).getByRole("link", { name: "In production" })).toBeInTheDocument(); // its own count went to Needs you
 });
 

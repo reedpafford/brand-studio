@@ -95,6 +95,10 @@ def _request(
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
         job_input = {**job_input, "step": "song_take", "on_script": draft.script_id}
+        if project is not None:  # a changed host voice waits for the cast and places OK
+            from app import cast_gate
+
+            cast_gate.require_voice(db, project, voice)
         return enqueue(db, user, "speech", job_input, project=project,
                        provider="replicate", units=_units(job_input))  # fmt: skip
     try:

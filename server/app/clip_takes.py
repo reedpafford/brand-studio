@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import looks, model_map, p_video, screen_figures, video_settings
+from app import cast_gate, looks, model_map, p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.clip_prompts import MODERATED, assets, prompt_version
 from app.credits import estimate, fits
@@ -33,7 +33,7 @@ KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "refe
 
 
 def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
-               drop: tuple[str, ...] = ()) -> dict:  # fmt: skip
+               drop: tuple[str, ...] = (), check: bool = True) -> dict:  # fmt: skip
     """The Seedance job for one clip: its prompt as written (it already says which picture is
     which), the project's aspect ratio, and its references by file id in the clip's order.
     `drop`: references left out for a look-alike retry ("frame:", then "char:"), each of their
@@ -70,6 +70,10 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         files[KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
+    attached = [r["id"] for r in clip.references or []]
+    shown = cast_gate.refs(db, project, breakdown, shots, attached, known)
+    if check:  # then the cast and places OK (a price read needs none)
+        cast_gate.require(db, project, shown, known)
     resolution = model_map.resolution(model)
     take, sent = p_video.fit(model.id, {
         "prompt": _with_note(in_english(prompt), note),
@@ -78,7 +82,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "aspect_ratio": project.aspect_ratio,
         "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
     }, {k: v for k, v in files.items() if v})  # fmt: skip
-    take, sent = model_map.fit(model, take, sent, model_map.speech(db, project, clip))  # Omni
+    take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -91,9 +95,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
                 db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
             ),
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
-            **(
-                {"speaks": True} if model_map.speaks(clip, project) else {}
-            ),  # on Omni, in its voice
+            "cast": cast_gate.stamp(
+                db, project, shown, known
+            ),  # as approved: a change makes it old
         },
         "brand_id": project.brand_id,
         "fit_images_to": LONG_SIDE[resolution],
@@ -162,8 +166,9 @@ def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: li
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     """A clip longer than the video model makes is refused before any charge (QA #1013),
-    never sent cut short: the breakdown's Split fix makes it into clips it can. One shot
-    can't be split: it's made shorter, or the video's model one that makes longer clips. A UGC
+    never sent cut short: the breakdown's Split fix makes it into clips it can, between its
+    shots and at its sentence breaks. One sentence can't be split: it's made shorter, or the
+    video's model one that makes longer clips. A UGC
     talker's clip is never made: it's cut from the talker's take (app/talker.py)."""
     from app import talker
 
@@ -173,10 +178,15 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     most = m.fixed_seconds or m.duration.max
     if clip.seconds <= most:
         return
+    from app import breakdown_fix, plans
+
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
-    shots = next((c["shot_ids"] for c in (bd.data if bd else {}).get("clips", [])
-                  if c["id"] == clip.clip_id), [])  # fmt: skip
-    then = ("Split it in the breakdown (free), then make it" if len(shots) > 1 else
+    version = plans.script(db, project)
+    lo = m.duration.min if m.duration else 1  # Omni has one fixed length, no range
+    parts = breakdown_fix.split_into(bd.data, version.text if version else "", clip.clip_id,
+                                     lo, most) if bd else 1  # fmt: skip
+    offered = bd is not None and clip.clip_id in breakdown_fix.too_long(bd.problems or [])
+    then = ("Split it in the breakdown (free), then make it" if parts > 1 and offered else
             "Make its shot shorter in the breakdown, or switch the video model in Settings to "
             "one that makes longer clips (free)")  # fmt: skip
     raise HTTPException(409, f"This clip is {clip.seconds} s, but {m.name} makes at most "
@@ -525,29 +535,23 @@ def _probe(folder: Path, name: str, stream: str, entries: str) -> str:
     ).stdout.strip()  # fmt: skip
 
 
-def _narrated_mix(folder: Path, lengths: list[float], music: bool, fade: str,
-                  spoken: dict[int, tuple[float, float]] | None = None) -> list[str]:  # fmt: skip
+def _narrated_mix(folder: Path, lengths: list[float], music: bool, fade: str) -> list[str]:
     """Each take's own sound (silence if it has none), the narration on top, the music under
-    it ducked by the voice, made loud enough and faded. `spoken`: a clip whose talker says its
-    lines on Omni (app/model_map) keeps its own sound at full, and the narration is muted from
-    `start` to `end` of the cut, only while those lines are said (Reed, 4 Nov)."""
-    n, total, spoken = len(lengths), sum(lengths), spoken or {}
-    mute = "".join(f",volume=enable='between(t,{a:.3f},{b:.3f})':volume=0"
-                   for a, b in spoken.values())  # fmt: skip
+    it ducked by the voice, made loud enough and faded."""
+    n, total = len(lengths), sum(lengths)
     takes = [f"[{i}:a]{SAME},atrim=duration={d},asetpts=PTS-STARTPTS,apad=whole_dur={d},"
-             f"volume={1 if i in spoken else TAKES}[a{i}]"
-             if _probe(folder, f"{i}.mp4", "a:0", "index")
+             f"volume={TAKES}[a{i}]" if _probe(folder, f"{i}.mp4", "a:0", "index")
              else f"anullsrc=r=44100:cl=stereo,atrim=duration={d}[a{i}]"
              for i, d in enumerate(lengths)]  # fmt: skip
     joined = "".join(f"[a{i}]" for i in range(n))
     voice = f"[{n}:a]{SAME},atrim=duration={total},apad=whole_dur={total}"
     graph = [*takes, f"{joined}concat=n={n}:v=0:a=1[takes]"]
-    if music:  # the music ducks under the narration's words, said or muted (an Omni line)
-        graph += [f"{voice},asplit=2[said][key]", f"[said]anull{mute}[voice]",
+    if music:
+        graph += [f"{voice},asplit=2[voice][key]",
                   f"[{n + 1}:a]{SAME},atrim=duration={total},volume={MUSIC}[bed]",
                   f"[bed][key]{DUCK}[under]"]  # fmt: skip
     else:
-        graph.append(f"{voice}{mute}[voice]")
+        graph.append(f"{voice}[voice]")
     parts = "[takes][voice][under]" if music else "[takes][voice]"
     graph.append(f"{parts}amix=inputs={3 if music else 2}:normalize=0:duration=first,{LOUD},"
                  f"aresample=44100,afade=t=out:{fade}[a]")  # fmt: skip
@@ -582,7 +586,6 @@ def _length(folder: Path, name: str) -> float:
 def song_cut(
     videos: list[bytes], lengths: list[float], song: bytes,
     narrated: bool = False, music: bytes | None = None,
-    spoken: dict[int, tuple[float, float]] | None = None,
 ) -> bytes:  # fmt: skip
     """A song video (flows V6, free): each picked take cut to its piece of the song, counting
     from its start (a short one slowed to fill it, never sped up: Song-Producer), joined in
@@ -605,7 +608,7 @@ def song_cut(
                  for n, d in enumerate(lengths)]  # fmt: skip
         joined = "".join(f"[v{n}]" for n in range(len(videos)))
         fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
-        sound = (_narrated_mix(folder, lengths, music is not None, fade, spoken) if narrated else [
+        sound = (_narrated_mix(folder, lengths, music is not None, fade) if narrated else [
             f"[{len(videos)}:a]atrim=duration={total},asetpts=PTS-STARTPTS,"
             f"apad=whole_dur={total},afade=t=out:{fade}[a]"])  # fmt: skip
         graph = ";".join(

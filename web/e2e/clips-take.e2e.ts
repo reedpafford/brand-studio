@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { makeIt, onBrand, signIn } from "./helpers";
+import { approveCastWhenReady, makeIt, onBrand, signIn } from "./helpers";
 
 // v6 screen 8 (S6-02, S6-03) on the stand-ins: after a delivered run, the owner opens a clip on the Clips tab, presses
 // Another take, and the new take lands beside the one in the cut. Nothing paid is called.
 test("on the Clips tab, Another take makes a new take of the clip on the stand-ins", async ({ page }) => {
   test.setTimeout(240_000);
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const fomo = brands.find((b) => b.name === "fomo")!.id;

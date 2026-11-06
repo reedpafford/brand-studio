@@ -24,7 +24,7 @@ HOUSE_STAYS = "House is the default style, so it stays on."
 SAMPLES = Path(__file__).parent.parent / "samples"
 KINDS = {"mp4": "video/mp4", "jpg": "image/jpeg"}
 NO_SAMPLE_FILE = "There's no test sample for that."
-SITE_OUTPUT = {"house"}  # its card's still is the site's own frame, not a paid test sample
+SITE_OUTPUT = {"house"}  # its card's still and clip are the site's own output, not test samples
 SONG_OFF = "its music provider isn't switched on for this site yet"
 
 

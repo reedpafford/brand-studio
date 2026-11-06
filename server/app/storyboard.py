@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import looks, screen_figures, video_settings
+from app import cast_gate, looks, screen_figures, video_settings
 from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
@@ -107,7 +107,12 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         )
     )
     for item in [*cast_looks(db, project), *items]:
-        if item.kind != Kind.character and not any(b.id == project.brand_id for b in item.brands):
+        mine = item.owner_project_id == project.id  # a place made for this video only
+        if (
+            item.kind != Kind.character
+            and not mine
+            and not any(b.id == project.brand_id for b in item.brands)
+        ):
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
@@ -649,7 +654,8 @@ def still_price(db: Session, project: Project) -> int:
     return price(still_credits(db, project.workspace_id, image_model(project)))
 
 
-def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "") -> dict:
+def render_input(db: Session, project: Project, frame: StoryboardFrame, note: str = "",
+                 check: bool = True) -> dict:  # fmt: skip
     """The Nano Banana job for one frame's still: the project's aspect ratio (always sent),
     character sheets first, then the place, props and screens, in the frame's order."""
     from app.breakdown import would_show
@@ -668,10 +674,16 @@ def render_input(db: Session, project: Project, frame: StoryboardFrame, note: st
         if not files and ref.startswith(("char:", "place:")):
             require_sheet(db.get(LibraryItem, int(ref.split(":")[1])))
         (characters if ref.startswith(CHAR) else objects).extend(files)
+    shown = cast_gate.refs(db, project, breakdown.data, [frame.shot_id], frame.reference_ids, known)
+    if check:  # then the cast and places OK (a price read needs none)
+        cast_gate.require(db, project, shown, known)
     prompt = frame.prompt
     prompt = f"{prompt}\nChange from the last still: {note}" if note else prompt
     job = still_input(image_model(project), prompt, project.aspect_ratio, characters, objects)
     made = video_settings.made_with(db, project, frame.reference_ids, job["model"])  # VS1
+    made["cast"] = cast_gate.stamp(
+        db, project, shown, known
+    )  # as approved: a change since makes it old
     shots = [s for sc in breakdown.data["scenes"] for s in sc["shots"] if s["id"] == frame.shot_id]
     drawn = screen_figures.for_job(db, frame.reference_ids, shots)
     return {**job, "step": "frame", "project_id": project.id, "frame_id": frame.id,

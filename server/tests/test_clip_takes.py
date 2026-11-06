@@ -11,7 +11,7 @@ from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import upload
-from tests.helpers import _usd_keys, assert_hidden, assert_no_dollars, with_sheet
+from tests.helpers import _usd_keys, approve_cast, assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_project_clips import _answer, _prompt
@@ -69,6 +69,7 @@ def clip(app, db, editor, setup):  # noqa: F811
     _run(app, db, FakeClaude(bd))
     editor.post(f"/projects/{setup['project']}/clips/prompts")
     _run(app, db, FakeClaude(_answer(mom, setup["screen"], _prompt())))
+    approve_cast(editor, setup["project"])  # the person's OK on the cast and places
     return editor.get(f"/projects/{setup['project']}/clips").json()[0]
 
 

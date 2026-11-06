@@ -33,12 +33,14 @@ def _has_take(db: Session, row: ProjectClip) -> bool:
     return bool(db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == row.id)))
 
 
-def _draw(db: Session, project: Project, row: Row, before: str = "") -> tuple[str, dict, int]:
-    """The job that makes the still or the new take: (kind, input, units)."""
+def _draw(db: Session, project: Project, row: Row, before: str = "",
+          check: bool = True) -> tuple[str, dict, int]:  # fmt: skip
+    """The job that makes the still or the new take: (kind, input, units). `check` False: only
+    its price is read, so a cast waiting for the OK doesn't stop the price showing."""
     if isinstance(row, StoryboardFrame):
-        data = storyboard.render_input(db, project, row)
+        data = storyboard.render_input(db, project, row, check=check)
         return "image", {**data, "was_prompt": before or row.prompt}, 1
-    return "video", clip_takes.take_input(db, project, row), row.seconds
+    return "video", clip_takes.take_input(db, project, row, check=check), row.seconds
 
 
 def clip_of(db: Session, frame: StoryboardFrame) -> ProjectClip | None:
@@ -56,15 +58,16 @@ def take_after(db: Session, frame: StoryboardFrame) -> ProjectClip | None:
     return clip if clip is not None and _has_take(db, clip) else None
 
 
-def _then(db: Session, project: Project, row: Row) -> Decimal:
+def _then(db: Session, project: Project, row: Row, check: bool = True) -> Decimal:
     """What making it again costs once the prompt is rewritten (0 for a clip with no take):
-    a still's redraw, and its clip's new take when it has one."""
+    a still's redraw, and its clip's new take when it has one. Checked (the press): refused up
+    front while its cast or places wait for the OK."""
     if isinstance(row, StoryboardFrame) or _has_take(db, row):
-        kind, data, units = _draw(db, project, row)
+        kind, data, units = _draw(db, project, row, check=check)
         made = estimate(db, project.workspace_id, kind, Decimal(units), data)
         if isinstance(row, StoryboardFrame):
             clip = take_after(db, row)
-            return made + (_then(db, project, clip) if clip is not None else Decimal(0))
+            return made + (_then(db, project, clip, check) if clip is not None else Decimal(0))
         from app import take_watch
 
         return made + take_watch.rides(db, project, row)  # its watch, while watches are on
@@ -74,7 +77,8 @@ def _then(db: Session, project: Project, row: Row) -> Decimal:
 def credits(db: Session, project: Project, row: Row) -> Decimal:
     """Change it · N: rewriting the prompt, plus the still or the new take (a clip with no
     take yet only has its prompt rewritten)."""
-    return estimate(db, project.workspace_id, "write-claude", Decimal(1)) + _then(db, project, row)
+    write = estimate(db, project.workspace_id, "write-claude", Decimal(1))
+    return write + _then(db, project, row, check=False)
 
 
 def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job:
