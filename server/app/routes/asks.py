@@ -228,6 +228,12 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         card.why = ("That's the most this run can charge: the first takes and their checks, up "
                     f"to {director.MAX_REDOS} remakes a clip, and my own time. Usually it's "
                     f"nearer {_said(money.usual)}.")  # fmt: skip
+        if held and held[0].input.get(asks.CARRIES):  # carrying on after the owner's Stop
+            money.usual = None
+            card.question = f"Carry on for up to {_said(money.up_to)} more?"
+            card.why = ("The owner stopped the director. Carrying on goes on where it left "
+                        "off, up to the rest of this run's approved price. Nothing is charged "
+                        "while it waits.")  # fmt: skip
         may = asks.may_start(db, user, project)
         card.can = ["make_it"] if may else []
         card.can += ["decline"] if owner and project.created_by_id != user.id else []

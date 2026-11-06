@@ -74,19 +74,23 @@ def test_inside_it_the_same_run_goes_on_with_no_new_start_card(app, db, owner, e
     project = db.get(Project, pid)
     stopped = director.turns(db, project)[-1].input[director.RUN]
     cards, card = _starts(db, pid), asks.approved_run(db, project)[0]
+    since = len(director.turns(db, project))
     r = editor.post(f"/projects/{pid}/director/carry-on")  # the editor's own video
     assert r.status_code == 201, r.text
     assert r.json()["status"] == "running" and r.json()["started"]  # no Make it again
     assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 409  # one at a time
     run = director.turns(db, project)[-1].input[director.RUN]
-    assert run[director.CARRIED] == stopped["id"] and run["ok"]
-    assert run["redos"] == stopped["redos"] and run["turn"] >= stopped["turn"]  # the same run
+    assert run["id"] == stopped["id"] and run["ok"]  # the same run: its counts and notes
+    assert run["redos"] == stopped["redos"] and run["turn"] > stopped["turn"]
+    out = editor.get(f"/projects/{pid}/director").json()  # the header: "Working", never
+    assert out["status"] == "running" and any(t["tool"] for t in out["turns"])  # "· starting"
+    assert editor.get(f"/projects/{pid}/director/progress").json()["stopped"] is None
     _run(app, db, ticks=120, start=False)  # nobody presses Make it: none is needed
     db.expire_all()
     assert _starts(db, pid) == cards  # no new start card
     assert asks.approved_run(db, project)[0] == card  # under the same OK
-    tools = [(t.output or {}).get("tool") for t in director.turns(db, project)]
-    assert "treatment" not in tools  # it goes on where it left off
+    tools = [(t.output or {}).get("tool") for t in director.turns(db, project)[since:]]
+    assert tools and "treatment" not in tools  # it goes on where it left off
     assert director.turns(db, project)[-1].input.get("result") == director.DELIVERED
     held = db.query(Job).filter_by(project_id=pid, status=JobStatus.needs_owner_approval)
     assert held.count() == 0
@@ -118,7 +122,7 @@ def test_with_no_make_it_it_is_a_new_run_with_its_start_card(app, db, owner, edi
     cards = _starts(db, pid)
     assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
     run = director.turns(db, db.get(Project, pid))[-1].input[director.RUN]
-    assert not run["ok"] and director.CARRIED not in run  # its plan, then its own card
+    assert not run["ok"]  # a new run: its plan, then its own card
     _run(app, db, ticks=6, start=False)  # a new run: its plan waits on the planning cap's OK
     cards_now = db.query(Ask).filter(Ask.project_id == pid, Ask.kind.in_(("start", "plan")))
     assert cards_now.count() > cards  # (or its own start card), never the old run's OK
@@ -170,7 +174,7 @@ def test_a_freestyles_carry_on_is_its_runs_own_rest(app, db, owner):
     assert stopped["carry_on"] == run_progress.money(left, True)
     assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
     run = director.turns(db, db.get(Project, pid))[-1].input[director.RUN]
-    assert run["ok"] and run[director.CARRIED]
+    assert run["ok"] and _starts(db, pid) == 1  # the same run, under its one OK
 
 
 def test_carrying_on_a_stopped_plan_again_run_keeps_its_press(app, db, owner, editor):
@@ -192,5 +196,99 @@ def test_carrying_on_a_stopped_plan_again_run_keeps_its_press(app, db, owner, ed
     _stop(editor, db, app, pid)
     assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
     carried = director.turns(db, project)[-1].input[director.RUN]
-    assert carried["ok"] and carried[director.CARRIED] == run["id"]
+    assert carried["ok"] and carried["id"] == run["id"]  # the same run goes on
     assert carried[director.FRESH] == run[director.FRESH] and carried[director.UNPICKED]
+
+
+def _make_it_again_and_stop_at_its_card(app, db, owner, editor, press: str) -> int:
+    """A delivered video, then a second run (Make it again, or Start the plan again) stopped
+    while its start card waits: nobody pressed its Make it."""
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=120)
+    project = db.get(Project, pid)
+    assert director.turns(db, project)[-1].input.get("result") == director.DELIVERED
+    assert editor.post(f"/projects/{pid}/director{press}").status_code == 201
+    _run(app, db, ticks=6, start=False)  # its plan, then its card waits
+    _stop(editor, db, app, pid)
+    return pid
+
+
+def test_a_run_stopped_at_its_start_card_is_never_carried_on_under_an_earlier_ok(
+    app, db, owner, editor
+):
+    """QA on 58cc8940: a second run stopped while its start card waited was carried on under
+    the first run's OK. Its own Make it was never pressed: Carry on is a new run's card."""
+    for press in ("", "/plan-again"):
+        pid = _make_it_again_and_stop_at_its_card(app, db, owner, editor, press)
+        project = db.get(Project, pid)
+        assert run_progress.carry_left(db, project) is None
+        stopped = director.turns(db, project)[-1].input[director.RUN]
+        assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+        run = director.turns(db, project)[-1].input[director.RUN]
+        assert run["id"] != stopped["id"] and not run["ok"]  # a new run, with its own card
+        editor.post(f"/projects/{pid}/director/stop")
+
+
+def test_carrying_on_keeps_the_directors_own_limit_and_its_notes(app, db, owner, editor,
+                                                                 monkeypatch):  # fmt: skip
+    """QA on 58cc8940: the director's own limit and its real-cost guard are the run's, so a
+    step the run would hold before Carry on is still held after it; and the notes from before
+    the Stop keep their numbers and read marks."""
+    pid = _made(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _until(app, db, pid)
+    editor.post(f"{url}/messages", json={"text": "Make clip 1 slower."})  # a note in the run
+    _run(app, db, ticks=2, start=False)
+    _stop(editor, db, app, pid)
+    project = db.get(Project, pid)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    before = director.chat(project, run["id"])
+    db.expire_all()
+    said = owner.post(f"{url}/messages", json={"text": "And end on the capsule."})  # after it
+    assert said.status_code == 201, said.text
+    charged, _ = director.own_charged(db, run["id"])
+    monkeypatch.setattr(director, "OWN_CREDITS", charged + Decimal("0.01"))  # none left
+    assert editor.post(f"{url}/carry-on").status_code == 201
+    turn = director.turns(db, project)[-1]
+    assert turn.status == JobStatus.needs_owner_approval
+    assert turn.input.get("held", "").startswith("Waiting for the owner's OK: the director")
+    db.expire_all()
+    project = db.get(Project, pid)
+    notes = director.chat(project, run["id"])
+    assert notes[: len(before)] == before and notes[-1]["text"] == "And end on the capsule."
+
+
+def test_after_the_owners_stop_an_editors_carry_on_waits_for_the_owner(app, db, owner, editor):
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _until(app, db, pid)
+    _stop(owner, db, app, pid)  # the owner stopped it
+    left = run_progress.carry_left(db, db.get(Project, pid))
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    project = db.get(Project, pid)
+    held = director.turns(db, project)[-1]
+    assert held.status == JobStatus.needs_owner_approval
+    assert held.input.get("held") == director.CARRY_HOLD
+    card = next(a for a in owner.get(f"/projects/{pid}/asks").json()
+                if a["kind"] == "start" and a["state"] == "open")  # fmt: skip
+    assert card["question"] == f"Carry on for up to {run_progress.money(left, True)} more?"
+    assert (
+        "make_it"
+        not in next(a for a in editor.get(f"/projects/{pid}/asks").json() if a["id"] == card["id"])[
+            "can"
+        ]
+    )  # the owner's to press
+    assert asks.approved_total(db, project) == asks.approved_run(db, project)[0]  # one price
+    r = owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"})
+    assert r.status_code == 200, r.text
+    _run(app, db, ticks=80, start=False)
+    assert director.turns(db, project)[-1].input.get("result") == director.DELIVERED
+
+
+def test_after_the_editors_own_stop_they_carry_on_inside_the_rest(app, db, owner, editor):
+    pid = _stopped(app, db, owner, editor)  # the editor stopped their own run
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    turn = director.turns(db, db.get(Project, pid))[-1]
+    assert turn.status != JobStatus.needs_owner_approval

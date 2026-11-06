@@ -535,12 +535,17 @@ def carry_left(db: Session, project: Project) -> Decimal | None:
     Make it to its delivery or Stop): that price, with its OKs at the director's own limit,
     less what the run has charged against it (`asks.approved_run`). None when the newest run
     wasn't stopped by a person, had no Make it, or has nothing of its price left."""
+    from app.credits import COUNTED
+
     every = runs(db, project)
-    rows = list(every.values())[-1] if every else []
+    run_id, rows = list(every.items())[-1] if every else (None, [])
     if not any(j.input.get(STOPPED_BY) for j in rows):
         return None
-    if not any(j.input[RUN].get("ok", True) for j in rows):  # stopped before its Make it
-        return None
+    card = db.scalar(select(Job).where(  # its own Make it, pressed: never an earlier run's OK
+        Job.project_id == project.id, Job.input[asks.START].as_boolean(),
+        Job.status.in_(COUNTED)).order_by(Job.id.desc()).limit(1))  # fmt: skip
+    if card is None or (card.input.get(RUN) or {}).get("id") != run_id:
+        return None  # stopped before its Make it (at its start card): a new run's own card
     got = asks.approved_run(db, project)
     left = got[0] - got[1] if got else Decimal(0)
     return left if left > 0 else None
