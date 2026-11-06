@@ -211,19 +211,6 @@ test("move lines are plain words: no tool names, codes, ids or JSON; a refusal d
   expect(within(list).getAllByText(/· Open$/)).toHaveLength(1);
 });
 
-test("an editor's change waits for the owner: its price shows, never up to free, and Withdraw change takes it back", async () => {
-  setViewport(1440);
-  const waiting = fs({ status: "waiting", created_by_name: "Eli", file_id: 8, thread: [item("m1", "message", "Eli", SCRIPT), item("m2", "message", "Eli", "Punchier ending.", null, later), item("t3", "move", "Director", "Waiting for the owner's OK.", "held", later)] });
-  const heldJob = { id: 31, kind: "claude", project_id: 50, credits: 3, status: "needs_owner_approval", created_at: later, finished_at: null, freestyle: { id: 9, title: "Beer gut doctor rant", type: "dialogue", said: "Punchier ending.", change: true, up_to: 139.46, total: 280, spent: 82 } };
-  const calls = server(editor, waiting, run({ run_price: 0, turns: [{ turn: 0, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: later }] }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...waiting, status: "delivered" }], "GET /jobs?status=needs_owner_approval": [200, [heldJob]] });
-  renderApp("/b/1/videos/50");
-  expect(await screen.findByText("Change asked · waiting for the owner")).toBeInTheDocument();
-  expect(await screen.findByText("up to 140 credits")).toBeInTheDocument();
-  expect(document.body.textContent).not.toMatch(/up to free|\$\d/);
-  await userEvent.click(screen.getByRole("button", { name: "Withdraw change" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
-});
-
 test("before the owner's OK an editor's send opens by its freestyle: the script it came from, and the box opens once approved", async () => {
   setViewport(1440);
   const script = { id: 3, title: "Beer gut doctor rant", created_at: "2026-10-30T10:00:00Z", versions: [{ slot: 1, project_id: null, text: SCRIPT, seconds: 35 }] };
@@ -314,19 +301,6 @@ test("the first message's script shows its first lines and opens in full; a late
   await userEvent.click(within(thread).getByRole("button", { name: "+ 2 more lines" }));
   expect(within(thread).getByText("DR. PICKLE: It's a science project.")).toBeInTheDocument();
   expect(within(thread).getByText(/End on the capsule\./)).toBeInTheDocument();
-});
-
-test("while the first move runs the header reads Working, not the server's lagging Needs you · Start it; the start card's Make it is the press", async () => {
-  setViewport(1440);
-  server(owner, null, run({ turns: [{ turn: 0, tool: null, why: "", result: "", status: "running", created_at: at }] }), { "GET /projects/50/idea": [200, head({ status: status("needs_you", "Needs you", "Start it") })] });
-  const first = renderApp("/b/1/videos/50");
-  expect(await within(await screen.findByRole("banner")).findByText("Working · starting")).toBeInTheDocument();
-  first.unmount();
-  const calls = server(owner, null, run({ status: "ended", turns: [], make_it: 77, run_price: 140, thread: [item("t1", "move", "Director", "The treatment.", "done")] }), { "GET /projects/50/idea": [200, head({ status: status("needs_you", "Needs you", "Start it") })], "POST /asks/77/answer": [200, {}] });
-  renderApp("/b/1/videos/50");
-  await userEvent.click(await screen.findByRole("button", { name: "Make it · up to 140 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/77/answer")?.body).toEqual({ how: "make_it" }));
-  expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull();
 });
 
 // Screen 4: the run's one live card, the stopped and failed ends, and the delivery note (pieces C and D).
@@ -430,23 +404,6 @@ test("P-04: on a phone the card shows one frame a scene with its count, and the 
   expect(within(live).getByRole("list", { name: "Every step" })).toBeInTheDocument();
 });
 
-test("a held run keeps the owner's way on under its card: the price for an editor's send, Needs you for a hold mid-run", async () => {
-  setViewport(1440);
-  const held = item("r9", "move", "Director", "Waiting for the owner's OK.", "held", later, { run: "r9" });
-  const waiting = record({ status: "waiting", title: "Waiting for your OK", sub: "Remaking clip 3 goes past the video's budget", tone: "wait" });
-  server(owner, null, run({ thread: [held] }), { "GET /projects/50/director/progress": [200, waiting] });
-  const first = renderApp("/b/1/videos/50");
-  const live = await screen.findByRole("region", { name: "Waiting for your OK" });
-  expect(within(live).getByText("Remaking clip 3 goes past the video's budget", { selector: "p" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "See it in Needs you" })).toHaveAttribute("href", "/approvals");
-  first.unmount();
-  const sent = fs({ status: "waiting", created_by_name: "Eli", up_to: 34, thread: [item("m1", "message", "Eli", SCRIPT), held] });
-  server(editor, sent, run({ thread: [held], turns: [{ turn: 0, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: later }] }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "GET /projects/50/director/progress": [200, waiting] });
-  renderApp("/b/1/videos/50");
-  expect(await screen.findByText("Sent to the owner for approval")).toBeInTheDocument();
-  expect(screen.getByText("up to 34 credits")).toBeInTheDocument();
-});
-
 test("Try again can't be pressed twice: while its clip is made the press waits, and a stop with nothing made says so", async () => {
   setViewport(1440);
   const failed = { title: "Clip 4 couldn’t be made", why: "Busy.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }] };
@@ -465,4 +422,295 @@ test("rule 22: with no stills or clips yet, the Clips tab points to the chat; on
   renderApp("/b/1/videos/50?tab=clips");
   await userEvent.click(await screen.findByRole("button", { name: "Start it or tell it what to do in the chat." }));
   expect(screen.getByRole("tab", { name: "Chat", selected: true })).toBeInTheDocument();
+});
+
+// Screen 5: the director's cards (piece B, #1313): questions, story choices, the start-of-run and budget OKs, the pinned bar.
+const price = (credits: number, usd: number | null = null) => ({ credits, usd });
+const ask = (o: object = {}) => ({ id: 7, project_id: 50, kind: "presenter", topic: "The presenter", question: "Who should be the presenter?", why: "He talks to camera the whole time.", state: "open", by_owner: false, saved_in: "Saved in Resilia", saved: [{ id: "item:1", name: "Mark", note: "UGC", file_id: 31, used_in: 6 }, { id: "item:2", name: "Dana", note: "UGC", file_id: 32, used_in: 2 }], pick: "item:1", choices: [], decide_at: null, generate: price(3, 0.24), clone: null, options: [], options_spent: null, answer: null, answered_by: "", answered_at: null, closed: "", money: null, can: ["reply", "saved", "upload", "generate"], created_at: at, ...o });
+const asked = (id = 7) => item(`a${id}`, "move", "Director", "Who should be the presenter?", null, later, { kind: "ask", ask_id: id });
+const cards = (...a: object[]) => ({ "GET /projects/50/asks": [200, a] as [number, unknown] });
+const held$ = (o: object = {}) => ({ up_to: price(140, 14.4), spent: null, budget: null, past: null, usual: price(97, 10), clips: [], sent_at: later, held: "", ...o });
+
+test("S4-01/S3-05: a question shows the brand's saved items first, its pick outlined; Use sends that pick; the pinned bar shows it", async () => {
+  setViewport(1440);
+  const calls = server(owner, null, run({ thread: [asked()], waiting: [{ id: 7, topic: "The presenter", question: "Who should be the presenter?" }] }), { ...cards(ask()), "POST /asks/7/answer": [200, ask({ state: "answered" })] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(within(card).getByText("The director needs you")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /^Mark/ })).toHaveAttribute("aria-pressed", "true");
+  expect(within(card).getByText("3 avatars · up to $0.24 · this video only")).toBeInTheDocument();
+  expect(screen.getByText("1 question waiting · The presenter")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show" })).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: /^Dana/ }));
+  await userEvent.click(within(card).getByRole("button", { name: "Use Dana" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "saved", option: "item:2" }));
+});
+
+test("S4-01: Reply answers in words; Generate options starts a priced round", async () => {
+  setViewport(1440);
+  const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(ask()), "POST /asks/7/answer": [200, ask()], "POST /asks/7/generate": [200, ask({ state: "generating" })] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  await userEvent.click(within(card).getByRole("button", { name: /^Reply/ }));
+  await userEvent.type(within(card).getByLabelText("Your answer"), "Someone older, tired");
+  await userEvent.click(within(card).getByRole("button", { name: "Send the answer" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "reply", text: "Someone older, tired" }));
+  await userEvent.click(within(card).getByRole("button", { name: /^Generate options/ }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /asks/7/generate")).toBe(true));
+});
+
+test("S4-03: generating shows its price and Cancel; options ready: Use option, More like it, Change something…, what's spent", async () => {
+  setViewport(1440);
+  const drawing = ask({ state: "generating", options: [0, 1, 2].map((index) => ({ index, state: "running", file_id: null })), can: ["reply", "saved", "upload", "cancel"] });
+  const first = server(owner, null, run({ thread: [asked()] }), { ...cards(drawing), "POST /asks/7/cancel": [200, ask()] });
+  const a = renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(within(card).getByText("Drawing 3 avatars · up to $0.24")).toBeInTheDocument();
+  expect(within(card).getAllByText("drawing…")).toHaveLength(3);
+  await userEvent.click(within(card).getByRole("button", { name: "Cancel" }));
+  await vi.waitFor(() => expect(first.some((c) => c.key === "POST /asks/7/cancel")).toBe(true));
+  a.unmount();
+  const ready = ask({ state: "ready", options: [0, 1, 2].map((index) => ({ index, state: "succeeded", file_id: 40 + index })), options_spent: price(3, 0.18), can: ["reply", "saved", "upload", "generate", "option"] });
+  const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(ready), "POST /asks/7/answer": [200, ask({ state: "answered" })], "POST /asks/7/generate": [200, ready] });
+  renderApp("/b/1/videos/50");
+  const r = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(within(r).getByText("Made for this video · not saved to the brand")).toBeInTheDocument();
+  expect(within(r).getByText("$0.18 spent")).toBeInTheDocument();
+  expect(within(r).getByRole("button", { name: /^Option 1/ })).toHaveAttribute("aria-pressed", "true"); // the first, as drawn
+  await userEvent.click(within(r).getByRole("button", { name: /^Option 2/ }));
+  await userEvent.click(within(r).getByRole("button", { name: "More like 2 · up to $0.24" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/generate")?.body).toEqual({ like: 1 }));
+  await userEvent.click(within(r).getByRole("button", { name: "Use option 2" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "option", option: 1 }));
+});
+
+test("S4-03: a failed round says nothing was charged, with Try again and Upload instead; answered folds and can change; not needed says why", async () => {
+  setViewport(1440);
+  server(owner, null, run({ thread: [asked(), asked(8), asked(9)] }), cards(
+    ask({ state: "failed", options: [{ index: 0, state: "failed", file_id: null }] }),
+    ask({ id: 8, state: "answered", topic: "Husband", question: "Who plays the husband?", answer: { how: "saved", name: "Mark", file_id: 31 }, answered_by: "Reed", answered_at: later }),
+    ask({ id: 9, state: "not_needed", question: "Which kitchen?", closed: "You locked the cast to Mark, who comes with his kitchen, so I used that.", can: [] }),
+  ));
+  renderApp("/b/1/videos/50");
+  const failed = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(within(failed).getByText("The picture service made nothing. Nothing was charged.")).toBeInTheDocument();
+  expect(within(failed).getByRole("button", { name: "Try again · up to $0.24" })).toBeInTheDocument();
+  expect(within(failed).getByRole("button", { name: "Upload instead" })).toBeInTheDocument();
+  const done = screen.getByRole("region", { name: "Who plays the husband?" });
+  expect(within(done).getByText("Husband: Mark")).toBeInTheDocument();
+  expect(within(done).getByText(/picked by Reed, \d\d:\d\d/)).toBeInTheDocument();
+  await userEvent.click(within(done).getByRole("button", { name: "Change" }));
+  expect(within(screen.getByRole("region", { name: "Who plays the husband?" })).getByText("Saved in Resilia")).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "Which kitchen?" })).getByText(/You locked the cast to Mark/)).toBeInTheDocument();
+});
+
+test("S4-02: a story choice shows its pick and why, Go with A or B, and when it goes with its pick", async () => {
+  setViewport(1440);
+  const story = ask({ kind: "story", topic: "How it ends", question: "How should it end?", saved: [], saved_in: "", generate: null, pick: "A", decide_at: "2026-11-04T11:00:00Z", choices: [{ key: "A", title: "He bins the pint", why: "Clear before and after." }, { key: "B", title: "He toasts the camera", why: "Funnier." }], can: ["reply", "choice"] });
+  const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(story), "POST /asks/7/answer": [200, story] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "How should it end?" });
+  expect(within(card).getByText("A · my pick")).toBeInTheDocument();
+  expect(within(card).getByText(/^I’ll go with A at \d\d:\d\d if I don’t hear back$/)).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Go with B" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "choice", choice: "B" }));
+});
+
+test("S3-02: the start-of-run card: Make it · up to its price, Change the plan first opens the box; the general Make it stands aside", async () => {
+  setViewport(1440);
+  const start = ask({ kind: "start", topic: "", question: "Make it for up to $14.40?", why: "That's the most this run can charge.", saved: [], money: held$(), can: ["make_it"] });
+  const calls = server(owner, null, run({ status: "ended", turns: [], make_it: 7, run_price: 140, thread: [asked()] }), { ...cards(start), "POST /asks/7/answer": [200, start] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to $14.40?" });
+  expect(within(card).getByText("Ready to start")).toBeInTheDocument();
+  expect(within(card).getByText("Nothing is spent until you press.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull();
+  await userEvent.click(within(card).getByRole("button", { name: "Change the plan first" }));
+  expect(screen.getByLabelText("Tell the director what to change")).toHaveFocus();
+  await userEvent.click(within(card).getByRole("button", { name: "Make it · up to $14.40" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "make_it" }));
+});
+
+test("S3-06: past the budget, the owner approves the most it adds, or keeps the cut", async () => {
+  setViewport(1440);
+  const budget = ask({ kind: "budget", question: "Redo clips 9 and 12? That goes $1.54 past the budget.", why: "$16.30 spent plus up to $2.10 makes up to $18.40; the budget is $16.86.", saved: [], money: held$({ up_to: price(21, 2.1), clips: [{ clip: "9", still_file_id: 51 }, { clip: "12", still_file_id: 52 }] }), can: ["approve", "keep"] });
+  const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(budget), "POST /asks/7/answer": [200, budget] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Redo clips 9 and 12? That goes $1.54 past the budget." });
+  expect(within(card).getByText("Past the budget · needs your OK")).toBeInTheDocument();
+  expect(within(card).getByText("Clip 9 · Clip 12")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Keep the cut as it is" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "keep" }));
+  await userEvent.click(within(card).getByRole("button", { name: "Approve · up to $2.10 more" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /asks/7/answer").map((c) => c.body)).toContainEqual({ how: "approve" }));
+});
+
+test("S3-07/P-07: an editor's held request waits for the owner in credits, never names them, and can be withdrawn", async () => {
+  setViewport(390);
+  const held = ask({ kind: "budget", question: "Redo clips 9 and 12? That goes 15 credits past the budget.", why: "The owner has been asked; nothing is charged while it waits.", saved: [], money: held$({ up_to: price(21) }), can: ["withdraw"] });
+  const calls = server(editor, null, run({ thread: [asked()] }), { ...cards(held), "GET /projects/50": [200, { ...project, freestyle_id: null, created_by_id: 2 }], "POST /asks/7/answer": [200, held] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Redo clips 9 and 12? That goes 15 credits past the budget." });
+  expect(within(card).getByText("Waiting for the owner’s OK")).toBeInTheDocument();
+  expect(within(card).getByText(/^Sent \d\d:\d\d · you’ll see the answer here$/)).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\$\d|ask (Reed|the owner)|Reed/);
+  await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "withdraw" }));
+});
+
+test("an editor's send on a freestyle withdraws through the freestyle (so its send is let go too)", async () => {
+  setViewport(1440);
+  const held = ask({ kind: "start", question: "Make it for up to 140 credits?", saved: [], money: held$({ up_to: price(140) }), can: ["withdraw"] });
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT)] });
+  const calls = server(editor, sent, run({ thread: [asked()] }), { ...cards(held), "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...sent, status: "withdrawn" }] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to 140 credits?" });
+  const before = calls.filter((c) => c.key === "GET /projects/50/asks").length;
+  await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /asks/7/answer")).toBe(false);
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/50/asks").length).toBeGreaterThan(before)); // the card reads again
+});
+
+test("on a freestyle, a held budget card withdraws itself, not the freestyle's send", async () => {
+  setViewport(1440);
+  const held = ask({ kind: "budget", question: "Redo clip 2? That goes 12 credits past the budget.", saved: [], money: held$({ up_to: price(21) }), can: ["withdraw"] });
+  const calls = server(editor, fs({ created_by_name: "Eli" }), run({ thread: [asked()] }), { ...cards(held), "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /asks/7/answer": [200, held] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Redo clip 2? That goes 12 credits past the budget." });
+  await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "withdraw" }));
+  expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(false);
+});
+
+test("a voice card's clone: cloning and held say the clone's price and where it goes, with no Cancel; a failed clone keeps the voices", async () => {
+  setViewport(1440);
+  const voice = (o: object) => ask({ kind: "voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "", file_id: null, used_in: 0 }], pick: null, generate: null, clone: price(30, 3), ...o });
+  const a = server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "generating", clone: price(30), can: ["reply", "saved", "clone", "cancel"] })));
+  const r1 = renderApp("/b/1/videos/50");
+  const cloning = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(cloning).getByText("Cloning the voice · up to 30 credits")).toBeInTheDocument();
+  expect(within(cloning).queryByRole("button", { name: "Cancel" })).toBeNull();
+  expect(a.length).toBeGreaterThan(0);
+  r1.unmount();
+  const r2 = (server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "held", clone: price(30), can: ["reply", "saved", "clone", "cancel"] }))), renderApp("/b/1/videos/50"));
+  const held = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(held).getByText("You asked to clone this voice (up to 30 credits, saved to Resilia’s voices). The owner has been asked; nothing is charged while it waits.")).toBeInTheDocument();
+  expect(within(held).queryByRole("button", { name: "Withdraw" })).toBeNull();
+  r2.unmount();
+  server(owner, null, run({ thread: [asked()] }), cards(voice({ state: "failed", clone_to: "Saved to Resilia's voices", can: ["reply", "saved", "clone"] })));
+  renderApp("/b/1/videos/50");
+  const failed = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(failed).getByText("The voice didn’t clone. Nothing was charged.")).toBeInTheDocument();
+  expect(within(failed).getByRole("button", { name: /^Roger/ })).toBeInTheDocument();
+  expect(within(failed).getByRole("button", { name: /Clone it once · saved to Resilia's voices · up to \$3\.00/ })).toBeInTheDocument();
+});
+
+test("a voice answered with a clone that was already in the brand says so, and that nothing was charged", async () => {
+  setViewport(1440);
+  const done = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", state: "answered", answer: { how: "clone", option: "voice:4", name: "Dr. Pickle", reused: true }, answered_by: "Reed", answered_at: later, can: [] });
+  server(owner, null, run({ thread: [asked()] }), cards(done));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(card).getByText("Using Dr. Pickle, already in Resilia’s voices. Nothing was charged.")).toBeInTheDocument();
+});
+
+test("a failed picture round shows only what went wrong and the two ways on (S4-03)", async () => {
+  setViewport(1440);
+  server(owner, null, run({ thread: [asked()] }), cards(ask({ state: "failed", options: [{ index: 0, state: "failed", file_id: null }] })));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(within(card).queryByRole("button", { name: /^Mark/ })).toBeNull();
+  expect(within(card).queryByText(/didn’t draw/)).toBeNull();
+});
+
+test("while the first move runs the header reads Working, not the server's lagging Needs you · Start it", async () => {
+  setViewport(1440);
+  server(owner, null, run({ turns: [{ turn: 0, tool: null, why: "", result: "", status: "running", created_at: at }] }), { "GET /projects/50/idea": [200, head({ status: status("needs_you", "Needs you", "Start it") })] });
+  renderApp("/b/1/videos/50");
+  expect(await within(await screen.findByRole("banner")).findByText("Working · starting")).toBeInTheDocument();
+});
+
+test("P-06: on a phone the card fits, and two questions read Next on the pinned bar", async () => {
+  setViewport(390);
+  const second = ask({ id: 8, topic: "How it ends", question: "How should it end?" });
+  server(owner, null, run({ thread: [asked(), asked(8)], waiting: [{ id: 7, topic: "The presenter", question: "" }, { id: 8, topic: "How it ends", question: "" }] }), cards(ask(), second));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("2 questions waiting")).toBeInTheDocument(); // the count only on a phone
+  expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+});
+
+test("S4-03: an editor's Generate options past their allowance waits for the owner, with Withdraw and Upload instead", async () => {
+  setViewport(1440);
+  const held = ask({ state: "held", generate: price(3), can: ["reply", "saved", "upload", "generate", "cancel"] });
+  const calls = server(editor, null, run({ thread: [asked()] }), { ...cards(held), "POST /asks/7/cancel": [200, ask()] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(within(card).getByText("Waiting for the owner’s OK")).toBeInTheDocument();
+  expect(within(card).getByText("You asked for 3 generated avatars (up to 3 credits). The owner has been asked; nothing is charged while it waits.")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Upload instead" })).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: /^Mark/ })).toBeNull();
+  await userEvent.click(within(card).getByRole("button", { name: "Withdraw" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /asks/7/cancel")).toBe(true));
+});
+
+test("S3-07: an editor's send, held before its video has cards, is the same held card in credits, with Withdraw the request", async () => {
+  setViewport(390);
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Waiting for the owner's OK", "held")] });
+  const calls = server(editor, sent, run({ status: "ended", turns: [] }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...sent, status: "withdrawn" }] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to 164 credits?" });
+  expect(within(card).getByText("Waiting for the owner’s OK")).toBeInTheDocument();
+  expect(within(card).getByText("The owner has been asked. Nothing is made or charged while it waits.")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+});
+
+test("S3-07: an editor's change after a delivery waits with its own price from its held job, never up to free", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "waiting", file_id: 88, created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Punchier ending.", "held", later)] });
+  const job = { id: 31, status: "needs_owner_approval", project_id: 50, credits: 4, kind: "director", created_at: later, freestyle: { id: 9, change: true, up_to: 23 } };
+  server(editor, sent, run({ status: "delivered", turns: [], run_price: 0 }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "GET /jobs": [200, [job]] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make this change for up to 23 credits?" });
+  expect(within(card).getByText("The owner has been asked. The cut stays as it is while it waits; nothing is charged.")).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Withdraw the request" })).toBeInTheDocument();
+});
+
+test("S4-01: a voice card plays its samples free; Clone it once says it's saved to the brand's voices before its price", async () => {
+  setViewport(1440);
+  const voice = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "Relaxed, mid", file_id: null, used_in: 3, sample_url: "/voices/sample/roger.mp3" }], pick: "stock:roger", generate: null, clone: price(30, 3), can: ["reply", "saved", "clone"] });
+  server(owner, null, run({ thread: [asked()] }), cards(voice));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(card).getByRole("button", { name: "Play Roger's sample" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /Clone it once · saved to Resilia’s voices · up to \$3\.00/ })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: /^Describe it/ })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: "Use Roger" })).toBeInTheDocument();
+});
+
+test("S4-01: a voice card lists its first three voices, the rest a press away; with nothing picked it has no empty foot", async () => {
+  setViewport(1440);
+  const v = (n: number) => ({ id: `stock:v${n}`, name: `Voice ${n}`, note: "", file_id: null, used_in: 0 });
+  const voice = ask({ kind: "voice", question: "Which voice should Mark have?", saved: [1, 2, 3, 4, 5].map(v), pick: null, generate: null, clone: price(30, 3), can: ["reply", "saved", "clone"] });
+  server(owner, null, run({ thread: [asked()] }), cards(voice));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(card).queryByText("Voice 4")).toBeNull();
+  expect(within(card).queryByRole("button", { name: /^Use / })).toBeNull();
+  await userEvent.click(within(card).getByRole("button", { name: "2 more voices" }));
+  await userEvent.click(within(card).getByRole("button", { name: /^Voice 5/ }));
+  expect(within(card).getByRole("button", { name: "Use Voice 5" })).toBeInTheDocument();
+});
+
+test("S3-07: before the owner's OK its video's thread is closed, so the send's own card shows under its held move", async () => {
+  setViewport(1440);
+  const held = ask({ kind: "start", question: "Make it for up to 140 credits?", saved: [], money: held$({ up_to: price(140) }), can: ["withdraw"] });
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("r1", "move", "Director", "Waiting for the owner's OK · up to 140 credits is past this video's budget of 52", "held")] });
+  const calls = server(editor, sent, run({ status: "ended", turns: [] }), { ...cards(held), "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...sent, status: "withdrawn" }] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to 140 credits?" });
+  expect(screen.getAllByRole("region", { name: /^Make it/ })).toHaveLength(1);
+  await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
 });
