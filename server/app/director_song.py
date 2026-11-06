@@ -259,13 +259,14 @@ def _speed(db: Session, project: Project, emotion: str | None) -> float | None:
 
 def _voice(db: Session, project: Project) -> str:
     """The narrator when none is picked: a person's for this video, else the video's own (its
-    host's or its style's, e.g. Dr. Pickle's clone), else a UGC talker's MiniMax voice (Reed,
-    3 Nov), else narration's."""
+    host's or its style's, e.g. Dr. Pickle's clone), else the MiniMax voice for a talker or a
+    UGC presenter in one spot, in a corner too (Reed, 3 and 6 Nov: talker.minimax), else
+    narration's."""
     from app import talker
 
     if own := voices.picked(db, project) or voices.default_for(db, project):
         return own
-    return talker.VOICE if talker.on(db, project) else narration.VOICE
+    return talker.VOICE if talker.minimax(db, project) else narration.VOICE
 
 
 def _real(db: Session, found: str) -> float:
