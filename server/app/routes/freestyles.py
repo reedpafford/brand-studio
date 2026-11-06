@@ -51,6 +51,7 @@ from app.routes.estimate import run_price
 from app.routes.files import get_file
 from app.routes.jobs import CHANGE, DECLINE, PRICE, SAID, WITHDRAWN, enqueue, stop_jobs
 from app.routes.looks import off_reason
+from app.routes.projects import unheld
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
 ONE_CLIP = "one_clip"  # the other types are the formats on GET /formats
@@ -677,6 +678,8 @@ def send_message(
     fs = _get(db, user, freestyle_id)
     if fs.created_by_id != user.id:
         raise HTTPException(403, "Only whoever made this freestyle can change it.")
+    if fs.project_id and (video := db.get(Project, fs.project_id)):
+        unheld(db, user, video)  # its send waits for the owner's OK: nothing changes yet
     if fs.type != ONE_CLIP:
         _change(db, user, fs, body.text)
         return _out(db, fs, user)

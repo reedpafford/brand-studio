@@ -129,8 +129,9 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const archived = !!p?.archived_at;
   const maker = p ? mayManage(p) : fs?.created_by_name === me?.name;
   const lookOnly = p && !mayManage(p) && !archived ? `Only ${p.created_by_name || "someone else"} or the owner can change this video.` : null;
-  // An editor's send waiting for the owner's OK: theirs to look at and withdraw, nothing to change or spend yet (S3-07).
-  const held = state === "waiting" && !owner ? "This waits for the owner's OK; nothing can change until then." : null;
+  // An editor's send waiting for the owner's OK (the server's `held`): theirs to look at and withdraw, nothing to change or
+  // spend yet (S3-07). An approved video waiting at a limit stays theirs to change.
+  const held = p?.held && !owner ? "This waits for the owner's OK; nothing can change until then." : null;
   const changes = maker && !archived && !held;
   // A send withdrawn or declined here leaves nothing behind: the page goes to where it was listed, the tree reads again.
   const gone = (said: string) => {
@@ -182,7 +183,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
   const chat = (
-    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} onGone={state === "waiting" ? gone : undefined} />
+    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} onGone={p?.held ? gone : undefined} />
   );
   const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? held ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (

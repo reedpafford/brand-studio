@@ -344,3 +344,42 @@ def test_after_the_owners_ok_a_send_never_reads_start_it_while_its_run_works(
     assert turn.id in ids({"mine": True, "freestyle": True})
     assert turn.id not in ids({"mine": True, "sends": True})
     assert held["id"] in ids({"mine": True, "sends": True})
+
+
+def test_the_owners_note_on_a_held_send_is_his_and_its_start_card_comes_back(
+    app, owner, editor, db
+):
+    """QA on #1380: the owner's "Change the plan first" note on an editor's held send. The
+    director rewrites the plan on the owner's spend, never held against the editor's planning
+    allowance (rule 5: the owner is never held), and the start card comes back for his Make it.
+    The send stays open for both the whole time, never a 404."""
+    from app import asks
+
+    brand = first_brand(owner)
+    fs = editor.post("/freestyles", json={**BODY, "brand_id": brand}).json()
+    _run(app, db, ticks=4, start=False)
+    pid = editor.get(f"/freestyles/{fs['id']}").json()["project_id"]
+    said = owner.post(f"/projects/{pid}/director/messages", json={"text": "Make it funnier."})
+    assert said.status_code == 201, said.text
+
+    def tree(who) -> list[int]:
+        return [i["id"] for i in who.get(f"/brands/{brand}/tree").json()["unsorted"]["ideas"]]
+
+    for _ in range(6):
+        for who in (owner, editor):  # never a 404 while it waits
+            assert who.get(f"/projects/{pid}").status_code == 200
+            assert pid in tree(who)
+        _run(app, db, ticks=1, start=False)
+    held = db.query(Job).filter(Job.project_id == pid, Job.status == "needs_owner_approval").all()
+    assert [j.input.get(asks.START) for j in held] == [True], [j.input for j in held]
+    assert not any(j.input.get(asks.PLAN_OK) for j in held)  # never "used its allowance"
+    cards = owner.get(f"/projects/{pid}/asks").json()
+    start = [c for c in cards if c["kind"] == "start" and c["state"] == "open"]
+    assert start and "make_it" in start[0]["can"]
+    assert not [c for c in cards if c["kind"] == "plan" and c["state"] == "open"]
+    assert owner.get(f"/projects/{pid}").json()["held"] is True
+    assert editor.get(f"/projects/{pid}").json()["held"] is True
+    r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": "Shorter."})
+    assert r.status_code == 409  # the sender's own change waits for the OK too (unheld)
+    made = owner.post(f"/asks/{start[0]['id']}/answer", json={"how": "make_it"})
+    assert made.status_code == 200, made.text  # his Make it, on the card that came back

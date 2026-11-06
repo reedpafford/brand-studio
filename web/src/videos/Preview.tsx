@@ -438,6 +438,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
           <PanelSkeleton />
         ) : (
           <ViewOnly on={!!lookOnly}>
+            {lookOnly && <p className="text-sm text-muted">{lookOnly}</p>}{/* why its presses are greyed, on the tab itself */}
             <Pane
               p={p}
               head={head}

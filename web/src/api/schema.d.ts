@@ -10573,6 +10573,11 @@ export interface components {
             /** Freestyle Id */
             freestyle_id?: number | null;
             /**
+             * Held
+             * @default false
+             */
+            held: boolean;
+            /**
              * Look Locked
              * @default false
              */

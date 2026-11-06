@@ -81,6 +81,7 @@ class ProjectOut(BaseModel):
     look: str = "house"  # how its pictures are drawn (VS1)
     look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
     freestyle_id: int | None = None  # P3: made through a freestyle (the director's chat view)
+    held: bool = False  # an editor's send waiting for the owner's OK: for looking (S3-07)
     look_locked: bool = False  # made from a published script: it keeps that style (item 7)
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
@@ -189,6 +190,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         look=project.look,
         look_redo_credits=looks.redo_credits(db, project),
         freestyle_id=_freestyle_of(db, project),
+        held=project.hidden and bool(hidden.held_sends(db, user, project_id=project.id)),
         look_locked=looks.script_style(db, project) is not None,
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
