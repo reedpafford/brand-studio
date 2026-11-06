@@ -57,7 +57,8 @@ def test_a_note_to_change_the_scripts_words_is_answered_at_once(app, db, owner, 
     assert card["question"] == ("The script’s words are set for this script, so I can’t change "
                                 "“bought the dip”. Here’s what I can change instead:")  # fmt: skip
     assert card["state"] == "offered" and card["can"] == ["instead"]
-    (softer,) = card["choices"]
+    softer, pause = card["choices"]  # as drawn: Say it softer, then what the cut can change
+    assert pause["do"] == "pause"  # (no presenter here to cut away from)
     assert (softer["title"], softer["do"], softer["made"]) == ("Say it softer", "softer", "")
     assert softer["why"] == "Nate says it more softly. Redo the voice line and clip 1"
     row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
@@ -89,7 +90,7 @@ def test_saying_it_softer_makes_a_take_and_once_its_watch_is_clean_the_cut_again
     was = (cut.id, list(cut.take_ids))
     pressed = _press(editor, db, pid)
     choice = pressed["choices"][0]
-    assert choice["made"] == "making" and pressed["can"] == []
+    assert choice["made"] == "making" and pressed["can"] == ["instead"]  # the pause stays
     job = db.query(Job).filter(Job.kind == "video").order_by(Job.id.desc()).first()
     assert job.input[locked_line.FOR] == [card["id"], "A"]
     assert job.credits <= choice["price"]["credits"]  # never past the "up to" it showed
@@ -214,6 +215,7 @@ def test_nothing_is_offered_where_the_clip_doesnt_carry_the_voice(app, db, owner
 
     pid = _delivered(app, db, owner, editor)
     monkeypatch.setattr(director_song, "kind", lambda db, project: "narrated")
+    monkeypatch.setattr(locked_line, "_goes", lambda *a: False)  # nor anything in the cut
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK}).json()
     assert out["unread"] == 1  # it waits for the director, as any note does
     assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
@@ -414,10 +416,12 @@ def test_a_take_that_went_since_is_never_offered_or_used(app, db, owner, editor,
     assert editor.get(f"/projects/{pid}/asks").status_code == 200
     card = _card(editor, pid)
     c = card["choices"][0]
-    assert c["then"] == "" and locked_line.GONE in c["said"]
+    assert c["then"] == "" and c["said"] == locked_line.GONE  # its text, not added to
     no = editor.post(f"/asks/{card['id']}/answer",
                      json={"how": "instead", "choice": "A", "option": "use"})  # fmt: skip
-    assert no.status_code == 409 and no.json()["detail"].endswith(locked_line.GONE)
+    assert (no.status_code, no.json()["detail"]) == (409, locked_line.GONE)
+    again = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert again.json()["detail"] == "Clip 1 isn't in this video any more."  # its real reason
     bad = editor.post(f"/asks/{card['id']}/answer",
                       json={"how": "instead", "choice": "A", "option": "other"})  # fmt: skip
     assert bad.status_code == 422
@@ -436,3 +440,104 @@ def test_the_cut_isnt_made_over_a_pick_someone_made_since(app, db, owner, editor
     said, cut = locked_line._cut(db, db.get(Project, pid), take, app.state.storage)
     assert not cut and said == ("Made and watched, but clip 1 now uses another take, so the cut "
                                 "stays as it was.")  # fmt: skip
+
+
+# --- In the cut (#1299's edits, free): cut away while it's said, a shorter pause after it ----
+
+
+def _presenter(app, db, owner, monkeypatch) -> int:
+    """A delivered Presenter video (board S3-14's own format), made by the owner."""
+    from app.models.freestyles import Freestyle
+    from tests.test_freestyle_dialogue import _run as _fs_run
+    from tests.test_freestyle_song import NARRATION, _sent
+
+    monkeypatch.setattr("app.director_song._on", lambda db, draft: True)
+    monkeypatch.setattr(app.state.settings, "kie_suno", True)
+    fs = _sent(owner, "presenter", NARRATION)
+    _fs_run(app, db, ticks=160)
+    pid = db.get(Freestyle, fs["id"]).project_id
+    assert owner.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+    return pid
+
+
+ON_A_PRESENTER = "Can we change “the wait” to “the pause”? It feels a bit harsh."
+
+
+def test_on_a_presenter_video_it_offers_cutting_away_free_and_makes_the_cut(
+    app, db, owner, monkeypatch
+):
+    from app import cut
+    from app.models.clips import CutEdit
+
+    pid = _presenter(app, db, owner, monkeypatch)
+    out = owner.post(f"/projects/{pid}/director/messages", json={"text": ON_A_PRESENTER}).json()
+    assert out["unread"] == 0
+    card = _card(owner, pid)
+    (away,) = card["choices"]  # no Say it softer: the presenter's narration carries the voice
+    assert (away["title"], away["do"], away["price"]) == ("Cut away while it’s said", "cut_away",
+                                                          None)  # free  # fmt: skip
+    assert away["why"].startswith("Show the B-roll instead of ") and away["why"].endswith(
+        "’s face on that line")  # fmt: skip
+    jobs = db.query(Job).filter(Job.kind != cut.STEP).count()
+    pressed = owner.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert pressed.status_code == 200, pressed.text
+    done = pressed.json()["choices"][0]
+    assert done["made"] == "done" and done["said"].startswith("Done. Making Cut ")
+    assert done["said"].endswith(" with it.")
+    edit = db.query(CutEdit).filter_by(project_id=pid).one()
+    assert (edit.kind, edit.data["hidden"], edit.director) == ("presenter", True, False)
+    tl, _ = cut.timeline(db, db.get(Project, pid))
+    said = locked_line._spoken(tl, "the wait")
+    assert edit.data["start"] <= said[0] and said[1] <= edit.data["end"]  # over that line
+    assert db.query(Job).filter(Job.kind != cut.STEP).count() == jobs  # nothing paid
+    assert cut.making(db, db.get(Project, pid)) is not None  # the next cut is being made
+    again = owner.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert (again.status_code, again.json()["detail"]) == (409, "That's made already.")
+
+
+def test_a_shorter_pause_after_it_trims_the_clip_to_its_last_word_free(app, db, owner, editor):
+    from app import cut
+    from app.models.clips import CutEdit
+
+    pid = _delivered(app, db, owner, editor)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    card = _card(editor, pid)
+    pause = next(c for c in card["choices"] if c["do"] == "pause")
+    assert pause["title"] == "Shorter pause after it" and pause["price"] is None
+    gap = float(pause["why"].removeprefix("Tighten ").removesuffix(" s"))
+    assert gap >= locked_line.PAUSE
+    pressed = editor.post(f"/asks/{card['id']}/answer",
+                          json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert pressed.status_code == 200, pressed.text
+    edit = db.query(CutEdit).filter_by(project_id=pid).one()
+    assert edit.kind == "trim"
+    tl, _ = cut.timeline(db, db.get(Project, pid))
+    piece = next(p for p in tl["pieces"] if p["id"] == edit.data["piece"])
+    end = max(w["end"] for w in tl["words"] if piece["start"] <= w["start"] < piece["end"])
+    assert abs(piece["end"] - (end + cut.TAIL)) < 0.05  # just after the last word, none cut
+    softer = next(c for c in _card(editor, pid)["choices"] if c["do"] == "softer")
+    assert softer["made"] == "" and softer["price"]  # the other choices stay pressable
+
+
+def test_a_cut_choice_that_cant_be_made_isnt_offered(app, db, owner, editor, monkeypatch):
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(locked_line, "_goes", lambda *a: False)  # the cut editor refuses it
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    assert [c["do"] for c in _card(editor, pid)["choices"]] == ["softer"]
+
+
+def test_only_tone_words_mark_a_note_answered():
+    from tests.test_script_library import SCRIPT
+
+    for other in (
+        "It's too dark.",
+        "This is blurry.",
+        "It's too loud.",
+        "It's too long.",
+        "It is slow.",
+    ):  # picture or sound: the director's (QA on d0c187c8)
+        said = f"Change “bought the dip” to “bought more”. {other}"
+        assert locked_line.asked(said, SCRIPT) == ("bought the dip", False), other
+    for tone in ("It's too harsh.", "It sounds rude.", "That's a bit much.", "It feels off."):
+        said = f"Change “bought the dip” to “bought more”. {tone}"
+        assert locked_line.asked(said, SCRIPT) == ("bought the dip", True), tone
