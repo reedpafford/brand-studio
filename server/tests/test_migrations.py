@@ -374,3 +374,26 @@ def test_n40_drops_the_omni_voice_and_narration_only(tmp_path):
     assert not {"omni_voice", "narration_only"} & cols() and "voice" in cols()
     command.downgrade(cfg, "n39")
     assert {"omni_voice", "narration_only"} <= cols()
+
+
+def test_n42_numbers_each_videos_cuts_in_the_order_they_were_made(tmp_path):
+    """The cut editor: a video's existing cuts become its Cut 1, Cut 2, … in the order made,
+    each video counted on its own; a downgrade drops the numbers and the edits table."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n41")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        for fid, pid in ((1, 7), (2, 8), (3, 7), (4, 7), (5, 8)):  # two videos' cuts, interleaved
+            _row(conn, "final_videos", id=fid, project_id=pid, file_id=fid, take_ids=[])
+    command.upgrade(cfg, "n42")
+    with engine.connect() as conn:
+        got = conn.execute(text("SELECT id, number, edit_ids FROM final_videos ORDER BY id")).all()
+    assert [(i, n) for i, n, _ in got] == [(1, 1), (2, 1), (3, 2), (4, 3), (5, 2)]
+    assert all(json.loads(e) == [] for *_, e in got)
+    command.downgrade(cfg, "n41")
+    with engine.connect() as conn:
+        cols = {c[1] for c in conn.execute(text("PRAGMA table_info(final_videos)")).all()}
+        tables = set(sa_inspect(conn).get_table_names())
+    assert not {"number", "edit_ids", "timeline"} & cols and "cut_edits" not in tables

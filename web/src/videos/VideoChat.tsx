@@ -64,6 +64,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
+  const [editing, setEditing] = useState(false); // the cut editor is open: the chat narrows (S7)
   const [side, setSide] = useState<"chat" | "preview">(params.get("tab") || params.get("step") ? "preview" : "chat"); // the phone's switch
   const [stopping, setStopping] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -168,12 +169,12 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const chat = (
     <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
   );
-  const preview = <Preview p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
+  const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
     <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
       {rail ? (
         <>
-          <section aria-label="Chat" className="flex min-h-0 w-[min(600px,50%)] shrink-0 flex-col border-r border-border bg-surface">
+          <section aria-label="Chat" className={`flex min-h-0 shrink-0 flex-col border-r border-border bg-surface ${editing ? "w-[400px]" : "w-[min(600px,50%)]"}`}>
             {header}
             {chat}
           </section>

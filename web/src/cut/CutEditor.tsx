@@ -119,7 +119,7 @@ export function CutEditor({
         <FirstCut cut={c} aspect={aspect} width={playerWidth} />
       ) : (
         <>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 whitespace-nowrap">
             <h2 className="text-lg font-semibold">Cut {c.number}</h2>
             <span className="text-sm text-muted tabular-nums">
               {clock(c.timeline.length)} · {clips} clip{clips === 1 ? "" : "s"}

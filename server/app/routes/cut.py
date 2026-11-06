@@ -130,7 +130,7 @@ class MakingOut(BaseModel):
 
 class FailedOut(BaseModel):
     number: int
-    why: str  # "Cut 3 couldn't be made: … Nothing was charged."
+    why: str  # "Cut 3 couldn’t be made: … Nothing was charged." (its own number: "… made again")
     fixes: list[Fix]
 
 
@@ -213,9 +213,10 @@ def _failed(db: Session, project: Project, playing: FinalVideo | None) -> Failed
     out = job.output or {}
     if job.status == JobStatus.succeeded and not out.get("problem"):
         return None
-    why = (out.get("problem") or NOT_MADE).rstrip(".")
-    return FailedOut(number=job.input["number"], fixes=out.get("fixes") or ["again"],
-                     why=f"Cut {job.input['number']} couldn't be made: {why}. Nothing was "
+    why, n = (out.get("problem") or NOT_MADE).rstrip("."), job.input["number"]
+    again = " again" if playing and playing.number == n else ""  # the director's own, made again
+    return FailedOut(number=n, fixes=out.get("fixes") or ["again"],
+                     why=f"Cut {n} couldn’t be made{again}: {why}. Nothing was "
                          "charged.")  # fmt: skip
 
 
@@ -277,7 +278,7 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
 
     playing = cut.newest(db, project)
     tl, lost = cut.timeline(db, project)
-    made = (playing.timeline or cut.base(db, project)) if playing else {}  # a cut before n31: base
+    made = (playing.timeline or cut.base(db, project)) if playing else {}  # a cut before n42: base
     was = {p["id"]: p for p in made.get("pieces") or []}
     keys = ("start", "end", "from", "take_id")
     changed = {p["id"] for p in tl["pieces"] if playing and (

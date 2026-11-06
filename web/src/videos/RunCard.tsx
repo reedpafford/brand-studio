@@ -295,7 +295,7 @@ const money = (n: Note) => (n.spent_usd != null ? `$${n.spent_usd.toFixed(2)}` :
 
 /** The delivery note (S3-09, S3-10, P-08) in Reed's three parts (5 Nov, #1340): What I made, with what it watched and redid
  *  at its times; What remains uncertain, the director's words and what the server knows is still open; What I need from
- *  you, as the server says it ("ready to post" only when nothing is open); and the real cost. `onWatch`: the changes it made, watched (the outline comes off). */
+ *  you, as the server says it ("ready to post" only when nothing is open); and what the video has cost so far, as its header says it (S3-12). `onWatch`: the changes it made, watched (the outline comes off). */
 export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatch?: () => void; changes: number }) {
   const part = (title: string, body: ReactNode) => (
     <div className="flex flex-col gap-1">

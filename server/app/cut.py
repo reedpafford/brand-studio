@@ -370,12 +370,13 @@ def next_number(db: Session, project: Project, playing: FinalVideo | None) -> in
     if playing is None:
         return 1
     run = director.turns(db, project) if DIRECTOR_TOOL.get() else []
-    made = db.scalar(select(Job).where(Job.project_id == project.id,
-                                       Job.status == JobStatus.succeeded,
-                                       Job.input["step"].as_string() == STEP)
-                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
-    draft = (bool(run) and made is not None and made.id > run[0].id and made.input.get(BY_DIRECTOR)
-             and (made.output or {}).get("file_ids", [None])[0] == playing.file_id)  # fmt: skip
+    jobs = db.scalars(select(Job).where(Job.project_id == project.id,
+                                        Job.status == JobStatus.succeeded,
+                                        Job.input["step"].as_string() == STEP)
+                      .order_by(Job.id.desc())) if run else []  # fmt: skip
+    mine = (j for j in jobs if ((j.output or {}).get("file_ids") or [None])[0] == playing.file_id)
+    made = next(mine, None)  # the job that made the cut that plays (not a failed one after it)
+    draft = bool(run) and made is not None and made.id > run[0].id and made.input.get(BY_DIRECTOR)
     return playing.number if draft else playing.number + 1
 
 

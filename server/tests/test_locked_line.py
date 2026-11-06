@@ -13,6 +13,7 @@ from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import get_providers
+from app.providers.local import LocalProvider
 from app.worker import run_once
 from tests.conftest import PASSWORD
 from tests.test_director import _made, _run
@@ -103,7 +104,7 @@ def test_saying_it_softer_makes_a_take_and_once_its_watch_is_clean_the_cut_again
         seen.append(_card(editor, pid)["choices"][0]["made"])
     assert seen.index("watching") < seen.index("done")  # its watch first (rule 35)
     done = _card(editor, pid)["choices"][0]
-    assert done["said"] == "Made and watched. The cut is made again with it."
+    assert done["said"] == "Made and watched. Making Cut 2 with it."  # after its Cut 1
     row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
     cut = _cut(db, pid)
     assert row.picked_take_id in cut.take_ids and (cut.id, cut.take_ids) != was  # cut again
@@ -139,7 +140,7 @@ def test_a_take_its_watch_doesnt_pass_leaves_the_cut_and_says_why(app, db, owner
 def test_a_cut_that_cant_be_made_again_says_why(app, db, owner, editor, monkeypatch):
     from fastapi import HTTPException
 
-    from app.routes import project_clips
+    from app.routes import cut
 
     pid = _delivered(app, db, owner, editor)
     editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
@@ -147,7 +148,7 @@ def test_a_cut_that_cant_be_made_again_says_why(app, db, owner, editor, monkeypa
     def refused(**_):
         raise HTTPException(409, "The music file stops at 0:41.")
 
-    monkeypatch.setattr(project_clips, "make_video", refused)
+    monkeypatch.setattr(cut, "make", refused)
     _press(editor, db, pid)
     _run(app, db, ticks=12, start=False)
     db.expire_all()
@@ -351,9 +352,12 @@ def test_a_take_nobody_watched_offers_use_it_and_make_the_cut(app, db, owner, ed
                        json={"how": "instead", "choice": "A", "option": "use"})  # fmt: skip
     assert used.status_code == 200, used.text
     done = used.json()["choices"][0]
+    number = _cut(db, pid).number + 1
     assert done["made"] == "done" and done["said"] == (
-        f"Take {n} is used. The cut is made again with it.")  # fmt: skip
-    assert _cut(db, pid).id != was and done["then"] == ""
+        f"Take {n} is used. Making Cut {number} with it.")  # fmt: skip
+    run_once(db, {"local": LocalProvider(app.state.storage)}, app.state.storage, only={"local"})
+    db.expire_all()
+    assert _cut(db, pid).id != was and _cut(db, pid).number == number and done["then"] == ""
 
 
 def test_a_remake_that_wasnt_made_never_leaves_the_card_waiting(app, db, owner, editor,
