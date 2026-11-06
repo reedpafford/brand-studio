@@ -261,10 +261,11 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
              "plan": f"Treatment and plan: {_n(scenes, 'scene')}, {_n(total, 'clip')}, "
                      f"about {seconds} s"
                      if total else "Treatment and plan"}  # fmt: skip
-    roles = [s.role for s in video_slots(db, project)]
-    cast = ", ".join(roles[:-1]) + f" and {roles[-1]}" if len(roles) > 1 else "".join(roles)
-    if roles:
-        words["cast"] = f"Cast: {cast}"
+    slots = video_slots(db, project)
+    roles = [s.role for s in slots]
+    cast = _and(roles)
+    if line := _cast(db, project, slots):
+        words["cast"] = line
     if director_song.kind(db, project):
         audio = director_song.state(db, project) or {"takes": []}
         used = next((t for t in audio["takes"] if t["used"]), None) or {}
@@ -273,23 +274,35 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
         words["voice"] = (f"Song{long}" + (", every lyric heard" if right else "")
                           if "style" in audio else f"Voice track{long}"
                           + (", words checked against the script" if right else ""))  # fmt: skip
-    redraws = sum((turns[-1].input.get(RUN) or {}).get("redraws", {}).values())
-    words["stills"] = (f"Stills: {video.drawn} drawn" if video.drawn else "Stills") + (
-        f", {redraws} redrawn" if redraws else "")  # fmt: skip
-    hosted, model = host.on(db, project), video.model
-    words["prompts"] = ("Clip prompts written · " + (f"B-roll on {model}, host on P-Video"
-                        if hosted else f"on {model}")) if total else "Clip prompts"  # fmt: skip
+    redrawn = (turns[-1].input.get(RUN) or {}).get("redraws", {})
+    why = _redrawn(db, project, turns[0], set(redrawn))  # S3-04: "2 redrawn (the label faced away)"
+    words["stills"] = (
+        (f"Stills: {video.drawn} drawn" if video.drawn else "Stills")
+        + (f", {sum(redrawn.values())} redrawn" if redrawn else "")
+        + (f" ({why})" if why else "")
+    )
+    hosted = host.on(db, project)
+    models, reasons = _models(db, video, cells)
+    on = ", ".join(f"{name} ({n})" if len(models) > 1 else name for name, n in models.items())
+    words["prompts"] = ("Clip prompts written · " + (f"B-roll on {on}, presenter on HeyGen"
+                        if hosted else f"on {on}")) if total else "Clip prompts"  # fmt: skip
+    if hosted:
+        reasons.append("HeyGen lip-syncs the presenter to the voice")
     words["takes"] = f"Making takes: {made} of {total}" if made < total else f"Takes: {total} made"
     if watching := _watching(db, video, cells, owner):
         words["watching"] = watching[0]
     if hosted:
-        words["host"] = f"Lay {cast or 'the presenter'} over the B-roll"
-    words["cut"] = "Watch the whole cut, then deliver"
+        from app import narration_music
+
+        music = ", music under the voice" if narration_music.on(db) else ""
+        words["host"] = f"Lay {cast or 'the presenter'} over the B-roll{music}"
+    words["cut"] = "Watch and listen to the whole cut, then deliver"
     first = next((c for c in cells if c["state"] == "making"), None)
     subs = {"stills": f"{video.drawn} of {video.stills} drawn" if video.stills else "",
             "takes": f"Clip {first['number']} · scene {first['scene']} · {first['seconds']} s · "
                      f"about {first['minutes_left']} min" if first else "",
-            "watching": watching[1] if watching else ""}  # fmt: skip
+            "watching": watching[1] if watching else "",
+            "prompts": "; ".join(reasons)}  # fmt: skip
     out = []
     for key in (k for k in ORDER if k in words):
         n = ORDER.index(key)
@@ -300,9 +313,77 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
             state = {"needs_fix": "bad", "stopped": "todo"}.get(how, state)
         if n == at and held and not how:
             state = "wait"
+        shown = state in ("now", "wait") or key == "prompts" and state == "done"  # why each model
         out.append({"key": key, "state": state, "text": words[key],
-                    "sub": subs.get(key, "") if state in ("now", "wait") else ""})  # fmt: skip
+                    "sub": subs.get(key, "") if shown else ""})  # fmt: skip
     return out
+
+
+def _and(names: list[str]) -> str:
+    return ", ".join(names[:-1]) + f" and {names[-1]}" if len(names) > 1 else "".join(names)
+
+
+def _cast(db: Session, project: Project, slots: list) -> str:
+    """S3-04's cast line: who's in it, the voice it's read in, and whether they're the brand's
+    saved ones ("Cast: Dr. Pickle and the cloned voice, both saved in Resilia")."""
+    from app import director_song, host, voices
+    from app.cast_roles import pick
+    from app.models.library import LibraryItem
+
+    brand = db.get(Brand, project.brand_id)
+    items = [(s.role, db.get(LibraryItem, pick(db, project, s) or 0)) for s in slots]
+    face = host.host_look(db, project) if host.presents(db, project) else None
+    if face is not None and all(i is None or i.id != face.id for _, i in items):
+        items.insert(0, (face.name, face))  # the presenter, when no role is them
+    names = [name for name, _ in items]
+    saved = [i is not None and i.owner_project_id is None and brand in i.brands for _, i in items]
+    read = ""  # an app's or a style's voice: not the brand's to save, so said apart
+    if host.presents(db, project) or director_song.kind(db, project) == "narrated":
+        ref = voices.picked(db, project) or voices.default_for(db, project)
+        voice = voices.named(db, project.workspace_id, ref or "", project.brand_id)
+        if voice is not None and voice.brand_id == project.brand_id:  # the brand's own
+            names.append(f"the {voice.kind} voice")  # "the cloned voice"
+            saved.append(True)
+        elif voice is not None or ref in voices.stock_keys():
+            read = f"the {voice.name if voice is not None else voices.stock(ref)['name']} voice"
+    if not names:
+        return f"Cast: {read}" if read else ""
+    both = "" if len(saved) == 1 else "both " if len(saved) == 2 else "all "
+    end = f", {both}saved in {brand.name}" if all(saved) else (
+        ", made for this video" if not any(saved) else "")  # fmt: skip
+    return f"Cast: {_and(names)}{end}" + (f"; read in {read}" if read else "")
+
+
+def _redrawn(db: Session, project: Project, first: Job, shots: set[str]) -> str:
+    """Why the run's stills were redrawn, from its review's findings: "the capsule label faced
+    away" (two reasons at most)."""
+    from app import still_review
+
+    rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id >= first.id,
+                                        Job.input["step"].as_string() == still_review.STEP,
+                                        Job.status == JobStatus.succeeded))  # fmt: skip
+    found = [f.get("problem", "") for j in rows for f in (j.output or {}).get("findings") or []
+             if f.get("shot_id") in shots]  # fmt: skip
+    said = [p.strip().rstrip(".") for p in dict.fromkeys(found) if p.strip()][:2]
+    return "; ".join(p[0].lower() + p[1:] for p in said)
+
+
+def _models(db: Session, video: _Video, cells: list[dict]) -> tuple[dict[str, int], list[str]]:
+    """The clips' models with how many each ({"Seedance 2.0": 20, "Seedance 1 Lite": 4}),
+    and why each, as the Clips tab says it ("Seedance 2.0: Dr. Pickle's default"): one read a
+    model, whatever the video's length."""
+    counts: dict[str, int] = {}
+    for c in cells:
+        counts[c["model"]] = counts.get(c["model"], 0) + 1
+    rows = {r.clip_id: r for r in video.clips if getattr(r, "id", None) is not None}
+    reasons = []
+    for name in counts:
+        row = next((rows[c["clip_id"]] for c in cells
+                    if c["model"] == name and c["clip_id"] in rows), None)  # fmt: skip
+        said = model_map.why(db, video.project, row) if row is not None else None
+        if said and said["name"] == name and said["why"]:
+            reasons.append(f"{name}: {said['why'].rstrip('.')}")
+    return counts or {video.model: 0}, reasons
 
 
 def _watching(db: Session, video: _Video, cells: list[dict],
