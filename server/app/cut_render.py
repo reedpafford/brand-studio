@@ -90,16 +90,9 @@ def _spoken(db: Session, project: Project, tl: dict) -> dict:
     """A narrated cut's clips whose talker says its lines on Omni (app/model_map): the cut
     seconds the narration is muted (only while those lines are said; the narration's clock
     doesn't move with edits) and the pieces whose own sound plays at full (Reed, 4 Nov)."""
-    from app import model_map
-    from app.cut import rows
-
-    if tl["mode"] != "narrated":
-        return {"spans": [], "full": []}
-    clips = rows(db, project)
-    said = model_map.spoken(db, project, clips)
-    ids = {clips[n].clip_id for n in said}
-    return {"spans": [list(s) for s in said.values()],
-            "full": [i for i, p in enumerate(tl["pieces"]) if p["clip_id"] in ids]}  # fmt: skip
+    omni = tl.get("omni") or {}  # cut.base: each Omni clip's line, in cut seconds
+    return {"spans": [list(s) for s in omni.values()],
+            "full": [i for i, p in enumerate(tl["pieces"]) if p["clip_id"] in omni]}  # fmt: skip
 
 
 def _prepare(src: dict, storage) -> tuple[bytes, bool]:

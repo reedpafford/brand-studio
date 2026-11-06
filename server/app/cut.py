@@ -111,6 +111,19 @@ def _take_seconds(db: Session, take: ClipTake | None, planned: float) -> float:
     return float(asked or planned)
 
 
+def _omni(db: Session, project: Project, clips: list[ProjectClip]) -> dict[str, list[float]]:
+    """A narrated video's clips whose talker says its lines on Omni (app/model_map), with the
+    cut seconds those lines are said (the narration is muted then, Reed, 4 Nov)."""
+    from app import model_map
+
+    return {clips[n].clip_id: [a, b] for n, (a, b) in model_map.spoken(db, project, clips).items()}
+
+
+def synced(p: dict) -> bool:
+    """A piece whose picture says the words: a talker's lip-sync, or a line said on Omni."""
+    return bool(p.get("lipsync") or p.get("omni"))
+
+
 def _heard(db: Session, take: ClipTake | None) -> list[dict]:
     from app.word_splice import _heard
 
@@ -130,6 +143,7 @@ def base(db: Session, project: Project) -> dict:
         lengths = ends_at(lengths, song_end(voice)) if mode == "song" else lengths
     pieces, at = [], 0.0
     synced = talker.clips(db, project)  # a talker's clips lip-sync the narration
+    omni = _omni(db, project, clips) if mode == "narrated" else {}  # lines said on Omni
     made = next(iter(host.rows(db, project)[1:]), None) if synced else None
     voiced = made.file_id if made else None  # the talker take in use (a take's made_with "talker")
     for r, d in zip(clips, lengths, strict=False):
@@ -137,12 +151,14 @@ def base(db: Session, project: Project) -> dict:
                        "source": label(r.clip_id), "start": round(at, 2),
                        "end": round(at + d, 2), "from": 0.0, "whole": mode == "takes",
                        "edited": False, "director": False,
-                       "lipsync": r.clip_id in synced,
+                       "lipsync": r.clip_id in synced, "omni": r.clip_id in omni,
                        **({"picture": round(d, 2), "voiced": voiced}
-                          if r.clip_id in synced else {})})  # fmt: skip
+                          if r.clip_id in synced else {}),
+                       **({"picture": round(d, 2)} if r.clip_id in omni else {})})  # fmt: skip
         at += d
     total = round(at, 2)
     tl = {
+        "omni": omni,
         "mode": mode,
         "pieces": pieces,
         "length": total,
@@ -242,12 +258,12 @@ def _one(tl: dict, e: CutEdit) -> None:
             if p.get("lipsync") and d.get("voiced") != p.get("voiced"):
                 raise Refused(OLD_TALKER)  # also on a replay, once the talker is remade
             p.update(take_id=d["take_id"], source=d["source"], whole=False, **mark)
-            p["from"] = p["from"] if p.get("lipsync") else 0.0  # on the words, as it was
+            p["from"] = p["from"] if synced(p) else 0.0  # on the words, as it was
         elif tl["mode"] == "takes":  # in the take's own seconds; the rest ripples
             p.update(start=p["start"], end=p["start"] + d["length"], whole=False, **mark)
             p["from"] = d["from"]
         else:  # on the voice's clock: an edge moves, and the picture after it with it
-            if "from" in d and p.get("lipsync"):
+            if "from" in d and synced(p):
                 raise Refused(SYNCED)
             if "start" in d and i > 0:
                 _edge(pieces, i, d["start"])
@@ -257,7 +273,7 @@ def _one(tl: dict, e: CutEdit) -> None:
                     _edge(pieces, i + 1, d["end"])
             p["from"] = d.get("from", p["from"])
             p.update(**mark)
-        if any(q.get("lipsync") and q["from"] + q["end"] - q["start"] > q["picture"] + 0.02
+        if any(synced(q) and q["from"] + q["end"] - q["start"] > q["picture"] + 0.02
                for q in pieces):  # fmt: skip
             raise Refused(SYNCED_LONG)  # slowed to fill, its lips would fall behind
         if any(q["end"] - q["start"] < MIN - 0.01 for q in pieces):
@@ -285,7 +301,7 @@ def _edge(pieces: list[dict], i: int, t: float) -> None:
     have to start before its take's beginning can't move that way."""
     q = pieces[i]
     moved = t - q["start"]
-    if q.get("lipsync") and q["from"] + moved < -0.005:
+    if synced(q) and q["from"] + moved < -0.005:
         raise Refused(SYNCED)
     q["from"] = round(max(0.0, q["from"] + moved), 2)
     pieces[i - 1]["end"] = q["start"] = t

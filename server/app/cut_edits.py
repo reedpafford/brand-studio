@@ -38,6 +38,7 @@ from app.cut import (
     newest,
     rows,
     song,
+    synced,
     tc,
     timeline,
 )
@@ -87,6 +88,8 @@ def _fits(tl: dict) -> None:
         raise Refused(f"The cut can't run past the song's end, at {tc(tl['seconds'])}.")
 
 
+OMNI_KEEPS = "This piece says its line on Omni: it swaps only for another take of it that speaks."
+OMNI_ELSEWHERE = "That take says a line on Omni: it plays only in its own clip."
 TALKER_MAKING = "The talker is being made again: swap this piece once it's ready."
 UNHEARD = ("This clip's words aren't heard yet, so a trim could cut one. Try again once its "
            "words check is done.")  # fmt: skip
@@ -158,6 +161,15 @@ def keeps_every_word(db: Session, tl: dict) -> None:
     from app.item_checks import latest
 
     _fits(tl)
+    for clip_id, (a, b) in (tl.get("omni") or {}).items():  # an Omni line plays whole
+        plays = sorted((p["start"], p["end"]) for p in tl["pieces"] if p["clip_id"] == clip_id)
+        at = a
+        for s, e in plays:
+            if s <= at + 0.02:
+                at = max(at, e)
+        if at < b - 0.02:
+            raise Refused(f"{label(clip_id)} says its line on Omni from {tc(a)}: it plays "
+                          "whole, so that edit can't cut into it.")  # fmt: skip
     if tl["mode"] != "takes":
         return
     groups: dict[tuple[str, int], list[tuple[float, float]]] = {}
@@ -241,6 +253,10 @@ def _swap_source(db: Session, user: User, project: Project, p: dict, take_id,
     talks = p.get("lipsync") or (take.made_with or {}).get("talker")
     if mode == "narrated" and talks and elsewhere:  # its lips say this stretch of the voice
         raise Refused("A talker piece swaps only for another take of its own clip.")
+    if p.get("omni") and (elsewhere or not (take.made_with or {}).get("speaks")):
+        raise Refused(OMNI_KEEPS)  # its line is in its own sound, the narration muted there
+    if mode == "narrated" and (take.made_with or {}).get("speaks") and not p.get("omni"):
+        raise Refused(OMNI_ELSEWHERE)  # its line would play over the narration
     if p.get("lipsync") and not p.get("voiced"):  # the talker is being made again
         raise Refused(TALKER_MAKING)
     if p.get("lipsync") and (take.made_with or {}).get("talker") != p.get("voiced"):
@@ -430,7 +446,7 @@ def _swappable(db: Session, user: User, project: Project, p: dict, take_id: int,
     """A swap that would go through, so nothing's offered that a press refuses (rule 22): what
     `_swap_source` takes, and what keeps every word with this take in the piece."""
     swapped = {**p, "take_id": take_id, "whole": False,
-               "from": p["from"] if p.get("lipsync") else 0.0}  # fmt: skip
+               "from": p["from"] if synced(p) else 0.0}  # fmt: skip
     trial = {**tl, "pieces": [swapped if q["id"] == p["id"] else q for q in tl["pieces"]]}
     try:
         _swap_source(db, user, project, p, take_id, tl["mode"])

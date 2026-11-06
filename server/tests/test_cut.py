@@ -447,3 +447,27 @@ def test_the_next_cut_redo_after_undo_all_and_a_cut_that_fails(app, db, owner, p
     _next_cut_while_the_one_before_plays(app, db, owner, presenter)
     _redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter)
     _music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter)
+
+
+def test_a_line_said_on_omni_plays_whole_and_keeps_its_picture():
+    """QA on 2e5a1da6: an Omni-spoken clip's line is in its own sound, the narration muted."""
+    from app.models.clips import CutEdit
+
+    tl = {"mode": "narrated", "length": 9.0, "music": None, "words": [], "presenter": None,
+          "omni": {"c2": [3.2, 5.6]},
+          "pieces": [_piece(1, 0, 3.0), {**_piece(2, 3.0, 6.0), "omni": True, "picture": 3.0},
+                     _piece(3, 6.0, 9.0)]}  # fmt: skip
+    cut_edits.keeps_every_word(None, tl)
+
+    def edited(**data):
+        return cut.replay(tl, [CutEdit(id=1, kind="trim", director=False, data=data)])
+
+    later, lost = edited(piece="c1", end=3.4)  # c2 starts later: past its line's start
+    assert not lost and later["pieces"][1]["from"] == 0.4  # its picture moves with it…
+    with pytest.raises(cut.Refused, match="says its line on Omni"):
+        cut_edits.keeps_every_word(None, later)  # …but the line can't lose its start
+    assert edited(piece="c1", end=2.5)[1] == {1}  # nor start before its take
+    assert edited(piece="c2", **{"from": 1.0})[1] == {1}
+    assert edited(piece="c3", start=6.5)[1] == {1}  # nor run past its picture
+    rendered = cut_render._spoken(None, None, tl)
+    assert rendered == {"spans": [[3.2, 5.6]], "full": [1]}
