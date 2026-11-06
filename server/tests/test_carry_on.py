@@ -371,3 +371,14 @@ def test_a_carry_on_that_cant_queue_its_turn_takes_everything_back(app, db, owne
     db.expire_all()
     assert len(director.turns(db, project)) == before
     assert editor.get(f"/projects/{pid}/director").json()["ended"] == "Stopped."  # as it was
+
+
+def test_a_new_run_closes_a_carry_on_still_waiting_for_the_owner(app, db, owner, editor):
+    for press in ("/plan-again", ""):
+        pid, card = _held_carry(app, db, owner, editor)
+        assert editor.post(f"/projects/{pid}/director{press}").status_code == 201  # a new run
+        gone = next(a for a in owner.get(f"/projects/{pid}/asks").json() if a["id"] == card["id"])
+        assert (gone["state"], gone["closed"], gone["can"]) == ("not_needed", director.NEW_RUN, [])
+        late = owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"})
+        assert late.status_code == 409  # never a press that does nothing
+        assert director._carry_waiting(db, db.get(Project, pid)) is None

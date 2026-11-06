@@ -88,6 +88,7 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     plans the whole video again instead of carrying on from its shots (`fresh`)."""
     if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
+    _close_carry(db, project)  # a Carry on still waiting for the owner isn't needed now
     again = {FRESH: utcnow().isoformat()} if fresh else _replanning(db, project)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
            "hold": hold, **again}  # fmt: skip
@@ -159,6 +160,21 @@ def resume(db: Session, project: Project, run_id: str) -> None:
             was = {k: j.input.get(k) for k in ("ended", "stopped_by", "stopped_at")}
             j.input = {**{k: v for k, v in j.input.items() if k not in was},
                        WAS_STOPPED: {**was, "carried_at": now}}  # fmt: skip
+
+
+NEW_RUN = "A new run started, so this isn't needed."
+
+
+def _close_carry(db: Session, project: Project) -> None:
+    """A new run on the video: an editor's Carry on still waiting for the owner's OK goes, its
+    card no longer needed (never a press that does nothing). Nothing was charged for it."""
+    held = _carry_waiting(db, project)
+    if held is None:
+        return
+    held.status, held.finished_at = JobStatus.cancelled, utcnow()
+    for ask in db.scalars(select(Ask).where(Ask.project_id == project.id, Ask.kind == "start")):
+        if held.id in (ask.job_ids or []):
+            ask.state, ask.closed = "not_needed", NEW_RUN
 
 
 def _carry_waiting(db: Session, project: Project) -> Job | None:
