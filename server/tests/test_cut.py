@@ -509,5 +509,5 @@ def test_a_split_that_renumbers_clips_moves_the_cut_edits_with_them(db, owner, p
     db.flush()
     cut_edits.follow_clips(db, project, {"c2": "c3"}, {"c1", "c2"})  # c1 split: c1, c1b
     assert (keep.data["piece"], keep.said, keep.undone_at) == ("c3.7", "Clip 3 trimmed", None)
-    assert split.undone_at is not None  # its clip was written again: never the wrong clip
+    assert split.undone_at is not None and split.data["piece"] == cut_edits.GONE  # never lands
     assert span.undone_at is None and span.data == {"start": 0, "end": 2, "side": "left"}

@@ -390,6 +390,7 @@ def undo_all(db: Session, project: Project) -> None:
     keeps_every_word(db, timeline(db, project)[0])
 
 
+GONE = "gone"  # a cancelled edit's piece: no piece has it, so it never lands (replay skips it)
 LIBRARY = 24  # the brand's other videos' takes offered for a swap, newest first
 
 
@@ -470,12 +471,13 @@ def for_director(db: Session, project: Project) -> dict | None:
 
 
 def follow_clips(db: Session, project: Project, names: dict[str, str], before: set[str]) -> None:
-    """The plan's clips were renumbered (a split: c5 is now c6): each cut edit follows its clip
-    to its new id, and one on a clip that was regrouped (the split clip itself, written
-    again) is undone, never left to land on whichever clip now has its old id."""
+    """The plan's clips were renumbered (a split: c5 is now c6): each cut edit, undone ones
+    too (Redo and Undo all bring them back), follows its clip to its new id, and so does a
+    swap's source clip. One on a clip that was regrouped (the split clip itself, written
+    again) is undone and can't land again: never on whichever clip now has its old id."""
     gone, now = before - set(names), utcnow()
-    for e in active(db, project):
-        piece = (e.data or {}).get("piece")
+    for e in every(db, project):
+        piece, source = (e.data or {}).get("piece"), (e.data or {}).get("source", "")
         if not piece:
             continue  # a span of the cut or the music: on the voice's clock, not a clip's
         old, _, tail = piece.partition(".")
@@ -483,4 +485,18 @@ def follow_clips(db: Session, project: Project, names: dict[str, str], before: s
             e.data = {**e.data, "piece": names[old] + (f".{tail}" if tail else "")}
             e.said = e.said.replace(label(old), label(names[old]), 1)
         elif old in gone:
-            e.undone_at = now
+            e.data, e.undone_at = {**e.data, "piece": GONE}, e.undone_at or now
+        was = "c" + source.removeprefix("Clip ") if source.startswith("Clip ") else ""
+        if names.get(was, was) != was:  # swapped for another clip of this video, renumbered
+            e.data = {**e.data, "source": label(names[was])}
+            e.said = e.said.replace(f"for {source.lower()}", f"for {label(names[was]).lower()}")
+
+
+def follow_breakdown(db: Session, project: Project, old: dict, new: dict) -> None:
+    """Another breakdown in use (an earlier one used again, an edited one saved): the cut's
+    edits follow their clips by their shots, as after a split."""
+    from app.cast_roles import _renamed
+    from app.prompts.schemas import Breakdown
+
+    was, now = Breakdown.model_validate(old), Breakdown.model_validate(new)
+    follow_clips(db, project, _renamed(was, now), {c.id for c in was.clips})
