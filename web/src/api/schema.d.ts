@@ -4128,6 +4128,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/host/back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Back
+         * @description Use the earlier presenter again (Reed, 4 Nov: "preserve the previous result"): the still
+         *     and each piece go back to the make before, free; the one replaced becomes the earlier one,
+         *     so pressing it again is the Undo. The cut that uses it is out of date (made again free).
+         */
+        post: operations["back_projects__project_id__host_back_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/host/{number}": {
         parameters: {
             query?: never;
@@ -4362,6 +4384,49 @@ export interface paths {
          */
         post: operations["make_look_projects__project_id__assets_slots__slot_id__make_look_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/slots/{slot_id}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Look
+         * @description Upload (the Cast tab, free): the picture becomes the role's look for this video only,
+         *     never the brand's (rule 12). Its sheet is drawn from it later: by the director's run, or by
+         *     Make a look on the role (priced there).
+         */
+        post: operations["upload_look_projects__project_id__assets_slots__slot_id__upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/assets/slots/{slot_id}/script-lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlock On Script
+         * @description Unlock a role locked on its script (every version): its author or the owner, until the
+         *     script is published.
+         */
+        delete: operations["unlock_on_script_projects__project_id__assets_slots__slot_id__script_lock_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5924,6 +5989,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/presenter-ways/{way}.jpg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Way Picture
+         * @description A test sample for each way a presenter can appear (S-gaps-05 L3): talks to camera, in
+         *     a corner over the B-roll, acts in the story. Paid test frames from 3 Nov.
+         */
+        get: operations["way_picture_presenter_ways__way__jpg_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6145,6 +6231,22 @@ export interface components {
             text_fit?: components["schemas"]["TextFitOut"] | null;
             /** Text Check Credits */
             text_check_credits?: number | null;
+            /**
+             * Clip Ids
+             * @default []
+             */
+            clip_ids: string[];
+            /** Photo File Id */
+            photo_file_id?: number | null;
+            /** Library Version */
+            library_version?: number | null;
+            /** Drawing Job Id */
+            drawing_job_id?: number | null;
+            /**
+             * Script Unlock
+             * @default false
+             */
+            script_unlock: boolean;
         };
         /** AutoFixOut */
         AutoFixOut: {
@@ -7578,6 +7680,8 @@ export interface components {
             seconds: number | null;
             /** Song */
             song: boolean;
+            /** Usd Per Credit */
+            usd_per_credit?: number | null;
         };
         /** HeldClip */
         HeldClip: {
@@ -7623,6 +7727,10 @@ export interface components {
             pieces: components["schemas"]["HostPieceOut"][];
             /** Credits */
             credits: number;
+            /** Presenter Id */
+            presenter_id?: number | null;
+            /** Voice */
+            voice?: string | null;
         };
         /** HostPieceOut */
         HostPieceOut: {
@@ -8558,6 +8666,11 @@ export interface components {
              * @default []
              */
             screens: number[];
+            /**
+             * Roles
+             * @default []
+             */
+            roles: string[];
         };
         /** LocksIO */
         LocksIO: {
@@ -8567,7 +8680,8 @@ export interface components {
              *       "look": false,
              *       "length": false,
              *       "song": false,
-             *       "screens": []
+             *       "screens": [],
+             *       "roles": []
              *     }
              */
             locks: components["schemas"]["Locks"];
@@ -9369,6 +9483,11 @@ export interface components {
             week_used: number;
             /** Week Allowance */
             week_allowance: number | null;
+        };
+        /** PhotoIn */
+        PhotoIn: {
+            /** File Id */
+            file_id: number;
         };
         /** PickIn */
         PickIn: {
@@ -21056,6 +21175,37 @@ export interface operations {
             };
         };
     };
+    back_projects__project_id__host_back_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     again_projects__project_id__host__number__post: {
         parameters: {
             query?: never;
@@ -21480,6 +21630,74 @@ export interface operations {
         };
     };
     make_look_projects__project_id__assets_slots__slot_id__make_look_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_look_projects__project_id__assets_slots__slot_id__upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                slot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhotoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlock_on_script_projects__project_id__assets_slots__slot_id__script_lock_delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -24385,6 +24603,35 @@ export interface operations {
             header?: never;
             path: {
                 format_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    way_picture_presenter_ways__way__jpg_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                way: "talks" | "corner" | "acts";
             };
             cookie?: never;
         };

@@ -6,10 +6,7 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Banner, Button, Skeleton, ViewOnly, buttonClass } from "../components";
 import { mmss } from "../freestyle/FromScript";
-import { notInShots } from "../projects/AssetCard";
-import { AssetsPane, useAssets } from "../projects/AssetsPane";
 import { BreakdownPane } from "../projects/BreakdownPane";
-import { useBriefChoices } from "../projects/BriefPickers";
 import { CheckSummary } from "../projects/Checks";
 import { ClipsStep } from "../projects/ClipsStep";
 import { PlanStep } from "../projects/PlanStep";
@@ -20,6 +17,9 @@ import { ScriptText, useLatestScript } from "../projects/ScriptTab";
 import { useProgress, useProjectClips, useProjectVideo } from "../projects/useProgress";
 import { videoHold, videoLock, type VideoProgress } from "../projects/videoSteps";
 import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
+import { CastPane } from "../cast/CastPane";
+import { notInShots, useAssets } from "../cast/useAssets";
+import { Empty, SOON } from "./Empty";
 import { mp4, type Head } from "./VideoHead";
 import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
 import { useRail } from "../useMedia";
@@ -46,22 +46,6 @@ export const tabFrom = (params: URLSearchParams): TabId | null => {
 /** What a tab's pane gets. `go` opens another tab (a hold's "Open Cast"); `lines`/`line` tie the plan to the script. */
 export type PaneProps = { p: Project; head: Head | undefined; run: Progress | null; lookOnly: string | null; progress: VideoProgress; go: (tab: TabId) => void; toChat?: () => void; lines: number[]; line: number | null; showLines: (lines: number[]) => void; pickLine: (n: number) => void };
 
-/** Before there's anything to show: the empty frames and what will fill them (S3-01). */
-function Empty({ title, children, action }: { title: string; children: string; action?: ReactNode }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
-      <div aria-hidden className="flex gap-2">
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="h-[114px] w-16 rounded-md border border-dashed border-border-strong bg-surface-2" />
-        ))}
-      </div>
-      <p className="text-lg font-semibold">{title}</p>
-      <p className="max-w-[340px] text-sm text-muted">{children}</p>
-      {action}
-    </div>
-  );
-}
-const SOON = "The director writes a treatment, then the scenes fill in with stills and clips as they’re made. The cut plays here when it’s ready.";
 
 /** The cut (S3-09): the player, the downloads and what it's made of. The cut editor (screen 10) mounts its own pane here. */
 function CutPane({ p, head, progress, run }: PaneProps) {
@@ -265,11 +249,6 @@ function ClipsTab({ p, progress, go, toChat }: PaneProps) {
   );
 }
 
-/** The cast (today's Cast step until screen 9). */
-function CastTab({ p }: PaneProps) {
-  return <AssetsPane projectId={p.id} brandId={p.brand_id} variants={p.product_variants ?? {}} />;
-}
-
 /** The plan: the treatment and its scenes, then the shots (today's Plan step). Lines tie to the Script tab. */
 function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
   const { script } = useProgress(p.id);
@@ -321,17 +300,17 @@ function ScriptTabPane({ p, lines, pickLine }: PaneProps) {
 }
 
 /** Each tab's pane. One slot a tab: the cut editor (screen 10), Clips (screen 8) and Cast (screen 9) replace theirs here. */
-export const PANES: Record<TabId, (props: PaneProps) => ReactNode> = { cut: CutPane, clips: ClipsTab, cast: CastTab, plan: PlanTab, script: ScriptTabPane };
+export const PANES: Record<TabId, (props: PaneProps) => ReactNode> = { cut: CutPane, clips: ClipsTab, cast: CastPane, plan: PlanTab, script: ScriptTabPane };
 
 /** The video's progress as the panes read it, with the cast's count. */
 export function usePanelFacts(p: Project | null) {
   const id = p?.id ?? 0;
   const { progress, loading } = useProgress(id);
   const assets = useAssets(id);
-  const flavours = useBriefChoices(p?.brand_id ?? 0, p?.product_variants ?? {});
-  const cast = (assets.data ?? []).filter((a) => !notInShots(a)); // a role no shot uses is not counted
+  // The Cast tab's roles and places (S-gaps-07 A); a role no shot uses is not counted.
+  const cast = (assets.data ?? []).filter((a) => !notInShots(a) && (a.kind === "character" || a.kind === "place"));
   const all: VideoProgress = { ...progress, assets: { total: cast.length, ready: cast.filter((a) => a.ready).length, seen: true } };
-  return { progress: all, loading: loading || assets.isPending || flavours.loading, cast, made: !!progress.video.made };
+  return { progress: all, loading: loading || assets.isPending, cast, made: !!progress.video.made };
 }
 
 /** Which tab a video opens on: its cut once made, its clips while they're made, else its plan (S3-01, S3-03, S3-09). */

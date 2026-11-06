@@ -6,7 +6,7 @@ from app.models.projects import Project
 
 LOCKABLE = ("cast", "look", "length", "song")  # and "screens": a list of ids
 LOCKED = {"cast": "the cast", "look": "the style", "length": "the length", "song": "the song",
-          "screens": "its screens"}  # fmt: skip
+          "screens": "its screens", "roles": "that role's look"}  # fmt: skip
 
 
 def locked(project: Project, choice: str) -> bool:
@@ -21,3 +21,8 @@ def refusal(project: Project, choice: str) -> str:
 def outfit(project: Project, item_id: int) -> str:
     """This video's outfit for a character, or "" (the sheet's)."""
     return ((project.outfits or {}).get(f"char:{item_id}") or "").strip()
+
+
+def role_locked(project: Project, slot_id: int) -> bool:
+    """That role's look is fixed in this video (the Cast tab's Lock)."""
+    return f"slot:{slot_id}" in ((project.locks or {}).get("roles") or [])
