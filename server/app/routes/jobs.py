@@ -372,19 +372,24 @@ def list_jobs(
     folder: str | None = None,  # OR1: a project's id, or "none" for No project
     mine: bool = False,  # only the caller's own; an editor never gets others' Quick clips anyway
     freestyle: bool = False,  # include Freestyle takes (they live on Freestyle and Media)
+    sends: bool = False,  # include a freestyle's sends, not its director's turns (My requests)
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     gone = Job.removed_at.is_not(None)
     query = select(Job).where(Job.workspace_id == user.workspace_id, gone if removed else ~gone)
+    plain = Job.input[FREESTYLE].as_integer().is_(None)
     if mine:
         query = query.where(Job.created_by_id == user.id)
-    elif not user.is_owner:  # an editor's Quick clips are their own (Reed): never anyone else's
+    elif not user.is_owner:  # an editor's Quick clips and sends are their own (Reed): never
         quick = and_(Job.project_id.is_(None), Job.input["step"].as_string().is_(None),
                      or_(Job.kind.startswith("video"), Job.kind.startswith("image")))  # fmt: skip
-        query = query.where(or_(Job.created_by_id == user.id, ~quick))
-    if not freestyle and status != JobStatus.needs_owner_approval:  # Needs you lists them all
-        query = query.where(Job.input[FREESTYLE].as_integer().is_(None))
+        shown = or_(Job.project_id.is_(None), Job.project_id.in_(select(Project.id)))  # not hidden
+        query = query.where(or_(Job.created_by_id == user.id, and_(~quick, plain, shown)))
+    if sends:
+        query = query.where(or_(plain, Job.input[SAID].as_string().is_not(None)))
+    elif not freestyle and status != JobStatus.needs_owner_approval:  # Needs you lists them all
+        query = query.where(plain)
     if status:
         query = query.where(Job.status == status)
     if (filed := folders.where(Job.folder_id, folder)) is not None:

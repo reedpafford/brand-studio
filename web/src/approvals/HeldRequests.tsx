@@ -53,8 +53,8 @@ export function askedAgo(iso: string, now = Date.now()) {
 export function useMyRequests() {
   return useQuery({
     queryKey: ["jobs", "mine"],
-    // freestyle: a New video send waiting for the owner's OK is a request too (S2-04: "You'll see it in My requests")
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { mine: true, freestyle: true } } })).data ?? [],
+    // sends: a New video send waiting for the owner's OK is a request too (S2-04: "You'll see it in My requests"), its run's turns aren't
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { mine: true, sends: true } } })).data ?? [],
     refetchInterval: (q) => (q.state.data?.some((j) => j.status === "needs_owner_approval") ? 15_000 : false),
   });
 }

@@ -156,6 +156,7 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
     working; something waiting on a person; stopped by a person; a run that stopped on its own;
     delivered; else not started. An editor's own start card reads "Needs you · Start it" and
     a question from the director "Needs you" with the question (piece B), above working."""
+    from app import run_progress
     from app.auth import user_name
     from app.routes.production import progress
     from app.routes.project_clips import out_of_date
@@ -201,6 +202,9 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
             )
         elif p.finished_at:
             s = Status(kind="delivered", words=WORDS["delivered"])
+        elif run and run_progress.started(db, p):  # between two of its moves: nothing queued yet
+            s = Status(kind="working", words=WORDS["working"], made=made, total=total,
+                       reason=f"{made} of {total}" if total else None)  # fmt: skip
         else:
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=START)
         out[p.id] = s
@@ -293,7 +297,8 @@ class Head(BaseModel):
     title: str
     status: Status
     spent: Money  # every charge on the video so far, the director's own included
-    up_to: Money | None  # the most the run the owner approved may charge; None: not known yet
+    up_to: Money | None  # the most the run the owner approved may charge; None: not known yet,
+    # or past the budget with no run approved (its header's % is of the budget)
     budget: Money  # the video's budget (a step past it waits for the owner's OK)
     folder: Named | None  # None: Unsorted
     format: str  # "Presenter"; "" for a video with no script
@@ -332,6 +337,8 @@ def head(db: Session, user: User, p: Project) -> Head:
     top: Decimal | None
     if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
         top = run_progress.spent(db, p)[1]  # one figure with the start, run card and note
+    elif status.kind == "waiting":  # past the budget with no run approved: of the budget, as
+        top = None  # its card says "past the budget" (QA on #1380)
     else:
         top = _most(p, known)
     script = narration.video_script(db, p)

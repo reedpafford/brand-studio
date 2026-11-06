@@ -30,7 +30,8 @@ export function MyRequestsPage() {
   });
   const waiting = mine.filter((j) => j.status === "needs_owner_approval");
   const answered = mine.filter((j) => (j.approved || j.declined) && serverTime(j.created_at).getTime() > weekAgo());
-  const name = (j: Job) => (j.project_id != null ? (video.get(j.project_id)?.name ?? j.freestyle?.title ?? "A video") : (j.freestyle?.title ?? "A Quick clip"));
+  // A send by its title, never its hidden video's own name ("MIA: … · freestyle 1").
+  const name = (j: Job) => j.freestyle?.title ?? (j.project_id != null ? (video.get(j.project_id)?.name ?? "A video") : "A Quick clip");
   const said = (j: Job) => {
     const w = what(j).replace(/^Your /, "");
     return (j.note || w.charAt(0).toUpperCase() + w.slice(1)) + (j.held ? `, ${j.held.charAt(0).toLowerCase()}${j.held.slice(1).replace(/\.$/, "")}` : "");

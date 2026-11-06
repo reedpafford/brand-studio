@@ -132,6 +132,18 @@ def _mine(db: Session, user: User, project_id: int) -> Project:
     project = get_project(db, user, project_id)
     if not (user.is_owner or project.created_by_id == user.id):
         raise HTTPException(403, "Only whoever made this video, or the owner, can do that.")
+    return unheld(db, user, project)
+
+
+HELD = "This waits for the owner's OK; nothing can change until then."
+
+
+def unheld(db: Session, user: User, project: Project) -> Project:
+    """An editor's send waiting for the owner's OK (S3-07) opens for its sender, but nothing on
+    it changes or spends until the owner says yes: only Withdraw (a start card's answer, or the
+    job's cancel), which never comes through here."""
+    if project.hidden and not user.is_owner and hidden.held_sends(db, user, project_id=project.id):
+        raise HTTPException(409, HELD)
     return project
 
 
@@ -331,7 +343,7 @@ def release_project(
     that haven't started are cancelled, so their credits come back, and credits already used
     stay used) and unlinked from the version, which anyone may then make afresh. Restore
     undoes it while nobody has. A finished video can't be released."""
-    project = get_project(db, user, project_id)
+    project = unheld(db, user, get_project(db, user, project_id))
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     if draft is None:
         raise HTTPException(409, "This video isn't made from a library version.")

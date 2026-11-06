@@ -114,8 +114,9 @@ const HEAD = {
  *  brand's saved items first, then Upload, Reply or Generate options (price first; made for this video only), a story's
  *  two choices with the director's pick and its time, or a money card: Make it, Approve or Keep it, or Withdraw. Answered
  *  cards fold to a line and can be changed; one no longer needed says why. `onChangePlan`: the message box, for "Change the
- *  plan first". `onWithdraw`: a freestyle's own Withdraw (it lets its send go too). */
-export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { ask: Ask; owner: boolean; onChangePlan?: () => void; onWithdraw?: () => void; onDone?: () => void }) {
+ *  plan first". `onWithdraw`: a freestyle's own Withdraw (it lets its send go too). `onDecline`: after Decline went
+ *  through (a send declined in place leaves its page). */
+export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDecline, onDone }: { ask: Ask; owner: boolean; onChangePlan?: () => void; onWithdraw?: () => void; onDecline?: () => void; onDone?: () => void }) {
   const act = useAskActions(a);
   const [pick, setPick] = useState<string | number | null>(null);
   const [replying, setReplying] = useState(false);
@@ -131,7 +132,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   // Where a clone goes, said before the paid press (Reed, 5 Nov; #1346's `clone_to`).
   const cloneTo = (a.clone_to || `Saved to ${brand}’s voices`).replace(/^Saved/, "saved");
   const [failedUpload, setFailedUpload] = useState("");
-  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setChanging(""), setFailedUpload(""), onDone?.()) });
+  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading", then?: () => void) => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setChanging(""), setFailedUpload(""), onDone?.(), then?.()) });
   const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
 
   // Folded: answered (by you or the owner), or no longer needed (S4-03).
@@ -237,7 +238,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
           </Button>
         )}
         {can("decline") && (
-          <Button variant="secondary" busy={act.isPending} onClick={() => go({ how: "decline" })}>
+          <Button variant="secondary" busy={act.isPending} onClick={() => go({ how: "decline" }, undefined, onDecline)}>
             Decline
           </Button>
         )}

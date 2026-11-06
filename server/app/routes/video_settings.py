@@ -14,7 +14,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.models.projects import Project
-from app.routes.projects import get_project
+from app.routes.projects import get_project, unheld
 
 router = APIRouter(prefix="/projects/{project_id}/settings", tags=["video settings"])
 NOT_YOURS = "Only whoever made this video, or the owner, changes its settings."
@@ -109,7 +109,7 @@ def _video(db: Session, user: User, project_id: int, change: bool = False) -> Pr
     project = get_project(db, user, project_id)
     if change and not user.is_owner and project.created_by_id != user.id:
         raise HTTPException(403, NOT_YOURS)
-    return project
+    return unheld(db, user, project) if change else project
 
 
 def _one(body: SettingIn) -> dict:

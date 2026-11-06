@@ -3,6 +3,8 @@ on its own hidden script and video. An editor's send writes its treatment, then 
 card waits for the owner; the OK covers the price shown, no more; nothing hidden shows in any
 list or count."""
 
+import re
+
 import pytest
 
 from app import credits, director
@@ -260,8 +262,85 @@ def test_a_send_waiting_for_the_owner_opens_for_its_sender_and_the_owner(app, ow
         bo.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
         assert bo.get(f"/projects/{pid}").status_code == 404
         assert pid not in tree(bo)
+        for query in ({"status": "needs_owner_approval"}, {"freestyle": True}, {"sends": True}):
+            assert bo.get("/jobs", params=query).json() == [], query  # nor its words (privacy)
+    # My requests: the send itself, never its director's turns (they'd fill the 200 rows)
+    sends = editor.get("/jobs", params={"mine": True, "sends": True}).json()
+    theirs = [(j["status"], j["freestyle"]["id"]) for j in sends if j["freestyle"]]
+    assert ("needs_owner_approval", fs["id"]) in theirs
+    assert all(j["freestyle"]["said"] for j in sends if j["freestyle"])
     held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json())
     assert owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not now."}).status_code == 200
     db.expire_all()
     assert editor.get(f"/projects/{pid}").status_code == 404  # declined: nothing left behind
     assert pid not in tree(editor)
+
+
+def test_a_held_send_changes_and_spends_nothing_until_the_owner_says_yes(app, owner, editor, db):
+    """QA on #1380: the sender opens their send while it waits for the owner, but every write
+    on its video is refused (409) until the owner's OK, so nothing is spent or changed behind
+    "Nothing is spent until they say yes". Withdraw still works."""
+    from app.routes.projects import HELD
+
+    brand = first_brand(owner)
+    fs = editor.post("/freestyles", json={**BODY, "brand_id": brand}).json()
+    _run(app, db, ticks=4, start=False)  # its plan, then its start card held for the owner
+    pid = editor.get(f"/freestyles/{fs['id']}").json()["project_id"]
+    charged = db.query(Job).filter(Job.status.in_(credits.COUNTED)).count()
+    for path, body in ((f"/projects/{pid}/plan", None), (f"/projects/{pid}/plan/by-hand", None),
+                       (f"/projects/{pid}/plan/approve", None)):  # fmt: skip
+        r = editor.post(path, json=body)
+        assert (r.status_code, r.json()["detail"]) == (409, HELD), path
+    r = editor.patch(f"/projects/{pid}", json={"name": "Renamed"})
+    assert (r.status_code, r.json()["detail"]) == (409, HELD)
+    held = 0  # every other write on the video's routes: never let through
+    for path, methods in app.openapi()["paths"].items():
+        if "{project_id}" not in path:
+            continue
+        url = re.sub(r"\{[a-z_]+\}", "1", path.replace("{project_id}", str(pid)))  # its pieces
+        for method in {"post", "put", "patch", "delete"} & set(methods):
+            r = editor.request(method, url, json={})
+            assert r.status_code >= 400, (method, path, r.status_code, r.text)
+            held += r.status_code == 409 and r.json().get("detail") == HELD
+    assert held > 50  # refused as waiting, not merely for a missing piece
+    db.expire_all()
+    assert db.query(Job).filter(Job.status.in_(credits.COUNTED)).count() == charged
+    assert db.get(Project, pid, execution_options={"see_hidden": True}).name != "Renamed"
+    assert owner.get(f"/projects/{pid}").status_code == 200  # the owner's own presses are theirs
+    assert editor.post(f"/freestyles/{fs['id']}/withdraw").json()["status"] == "withdrawn"
+
+
+def test_after_the_owners_ok_a_send_never_reads_start_it_while_its_run_works(
+    app, owner, editor, db
+):
+    """QA on #1380: once the owner says Make it, the sender's tree and header never read
+    "Needs you · Start it" while the run works, even between two of its moves (nothing queued
+    for a moment)."""
+    from app import ideas
+    from app.models.accounts import User
+
+    fs = editor.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)}).json()
+    _run(app, db, ticks=4, start=False)
+    pid = editor.get(f"/freestyles/{fs['id']}").json()["project_id"]
+    held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json())
+    assert owner.post(f"/jobs/{held['id']}/approve").status_code == 200
+    sender = db.get(User, editor.get("/auth/me").json()["id"])
+    seen = []
+    for _ in range(12):  # its plan, shots and looks
+        db.expire_all()
+        p = db.get(Project, pid)
+        known = ideas.facts(db, [p])
+        known.busy.clear()  # between two moves: its next one isn't queued yet
+        seen.append(ideas.statuses(db, sender, [p], known)[pid])
+        _run(app, db, ticks=1)
+    assert all(s.reason != ideas.START for s in seen), [(s.kind, s.reason) for s in seen]
+    # My requests reads its sends, never a freestyle's turns (they'd fill its 200 rows)
+    plain = Job.input[credits.FREESTYLE].as_integer().is_(None)
+    turn = db.query(Job).filter(Job.project_id == pid, plain,
+                                Job.input["step"].as_string() == "director").first()  # fmt: skip
+    turn.input = {**turn.input, credits.FREESTYLE: fs["id"]}  # a freestyle's turn, not a send
+    db.commit()
+    ids = lambda query: {j["id"] for j in editor.get("/jobs", params=query).json()}  # noqa: E731
+    assert turn.id in ids({"mine": True, "freestyle": True})
+    assert turn.id not in ids({"mine": True, "sends": True})
+    assert held["id"] in ids({"mine": True, "sends": True})

@@ -776,6 +776,22 @@ test("S3-07: an editor's send, held before its video has cards, is the same held
   expect(within(card).getByText("The owner has been asked. Nothing is made or charged while it waits.")).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+  // Withdrawn, nothing is left behind (QA on #1380): the page goes to My requests, never "That video doesn't exist".
+  expect(await screen.findByRole("heading", { name: "My requests" })).toBeInTheDocument();
+  expect(screen.getByText("Withdrawn. Nothing was charged.")).toBeInTheDocument();
+  expect(screen.queryByText(/That video doesn't exist/)).toBeNull();
+});
+
+test("QA on #1380: an editor's held send is for looking: no press that changes or spends, no Rename or Move", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Waiting for the owner's OK", "held")] });
+  server(editor, sent, run({ status: "ended", turns: [] }), { "GET /projects/50": [200, { ...project, created_by_id: 2, plan_status: "none" }], "GET /projects/50/plan": [404, { detail: "none" }], "GET /projects/50/idea": [200, head({ status: status("waiting", "Waiting for the owner"), spent: money(0, null), up_to: money(164, null), budget: money(164, null) })] });
+  renderApp("/b/1/videos/50?tab=plan");
+  await screen.findByRole("region", { name: "Make it for up to 164 credits?" });
+  const panel = await screen.findByRole("tabpanel", { name: "Plan" });
+  expect(await within(panel).findByRole("button", { name: /^Make the plan/ })).toBeDisabled(); // its 3 credits wait too
+  for (const b of within(panel).getAllByRole("button", { name: /^(Make|Write|Approve|Switch|Change|Use)\b/ })) expect(b).toBeDisabled();
+  expect(screen.queryByRole("button", { name: /^More for / })).toBeNull(); // no Rename, Move or Release
 });
 
 test("S3-06: the owner opening an editor's held send answers its start card in place, with the box open and nothing running", async () => {
@@ -793,6 +809,10 @@ test("S3-06: the owner opening an editor's held send answers its start card in p
   expect(screen.getByLabelText("Tell the director what to change")).toBeEnabled(); // "Change the plan first" can use it
   await userEvent.click(within(card).getByRole("button", { name: "Decline" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "decline" }));
+  // Declined, the send is gone (QA on #1380): the page goes to its folder with the tree read again.
+  expect(await screen.findByText("Declined.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(screen.queryByRole("list", { name: "Conversation with the director" })).toBeNull());
+  expect(calls.filter((c) => c.key.startsWith("GET /brands/1/tree")).length).toBeGreaterThan(0);
 });
 
 test("S3-07: an editor's change after a delivery waits with its own price from its held job, never up to free", async () => {

@@ -15828,6 +15828,7 @@ export interface operations {
                 folder?: string | null;
                 mine?: boolean;
                 freestyle?: boolean;
+                sends?: boolean;
             };
             header?: never;
             path?: never;
