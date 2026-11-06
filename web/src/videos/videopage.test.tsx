@@ -138,7 +138,7 @@ test("S3-09: delivered, the cut plays in the Cut tab with its downloads and what
   expect(within(panel).getByRole("link", { name: "Download MP4" })).toHaveAttribute("download", "beer-gut-doctor-rant.mp4");
   expect(within(panel).getByRole("link", { name: "Download every clip (.zip)" })).toHaveAttribute("href", "/api/projects/50/clips.zip");
   expect(within(panel).getByText("$9.84")).toBeInTheDocument();
-  expect(screen.getByPlaceholderText(/^Say what to change: “shorter end”/)).toBeInTheDocument();
+  expect(screen.getByPlaceholderText(/^Say what to change: “warmer light in scene 2”/)).toBeInTheDocument(); // never a promise that a change is free (Reed, 5 Nov)
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 });
 
@@ -311,7 +311,7 @@ const scenes = [
 ];
 const record = (o: object = {}) => ({ run: "r9", status: "working", title: "Making the clips", sub: "3 of 4 · scene 2 of 2", tone: "now", started_at: at, ended_at: null, clips: 4, made: 3, redone: 1, scene_at: 2, scenes, counts: { all: 4, needs_you: 0, flagged: 0, redone: 1 }, minutes_left: 3, steps: [{ key: "read", state: "done", text: "Read the script", sub: "" }, { key: "takes", state: "now", text: "Making takes: 3 of 4", sub: "Clip 4 · scene 2 · 2 s · about 3 min" }, { key: "cut", state: "todo", text: "Watch and listen to the whole cut, then deliver", sub: "" }], spent: 40, up_to: 164, spent_usd: 4.1, changed: [{ clip_id: "c2", number: 2, take_id: 202, frame_file_id: 102, watched: false }], stopped: null, failed: null, ...o });
 const card = item("r9", "move", "Director", "Making the clips · 3 of 4 · scene 2 of 2", "running", later, { run: "r9" });
-const note = { made: "A 0:08 rant in 2 scenes.", redid: [{ at: 14, clip: "c2", text: "Clip 2: cartoon eyes landed on the stomach. Remade on Seedance 2.0." }], unsure: "The capsule holds for 1.5 s.", needs: "Nothing. It’s ready to post.", cost: "$9.84 spent of up to $16.86", spent: 96, up_to: 164, spent_usd: 9.84, cut: 2, seconds: 58, clips: 24 };
+const note = { made: "A 0:08 rant in 2 scenes.", redid: [{ at: 14, clip: "c2", text: "Clip 2: cartoon eyes landed on the stomach. Remade on Seedance 2.0." }], unsure: "The capsule holds for 1.5 s.", open: [] as string[], needs: "Nothing. It’s ready to post.", cost: "$9.84 spent of up to $16.86", spent: 96, up_to: 164, spent_usd: 9.84, cut: 2, seconds: 58, clips: 24 };
 
 test("S3-03/04: the run is one card: its frames scene by scene, the scene being made named; Every step opens the steps", async () => {
   setViewport(1440);
@@ -395,6 +395,9 @@ test("S3-09: delivered: the note in parts with the times it redid, the real cost
   expect(within(n).getByText("0:14")).toBeInTheDocument();
   expect(within(n).getByText("Clip 2: cartoon eyes landed on the stomach. Remade on Seedance 2.0.")).toBeInTheDocument();
   expect(within(n).getByText("The capsule holds for 1.5 s.")).toBeInTheDocument();
+  expect(within(n).getByRole("heading", { name: "What remains uncertain" })).toBeInTheDocument(); // Reed's three parts (5 Nov)
+  expect(within(n).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["What I made", "What remains uncertain", "What I need from you"]);
+  expect(within(n).getByText("Nothing. It’s ready to post.")).toBeInTheDocument(); // the server's words: ready only when nothing is open
   expect(within(n).getByText("$9.84 spent of up to $16.86")).toBeInTheDocument();
   expect(screen.getByText("Delivery note · Cut 1 · 0:58 · $9.10")).toBeInTheDocument(); // S3-12: the earlier cut, folded
   expect(screen.getByText("Here’s the cut.")).toBeInTheDocument();
@@ -405,6 +408,20 @@ test("S3-09: delivered: the note in parts with the times it redid, the real cost
   expect(await within(cut).findByRole("button", { name: "Clip 2, not watched yet" })).toBeInTheDocument(); // Changed after watching, outlined until watched
   await userEvent.click(within(within(cut).getByRole("list", { name: "The video, scene by scene" })).getByRole("button", { name: "Clip 1" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/50/director/seen").map((c) => c.body)).toContainEqual({ take_ids: [201] })); // a frame played is watched
+});
+
+test("S3-09: what the server knows is still open goes under What remains uncertain, and the note isn't ready to post", async () => {
+  setViewport(390);
+  const open = { ...note, unsure: "", open: ["The cut wasn't watched.", "Clip 3's take wasn't checked."], needs: "Nothing yet, but look at what remains uncertain before you post it." };
+  const thread = [item("t2", "move", "Director", "…", "done", later, { note: open })];
+  server(owner, null, run({ status: "delivered", thread }), { "GET /projects/50/director/progress": [200, record({ status: "delivered", title: "Made in 22 min", sub: "4 clips", tone: "done" })], "GET /projects/50/video": [200, { file_id: 8, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50");
+  const n = await screen.findByRole("region", { name: "Delivery note" });
+  expect(within(n).getByRole("heading", { name: "What remains uncertain" })).toBeInTheDocument();
+  expect(within(n).getByText("The cut wasn't watched.")).toBeInTheDocument();
+  expect(within(n).getByText("Clip 3's take wasn't checked.")).toBeInTheDocument();
+  expect(within(n).getByText("Nothing yet, but look at what remains uncertain before you post it.")).toBeInTheDocument();
+  expect(n.textContent).not.toMatch(/ready to post/);
 });
 
 test("S3-13: a long video reads a row a scene with its count, eight at most, and how long is left", async () => {

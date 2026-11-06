@@ -405,7 +405,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
 
   const waiting = state === "waiting";
   const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
-  const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “shorter end”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
+  const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “warmer light in scene 2”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
   const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : viaFreestyle && !owner && !running ? "Each change goes to the owner first. Nothing is spent until they say yes." : null;
   const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;

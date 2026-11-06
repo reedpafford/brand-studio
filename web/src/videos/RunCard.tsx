@@ -289,8 +289,9 @@ export function Failed({ progress: r, projectId, onCarryOn, onSettings, busy, bl
 
 const money = (n: Note) => (n.spent_usd != null ? `$${n.spent_usd.toFixed(2)}` : `${Math.round(n.spent)} credits`);
 
-/** The delivery note (S3-09, S3-10, P-08): what it made, what it watched and redid with times, what it's unsure of, what it
- *  needs, and the real cost. `onWatch`: the changes it made, watched (the outline comes off). */
+/** The delivery note (S3-09, S3-10, P-08) in Reed's three parts (5 Nov, #1340): What I made, with what it watched and redid
+ *  at its times; What remains uncertain, the director's words and what the server knows is still open; What I need from
+ *  you, as the server says it ("ready to post" only when nothing is open); and the real cost. `onWatch`: the changes it made, watched (the outline comes off). */
 export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatch?: () => void; changes: number }) {
   const part = (title: string, body: ReactNode) => (
     <div className="flex flex-col gap-1">
@@ -308,20 +309,36 @@ export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatc
         </span>
       </div>
       <div className="flex flex-col gap-3 px-3 pb-3">
-        {part("What I made", <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.made}</p>)}
-        {n.redid.length > 0 &&
+        {part(
+          "What I made",
+          <>
+            <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.made}</p>
+            {n.redid.length > 0 && (
+              <ul aria-label="What I watched and redid" className="mt-1 flex flex-col gap-1 text-[13px]">
+                {n.redid.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-accent-soft px-1.5 text-[11px] font-semibold tabular-nums text-accent-text">{mmss(r.at)}</span>
+                    <span className="min-w-0">{r.text}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        )}
+        {(n.unsure || n.open.length > 0) &&
           part(
-            "What I watched and redid",
-            <ul className="flex flex-col gap-1 text-[13px]">
-              {n.redid.map((r, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-accent-soft px-1.5 text-[11px] font-semibold tabular-nums text-accent-text">{mmss(r.at)}</span>
-                  <span className="min-w-0">{r.text}</span>
-                </li>
-              ))}
-            </ul>,
+            "What remains uncertain",
+            <>
+              {n.unsure && <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.unsure}</p>}
+              {n.open.length > 0 && (
+                <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">
+                  {n.open.map((o, i) => (
+                    <li key={i}>{o}</li>
+                  ))}
+                </ul>
+              )}
+            </>,
           )}
-        {n.unsure && part("What I’m unsure of", <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.unsure}</p>)}
         {part("What I need from you", <p className="text-[13px] text-muted max-lg:text-[15px]">{n.needs}</p>)}
       </div>
       <div className="flex items-center gap-2 border-t border-border px-3 py-2.5 text-[13px]">
