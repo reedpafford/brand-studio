@@ -219,7 +219,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
     if kept and not voices.usable(db, project.workspace_id, project.brand_id, kept):
         kept = None  # its voice was removed since: the video's own voice now
-    named = decision.get("voice")  # the director's: a person's pick or the presenter's wins
+    named = decision.get("voice")  # the director's: a person's pick or the video's own wins
     voice = narrator(db, project, named, kept) if found == "narrated" else _voice(db, project)
     if not voices.usable(db, project.workspace_id, project.brand_id, voice):
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
@@ -259,9 +259,10 @@ def narrator(
 ) -> str:
     """The voice a narration is read in, and before one is made the one it will be, in one order
     for the Cast tab (routes/host) and the narration (QA #1395): a person's pick for the video
-    (its settings or a voice card's answer, S4-01), else the presenter's own voice, else the
-    director's `named` one, else the one in use (`kept`), else the video's own (_voice)."""
-    return (voices.picked(db, project) or voices.host_own(db, project) or named or kept
+    (its settings or a voice card's answer, S4-01), else the video's own (its presenter's, else
+    its style's, e.g. Dr. Pickle's clone), else the director's `named` one, else the one in use
+    (`kept`), else a UGC talker's or narration's default (_voice)."""
+    return (voices.picked(db, project) or voices.default_for(db, project) or named or kept
             or _voice(db, project))  # fmt: skip
 
 

@@ -810,8 +810,8 @@ class DirectorTurn(Strict):
     ) = Field(
         default=None,
         description="For narration being made: the narrator's voice. A person's pick or the "
-        "presenter's own voice is kept whatever this says. Empty keeps the voice in use on a "
-        "remake; on the first narration it gives the presenter's own voice, else Sarah (a UGC "
+        "video's own voice (its presenter's, else its style's, e.g. Dr. Pickle's) is kept "
+        "whatever this says. Empty keeps the voice in use on a remake, else gives Sarah (a UGC "
         "talker: English_FriendlyPerson). Else empty.",
     )  # fmt: skip
     emotion: _pick(

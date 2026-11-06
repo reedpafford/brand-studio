@@ -547,26 +547,19 @@ def failed(db: Session, job: Job) -> None:
     job.error = LOST.format(name=voice.name, credits=clone_credits(db, voice.workspace_id))
 
 
-def host_own(db: Session, project) -> str | None:
-    """The presenter's own voice (a character's saved voice, "voice:<id>", or app voice, its
-    key) while it may be used here; None: no presenter, or none of their own."""
-    from app import host
+def default_for(db: Session, project) -> str | None:
+    """A video's own narrator, when it has one: its host's voice (a character's saved voice,
+    "voice:<id>", or app voice, its key), else its style's voice ("voice:<id>"); None:
+    narration's own default."""
+    from app import host, looks
 
+    ensure_style_voices(db, project.workspace_id)
     item = host.host_look(db, project) if host.presents(db, project) else None
     own = f"{PREFIX}{item.voice_id}" if item is not None and item.voice_id else None
     if own and usable(db, project.workspace_id, project.brand_id, own):
         return own  # a removed one (or another brand's) falls back: host_note says so
-    return item.voice_stock_key if item and item.voice_stock_key in narration.VOICES else None
-
-
-def default_for(db: Session, project) -> str | None:
-    """A video's own narrator, when it has one: its host's voice (host_own), else its style's
-    voice ("voice:<id>"); None: narration's own default."""
-    from app import looks
-
-    ensure_style_voices(db, project.workspace_id)
-    if own := host_own(db, project):
-        return own
+    if item is not None and item.voice_stock_key in narration.VOICES:
+        return item.voice_stock_key
     look = looks.base(project.look) if project.look else ""  # a lane speaks as its style
     found = db.scalar(
         select(Voice.id).where(
