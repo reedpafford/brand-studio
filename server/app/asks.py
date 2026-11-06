@@ -314,7 +314,7 @@ def state(db: Session, ask: Ask) -> str:
 
 
 NOT_YOURS = "Only whoever asked for this clone, or the owner, can withdraw it."
-STARTED = "The voice is being cloned already, so it can't be withdrawn now."
+STARTED = "This clone has started or ended already, so it can't be withdrawn now."
 
 
 def withdraw_clone(db: Session, user: User, ask: Ask) -> bool:
@@ -330,10 +330,13 @@ def withdraw_clone(db: Session, user: User, ask: Ask) -> bool:
     job = db.get(Job, voice.job_id) if voice and voice.job_id else None
     if job is None or job.status not in (JobStatus.queued, JobStatus.needs_owner_approval):
         raise HTTPException(409, STARTED)
-    if not (user.is_owner or user.id in (job.created_by_id, ask.answered_by_id)):
+    if user.is_owner or user.id == job.created_by_id:
+        cancel_job(job.id, user, db)
+        voice.archived_at = _now()  # never made: not one of the brand's voices
+    elif user.id != ask.answered_by_id:
         raise HTTPException(403, NOT_YOURS)
-    cancel_job(job.id, user, db)
-    voice.archived_at = _now()  # never made: not one of the brand's voices
+    # else: a clone someone else asked for (reused by this card): the card opens again and
+    # their clone goes on
     ask.state, ask.answer, ask.answered_by_id, ask.answered_at = "open", None, None, None
     db.commit()
     from app import director

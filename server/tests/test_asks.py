@@ -800,4 +800,27 @@ def test_an_editors_held_clone_is_withdrawn_and_the_card_opens_again(app, db, ow
     started.status = JobStatus.running
     db.commit()
     late = editor.post(f"/asks/{ask.id}/cancel")
-    assert late.status_code == 409 and "being cloned" in late.json()["detail"]
+    assert late.status_code == 409 and "started or ended" in late.json()["detail"]
+
+
+def test_the_owner_withdraws_an_editors_held_clone(app, db, owner, editor, monkeypatch):
+    """The owner may withdraw any held clone; the director hears the card is open again."""
+    import subprocess
+
+    from app.models.jobs import JobStatus
+
+    woken = []
+    monkeypatch.setattr(director, "wake", lambda db, project: woken.append(project.id))
+    pid, _ = _video(app, owner, editor, db)
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    path = f"{app.state.settings.storage_dir}/sample.mp3"
+    made = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=12", path]
+    subprocess.run(made, check=True)  # noqa: S603, S607 - fixed arguments
+    with open(path, "rb") as f:
+        sample = upload(editor, "nate.mp3", f.read(), "audio/mpeg")
+    editor.post(f"/asks/{ask.id}/answer", json={"how": "clone", "file_id": sample, "text": "Nate"})
+    woken.clear()
+    out = owner.post(f"/asks/{ask.id}/cancel").json()
+    assert out["state"] == "open" and woken == [pid]
+    db.expire_all()
+    assert db.query(Job).filter(Job.kind == "voice").one().status == JobStatus.cancelled
