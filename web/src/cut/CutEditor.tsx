@@ -9,7 +9,7 @@ import { useCut, useMakeCut, useProjectClips } from "../projects/useProgress";
 import { MusicInspector, PieceInspector } from "./Inspector";
 import { Player, Words } from "./Player";
 import { Timeline, type Selected } from "./Timeline";
-import { clock, useCutEdits, type Cut } from "./useCutEdits";
+import { clock, useCutEdits, type Cut, type Fix } from "./useCutEdits";
 
 /** Screen 10, the cut editor (v6 S7-01 to S7-07; P-12 on a phone): the cut that plays, its words, the selected piece or
  *  the music, and the timeline. Edits are free and show at once on the timeline; Make the cut (free) makes the next Cut
@@ -203,6 +203,9 @@ function useAddSound(projectId: number) {
   });
 }
 
+/** A failed cut's way forward, as the editor and Watch both offer it (rule 22). */
+export const fixLabel = (f: Fix) => (f === "loop_music" ? "Loop the music to fit · free" : f === "remove_music" ? "Remove the music" : "Try again · free");
+
 function Banners({ cut, onFix, busy }: { cut: Cut; onFix: (f: "loop_music" | "remove_music" | "again") => void; busy: boolean }) {
   const m = cut.making;
   if (m)
@@ -222,7 +225,7 @@ function Banners({ cut, onFix, busy }: { cut: Cut; onFix: (f: "loop_music" | "re
         {cut.can_edit &&
           cut.failed.fixes.map((f, i) => (
             <Button key={f} variant={i === 0 ? "primary" : "secondary"} disabled={busy} onClick={() => onFix(f)}>
-              {f === "loop_music" ? "Loop the music to fit · free" : f === "remove_music" ? "Remove the music" : "Try again · free"}
+              {fixLabel(f)}
             </Button>
           ))}
       </div>

@@ -778,3 +778,42 @@ test("S3-09: one cut and nothing being made: no switch, the heading reads Final 
   expect(await within(panel).findByRole("heading", { name: "Final cut" })).toBeInTheDocument();
   expect(within(panel).queryByRole("radiogroup", { name: "Which cut" })).toBeNull();
 });
+
+test("S3-12: a new cut finishing while an older one is picked keeps that pick; the cut that plays isn't pinned, so the new one replaces it", async () => {
+  setViewport(1440);
+  const v = (n: number) => ({ number: n, file_id: 70 + 10 * n, made_at: at });
+  const making = () => cutOut({ number: 2, file_id: 90, versions: [v(1), v(2)], making: { number: 3, percent: 40, doing: "", about_seconds: 20, changes: 1 } });
+  const done = cutOut({ number: 3, file_id: 100, versions: [v(1), v(2), v(3)] });
+  for (const choice of ["Cut 1", "Cut 2"]) {
+    const route: [number, unknown] = [200, making()];
+    server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": route, "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: false }] });
+    const r = renderApp("/b/1/videos/50?tab=cut");
+    const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+    await userEvent.click(await within(panel).findByRole("radio", { name: choice }));
+    route[1] = done; // Cut 3 is made
+    await vi.waitFor(() => expect(within(panel).getByRole("radio", { name: "Cut 3" })).toBeInTheDocument(), { timeout: 5000 });
+    if (choice === "Cut 1") {
+      expect(within(panel).getByRole("radio", { name: "Cut 1" })).toHaveAttribute("aria-checked", "true"); // what you picked stays
+      expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/80");
+      expect(within(panel).getByText(/^Cut 1 · made /)).toBeInTheDocument(); // not the newest cut's length and clips
+      expect(within(panel).getByRole("link", { name: "Download every clip (.zip)" })).toHaveAttribute("download", "beer-gut-doctor-rant-clips.zip");
+    } else {
+      expect(within(panel).getByRole("radio", { name: "Cut 3" })).toHaveAttribute("aria-checked", "true"); // the new one plays
+      expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/100");
+    }
+    r.unmount();
+  }
+}, 20_000);
+
+test("S3-12: a failed cut says why in Watch with its way forward, and the cut before keeps playing", async () => {
+  setViewport(1440);
+  const failed = cutOut({ failed: { number: 3, why: "Cut 3 couldn't be made: the music is shorter than the cut. Nothing was charged.", fixes: ["loop_music", "again"] } });
+  const calls = server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, failed], "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: false }], "POST /projects/50/cut/fix": [202, cutOut()] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByText("Cut 3 couldn’t be made.")).toBeInTheDocument();
+  expect(within(panel).getByText("Cut 3 couldn't be made: the music is shorter than the cut. Nothing was charged.")).toBeInTheDocument();
+  expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/90");
+  await userEvent.click(within(panel).getByRole("button", { name: "Loop the music to fit · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/cut/fix")?.body).toEqual({ fix: "loop_music" }));
+});

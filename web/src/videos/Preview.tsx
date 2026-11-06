@@ -20,8 +20,10 @@ import { videoHold, videoLock, type VideoProgress } from "../projects/videoSteps
 import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
 import { mp4, type Head } from "./VideoHead";
 import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
+import { serverTime } from "../time";
 import { useRail } from "../useMedia";
-import { CutEditor } from "../cut/CutEditor";
+import { CutEditor, fixLabel } from "../cut/CutEditor";
+import { useCutEdits } from "../cut/useCutEdits";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -157,12 +159,15 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
   const songChanged = useSongChanged(p.id, video?.song_take_id);
   const remake = useMakeCut(p.id); // made on the server; the cut before keeps playing
   const live = useCut(p.id).data;
+  const fix = useCutEdits(p.id);
   const [picked, setPicked] = useState<number | null>(null); // an earlier cut to watch (S3-12); none: the one that plays
   const left = progress.clips.total - progress.clips.approved;
   if (!video) return null; // CutPane shows the editor until there's a cut
   const older = live?.versions.find((v) => v.number === picked && v.number !== live.number) ?? null;
-  const file = older?.file_id ?? video.file_id;
-  const name = older ? mp4(head?.title ?? p.name).replace(/\.mp4$/, `-cut-${older.number}.mp4`) : mp4(head?.title ?? p.name);
+  const file = older?.file_id ?? live?.file_id ?? video.file_id; // the switch's pick, else the cut that plays
+  const base = mp4(head?.title ?? p.name);
+  const name = older ? base.replace(/\.mp4$/, `-cut-${older.number}.mp4`) : base;
+  const pick = (n: number) => setPicked(n === live?.number ? null : n); // the cut that plays isn't pinned: a new one replaces it
   const owner = head?.spent.usd != null;
   const s = settings.data;
   const model = s && (s.video_models.find((m) => m.id === s.video_model) ?? s.video_models.find((m) => m.default))?.name;
@@ -179,6 +184,22 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
   return (
     <div className="space-y-5">
       {remake.isError && <Banner title="The cut couldn't be made again.">Nothing was charged. {remake.error.message}</Banner>}
+      {live?.failed && ( // a failed cut says why with its way forward; the one before keeps playing (rule 22)
+        <Banner
+          title={`Cut ${live.failed.number} couldn’t be made.`}
+          action={live.can_edit && live.failed.fixes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {live.failed.fixes.map((f, i) => (
+                <Button key={f} variant={i === 0 ? "primary" : "secondary"} busy={fix.fix.isPending && fix.fix.variables === f} disabled={fix.busy} onClick={() => fix.fix.mutate(f)}>
+                  {fixLabel(f)}
+                </Button>
+              ))}
+            </div>
+          ) : undefined}
+        >
+          {live.failed.why}
+        </Banner>
+      )}
       {now.video.outOfDate && !live?.making && ( // while the next cut is made it says so beside the switch (S3-12)
         <Banner tone="warning" title="Out of date." action={<Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
           {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
@@ -187,17 +208,17 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <video ref={player} controls src={fileUrl(file)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={setPicked} />}
+          {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={pick} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
             {!(live && (live.versions.length > 1 || live.making)) && <h2 className="text-lg font-semibold">Final cut</h2>}
-            <p className="text-sm tabular-nums text-muted">{[media.seconds > 0 && mmss(media.seconds), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+            <p className="text-sm tabular-nums text-muted">{older ? `Cut ${older.number} · made ${serverTime(older.made_at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : [media.seconds > 0 && mmss(media.seconds), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
           </div>
           <div className="flex flex-col gap-2">
             <a className={`${buttonClass("primary")} justify-start`} href={fileUrl(file)} download={name}>
               <Download size={16} strokeWidth={1.75} aria-hidden />
               Download MP4
             </a>
-            <a className={`${buttonClass("secondary")} justify-start lg:min-h-control`} href={`/api/projects/${p.id}/clips.zip`} download={name.replace(/\.mp4$/, "-clips.zip")}>
+            <a className={`${buttonClass("secondary")} justify-start lg:min-h-control`} href={`/api/projects/${p.id}/clips.zip`} download={base.replace(/\.mp4$/, "-clips.zip")}>
               Download every clip (.zip)
             </a>
           </div>
