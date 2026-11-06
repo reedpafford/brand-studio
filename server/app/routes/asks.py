@@ -10,14 +10,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import ask_options, asks, director, hidden
+from app import ask_options, asks, director, hidden, locked_line
 from app.auth import current_user
 from app.credits import USD_PER_CREDIT, budget, budget_used, price
 from app.db import get_db
 from app.models.accounts import User
 from app.models.asks import Ask
 from app.models.brands import Brand
-from app.models.clips import ProjectClip
+from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -38,21 +38,33 @@ class SavedOption(BaseModel):
     sample_url: str | None = None  # an app or style voice's free sample (GET, under /api)
 
 
+class AskPrice(BaseModel):
+    credits: float
+    usd: float | None = None  # the owner only
+
+
 class StoryChoice(BaseModel):
     key: str  # "A"
     title: str
     why: str
+    # what can change instead of a locked line (S3-14, kind "instead"): what it does ("softer"),
+    # its price as the viewer reads money ("up to"), and how its press is going
+    do: str = ""
+    price: AskPrice | None = None  # null: free (or `cannot`)
+    made: str = ""  # "" not pressed, held, making, watching, done (the cut made again), kept
+    said: str = ""  # what happened to it, in plain words, once pressed
+    cannot: str = ""  # why it can't be made now ("Clip 2 isn't in this video any more.")
+    then: str = ""  # its free one-click fix once made: "Use take 3 and make the cut" (option
+    # "use"), when its take wasn't watched or its watch's remake wasn't made
+
+
+CHOICE = ("key", "title", "why", "do")  # a choice's stored fields the card shows
 
 
 class MadeOption(BaseModel):
     index: int  # "Option 1" is 0
     state: str  # the job's: queued, running, succeeded, failed, cancelled, needs_owner_approval
     file_id: int | None  # once drawn
-
-
-class AskPrice(BaseModel):
-    credits: float
-    usd: float | None = None  # the owner only
 
 
 class HeldClip(BaseModel):
@@ -80,6 +92,7 @@ class AskOut(BaseModel):
     project_id: int
     kind: str  # asks.QUESTIONS or asks.MONEY
     topic: str
+    subject: str = ""  # a locked line's card: the script's words asked about (S3-14's mark)
     question: str  # the card's title, in the viewer's money for a money card
     why: str
     state: str  # open, uploading, generating, ready, failed, held, answered, not_needed
@@ -139,12 +152,15 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
     card = AskOut(id=ask.id, project_id=ask.project_id, kind=ask.kind, topic=ask.topic,
                   question=ask.question, why=ask.why, state=state,
                   by_owner=bool(by and by.is_owner and by.id != project.created_by_id),
-                  pick=ask.pick, choices=[StoryChoice(**c) for c in ask.choices],
+                  pick=ask.pick, choices=[StoryChoice(**{k: v for k, v in c.items() if k in CHOICE})
+                                           for c in ask.choices],
                   decide_at=ask.decide_at if state in asks.OPEN else None,
                   answer=ask.answer, answered_by=by.name if by else "",
                   answered_at=ask.answered_at, closed=ask.closed,
                   created_at=ask.created_at)  # fmt: skip
     mine = user.is_owner or project.created_by_id == user.id
+    if ask.kind == locked_line.KIND:
+        return _instead(db, user, ask, project, card, mine)
     if ask.kind in asks.MONEY:
         return _money(db, user, ask, project, card)
     if ask.kind not in ("story", "question"):
@@ -169,6 +185,23 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
         card.can += ["generate"] if makes else []
         card.can += ["option"] if card.options else []
         card.can += ["cancel"] if state in ("generating", "held") else []
+    return card
+
+
+def _instead(db: Session, user: User, ask: Ask, project: Project, card: AskOut,
+             mine: bool) -> AskOut:  # fmt: skip
+    """What can change instead of a locked line (S3-14): each choice priced as its press
+    charges, in the viewer's money, and how its press is going."""
+    card.subject = ask.subject
+    for c, raw in zip(card.choices, ask.choices, strict=True):
+        c.made, c.said, use = locked_line.made(db, ask, c.key)
+        take = db.get(ClipTake, use) if use else None  # `made` checked it's still there
+        c.then = f"Use take {take.number} and make the cut" if take else ""
+        c.cannot = "" if c.made else locked_line.cannot(db, project, raw)
+        credits = None if c.cannot else locked_line.price(db, project, raw)
+        c.price = _price(user, credits) if credits else None
+    card.can = ["instead"] if mine and any(not (c.made or c.cannot) or c.then
+                                           for c in card.choices) else []  # fmt: skip
     return card
 
 
@@ -319,9 +352,17 @@ def answer(ask_id: int, body: AnswerIn, request: Request, user: User = Depends(c
     maker or the owner. MoneyCard: the owner approves or keeps it as it is; an editor's own video
     inside its budget starts with Make it; whoever asked may withdraw."""
     ask = _ask(db, user, ask_id)
-    if ask.kind in asks.QUESTIONS:
+    if ask.kind in asks.QUESTIONS or ask.kind == locked_line.KIND:
         _mine(db, user, ask.project_id)
-    asks.answer(db, user, ask, body.model_dump(), request.app.state.storage)
+    if ask.kind == locked_line.KIND:  # what can change instead of a locked line (S3-14)
+        if body.how != locked_line.KIND:
+            raise HTTPException(422, "That isn't a way to answer this card.")
+        if body.option != "use":  # a paid take, as Make a take's own route checks it
+            generation_on(request)
+        locked_line.choose(db, user, ask, body.choice or "", request.app.state.storage,
+                           body.option)  # fmt: skip
+    else:
+        asks.answer(db, user, ask, body.model_dump(), request.app.state.storage)
     return out(db, user, db.get(Ask, ask_id))
 
 

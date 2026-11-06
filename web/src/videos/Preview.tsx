@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, Lock } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -22,6 +22,7 @@ import { notInShots, useAssets } from "../cast/useAssets";
 import { Empty, SOON } from "./Empty";
 import { mp4, type Head } from "./VideoHead";
 import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
+import { useAsks } from "./AskCard";
 import { useRail } from "../useMedia";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -289,12 +290,20 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
 /** The script the video is made from, read only. Lines the plan pointed at are marked; a press on one shows its shot. */
 function ScriptTabPane({ p, lines, pickLine }: PaneProps) {
   const script = useLatestScript(p.id);
+  // The words someone asked to change, marked where they're said (S3-14): the newest such ask's.
+  const asked = (useAsks(p.id, false).data ?? []).filter((a) => a.kind === "instead").at(-1)?.subject;
   if (script.isPending) return <Skeleton className="h-64" />;
   if (!script.data) return <Empty title="No script yet">The words the director makes the video from show here.</Empty>;
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      {p.script_draft_id != null && (
+        <p className="flex items-center gap-2 text-[13px] text-muted">
+          <Lock size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+          Published script · the words are set
+        </p>
+      )}
       {lines.length > 0 && <p className="text-sm text-muted">Lines for this step are highlighted.</p>}
-      <ScriptText text={script.data.text} highlight={lines} onLineClick={pickLine} />
+      <ScriptText text={script.data.text} highlight={lines} marks={asked ? [asked] : []} onLineClick={pickLine} />
     </div>
   );
 }
